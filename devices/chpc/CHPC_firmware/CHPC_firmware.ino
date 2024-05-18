@@ -43,52 +43,59 @@
 #define WATCHDOG          			//only if u know what to do
 
 //-----------------------TEMPERATURES-----------------------
-#define T_SETPOINT_MAX 	60.0;  		//defines max temperature that ordinary user can set
-#define T_DELTA_MAX 		40.0;  		//defines max delta temperature 
-#define T_HOTCIRCLE_DELTA_MIN 	2.0;		//useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
-#define T_SUMP_MIN 		9.0;		//HP will not start if T lower
-#define T_SUMP_MAX 		110.0;		//HP will stop if T higher
-#define T_SUMP_HEAT_THRESHOLD 	16.0;		//sump heater will be powered on if T lower
-#define T_BEFORE_CONDENSER_MAX 	108.0;      	//discharge MAX, system stops if discharge higher
-#define T_AFTER_EVAPORATOR_MIN 	-7.0;		//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
-#define T_COLD_MIN 		-8.0;		//cold loop anti-freeze: stop if inlet or outlet temperature lower
-#define T_HOTOUT_MAX 		60.0;		//hot loop: stop if outlet temperature higher than this
-#define T_WORKINGOK_SUMP_MIN 	30.0;        	//compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
+#define T_SETPOINT_MAX 	        50.0; //defines max temperature that ordinary user can set
+#define T_DELTA_MAX 		        20.0; //defines max delta temperature 
+#define T_HOTCIRCLE_DELTA_MIN   10.0;	//useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
+#define T_SUMP_MIN 		           9.0;	//HP will not start if T lower
+#define T_SUMP_MAX 		         110.0; //HP will stop if T higher
+#define T_SUMP_HEAT_THRESHOLD 	16.0;	//sump heater will be powered on if T lower
+#define T_BEFORE_CONDENSER_MAX 108.0; //discharge MAX, system stops if discharge higher
+#define T_AFTER_EVAPORATOR_MIN  -1.0; //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
+#define T_COLD_MIN 		          -1.0; //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
+#define T_HOTOUT_MAX 		        60.0;	//hot loop: stop if outlet temperature higher than this
+#define T_WORKINGOK_SUMP_MIN 	  30.0;   //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS		2800.0		//user for power protection
+#define MAX_WATTS		            3000.0		//user for power protection
 
-
-//+RO
 #define DEFFERED_STOP_HOTCIRCLE	   60000 //3000000		//50 mins
-#define POWERON_PAUSE     	       60000 // 300000    	//5 mins
-#define MINCYCLE_POWEROFF 	       90000 //300000    	//5 mins
-#define MINCYCLE_POWERON  	       90000 //3600000  	//60 mins
+#define POWERON_PAUSE     	       60000 // 300000  	//5 mins
+#define MINCYCLE_POWEROFF 	      300000 //300000    	//5 mins
+#define MINCYCLE_POWERON  	      300000 //3600000  	//60 mins
 #define POWERON_HIGHTIME	         10000 //10 sec, defines time after start when power consumption can be 2 times greater than normal
-#define MINCYKLE_CHECK            300000
-//-RO
+#define MINCYKLE_CHECK            300000 // 5mins
 
 //EEV
-#define EEV_MAXPULSES		480
+#define EEV_MAXPULSES		        480
 
-#define EEV_PULSE_FCLOSE_MILLIS	20		//fast close, set waiting pos., close on danger
-#define EEV_PULSE_CLOSE_MILLIS	50000		//precise close
-#define EEV_PULSE_WOPEN_MILLIS	20		//waiting pos. set
-#define EEV_PULSE_FOPEN_MILLIS	1300		//fast open, fast search 
-#define EEV_PULSE_OPEN_MILLIS	60000		//precise open
+#define EEV_PULSE_FCLOSE_MILLIS	    20		//fast close, set waiting pos., close on danger
+#define EEV_PULSE_CLOSE_MILLIS	  12000   //50000		//precise close
+#define EEV_PULSE_WOPEN_MILLIS	     20		//waiting pos. set
+#define EEV_PULSE_FOPEN_MILLIS	   1300		//fast open, fast search 
+#define EEV_PULSE_OPEN_MILLIS	    15000   //60000		//precise open
 
-#define EEV_STOP_HOLD		500		//0.1..1sec for Sanhua
+//#define EEV_STOP_HOLD		500		  //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES	8		//read below, close algo
-#define EEV_OPEN_AFTER_CLOSE	47		//0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
+#define EEV_OPEN_AFTER_CLOSE	57//47		
+            //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 						//N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 						//i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS		52		//position will be not less during normal work, set after compressor start
-#define EEV_PRECISE_START	8.6		//T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
-#define EEV_EMERG_DIFF		2.5		//if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) occured then EEV will be closed to min. work position //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
-#define EEV_HYSTERESIS		0.6		//must be less than EEV_PRECISE_START, ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
-#define EEV_CLOSEEVERY		86400000	//86400000: EEV will be closed (calibrated) every 24 hours, done while HP is NOT working
-#define EEV_TARGET_TEMP_DIFF	4.0		//target difference between Before Evaporator and After Evaporator, the head of whole algo
-#define EEV_DEBUG			    1	//debug, usefull during system fine tuning, "RS485_HUMAN" only
+#define EEV_MINWORKPOS		62//52		
+            //position will be not less during normal work, set after compressor start
+#define EEV_PRECISE_START	5.4//8.6		
+            //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
+#define EEV_EMERG_DIFF		2.5		
+            //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF) 
+            //occured then EEV will be closed to min. work position 
+            //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
+#define EEV_HYSTERESIS		0.6		
+            //must be less than EEV_PRECISE_START, 
+            //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done; 
+#define EEV_CLOSEEVERY		86400000	
+            //86400000: EEV will be closed (calibrated) every 24 hours, done while HP is NOT working
+#define EEV_TARGET_TEMP_DIFF	4.0		
+            //target difference between Before Evaporator and After Evaporator, the head of whole algo
+//#define EEV_DEBUG			    1	//debug, usefull during system fine tuning, "RS485_HUMAN" only
 
 #define MAGIC     		    0x49   		//change if u want to reinit T sensors
 #define eeprom_addr_dT    0x90
@@ -101,7 +108,8 @@
 /*
 v1.0:
 - Displays support
-- define TYPE F/G and rearrange ports
+- define TYPE F/G and E:
+ ports
 - multi-DS18b20 support on lane
 - skip non-important DS18B20 during init
 - rewrite Main Cycle to unification: some sensors can be absent, ex: T_hot_out can be absent because i'ts used as target
@@ -846,6 +854,7 @@ void PrintStats_Serial (void) {
     print_Serial_SaD("Err: " + String(errorcode)); 
     print_Serial_SaD("Watts: " + String(async_wattage,1)); 
     print_Serial_SaD("Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF"));
+    print_Serial_SaD("Tae-Tbe: " + String(T_EEV_dt,1) ); 
 
     if (heatpump_state == 1) {
       print_Serial_SaD("Cykle HP power on: " + String((unsigned long)(millis() - millis_last_heatpump_on)/ 1000));
@@ -862,6 +871,8 @@ void PrintStats_Serial (void) {
     }
 
     print_Serial_SaD("Hot circle state: " + String((hotside_circle_state == 1) ? "ON" : "OFF"));
+    print_Serial_SaD("Cold circle state: " + String((coldside_circle_state == 1) ? "ON" : "OFF"));
+    
     if ( hotside_circle_state  == 1 && heatpump_state == 0) {
         if (  ( Tho.e == 1 && Tho.T > (Ttarget.T + cT_hotcircle_delta_min)  ) ||
               ( Thi.e == 1 && Thi.T > (Ttarget.T + cT_hotcircle_delta_min)  )) {
@@ -870,8 +881,12 @@ void PrintStats_Serial (void) {
       }
 
 		#ifdef EEV_SUPPORT
+      print_Serial_SaD("EEV: " + String(T_EEV_setpoint,1) ); 
 			outString = "EEV_pos: " + String (EEV_cur_pos);
 			print_Serial_SaD(outString);
+			outString = "EEV_apulses: " + String (EEV_apulses);
+			print_Serial_SaD(outString);
+
 		#endif
 		print_Serial_SaD("---------------------");
 		RS485Serial.flush();
@@ -1230,15 +1245,17 @@ void halifise(void){
 }
 
 void eevise(void) {
-	if (  		((( EEV_apulses < 0 ) && (EEV_fast == 1))						&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FCLOSE_MILLIS))  	)	||
-			((( EEV_apulses < 0 ) && (EEV_fast == 0))						&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_CLOSE_MILLIS)	) 	)	||
-			((( EEV_apulses > 0 ) && 			(EEV_cur_pos <  EEV_MINWORKPOS  ))	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_WOPEN_MILLIS)	) 	)	||
+	if (((( EEV_apulses < 0 ) && (EEV_fast == 1))	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FCLOSE_MILLIS))  	)	||
+			((( EEV_apulses < 0 ) && (EEV_fast == 0))	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_CLOSE_MILLIS)	) 	)	||
+			((( EEV_apulses > 0 ) && 	(EEV_cur_pos <  EEV_MINWORKPOS  ))	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_WOPEN_MILLIS)	) 	)	||
 			((( EEV_apulses > 0 ) && (EEV_fast == 1) &&  	(EEV_cur_pos >= EEV_MINWORKPOS	)) 	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FOPEN_MILLIS) )	)	||	
 			((( EEV_apulses > 0 ) && (EEV_fast == 0) &&  	(EEV_cur_pos >= EEV_MINWORKPOS	)) 	&&	 ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_OPEN_MILLIS)  )	)	||
 			(millis_eev_last_step == 0)
 			) {
-			if ( EEV_apulses != 0 ) {
-				if ( EEV_apulses > 0 ) {
+			
+      if ( EEV_apulses != 0 ) {
+				
+        if ( EEV_apulses > 0 ) {
 					if (EEV_cur_pos + 1 <= EEV_MAXPULSES) {
 						EEV_cur_pos += 1;
 						EEV_cur_step += 1;
@@ -1250,7 +1267,8 @@ void eevise(void) {
 						#endif
 					}
 				}
-				if ( EEV_apulses < 0 ) {
+				
+        if ( EEV_apulses < 0 ) {
 					if (	(EEV_cur_pos - 1 >= EEV_MINWORKPOS)	|| (EEV_adonotcare == 1) ) {
 						EEV_cur_pos -= 1;
 						EEV_cur_step -= 1;
@@ -1262,20 +1280,23 @@ void eevise(void) {
 						#endif
 					}
 				}
+
 				if (EEV_cur_step  > 3) EEV_cur_step = 0;
 				if (EEV_cur_step  < 0) EEV_cur_step = 3;
-				x = EEV_steps[EEV_cur_step];
+				
+        x = EEV_steps[EEV_cur_step];
 				digitalWrite	(EEV_1,	bitRead(x, 0));
 				digitalWrite	(EEV_2,	bitRead(x, 1));
 				digitalWrite	(EEV_3,	bitRead(x, 2));
 				digitalWrite	(EEV_4,	bitRead(x, 3));
 			}
+      
 			if (EEV_cur_pos < 0) { 
 				EEV_cur_pos = 0;	
 			}
 			millis_eev_last_step = millis_now;
-			#ifdef EEV_DEBUG 
-				PrintS(String(EEV_cur_pos));	
+			#ifdef RS485_HUMAN
+				print_Serial_SaD("New EEV pos: " + String (EEV_cur_pos));
 			#endif
 	}
 }
@@ -1769,7 +1790,7 @@ void loop(void) {
 				//PrintS(outString);
 	  		Print_D2(outString,0);
         if (Ttarget.e == 1) {
-					outString = "T(a):" +String(Ttarget.T, 1);
+					outString = "Ta:" +String(Ttarget.T, 1) + " E:" + String(EEV_cur_pos);
 	  			Print_D2(outString,1);
         } else {
 					outString +=  "ERR";
@@ -1933,15 +1954,20 @@ void loop(void) {
 				#ifdef EEV_DEBUG
 					PrintS("EEV Td: " + String(T_EEV_dt,1));
 				#endif
-				if ( EEV_apulses >= 0 && EEV_cur_pos >= EEV_MINWORKPOS)	{
-					if (T_EEV_dt  < (T_EEV_setpoint - EEV_EMERG_DIFF) ) {				//emerg!
+				//zawor otwarty
+        if ( EEV_apulses >= 0 && EEV_cur_pos >= EEV_MINWORKPOS)	{
+					
+          //jełsi temperatura przegrzania < 1.5 to zamykaj zawór NATYCHMIAST
+          if (T_EEV_dt  < (T_EEV_setpoint - EEV_EMERG_DIFF) ) {				//emerg!
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 1 emergency closing!"));
 						#endif
 						EEV_apulses = -1;
 						EEV_adonotcare = 0;
 						EEV_fast = 1;
-					} else if (T_EEV_dt  < T_EEV_setpoint) {					//too
+					} 
+          //jełsi temperatura przegrzania < 4.0 to zamykaj zawór, NORMALNIE
+          else if (T_EEV_dt  < T_EEV_setpoint) {					//too
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 2 closing"));
 						#endif
@@ -1950,6 +1976,7 @@ void loop(void) {
 						EEV_adonotcare = 0;
 						EEV_fast = 0;
 					}
+          // wysoka temperatura przegrzania, otwórz zwór NATYCHMIAST (dt>10)
 					//faster open when needed, condition copypasted (see EEV_apulses <= 0)
 					if (T_EEV_dt  > T_EEV_setpoint + EEV_HYSTERESIS + EEV_PRECISE_START) {		//very
 						#ifdef EEV_DEBUG
@@ -1961,7 +1988,9 @@ void loop(void) {
 						EEV_fast = 1;
 					}
 				}
+
 				if ( EEV_apulses <= 0 )	{
+          // wysoka temperatura przegrzania, otwórz zwór NATYCHMIAST (dt>10)
 					if (T_EEV_dt  > T_EEV_setpoint + EEV_HYSTERESIS + EEV_PRECISE_START) {		//very
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 4 fast opening"));
@@ -1970,26 +1999,32 @@ void loop(void) {
 						EEV_apulses =  +1;
 						EEV_adonotcare = 0;
 						EEV_fast = 1;
-					} else if (T_EEV_dt > T_EEV_setpoint + EEV_HYSTERESIS) {			//too
+					
+          // wysoka temperatura przegrzania, otwórz zwór NORMALNIE (dt>4.6)
+          } else if (T_EEV_dt > T_EEV_setpoint + EEV_HYSTERESIS) {			//too
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 5 opening"));
 						#endif
 						EEV_apulses =  +1;
 						EEV_adonotcare = 0;
 						EEV_fast = 0;
+
+          //pozostaw w aktualnej pozycji  
 					} else if (T_EEV_dt  > T_EEV_setpoint) {					//ok
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 6 OK"));
 						#endif
 						//
 					}
-					//faster closing when needed, condition copypasted (see EEV_apulses >= 0)
+					
+          //faster closing when needed, condition copypasted (see EEV_apulses >= 0)
+          //jełsi temperatura przegezania (dt<2.5) to go zamknij NATYCHMIAST
 					if (T_EEV_dt  < (T_EEV_setpoint - EEV_EMERG_DIFF) ) {				//emerg!
 						#ifdef EEV_DEBUG
 							PrintS(F("EEV: 7 enforce faster closing!"));
 						#endif
 						//EEV_apulses = -EEV_EMERG_STEPS;
-						EEV_adonotcare = 0;
+          	EEV_adonotcare = 0;
 						EEV_fast = 1;
 					}
 				}
@@ -2022,6 +2057,7 @@ void loop(void) {
 				}
 				off_EEV();
 			}
+      
 			if ( EEV_apulses == 0 && async_wattage < c_workingOK_wattage_min && EEV_cur_pos < EEV_OPEN_AFTER_CLOSE) {
 				#ifdef EEV_DEBUG
 					PrintS(F("EEV: 12 full close protection"));
