@@ -46,13 +46,12 @@
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
 #define T_DELTA_MAX 10.0;              //defines max delta temperature
 #define T_HOTCIRCLE_DELTA_MIN 10.0;    //useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
-#define T_SUMP_MIN 8;                  //9.0;	//HP will not start if T lower
-#define T_SUMP_MAX 90.0;               //116 //HP will stop if T higher
-#define T_SUMP_HEAT_THRESHOLD 12.0     //16.0;	//sump heater will be powered on if T lower
+#define T_SUMP_MIN 5;                  //9.0;	//HP will not start if T lower
+#define T_SUMP_MAX 80.0;               //116 //HP will stop if T higher
+#define T_SUMP_HEAT_THRESHOLD 10.0     //16.0;	//sump heater will be powered on if T lower
 #define T_BEFORE_CONDENSER_MAX 108.0;  //discharge MAX, system stops if discharge higher
-#define T_EVAPORATOR_WAR -2.0;         // CLOSE
-#define T_AFTER_EVAPORATOR_MIN -5.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
-#define T_COLD_MIN -3.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
+#define T_AFTER_EVAPORATOR_MIN -7.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
+#define T_COLD_MIN -4.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
 #define T_HOTOUT_MAX 60.0;             //hot loop: stop if outlet temperature higher than this
 #define T_WORKINGOK_SUMP_MIN 5.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
@@ -85,7 +84,7 @@ int EEV_MAXPULSES_OPEN = 60;
 //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS 54  //52
+#define EEV_MINWORKPOS 53  //52
 // position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START	8
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
@@ -103,7 +102,7 @@ int EEV_MAXPULSES_OPEN = 60;
 //#define EEV_DEBUG			    1	//debug, usefull during system fine tuning, "RS485_HUMAN" only
 
 #define MAGIC 0x49  //change if u want to reinit T sensors
-#define eeprom_addr_hpOn			0x70
+#define eeprom_addr_hot_pomp_on			0x70
 #define eeprom_addr_EEV_MAX			0x74
 #define eeprom_addr_EEV_setpoint	0x78
 #define eeprom_addr_dT 0x90
@@ -529,7 +528,6 @@ const double cT_sump_heat_threshold = T_SUMP_HEAT_THRESHOLD;
 //const double cT_sump_outerT_threshold	= 18.0;    	//?? seems to be not useful
 const double cT_before_condenser_max = T_BEFORE_CONDENSER_MAX;
 const double cT_after_evaporator_min = T_AFTER_EVAPORATOR_MIN;  // working evaporation presure ~= -10, it is constant due to large evaporator volume     // waterhouse v1: -12 is too high
-const double cT_evaporator_war = T_EVAPORATOR_WAR;
 const double cT_cold_min = T_COLD_MIN;
 const double cT_hotout_max = T_HOTOUT_MAX;
 //const double cT_workingOK_cold_delta_min = 0.5; 	// 0.7 - 1st try, 2nd try 0.5
@@ -601,7 +599,9 @@ int skipchars = 0;
 #define INPUT_TYPE_DT 1
 #define INPUT_TYPE_EEV 2
 #define INPUT_TYPE_EEV_SETPOINT 3
-#define INPUT_TYPE_HP_ON 4
+#define INPUT_TYPE_HOT_POMP_ON 4
+#define INPUT_TYPE_COLD_POMP_ON 5
+#define INPUT_TYPE_SUMP_HEATER_ON 6
 int input_type = INPUT_TYPE_TEMP;
 
 #define ERR_HZ 2500
@@ -609,7 +609,10 @@ int input_type = INPUT_TYPE_TEMP;
 char inData[50];   // Allocate some space for the string, do not change that size!
 char inChar = -1;  // space to store the character read
 byte index = 0;    // Index into array; where to store the character
-bool hpAllwaysOn = false;
+
+bool hot_pomp_on = false;
+bool cold_pomp_on = false; 
+bool sump_heater_on = false;
 //-------------temporary variables
 char temp[10];
 int i = 0;
@@ -642,7 +645,7 @@ int errorcode = 0;
 //--------------------------- for wattage
 #define ADC_BITS 10  //10 fo regular arduino
 #define ADC_COUNTS (1 << ADC_BITS)
-float em_calibration = 62.5;
+float em_calibration = 110;//62.5;
 int em_samplesnum = 2960;  // Calculate Irms only 1480 == full 14 periods for 50Hz
 //double Irms       	= 0;      	//for tests with original procedure
 int supply_voltage = 0;
@@ -952,18 +955,18 @@ void PrintStats_Serial(void) {
     outString = "Tsump: " + String(Tsump.T, 1);
     print_Serial_SaD(outString);
   }
-  if (Tci.e == 1) {
-    outString = "Tci: " + String(Tci.T, 1);
-    print_Serial_SaD(outString);
-  }
-  if (Tco.e == 1) {
-    outString = "Tco: " + String(Tco.T, 1);
-    print_Serial_SaD(outString);
-  }
-  if (Thi.e == 1) {
-    outString = "Thi: " + String(Thi.T, 1);
-    print_Serial_SaD(outString);
-  }
+  // if (Tci.e == 1) {
+  //   outString = "Tci: " + String(Tci.T, 1);
+  //   print_Serial_SaD(outString);
+  // }
+  // if (Tco.e == 1) {
+  //   outString = "Tco: " + String(Tco.T, 1);
+  //   print_Serial_SaD(outString);
+  // }
+  // if (Thi.e == 1) {
+  //   outString = "Thi: " + String(Thi.T, 1);
+  //   print_Serial_SaD(outString);
+  // }
   if (Tho.e == 1) {
     outString = "Tho: " + String(Tho.T, 1);
     print_Serial_SaD(outString);
@@ -993,14 +996,18 @@ void PrintStats_Serial(void) {
   print_Serial_SaD(outString);
   outString = "T set max: " + String(T_setpoint, 1);
   print_Serial_SaD(outString);
+
   outString = String(async_wattage, 1);
   print_Serial_SaD("Watts: " + outString);
-  outString = "Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF");
-  print_Serial_SaD(outString);
+  
+  // outString = "Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF");
+  // print_Serial_SaD(outString);
+  
   outString = "Err: " + String(errorcode);
   print_Serial_SaD(outString);
-  outString = "Cold pomp: " + String(emergency);
-  print_Serial_SaD(outString);
+  
+  // outString = "Cold pomp: " + String(emergency);
+  // print_Serial_SaD(outString);
 
   if (heatpump_state == 1) {
     outString = String((unsigned long)(millis() - millis_last_heatpump_on) / 1000);
@@ -1143,7 +1150,7 @@ unsigned char FindAddr(String what, int required = 0) {
       delay(1000);
     }
     if (OneWire::crc8(dev_addr, 7) != dev_addr[7]) {
-      PrintS_and_D(F("Invalid CRC! Remove and insert sensor!\n"));
+      PrintS_and_D(F("Remove and insert sensor!\n"));
       delay(200);
       continue;
     } else if (CheckAddrExists() == 1) {
@@ -1318,10 +1325,10 @@ void halifise(void) {
   digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
 #endif
 #ifdef BOARD_TYPE_G
-  digitalWrite(RELAY_SUMP_HEATER, sump_heater_state);
-  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hpAllwaysOn);
+  digitalWrite(RELAY_SUMP_HEATER, sump_heater_state ||  sump_heater_on);
+  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on);
   digitalWrite(RELAY_HEATPUMP, heatpump_state);
-  digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
+  digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state || cold_pomp_on);
 #endif
 #ifdef BOARD_TYPE_G9
   //#define RELAY_4WAY_VALVE      8
@@ -1397,17 +1404,17 @@ void halifise(void) {
 
 void eevise(void) {
   int eee = EEV_MAXPULSES_OPEN; 
-  // if( Ttarget.T > 41 ) {
-  //   eee = EEV_MAXPULSES_OPEN - 1;
-  // } if( Ttarget.T > 42 ) {
-  //   eee = EEV_MAXPULSES_OPEN - 2;
-  // } if( Ttarget.T > 43 ) {
-  //   eee = EEV_MAXPULSES_OPEN - 3;
-  // } if( Ttarget.T > 44 ) {
-  //   eee = EEV_MAXPULSES_OPEN - 4;
-  // } if( Ttarget.T > 45 ) {
-  //   eee = EEV_MAXPULSES_OPEN - 5;
-  // }
+  if( Ttarget.T > 40 ) {
+    eee = EEV_MAXPULSES_OPEN - 1;
+  } if( Ttarget.T > 41 ) {
+    eee = EEV_MAXPULSES_OPEN - 2;
+  } if( Ttarget.T > 42 ) {
+    eee = EEV_MAXPULSES_OPEN - 3;
+  } if( Ttarget.T > 43 ) {
+    eee = EEV_MAXPULSES_OPEN - 4;
+  } if( Ttarget.T > 44 ) {
+    eee = EEV_MAXPULSES_OPEN - 5;
+  }
 
   if (EEV_cur_pos > eee) {
     EEV_apulses = -1;
@@ -1640,9 +1647,9 @@ void setup(void) {
     if (isnan(T_delta)) {
       T_delta = 0.0;
     }
-    hpAllwaysOn = ReadFloatEEPROM(eeprom_addr_hpOn);
-    if (isnan(hpAllwaysOn)) {
-      hpAllwaysOn = 0;
+    hot_pomp_on = ReadFloatEEPROM(eeprom_addr_hot_pomp_on);
+    if (isnan(hot_pomp_on)) {
+      hot_pomp_on = 0;
     }
 
     T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr_EEV_setpoint);
@@ -1957,7 +1964,7 @@ void loop(void) {
   } else if ((z == 1) || (i == 1) || (d == 1)) {
 #ifndef EEV_ONLY
     if (d == 1) {
-      if (input_type == INPUT_TYPE_EEV_SETPOINT) {
+      if (input_type == INPUT_TYPE_SUMP_HEATER_ON) {
         input_type = INPUT_TYPE_TEMP ;
         PrintS_and_D("T max: " + String(T_setpoint));
 
@@ -1970,12 +1977,20 @@ void loop(void) {
         PrintS_and_D("EEV: " + String(EEV_MAXPULSES_OPEN));
 
       } else if (input_type == INPUT_TYPE_EEV) {
-        input_type = INPUT_TYPE_HP_ON;
-        PrintS_and_D("HP ON: " + String(hpAllwaysOn) );
+        input_type = INPUT_TYPE_HOT_POMP_ON;
+        PrintS_and_D("H. POMP: " + String(hot_pomp_on) );
       
-      } else if (input_type == INPUT_TYPE_HP_ON) {
+      } else if (input_type == INPUT_TYPE_HOT_POMP_ON) {
+        input_type = INPUT_TYPE_COLD_POMP_ON;
+        PrintS_and_D("C. POMP: " + String(cold_pomp_on) );
+
+      } else if (input_type == INPUT_TYPE_COLD_POMP_ON) {
         input_type = INPUT_TYPE_EEV_SETPOINT;
         PrintS_and_D("T EEV: " + String(T_EEV_setpoint) );
+      
+      } else if (input_type == INPUT_TYPE_EEV_SETPOINT) {
+        input_type = INPUT_TYPE_SUMP_HEATER_ON;
+        PrintS_and_D("HEATER: " + String(sump_heater_on) );
       }
       delay(300);
     }
@@ -2017,15 +2032,30 @@ void loop(void) {
         PrintS_and_D("EEV Td: " + String(T_EEV_setpoint));
         WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
 
-      } else if (input_type == INPUT_TYPE_HP_ON)  {
+      } else if (input_type == INPUT_TYPE_HOT_POMP_ON)  {
         if (z == 1 ) {
-          hpAllwaysOn = 0;
+          hot_pomp_on = 0;
         } else if (i == 1) {
-          hpAllwaysOn = 1;
+          hot_pomp_on = 1;
         }
-        PrintS_and_D("HP ON: " + String(hpAllwaysOn));
-        WriteFloatEEPROM(eeprom_addr_hpOn, hpAllwaysOn);
+        PrintS_and_D("H. POMP: " + String(hot_pomp_on));
+        WriteFloatEEPROM(eeprom_addr_hot_pomp_on, hot_pomp_on);
 
+      } else if (input_type == INPUT_TYPE_COLD_POMP_ON)  {
+        if (z == 1 ) {
+          cold_pomp_on = 0;
+        } else if (i == 1) {
+          cold_pomp_on = 1;
+        }
+        PrintS_and_D("C POMP: " + String(cold_pomp_on));
+      
+      } else if (input_type == INPUT_TYPE_SUMP_HEATER_ON)  {
+        if (z == 1 ) {
+          sump_heater_on = 0;
+        } else if (i == 1) {
+          sump_heater_on = 1;
+        }
+        PrintS_and_D("HEATER: " + String(sump_heater_on));
       }
       delay(300);
     }
@@ -2051,7 +2081,9 @@ void loop(void) {
     lcd.begin(16,2);
     lcd.clear();
     delay(10);
-    if (  (displ_inc & 0x01) == 0 ) {
+
+    if (displ_inc  == 0 ) {
+      displ_inc++;
       outString = "Z:" + String(T_setpoint - T_delta, 1) + " / " + String(T_setpoint, 1);
       Print_D2(outString, 0);
       if (Ttarget.e == 1) {
@@ -2061,14 +2093,23 @@ void loop(void) {
         outString += "ERR";
         Print_D2(outString, 0);  //do not print serial
       }
-    } else {
+    
+    } else if (displ_inc  == 1 ) {
+      displ_inc++;
       outString = "Be:" + String(Tbe.T, 1) + " Ae:" + String(Tae.T, 1);
       Print_D2(outString, 0);
-
-      outString = "Hp:" + String(Tsump.T, 1) + " dT:" + String(T_EEV_dt, 1);
+      outString = "HP:" + String(Tsump.T, 1) + " dT:" + String(T_EEV_dt, 1);
+      Print_D2(outString, 1);
+      
+     
+     } else if (displ_inc  == 2 ) {
+      displ_inc = 0;
+      outString = "HO:" + String(Tho.T, 1) + " CO:" + String(Tco.T, 1);
+      Print_D2(outString, 0);
+      outString = "Watts: " + String(async_wattage, 1);     
       Print_D2(outString, 1);
     }
-    displ_inc++;
+
 #else
     outString = "be:";
     if (Tbe.e == 1) {
@@ -2199,25 +2240,17 @@ void loop(void) {
     if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0) {   
       T_EEV_dt = Tae.T - Tbe.T;      
       
-      if (Tbe.T > T_EEV_setpoint && T_EEV_dt > EEV_HYSTERESIS ) {
-        T_EEV_dt = T_EEV_setpoint + EEV_HYSTERESIS;
-      }
+      // do weryfikacji
+      // if (Tbe.T > T_EEV_setpoint && T_EEV_dt > EEV_HYSTERESIS ) {
+      //   T_EEV_dt = T_EEV_setpoint + EEV_HYSTERESIS;
+      // }
       
-      //zamykamy zawór jak tempataruea Tbe <= 0 lub T sprężarki bęedzie >= 85 
-      if (Tbe.T <= 0 || Tae.T <= 0 || Tsump.T > (cT_sump_max - 10.0)) {
-        T_EEV_dt = T_EEV_setpoint;
-      }
-
-      if (Tbe.T < cT_evaporator_war || Tae.T < cT_evaporator_war || Tsump.T > (cT_sump_max - 5.0) ) {
-        T_EEV_dt = EEV_HYSTERESIS;
-      }
-
       //zawor otwarty
       if (EEV_apulses >= 0 && EEV_cur_pos >= EEV_MINWORKPOS) {
 
         //jełsi temperatura przegrzania < 1.5 to zamykaj zawór NATYCHMIAST
         //else if (T_EEV_dt < (T_EEV_setpoint - EEV_EMERG_DIFF)) {  //emerg!
-        if (T_EEV_dt <= EEV_HYSTERESIS) {  //emerg!
+        if ((T_EEV_dt < EEV_HYSTERESIS) || (Tci.e == 1 && Tci.T < cT_cold_min +2) || (Tco.e == 1 && Tco.T < cT_cold_min +2) ) {  //emerg!
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 1 emergency closing!"));
 #endif
@@ -2267,7 +2300,7 @@ void loop(void) {
 #endif
           EEV_apulses = +1;
           EEV_adonotcare = 0;
-          EEV_fast = (EEV_cur_pos == EEV_MINWORKPOS) ? 1: 0;
+          EEV_fast = ((EEV_cur_pos == EEV_MINWORKPOS) ||  (EEV_cur_pos == EEV_MINWORKPOS +1) || (EEV_cur_pos == EEV_MINWORKPOS +2))  ? 1: 0;
           //pozostaw w aktualnej pozycji
         } else if (T_EEV_dt > T_EEV_setpoint) {  //ok
 #ifdef EEV_DEBUG
@@ -2276,17 +2309,10 @@ void loop(void) {
           //
         }
 
-        if (Tbe.T <= cT_evaporator_war) {  //emerg!
-#ifdef EEV_DEBUG
-          PrintS(F("EEV: 1 emergency closing!"));
-#endif
-          EEV_adonotcare = 0;
-          EEV_fast = 1;
-        }
         //faster closing when needed, condition copypasted (see EEV_apulses >= 0)
         //jełsi temperatura przegezania (dt<2.5) to go zamknij NATYCHMIAST
         //else if (T_EEV_dt < (T_EEV_setpoint - EEV_EMERG_DIFF)) {  //emerg!
-        else if (T_EEV_dt < EEV_HYSTERESIS) {  //emerg!
+        if ((T_EEV_dt < EEV_HYSTERESIS) || (Tci.e == 1 && Tci.T < cT_cold_min+2) || (Tco.e == 1 && Tco.T < cT_cold_min+2) ) {  //emerg!
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 7 enforce faster closing!"));
 #endif
@@ -2464,7 +2490,8 @@ void loop(void) {
     }
 
     if ((heatpump_state == 0) && (coldside_circle_state == 1)) {
-      if ((deffered_stop_coldcircle != 0 && ((unsigned long)(millis_now - millis_last_heatpump_off) > deffered_stop_coldcircle))) {
+      if (  (deffered_stop_coldcircle != 0 && ((unsigned long)(millis_now - millis_last_heatpump_off) > deffered_stop_coldcircle)) &&
+            (Tbe.e == 1 && Tbe.T > 0) && (Tae.e == 1 && Tae.T > 0) ) {
         // #ifdef RS485_HUMAN
         //   PrintS(F("Cold WP OFF"));
         // #endif
@@ -2482,9 +2509,17 @@ void loop(void) {
     //      or (t cold in < cold min)
     //      or (t cold out < cold min)
     //
-    if (heatpump_state == 1 && (errorcode != 0 || (Tho.e == 1 && Tho.T > cT_hotout_max) || (Tsump.e == 1 && Tsump.T > cT_sump_max) || (Tae.e == 1 && Tae.T < cT_after_evaporator_min) || (Tbc.e == 1 && Tbc.T > cT_before_condenser_max) || (Tci.e == 1 && Tci.T < cT_cold_min) || (Tco.e == 1 && Tco.T < cT_cold_min))) {
+    if  (heatpump_state == 1 && 
+        (errorcode != 0 || 
+          (Tho.e == 1 && Tho.T > cT_hotout_max) || 
+          (Tsump.e == 1 && Tsump.T > cT_sump_max) || 
+          (Tae.e == 1 && Tae.T < cT_after_evaporator_min) || 
+          (Tbc.e == 1 && Tbc.T > cT_before_condenser_max) || 
+          (Tci.e == 1 && Tci.T < cT_cold_min) || 
+          (Tco.e == 1 && Tco.T < cT_cold_min))
+        ) {
 #ifdef RS485_HUMAN
-      PrintS_and_D(String("Protective STOP") + " Err.:" + String(errorcode, HEX));
+      PrintS_and_D(String("STOP") + " Err.:" + String(errorcode, HEX));
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
