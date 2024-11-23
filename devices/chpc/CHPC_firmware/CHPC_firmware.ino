@@ -56,7 +56,7 @@
 #define T_WORKINGOK_SUMP_MIN 5.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS 3000.0  //user for power protection
+#define MAX_WATTS 3200.0  //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE  60000  //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 30000  //3000 000
@@ -76,7 +76,7 @@ int EEV_MAXPULSES_OPEN = 60;
 #define EEV_PULSE_CLOSE_MILLIS 30000	//precise close
 #define EEV_PULSE_WOPEN_MILLIS 20     //waiting pos. set
 #define EEV_PULSE_FOPEN_MILLIS 1300   //fast open, fast search
-#define EEV_PULSE_OPEN_MILLIS 60000   //60000   //precise open
+#define EEV_PULSE_OPEN_MILLIS 40000   //60000   //precise open
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES 8  //read below, close algo
@@ -92,7 +92,7 @@ int EEV_MAXPULSES_OPEN = 60;
 //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF)
 //occured then EEV will be closed to min. work position
 //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
-#define EEV_HYSTERESIS 0.6
+#define EEV_HYSTERESIS 0.2 //0.6
 //must be less than EEV_PRECISE_START,
 //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done;
 #define EEV_CLOSEEVERY 86400000
@@ -907,12 +907,12 @@ int Dec_T(void) {
 }
 
 int Inc_E(void) {  ///!!!!!! unprotected
-  T_EEV_setpoint += 0.25;
+  T_EEV_setpoint += 0.1;
   return 1;
 }
 
 int Dec_E(void) {  ///!!!!!! unprotected
-  T_EEV_setpoint -= 0.25;
+  T_EEV_setpoint -= 0.1;
   return 1;
 }
 
@@ -933,19 +933,25 @@ void PrintStats_Serial(void) {
   digitalWrite(SerialTxControl, RS485Transmit);
   delay(1);
   //print_Serial_SaD("--- Stats serial ----");
-  if (Tae.e == 1) {
-    outString = "Tae: " + String(Tae.T, 1);
-    print_Serial_SaD(outString);
-  }
   if (Tbe.e == 1) {
     outString = "Tbe: " + String(Tbe.T, 1);
     print_Serial_SaD(outString);
   }
 
-  outString = String(T_EEV_dt, 1);
-  print_Serial_SaD("EEV_dt: " + outString);
-  //outString = String(T_EEV_dt_change, 1);
-  //print_Serial_SaD("EEV_dt change: " + outString);
+  if (Tae.e == 1) {
+    outString = "Tae: " + String(Tae.T, 1);
+    print_Serial_SaD(outString);
+  }
+
+  if (Tco.e == 1) {
+    outString = "Tco: " + String(Tco.T, 1);
+    print_Serial_SaD(outString);
+  }
+
+  if (Tho.e == 1) {
+    outString = "Tho: " + String(Tho.T, 1);
+    print_Serial_SaD(outString);
+  }
 
   if (Ttarget.e == 1) {
     outString = "Ttarget: " + String(Ttarget.T, 1);
@@ -955,6 +961,12 @@ void PrintStats_Serial(void) {
     outString = "Tsump: " + String(Tsump.T, 1);
     print_Serial_SaD(outString);
   }
+
+  outString = String(T_EEV_dt, 1);
+  print_Serial_SaD("EEV_dt: " + outString);
+  //outString = String(T_EEV_dt_change, 1);
+  //print_Serial_SaD("EEV_dt change: " + outString);
+
   // if (Tci.e == 1) {
   //   outString = "Tci: " + String(Tci.T, 1);
   //   print_Serial_SaD(outString);
@@ -967,10 +979,6 @@ void PrintStats_Serial(void) {
   //   outString = "Thi: " + String(Thi.T, 1);
   //   print_Serial_SaD(outString);
   // }
-  if (Tho.e == 1) {
-    outString = "Tho: " + String(Tho.T, 1);
-    print_Serial_SaD(outString);
-  }
   // if (Tbc.e == 1) {
   //   outString = "Tbc: " + String(Tbc.T, 1);
   //   print_Serial_SaD(outString);
@@ -1404,16 +1412,21 @@ void halifise(void) {
 
 void eevise(void) {
   int eee = EEV_MAXPULSES_OPEN; 
-  if( Ttarget.T > 40 ) {
-    eee = EEV_MAXPULSES_OPEN - 1;
-  } if( Ttarget.T > 41 ) {
-    eee = EEV_MAXPULSES_OPEN - 2;
-  } if( Ttarget.T > 42 ) {
-    eee = EEV_MAXPULSES_OPEN - 3;
-  } if( Ttarget.T > 43 ) {
-    eee = EEV_MAXPULSES_OPEN - 4;
-  } if( Ttarget.T > 44 ) {
+
+  if( Ttarget.T > 46 ) {
+    eee = EEV_MAXPULSES_OPEN - 7;
+  } else if( Ttarget.T > 45 ) {
+    eee = EEV_MAXPULSES_OPEN - 6;
+  } else if( Ttarget.T > 44 ) {
     eee = EEV_MAXPULSES_OPEN - 5;
+  } else if( Ttarget.T > 43 ) {
+    eee = EEV_MAXPULSES_OPEN - 4;
+  } else if( Ttarget.T > 42 ) {
+    eee = EEV_MAXPULSES_OPEN - 3;
+  } else if( Ttarget.T > 41 ) {
+    eee = EEV_MAXPULSES_OPEN - 2;
+  } else if( Ttarget.T > 40 ) {
+    eee = EEV_MAXPULSES_OPEN - 1;
   }
 
   if (EEV_cur_pos > eee) {
@@ -1914,7 +1927,7 @@ void loop(void) {
 #ifdef RS485_HUMAN
       lcd.begin(16,2);
       lcd.clear();
-      PrintS_and_D(("Overload." + String(async_wattage)));
+      PrintS_and_D(("Overload " + String(async_wattage)));
 #endif
       overload_count += 1;
       millis_last_heatpump_off = millis_now;
@@ -2300,7 +2313,7 @@ void loop(void) {
 #endif
           EEV_apulses = +1;
           EEV_adonotcare = 0;
-          EEV_fast = ((EEV_cur_pos == EEV_MINWORKPOS) ||  (EEV_cur_pos == EEV_MINWORKPOS +1) || (EEV_cur_pos == EEV_MINWORKPOS +2))  ? 1: 0;
+          EEV_fast = ((EEV_cur_pos == EEV_MINWORKPOS) ||  (EEV_cur_pos == EEV_MINWORKPOS +1) || (EEV_cur_pos == EEV_MINWORKPOS +2 ))  ? 1: 0;
           //pozostaw w aktualnej pozycji
         } else if (T_EEV_dt > T_EEV_setpoint) {  //ok
 #ifdef EEV_DEBUG
@@ -2519,7 +2532,7 @@ void loop(void) {
           (Tco.e == 1 && Tco.T < cT_cold_min))
         ) {
 #ifdef RS485_HUMAN
-      PrintS_and_D(String("STOP") + " Err.:" + String(errorcode, HEX));
+      PrintS_and_D("STOP Err.:" + String(errorcode, HEX));
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
@@ -2588,64 +2601,64 @@ void loop(void) {
 #endif
   }
 
-  // if (RS485Serial.available() > 0) {
-  // 	//RS485Serial.println("some on serial..");	//!!!debug
-  // 	#ifdef RS485_HUMAN
-  // 		if (RS485Serial.available()) {
-  // 			inChar = RS485Serial.read();
-  // 			//RS485Serial.print(inChar);	//!!!debug
-  // 			if ( inChar == 0x1B ) {
-  // 				skipchars += 3;
-  // 				inChar = 0x00;
-  // 				millis_escinput = millis();
-  // 			}
-  // 			if ( skipchars != 0 ) {
-  // 				millis_charinput = millis();
-  // 				//if (millis_escinput + 2 > millis_charinput)
-  // 				if ((unsigned long)(millis_charinput - millis_escinput) < 16*2 ) {	//2 chars for 2400
-  // 					if (inChar != 0x7e) {
-  // 						skipchars -= 1;
-  // 					}
-  // 					if (inChar == 0x7e) {
-  // 						skipchars = 0;
-  // 					}
-  // 					if (inChar >= 0x30 && inChar <= 0x35) {
-  // 						skipchars += 1;
-  // 					}
-  // 					inChar = 0x00;
-  // 				} else {
-  // 					skipchars = 0;
-  // 				}
-  // 			}
+  if (RS485Serial.available() > 0) {
+  	//RS485Serial.println("some on serial..");	//!!!debug
+  	// #ifdef RS485_HUMAN
+  	// 	if (RS485Serial.available()) {
+  	// 		// inChar = RS485Serial.read();
+  	// 		// //RS485Serial.print(inChar);	//!!!debug
+  	// 		// if ( inChar == 0x1B ) {
+  	// 		// 	skipchars += 3;
+  	// 		// 	inChar = 0x00;
+  	// 		// 	millis_escinput = millis();
+  	// 		// }
+  	// 		// if ( skipchars != 0 ) {
+  	// 		// 	millis_charinput = millis();
+  	// 		// 	//if (millis_escinput + 2 > millis_charinput)
+  	// 		// 	if ((unsigned long)(millis_charinput - millis_escinput) < 16*2 ) {	//2 chars for 2400
+  	// 		// 		if (inChar != 0x7e) {
+  	// 		// 			skipchars -= 1;
+  	// 		// 		}
+  	// 		// 		if (inChar == 0x7e) {
+  	// 		// 			skipchars = 0;
+  	// 		// 		}
+  	// 		// 		if (inChar >= 0x30 && inChar <= 0x35) {
+  	// 		// 			skipchars += 1;
+  	// 		// 		}
+  	// 		// 		inChar = 0x00;
+  	// 		// 	} else {
+  	// 		// 		skipchars = 0;
+  	// 		// 	}
+  	// 		// }
 
-  // 			//- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
-  // 			switch (inChar) {
-  // 				case 0x00:
-  // 					break;
-  // 				case 0x20:
-  // 				case 0x3F:
-  // 				case 0x0D:
-  // 					_PrintHelp();
-  // 					break;
-  // 				case 0x2B:
-  // 					Inc_T();
-  // 					break;
-  // 				case 0x2D:
-  // 					Dec_T();
-  // 					break;
-  // 				case 0x3C:
-  // 					Dec_E();
-  // 					break;
-  // 				case 0x3E:
-  // 					Inc_E();
-  // 					break;
-  // 				case 0x47:
-  // 				case 0x67:
-  // 					PrintStats_Serial();
-  // 					break;
-  // 				}
-  // 		}
-  // 	#endif
+  	// 		//- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
+  	// 	// 	switch (inChar) {
+  	// 	// 		case 0x00:
+  	// 	// 			break;
+  	// 	// 		case 0x20:
+  	// 	// 		case 0x3F:
+  	// 	// 		case 0x0D:
+  	// 	// 			// _PrintHelp();
+  	// 	// 			break;
+  	// 	// 		case 0x2B:
+  	// 	// 			Inc_T();
+  	// 	// 			break;
+  	// 	// 		case 0x2D:
+  	// 	// 			Dec_T();
+  	// 	// 			break;
+  	// 	// 		case 0x3C:
+  	// 	// 			Dec_E();
+  	// 	// 			break;
+  	// 	// 		case 0x3E:
+  	// 	// 			Inc_E();
+  	// 	// 			break;
+  	// 	// 		case 0x47:
+  	// 	// 		case 0x67:
+  	// 	// 			// PrintStats_Serial();
+  	// 	// 			break;
+  	// 	// 		}
+  	// 	}
+  	// #endif
 
   // 	#ifdef RS485_PYTHON
   // 		index = 0;
@@ -2829,5 +2842,5 @@ void loop(void) {
   // 		digitalWrite(SerialTxControl, RS485Receive);
   // 		delay(1);
   // 	#endif
-  // }
+  }
 }
