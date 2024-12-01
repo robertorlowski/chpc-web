@@ -18,8 +18,6 @@
 	See https://github.com/gonzho000/chpc/ for more details
 */
 
-
-
 //-----------------------USER OPTIONS-----------------------
 #define BOARD_TYPE_G  //Type "G", PCB from github.com/gonzho000/chpc/
 //#define BOARD_TYPE_F				  //Type "F"
@@ -38,7 +36,7 @@
 #define EEV_SUPPORT
 //#define	EEV_ONLY				      //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
 
-#define HUMAN_AUTOINFO 5000  //10000			//print stats to console
+#define HUMAN_AUTOINFO  10000			//print stats to console
 
 #define WATCHDOG  //only if u know what to do
 
@@ -66,11 +64,11 @@
 #define POWERON_HIGHTIME 4000           //1 sec, defines time after start when power consumption can be 2 times greater than normal
 #define COLDOFF_HIGHTIME 15000          //15 sec
 #define MINCYKLE_CHECK 60000            //60 sec
-//#define MINCYKLE_START_TO_WORK 30000  //60 sec
-//#define MINCYKLE_OVERLOAD 3600000     //60 min
 //EEV
 #define EEV_MAXPULSES  480
-int EEV_MAXPULSES_OPEN = 60;
+
+#define xEEV_MAXPULSES_OPEN  68
+int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 #define EEV_PULSE_FCLOSE_MILLIS 20    //fast close, set waiting pos., close on danger
 #define EEV_PULSE_CLOSE_MILLIS 30000	//precise close
@@ -88,7 +86,7 @@ int EEV_MAXPULSES_OPEN = 60;
 // position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START	8
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
-#define EEV_EMERG_DIFF 2.5
+// #define EEV_EMERG_DIFF 2.5
 //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF)
 //occured then EEV will be closed to min. work position
 //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
@@ -97,87 +95,19 @@ int EEV_MAXPULSES_OPEN = 60;
 //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done;
 #define EEV_CLOSEEVERY 86400000
 //86400000: EEV will be closed (calibrated) every 24 hours, done while HP is NOT working
-#define EEV_TARGET_TEMP_DIFF 4.0
+#define EEV_TARGET_TEMP_DIFF 2.0
 //target difference between Before Evaporator and After Evaporator, the head of whole algo
 //#define EEV_DEBUG			    1	//debug, usefull during system fine tuning, "RS485_HUMAN" only
+#define CWU_setpoint 40
+
 
 #define MAGIC 0x49  //change if u want to reinit T sensors
 #define eeprom_addr_hot_pomp_on			0x70
 #define eeprom_addr_EEV_MAX			0x74
 #define eeprom_addr_EEV_setpoint	0x78
-#define eeprom_addr_dT 0x90
+#define eeprom_addr_dT 0x82
+#define eeprom_addr_cwu 0x86
 //-----------------------USER OPTIONS END -----------------------
-
-//#define INPUTS_AS_INPUTS	2  		//
-//#define RS485_MACHINE 	3 		//?? or part of Python?
-
-//-----------------------changelog-----------------------
-/*
-v1.0:
-- Displays support
-- define TYPE F/G and E:
- ports
-- multi-DS18b20 support on lane
-- skip non-important DS18B20 during init
-- rewrite Main Cycle to unification: some sensors can be absent, ex: T_hot_out can be absent because i'ts used as target
-- 2 on-board buttons support: +/- aim
-- DISPLAY: indication: real and aim
-- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
-- buttons: < > increase_decrease t
-- simpliest thermostat scheme: only T target
-- rename all procs
-- RS485_PYTHON: print to console inspite of mode diring init proc
-- faster wattage overload processing
-- write aim value to EE if needed, period: 15 mins (eq. 1041 days)
-- deferred stop of hot side circle
-- 80 microseconds at 9600
-
-v1.1, 15 Apr 2019:
-- HUMAN_AUTOINFO time
-- EEV_ONLY mode
-- EEV_Support
-- EEV auto poweron/poweroff every 10 sec
-- EEV_recalibration_time to stop HP and recalibrate EEV from zero level ex: every 24 hours
-
-v1.2, 16 Apr 2019:
-- "Type F" support
-
-v1.3, 30 Apr 2019:
-- EEV changed "overheating" to "delta T"
-- EEV algo v1.1
-
-v1.4, 02 Jun 2019:
-- minor fixes
-- EEV more asyncy
-- T options to header
-
-v1.5, 01 Jul 2019:
-- prototyping 9
-
-v1.6, 30 Apr 2021:
-- sensors init issue fix
-
-//TODO:
-- 0.0 to -127 fix: only 2 attempts than pass 0.0
-- poss. DoS: infinite read to nowhere, fix it, set finite counter (ex: 200)
-- Dev and Host ID to header
-- add speaker and err code for ""ERR: no Tae or Tbe for EEV!""
-- min_user_t/max_user_t to header
-- rs485_modbus
-- full relays halification
-? wclose and fclose to EEV
-- liquid ref. protection: start cold circle and sump heater if tsump =< tco/tci+1, add option to header
-- periodical start of hot side circle
-- valve_4way
-- inputs support
-- ? emergency jumper support
-- ? rewite re-init proc from MAGIC to emergency jumper removal at board start
-- ? EEV target to EEPROM
-- ? list T and other things on screen with buttons
-- ? EEV define maximum working position
-- ? few devices at same lane for RS485_HUMAN
-*/
-//-----------------------changelog END-----------------------
 
 // DS18B20 pins: GND DATA VDD
 
@@ -300,7 +230,7 @@ SSD1306AsciiWire oled;
 
 #ifdef DISPLAY_1602
 #define DISPLAY DISPLAY_1602
-#include <Wire.h>
+//#include <Wire.h>
 #include "LiquidCrystal_I2C.h"
 //LiquidCrystal_I2C lcd(0x3f,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 //LiquidCrystal_I2C lcd(0x27, 20, 4);
@@ -350,19 +280,12 @@ char ishuman = 0;
 
 #ifdef BOARD_TYPE_G
 String hw_version = "Type G v1.x";
-//+Awaria
-// #define RELAY_HEATPUMP 8
-// #define RELAY_HOTSIDE_CIRCLE 9
-// #define RELAY_COLDSIDE_CIRCLE 7
-// #define RELAY_SUMP_HEATER 10
-// #define RELAY_4WAY_VALVE 11
 
-#define RELAY_HEATPUMP 7
+#define RELAY_HEATPUMP 8
 #define RELAY_HOTSIDE_CIRCLE 9
-#define RELAY_COLDSIDE_CIRCLE 11
+#define RELAY_COLDSIDE_CIRCLE 7
 #define RELAY_SUMP_HEATER 10
-#define RELAY_4WAY_VALVE 8
-//-Awaria
+#define RELAY_4WAY_VALVE 11
 
 #ifdef INPUTS_AS_BUTTONS
 #define BUT_RIGHT A3
@@ -405,16 +328,7 @@ String hw_version = "Type G9 v1.x";
 #define CLK_595 9
 #define DATA_595 11
 #define OE_595 A1
-/*
-	595.0: relay 10(not used)
-	595.1: relay 8
-	595.2: relay 9
-	595.3: relay 5 		RELAY_HEATPUMP
-	595.4: relay 4 		RELAY_COLDSIDE_CIRCLE
-	595.5: relay 3 		RELAY_HOTSIDE_CIRCLE
-	595.6: relay 6
-	595.7: relay 7
-	*/
+
 #ifdef EEV_SUPPORT
 #define EEV_1 2
 #define EEV_2 4
@@ -445,14 +359,6 @@ int freeMemory() {
 
 #include <avr/wdt.h>
 #include <EEPROM.h>
-//#include <FastCRC.h>
-/*FastCRC16 CRC16;
-union _crc {
-	unsigned int   integer;
-	char           bytes[2];
-} crc;
-*/
-
 #include <SoftwareSerial.h>
 
 #define SerialRX 0  //RX connected to RO - Receiver Output
@@ -467,7 +373,6 @@ SoftwareSerial RS485Serial(SerialRX, SerialTX);  // RX, TX
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
-//library's DEVICE_DISCONNECTED_C -127.0
 
 OneWire ow_ALLTSENSORS(OW_BUS_ALLTSENSORS);
 DallasTemperature s_allTsensors(&ow_ALLTSENSORS);
@@ -491,8 +396,8 @@ st_tsens Tho;
 st_tsens Tbc;
 st_tsens Tac;
 st_tsens Touter;
-st_tsens Ts1;
-st_tsens Ts2;
+st_tsens Tcwu;
+// st_tsens Ts2;
 
 #define BIT_Tae 0
 #define BIT_Tbe 1
@@ -505,19 +410,18 @@ st_tsens Ts2;
 #define BIT_Tbc 8
 #define BIT_Tac 9
 #define BIT_Touter 10
-#define BIT_Ts1 11
-#define BIT_Ts2 12
+#define BIT_Tcwu 11
+// #define BIT_Ts2 12
 
 unsigned int used_sensors = 0;  //bit array
 
 double T_delta = 0.0;
 double T_setpoint = 30.0;
+double Tcwu_setpoint = CWU_setpoint;
 double T_setpoint_lastsaved = T_setpoint;
 double T_EEV_setpoint = EEV_TARGET_TEMP_DIFF;
 double T_EEV_dt = 0.0;       //real, used during run
-double T_EEV_Be = 0.0;  
-double T_EEV_Ae = 0.0;  
-//bool T_EEV_dt_change = 0;
+ 
 
 const double cT_delta_max = T_DELTA_MAX;
 const double cT_setpoint_max = T_SETPOINT_MAX;
@@ -542,7 +446,8 @@ bool heatpump_state = 0;
 bool hotside_circle_state = 0;
 bool coldside_circle_state = 0;
 bool sump_heater_state = 0;
-bool valve4w_state = 0;
+bool cwu_state = 0;
+bool start_force = 0;
 
 bool relay6_state = 0;
 bool relay7_state = 0;
@@ -585,23 +490,24 @@ unsigned long millis_charinput = 0;
 
 unsigned long millis_lasteesave = 0;
 
-unsigned long millis_last_printstats = 0;
+// unsigned long millis_last_printstats = 0;
 
 unsigned long millis_eev_last_close = 0;
 unsigned long millis_eev_last_on = 0;
 unsigned long millis_eev_last_step = 0;
 
-unsigned long overload_count = 0;
+unsigned long error_count = 0;
 
 int skipchars = 0;
 
 #define INPUT_TYPE_TEMP 0
 #define INPUT_TYPE_DT 1
-#define INPUT_TYPE_EEV 2
-#define INPUT_TYPE_EEV_SETPOINT 3
-#define INPUT_TYPE_HOT_POMP_ON 4
-#define INPUT_TYPE_COLD_POMP_ON 5
-#define INPUT_TYPE_SUMP_HEATER_ON 6
+#define INPUT_TYPE_TEMP_CWU 2
+#define INPUT_TYPE_EEV 3
+#define INPUT_TYPE_EEV_SETPOINT 4
+#define INPUT_TYPE_HOT_POMP_ON 5
+#define INPUT_TYPE_COLD_POMP_ON 6
+#define INPUT_TYPE_SUMP_HEATER_ON 7
 int input_type = INPUT_TYPE_TEMP;
 
 #define ERR_HZ 2500
@@ -645,7 +551,7 @@ int errorcode = 0;
 //--------------------------- for wattage
 #define ADC_BITS 10  //10 fo regular arduino
 #define ADC_COUNTS (1 << ADC_BITS)
-float em_calibration = 110;//62.5;
+float em_calibration = 97.0;//62.5;
 int em_samplesnum = 2960;  // Calculate Irms only 1480 == full 14 periods for 50Hz
 //double Irms       	= 0;      	//for tests with original procedure
 int supply_voltage = 0;
@@ -735,37 +641,15 @@ char CheckAddrExists(void) {
   }
   if (i == 8) return 1;
   for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Ts1.addr[i]) break;
+    if (dev_addr[i] != Tcwu.addr[i]) break;
   }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Ts2.addr[i]) break;
-  }
+  // if (i == 8) return 1;
+  // for (i = 0; i < 8; i++) {
+  //   if (dev_addr[i] != Ts2.addr[i]) break;
+  // }
   if (i == 8) return 1;
   return 0;
 
-  /*
-	//incorrect way: 0.06 % chance for 13 sensors to false positive, calculated for true random.
-	for (i = 0; i < 8; i++) {	
-		if (	(dev_addr[i] != Tae.addr[i]) 	&&
-			(dev_addr[i] != Tbe.addr[i]) 	&&
-			(dev_addr[i] != Ttarget.addr[i]) &&
-			(dev_addr[i] != Tsump.addr[i]) 	&&
-			(dev_addr[i] != Tci.addr[i]) 	&&
-			(dev_addr[i] != Tco.addr[i]) 	&&
-			(dev_addr[i] != Thi.addr[i]) 	&&
-			(dev_addr[i] != Tho.addr[i]) 	&&
-			(dev_addr[i] != Tbc.addr[i]) 	&&
-			(dev_addr[i] != Tac.addr[i]) 	&&
-			(dev_addr[i] != Touter.addr[i]) &&
-			(dev_addr[i] != Ts1.addr[i]) 	&&
-			(dev_addr[i] != Ts2.addr[i]) 
-		)
-			break;	
-	}
-	if (i == 8) return 1;
-	return 0;	
-	*/
 }
 
 void InitS_and_D(void) {
@@ -786,9 +670,8 @@ void PrintS(String str) {
 #ifdef RS485_HUMAN
   char *outChar = &str[0];
   digitalWrite(SerialTxControl, RS485Transmit);
-  delay(1);
+  delay(10);
   RS485Serial.print(outChar);
-  RS485Serial.println();
   RS485Serial.flush();
   digitalWrite(SerialTxControl, RS485Receive);
 #endif
@@ -796,258 +679,138 @@ void PrintS(String str) {
 
 void PrintS_and_D(String str, int printSerial = 1) {
   char *outChar = &str[0];
-
   if (str == "") {
     return;
   }
 
-  //#ifdef RS485_HUMAN
-  if (ishuman != 0) {
-    if (printSerial == 1) {
-      digitalWrite(SerialTxControl, RS485Transmit);
-      delay(1);
-      RS485Serial.print(outChar);
-      RS485Serial.println();
-      RS485Serial.flush();
-      digitalWrite(SerialTxControl, RS485Receive);
-    }
+#ifdef RS485_HUMAN
+  if (ishuman != 0 && printSerial == 1) {
+    digitalWrite(SerialTxControl, RS485Transmit);
+    delay(10);
+    RS485Serial.print(outChar);
+    RS485Serial.println();
+    RS485Serial.flush();
+    digitalWrite(SerialTxControl, RS485Receive);
   }
-  //#endif
+#endif
 
 #ifdef DISPLAY_096
   oled.clear();
   oled.println(str);
 #endif
+
 #ifdef DISPLAY_1602
   lcd.backlight();
   lcd.clear();
   lcd.print(str);
+  delay(200);
 #endif
 }
 
-void Print_D2(String outString, int line = 0) {
+void Print_D2(String outString, int line = 0, bool clear = false) {
 #ifdef DISPLAY_1602
+  if (clear) {
+    lcd.begin(16,2);
+    lcd.clear();
+    delay(10);
+  }
   lcd.setCursor(0, line);
   lcd.print(outString);
 #endif
 }
 
-// void _PrintHelp(void) {
-//   PrintS("CHPC, https://github.com/gonzho000/chpc/ fw: " + fw_version + " board: " + hw_version);
-//   PrintS(F("Commands: \n (?) help\n (+) increase aim T\n (-) decrease aim T\n \n"));
-// #ifdef EEV_SUPPORT
-//   PrintS(F("(<) decrease EEV T diff \n(>) increase EEV T diff"));
+// void PrintStats_Serial(void) {
+// #ifdef RS485_HUMAN
+//   digitalWrite(SerialTxControl, RS485Transmit);
+//   delay(10);
+
+//   StatsSerial();
+
+//   char *outChar=&outString[0];
+//   RS485Serial.println(outChar);
+
+//   RS485Serial.flush();
+//   digitalWrite(SerialTxControl, RS485Receive);
+//   delay(10);
 // #endif
-//   PrintS(F("(G) get stats"));
 // }
 
-void PrintS_and_D_double(String outString, double double_to_print) {
-  dtostrf(double_to_print, 1, 2, temp);
-  PrintS_and_D(outString + temp);
-}
-
-int Inc_EEV(void) {
+void Inc_EEV(void) {
   if (EEV_MAXPULSES_OPEN + 1 > EEV_MAXPULSES) {
     PrintS_and_D(F("Max!"));
-    delay(200);
-    return 0;
+    return;
   }
   EEV_MAXPULSES_OPEN += 1;
-  return 1;
 }
 
-int Dec_EEV(void) {
+void Dec_EEV(void) {
   if (EEV_MAXPULSES_OPEN - 1 < EEV_MINWORKPOS) {
     PrintS_and_D(F("Min!"));
-    delay(200);
-    return 0;
+    return;
   }
   EEV_MAXPULSES_OPEN -= 1;
-  return 1;
 }
 
-int Inc_Tdelta(void) {
+void Inc_Tdelta(void) {
   if (T_delta + 0.5 > cT_delta_max) {
     PrintS_and_D(F("Max!"));
-    delay(200);
-    return 0;
+    return;
   }
   T_delta += 0.5;
-  return 1;
 }
 
-int Dec_Tdelta(void) {
+void Dec_Tdelta(void) {
   if (T_delta - 0.5 < 0) {
     PrintS_and_D(F("Min!"));
-    delay(200);
-    return 0;
+    return;
   }
   T_delta -= 0.5;
-  return 1;
 }
 
-int Inc_T(void) {
+void Inc_T(void) {
   if (T_setpoint + 0.5 > cT_setpoint_max) {
     PrintS_and_D(F("Max!"));
-    delay(200);
-    return 0;
+    return;
   }
   T_setpoint += 0.5;
-  return 1;
 }
 
-int Dec_T(void) {
+void Dec_T(void) {
   if (T_setpoint - 0.5 < 1.0) {
     PrintS_and_D(F("Min!"));
-    delay(200);
-    return 0;
+    return;
   }
   T_setpoint -= 0.5;
-  return 1;
 }
 
-int Inc_E(void) {  ///!!!!!! unprotected
+void Inc_Tcwu(void) {
+  if (Tcwu_setpoint + 0.5 > cT_setpoint_max) {
+    PrintS_and_D(F("Max!"));
+    return;
+  }
+  Tcwu_setpoint += 0.5;
+}
+
+void Dec_Tcwu(void) {
+  if (Tcwu_setpoint - 0.5 < 1.0) {
+    PrintS_and_D(F("Min!"));
+    return;
+  }
+  Tcwu_setpoint -= 0.5;
+}
+
+
+void Inc_E(void) { 
   T_EEV_setpoint += 0.1;
-  return 1;
 }
 
-int Dec_E(void) {  ///!!!!!! unprotected
+void Dec_E(void) { 
+  if (T_EEV_setpoint - 0.1 <= 0 ) {
+    return;
+  } 
   T_EEV_setpoint -= 0.1;
-  return 1;
 }
 
-void print_Serial_SaD(String str, double double_to_print = -999) {
-  char *outChar = &str[0];
-  delay(1);
-  RS485Serial.print(outChar);
-  if (double_to_print = -999) {
-    RS485Serial.println();
-  } else {
-    dtostrf(double_to_print, 1, 2, temp);
-    RS485Serial.println(temp);
-  }
-}
-
-void PrintStats_Serial(void) {
-#ifdef RS485_HUMAN
-  digitalWrite(SerialTxControl, RS485Transmit);
-  delay(1);
-  //print_Serial_SaD("--- Stats serial ----");
-  if (Tbe.e == 1) {
-    outString = "Tbe: " + String(Tbe.T, 1);
-    print_Serial_SaD(outString);
-  }
-
-  if (Tae.e == 1) {
-    outString = "Tae: " + String(Tae.T, 1);
-    print_Serial_SaD(outString);
-  }
-
-  if (Tco.e == 1) {
-    outString = "Tco: " + String(Tco.T, 1);
-    print_Serial_SaD(outString);
-  }
-
-  if (Tho.e == 1) {
-    outString = "Tho: " + String(Tho.T, 1);
-    print_Serial_SaD(outString);
-  }
-
-  if (Ttarget.e == 1) {
-    outString = "Ttarget: " + String(Ttarget.T, 1);
-    print_Serial_SaD(outString);
-  }
-  if (Tsump.e == 1) {
-    outString = "Tsump: " + String(Tsump.T, 1);
-    print_Serial_SaD(outString);
-  }
-
-  outString = String(T_EEV_dt, 1);
-  print_Serial_SaD("EEV_dt: " + outString);
-  //outString = String(T_EEV_dt_change, 1);
-  //print_Serial_SaD("EEV_dt change: " + outString);
-
-  // if (Tci.e == 1) {
-  //   outString = "Tci: " + String(Tci.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Tco.e == 1) {
-  //   outString = "Tco: " + String(Tco.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Thi.e == 1) {
-  //   outString = "Thi: " + String(Thi.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Tbc.e == 1) {
-  //   outString = "Tbc: " + String(Tbc.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Tac.e == 1) {
-  //   outString = "Tac: " + String(Tac.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Touter.e == 1) {
-  //   outString = "Touter: " + String(Touter.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Ts1.e == 1) {
-  //   outString = "Ts1: " + String(Ts1.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-  // if (Ts2.e == 1) {
-  //   outString = "Ts2: " + String(Ts2.T, 1);
-  //   print_Serial_SaD(outString);
-  // }
-
-  outString = "T set min: " + String((T_setpoint - T_delta), 1);
-  print_Serial_SaD(outString);
-  outString = "T set max: " + String(T_setpoint, 1);
-  print_Serial_SaD(outString);
-
-  outString = String(async_wattage, 1);
-  print_Serial_SaD("Watts: " + outString);
-  
-  // outString = "Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF");
-  // print_Serial_SaD(outString);
-  
-  outString = "Err: " + String(errorcode);
-  print_Serial_SaD(outString);
-  
-  // outString = "Cold pomp: " + String(emergency);
-  // print_Serial_SaD(outString);
-
-  if (heatpump_state == 1) {
-    outString = String((unsigned long)(millis() - millis_last_heatpump_on) / 1000);
-    print_Serial_SaD("HP power on: " + outString);
-    // outString = String((unsigned long)(mincycle_poweron) / 1000);
-    // print_Serial_SaD("Min. cykle power on: " + outString);
-
-  } else if (heatpump_state == 0 && millis_last_heatpump_off != 0) {
-    outString = String((unsigned long)(millis() - millis_last_heatpump_off) / 1000);
-    print_Serial_SaD("HP power off: " + outString);
-    // outString = String((unsigned long)(mincycle_poweroff) / 1000);
-    // print_Serial_SaD("Min. cykle power off: " + outString);
-  }
-  // outString = "Hot circle state: " + String((hotside_circle_state == 1) ? "ON" : "OFF");
-  // print_Serial_SaD(outString);
-  // outString = "Cold circle state: " + String((coldside_circle_state == 1) ? "ON" : "OFF");
-  // print_Serial_SaD(outString);
-
-#ifdef EEV_SUPPORT
-  print_Serial_SaD("EEV: " + String(T_EEV_setpoint, 1));
-  outString = "EEV_pos: " + String(EEV_cur_pos);
-  print_Serial_SaD(outString);
-  outString = "EEV_apulses: " + String(EEV_apulses);
-  print_Serial_SaD(outString);
-#endif
-
-  RS485Serial.println("/");
-  RS485Serial.flush();
-  digitalWrite(SerialTxControl, RS485Receive);
-  delay(1);
-#endif
-}
 
 void ReadEECheckAddr(unsigned char *to_addr) {
   for (i = 0; i < 8; i++) {
@@ -1059,7 +822,7 @@ void ReadEECheckAddr(unsigned char *to_addr) {
   if (i != 0) {
     while (1) {
       //PrintAddr(to_addr);
-      PrintS_and_D(F("Err:EEPROM, reinit!"));
+      PrintS_and_D(F("Err, reinit!"));
       delay(5000);
     }
   }
@@ -1112,6 +875,7 @@ void SaveSetpointEE(int pforce = 0) {
   if ((T_setpoint_lastsaved != T_setpoint) && (pforce == 1 || ((unsigned long)(millis_now - millis_lasteesave) > 15 * 60 * 1000) || (millis_lasteesave == 0))) {
     eeprom_addr = 1;
     WriteFloatEEPROM(eeprom_addr, T_setpoint);
+    WriteFloatEEPROM(eeprom_addr_cwu, Tcwu_setpoint);
     millis_lasteesave = millis_now;
     T_setpoint_lastsaved = T_setpoint;
   }
@@ -1128,23 +892,17 @@ void PrintAddr(unsigned char *str) {
 
 unsigned char FindAddr(String what, int required = 0) {
   i = 1;
-  while (RS485Serial.available() > 0) {
-    inChar = RS485Serial.read();
-    delay(1);
-  }
+  // while (RS485Serial.available() > 0) {
+  //   inChar = RS485Serial.read();
+  //   delay(10);
+  // }
   inChar = 0x00;
   while (1) {
     while (!s_allTsensors.getAddress(dev_addr, 0)) {
       if (required == 0) {
         PrintS_and_D(F("Press > to skip"));
         delay(500);
-        while (RS485Serial.available() > 0) {
-          inChar = RS485Serial.read();
-          if (inChar == 0x3E) {
-            PrintS_and_D("Skipped: " + what);
-            return 0;
-          }
-        }
+
 #ifdef INPUTS_AS_BUTTONS
         i = digitalRead(BUT_RIGHT);
         if (i == 1) {
@@ -1152,29 +910,43 @@ unsigned char FindAddr(String what, int required = 0) {
           delay(4000);
           return 0;
         }
+#else 
+        while (RS485Serial.available() > 0) {
+          inChar = RS485Serial.read();
+          if (inChar == 0x3E) {
+            PrintS_and_D("Skipped: " + what);
+            return 0;
+          }
+        }
 #endif
       }
       PrintS_and_D("Insert " + what);
       delay(1000);
     }
+
     if (OneWire::crc8(dev_addr, 7) != dev_addr[7]) {
       PrintS_and_D(F("Remove and insert sensor!\n"));
       delay(200);
       continue;
+
     } else if (CheckAddrExists() == 1) {
       PrintS_and_D(F("USED! Remove!"));
       delay(1000);
       continue;
+
     } else {
       break;
     }
   }
+
   while (1) {
     PrintAddr(dev_addr);
     delay(1000);
+
     if (s_allTsensors.getAddress(dev_addr, 0)) {
       PrintS_and_D("OK! Remove " + what);
       delay(1000);
+
     } else {
       delay(100);
       break;
@@ -1218,36 +990,9 @@ void Get_Temperatures(void) {
   if (Tbc.e) Tbc.T = GetT(Tbc.addr);
   if (Tac.e) Tac.T = GetT(Tac.addr);
   if (Touter.e) Touter.T = GetT(Touter.addr);
-  if (Ts1.e) Ts1.T = GetT(Ts1.addr);
-  if (Ts2.e) Ts2.T = GetT(Ts2.addr);
+  if (Tcwu.e) Tcwu.T = GetT(Tcwu.addr);
+  // if (Ts2.e) Ts2.T = GetT(Ts2.addr);
   s_allTsensors.requestTemperatures();  //global request
-                                        //---------DEBUG and self-test !!!--------
-                                        /*PrintS_and_D("");
-	PrintS_and_D_double(Tae.T);
-	PrintS_and_D_double(Tbe.T);
-	PrintS_and_D_double(Ttarget.T);
-	PrintS_and_D_double(Tsump.T);
-	PrintS_and_D("");*/
-                                        /*
-	PrintS_and_D("Sensor 1 ");
-	PrintS_and_D_double(tr_sens_1);
-	PrintS_and_D(",\tci ");
-	PrintS_and_D_double(tr_cold_in);
-	PrintS_and_D(",\tcout ");
-	PrintS_and_D_double(tr_cold_out);
-	PrintS_and_D(",\thin ");
-	PrintS_and_D_double(tr_hot_in);    
-	PrintS_and_D(",\tho ");
-	PrintS_and_D_double(tr_hot_out);
-	PrintS_and_D(",\tbcond ");
-	PrintS_and_D_double(tr_before_condenser);    
-	PrintS_and_D(",\t outer ");
-	PrintS_and_D_double(tr_outer);
-	PrintS_and_D(",\t Sensor 2 ");
-	PrintS_and_D_double(tr_sens_2);
-	*/
-
-  //---------DEBUG END--------
 }
 
 #ifdef EEV_SUPPORT
@@ -1264,9 +1009,7 @@ void off_EEV() {  //1 = do not take care of position
   digitalWrite(EEV_2, 0);
   digitalWrite(EEV_3, 0);
   digitalWrite(EEV_4, 0);
-  //PrintS_and_D("off_EEV");
 }
-
 #endif
 
 void halifise(void) {
@@ -1334,9 +1077,10 @@ void halifise(void) {
 #endif
 #ifdef BOARD_TYPE_G
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state ||  sump_heater_on);
-  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on);
+  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on || cwu_state);
   digitalWrite(RELAY_HEATPUMP, heatpump_state);
   digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state || cold_pomp_on);
+  digitalWrite(RELAY_4WAY_VALVE, cwu_state);
 #endif
 #ifdef BOARD_TYPE_G9
   //#define RELAY_4WAY_VALVE      8
@@ -1406,35 +1150,18 @@ void halifise(void) {
   __asm__ __volatile__("nop\n\t");
   digitalWrite(LATCH_595, 0);
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state);
-  digitalWrite(RELAY_4WAY_VALVE, valve4w_state);
+  digitalWrite(RELAY_4WAY_VALVE, cwu_state);
 #endif
 }
 
 void eevise(void) {
-  int eee = EEV_MAXPULSES_OPEN; 
-
-  if( Ttarget.T > 46 ) {
-    eee = EEV_MAXPULSES_OPEN - 7;
-  } else if( Ttarget.T > 45 ) {
-    eee = EEV_MAXPULSES_OPEN - 6;
-  } else if( Ttarget.T > 44 ) {
-    eee = EEV_MAXPULSES_OPEN - 5;
-  } else if( Ttarget.T > 43 ) {
-    eee = EEV_MAXPULSES_OPEN - 4;
-  } else if( Ttarget.T > 42 ) {
-    eee = EEV_MAXPULSES_OPEN - 3;
-  } else if( Ttarget.T > 41 ) {
-    eee = EEV_MAXPULSES_OPEN - 2;
-  } else if( Ttarget.T > 40 ) {
-    eee = EEV_MAXPULSES_OPEN - 1;
-  }
-
+  int eee = ( int(Ttarget.T) < 40 ) ? EEV_MAXPULSES_OPEN : EEV_MAXPULSES_OPEN - (int(Ttarget.T) - 40);
   if (EEV_cur_pos > eee) {
     EEV_apulses = -1;
+    EEV_fast = 1;
   }
 
   if ((((EEV_apulses < 0) && (EEV_fast == 1)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FCLOSE_MILLIS))) || (((EEV_apulses < 0) && (EEV_fast == 0)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_CLOSE_MILLIS))) || (((EEV_apulses > 0) && (EEV_cur_pos < EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_WOPEN_MILLIS))) || (((EEV_apulses > 0) && (EEV_fast == 1) && (EEV_cur_pos >= EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FOPEN_MILLIS))) || (((EEV_apulses > 0) && (EEV_fast == 0) && (EEV_cur_pos >= EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_OPEN_MILLIS))) || (millis_eev_last_step == 0)) {
-
     if (EEV_apulses != 0) {
       if (EEV_apulses > 0) {
         if (EEV_cur_pos + 1 <= eee) {
@@ -1444,7 +1171,7 @@ void eevise(void) {
         } else {
           EEV_apulses = 0;
 #ifdef EEV_DEBUG
-          PrintS_and_D("EEmax!");
+          PrintS_and_D(F("EEmax!"));
 #endif
         }
       }
@@ -1457,7 +1184,7 @@ void eevise(void) {
         } else {
           EEV_apulses = 0;
 #ifdef EEV_DEBUG
-          PrintS_and_D("EEmin!");
+          PrintS_and_D(F("EEmin!"));
 #endif
         }
       }
@@ -1477,10 +1204,36 @@ void eevise(void) {
     }
 
     millis_eev_last_step = millis_now;
-#ifdef RS485_HUMAN
-//	print_Serial_SaD("New EEV pos: " + String (EEV_cur_pos));
-#endif
   }
+}
+
+void stopOnError(String error = "") {
+    millis_last_heatpump_off = millis_now;
+    heatpump_state = 0;
+    hotside_circle_state = 0;
+    coldside_circle_state = 0;
+    sump_heater_state = 0;
+    cwu_state = 0;
+
+    error_count += 1;
+    halifise();
+
+#ifdef RS485_HUMAN
+    lcd.begin(16,2);
+  
+    if (error !="" ) {
+      PrintS_and_D(error);
+    } else if (errorcode!=0) {
+       PrintS_and_D("Err " + String(errorcode, HEX));
+    } else {
+      PrintS_and_D(F("Error"));
+    }
+#endif
+
+    tone(speakerOut, ERR_HZ);
+    delay(500);
+    noTone(speakerOut);
+    delay(500);
 }
 
 //--------------------------- functions END
@@ -1533,15 +1286,14 @@ void setup(void) {
   wdt_disable();
   delay(2000);
 #endif
+  
   InitS_and_D();
   pinMode(SerialTxControl, OUTPUT);
   digitalWrite(SerialTxControl, RS485Receive);
-  //digitalWrite(SerialTxControl, RS485Transmit);
-  //RS485Serial.println("starting...");	//!!!debug
   delay(100);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
-  //Print_Lomem(C_ID);
   delay(200);
+
 #ifdef EEV_SUPPORT
   pinMode(EEV_1, OUTPUT);
   pinMode(EEV_2, OUTPUT);
@@ -1553,96 +1305,16 @@ void setup(void) {
   pinMode(em_pin1, INPUT);
   pinMode(emergency_pin, INPUT);
 
-  //PrintS_and_D("setpoint (C):");
-  //PrintS_and_D(setpoint);
-  //PrintS_and_D(String(freeMemory()));  //!!! debug
   s_allTsensors.begin();
   s_allTsensors.setWaitForConversion(false);  //ASYNC mode, request before get, see Dallas library for details
 
-  //----------------------------- self-tests !!!----------------------------- ----------------------------- -----------------------------
-  /*
-	digitalWrite(RELAY_HEATPUMP,HIGH);
-	delay(300);
-	digitalWrite(RELAY_HOTSIDE_CIRCLE,HIGH);
-	delay(300);
-	digitalWrite(RELAY_COLDSIDE_CIRCLE,HIGH);
-	delay(300);
-	digitalWrite(RELAY_SUMP_HEATER,HIGH);
-	delay(2000);
-	digitalWrite(RELAY_HEATPUMP,LOW);
-	delay(300);
-	digitalWrite(RELAY_HOTSIDE_CIRCLE,LOW);
-	delay(300);
-	digitalWrite(RELAY_COLDSIDE_CIRCLE,LOW);
-	delay(300);
-	digitalWrite(RELAY_SUMP_HEATER,LOW);
-	*/
-  /*
-	tone(speakerOut, 2250);
-	delay (500); // like ups power on
-	noTone(speakerOut);
-	*/
-  /*	
-	while ( 1 == 1) {
-		
-		heatpump_state    	= 1;	halifise();	delay(1000);
-		coldside_circle_state 	= 1;	halifise();	delay(1000);
-		hotside_circle_state  	= 1;	halifise();	delay(1000);
-		sump_heater_state    	= 1;	halifise();	delay(1000);
-		valve4w_state    	= 1;	halifise();	delay(1000);
-		#ifdef BOARD_TYPE_G9
-			relay6_state		= 1;	halifise();	delay(1000);
-			relay7_state		= 1;	halifise();	delay(1000);
-			relay8_state		= 1;	halifise();	delay(1000);
-			relay9_state		= 1;	halifise();	delay(1000);
-		#endif
-		
-		delay(3000);
-		heatpump_state    	= 0;	halifise();	delay(1000);
-		coldside_circle_state 	= 0;	halifise();	delay(1000);
-		hotside_circle_state  	= 0;	halifise();	delay(1000);
-		sump_heater_state    	= 0;	halifise();	delay(1000);
-		valve4w_state    	= 0;	halifise();	delay(1000);
-		#ifdef BOARD_TYPE_G9
-			relay6_state		= 0;	halifise();	delay(1000);
-			relay7_state		= 0;	halifise();	delay(1000);
-			relay8_state		= 0;	halifise();	delay(1000);
-			relay9_state		= 0;	halifise();	delay(1000);
-		#endif
-		delay(3000);
-		break;
-	}
-	*/
-  /*
-	//EEV self-test
-	while ( 1 == 1 ) {
-		EEV_apulses =  -(EEV_MAXPULSES + EEV_CLOSE_ADD_PULSES);
-		EEV_adonotcare = 1;
-		EEV_fast = 1;
-		while (EEV_apulses < 0){
-			millis_now = millis();
-			eevise();
-		}
-		delay(1000);
-		EEV_apulses =  EEV_MAXPULSES;
-		EEV_fast = 1;
-		while (EEV_apulses > 0){
-			millis_now = millis();
-			eevise();
-		}
-		delay(1000);
-	}	
-	*/
-  //----------------------------- self-test END----------------------------- ----------------------------- -----------------------------
-
-
   eeprom_magic_read = EEPROM.read(eeprom_addr);
+
 #ifdef INPUTS_AS_BUTTONS
   pinMode(BUT_RIGHT, INPUT);
-  //digitalWrite	(BUT_RIGHT, LOW);
   pinMode(BUT_LEFT, INPUT);
-  //digitalWrite	(BUT_LEFT, LOW);
 #endif
+
   //EEPROM content:
   //0x00 - magic,
   //0x01  .. 0x04 Target value,
@@ -1660,9 +1332,16 @@ void setup(void) {
     if (isnan(T_delta)) {
       T_delta = 0.0;
     }
-    hot_pomp_on = ReadFloatEEPROM(eeprom_addr_hot_pomp_on);
-    if (isnan(hot_pomp_on)) {
-      hot_pomp_on = 0;
+
+    hot_pomp_on = 0;
+    // hot_pomp_on = ReadFloatEEPROM(eeprom_addr_hot_pomp_on);
+    // if (isnan(hot_pomp_on)) {
+    //   hot_pomp_on = 0;
+    // }
+
+    Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
+    if (isnan(Tcwu_setpoint)) {
+      Tcwu_setpoint = CWU_setpoint;
     }
 
     T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr_EEV_setpoint);
@@ -1672,13 +1351,12 @@ void setup(void) {
     
     EEV_MAXPULSES_OPEN = ReadIntEEPROM(eeprom_addr_EEV_MAX);
     if (isnan(EEV_MAXPULSES_OPEN) || EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS ) {
-      EEV_MAXPULSES_OPEN = 60;
+      EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
     }
 
     eeprom_addr += 1;
     T_setpoint = ReadFloatEEPROM(eeprom_addr);
     eeprom_addr += 4;
-    //PrintS_and_D("EEPROM->T " + String(T_setpoint));
 
     z = EEPROM.read(eeprom_addr);  //high
     eeprom_addr += 1;
@@ -1697,76 +1375,45 @@ void setup(void) {
     Tbc.e = bitRead(used_sensors, BIT_Tbc);
     Tac.e = bitRead(used_sensors, BIT_Tac);
     Touter.e = bitRead(used_sensors, BIT_Touter);
-    Ts1.e = bitRead(used_sensors, BIT_Ts1);
-    Ts2.e = bitRead(used_sensors, BIT_Ts2);
+    Tcwu.e = bitRead(used_sensors, BIT_Tcwu);
+    // Ts2.e = bitRead(used_sensors, BIT_Ts2);
 #ifdef EEV_SUPPORT
     if (Tae.e != 1 || Tbe.e != 1) {
       while (1) {
-        PrintS_and_D("ERR: no Tae or Tbe for EEV!");
-        delay(1000);
+        PrintS_and_D(F("ERR: no Tae or Tbe for EEV!"));
+        delay(10000);
       }
     }
 #endif
-    ReadEECheckAddr(Tae.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tae");
-    ReadEECheckAddr(Tbe.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tbe");
-    ReadEECheckAddr(Ttarget.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Ttarget");
-    ReadEECheckAddr(Tsump.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tsump");
-    ReadEECheckAddr(Tci.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tci");
-    ReadEECheckAddr(Tco.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tco");
-    ReadEECheckAddr(Thi.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Thi");
-    ReadEECheckAddr(Tho.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tho");
-    ReadEECheckAddr(Tbc.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tbc");
-    ReadEECheckAddr(Tac.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Tac");
-    ReadEECheckAddr(Touter.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Touter");
-    ReadEECheckAddr(Ts1.addr);  //eeprom_addr incremeneted here
-    //PrintS_and_D("k:Ts1");
-    ReadEECheckAddr(Ts2.addr);  //eeprom_addr incremeneted here
-                                //PrintS_and_D("k:Ts2");
 
-    /*
-		//?code duplicated, see ReadEECheckAddr
-		i = 0;
-		if (Tae.e == 1) 	CheckIsInvalidCRCAddr(Tae.addr	);
-		if (Tbe.e == 1) 	CheckIsInvalidCRCAddr(Tbe.addr	);
-		if (Ttarget.e == 1) 	CheckIsInvalidCRCAddr(Ttarget.addr);
-		if (Tsump.e == 1) 	CheckIsInvalidCRCAddr(Tsump.addr);
-		if (Tci.e == 1) 	CheckIsInvalidCRCAddr(Tci.addr	);
-		if (Tco.e == 1) 	CheckIsInvalidCRCAddr(Tco.addr	);
-		if (Thi.e == 1) 	CheckIsInvalidCRCAddr(Thi.addr	);
-		if (Tho.e == 1) 	CheckIsInvalidCRCAddr(Tho.addr	);
-		if (Tbc.e == 1) 	CheckIsInvalidCRCAddr(Tbc.addr	);
-		if (Tac.e == 1) 	CheckIsInvalidCRCAddr(Tac.addr	);
-		if (Touter.e == 1) 	CheckIsInvalidCRCAddr(Touter.addr);
-		if (Ts1.e == 1) 	CheckIsInvalidCRCAddr(Ts1.addr	);
-		if (Ts2.e == 1) 	CheckIsInvalidCRCAddr(Ts2.addr	);
-		if (i != 0) {
-			while ( 1 ) { PrintS_and_D(F("EEPROM err1!")); delay (1000); }
-		}
-		*/
+    ReadEECheckAddr(Tae.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tbe.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Ttarget.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tsump.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tci.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tco.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Thi.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tho.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tbc.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tac.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Touter.addr);  //eeprom_addr incremeneted here
+    ReadEECheckAddr(Tcwu.addr);  //eeprom_addr incremeneted here
+    // ReadEECheckAddr(Ts2.addr);  //eeprom_addr incremeneted here
+
   } else {
     eeprom_addr += 1;
     ishuman += 1;
     WriteFloatEEPROM(eeprom_addr, T_setpoint);
-    //PrintS_and_D(F("init EEPROM"));
     eeprom_addr += 4;
     eeprom_addr += 2;  //used sensors, skip
-//Ttarget -needed, other - optional
+    //Ttarget -needed, other - optional
+
 #ifdef EEV_SUPPORT
     z = FindAddr("Tae", 1);  //holds result in dev_addr, returns "is used"
 #else
     z = FindAddr("Tae");  //holds result in dev_addr, returns "is used"
 #endif
+    
     Tae.e = z;
     CopyAddrStoreEE(Tae.addr, BIT_Tae);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
@@ -1775,6 +1422,7 @@ void setup(void) {
 #else
     z = FindAddr("Tbe");
 #endif
+    
     Tbe.e = z;
     CopyAddrStoreEE(Tbe.addr, BIT_Tbe);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
@@ -1784,6 +1432,7 @@ void setup(void) {
 #else
     z = FindAddr("Ttarget", 1);
 #endif
+
     Ttarget.e = z;
     CopyAddrStoreEE(Ttarget.addr, BIT_Ttarget);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
@@ -1819,15 +1468,14 @@ void setup(void) {
     Touter.e = z;
     CopyAddrStoreEE(Touter.addr, BIT_Touter);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
-    z = FindAddr("Ts1");
-    Ts1.e = z;
-    CopyAddrStoreEE(Ts1.addr, BIT_Ts1);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
+    z = FindAddr("Tcwu");
+    Tcwu.e = z;
+    CopyAddrStoreEE(Tcwu.addr, BIT_Tcwu);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
-    z = FindAddr("Ts2");
-    Ts2.e = z;
-    CopyAddrStoreEE(Ts2.addr, BIT_Ts2);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
+    // z = FindAddr("Ts2");
+    // Ts2.e = z;
+    // CopyAddrStoreEE(Ts2.addr, BIT_Ts2);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
 
-    //
     //final, off-the-sequence
     EEPROM.write(0 + 1 + 4 + 0, highByte(used_sensors));
     EEPROM.write(0 + 1 + 4 + 1, lowByte(used_sensors));
@@ -1835,20 +1483,6 @@ void setup(void) {
     ishuman -= 1;
   }
   T_setpoint_lastsaved = T_setpoint;
-  //s_allTsensors.setResolution(ad_Tae, 12);
-  /*PrintAddr(Tae.addr);
-	PrintAddr(Tbe.addr);
-	PrintAddr(Ttarget.addr);
-	PrintAddr(Tsump.addr);
-	PrintAddr(Tci.addr);
-	PrintAddr(Tco.addr);
-	PrintAddr(Thi.addr);
-	PrintAddr(Tho.addr);
-	PrintAddr(Tbc.addr);
-	PrintAddr(Tac.addr);
-	PrintAddr(Touter.addr);
-	PrintAddr(Ts1.addr);
-	PrintAddr(Ts2.addr);*/
 
 #ifdef WATCHDOG
   wdt_enable(WDTO_8S);
@@ -1856,29 +1490,21 @@ void setup(void) {
 
   Get_Temperatures();
 
-  outString.reserve(200);
-  //PrintS_and_D(String(freeMemory()));  //!!! debug
-  //!!!
-  //analogWrite(speakerOut, 10);
-  //delay (1500);
-  //analogWrite(speakerOut, 0);
-  //delay (1500);
-  //!!!
+  outString.reserve(256);
   tone(speakerOut, 2250);
   delay(1500);  // like ups power on
   noTone(speakerOut);
 }
-
 
 void loop(void) {
   digitalWrite(SerialTxControl, RS485Receive);
   millis_now = millis();
 
 #ifdef RS485_HUMAN
-  if (((unsigned long)(millis_now - millis_last_printstats) > HUMAN_AUTOINFO) || (millis_last_printstats == 0)) {
-    PrintStats_Serial();
-    millis_last_printstats = millis_now;
-  }
+  // if (((unsigned long)(millis_now - millis_last_printstats) > HUMAN_AUTOINFO) || (millis_last_printstats == 0)) {
+  //   PrintStats_Serial();
+  //   millis_last_printstats = millis_now;
+  // }
 #endif
   //--------------------async fuctions start
   if (em_i == 0) {
@@ -1901,7 +1527,7 @@ void loop(void) {
     em_i = 0;
     double I_RATIO = em_calibration * ((supply_voltage / 1000.0) / (ADC_COUNTS));
     async_Irms_1 = I_RATIO * sqrt(sumI_1 / em_samplesnum);
-    async_wattage = async_Irms_1 * 220.0;
+    async_wattage = async_Irms_1 * 230.0;
 
     //Reset accumulators
     sumI_1 = 0;
@@ -1924,15 +1550,7 @@ void loop(void) {
 
   if (heatpump_state == 1 && async_wattage > c_wattage_max) {
     if (((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME) || (async_wattage > c_wattage_max * 2.7)) {
-#ifdef RS485_HUMAN
-      lcd.begin(16,2);
-      lcd.clear();
-      PrintS_and_D(("Overload " + String(async_wattage)));
-#endif
-      overload_count += 1;
-      millis_last_heatpump_off = millis_now;
-      heatpump_state = 0;
-      halifise();
+      stopOnError(("Overload " + String(async_wattage)));
     }
   }
 
@@ -1941,28 +1559,11 @@ void loop(void) {
   emergency = (emergency / offsetI_1);
   //emergency = 0;
   if ((heatpump_state == 1) && (emergency == 1) && ((unsigned long)(millis_now - millis_last_heatpump_on) > COLDOFF_HIGHTIME)) {
-#ifdef RS485_HUMAN
-    lcd.begin(16,2);
-    lcd.clear();
-    PrintS_and_D("Error: CP");
-#endif
-    overload_count += 1;
-    millis_last_heatpump_off = millis_now;
-    heatpump_state = 0;
-    hotside_circle_state = 0;
-    coldside_circle_state = 0;
-    sump_heater_state = 0;
-    valve4w_state = 0;
-    halifise();
+    stopOnError("Err CP");
   }
 
-  if (overload_count >= 3) {
-    heatpump_state = 0;
-    hotside_circle_state = 0;
-    coldside_circle_state = 0;
-    sump_heater_state = 0;
-    valve4w_state = 0;
-    halifise();  
+  if (error_count >= 3) {
+    stopOnError("Error count");
     return;
   }
 
@@ -1977,98 +1578,129 @@ void loop(void) {
   } else if ((z == 1) || (i == 1) || (d == 1)) {
 #ifndef EEV_ONLY
     if (d == 1) {
-      if (input_type == INPUT_TYPE_SUMP_HEATER_ON) {
-        input_type = INPUT_TYPE_TEMP ;
-        PrintS_and_D("T max: " + String(T_setpoint));
+      switch(input_type) {
+        case INPUT_TYPE_SUMP_HEATER_ON:
+          input_type = INPUT_TYPE_TEMP ;
+          PrintS_and_D("T max: " + String(T_setpoint));
+          break;
 
-      } else if (input_type == INPUT_TYPE_TEMP) {
-        input_type = INPUT_TYPE_DT;
-        PrintS_and_D("T min: " + String(T_setpoint - T_delta));
+        case INPUT_TYPE_TEMP:
+          input_type = INPUT_TYPE_DT;
+          PrintS_and_D("T min: " + String(T_setpoint - T_delta));
+          break;
 
-      } else if (input_type == INPUT_TYPE_DT) {
-        input_type = INPUT_TYPE_EEV;
-        PrintS_and_D("EEV: " + String(EEV_MAXPULSES_OPEN));
+        case INPUT_TYPE_DT:
+          input_type = INPUT_TYPE_TEMP_CWU;
+          PrintS_and_D("T CWU: " + String(Tcwu_setpoint));
+          break;
 
-      } else if (input_type == INPUT_TYPE_EEV) {
-        input_type = INPUT_TYPE_HOT_POMP_ON;
-        PrintS_and_D("H. POMP: " + String(hot_pomp_on) );
-      
-      } else if (input_type == INPUT_TYPE_HOT_POMP_ON) {
-        input_type = INPUT_TYPE_COLD_POMP_ON;
-        PrintS_and_D("C. POMP: " + String(cold_pomp_on) );
+        case INPUT_TYPE_TEMP_CWU:
+          input_type = INPUT_TYPE_EEV;
+          PrintS_and_D("EEV: " + String(EEV_MAXPULSES_OPEN));          
+          break;
 
-      } else if (input_type == INPUT_TYPE_COLD_POMP_ON) {
-        input_type = INPUT_TYPE_EEV_SETPOINT;
-        PrintS_and_D("T EEV: " + String(T_EEV_setpoint) );
-      
-      } else if (input_type == INPUT_TYPE_EEV_SETPOINT) {
-        input_type = INPUT_TYPE_SUMP_HEATER_ON;
-        PrintS_and_D("HEATER: " + String(sump_heater_on) );
+        case INPUT_TYPE_EEV:
+          input_type = INPUT_TYPE_HOT_POMP_ON;
+          PrintS_and_D("H. POMP: " + String(hot_pomp_on) );
+          break;
+
+        case INPUT_TYPE_HOT_POMP_ON:
+          input_type = INPUT_TYPE_COLD_POMP_ON;
+          PrintS_and_D("C. POMP: " + String(cold_pomp_on) );
+          break;
+
+        case INPUT_TYPE_COLD_POMP_ON:
+          input_type = INPUT_TYPE_EEV_SETPOINT;
+          PrintS_and_D("T EEV: " + String(T_EEV_setpoint) );
+          break;
+
+        case INPUT_TYPE_EEV_SETPOINT:
+          input_type = INPUT_TYPE_SUMP_HEATER_ON;
+          PrintS_and_D("HEATER: " + String(sump_heater_on) );
+          break;
       }
       delay(300);
     }
 
     if ((i == 1) || (z == 1)) {
-      if (input_type == INPUT_TYPE_TEMP) {
-        if (z == 1) {
-          x = Dec_T();
-        } else if (i == 1 ) {
-          x = Inc_T();
-        }
-        PrintS_and_D("T max: " + String(T_setpoint));
-        SaveSetpointEE(1);
+      switch(input_type) {
+        case INPUT_TYPE_TEMP:
+          if (z == 1) {
+            Dec_T();
+          } else if (i == 1 ) {
+            Inc_T();
+          }
+          PrintS_and_D("T max: " + String(T_setpoint));
+          SaveSetpointEE(1);
+          break;
+        
+        case INPUT_TYPE_DT:
+          if (z == 1) {
+            Inc_Tdelta();
+          } else if (i == 1) {
+            Dec_Tdelta();
+          }
+          PrintS_and_D("T min: " + String(T_setpoint - T_delta));
+          WriteFloatEEPROM(eeprom_addr_dT, T_delta);        
+          break;
+        
+        case INPUT_TYPE_TEMP_CWU:
+          if (z == 1) {
+            Dec_Tcwu();
+          } else if (i == 1 ) {
+            Inc_Tcwu();
+          }
+          PrintS_and_D("T CWU: " + String(Tcwu_setpoint));
+          SaveSetpointEE(1);
+          break;
 
-      } else if (input_type == INPUT_TYPE_DT) {
-        if (z == 1) {
-          x = Dec_Tdelta();
-        } else if (i == 1) {
-          x = Inc_Tdelta();
-        }
-        PrintS_and_D("T min: " + String(T_setpoint - T_delta));
-        WriteFloatEEPROM(eeprom_addr_dT, T_delta);
+        case INPUT_TYPE_EEV:
+          if (z == 1 ) {
+            Dec_EEV();
+          } else if (i == 1) {
+            Inc_EEV();
+          }
+          PrintS_and_D("EEV: " + String(EEV_MAXPULSES_OPEN));
+          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);        
+          break;
 
-      } else if (input_type == INPUT_TYPE_EEV) {
-        if (z == 1 ) {
-          Dec_EEV();
-        } else if (i == 1) {
-          Inc_EEV();
-        }
-        PrintS_and_D("EEV: " + String(EEV_MAXPULSES_OPEN));
-        WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
-      
-      } else if (input_type == INPUT_TYPE_EEV_SETPOINT)  {
-        if (z == 1 ) {
-          Dec_E();
-        } else if (i == 1) {
-          Inc_E();
-        }
-        PrintS_and_D("EEV Td: " + String(T_EEV_setpoint));
-        WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
+        case INPUT_TYPE_EEV_SETPOINT:
+          if (z == 1 ) {
+            Dec_E();
+          } else if (i == 1) {
+            Inc_E();
+          }
+          PrintS_and_D("EEV Td: " + String(T_EEV_setpoint));
+          WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);        
+          break;  
+        
+        case INPUT_TYPE_HOT_POMP_ON:
+          if (z == 1 ) {
+            hot_pomp_on = 0;
+          } else if (i == 1) {
+            hot_pomp_on = 1;
+          }
+          PrintS_and_D("H. POMP: " + String(hot_pomp_on));
+          WriteFloatEEPROM(eeprom_addr_hot_pomp_on, hot_pomp_on);
+          break;  
 
-      } else if (input_type == INPUT_TYPE_HOT_POMP_ON)  {
-        if (z == 1 ) {
-          hot_pomp_on = 0;
-        } else if (i == 1) {
-          hot_pomp_on = 1;
-        }
-        PrintS_and_D("H. POMP: " + String(hot_pomp_on));
-        WriteFloatEEPROM(eeprom_addr_hot_pomp_on, hot_pomp_on);
+        case INPUT_TYPE_COLD_POMP_ON:
+          if (z == 1 ) {
+            cold_pomp_on = 0;
+          } else if (i == 1) {
+            cold_pomp_on = 1;
+          }
+          PrintS_and_D("C POMP: " + String(cold_pomp_on));
+          break;  
 
-      } else if (input_type == INPUT_TYPE_COLD_POMP_ON)  {
-        if (z == 1 ) {
-          cold_pomp_on = 0;
-        } else if (i == 1) {
-          cold_pomp_on = 1;
-        }
-        PrintS_and_D("C POMP: " + String(cold_pomp_on));
-      
-      } else if (input_type == INPUT_TYPE_SUMP_HEATER_ON)  {
-        if (z == 1 ) {
-          sump_heater_on = 0;
-        } else if (i == 1) {
-          sump_heater_on = 1;
-        }
-        PrintS_and_D("HEATER: " + String(sump_heater_on));
+        case INPUT_TYPE_SUMP_HEATER_ON:
+          if (z == 1 ) {
+            sump_heater_on = 0;
+          } else if (i == 1) {
+            sump_heater_on = 1;
+          }
+          PrintS_and_D("HEATER: " + String(sump_heater_on));        
+          break;  
       }
       delay(300);
     }
@@ -2097,32 +1729,26 @@ void loop(void) {
 
     if (displ_inc  == 0 ) {
       displ_inc++;
-      outString = "Z:" + String(T_setpoint - T_delta, 1) + " / " + String(T_setpoint, 1);
+      outString = "Z:" + String(T_setpoint - T_delta, 1) + "/" + String(T_setpoint, 1) + " C:" + String(Tcwu_setpoint, 0);
       Print_D2(outString, 0);
-      if (Ttarget.e == 1) {
-        outString = "A:" + String(Ttarget.T, 1) + " E:" + String(EEV_cur_pos);
-        Print_D2(outString, 1);
-      } else {
-        outString += "ERR";
-        Print_D2(outString, 0);  //do not print serial
-      }
+      outString = "A:" + String(Ttarget.T, 1) + " CWU:" +  String(Tcwu.T, 1) ;
+      Print_D2(outString, 1);
     
     } else if (displ_inc  == 1 ) {
       displ_inc++;
       outString = "Be:" + String(Tbe.T, 1) + " Ae:" + String(Tae.T, 1);
       Print_D2(outString, 0);
-      outString = "HP:" + String(Tsump.T, 1) + " dT:" + String(T_EEV_dt, 1);
+      outString = "dT:" + String(T_EEV_dt, 1) + " E:" + String(EEV_cur_pos);
       Print_D2(outString, 1);
       
-     
      } else if (displ_inc  == 2 ) {
       displ_inc = 0;
-      outString = "HO:" + String(Tho.T, 1) + " CO:" + String(Tco.T, 1);
+      outString = "HP:" + String(Tsump.T, 1) + " CO:" + String(Tco.T, 1);
       Print_D2(outString, 0);
-      outString = "Watts: " + String(async_wattage, 1);     
+      outString = " W:" + String(async_wattage, 1) + ((start_force == 1) ? " F":"");
       Print_D2(outString, 1);
     }
-
+ 
 #else
     outString = "be:";
     if (Tbe.e == 1) {
@@ -2148,107 +1774,48 @@ void loop(void) {
 
     //--------------------important logic
     //check T sensors
-    if ((errorcode == ERR_OK) && ((Tae.e == 1 && Tae.T == -127) || (Tbe.e == 1 && Tbe.T == -127) || (Ttarget.e == 1 && Ttarget.T == -127) || (Tsump.e == 1 && Tsump.T == -127) || (Tci.e == 1 && Tci.T == -127) || (Tco.e == 1 && Tco.T == -127) || (Thi.e == 1 && Thi.T == -127) || (Tho.e == 1 && Tho.T == -127) || (Tbc.e == 1 && Tbc.T == -127) || (Tac.e == 1 && Tac.T == -127) || (Touter.e == 1 && Touter.T == -127) || (Ts1.e == 1 && Ts1.T == -127) || (Ts2.e == 1 && Ts2.T == -127))) {
+    if ((errorcode == ERR_OK) && ((Tae.e == 1 && Tae.T == -127) || 
+        (Tbe.e == 1 && Tbe.T == -127) || (Ttarget.e == 1 && Ttarget.T == -127) || (Tsump.e == 1 && Tsump.T == -127) || (Tci.e == 1 && Tci.T == -127) || 
+        (Tco.e == 1 && Tco.T == -127) || (Thi.e == 1 && Thi.T == -127) || (Tho.e == 1 && Tho.T == -127) || (Tbc.e == 1 && Tbc.T == -127) || 
+        (Tac.e == 1 && Tac.T == -127) || (Touter.e == 1 && Touter.T == -127) || (Tcwu.e == 1 && Tcwu.T == -127) 
+        // || (Ts2.e == 1 && Ts2.T == -127)
+        )) {
       errorcode = ERR_T_SENSOR;
-#ifdef RS485_HUMAN
-      PrintS_and_D("ERR:T.sens." + String(errorcode));
-#endif
     }
     //auto-clean sensor error on sensor appear
     // add 1xor enable here!
-    if ((errorcode == ERR_T_SENSOR) && (((Tae.e == 1 && Tae.T != -127) || (Tae.e ^ 1)) && ((Tbe.e == 1 && Tbe.T != -127) || (Tbe.e ^ 1)) && ((Ttarget.e == 1 && Ttarget.T != -127) || (Ttarget.e ^ 1)) && ((Tsump.e == 1 && Tsump.T != -127) || (Tsump.e ^ 1)) && ((Tci.e == 1 && Tci.T != -127) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T != -127) || (Tco.e ^ 1)) && ((Thi.e == 1 && Thi.T != -127) || (Thi.e ^ 1)) && ((Tho.e == 1 && Tho.T != -127) || (Tho.e ^ 1)) && ((Tbc.e == 1 && Tbc.T != -127) || (Tbc.e ^ 1)) && ((Tac.e == 1 && Tac.T != -127) || (Tac.e ^ 1)) && ((Touter.e == 1 && Touter.T != -127) || (Touter.e ^ 1)) && ((Ts1.e == 1 && Ts1.T != -127) || (Ts1.e ^ 1)) && ((Ts2.e == 1 && Ts2.T != -127) || (Ts2.e ^ 1)))) {
+    if ((errorcode == ERR_T_SENSOR) && 
+      (
+        ((Tae.e == 1 && Tae.T != -127) || (Tae.e ^ 1)) && 
+        ((Tbe.e == 1 && Tbe.T != -127) || (Tbe.e ^ 1)) && 
+        ((Ttarget.e == 1 && Ttarget.T != -127) || (Ttarget.e ^ 1)) &&
+        ((Tsump.e == 1 && Tsump.T != -127) || (Tsump.e ^ 1)) && 
+        ((Tci.e == 1 && Tci.T != -127) || (Tci.e ^ 1)) && 
+        ((Tco.e == 1 && Tco.T != -127) || (Tco.e ^ 1)) && 
+        ((Thi.e == 1 && Thi.T != -127) || (Thi.e ^ 1)) && 
+        ((Tho.e == 1 && Tho.T != -127) || (Tho.e ^ 1)) && 
+        ((Tbc.e == 1 && Tbc.T != -127) || (Tbc.e ^ 1)) && 
+        ((Tac.e == 1 && Tac.T != -127) || (Tac.e ^ 1)) && 
+        ((Touter.e == 1 && Touter.T != -127) || (Touter.e ^ 1)) && 
+        ((Tcwu.e == 1 && Tcwu.T != -127) || (Tcwu.e ^ 1)) 
+        //  && ((Ts2.e == 1 && Ts2.T != -127) || (Ts2.e ^ 1))
+       )
+    ) {
       errorcode = ERR_OK;
     }
 
     //process errors
-    //beep N times error
     if (errorcode != ERR_OK) {
       if (((unsigned long)(millis_now - millis_notification) > millis_notification_interval) || millis_notification == 0) {
         millis_notification = millis_now;
 #ifdef RS485_HUMAN
-        PrintS_and_D("Error:" + String(errorcode));
+        PrintS_and_D(F("ERR: T.sens."));
 #endif
-        for (i = 0; i < errorcode; i++) {
-          tone(speakerOut, ERR_HZ);
-          delay(500);
-          noTone(speakerOut);
-          delay(500);
-        }
       }
     }
 
 //-------------- EEV cycle
 #ifdef EEV_SUPPORT
-    /*
-			//v1 algo
-			if ( EEV_apulses == 0 )	{
-				if ( 	((async_wattage < c_workingOK_wattage_min) && ((unsigned long)(millis_now - millis_eev_last_close) > EEV_CLOSEEVERY))		||  millis_eev_last_close == 0  ){
-					PrintS_and_D("EEV: FULL closing");//!!!
-					if ( millis_eev_last_close != 0 ) {
-						EEV_apulses =  -(EEV_cur_pos + EEV_CLOSE_ADD_PULSES);
-					} else {
-						EEV_apulses =  -(EEV_MAXPULSES + EEV_CLOSE_ADD_PULSES);
-					}
-					EEV_adonotcare = 1;
-					EEV_fast = 1;
-					//delay(EEV_STOP_HOLD);
-					millis_eev_last_close = millis_now;
-				} else if (errorcode != 0 || async_wattage <= c_workingOK_wattage_min) {		//err or sleep
-					PrintS_and_D("EEV: err or sleep");//!!!
-					if (EEV_cur_pos <= 0 && EEV_OPEN_AFTER_CLOSE != 0) {				//set waiting pos
-						EEV_apulses = +EEV_OPEN_AFTER_CLOSE;
-						EEV_adonotcare = 0;
-						EEV_fast = 1;
-					}
-					if (EEV_cur_pos > 0  && EEV_cur_pos != EEV_OPEN_AFTER_CLOSE && EEV_cur_pos <= EEV_MAXPULSES) {	//waiting pos. set
-						PrintS_and_D("EEV: close");//!!!
-						EEV_apulses =  -(EEV_cur_pos + EEV_CLOSE_ADD_PULSES);
-						EEV_adonotcare = 1;
-						EEV_fast = 1;
-					}
-				} else if (errorcode == 0 && async_wattage > c_workingOK_wattage_min) {
-					T_EEV_dt = Tae.T - Tbe.T;
-					PrintS_and_D("EEV: driving " + String(T_EEV_dt));//!!!
-					if (EEV_cur_pos <= 0){
-						PrintS_and_D("EEV: full close protection");	
-						if (EEV_OPEN_AFTER_CLOSE != 0) {				//full close protection
-							EEV_apulses = +EEV_OPEN_AFTER_CLOSE;
-							EEV_adonotcare = 0;
-							EEV_fast = 1;
-						}
-					} else if (EEV_cur_pos > 0) {
-						if (T_EEV_dt  < (T_EEV_setpoint - EEV_EMERG_DIFF) ) {				//emerg!
-							PrintS_and_D("EEV: emergency closing!");//!!!
-							EEV_apulses = -EEV_EMERG_STEPS;
-							EEV_adonotcare = 0;
-							EEV_fast = 1;
-						} else if (T_EEV_dt  < T_EEV_setpoint) {					//too
-							PrintS_and_D("EEV: closing");//!!!
-							//EEV_apulses = -EEV_NONPRECISE_STEPS;
-							EEV_apulses = -1;
-							EEV_adonotcare = 0;
-							EEV_fast = 0;
-						} else if (T_EEV_dt  > T_EEV_setpoint + EEV_HYSTERESIS + EEV_PRECISE_START) {	//very
-							PrintS_and_D("EEV: fast opening");//!!!
-							//EEV_apulses =  +EEV_NONPRECISE_STEPS;
-							EEV_apulses =  +1;
-							EEV_adonotcare = 0;
-							EEV_fast = 1;
-						} else if (T_EEV_dt > T_EEV_setpoint + EEV_HYSTERESIS) {			//too
-							PrintS_and_D("EEV: opening");//!!!
-							EEV_apulses =  +1;
-							EEV_adonotcare = 0;
-							EEV_fast = 0;
-						} else if (T_EEV_dt  > T_EEV_setpoint) {					//ok
-							PrintS_and_D("EEV: OK");//!!!
-							//
-						}
-					}
-					off_EEV();
-				} 
-				
-			}
-			*/
     //v1.1 algo
     if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0) {   
       T_EEV_dt = Tae.T - Tbe.T;      
@@ -2281,6 +1848,7 @@ void loop(void) {
           EEV_adonotcare = 0;
           EEV_fast = 0;
         }
+        
         // wysoka temperatura przegrzania, otwórz zwór NATYCHMIAST (dt>10)
         //faster open when needed, condition copypasted (see EEV_apulses <= 0)
         if (T_EEV_dt > T_EEV_setpoint + EEV_HYSTERESIS + EEV_PRECISE_START) {  //very
@@ -2305,26 +1873,24 @@ void loop(void) {
           EEV_adonotcare = 0;
           EEV_fast = 1;
 
-          // wysoka temperatura przegrzania, otwórz zwór NORMALNIE (dt>4.6)
-        } else if (T_EEV_dt >= T_EEV_setpoint + EEV_HYSTERESIS) {			//too
-        //} else if ((T_EEV_dt >= T_EEV_setpoint + EEV_HYSTERESIS) && (T_EEV_dt_change == 0 || EEV_cur_pos == EEV_MINWORKPOS )) {  // jak temperatura spada to już nie otwieramy
+        // wysoka temperatura przegrzania, otwórz zwór NORMALNIE (dt>4.6)
+        } else if (T_EEV_dt >= T_EEV_setpoint + EEV_HYSTERESIS) {			
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 5 opening"));
 #endif
           EEV_apulses = +1;
           EEV_adonotcare = 0;
           EEV_fast = ((EEV_cur_pos == EEV_MINWORKPOS) ||  (EEV_cur_pos == EEV_MINWORKPOS +1) || (EEV_cur_pos == EEV_MINWORKPOS +2 ))  ? 1: 0;
-          //pozostaw w aktualnej pozycji
+        
+        //pozostaw w aktualnej pozycji
         } else if (T_EEV_dt > T_EEV_setpoint) {  //ok
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 6 OK"));
 #endif
-          //
         }
 
         //faster closing when needed, condition copypasted (see EEV_apulses >= 0)
         //jełsi temperatura przegezania (dt<2.5) to go zamknij NATYCHMIAST
-        //else if (T_EEV_dt < (T_EEV_setpoint - EEV_EMERG_DIFF)) {  //emerg!
         if ((T_EEV_dt < EEV_HYSTERESIS) || (Tci.e == 1 && Tci.T < cT_cold_min+2) || (Tco.e == 1 && Tco.T < cT_cold_min+2) ) {  //emerg!
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 7 enforce faster closing!"));
@@ -2351,6 +1917,7 @@ void loop(void) {
         EEV_fast = 1;
         //delay(EEV_STOP_HOLD);
         millis_eev_last_close = millis_now;
+
       } else if (errorcode != 0 || async_wattage < c_workingOK_wattage_min) {  //err or sleep
         if (EEV_cur_pos > 0 && EEV_cur_pos > EEV_OPEN_AFTER_CLOSE) {           //waiting pos. set
 #ifdef EEV_DEBUG
@@ -2386,20 +1953,13 @@ void loop(void) {
       }
       off_EEV();
     }
+
     if (((unsigned long)(millis_now - millis_eev_last_on) > 10000) || millis_eev_last_on == 0) {
       //PrintS_and_D("EEV: ON/OFF");
       on_EEV();
       //delay(30);
       //off_EEV();	//off_EEV called everywhere takes care of it
       millis_eev_last_on = millis_now;
-
-      // T_EEV_dt_falls = (T_EEV_dt < T_EEV_dt_last);
-      // T_EEV_dt_last = T_EEV_dt;
-      //T_EEV_dt_change = ((unsigned long)(Tbe.T *10)) != ((unsigned long)(T_EEV_Be*10));
-      //T_EEV_dt_change = T_EEV_dt_change || ((unsigned long)(Tae.T)) != ((unsigned long)(T_EEV_Ae)) ;
-      //T_EEV_Be = Tbe.T;
-      //T_EEV_Ae = Tae.T;
-
     }
 #endif
     //-------------- EEV cycle END
@@ -2419,63 +1979,54 @@ void loop(void) {
 
     //main logic
     if (_1st_start_sleeped == 0) {
-      //PrintS_and_D("!!!!sleep disabled!!!!");
-      //_1st_start_sleeped = 1;
       if ((millis_now < poweron_pause) && (_1st_start_sleeped == 0)) {
-        PrintS_and_D("Wait: " + String(((poweron_pause - millis_now)) / 1000) + " s.");
+        Print_D2("Wait: " + String(((poweron_pause - millis_now)) / 1000) + " s.", 0, 1);
         return;
       } else {
         _1st_start_sleeped = 1;
       }
     }
 
+    // process cwu
+    if (Tcwu.e == 1 && 
+        errorcode == 0 && 
+        (Ttarget.T > Tcwu.T || Tho.e == 1 && Tho.T > Tcwu.T) ) {
+      if (Tcwu.T <= Tcwu_setpoint-2 && coldside_circle_state == 0 ) {
+        cwu_state = 1;
+      } else if (Tcwu.T >= Tcwu_setpoint ) {
+        cwu_state = 0;
+      }
+    } else {
+        cwu_state = 0;
+    }
+
     //process_heatpump:
-    //start if
-    //    (last_on > N or not_started_yet)
-    //    and (no errors)
-    //    and (t hot out < t target + heat_delta_min)
-    //    and (sump t > min'C)
-    //    and (sump t < max'C)
-    //    and (t watertank < target)
-    //    and (t after evaporator > after evaporator min)
-    //    and (t cold in > cold min)
-    //    and (t cold out > cold min)
     if (heatpump_state == 0 && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) &&
-        //( tr_hot_out < (tr_sens_1 + cT_hotcircle_delta_min)  )    &&
         errorcode == 0 && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) &&
-        //t1_sump > t2_cold_in   && ???
-        //RO+
-        //Ttarget.T < T_setpoint  						&&    //was room here, change to advanced algo with room temperature
-        Ttarget.T + T_delta < T_setpoint &&
-        //
+        ((( Ttarget.T + T_delta < T_setpoint) && (cwu_state == 0)) || (( Ttarget.T < T_setpoint) && (cwu_state == 1 || start_force == 1))) &&
         ((Tae.e == 1 && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) && ((Tbc.e == 1 && Tbc.T < cT_before_condenser_max) || (Tbc.e ^ 1)) && ((Tci.e == 1 && Tci.T > cT_cold_min) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T > cT_cold_min) || (Tco.e ^ 1))) {
         millis_last_heatpump_off = millis_now;
         millis_last_heatpump_on = millis_now;
         heatpump_state = 1;
     }
+
     //stop if
-    //    ( (last_off > N) and (t watertank > target) )
     if (heatpump_state == 1 && (Ttarget.T > T_setpoint)) {
       if ((unsigned long)(millis_now - millis_last_heatpump_on) > mincycle_poweron) {
         millis_last_heatpump_off = millis_now;
         heatpump_state = 0;
 
+        start_force = 0;
         //reset overload
-        overload_count = 0;
+        error_count = 0;
       }
     }
 
     if ((heatpump_state == 0) && (hotside_circle_state == 1)) {
       if ((deffered_stop_hotcircle != 0 && ((unsigned long)(millis_now - millis_last_heatpump_off) > deffered_stop_hotcircle))) {
-        //if ((Tho.e == 1 && Tho.T > (Ttarget.T + cT_hotcircle_delta_min)) || (Thi.e == 1 && Thi.T > (Ttarget.T + cT_hotcircle_delta_min))) {
         if ((Tho.e == 1 && Tho.T > (Ttarget.T + cT_hotcircle_delta_min))) {
-          // #ifdef RS485_HUMAN
-          //   PrintS(String("Tho or Thi > ") + String((unsigned long)(Ttarget.T) + cT_hotcircle_delta_min) + String(" -> Hot WP ON"));
-          // #endif
+          //
         } else {
-          // #ifdef RS485_HUMAN
-          //   PrintS(F("Hot WP OFF"));
-          // #endif
           hotside_circle_state = 0;
         }
       }
@@ -2485,9 +2036,6 @@ void loop(void) {
     //stop if (heatpump_disabled and (t hot out or in < t target + heat delta min) )
     //delayed start hot side
     else if ((heatpump_state == 1) && (hotside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME)) {
-      // #ifdef RS485_HUMAN
-      // 	PrintS(F("Hot WP ON"));
-      // #endif
       hotside_circle_state = 1;
     }
 
@@ -2496,22 +2044,15 @@ void loop(void) {
     //stop if (heatpump_disbled)
     //delayed start cold side
     if ((heatpump_state == 1) && (coldside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME)) {
-      // #ifdef RS485_HUMAN
-      // 	PrintS(F("Cold WP ON"));
-      // #endif
       coldside_circle_state = 1;
     }
 
     if ((heatpump_state == 0) && (coldside_circle_state == 1)) {
       if (  (deffered_stop_coldcircle != 0 && ((unsigned long)(millis_now - millis_last_heatpump_off) > deffered_stop_coldcircle)) &&
             (Tbe.e == 1 && Tbe.T > 0) && (Tae.e == 1 && Tae.T > 0) ) {
-        // #ifdef RS485_HUMAN
-        //   PrintS(F("Cold WP OFF"));
-        // #endif
         coldside_circle_state = 0;
       }
     }
-
 
     //protective_cycle:
     //stop if
@@ -2532,11 +2073,11 @@ void loop(void) {
           (Tco.e == 1 && Tco.T < cT_cold_min))
         ) {
 #ifdef RS485_HUMAN
-      PrintS_and_D("STOP Err.:" + String(errorcode, HEX));
+      PrintS_and_D(F("Err. temp."));
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
-      //digitalWrite(RELAY_HEATPUMP, heatpump_state);  // old, now halifised
+      cwu_state = 0;
     }
 
     //alive_check_cycle_after_5_mins:
@@ -2548,299 +2089,167 @@ void loop(void) {
     //      or wattage too low
 
     if (heatpump_state == 1 && ((unsigned long)(millis_now - millis_last_heatpump_on) > MINCYKLE_CHECK)) {
-      //cold side processing simetimes works incorrectly, after long period of inactivity, due to T inertia on cold tube sensor, commented out
-      //if ( ( errorcode == ERR_OK )     &&   (  tr_cold_in - tr_cold_out < cT_workingOK_cold_delta_min ) ) {
-      //    errorcode = ERR_COLD_PUMP;
-      //}
-      //if ( ( errorcode == ERR_OK )     &&   (  Tho.e == 1 && Thi.e == 1 && (Tho.T - Thi.T < cT_workingOK_hot_delta_min )) ) {
-      //	errorcode = ERR_HOT_PUMP;
-      //}
       if ((errorcode == ERR_OK) && (Tsump.e == 1 && Tsump.T < cT_workingOK_sump_min)) {
-        //errorcode = ERR_HEATPUMP;
         millis_last_heatpump_off = millis_now;
         heatpump_state = 0;
+        cwu_state = 0;
 #ifdef RS485_HUMAN
-        PrintS_and_D("Error HEATPUMP: " + String(Tsump.T));
+        PrintS_and_D(F("Err. HP temp. MIN"));
 #endif
       }
       if ((errorcode == ERR_OK) && (async_wattage < c_workingOK_wattage_min)) {
-        //errorcode = ERR_WATTAGE;
         millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopOnError();
 #ifdef RS485_HUMAN
-        PrintS_and_D("Error WATTAGE: " + String(async_wattage));
+        PrintS_and_D(F("Err. WATTAGE MIN"));
 #endif
       }
-      //digitalWrite(RELAY_HEATPUMP, heatpump_state);	// old, now halifised
     }
 
     //disable pump by error
     if (errorcode != ERR_OK) {
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
-//digitalWrite(RELAY_HEATPUMP, heatpump_state);	// old, now halifised
 #ifdef RS485_HUMAN
-      PrintS_and_D("Error: " + String(errorcode, HEX));
+      PrintS_and_D("Err: " + String(errorcode, HEX));
 #endif
     }
 
     //prevent error - zepsuty przekaźnik
     if ( async_wattage > c_workingOK_wattage_min && heatpump_state == 0 && (millis_now - millis_last_heatpump_off)> 10000 
           && ( coldside_circle_state == 0 || hotside_circle_state == 0 )) {
-      coldside_circle_state = 1;
-      hotside_circle_state = 1;
-      PrintS_and_D("Error RY");
+      hot_pomp_on = 1;
+      cold_pomp_on = 1;
+      PrintS_and_D(F("Err. RY"));
     }
-    //!!! self-test
-    ///heatpump_state = 1;
-
-    //!!! write states to relays, old, now halifised
-    //digitalWrite	(RELAY_HEATPUMP, 	heatpump_state);
-    //digitalWrite	(RELAY_COLDSIDE_CIRCLE,	coldside_circle_state);
     halifise();
 #endif
   }
 
-  if (RS485Serial.available() > 0) {
-  	//RS485Serial.println("some on serial..");	//!!!debug
-  	// #ifdef RS485_HUMAN
-  	// 	if (RS485Serial.available()) {
-  	// 		// inChar = RS485Serial.read();
-  	// 		// //RS485Serial.print(inChar);	//!!!debug
-  	// 		// if ( inChar == 0x1B ) {
-  	// 		// 	skipchars += 3;
-  	// 		// 	inChar = 0x00;
-  	// 		// 	millis_escinput = millis();
-  	// 		// }
-  	// 		// if ( skipchars != 0 ) {
-  	// 		// 	millis_charinput = millis();
-  	// 		// 	//if (millis_escinput + 2 > millis_charinput)
-  	// 		// 	if ((unsigned long)(millis_charinput - millis_escinput) < 16*2 ) {	//2 chars for 2400
-  	// 		// 		if (inChar != 0x7e) {
-  	// 		// 			skipchars -= 1;
-  	// 		// 		}
-  	// 		// 		if (inChar == 0x7e) {
-  	// 		// 			skipchars = 0;
-  	// 		// 		}
-  	// 		// 		if (inChar >= 0x30 && inChar <= 0x35) {
-  	// 		// 			skipchars += 1;
-  	// 		// 		}
-  	// 		// 		inChar = 0x00;
-  	// 		// 	} else {
-  	// 		// 		skipchars = 0;
-  	// 		// 	}
-  	// 		// }
+	if (RS485Serial.available() > 0) {
+    index = 0;
+    while  (RS485Serial.available()) {
+      inChar = RS485Serial.read();
+      delayMicroseconds(80);
+      if (index < 49) {
+        inData[index] = inChar;
+        index++; 
+        inData[index] = '\0';
+      }
+    }
 
-  	// 		//- RS485_HUMAN: remote commands +,-,G,0x20/?/Enter
-  	// 	// 	switch (inChar) {
-  	// 	// 		case 0x00:
-  	// 	// 			break;
-  	// 	// 		case 0x20:
-  	// 	// 		case 0x3F:
-  	// 	// 		case 0x0D:
-  	// 	// 			// _PrintHelp();
-  	// 	// 			break;
-  	// 	// 		case 0x2B:
-  	// 	// 			Inc_T();
-  	// 	// 			break;
-  	// 	// 		case 0x2D:
-  	// 	// 			Dec_T();
-  	// 	// 			break;
-  	// 	// 		case 0x3C:
-  	// 	// 			Dec_E();
-  	// 	// 			break;
-  	// 	// 		case 0x3E:
-  	// 	// 			Inc_E();
-  	// 	// 			break;
-  	// 	// 		case 0x47:
-  	// 	// 		case 0x67:
-  	// 	// 			// PrintStats_Serial();
-  	// 	// 			break;
-  	// 	// 		}
-  	// 	}
-  	// #endif
+    if (inData[0] == devID  ) {
+      switch (inData[1]) {
+        case 0x01:
+        case 0x02:
+          StatsSerial();
+          break;
+        case 0x05:
+          switch (inData[2]) {
+            case 0x01:
+              start_force = bool(inData[3]);
+              //Print_D2("T min: " + (start_force ? String(T_setpoint,1) : String(T_setpoint - T_delta,1)), 0, 1);
+              outString = "{\n";
+              outString += "\"Tmin\": \"" + (start_force ? String(T_setpoint,1) : String(T_setpoint - T_delta,1)) + "\"\n";
+              outString += "}";
+              break;
+            case 0x02:
+              T_setpoint = double(inData[3]) + double(inData[4])/100;
+              SaveSetpointEE(1);
+              //Print_D2("T max: " + String(T_setpoint,1), 0, 1);
+              outString = "{\n"; 
+              outString += "\"Tmax\": \"" +  String(T_setpoint,1) + "\"\n";
+              outString += "}";
+              break;
+            case 0x03:
+              T_delta =  double(inData[3]) + double(inData[4])/100;
+              //Print_D2("T min: " + String(T_setpoint - T_delta,1), 0, 1);
+              WriteFloatEEPROM(eeprom_addr_dT, T_delta);
+              outString = "{\n";
+              outString += "\"Tmin\": \"" + String(T_setpoint - T_delta,1) + "\"\n";
+              outString += "}";
+              break;
+          } 
+          break;
+        default:
+          outString = F("{\n\"Error\": \"1\"\n}");
+      }
 
-  // 	#ifdef RS485_PYTHON
-  // 		index = 0;
-  // 		while (RS485Serial.available() > 0) { // Don't read unless you know there is data
-  // 			if(index < 49) {   //  size of the array minus 1
-  // 				inChar = RS485Serial.read(); 	// Read a character
-  // 				inData[index] = inChar;      	// Store it
-  // 				index++;                     	// Increment where to write next
-  // 				inData[index] = '\0';        	// clear next symbol, null terminate the string
-  // 				delayMicroseconds(80);       	//80 microseconds - the best choice at 9600, "no answer"disappeared
-  // 								//40(20??) microseconds seems to be good, 9600, 49 symbols
-  // 								//
-  // 			} else {            //too long message! read it to nowhere
-  // 				inChar = RS485Serial.read();
-  // 				delayMicroseconds(80);
-  // 				//break;    //do not break if symbols!!
-  // 			}
-  // 		}
+      digitalWrite(SerialTxControl, RS485Transmit);
+      delay(10);
 
-  // 		//!!!debug, be carefull, can cause strange results
-  // 		/*
-  // 		if (inData[0] != 0x00) {
-  // 		RS485Serial.println("-");
-  // 		RS485Serial.println(inData);
-  // 		RS485Serial.println("-");
-  // 		}
-  // 		*/
-  // 		//or this debug
-  // 		/*
-  // 		digitalWrite(SerialTxControl, RS485Transmit);
-  // 		delay(10);
-  // 		RS485Serial.println(inData);
-  // 		RS485Serial.flush();
-  // 		RS485Serial.println(index);
-  // 		*/
+      char *outChar=&outString[0];
+      RS485Serial.println(outChar);
 
-  // 		//ALL lines must be terminated with \n!
-  // 		if ( (inData[0] == hostID) && (inData[1] == devID) ) {
-  // 			//  COMMANDS:
-  // 			// G (0x47): (G)et main data
-  // 			// TNN.NN (0x54): set aim (T)emperature
-  // 			digitalWrite(SerialTxControl, RS485Transmit);
-  // 			delay(1);
-  // 			//PrintS_and_D(freeMemory());
-  // 			outString = "";
-  // 			outString += devID;
-  // 			outString += hostID;
-  // 			outString +=  "A ";  //where A is Answer, space after header
+      RS485Serial.flush();
+      digitalWrite(SerialTxControl, RS485Receive);
+      delay(10);
+    }
 
-  // 			if ( (inData[2] == 0x47 ) ) {
-  // 				//PrintS_and_D("G");
-  // 				//WARNING: this procedure can cause "NO answer" effect if no or few T sensors connected
-  // 				outString += "{";
-  // 				outString += "\"E1\":" + String(errorcode);
-  // 				if (Ts1.e == 1) {
-  // 					outString += ",\"TS1\":" + String(Ts1.T);
-  // 				}
-  // 				if (Tsump.e == 1) {
-  // 					outString += ",\"TS\":" + String(Tsump.T);
-  // 				}
-  // 				if (Tho.e == 1) {
-  // 					outString += ",\"THO\":" + String(Tho.T);
-  // 				}
-  // 				if (Tae.e == 1) {
-  // 					outString += ",\"TAE\":" + String(Tae.T);
-  // 				}
-  // 				char *outChar=&outString[0];
-  // 				RS485Serial.write(outChar);                    	//dirty hack to transfer long string
-  // 				RS485Serial.flush();
-  // 				delay (1);                                      //lot of errors without delay
-  // 				outString = "";
-  // 				if (Tbe.e == 1) {
-  // 					outString += ",\"TBE\":" + String(Tbe.T);
-  // 				}
-  // 				if (Touter.e == 1) {
-  // 					outString += ",\"TO\":" + String(Touter.T);
-  // 				}
-  // 				if (Tco.e == 1) {
-  // 					outString += ",\"TCO\":" + String(Tco.T);
-  // 				}
-  // 				outString += ",\"W1\":" + String(async_wattage);
-  // 				#ifndef EEV_ONLY
-  // 					outString += ",\"A1\":" + String(T_setpoint);  //(A)im (target)
-  // 					//!!!!! must be changed for G9 v1.4 - personal pin !!!!!!!
-  // 					#ifndef BOARD_TYPE_G9
-  // 						outString += ",\"RP\":" + String(heatpump_state*RELAY_HEATPUMP);
-  // 					#endif
-  // 					#ifdef BOARD_TYPE_G9
-  // 						outString += ",\"RP\":" + String(heatpump_state*20);
-  // 					#endif
-  // 					//!!!!!
-  // 				#endif
-  // 				if (Tci.e == 1) {
-  // 					outString += ",\"TCI\":" + String(Tci.T);
-  // 				}
-  // 				RS485Serial.write(outChar);                       //dirty hack to transfer long string
-  // 				RS485Serial.flush();
-  // 				delay (1);                                        //lot of errors without delay
-  // 				outString = "";
-  // 				if (Thi.e == 1) {
-  // 					outString += ",\"THI\":" + String(Thi.T);
-  // 				}
-  // 				#ifndef EEV_ONLY
-  // 					outString += ",\"RSH\":" + String(sump_heater_state*3);
-  // 					outString += ",\"RH\":" + String(hotside_circle_state*2);
-  // 					outString += ",\"RC\":" + String(coldside_circle_state*1);
-  // 				#endif
-  // 				if (Tbc.e == 1) {
-  // 					outString += ",\"TBC\":" + String(Tbc.T);
-  // 				}
-  // 				RS485Serial.write(outChar);                        //dirty hack to transfer long string
-  // 				RS485Serial.flush();
-  // 				delay (1);                                        //lot of errors without delay
-  // 				outString = "";
-  // 				if (Ts2.e == 1) {
-  // 					outString += ",\"TS2\":" + String(Ts2.T);
-  // 				}
-  // 				if (Tac.e == 1) {
-  // 					outString += ",\"TAC\":" + String(Tac.T);
-  // 				}
-  // 				if (Ttarget.e == 1) {
-  // 					outString += ",\"TT\":" + String(Ttarget.T);
-  // 				}
-  // 				#ifdef EEV_SUPPORT
-  // 					outString += ",\"EEVP\":" + String(EEV_cur_pos);
-  // 					outString += ",\"EEVA\":" + String(T_EEV_setpoint);
-  // 				#endif
-  // 				outString += "}";
-  // 			} else if ( (inData[2] == 0x54 ) || (inData[2] == 0x45 )) {  //(T)arget or (E)EV target format NN.NN, text
-  // 				if ( isDigit(inData[ 3 ]) && isDigit(inData[ 4 ]) && (inData[ 5 ] == 0x2e)  && isDigit(inData[ 6 ]) && isDigit(inData[ 7 ]) && ( ! isDigit(inData[ 8 ])) ) {
+    for (i=0;i<49;i++) {  //clear buffer
+      inData[i]=0;
+    }
+	}
+    
+}
 
-  // 					tone(speakerOut, 2250);
-  // 					delay (100); // like ups power on
-  // 					noTone(speakerOut);
+void StatsSerial(void) {
+  outString = "{\n";
+  outString += "\"Tbe\": \""+ String(Tbe.T, 1) +"\",\n";
+  outString += "\"Tae\": \"" + String(Tae.T, 1) +"\",\n";
+  outString += "\"Tco\": \""+ String(Tco.T, 1) +"\",\n";
+  outString += "\"Tho\": \""+ String(Tho.T, 1) +"\",\n";
+  outString += "\"Ttarget\": \""+ String(Ttarget.T, 1) +"\",\n";
+  outString += "\"Tsump\": \""+ String(Tsump.T, 1) +"\",\n";
+  // if (Tci.e == 1) {
+  //   outString += "\"Tci\": \""+ String(Tci.T, 1) +"\",\n";
+  // }
+  outString += "\"EEV_dt\": \""+ String(T_EEV_dt, 1) +"\",\n";
+  
+  // if (Thi.e == 1) {
+  //   outString = "Thi: " + String(Thi.T, 1);
+  //   RS485Serial.println(outString);
+  // }
+  // if (Tbc.e == 1) {
+  //   outString = "Tbc: " + String(Tbc.T, 1);
+  //   RS485Serial.println(outString);
+  // }
+  // if (Tac.e == 1) {
+  //   outString = "Tac: " + String(Tac.T, 1);
+  //   RS485Serial.println(outString);
+  // }
+  outString += "\"Touter\": \""+ String(Touter.T, 1) +"\",\n";
+  outString += "\"Tcwu\": \""+ String(Tcwu.T, 1) +"\",\n";
 
-  // 					char * carray = &inData[ 3 ];
-  // 					tempdouble = atof(carray);
-  // 					if (inData[2] == 0x54 ){
-  // 						if (tempdouble > cT_setpoint_max) {
-  // 							outString += "{\"err\":\"too hot!\"}";
-  // 						} else if (tempdouble < 1.0) {
-  // 							outString += "{\"err\":\"too cold!\"}";
-  // 						} else {
-  // 							T_setpoint = tempdouble;
-  // 							outString += "{\"result\":\"ok, new value is: ";
-  // 							outString += String(T_setpoint);
-  // 							outString += "\"}";
-  // 						}
-  // 					}
-  // 					if (inData[2] == 0x45 ) {
-  // 						if (tempdouble > 10.0) {		//!!!!!!! hardcode !!!
-  // 							outString += "{\"err\":\"too hot!\"}";
-  // 						} else if (tempdouble < 0.1) {		//!!!!!!! hardcode !!!
-  // 							outString += "{\"err\":\"too cold!\"}";
-  // 						} else {
-  // 							T_EEV_setpoint = tempdouble;
-  // 							outString += "{\"result\":\"ok, new EEV value is: ";
-  // 							outString += String(T_EEV_setpoint);
-  // 							outString += "\"}";
-  // 						}
-  // 					}
-  // 				} else {
-  // 					outString += "{\"err\":\"NaN, format: NN.NN\"}";
-  // 				}
-  // 			} else {
-  // 				//default, just for example
-  // 				outString += "{\"err\":\"no_command\"}";
-  // 			}
-  // 			//crc.integer = CRC16.xmodem((uint8_t& *) outString, outString.length());
-  // 			//outString += (crc, HEX);
-  // 			outString += "\n";
-  // 			char *outChar=&outString[0];
-  // 			RS485Serial.write(outChar);
-  // 		}
+  // if (Ts2.e == 1) {
+  //   outString = "Ts2: " + String(Ts2.T, 1);
+  //   RS485Serial.println(outString);
+  // }
 
-  // 		index = 0;
-  // 		for (i=0;i<49;i++) {  //clear buffer
-  // 			inData[i]=0;
-  // 		}
-  // 		RS485Serial.flush();
-  // 		digitalWrite(SerialTxControl, RS485Receive);
-  // 		delay(1);
-  // 	#endif
-  }
+  outString += "\"Tmin\": \""+ String((T_setpoint - T_delta), 1) +"\",\n";
+  outString += "\"Tmax\": \""+ String(T_setpoint, 1) +"\",\n";
+  outString += "\"Watts\": \""+ String(async_wattage, 1) +"\",\n";
+  
+  // outString = "Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF");
+  // RS485Serial.println(outString);
+  
+  // outString = "Cold pomp: " + String(emergency);
+  // RS485Serial.println(outString);
+
+  // if (heatpump_state == 1) {
+  //   RS485Serial.println("HPon: " + String((unsigned long)(millis() - millis_last_heatpump_on) / 1000));
+  
+  // } else if (heatpump_state == 0 && millis_last_heatpump_off != 0) {
+  //   RS485Serial.println("HPoff: " + String((unsigned long)(millis() - millis_last_heatpump_off) / 1000));
+  // }
+
+  outString += "\"EEV\": \""+ String(T_EEV_setpoint, 1) +"\",\n";
+  outString += "\"EEV_pos\": \""+ String(EEV_cur_pos) +"\",\n";
+  // outString = "EEV_apulses: " + String(EEV_apulses);
+  // RS485Serial.println(outString);
+
+  outString += "\"Force\": \""+ String(start_force) +"\",\n";
+  outString += "\"Err\": \""+ String(errorcode) +"\"\n";
+  
+  outString += "}";
 }
