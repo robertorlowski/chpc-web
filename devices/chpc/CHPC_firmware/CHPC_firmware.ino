@@ -257,19 +257,19 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 //
 
-#ifdef RS485_PYTHON
-#define RS485 RS485_PYTHON
-char ishuman = 0;
-#endif
+// #ifdef RS485_PYTHON
+// #define RS485 RS485_PYTHON
+// char ishuman = 0;
+// #endif
 
-#ifdef RS485_HUMAN
-#define RS485 RS485_HUMAN
-char ishuman = 1;
-#endif
+// #ifdef RS485_HUMAN
+// #define RS485 RS485_HUMAN
+// char ishuman = 1;
+// #endif
 
-#ifdef RS485_NONE
-char ishuman = 0;
-#endif
+// #ifdef RS485_NONE
+// char ishuman = 0;
+// #endif
 
 //hardware resources
 #define OW_BUS_ALLTSENSORS 12
@@ -337,25 +337,24 @@ String hw_version = "Type G9 v1.x";
 #endif
 #endif
 //---------------------------memory debug
-#ifdef __arm__
-// should use uinstd.h to define sbrk but Due causes a conflict
-extern "C" char *sbrk(int incr);
-#else   // __ARM__
-extern char *__brkval;
-#endif  // __arm__
+// #ifdef __arm__
+// // should use uinstd.h to define sbrk but Due causes a conflict
+// extern "C" char *sbrk(int incr);
+// #else   // __ARM__
+// extern char *__brkval;
+// #endif  // __arm__
 
-int freeMemory() {
-  char top;
-#ifdef __arm__
-  return &top - reinterpret_cast<char *>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-  return &top - __brkval;
-#else   // __arm__
-  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif  // __arm__
-}
+// int freeMemory() {
+//   char top;
+// #ifdef __arm__
+//   return &top - reinterpret_cast<char *>(sbrk(0));
+// #elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+//   return &top - __brkval;
+// #else   // __arm__
+//   return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+// #endif  // __arm__
+// }
 //---------------------------memory debug END
-
 
 #include <avr/wdt.h>
 #include <EEPROM.h>
@@ -485,8 +484,8 @@ unsigned long millis_displ_update = 0;
 unsigned long millis_displ_update_interval = 10000;
 unsigned long displ_inc = 0;
 
-unsigned long millis_escinput = 0;
-unsigned long millis_charinput = 0;
+// unsigned long millis_escinput = 0;
+// unsigned long millis_charinput = 0;
 
 unsigned long millis_lasteesave = 0;
 
@@ -498,7 +497,7 @@ unsigned long millis_eev_last_step = 0;
 
 unsigned long error_count = 0;
 
-int skipchars = 0;
+// int skipchars = 0;
 
 #define INPUT_TYPE_TEMP 0
 #define INPUT_TYPE_DT 1
@@ -551,7 +550,7 @@ int errorcode = 0;
 //--------------------------- for wattage
 #define ADC_BITS 10  //10 fo regular arduino
 #define ADC_COUNTS (1 << ADC_BITS)
-float em_calibration = 97.0;//62.5;
+float em_calibration = 96.0;//62.5;
 int em_samplesnum = 2960;  // Calculate Irms only 1480 == full 14 periods for 50Hz
 //double Irms       	= 0;      	//for tests with original procedure
 int supply_voltage = 0;
@@ -649,7 +648,6 @@ char CheckAddrExists(void) {
   // }
   if (i == 8) return 1;
   return 0;
-
 }
 
 void InitS_and_D(void) {
@@ -671,27 +669,25 @@ void PrintS(String str) {
   char *outChar = &str[0];
   digitalWrite(SerialTxControl, RS485Transmit);
   delay(10);
-  RS485Serial.print(outChar);
+  RS485Serial.println(outChar);
   RS485Serial.flush();
   digitalWrite(SerialTxControl, RS485Receive);
 #endif
 }
 
-void PrintS_and_D(String str, int printSerial = 1) {
+void PrintS_and_D(String str) {
   char *outChar = &str[0];
   if (str == "") {
     return;
   }
-
 #ifdef RS485_HUMAN
-  if (ishuman != 0 && printSerial == 1) {
-    digitalWrite(SerialTxControl, RS485Transmit);
-    delay(10);
-    RS485Serial.print(outChar);
-    RS485Serial.println();
-    RS485Serial.flush();
-    digitalWrite(SerialTxControl, RS485Receive);
-  }
+  // if (ishuman != 0 && printSerial == 1) {
+  digitalWrite(SerialTxControl, RS485Transmit);
+  delay(10);
+  RS485Serial.print(outChar);
+  RS485Serial.println();
+  RS485Serial.flush();
+  digitalWrite(SerialTxControl, RS485Receive);
 #endif
 
 #ifdef DISPLAY_096
@@ -707,37 +703,25 @@ void PrintS_and_D(String str, int printSerial = 1) {
 #endif
 }
 
-void Print_D2(String outString, int line = 0, bool clear = false) {
+void Print_D(String outString) {
 #ifdef DISPLAY_1602
-  if (clear) {
-    lcd.begin(16,2);
-    lcd.clear();
-    delay(10);
-  }
+  lcd.begin(16,2);
+  lcd.clear();
+  delay(10);
+  lcd.setCursor(0, 0);
+  lcd.print(outString);
+#endif
+}
+
+void Print_D2(String outString, int line) {
+#ifdef DISPLAY_1602
   lcd.setCursor(0, line);
   lcd.print(outString);
 #endif
 }
 
-// void PrintStats_Serial(void) {
-// #ifdef RS485_HUMAN
-//   digitalWrite(SerialTxControl, RS485Transmit);
-//   delay(10);
-
-//   StatsSerial();
-
-//   char *outChar=&outString[0];
-//   RS485Serial.println(outChar);
-
-//   RS485Serial.flush();
-//   digitalWrite(SerialTxControl, RS485Receive);
-//   delay(10);
-// #endif
-// }
-
 void Inc_EEV(void) {
   if (EEV_MAXPULSES_OPEN + 1 > EEV_MAXPULSES) {
-    PrintS_and_D(F("Max!"));
     return;
   }
   EEV_MAXPULSES_OPEN += 1;
@@ -745,23 +729,20 @@ void Inc_EEV(void) {
 
 void Dec_EEV(void) {
   if (EEV_MAXPULSES_OPEN - 1 < EEV_MINWORKPOS) {
-    PrintS_and_D(F("Min!"));
     return;
   }
   EEV_MAXPULSES_OPEN -= 1;
 }
 
 void Inc_Tdelta(void) {
-  if (T_delta + 0.5 > cT_delta_max) {
-    PrintS_and_D(F("Max!"));
+  if (T_delta + 0.5 >= T_setpoint) {
     return;
   }
   T_delta += 0.5;
 }
 
 void Dec_Tdelta(void) {
-  if (T_delta - 0.5 < 0) {
-    PrintS_and_D(F("Min!"));
+  if (T_delta - 0.5 <= 0) {
     return;
   }
   T_delta -= 0.5;
@@ -769,7 +750,6 @@ void Dec_Tdelta(void) {
 
 void Inc_T(void) {
   if (T_setpoint + 0.5 > cT_setpoint_max) {
-    PrintS_and_D(F("Max!"));
     return;
   }
   T_setpoint += 0.5;
@@ -777,7 +757,6 @@ void Inc_T(void) {
 
 void Dec_T(void) {
   if (T_setpoint - 0.5 < 1.0) {
-    PrintS_and_D(F("Min!"));
     return;
   }
   T_setpoint -= 0.5;
@@ -785,7 +764,6 @@ void Dec_T(void) {
 
 void Inc_Tcwu(void) {
   if (Tcwu_setpoint + 0.5 > cT_setpoint_max) {
-    PrintS_and_D(F("Max!"));
     return;
   }
   Tcwu_setpoint += 0.5;
@@ -793,12 +771,10 @@ void Inc_Tcwu(void) {
 
 void Dec_Tcwu(void) {
   if (Tcwu_setpoint - 0.5 < 1.0) {
-    PrintS_and_D(F("Min!"));
     return;
   }
   Tcwu_setpoint -= 0.5;
 }
-
 
 void Inc_E(void) { 
   T_EEV_setpoint += 0.1;
@@ -810,7 +786,6 @@ void Dec_E(void) {
   } 
   T_EEV_setpoint -= 0.1;
 }
-
 
 void ReadEECheckAddr(unsigned char *to_addr) {
   for (i = 0; i < 8; i++) {
@@ -1290,7 +1265,7 @@ void setup(void) {
   InitS_and_D();
   pinMode(SerialTxControl, OUTPUT);
   digitalWrite(SerialTxControl, RS485Receive);
-  delay(100);
+  delay(10);
   PrintS_and_D("ID: 0x" + String(devID, HEX));
   delay(200);
 
@@ -1339,11 +1314,6 @@ void setup(void) {
     //   hot_pomp_on = 0;
     // }
 
-    Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
-    if (isnan(Tcwu_setpoint)) {
-      Tcwu_setpoint = CWU_setpoint;
-    }
-
     T_EEV_setpoint = ReadFloatEEPROM(eeprom_addr_EEV_setpoint);
     if (isnan(T_EEV_setpoint)) {
       T_EEV_setpoint = EEV_TARGET_TEMP_DIFF;
@@ -1353,7 +1323,9 @@ void setup(void) {
     if (isnan(EEV_MAXPULSES_OPEN) || EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS ) {
       EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
     }
-
+  
+    Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
+  
     eeprom_addr += 1;
     T_setpoint = ReadFloatEEPROM(eeprom_addr);
     eeprom_addr += 4;
@@ -1380,7 +1352,7 @@ void setup(void) {
 #ifdef EEV_SUPPORT
     if (Tae.e != 1 || Tbe.e != 1) {
       while (1) {
-        PrintS_and_D(F("ERR: no Tae or Tbe for EEV!"));
+        PrintS_and_D(F("ERR: no Tae or Tbe!"));
         delay(10000);
       }
     }
@@ -1402,7 +1374,7 @@ void setup(void) {
 
   } else {
     eeprom_addr += 1;
-    ishuman += 1;
+    // ishuman += 1;
     WriteFloatEEPROM(eeprom_addr, T_setpoint);
     eeprom_addr += 4;
     eeprom_addr += 2;  //used sensors, skip
@@ -1480,7 +1452,7 @@ void setup(void) {
     EEPROM.write(0 + 1 + 4 + 0, highByte(used_sensors));
     EEPROM.write(0 + 1 + 4 + 1, lowByte(used_sensors));
     EEPROM.write(0x00, eeprom_magic);
-    ishuman -= 1;
+    // ishuman -= 1;
   }
   T_setpoint_lastsaved = T_setpoint;
 
@@ -1490,7 +1462,7 @@ void setup(void) {
 
   Get_Temperatures();
 
-  outString.reserve(256);
+  outString.reserve(320);
   tone(speakerOut, 2250);
   delay(1500);  // like ups power on
   noTone(speakerOut);
@@ -1500,12 +1472,14 @@ void loop(void) {
   digitalWrite(SerialTxControl, RS485Receive);
   millis_now = millis();
 
-#ifdef RS485_HUMAN
-  // if (((unsigned long)(millis_now - millis_last_printstats) > HUMAN_AUTOINFO) || (millis_last_printstats == 0)) {
-  //   PrintStats_Serial();
-  //   millis_last_printstats = millis_now;
-  // }
-#endif
+// #ifdef RS485_HUMAN
+//   if (((unsigned long)(millis_now - millis_last_printstats) > HUMAN_AUTOINFO) || (millis_last_printstats == 0)) {
+//       StatsSerial();
+//       PrintS(outString);
+//     millis_last_printstats = millis_now;
+//   }
+// #endif
+
   //--------------------async fuctions start
   if (em_i == 0) {
     supply_voltage = ReadVcc();
@@ -1559,11 +1533,11 @@ void loop(void) {
   emergency = (emergency / offsetI_1);
   //emergency = 0;
   if ((heatpump_state == 1) && (emergency == 1) && ((unsigned long)(millis_now - millis_last_heatpump_on) > COLDOFF_HIGHTIME)) {
-    stopOnError("Err CP");
+    stopOnError(F("Err CP"));
   }
 
   if (error_count >= 3) {
-    stopOnError("Error count");
+    PrintS_and_D(F("Error"));
     return;
   }
 
@@ -1727,25 +1701,25 @@ void loop(void) {
     lcd.clear();
     delay(10);
 
-    if (displ_inc  == 0 ) {
+    if (displ_inc  <= 1  ) {
       displ_inc++;
       outString = "Z:" + String(T_setpoint - T_delta, 1) + "/" + String(T_setpoint, 1) + " C:" + String(Tcwu_setpoint, 0);
       Print_D2(outString, 0);
       outString = "A:" + String(Ttarget.T, 1) + " CWU:" +  String(Tcwu.T, 1) ;
       Print_D2(outString, 1);
     
-    } else if (displ_inc  == 1 ) {
+    } else if (displ_inc  == 2 ) {
       displ_inc++;
       outString = "Be:" + String(Tbe.T, 1) + " Ae:" + String(Tae.T, 1);
       Print_D2(outString, 0);
       outString = "dT:" + String(T_EEV_dt, 1) + " E:" + String(EEV_cur_pos);
       Print_D2(outString, 1);
       
-     } else if (displ_inc  == 2 ) {
+     } else if (displ_inc  == 3 ) {
       displ_inc = 0;
       outString = "HP:" + String(Tsump.T, 1) + " CO:" + String(Tco.T, 1);
       Print_D2(outString, 0);
-      outString = " W:" + String(async_wattage, 1) + ((start_force == 1) ? " F":"");
+      outString = " W:" + String(async_wattage, 1) + ((start_force == 1) ? " F":"") + ((cwu_state == 1) ? " C":"");
       Print_D2(outString, 1);
     }
  
@@ -1808,6 +1782,12 @@ void loop(void) {
     if (errorcode != ERR_OK) {
       if (((unsigned long)(millis_now - millis_notification) > millis_notification_interval) || millis_notification == 0) {
         millis_notification = millis_now;
+				for ( i = 0; i < errorcode; i++) {
+					tone(speakerOut, ERR_HZ);  	
+          delay (500);      
+					noTone(speakerOut);      	
+          delay (500);
+				}
 #ifdef RS485_HUMAN
         PrintS_and_D(F("ERR: T.sens."));
 #endif
@@ -1980,7 +1960,7 @@ void loop(void) {
     //main logic
     if (_1st_start_sleeped == 0) {
       if ((millis_now < poweron_pause) && (_1st_start_sleeped == 0)) {
-        Print_D2("Wait: " + String(((poweron_pause - millis_now)) / 1000) + " s.", 0, 1);
+        Print_D("Wait: " + String(((poweron_pause - millis_now)) / 1000) + " s.");
         return;
       } else {
         _1st_start_sleeped = 1;
@@ -1988,14 +1968,17 @@ void loop(void) {
     }
 
     // process cwu
-    if (Tcwu.e == 1 && 
-        errorcode == 0 && 
-        (Ttarget.T > Tcwu.T || Tho.e == 1 && Tho.T > Tcwu.T) ) {
-      if (Tcwu.T <= Tcwu_setpoint-2 && coldside_circle_state == 0 ) {
+    if ((Tcwu.e == 1) && 
+        (errorcode == 0) && 
+        ((Ttarget.T > Tcwu.T) || (Tho.e == 1 && Tho.T > Tcwu.T)) ) {
+      
+      if (Tcwu.T < Tcwu_setpoint-2 && cwu_state == 0 ) {
         cwu_state = 1;
+      
       } else if (Tcwu.T >= Tcwu_setpoint ) {
         cwu_state = 0;
       }
+    
     } else {
         cwu_state = 0;
     }
@@ -2003,7 +1986,7 @@ void loop(void) {
     //process_heatpump:
     if (heatpump_state == 0 && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) &&
         errorcode == 0 && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) &&
-        ((( Ttarget.T + T_delta < T_setpoint) && (cwu_state == 0)) || (( Ttarget.T < T_setpoint) && (cwu_state == 1 || start_force == 1))) &&
+        ( ((Ttarget.T + T_delta) < T_setpoint && cwu_state == 0) || (Ttarget.T < T_setpoint && start_force == 1) || ((Ttarget.T < T_setpoint || Ttarget.T < Tcwu_setpoint) && cwu_state == 1)  ) &&
         ((Tae.e == 1 && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) && ((Tbc.e == 1 && Tbc.T < cT_before_condenser_max) || (Tbc.e ^ 1)) && ((Tci.e == 1 && Tci.T > cT_cold_min) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T > cT_cold_min) || (Tco.e ^ 1))) {
         millis_last_heatpump_off = millis_now;
         millis_last_heatpump_on = millis_now;
@@ -2011,7 +1994,9 @@ void loop(void) {
     }
 
     //stop if
-    if (heatpump_state == 1 && (Ttarget.T > T_setpoint)) {
+    if (heatpump_state == 1 && 
+      ((Ttarget.T > T_setpoint && cwu_state == 0) || (Ttarget.T > Tcwu_setpoint && Ttarget.T > T_setpoint && cwu_state == 1)) ) {
+
       if ((unsigned long)(millis_now - millis_last_heatpump_on) > mincycle_poweron) {
         millis_last_heatpump_off = millis_now;
         heatpump_state = 0;
@@ -2077,7 +2062,6 @@ void loop(void) {
 #endif
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
-      cwu_state = 0;
     }
 
     //alive_check_cycle_after_5_mins:
@@ -2092,7 +2076,6 @@ void loop(void) {
       if ((errorcode == ERR_OK) && (Tsump.e == 1 && Tsump.T < cT_workingOK_sump_min)) {
         millis_last_heatpump_off = millis_now;
         heatpump_state = 0;
-        cwu_state = 0;
 #ifdef RS485_HUMAN
         PrintS_and_D(F("Err. HP temp. MIN"));
 #endif
@@ -2166,6 +2149,7 @@ void loop(void) {
               //Print_D2("T min: " + String(T_setpoint - T_delta,1), 0, 1);
               WriteFloatEEPROM(eeprom_addr_dT, T_delta);
               outString = "{\n";
+              outString += "\"Td\": \"" + String(T_delta,1) + "\",\n";
               outString += "\"Tmin\": \"" + String(T_setpoint - T_delta,1) + "\"\n";
               outString += "}";
               break;
@@ -2175,22 +2159,14 @@ void loop(void) {
           outString = F("{\n\"Error\": \"1\"\n}");
       }
 
-      digitalWrite(SerialTxControl, RS485Transmit);
-      delay(10);
-
-      char *outChar=&outString[0];
-      RS485Serial.println(outChar);
-
-      RS485Serial.flush();
-      digitalWrite(SerialTxControl, RS485Receive);
-      delay(10);
+      PrintS(outString);
     }
 
-    for (i=0;i<49;i++) {  //clear buffer
+    //clear buffer
+    for (i=0;i<49;i++) {  
       inData[i]=0;
     }
 	}
-    
 }
 
 void StatsSerial(void) {
@@ -2218,7 +2194,7 @@ void StatsSerial(void) {
   //   outString = "Tac: " + String(Tac.T, 1);
   //   RS485Serial.println(outString);
   // }
-  outString += "\"Touter\": \""+ String(Touter.T, 1) +"\",\n";
+  // outString += "\"Touter\": \""+ String(Touter.T, 1) +"\",\n";
   outString += "\"Tcwu\": \""+ String(Tcwu.T, 1) +"\",\n";
 
   // if (Ts2.e == 1) {
@@ -2226,12 +2202,10 @@ void StatsSerial(void) {
   //   RS485Serial.println(outString);
   // }
 
-  outString += "\"Tmin\": \""+ String((T_setpoint - T_delta), 1) +"\",\n";
+  outString += "\"Td\": \""+ String((T_delta), 1) +"\",\n";
+  outString += "\"Tmin\": \""+ (start_force ? String(T_setpoint,1) : String(T_setpoint - T_delta,1)) +"\",\n";
   outString += "\"Tmax\": \""+ String(T_setpoint, 1) +"\",\n";
   outString += "\"Watts\": \""+ String(async_wattage, 1) +"\",\n";
-  
-  // outString = "Heatpump state: " + String((heatpump_state == 1) ? "ON" : "OFF");
-  // RS485Serial.println(outString);
   
   // outString = "Cold pomp: " + String(emergency);
   // RS485Serial.println(outString);
@@ -2248,7 +2222,9 @@ void StatsSerial(void) {
   // outString = "EEV_apulses: " + String(EEV_apulses);
   // RS485Serial.println(outString);
 
+  outString += "\"HP\": \""+ String(heatpump_state) +"\",\n";
   outString += "\"Force\": \""+ String(start_force) +"\",\n";
+  outString += "\"CWU\": \""+ String(cwu_state) +"\",\n";
   outString += "\"Err\": \""+ String(errorcode) +"\"\n";
   
   outString += "}";
