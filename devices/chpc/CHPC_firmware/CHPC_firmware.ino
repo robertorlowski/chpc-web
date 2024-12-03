@@ -666,10 +666,11 @@ void InitS_and_D(void) {
 
 void PrintS(String str) {
 #ifdef RS485_HUMAN
-  char *outChar = &str[0];
   digitalWrite(SerialTxControl, RS485Transmit);
   delay(10);
-  RS485Serial.println(outChar);
+  char *outChar = &str[0];
+  RS485Serial.print(outChar);
+  RS485Serial.println();
   RS485Serial.flush();
   digitalWrite(SerialTxControl, RS485Receive);
 #endif
@@ -2122,46 +2123,68 @@ void loop(void) {
     }
 
     if (inData[0] == devID  ) {
+      digitalWrite(SerialTxControl, RS485Transmit);
+      delay(10);
+
       switch (inData[1]) {
         case 0x01:
         case 0x02:
+          inData[0] = 0x00;
           StatsSerial();
+          char *outChar = &outString[0];
+          RS485Serial.println(outChar);
           break;
+
         case 0x05:
           switch (inData[2]) {
             case 0x01:
               start_force = bool(inData[3]);
-              //Print_D2("T min: " + (start_force ? String(T_setpoint,1) : String(T_setpoint - T_delta,1)), 0, 1);
-              outString = "{\n";
-              outString += "\"Tmin\": \"" + (start_force ? String(T_setpoint,1) : String(T_setpoint - T_delta,1)) + "\"\n";
-              outString += "}";
               break;
             case 0x02:
               T_setpoint = double(inData[3]) + double(inData[4])/100;
               SaveSetpointEE(1);
-              //Print_D2("T max: " + String(T_setpoint,1), 0, 1);
-              outString = "{\n"; 
-              outString += "\"Tmax\": \"" +  String(T_setpoint,1) + "\"\n";
-              outString += "}";
               break;
             case 0x03:
               T_delta =  double(inData[3]) + double(inData[4])/100;
-              //Print_D2("T min: " + String(T_setpoint - T_delta,1), 0, 1);
               WriteFloatEEPROM(eeprom_addr_dT, T_delta);
-              outString = "{\n";
-              outString += "\"Td\": \"" + String(T_delta,1) + "\",\n";
-              outString += "\"Tmin\": \"" + String(T_setpoint - T_delta,1) + "\"\n";
-              outString += "}";
+              break;
+            case 0x04:
+              Tcwu_setpoint =  double(inData[3]) + double(inData[4])/100;
+              SaveSetpointEE(1);
+              break;
+            case 0x05:
+              EEV_MAXPULSES_OPEN =  double(inData[3]);
+              WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);  
+              break;
+            case 0x06:
+              T_EEV_setpoint =  double(inData[3]) + double(inData[4])/100;
+              WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint); 
+              break;
+            case 0x07:
+              hot_pomp_on =  bool(inData[3]) ;
+              WriteFloatEEPROM(eeprom_addr_hot_pomp_on, hot_pomp_on);
+              break;
+            case 0x08:
+              cold_pomp_on =  bool(inData[3]) ;
+              break;
+            case 0x09:
+              sump_heater_on =  bool(inData[3]) ;
               break;
           } 
           break;
         default:
-          outString = F("{\n\"Error\": \"1\"\n}");
+          inData[1] = 0x81;
+          inData[2] = 0x01;
+          inData[3] = '\0';
       }
 
-      PrintS(outString);
+      if (inData[0] == 0x41) {
+        RS485Serial.write(inData);
+      }
+      RS485Serial.flush();
+      digitalWrite(SerialTxControl, RS485Receive);
+      delay(10);
     }
-
     //clear buffer
     for (i=0;i<49;i++) {  
       inData[i]=0;
@@ -2194,7 +2217,7 @@ void StatsSerial(void) {
   //   outString = "Tac: " + String(Tac.T, 1);
   //   RS485Serial.println(outString);
   // }
-  // outString += "\"Touter\": \""+ String(Touter.T, 1) +"\",\n";
+  outString += "\"Touter\": \""+ String(Touter.T, 1) +"\",\n";
   outString += "\"Tcwu\": \""+ String(Tcwu.T, 1) +"\",\n";
 
   // if (Ts2.e == 1) {
@@ -2229,3 +2252,10 @@ void StatsSerial(void) {
   
   outString += "}";
 }
+
+
+        
+
+
+ 
+
