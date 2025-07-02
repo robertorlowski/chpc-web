@@ -1,0 +1,27 @@
+{
+  "name": "Heat Pomp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "client": "npm run dev -w client",
+    "server": "npm run dev -w server",
+    "build": "concurrently \"npm run build -w client\" \"npm run build -w server\"",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "test:server": "npm test -w server",
+    "test:client": "npm test -w client",
+    "build:server": "npm run build -w server"
+  },
+  "author": "Robert Orlowski",
+  "license": "MIT",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "concurrently": "^8.2.2",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  }
+}

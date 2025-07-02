@@ -1,0 +1,15 @@
+{
+  // https://www.typescriptlang.org/tsconfig#compilerOptions
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "Node",
+    "target": "ES6",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "rootDir": "./src", 
+    "outDir": "../dist/server",
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
