@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-     "dev": "nodemon",
+    "dev": "nodemon",
     "test": "vitest",
     "build": "tsc"
   },
