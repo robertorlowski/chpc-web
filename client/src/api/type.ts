@@ -1,8 +1,8 @@
 export type TSlot = {
-    slot_start_hour?: Number,
-    slot_start_minute?: Number,
-    slot_stop_hour?: Number,
-    slot_stop_minute?: Number
+    slot_start_hour?: number,
+    slot_start_minute?: number,
+    slot_stop_hour?: number,
+    slot_stop_minute?: number
 };
 
 export type TSettings  = {
@@ -49,29 +49,29 @@ export type TPV = {
 export type TCO = {
   HP: THP,
   PV: TPV,
-  time: String,
+  time: string,
   co_pomp: boolean,
   cwu_pomp: Boolean,
   pv_power: boolean,
   schedule_on: boolean,
-  work_mode: String,
-  co_min: String,
-  co_max: String,
-  cwu_min: String,
-  cwu_max: String,
+  work_mode: string,
+  co_min: string,
+  co_max: string,
+  cwu_min: string,
+  cwu_max: string,
   t_min: number,
   t_max: number,
   cop:number
 }
 
-export type TSaveCO = {
-  force?: String,
-  work_mode?: String,
-  sump_heater?: String,
-  cold_pomp?: String,
-  hot_pomp?: String,
-  co_min?: String,
-  co_max?: String,
-  cwu_min?: String,
-  cwu_max?: String
+export type TOperationCO = {
+  force?: string,
+  work_mode?: string,
+  sump_heater?: string,
+  cold_pomp?: string,
+  hot_pomp?: string,
+  co_min?: string,
+  co_max?: string,
+  cwu_min?: string,
+  cwu_max?: string
 }

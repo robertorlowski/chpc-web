@@ -6,11 +6,13 @@ import swith_on from '../../assets/swith_on.svg';
 import swith_off from '../../assets/swith_off.svg';
 import { Component } from 'react';
 
+
 interface IState {
   data?: TCO;
 }
 
 export default class HP extends Component<{}, IState> {
+
   componentWillMount() {
     HpRequests.getCoData()
       .then(resp => {
@@ -25,6 +27,9 @@ export default class HP extends Component<{}, IState> {
     if (!this.state?.data) {
       return 'Loading...';
     }
+    
+    //autorefresh
+    setInterval(() => {window.location.reload()}, 30000);
 
     let _pv: TPV = this.state.data.PV;
     let _hp: THP = this.state.data.HP;

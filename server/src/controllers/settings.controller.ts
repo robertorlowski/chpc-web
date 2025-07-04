@@ -16,7 +16,7 @@ export const setSettings = async (req: Request<{}, {}, TSettings>, res: Response
   const data :TSettings = req.body;
   try {
     await setSettingsData(data);
-    return res.status(201).json({ message: data });
+    return res.status(201);
   } catch (error) {
     return res.status(500).send({ error: error })
   }

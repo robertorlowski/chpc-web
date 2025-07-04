@@ -1,21 +1,21 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { TSaveCO, TSettings, TSlot } from '../../api/type';
+import { TOperationCO, TSettings } from '../../api/type';
 import { Component } from 'react';
 import { ResourceBlock } from '../../components/ResourceBlock';
 
-function format(num?: Number): String {
-	if (num === undefined) {
-		return "";
-	}
-	return num.toString().padStart(2, '0');
-}
+// function format(num?: Number): String {
+// 	if (num === undefined) {
+// 		return "";
+// 	}
+// 	return num.toString().padStart(2, '0');
+// }
 
 interface IState {
-	data?: TSettings;
-	value?: TSaveCO;
-	error?: boolean;
+	data: TSettings;
+	value: TOperationCO;
+	error: boolean;
 }
 
 export default class Settings extends Component<{}, IState> {
@@ -89,7 +89,7 @@ export default class Settings extends Component<{}, IState> {
 								value={this.state.value.co_max}
 								onChange={(e) => this.handleSave({
 									co_min: this.state.value?.co_min,
-									co_max: e.currentTarget.value
+									co_max: e.target.value
 								})}
 							/>
 						</div>
@@ -100,7 +100,7 @@ export default class Settings extends Component<{}, IState> {
 								title="Wymuszenie pracy:"
 								type="checkbox"
 								checked={this.state.value.force === "1"}
-								onChange={(e) => this.handleSave({ force: e.currentTarget.checked ? "1" : "0" })}
+								onChange={(e) => this.handleSave({ force: e.target.checked ? "1" : "0" })}
 							/>
 						</div>
 
@@ -111,7 +111,7 @@ export default class Settings extends Component<{}, IState> {
 								type="checkbox"
 								name="coldPomp"
 								checked={this.state.value.cold_pomp === "1"}
-								onChange={(e) => this.handleSave({ cold_pomp: e.currentTarget.checked ? "1" : "0" })}
+								onChange={(e) => this.handleSave({ cold_pomp: e.target.checked ? "1" : "0" })}
 							/>
 						</div>
 
@@ -122,7 +122,7 @@ export default class Settings extends Component<{}, IState> {
 								type="checkbox"
 								name="hotPomp"
 								checked={this.state.value.hot_pomp === "1"}
-								onChange={(e) => this.handleSave({ hot_pomp: e.currentTarget.checked ? "1" : "0" })}
+								onChange={(e) => this.handleSave({ hot_pomp: e.target.checked ? "1" : "0" })}
 							/>
 						</div>
 
@@ -133,7 +133,7 @@ export default class Settings extends Component<{}, IState> {
 								name="sumpHeater"
 								type="checkbox"
 								checked={this.state.value.sump_heater === "1"}
-								onChange={(e) => this.handleSave({ sump_heater: e.currentTarget.checked ? "1" : "0" })}
+								onChange={(e) => this.handleSave({ sump_heater: e.target.checked ? "1" : "0" })}
 							/>
 						</div>
 
@@ -148,19 +148,21 @@ export default class Settings extends Component<{}, IState> {
 					<ResourceBlock
 						title="Automatyczny start CO"
 						description="Przedziały czasu w którym nastąpi włączenie HP."
-						data={this.state.data.settings}
+						data={this.state.data?.settings}
 					/>
 
 					<ResourceBlock
 						title="Wymuszenie startu CWU"
 						description="Okres w którym następuje wymuszenie startu ładowania CWU"
-						data={this.state.data.cwu_settings}
+						data={this.state.data?.cwu_settings}
 					/>
+					{this.state.data?.night_hour && (
 					<ResourceBlock
 						title="Wyłączenie wykorzystania mocy z PV"
 						description="Przedziały czasu w którym nastąpi wyłączenie weryfikacji wytwarzanej mocy na panelach fotowoltaicznych."
-						data={[this.state.data.night_hour]}
-					/>
+						data={[this.state.data?.night_hour]}
+					/>)
+					}
 				</section>
 			</div>
 		);
@@ -171,49 +173,31 @@ export default class Settings extends Component<{}, IState> {
 
 		HpRequests.getSettings()
 			.then((resp) => {
-				console.log(resp);
 				this.setState({ data: resp });
 			})
-			.catch((err) => console.log(err));
+			.catch((err) => {
+				console.log(err);
+				this.setState({ error: true });
+		});
 
-		HpRequests.getCoData()
+		HpRequests.getOperation()
 			.then((resp) => {
-				this.setState({
-					value: {
-						force: resp.HP.F ? "1" : "0",
-						work_mode: resp.work_mode,
-						cold_pomp: resp.HP.CCS ? "1" : "0",
-						hot_pomp: resp.HP.HCS ? "1" : "0",
-						sump_heater: resp.HP.SHS ? "1" : "0",
-						co_min: String(resp.co_min),
-						co_max: String(resp.co_max),
-						cwu_min: String(resp.cwu_min),
-						cwu_max: String(resp.cwu_max),
-					}
-				});
+				this.setState({value: resp});
 			})
-			.catch((err) => console.log(err));
+			.catch((err) => {
+				console.log(err);
+				this.setState({ error: true });
+			} 
+		);
 	}
 
-	handleSave(value: TSaveCO) {
+	handleSave(value: TOperationCO) {
+		const merged = {...this.state.value, ...value };	
 		this.setState({
-			value: {
-				force: value.force ?? this.state.value?.force,
-				work_mode: value.work_mode ?? this.state.value?.work_mode,
-				cold_pomp: value.cold_pomp ?? this.state.value?.cold_pomp,
-				hot_pomp: value.hot_pomp ?? this.state.value?.hot_pomp,
-				sump_heater: value.sump_heater ?? this.state.value?.sump_heater,
-				co_min: value.co_min ?? this.state.value?.co_min,
-				co_max: value.co_max ?? this.state.value?.co_max,
-				cwu_min: value.cwu_min ?? this.state.value?.cwu_min,
-				cwu_max: value.cwu_max ?? this.state.value?.cwu_max,
-			}
+			value: merged
 		});
-		console.log(this.state.value);
-
-		HpRequests.setCoData(value).then(response => {
-			console.log(response);
-			this.setState({ error: response.status === 200 ? false : true });
+		HpRequests.setOperation(merged).then(response => {
+			this.setState({ error: response.status === 201 ? false : true });
 		});
 	}
 }

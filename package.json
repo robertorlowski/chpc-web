@@ -7,7 +7,7 @@
     "client": "npm run dev -w client",
     "server": "npm run dev -w server",
     "build": "concurrently \"npm run build -w client\" \"npm run build -w server\"",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": " concurrently \"npm run server\" \"npm run client\"",
     "test:server": "npm test -w server",
     "test:client": "npm test -w client",
     "build:server": "npm run build -w server"

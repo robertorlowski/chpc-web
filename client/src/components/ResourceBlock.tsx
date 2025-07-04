@@ -1,10 +1,10 @@
 import React from 'react';
-import { TSlot } from '../../api/type';
+import { TSlot } from '../api/type';
 
 interface ResourceBlockProps {
   title: string;
   description: string;
-  data: TSlot[];
+  data?: TSlot[];
 }
 
 const format = (num?: number): string => {
@@ -19,10 +19,10 @@ export const ResourceBlock: React.FC<ResourceBlockProps> = ({ title, description
       {description}
       <hr />
       <ul>
-        {data.map((slot, index) => (
+        {data?.map((slot, index) => (
           <li key={index}>
-            {format(slot.slot_start_hour)}:{format(slot.slot_start_minute)} <span />
-            <strong>-</strong><span /> {format(slot.slot_stop_hour)}:{format(slot.slot_stop_minute)}
+            {format(slot?.slot_start_hour)}:{format(slot?.slot_start_minute)} <span />
+            <strong>-</strong><span /> {format(slot?.slot_stop_hour)}:{format(slot?.slot_stop_minute)}
           </li>
         ))}
       </ul>

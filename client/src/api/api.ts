@@ -1,6 +1,6 @@
-import { TCO, TSaveCO, TSettings } from "./type";
+import { TCO, TOperationCO, TSettings } from "./type";
 
-function prefixMocks(path) {
+function prefixMocks(path: string) {
   // if (process.env.NODE_ENV !== "production") 
   //   return `mock-responses/${path}`;
   return  "http://localhost:4001/api".concat(path);
@@ -8,7 +8,7 @@ function prefixMocks(path) {
 
 class Requests {
   
-  static get(path: String) {
+  static get(path: string) {
     console.log(prefixMocks(path));
     return fetch(
       prefixMocks(path),
@@ -32,7 +32,7 @@ class Requests {
     });
 }
 
-  static post(path, data = {}, json = true) {
+  static post(path :string, data = {}, json = true) {
     console.log(prefixMocks(path));
     return fetch(
       prefixMocks(path),
@@ -75,8 +75,12 @@ export class HpRequests {
       return Requests.get("/hp");
   } 
 
-  static setCoData(data: TSaveCO) {
+  static getOperation() : Promise<TOperationCO> {
+      return Requests.get("/operation");
+  } 
+
+  static setOperation(data: TOperationCO) {
       console.log(JSON.stringify(data));
-      return Requests.post("operation", data, false);
+      return Requests.post("/operation/set", data, false);
   } 
 }

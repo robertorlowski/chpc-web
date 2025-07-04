@@ -55,4 +55,5 @@ button {
 	.settings section {
 		margin-top: 3rem;
 		grid-template-columns: 1fr;
+    }
 }
