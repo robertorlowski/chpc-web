@@ -1,9 +1,11 @@
 import { TCO, TOperationCO, TSettings } from "./type";
 
 function prefixMocks(path: string) {
-  // if (process.env.NODE_ENV !== "production") 
-  //   return `mock-responses/${path}`;
-  return  "http://localhost:4001/api".concat(path);
+  if (process.env.NODE_ENV !== "production") 
+    return  "http://localhost:4001/api".concat(path)
+  else 
+    return  "https://chpc-web.onrender.com/api";
+
 }
 
 class Requests {
