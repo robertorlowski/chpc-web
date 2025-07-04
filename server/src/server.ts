@@ -1,8 +1,11 @@
+
+import 'dotenv/config';
 import app from './middleware/app'
+
 const port = process.env.PORT || 3001;
 
 const server = app.listen(port, () => {
-  console.log(`App listening at https://chpc-web.onrender.com:${port}`)
+  console.log(`Example app listening on port: ${port}`)
 })
 
 server.keepAliveTimeout = 120 * 1000;

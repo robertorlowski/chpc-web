@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
     "esrun": "^3.2.30",
     "express": "^4.18.3",
     "lowdb": "^7.0.1"
