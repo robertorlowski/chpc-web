@@ -15,14 +15,13 @@ function App() {
 				<Route path="/" element={<HP />} />
 				<Route path="/hp" element={<HP />}/>
 				<Route path="/settings" element={<Settings />}/>
-				<Route path="*" element={<NotFound/>} />
 			</Routes>
 			</BrowserRouter>
 	}</>	
   }
 
 
-  
+
 const container = document.getElementById('root') as HTMLElement;
 const root = createRoot(container);
 root.render(<App />);
