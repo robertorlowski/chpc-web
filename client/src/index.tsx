@@ -4,7 +4,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
 import Settings from "./pages/Settings";
 import HP from "./pages/HP";
-import { NotFound } from "./pages/_404";
 
 function App() {
 
