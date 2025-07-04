@@ -9,6 +9,7 @@
 **/.next/
 **/out/
 
+
 # vercel
 .vercel
 
