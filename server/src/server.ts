@@ -8,5 +8,5 @@ const server = app.listen(port, () => {
   console.log(`${port}`)
 })
 
-server.keepAliveTimeout = 120 * 1000;
-server.headersTimeout = 120 * 1000;
+// server.keepAliveTimeout = 120 * 1000;
+// server.headersTimeout = 120 * 1000;
