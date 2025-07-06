@@ -1,6 +1,6 @@
 import express from 'express'
 
-import { getHp, addHp, getHpAll } from './../controllers/hp.controller'
+import { getHp, addHp, getHpAll, clearHp } from './../controllers/hp.controller'
 import { getSettings, setSettings } from './../controllers/settings.controller'
 import { prepareOperation, setOperation } from '../controllers/operation.controller'
 
@@ -10,6 +10,7 @@ router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
 
 router.get('/hp', getHp)
+router.get('/hp/clear', clearHp)
 router.get('/hp/all', getHpAll)
 router.post('/hp/add', addHp)
 

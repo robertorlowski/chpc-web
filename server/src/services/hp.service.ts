@@ -6,6 +6,15 @@ import { setOperationData } from './operation.service';
 const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 
 
+export const clearData = async () => {
+  await db.read();
+  db.data.hp = [];
+  const hp: TCO[] = db.data.hp;
+  db.write();
+  return hp;
+}
+
+
 export const getHpLastData = async () => {
   await db.read();
   const hp: TCO[] = db.data.hp;
@@ -31,16 +40,16 @@ export const addHpData = async (data :TCO) => {
   await db.read();
   const coList: TCO[] = db.data.hp;
   //jeśli spręzarka ne działa i poprzednio nie działała to nie zapisujemy danych do bazy
-  if (!data?.HP?.HPS) {
-    if (coList.length == 0){
-      coList.push(data);
-    } else if (!coList[coList.length -1].HP?.HPS ) {
-      coList[coList.length -1] = data ;
-    }
-  } else {
-    coList.push(data);
-  }
-
+  // if (!data?.HP?.HPS) {
+  //   if (coList.length == 0){
+  //     coList.push(data);
+  //   } else if (!coList[coList.length -1].HP?.HPS ) {
+  //     coList[coList.length -1] = data ;
+  //   }
+  // } else {
+  //   coList.push(data);
+  // }
+  coList.push(data);
   await db.write();
   return data;
 }

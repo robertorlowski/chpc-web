@@ -1,9 +1,20 @@
 import { Request, Response } from 'express'
 
-import { addHpData, getHpLastData, getHpAllData } from '../services/hp.service'
+import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/hp.service'
 import { TCO, TOperationCO } from '../middleware/type'
 import { getOperationData, setOperationData } from '../services/operation.service'
 import { setOperation } from './operation.controller'
+
+export async function clearHp(req: Request, res: Response) {
+  try {
+    const result = await clearData();
+    return res.status(200).send({ message: 'OK' });
+  } catch (error) {
+    console.log(error)
+    return res.status(500).send({ message: 'Something went wrong' })
+  }
+}
+
 
 export async function getHp(req: Request, res: Response) {
   try {
