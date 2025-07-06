@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
-import { getOperationData, setOperationData } from '../services/operation.service';
+import { setOperationData } from '../services/operation.service';
 import { TOperationCO } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
 
 
-export async function getOperation(req: Request, res: Response) {
+export async function prepareOperation(req: Request, res: Response) {
   try {
 
     const data = await getHpLastData()

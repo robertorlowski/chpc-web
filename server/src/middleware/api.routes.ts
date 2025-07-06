@@ -2,12 +2,11 @@ import express from 'express'
 
 import { getHp, addHp, getHpAll } from './../controllers/hp.controller'
 import { getSettings, setSettings } from './../controllers/settings.controller'
-import { getOperation, setOperation } from '../controllers/operation.controller'
-import { setOperationData } from '../services/operation.service'
+import { prepareOperation, setOperation } from '../controllers/operation.controller'
 
 
 const router = express.Router()
-router.get('/operation', getOperation);
+router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
 
 router.get('/hp', getHp)
