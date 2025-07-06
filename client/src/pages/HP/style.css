@@ -82,7 +82,7 @@ th, td {
     flex-wrap: nowrap;
 }
 
-@media (max-width:440px) {
+@media (max-width:360px) {
 	.hp-data {
 		display: flex;
 		flex-direction: column;
@@ -99,7 +99,7 @@ th, td {
 	display: flex;
 }
 
-@media (max-width:440px) {
+@media (max-width:360px) {
 	.heat.body {
 		display: flex;
 		flex-direction: column;
@@ -129,7 +129,7 @@ img.field {
 	width: 20px;
 }
 
-@media (max-width:440px) {
+@media (max-width:360px) {
 	.settings section {
 		margin-top: 3rem;
 		grid-template-columns: 1fr;

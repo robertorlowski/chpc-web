@@ -7,8 +7,14 @@ export const getOperationData = () => {
   return operation;
 }
 
+export const clearOperation = () => {
+  operation = {};
+  return;
+}
+
 export const setOperationData = (data :TOperationCO) => {
-  operation = data;
+  const merged = {...operation, ...data };	
+  operation = merged;
   return operation;
 }
 

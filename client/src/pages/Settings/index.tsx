@@ -192,11 +192,11 @@ export default class Settings extends Component<{}, IState> {
 	}
 
 	handleSave(value: TOperationCO) {
-		const merged = {...this.state.value, ...value };	
+		// const merged = {...this.state.value, ...value };	
 		this.setState({
-			value: merged
+			value: value
 		});
-		HpRequests.setOperation(merged).then(response => {
+		HpRequests.setOperation(value).then(response => {
 			this.setState({ error: response.status === 201 ? false : true });
 		});
 	}
