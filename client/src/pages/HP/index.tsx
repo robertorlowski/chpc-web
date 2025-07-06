@@ -173,6 +173,10 @@ export default class HP extends Component<{}, IState> {
                     <td className="label">EEV temp.:</td>
                     <td className="field">{_hp.EEV || '---'}</td>
                   </tr>
+                  <tr>
+                    <td className="label">CO:</td>
+                    <td className="field">{_hp.CO || '---'}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
