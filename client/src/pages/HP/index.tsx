@@ -175,7 +175,7 @@ export default class HP extends Component<{}, IState> {
                   </tr>
                   <tr>
                     <td className="label">CO:</td>
-                    <td className="field">{ _hp.CO ? 'ON' : 'OFF'}</td>
+                    <td className="field">{ !_hp.Ttarget ? '---' : _hp.CO}</td>
                   </tr>
                 </tbody>
               </table>
