@@ -58,7 +58,7 @@
 
 #define DEFFERED_STOP_HOTCIRCLE  60000  //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 30000  //3000 000
-#define POWERON_PAUSE 70000             //50s
+#define POWERON_PAUSE 100000             //50s
 #define MINCYCLE_POWEROFF 1200000       //10 mins
 #define MINCYCLE_POWERON   180000       //5 min  	//60 mins
 #define POWERON_HIGHTIME 9000           //1 sec, defines time after start when power consumption can be 2 times greater than normal
@@ -83,11 +83,11 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES 8  //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE 37
+#define EEV_OPEN_AFTER_CLOSE 35
 //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS 38  //52
+#define EEV_MINWORKPOS 37  //52
 // position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START	8
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
@@ -1924,17 +1924,9 @@ void loop(void) {
     //v1.1 algo
     if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0) {   
       T_EEV_dt = Tae.T - Tbe.T;      
-      
-      // do weryfikacji
-      // if (Tbe.T > T_EEV_setpoint && T_EEV_dt > EEV_HYSTERESIS ) {
-      //   T_EEV_dt = T_EEV_setpoint + EEV_HYSTERESIS;
-      // }
-      
+
       //zawor otwarty
       if (EEV_apulses >= 0 && EEV_cur_pos >= EEV_MINWORKPOS) {
-
-        //jełsi temperatura przegrzania < 1.5 to zamykaj zawór NATYCHMIAST
-        //else if (T_EEV_dt < (T_EEV_setpoint - EEV_EMERG_DIFF)) {  //emerg!
         if ((T_EEV_dt < EEV_HYSTERESIS) || (Tci.e == 1 && Tci.T < cT_cold_min +2) || (Tco.e == 1 && Tco.T < cT_cold_min +2) ) {  //emerg!
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 1 emergency closing!"));
@@ -2055,7 +2047,11 @@ void loop(void) {
       PrintS(F("EEV: 13 open to work"));
 #endif
       if (EEV_MINWORKPOS != 0 && EEV_MINWORKPOS > EEV_cur_pos) {  //full close protection
-        EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos;
+        //30.07.2025+
+        //EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos;
+        // zacznijmy od łagodnego staru
+        EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos + 2;
+        //30.07.2025-
         EEV_adonotcare = 0;
         EEV_fast = 1;
       }
