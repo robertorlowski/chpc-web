@@ -105,7 +105,7 @@ export default class Settings extends Component<{}, IState> {
 								className="temperature"
 								type="number"
 								name="eev_max_pulse_open"
-								value={Number(this.state.value.eev_max_pulse_open)}
+								value={this.state.value.eev_max_pulse_open}
 								onChange={(e) => this.handleSave({
 									eev_max_pulse_open: e.currentTarget.value
 								})}
@@ -118,7 +118,7 @@ export default class Settings extends Component<{}, IState> {
 								className="temperature"
 								type="number"
 								name="working_Watt"
-								value={Number(this.state.value.working_watt)}
+								value={this.state.value.working_watt}
 								onChange={(e) => this.handleSave({
 									working_watt: e.currentTarget.value
 								})}
