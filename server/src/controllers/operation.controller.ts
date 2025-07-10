@@ -13,7 +13,7 @@ export async function prepareOperation(req: Request, res: Response) {
     op.co_min = data?.co_min;
     op.co_max = data?.co_max;
     op.cwu_min = data?.cwu_min,
-    op.cwu_max = data?.co_max,
+    op.cwu_max = data?.cwu_max,
     op.cold_pomp = data?.HP?.CCS ? "1" : "0";
     op.hot_pomp = data?.HP?.HCS ? "1" : "0";
     op.sump_heater = data?.HP?.SHS ? "1" : "0";
