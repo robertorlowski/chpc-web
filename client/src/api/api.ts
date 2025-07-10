@@ -1,4 +1,4 @@
-import { TCO, TOperationCO, TSettings } from "./type";
+import { TCO, THP, TOperationCO, TSettings } from "./type";
 
 function prefixMocks(path: string) {
   if (process.env.NODE_ENV !== "production") 
@@ -9,46 +9,41 @@ function prefixMocks(path: string) {
 }
 
 class Requests {
-  
-  static get(path: string) {
-    console.log(prefixMocks(path));
-    return fetch(
-      prefixMocks(path),
-      Object.assign(
-        {
-          method: "GET",
-          // mode: "no-cors",
-          cache: "no-cache",
-          credentials: "same-origin",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          redirect: "follow",
-          referrer: "no-referrer"
+  static async get(path: string) {
+    try {
+      const response = await fetch(prefixMocks(path), {
+        method: "GET",
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510'
         }
-      )
-    ).then(response => {
-        return response.json();
-    }).catch(error => {
-      console.warn(error);
-    });
-}
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.warn("Fetch error:", error);
+      return null;
+    }
+  }
 
   static post(path :string, data = {}, json = true) {
-    console.log(prefixMocks(path));
     return fetch(
       prefixMocks(path),
         Object.assign(
           {
             method: "POST",
             // mode: "no-cors",
-            cache: "no-cache",
-            credentials: "same-origin",
+            // cache: "no-cache",
             headers: {
-              "Content-Type": "application/json; charset=utf-8"
+              'Content-Type': 'application/json; charset=utf-8',
+              'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510'
             },
-            redirect: "follow",
-            referrer: "no-referrer",
+            // redirect: "follow",
+            // referrer: "no-referrer",
             body: JSON.stringify(data)
           }
         )
@@ -75,6 +70,14 @@ export class HpRequests {
 
   static getCoData() : Promise<TCO> {
       return Requests.get("/hp");
+  } 
+
+  static getHpAllData() : Promise<THP> {
+      return Requests.get("/hp/all");
+  } 
+
+  static clearHpData() {
+    return Requests.post("/hp/clear", {}, false);
   } 
 
   static getOperation() : Promise<TOperationCO> {

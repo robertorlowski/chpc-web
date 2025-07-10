@@ -27,6 +27,13 @@ button {
   display: inline-block;
   font-size: 16px;
   cursor: pointer;
+  border-radius: 6px
+}
+
+.header3 {
+    display: flex;
+    
+    justify-content: space-between;
 }
 
 .resource:hover {

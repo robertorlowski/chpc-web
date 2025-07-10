@@ -4,7 +4,8 @@ import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/h
 import { TCO, TOperationCO } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
 
-export async function clearHp(req: Request, res: Response) {
+
+export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
   try {
     const result = await clearData();
     return res.status(200).send({ message: 'OK' });
@@ -47,6 +48,10 @@ export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
     if (!data || !data?.HP) {
       return res.status(500).send({ error: "No data" })  
     }
+    if (!data?.HP.Ttarget) {
+      return res.status(201).json({ operation: operation});
+    }
+
     await addHpData(data);
     return res.status(201).json({ operation: operation});
   } catch (error) {

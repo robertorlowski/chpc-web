@@ -10,9 +10,9 @@ router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
 
 router.get('/hp', getHp)
-router.get('/hp/clear', clearHp)
 router.get('/hp/all', getHpAll)
 router.post('/hp/add', addHp)
+router.post('/hp/clear', clearHp)
 
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)

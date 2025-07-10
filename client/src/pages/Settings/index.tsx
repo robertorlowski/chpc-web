@@ -13,9 +13,9 @@ import { ResourceBlock } from '../../components/ResourceBlock';
 // }
 
 interface IState {
-	data: TSettings;
-	value: TOperationCO;
-	error: boolean;
+	data?: TSettings | null;
+	value?: TOperationCO | null;
+	error: boolean ;
 }
 
 export default class Settings extends Component<{}, IState> {
@@ -28,7 +28,12 @@ export default class Settings extends Component<{}, IState> {
 				<h2>Główne ustawienia</h2>
 				<section>
 					<div className="resource">
-						<h3>Ustaw</h3>
+						<div className='header3'>
+							<h3>Ustaw</h3>
+							<button onClick={this.handleDownload}>
+								Pobierz dane HP
+							</button>
+						</div>
 						<hr />
 						<div style={{ minWidth: '200px' }}>
 							<span className="label">Tryb pracy:</span>
@@ -90,6 +95,32 @@ export default class Settings extends Component<{}, IState> {
 								onChange={(e) => this.handleSave({
 									co_min: this.state.value?.co_min,
 									co_max: e.target.value
+								})}
+							/>
+						</div>
+
+						<div style={{ minWidth: '200px' }}>
+							<span className="label" style={{ width: '160px' }}>EEV max pulse:</span>
+							<input
+								className="temperature"
+								type="number"
+								name="eev_max_pulse_open"
+								value={Number(this.state.value.eev_max_pulse_open)}
+								onChange={(e) => this.handleSave({
+									eev_max_pulse_open: e.currentTarget.value
+								})}
+							/>
+						</div>
+
+						<div style={{ minWidth: '200px' }}>
+							<span className="label" style={{ width: '160px' }}>WATT:</span>
+							<input
+								className="temperature"
+								type="number"
+								name="working_Watt"
+								value={Number(this.state.value.working_watt)}
+								onChange={(e) => this.handleSave({
+									working_watt: e.currentTarget.value
 								})}
 							/>
 						</div>
@@ -197,7 +228,30 @@ export default class Settings extends Component<{}, IState> {
 			value: value
 		});
 		HpRequests.setOperation(value).then(response => {
-			this.setState({ error: response.status === 201 ? false : true });
+			this.setState({ error: response?.status === 201 ? false : true });
 		});
+	}
+
+	handleDownload() {
+		HpRequests.getHpAllData()
+			.then((data) => {
+				const json = JSON.stringify(data, null, 2);
+				const blob = new Blob([json], { type: 'application/json' });
+				const href = URL.createObjectURL(blob);
+
+				const link = document.createElement('a');
+				link.href = href;
+				link.download = 'dane.json';
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+
+				HpRequests.clearHpData().then();
+			})
+			.catch((err) => {
+				console.log(err);
+				this.setState({ error: true });
+		});
+
 	}
 }

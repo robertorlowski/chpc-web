@@ -18,6 +18,8 @@ export async function prepareOperation(req: Request, res: Response) {
     op.hot_pomp = data?.HP?.HCS ? "1" : "0";
     op.sump_heater = data?.HP?.SHS ? "1" : "0";
     op.work_mode = data?.work_mode;
+    op.eev_max_pulse_open = String(data?.HP?.EEV_max_pulse_open);
+    op.working_watt = String(data?.HP?.Working_Watt);
  
     return res.status(200).send(op);
   } catch (error) {

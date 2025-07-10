@@ -6,9 +6,3 @@ export function prefixMocks(service: String) {
   const raw = fs.readFileSync(path.join(__dirname, `../../mock-responses/${service}.json`), 'utf8');
   return JSON.parse(raw);
 }
-
-export function mockResponse(service: String, delay = 300) {
-  const data = prefixMocks(service);
-  return new Promise(resolve => setTimeout(() => resolve(data), delay));
-}
-
