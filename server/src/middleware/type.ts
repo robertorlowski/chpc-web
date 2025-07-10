@@ -35,10 +35,10 @@ export type THP = {
     CWU?: boolean,
     CO?: boolean,
     SHS?: boolean,
-    Working_Watt?: number,
-    EEV_max_pulse_open?: number,
-    last_power?: number,
-    last_heatpump_on?: number
+    WWatt?: number,
+    EEVmax?: number,
+    lt_pow?: number,
+    lt_hp_on?: number
   }
 
 export type TPV = {

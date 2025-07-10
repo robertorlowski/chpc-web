@@ -223,12 +223,12 @@ export default class HP extends Component<{}, IState> {
                   <tr>
                     <td className="label">Czas pracy:</td>
                     <td className="field">
-                      {_hp?.last_heatpump_on ? Math.floor(_hp?.last_heatpump_on / 60) + ' min.' : '---'}
+                      {_hp?.lt_hp_on ? Math.floor(_hp?.lt_hp_on / 60) + ' min.' : '---'}
                     </td>
                   </tr>
                   <tr>
                     <td className="label">Moc:</td>
-                    <td className="field">{_hp?.last_power ? _hp?.last_power + ' W' : '---'}</td>
+                    <td className="field">{_hp?.lt_pow ? _hp?.lt_pow + ' W' : '---'}</td>
                   </tr>
                   <tr>
                     <td className="label">T. min:</td>
