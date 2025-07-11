@@ -58,7 +58,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="cwu_min"
 								value={this.state.value.cwu_min}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									cwu_min: e.currentTarget.value,
 									cwu_max: this.state.value?.cwu_max
 								})}
@@ -68,7 +68,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="cwu_max"
 								value={this.state.value.cwu_max}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									cwu_min: this.state.value?.cwu_min,
 									cwu_max: e.currentTarget.value
 								})}
@@ -82,7 +82,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="co_min"
 								value={this.state.value.co_min}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									co_min: e.currentTarget.value,
 									co_max: this.state.value?.co_max
 								})}
@@ -92,7 +92,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="co_max"
 								value={this.state.value.co_max}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									co_min: this.state.value?.co_min,
 									co_max: e.target.value
 								})}
@@ -106,7 +106,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="eev_max_pulse_open"
 								value={this.state.value.eev_max_pulse_open}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									eev_max_pulse_open: e.currentTarget.value
 								})}
 							/>
@@ -119,7 +119,7 @@ export default class Settings extends Component<{}, IState> {
 								type="number"
 								name="working_Watt"
 								value={this.state.value.working_watt}
-								onChange={(e) => this.handleSave({
+								onBlur={(e) => this.handleSave({
 									working_watt: e.currentTarget.value
 								})}
 							/>
