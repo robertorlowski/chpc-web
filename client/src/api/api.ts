@@ -1,4 +1,4 @@
-import { TCO, THP, TOperationCO, TSettings } from "./type";
+import { TCO, TOperationCO, TSettings } from "./type";
 
 function prefixMocks(path: string) {
   if (process.env.NODE_ENV !== "production") 
@@ -72,7 +72,7 @@ export class HpRequests {
       return Requests.get("/hp");
   } 
 
-  static getHpAllData() : Promise<THP> {
+  static getHpAllData() : Promise<TCO[]> {
       return Requests.get("/hp/all");
   } 
 

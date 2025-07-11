@@ -4,18 +4,27 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
 import Settings from "./pages/Settings";
 import HP from "./pages/HP";
+import { HeatPumpTable } from "./pages/Data"
 
 function App() {
 
 	return <>{
 		<BrowserRouter>
-			<Header />
-			<Routes>
-				<Route path="/" element={<HP />} />
-				<Route path="/hp" element={<HP />}/>
-				<Route path="/settings" element={<Settings />}/>
-			</Routes>
-			</BrowserRouter>
+			<div className="app-container">
+				<header className="app-header">
+				<Header />
+				</header>
+
+				<main className="app-main">
+				<Routes>
+					<Route path="/" element={<HP />} />
+					<Route path="/hp" element={<HP />} />
+					<Route path="/settings" element={<Settings />} />
+					<Route path="/data" element={<HeatPumpTable />} />
+				</Routes>
+				</main>
+			</div>
+		</BrowserRouter>
 	}</>	
   }
 

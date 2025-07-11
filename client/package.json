@@ -11,6 +11,7 @@
     "test": "jest --watchAll"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.6.3"

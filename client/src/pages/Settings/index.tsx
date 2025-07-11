@@ -1,16 +1,10 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { TOperationCO, TSettings } from '../../api/type';
+import { THPL, TOperationCO, TSettings } from '../../api/type';
 import { Component } from 'react';
 import { ResourceBlock } from '../../components/ResourceBlock';
 
-// function format(num?: Number): String {
-// 	if (num === undefined) {
-// 		return "";
-// 	}
-// 	return num.toString().padStart(2, '0');
-// }
 
 interface IState {
 	data?: TSettings | null;
@@ -30,8 +24,11 @@ export default class Settings extends Component<{}, IState> {
 					<div className="resource">
 						<div className='header3'>
 							<h3>Ustaw</h3>
-							<button onClick={this.handleDownload}>
-								Pobierz dane HP
+							{/* <button onClick={this.clearDa}>
+								Pobierz dane HP JSON
+							</button> */}
+							<button onClick={this.handleDownloadCsv}>
+								Pobierz dane HP CSV
 							</button>
 						</div>
 						<hr />
@@ -246,12 +243,49 @@ export default class Settings extends Component<{}, IState> {
 				link.click();
 				document.body.removeChild(link);
 
-				HpRequests.clearHpData().then();
+				// HpRequests.clearHpData().then();
 			})
 			.catch((err) => {
 				console.log(err);
 				this.setState({ error: true });
 		});
+	};
 
-	}
+	handleDownloadCsv() {
+		HpRequests.getHpAllData()
+			.then((data) => {
+				const jsonData:THPL[] = data
+					.map(row => 
+						{
+							const hp: THPL = row.HP;
+							hp["time"] = row.time; 
+							return row.HP 
+						})
+					.filter(row => row.HPS == true );
+
+				const headers = Object.keys(jsonData[0]);
+				const csvContent = [
+					headers.join(';'), // nagłówki
+					...jsonData.map(row =>
+					headers.map(field => {
+						const value = row[field as keyof THPL];
+						if (field == 'time') return value;
+						if (typeof value === 'boolean') return value ? '1' : '0';
+						if (typeof value === 'number') return `"${String(value).replace('.', ',').replace(/"/g, '""')}"`;
+						if (typeof value === 'string') return `"${value.replace(/"/g, '""').replace('.', ',')}"`;
+						return value;
+					}).join(';')
+					),
+				].join('\n');
+
+				const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+				const url = URL.createObjectURL(blob);
+
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = "data.csv";
+				a.click();
+				URL.revokeObjectURL(url);
+			});
+	};
 }

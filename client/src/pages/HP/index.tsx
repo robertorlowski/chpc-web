@@ -15,7 +15,7 @@ export default class HP extends Component<{}, IState> {
 
   componentWillMount() {
     
-    HpRequests.getCoData()
+  HpRequests.getCoData()
       .then(resp => {
         this.setState({ data: resp });
       })
@@ -131,53 +131,65 @@ export default class HP extends Component<{}, IState> {
                     <td className="field">{_hp?.Tmin || '---'}</td>
                   </tr>
                   <tr>
-                    <td className="label">Temp. BE</td>
-                    <td className={_hp?.Tbe < 0 ? 'field incorrect' : 'field'}>{_hp?.Tbe || '---'}</td>
-                  </tr>
-                  <tr>
+                    <td className="label">Temp. CO max:</td>
+                    <td className="field">{_hp?.Tmax || '---'}</td>
+                  </tr>                  
+
+                  {/* <tr>
                     <td className="label">Temp. cold out:</td>
                     <td className={_hp?.Tco < 0 ? 'field incorrect' : 'field'}>{_hp?.Tco || '---'}</td>
-                  </tr>
+                  </tr> */}
                   <tr>
                     <td className="label">Temp. comp.:</td>
                     <td className="field">{_hp?.Tsump || '---'}</td>
-                  </tr>
-                  <tr>
-                    <td className="label">EEV dt:</td>
-                    <td className="field">{_hp?.EEV_dt || '---'}</td>
-                  </tr>
-                  <tr>
-                    <td className="label">EEV position:</td>
-                    <td className="field">{_hp?.EEV_pos || '---'}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <table>
-                <tbody>
-                  <tr>
-                    <td className="label">Temp. CO max:</td>
-                    <td className="field">{_hp?.Tmax || '---'}</td>
-                  </tr>
-                  <tr>
-                    <td className="label">Temp. AE:</td>
-                    <td className={_hp?.Tae < 0 ? 'field incorrect' : 'field'}>{_hp?.Tae || '---'}</td>
                   </tr>
                   <tr>
                     <td className="label">Temp. hot out:</td>
                     <td className="field">{_hp?.Tho || '---'}</td>
                   </tr>
                   <tr>
-                    <td className="label">Watts:</td>
+                    <td className="label">EEV max:</td>
+                    <td className="field">{_hp?.EEVmax || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">Wat max:</td>
+                    <td className="field">{_hp?.WWatt || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">CO:</td>
+                    <td className="field">
+                       <img title="Cold circle state" src={_hp?.CO ? swith_on : swith_off} />
+                   </td>
+                  </tr>
+                </tbody>
+              </table>
+              <table>
+                <tbody>
+                  <tr>
+                    <td className="label">Temp. BE:</td>
+                    <td className={_hp?.Tbe < 0 ? 'field incorrect' : 'field'}>{_hp?.Tbe || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">Temp. AE:</td>
+                    <td className={_hp?.Tae < 0 ? 'field incorrect' : 'field'}>{_hp?.Tae || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">Wat:</td>
                     <td className="field">{_hp?.Watts || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">EEV position:</td>
+                    <td className="field">{_hp?.EEV_pos || '---'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">EEV dt:</td>
+                    <td className="field">{_hp?.EEV_dt || '---'}</td>
                   </tr>
                   <tr>
                     <td className="label">EEV temp.:</td>
                     <td className="field">{_hp?.EEV || '---'}</td>
                   </tr>
-                  <tr>
-                    <td className="label">CO:</td>
-                    <td className="field">{ !_hp?.Ttarget ? '---' : _hp?.CO}</td>
-                  </tr>
+                  
                 </tbody>
               </table>
             </div>

@@ -80,3 +80,7 @@ export type TOperationCO = {
   working_watt?: string,
   eev_max_pulse_open?: string
 }
+
+export type THPL = THP & {
+  time? :string
+};
