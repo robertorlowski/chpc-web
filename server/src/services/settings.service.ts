@@ -10,10 +10,9 @@ export const getSettingsData = async () => {
 
 export const setSettingsData = async (data :TSettings) => {
   await db.read();
-  const settings: TSettings = db.data.settings;
-  Object.assign(settings, data);
+  db.data.settings = data;
   await db.write();
-  return settings;
+  return data;
 }
 
 
