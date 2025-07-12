@@ -54,7 +54,7 @@
 #define T_WORKINGOK_SUMP_MIN 5.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS 3500.0  //user for power protection
+#define MAX_WATTS 3300.0  //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE  60000  //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 30000  //3000 000
@@ -83,11 +83,11 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES 8  //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE 35
+#define EEV_OPEN_AFTER_CLOSE 31
 //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS 37  //52
+#define EEV_MINWORKPOS 35  //52 04.07->37
 // position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START	8
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
@@ -95,7 +95,7 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF)
 //occured then EEV will be closed to min. work position
 //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
-#define EEV_HYSTERESIS 1.0 //0.6
+#define EEV_HYSTERESIS 0.5
 //must be less than EEV_PRECISE_START,
 //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done;
 #define EEV_CLOSEEVERY 86400000
@@ -112,6 +112,8 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 #define eeprom_addr_EEV_MAX			0x74
 #define eeprom_addr_EEV_setpoint	0x78
 #define eeprom_addr_dT 0x82
+#define eeprom_addr_WATT 0x86
+
 //#define eeprom_addr_cwu 0x86
 
 
@@ -446,6 +448,7 @@ const double cT_workingOK_sump_min = T_WORKINGOK_SUMP_MIN;  //need to be not ver
 const double c_wattage_max = MAX_WATTS;                     //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
                                                             //PH165X1CY : 920 Watts, 4.2 A
 const double c_workingOK_wattage_min 	= c_wattage_max/2.5;     //
+int c_workingOK_wattage 	            = 2500;
 
 bool heatpump_state = 0;
 bool hotside_circle_state = 0;
@@ -507,18 +510,17 @@ unsigned long millis_eev_last_step = 0;
 unsigned int error_count = 0;
 
 // int skipchars = 0;
-#define INPUT_TYPE_TEMP 0
-#define INPUT_TYPE_DT 1
-//#define INPUT_TYPE_TEMP_CWU 2
+#define INPUT_TYPE_CO 0
+#define INPUT_TYPE_TEMP 1
+#define INPUT_TYPE_DT 2
 #define INPUT_TYPE_EEV 3
 #define INPUT_TYPE_EEV_SETPOINT 4
 #define INPUT_TYPE_HOT_POMP_ON 5
 #define INPUT_TYPE_COLD_POMP_ON 6
 #define INPUT_TYPE_SUMP_HEATER_ON 7
-#define INPUT_TYPE_CO 8
-//#define INPUT_TYPE_CWU 9
+#define INPUT_TYPE_WATT 8
 
-int input_type = INPUT_TYPE_TEMP;
+int input_type = INPUT_TYPE_CO;
 
 #define ERR_HZ 2500
 
@@ -778,19 +780,19 @@ void Dec_T(void) {
   T_setpoint -= 0.5;
 }
 
-// void Inc_Tcwu(void) {
-//   if (Tcwu_setpoint + 0.5 > cT_setpoint_max) {
-//     return;
-//   }
-//   Tcwu_setpoint += 0.5;
-// }
+void Inc_Watt(void) {
+  if (c_workingOK_wattage + 50 > c_wattage_max) {
+    return;
+  }
+  c_workingOK_wattage += 50;
+}
 
-// void Dec_Tcwu(void) {
-//   if (Tcwu_setpoint - 0.5 < 1.0) {
-//     return;
-//   }
-//   Tcwu_setpoint -= 0.5;
-// }
+void Dec_Watt(void) {
+  if (c_workingOK_wattage - 50 < c_workingOK_wattage_min) {
+    return;
+  }
+  c_workingOK_wattage -= 50;
+}
 
 void Inc_E(void) { 
   T_EEV_setpoint += 0.1;
@@ -1382,6 +1384,10 @@ void setup(void) {
       EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
     }
   
+    c_workingOK_wattage = ReadIntEEPROM(eeprom_addr_WATT);
+    if (isnan(c_workingOK_wattage) || c_workingOK_wattage <= c_workingOK_wattage_min  || c_workingOK_wattage > c_wattage_max) {
+      c_workingOK_wattage = 2400;
+    }
     // Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
   
     eeprom_addr += 1;
@@ -1612,44 +1618,11 @@ void loop(void) {
   } else if ((z == 1) || (i == 1) || (d == 1)) {
 #ifndef EEV_ONLY
     if (d == 1) {
-      switch(input_type) {
-        // case INPUT_TYPE_CWU: 
-        //   input_type = INPUT_TYPE_TEMP ;
-        //   break;
-        case INPUT_TYPE_TEMP:
-          input_type = INPUT_TYPE_DT;
-          break;
-        case INPUT_TYPE_DT:
-          // input_type = INPUT_TYPE_TEMP_CWU;
-          input_type = INPUT_TYPE_EEV;
-          break;
-        // case INPUT_TYPE_TEMP_CWU:
-        //   input_type = INPUT_TYPE_EEV;
-        //   break;
-        case INPUT_TYPE_EEV:
-          input_type = INPUT_TYPE_HOT_POMP_ON;
-          break;
-        case INPUT_TYPE_HOT_POMP_ON:
-          input_type = INPUT_TYPE_COLD_POMP_ON;
-          break;
-        case INPUT_TYPE_COLD_POMP_ON:
-          input_type = INPUT_TYPE_EEV_SETPOINT;
-          break;
-        case INPUT_TYPE_EEV_SETPOINT:
-          input_type = INPUT_TYPE_SUMP_HEATER_ON;
-          break;
-        case INPUT_TYPE_SUMP_HEATER_ON:
-          input_type = INPUT_TYPE_CO;
-          break;
-        case INPUT_TYPE_CO:
-          // input_type = INPUT_TYPE_CWU;
-          input_type = INPUT_TYPE_TEMP;
-          break;
-      }
+      input_type++;
     }
 
     if ((i == 1) || (z == 1) || (d == 1)) {
-      switch(input_type) {
+      switch(input_type % 9) {
         case INPUT_TYPE_TEMP:
           if (z == 1) {
             Dec_T();
@@ -1670,15 +1643,15 @@ void loop(void) {
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);        
           break;
         
-        // case INPUT_TYPE_TEMP_CWU:
-        //   if (z == 1) {
-        //     Dec_Tcwu();
-        //   } else if (i == 1 ) {
-        //     Inc_Tcwu();
-        //   }
-        //   Print_D("T CWU: " + String(Tcwu_setpoint,1)+ "/" + String(Tcwu_setpoint-Tcwu_delta,1));
-        //   SaveSetpointEE(1);
-        //   break;
+        case INPUT_TYPE_WATT:
+          if (z == 1) {
+            Dec_Watt();
+          } else if (i == 1 ) {
+            Inc_Watt();
+          }
+          Print_D("WATT: " + String(c_workingOK_wattage));
+          WriteIntEEPROM(eeprom_addr_WATT, c_workingOK_wattage);        
+          break;
 
         case INPUT_TYPE_EEV:
           if (z == 1 ) {
@@ -1936,7 +1909,8 @@ void loop(void) {
           EEV_fast = 1;
         }
         //jełsi temperatura przegrzania < 4.0 to zamykaj zawór, NORMALNIE
-        else if (T_EEV_dt < T_EEV_setpoint) {  //too
+        //else if (T_EEV_dt < T_EEV_setpoint) {  //too
+        else if (T_EEV_dt < T_EEV_setpoint || async_wattage < c_workingOK_wattage ) {  //too
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 2 closing"));
 #endif
@@ -1971,14 +1945,12 @@ void loop(void) {
           EEV_fast = 1;
 
         // wysoka temperatura przegrzania, otwórz zwór NORMALNIE (dt>4.6)
-        } else if (T_EEV_dt >= T_EEV_setpoint + EEV_HYSTERESIS) {			
+        } else if ((T_EEV_dt >= T_EEV_setpoint + EEV_HYSTERESIS) && async_wattage > c_workingOK_wattage ){			
 #ifdef EEV_DEBUG
           PrintS(F("EEV: 5 opening"));
 #endif
           EEV_apulses = +1;
           EEV_adonotcare = 0;
-          //22.06.2025
-          //EEV_fast = ((EEV_cur_pos == EEV_MINWORKPOS) ||  (EEV_cur_pos == EEV_MINWORKPOS +1) || (EEV_cur_pos == EEV_MINWORKPOS +2 ))  ? 1: 0;
           EEV_fast = 0;
         
         //pozostaw w aktualnej pozycji
@@ -2047,11 +2019,7 @@ void loop(void) {
       PrintS(F("EEV: 13 open to work"));
 #endif
       if (EEV_MINWORKPOS != 0 && EEV_MINWORKPOS > EEV_cur_pos) {  //full close protection
-        //30.07.2025+
-        //EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos;
-        // zacznijmy od łagodnego staru
-        EEV_apulses = EEV_MINWORKPOS - EEV_cur_pos + 2;
-        //30.07.2025-
+        EEV_apulses = (EEV_MINWORKPOS+2) - EEV_cur_pos;
         EEV_adonotcare = 0;
         EEV_fast = 1;
       }
@@ -2118,6 +2086,7 @@ void loop(void) {
           
           (Ttarget.T < (T_setpoint - T_delta) && ((T_setpoint - T_delta) < T_setpoint) && co_on == 1) ||
           (Ttarget.T < (T_setpoint - T_delta_force) && co_on == 1 && start_force == 1)  
+
           // (Ttarget.T < (T_setpoint - T_delta) && cwu_state == 0  && co_on == 1) ||
           // (Ttarget.T < T_setpoint && cwu_state == 0  && co_on == 1 && start_force == 1) || 
 
@@ -2128,6 +2097,7 @@ void loop(void) {
         ((Tae.e == 1 && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) && ((Tbc.e == 1 && Tbc.T < cT_before_condenser_max) || (Tbc.e ^ 1)) && ((Tci.e == 1 && Tci.T > cT_cold_min) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T > cT_cold_min) || (Tco.e ^ 1))) {
         last_power = 0;
         millis_last_heatpump_on = millis_now;
+        last_power_milis = millis_now;
         heatpump_state = 1;
     } 
 
@@ -2161,7 +2131,7 @@ void loop(void) {
     //start if (heatpump_enabled)
     //stop if (heatpump_disabled and (t hot out or in < t target + heat delta min) )
     //delayed start hot side
-    else if ((heatpump_state == 1) && (hotside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME/3)) {
+    else if ((heatpump_state == 1) && (hotside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME/4)) {
       hotside_circle_state = 1;
     }
 
@@ -2169,7 +2139,7 @@ void loop(void) {
     //start if (heatpump_enabled)
     //stop if (heatpump_disbled)
     //delayed start cold side
-    if ((heatpump_state == 1) && (coldside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME/3)) {
+    if ((heatpump_state == 1) && (coldside_circle_state == 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME/4)) {
       coldside_circle_state = 1;
     }
 
@@ -2271,11 +2241,7 @@ void loop(void) {
 #endif
   
     if (millis_last_heatpump_on > millis_last_heatpump_off) {
-      if (last_power == 0) {
-        last_power +=  (async_wattage * ( millis() - millis_last_heatpump_on) / 1000);
-      } else {
-        last_power +=  (async_wattage * ( millis() - last_power_milis) / 1000);
-      }
+      last_power += async_wattage * (( millis() - last_power_milis)/1000);
       last_power_milis = millis();
     }  
   }
@@ -2343,6 +2309,14 @@ void loop(void) {
           co_on =  (inData[2]== 0x01) ;
           WriteIntEEPROM(eeprom_addr_co, co_on);
           break;
+        case 0x0D:
+          EEV_MAXPULSES_OPEN =  int(inData[2]);
+          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          break;        
+        case 0x0E:
+          c_workingOK_wattage =  int(inData[2])*100 + int(inData[3]);
+          WriteIntEEPROM(eeprom_addr_WATT, c_workingOK_wattage);
+          break;
       }
     } 
 
@@ -2374,13 +2348,16 @@ void StatsSerial(void) {
   outString.concat( (heatpump_state == 1) ? "\"HPS\":1," : "\"HPS\":0,");
   outString.concat( (start_force == 1) ? "\"F\":1," : "\"F\":0,");
   outString.concat( (co_on == 1) ? "\"CO\":1," : "\"CO\":0,");
-  outString.concat( "\"last_power\":\"" + String(last_power/3600) + "\"," );
+  outString.concat("\"WWatt\":\""+ String(c_workingOK_wattage) +"\",");
+  outString.concat("\"EEVmax\":\""+ String(EEV_MAXPULSES_OPEN) +"\",");
+  outString.concat( (co_on == 1) ? "\"CO\":1," : "\"CO\":0,");
+  outString.concat( "\"lt_pow\":\"" + String(last_power/3600) + "\"," );
   if (millis_last_heatpump_on < millis_last_heatpump_off ) {
-    outString.concat( "\"last_heatpump_on\":\"" + String((millis_last_heatpump_off - millis_last_heatpump_on)/1000) + "\"" );
+    outString.concat( "\"lt_hp_on\":\"" + String((millis_last_heatpump_off - millis_last_heatpump_on)/1000) + "\"" );
   } else if ( millis_last_heatpump_on > 0 ) {
-    outString.concat( "\"last_heatpump_on\":\"" + String((millis_now - millis_last_heatpump_on)/1000) + "\"" );
+    outString.concat( "\"lt_hp_on\":\"" + String((millis_now - millis_last_heatpump_on)/1000) + "\"" );
   } else {
-    outString.concat( "\"last_heatpump_on\":\"0\"" );
+    outString.concat( "\"lt_hp_on\":\"0\"" );
   }
   outString.concat("}");
 }
