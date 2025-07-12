@@ -29,9 +29,6 @@ export default class HP extends Component<{}, IState> {
       return 'Loading...';
     }
     
-    //autorefresh
-    setInterval(() => {window.location.reload()}, 60000);
-
     let _pv: TPV = this.state.data.PV;
     let _hp: THP = this.state.data.HP;
     let _data: TCO = this.state.data;
