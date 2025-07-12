@@ -6,7 +6,7 @@ export function Header() {
 
 	if (location.pathname === '/' || location.pathname === '/hp') {
       	//autorefresh
-		setInterval(() => {window.location.reload()}, 10000);
+		setInterval(() => {window.location.reload()}, 60000);
 	}
 
 	return (
