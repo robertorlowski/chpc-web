@@ -1,10 +1,7 @@
-
-
 h3, ul {
     margin-block-start: 0.2rem;
     margin-block-end: 0.2rem;
 }
-
 
 .field {
 	font-weight: bold;
@@ -131,7 +128,6 @@ img.field {
 
 @media (max-width:360px) {
 	.settings section {
-		margin-top: 3rem;
 		grid-template-columns: 1fr;
 	}
 }

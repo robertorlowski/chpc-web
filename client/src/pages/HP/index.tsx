@@ -71,7 +71,7 @@ export default class HP extends Component<{}, IState> {
                   <tbody>
                     <tr>
                       <td className="label">T:</td>
-                      <td className={_data?.co_pomp ? 'field incorrect' : 'field correct'}>
+                      <td className={_data?.HP?.HPS ? 'field correct' : 'field '}>
                         {_hp?.Ttarget || '---'}
                       </td>
                     </tr>

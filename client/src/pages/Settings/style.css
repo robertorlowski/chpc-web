@@ -32,7 +32,6 @@ button {
 
 .header3 {
     display: flex;
-    
     justify-content: space-between;
 }
 
@@ -60,7 +59,6 @@ button {
 
 @media (max-width:360px) {
 	.settings section {
-		margin-top: 3rem;
 		grid-template-columns: 1fr;
     }
 }

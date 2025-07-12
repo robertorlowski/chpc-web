@@ -35,14 +35,14 @@ export const HeatPumpTable: React.FC = () => {
 		HpRequests.getHpAllData()
 			.then(json => {
 				setData(
-					json.map(row => 
+					json.filter(row => row?.HP?.HPS == true )
+						.sort( (a,b) => b.time.localeCompare(a.time) ) 
+						.map(row => 
 						{
 							const hp: THPL = row.HP;
 							hp["time"] = row.time; 
 							return row.HP 
 						})
-						.filter(row => row.HPS == true )
-						.slice(0,1000)
 				);
 				setLoading(false);
 			})
@@ -94,7 +94,7 @@ export const HeatPumpTable: React.FC = () => {
 						whiteSpace: 'nowrap',
 						position: 'sticky',
 						top: 0,
-						width: 120
+						width: 110
 					} :
 					{
 						padding: '10px 12px',
@@ -106,7 +106,7 @@ export const HeatPumpTable: React.FC = () => {
 						whiteSpace: 'nowrap',
 						position: 'sticky',
 						top: 0,
-						width: 50
+						width: 40
 				}}
 				>
 				{flexRender(header.column.columnDef.header, header.getContext())}
@@ -144,7 +144,7 @@ export const HeatPumpTable: React.FC = () => {
 						color: '#333',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
-						width: 120
+						width: 110
 					}
 					:
 					{
@@ -153,7 +153,7 @@ export const HeatPumpTable: React.FC = () => {
 						color: '#333',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
-						width: 50
+						width: 40
 					}}
 				>
 				{flexRender(cell.column.columnDef.cell, cell.getContext())}
