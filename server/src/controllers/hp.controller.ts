@@ -44,15 +44,11 @@ export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
   Object.assign(operation, getOperationData());
   clearOperation();
 
-  try {
-    if (!data || !data?.HP) {
-      return res.status(500).send({ error: "No data" })  
-    }
-    if (!data?.HP.Ttarget) {
-      return res.status(201).json({ operation: operation});
-    }
-
-    await addHpData(data);
+  try {   
+    if (data && data?.HP && data?.HP.Ttarget) {
+      await addHpData(data);
+    }    
+    
     return res.status(201).json({ operation: operation});
   } catch (error) {
     return res.status(500).send({ error: error })
