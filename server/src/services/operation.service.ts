@@ -13,8 +13,7 @@ export const clearOperation = () => {
 }
 
 export const setOperationData = (data :TOperationCO) => {
-  const merged = {...operation, ...data };	
-  operation = merged;
+  Object.assign(operation, data);
   return operation;
 }
 
