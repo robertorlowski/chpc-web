@@ -22,17 +22,18 @@ export const getHpLastData = async () => {
   return hp[hp.length - 1];
 }
 
-export const getHpAllData= async () => {
+export const getHpAllData = async () => {
   await db.read();
   const hp: TCO[] = db.data.hp;
-  return db.data.hp
-    .filter(row => row.HP && row.time)
-    .sort((a: TCO, b: TCO) => {
-      if ((!a.time) || (!b.time)) {
-        return 0;
-      }
-      return new Date(parseDate(b.time)).getTime() - new Date(parseDate(a.time)).getTime();
-  });
+  // return db.data.hp
+  //   .filter(row => row.HP && row.time)
+  //   .sort((a: TCO, b: TCO) => {
+  //     if ((!a.time) || (!b.time)) {
+  //       return 0;
+  //     }
+  //     return new Date(parseDate(b.time)).getTime() - new Date(parseDate(a.time)).getTime();
+  // });
+  return hp;
 }
 
 
