@@ -45,7 +45,7 @@ export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
   clearOperation();
 
   try {   
-    if (data && data?.HP && data?.HP.Ttarget) {
+    if (data && data.HP && data.HP.Ttarget) {
       await addHpData(data);
     }    
     
