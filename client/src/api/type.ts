@@ -78,7 +78,8 @@ export type TOperationCO = {
   cwu_min?: string,
   cwu_max?: string,
   working_watt?: string,
-  eev_max_pulse_open?: string
+  eev_max_pulse_open?: string,
+  eev_setpoint?: string
 }
 
 export type THPL = THP & {

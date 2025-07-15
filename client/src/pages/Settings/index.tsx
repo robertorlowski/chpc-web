@@ -97,6 +97,20 @@ export default class Settings extends Component<{}, IState> {
 						</div>
 
 						<div style={{ minWidth: '200px' }}>
+							<span className="label" style={{ width: '160px' }}>EEV temp.:</span>
+							<input
+								className="temperature"
+								type="number"
+								name="eev_setpoint"
+								step="any"
+								value={this.state.value.eev_setpoint}
+								onBlur={(e) => this.handleSave({
+									eev_setpoint: e.currentTarget.value
+								})}
+							/>
+						</div>
+
+						<div style={{ minWidth: '200px' }}>
 							<span className="label" style={{ width: '160px' }}>EEV max pulse:</span>
 							<input
 								className="temperature"
@@ -262,7 +276,10 @@ export default class Settings extends Component<{}, IState> {
 							return row.HP 
 						})
 					.filter(row => row.HPS == true );
-
+				
+				if ( jsonData.length == 0 )	{
+					return;
+				}
 				const headers = Object.keys(jsonData[0]);
 				const csvContent = [
 					headers.join(';'), // nagłówki
@@ -277,9 +294,10 @@ export default class Settings extends Component<{}, IState> {
 					}).join(';')
 					),
 				].join('\n');
-
+			
 				const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 				const url = URL.createObjectURL(blob);
+				
 
 				const a = document.createElement('a');
 				a.href = url;

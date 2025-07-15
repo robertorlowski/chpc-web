@@ -77,5 +77,6 @@ export type TOperationCO = {
   cwu_min?: String,
   cwu_max?: String,
   working_watt?: String,
-  eev_max_pulse_open?: String
+  eev_max_pulse_open?: String,
+  eev_setpoint?: String
 }

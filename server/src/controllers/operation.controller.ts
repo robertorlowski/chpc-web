@@ -20,6 +20,7 @@ export async function prepareOperation(req: Request, res: Response) {
     op.work_mode = data?.work_mode;
     op.eev_max_pulse_open = String(data?.HP?.EEVmax);
     op.working_watt = String(data?.HP?.WWatt);
+    op.eev_setpoint = String(data?.HP?.EEV);
  
     return res.status(200).send(op);
   } catch (error) {
