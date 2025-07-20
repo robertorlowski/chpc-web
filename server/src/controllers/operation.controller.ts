@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { getOperationData, setOperationData } from '../services/operation.service';
+import { clearOperation, getOperationData, setOperationData } from '../services/operation.service';
 import { TOperationCO } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
 import { sendMessage } from '../middleware/webSocet';
@@ -32,6 +32,17 @@ export async function prepareOperation(req: Request, res: Response) {
 export async function getOperation(req: Request, res: Response) {
   try { 
     return res.status(200).send(getOperationData());
+  } catch (error) {
+    return res.status(500).send({ error: error })
+  }
+}
+
+export async function getAndClearOperation(req: Request, res: Response) {
+  try { 
+    const operation: TOperationCO = {};
+    Object.assign(operation, getOperationData());
+    clearOperation();
+    return res.status(200).send(operation);
   } catch (error) {
     return res.status(500).send({ error: error })
   }
