@@ -1,5 +1,12 @@
 import { TCO, TOperationCO, TSettings } from "./type";
 
+export const wsAddressServer = () => {
+  if (process.env.NODE_ENV !== "production") 
+    return  "ws://localhost:4001"
+  else 
+    return  "ws://chpc-web.onrender.com/";
+}
+
 function prefixMocks(path: string) {
   if (process.env.NODE_ENV !== "production") 
     return  "http://localhost:4001/api".concat(path)

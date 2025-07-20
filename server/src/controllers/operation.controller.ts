@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { getOperationData, setOperationData } from '../services/operation.service';
 import { TOperationCO } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
+import { sendMessage } from '../middleware/webSocet';
 
 
 export async function prepareOperation(req: Request, res: Response) {
@@ -36,10 +37,10 @@ export async function getOperation(req: Request, res: Response) {
   }
 }
 
-
 export const setOperation = async (req: Request<{}, {}, TOperationCO>, res: Response) => {
   const op :TOperationCO = req.body;
   setOperationData(op)
+  sendMessage("operation");
   return res.status(201).json({ message: op });
 }
 
