@@ -15,6 +15,7 @@ export const createWsServer = (server: any) => {
 
     ws.on('message', (message) => {
       console.log(`Received from client [${ip}]:`, message.toString());
+      ws.send('Witaj ESP32'); // <- WAŻNE
     });
 
     ws.on('close', () => {
