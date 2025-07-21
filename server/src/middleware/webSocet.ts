@@ -15,7 +15,6 @@ export const createWsServer = (server: any) => {
 
     ws.on('message', (message) => {
       console.log(`Received from client [${ip}]:`, message.toString());
-      ws.send('Witaj ESP32'); // <- WAŻNE
     });
 
     ws.on('close', () => {
@@ -33,7 +32,6 @@ export const sendMessage = (message: String) => {
   let sent = 0;
   espClients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      console.log("send - opperation")
       client.send(message);
     }
   });

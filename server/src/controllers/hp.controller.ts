@@ -3,6 +3,7 @@ import { Request, Response } from 'express'
 import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/hp.service'
 import { TCO, TOperationCO } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
+import { sendMessage } from '../middleware/webSocet'
 
 
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
@@ -47,6 +48,7 @@ export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
   try {   
     if (data && data.HP && data.HP.Ttarget) {
       await addHpData(data);
+      sendMessage('update');
     }    
     
     return res.status(201).json({ operation: operation});
