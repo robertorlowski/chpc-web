@@ -105,7 +105,7 @@ export default class Settings extends Component<{}, IState> {
 								step="any"
 								value={this.state.value.eev_setpoint}
 								onBlur={(e) => this.handleSave({
-									eev_setpoint: e.currentTarget.value
+									eev_setpoint: !e.currentTarget.value ? "0" : e.currentTarget.value.replace(',', '.')
 								})}
 							/>
 						</div>
