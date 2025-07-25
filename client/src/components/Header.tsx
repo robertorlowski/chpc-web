@@ -4,10 +4,10 @@ import { Link, useLocation } from "react-router-dom";
 export function Header() {
 	let location  = useLocation();
 
-	// if (location.pathname === '/' || location.pathname === '/hp') {
-    //   	//autorefresh
-	// 	setInterval(() => {window.location.reload()}, 60000);
-	// }
+	if (location.pathname === '/' || location.pathname === '/hp') {
+      	//autorefresh
+		setInterval(() => {window.location.reload()}, 60000);
+	}
 
 	return (
 		<header>
