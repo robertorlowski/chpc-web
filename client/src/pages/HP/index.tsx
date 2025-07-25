@@ -27,25 +27,25 @@ const HP: React.FC = () => {
     []
   );
 
-  // useEffect(() => {
-  //   ws.current = new WebSocket(wsAddressServer());
-  //   ws.current.onmessage = (event) => {
-  //     // Sprawdź, czy komunikat to info o zmianie danych
-  //     if (event.data === 'update') {
-  //       // pobierz aktualne dane z REST API
-  //       HpRequests.getCoData()
-  //         .then(resp => {
-  //           setData(resp);
-  //           setHP(resp.HP);
-  //           setPV(resp.PV);
-  //         })
-  //         .catch(err => console.error('Błąd przy pobieraniu danych:', err));
-  //     }
-  //   };
-  //   return () => {
-  //     ws.current?.close();
-  //   };
-  // }, []);
+  useEffect(() => {
+    ws.current = new WebSocket(wsAddressServer());
+    ws.current.onmessage = (event) => {
+      // Sprawdź, czy komunikat to info o zmianie danych
+      if (event.data === 'update') {
+        // pobierz aktualne dane z REST API
+        HpRequests.getCoData()
+          .then(resp => {
+            setData(resp);
+            setHP(resp.HP);
+            setPV(resp.PV);
+          })
+          .catch(err => console.error('Błąd przy pobieraniu danych:', err));
+      }
+    };
+    return () => {
+      ws.current?.close();
+    };
+  }, []);
 
   return (
     <div className="settings">

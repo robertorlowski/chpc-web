@@ -4,7 +4,7 @@ export const wsAddressServer = () => {
   if (process.env.NODE_ENV !== "production") 
     return  "ws://localhost:4001"
   else 
-    return  "ws://chpc-web.onrender.com/";
+    return  "wss://chpc-web.onrender.com/";
 }
 
 function prefixMocks(path: string) {
