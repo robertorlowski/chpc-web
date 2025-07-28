@@ -87,8 +87,12 @@ export class HpRequests {
     return Requests.post("/hp/clear", {}, false);
   } 
 
-  static getOperation() : Promise<TOperationCO> {
+  static prepareOperation() : Promise<TOperationCO> {
       return Requests.get("/operation");
+  } 
+
+  static getOperation() : Promise<TOperationCO> {
+      return Requests.get("/operation/get");
   } 
 
   static setOperation(data: TOperationCO) {

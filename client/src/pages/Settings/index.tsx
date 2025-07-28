@@ -222,7 +222,7 @@ export default class Settings extends Component<{}, IState> {
 				this.setState({ error: true });
 		});
 
-		HpRequests.getOperation()
+		HpRequests.prepareOperation()
 			.then((resp) => {
 				this.setState({value: resp});
 			})
@@ -238,9 +238,21 @@ export default class Settings extends Component<{}, IState> {
 		this.setState({
 			value: value
 		});
+
 		HpRequests.setOperation(value).then(response => {
 			this.setState({ error: response?.status === 201 ? false : true });
 		});
+
+
+		HpRequests.getOperation()
+			.then((resp) => {
+				console.log(resp)
+			})
+			.catch((err) => {
+				console.log(err);
+			} 
+		);
+
 	}
 
 	handleDownload() {

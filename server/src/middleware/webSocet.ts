@@ -29,10 +29,11 @@ export const sendMessage = (message: String) => {
  if (!message) {
     return;
   }
-  let sent = 0;
-  espClients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  setTimeout(() => {
+    espClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }, 500);
 }
