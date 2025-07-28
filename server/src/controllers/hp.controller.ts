@@ -21,7 +21,7 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
 export async function getHp(req: Request, res: Response) {
   try {
     const result = await getHpLastData()
-    console.log("Clear HP last data");
+    console.log("Get HP last data");
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
