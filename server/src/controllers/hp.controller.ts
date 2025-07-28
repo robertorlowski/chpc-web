@@ -9,6 +9,7 @@ import { sendMessage } from '../middleware/webSocet'
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
   try {
     const result = await clearData();
+    console.log("Clear HP data");
     return res.status(200).send({ message: 'OK' });
   } catch (error) {
     console.log(error)
@@ -20,6 +21,7 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
 export async function getHp(req: Request, res: Response) {
   try {
     const result = await getHpLastData()
+    console.log("Clear HP last data");
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
@@ -30,7 +32,7 @@ export async function getHp(req: Request, res: Response) {
 export async function getHpAll(req: Request, res: Response) {
   try {
     const result = await getHpAllData()
-    
+    console.log("Clear HP all data");
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
@@ -41,9 +43,13 @@ export async function getHpAll(req: Request, res: Response) {
 export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
   const data :TCO = req.body;
   
+  console.log("Add HP data");
   const operation: TOperationCO = {};
   Object.assign(operation, getOperationData());
+  console.log("Get HP operation");
+  console.log(operation);
   clearOperation();
+  console.log("Clear HP operation");
 
   try {   
     if (data && data.HP && data.HP.Ttarget) {

@@ -7,6 +7,7 @@ import { sendMessage } from '../middleware/webSocet';
 
 export async function prepareOperation(req: Request, res: Response) {
   try {
+    console.log("Prepare operation");
 
     const data = await getHpLastData()
     const op :TOperationCO = {};
@@ -31,6 +32,7 @@ export async function prepareOperation(req: Request, res: Response) {
 
 export async function getOperation(req: Request, res: Response) {
   try { 
+    console.log("Get operation");
     return res.status(200).send(getOperationData());
   } catch (error) {
     return res.status(500).send({ error: error })
@@ -39,6 +41,7 @@ export async function getOperation(req: Request, res: Response) {
 
 export async function getAndClearOperation(req: Request, res: Response) {
   try { 
+    console.log("Get & Clear operation");
     const operation: TOperationCO = {};
     Object.assign(operation, getOperationData());
     clearOperation();
@@ -49,8 +52,13 @@ export async function getAndClearOperation(req: Request, res: Response) {
 }
 
 export const setOperation = async (req: Request<{}, {}, TOperationCO>, res: Response) => {
+  
+  console.log("Set operation");
   const op :TOperationCO = req.body;
+  console.log(op);
   setOperationData(op)
+  console.log(getOperationData());
+
   sendMessage("operation");
   return res.status(201).json({ message: op });
 }
