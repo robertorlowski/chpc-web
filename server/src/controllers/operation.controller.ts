@@ -46,6 +46,7 @@ export async function getAndClearOperation(req: Request, res: Response) {
     Object.assign(operation, getOperationData());
     clearOperation();
     return res.status(200).send(operation);
+
   } catch (error) {
     return res.status(500).send({ error: error })
   }
@@ -54,6 +55,7 @@ export async function getAndClearOperation(req: Request, res: Response) {
 export const setOperation = async (req: Request<{}, {}, TOperationCO>, res: Response) => {
   
   console.log("Set operation");
+  
   const op :TOperationCO = req.body;
   console.log(op);
   setOperationData(op)

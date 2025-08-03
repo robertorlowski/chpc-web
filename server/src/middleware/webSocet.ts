@@ -7,8 +7,7 @@ export const createWsServer = (server: any) => {
   
   console.log("server create");
 
-
-  wss.on('connection', (ws: WebSocket, req) => {
+  wss.on('connection', (ws: WebSocket, req) => {s
     const ip = req.socket.remoteAddress;
     console.log(`New client connected: ${ip}`);
     espClients.add(ws);
@@ -35,5 +34,5 @@ export const sendMessage = (message: String) => {
         client.send(message);
       }
     });
-  }, 500);
+  }, 3000);
 }
