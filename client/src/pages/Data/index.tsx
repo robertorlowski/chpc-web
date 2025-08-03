@@ -27,15 +27,14 @@ const columns: ColumnDef<THPL>[] = [
 
 export const HeatPumpTable: React.FC = () => {
 	const [data, setData] = useState<THP[]>([]);
-	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		const fetchData = () => {
+	const fetchData = (all: boolean) => {
 		HpRequests.getHpAllData()
 			.then(json => {
 				setData(
-					json.filter(row => row?.HP?.HPS == true )
+					json
+						.filter(row => all || row?.HP?.HPS == true )
 						.sort( (a,b) => b.time.localeCompare(a.time) ) 
 						.map(row => 
 						{
@@ -44,14 +43,14 @@ export const HeatPumpTable: React.FC = () => {
 							return row.HP 
 						})
 				);
-				setLoading(false);
 			})
 			.catch(err => {
 				setError((err as Error).message);
 			})	
-		}
-		
-		fetchData();
+	};
+
+	useEffect(() => {
+		fetchData(false);
 	}, []);
 
 	const table = useReactTable({
@@ -61,22 +60,33 @@ export const HeatPumpTable: React.FC = () => {
 		getFilteredRowModel: getFilteredRowModel(), 
 	});
 
-	if (loading) return <p>Ładowanie danych...</p>;
 	if (error) return <p>Błąd: {error}</p>;
-	if (!data.length) return <p>Brak danych do wyświetlenia.</p>;
 
   return (
     <div style={{ overflowX: 'auto', padding: '16px' }}>
-	<table style={{
-		borderCollapse: 'separate',
-		borderSpacing: 0,
-		borderRadius: '10px',
-		overflow: 'hidden',
-		boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-		fontFamily: 'Segoe UI, sans-serif',
-		fontSize: '14px',
-		backgroundColor: '#fff',
-	}}>
+		<div style={{ display: "flex" }}>
+			<span className="label">Wszystkie dane:</span>
+			<input
+				title="Wszystkie dane"
+				type="checkbox"
+				name="allData"
+				onChange={(e) => {
+						fetchData(e.target.checked);
+					}
+				}
+			/>
+		</div>
+	
+		<table style={{
+			borderCollapse: 'separate',
+			borderSpacing: 0,
+			borderRadius: '10px',
+			overflow: 'hidden',
+			boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+			fontFamily: 'Segoe UI, sans-serif',
+			fontSize: '14px',
+			backgroundColor: '#fff',
+		}}>
 		<thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f8f8', zIndex: 2 }}>
 		{table.getHeaderGroups().map(headerGroup => (
 			<tr key={headerGroup.id}>
