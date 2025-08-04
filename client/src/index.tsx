@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import Settings from "./pages/Settings";
 import HP from "./pages/HP";
 import { HeatPumpTable } from "./pages/Data"
+import { HeatPumpChart  } from "./pages/Charts"
 
 function App() {
 
@@ -21,6 +22,7 @@ function App() {
 					<Route path="/hp" element={<HP />} />
 					<Route path="/settings" element={<Settings />} />
 					<Route path="/data" element={<HeatPumpTable />} />
+					<Route path="/chart" element={<HeatPumpChart/>} />
 				</Routes>
 				</main>
 			</div>

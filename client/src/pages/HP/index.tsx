@@ -36,8 +36,8 @@ const HP: React.FC = () => {
         HpRequests.getCoData()
           .then(resp => {
             setData(resp);
-            setHP(resp.HP);
-            setPV(resp.PV);
+            setHP(resp?.HP);
+            setPV(resp?.PV);
           })
           .catch(err => console.error('Błąd przy pobieraniu danych:', err));
       }
