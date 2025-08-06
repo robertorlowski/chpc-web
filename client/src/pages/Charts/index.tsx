@@ -18,7 +18,9 @@ export const HeatPumpChart: React.FC = () => {
   }, [data, selectedDate]);
   
   const uniqueDates = useMemo(() => {
-    return [...new Set(data.map(d => d.time?.split(' ')[0]))];
+    const ccc= [...new Set(data.map(d => d.time?.split(' ')[0]))]
+    setSelectedDate(ccc[ccc.length-1]||'');
+    return ccc;
   }, [data]);
 
   const fetchData = (all: boolean) => {
@@ -56,7 +58,8 @@ export const HeatPumpChart: React.FC = () => {
             .sort((a, b) => b.localeCompare(a))
             .map(date => (
           <option key={date} value={date}>{date}</option>
-        ))}
+        ))
+        }
       </select>
     </h2>
     <div style={{ display: "flex", justifyContent: 'flex-start', marginBottom: 10, marginLeft: 65 }}>
@@ -77,7 +80,7 @@ export const HeatPumpChart: React.FC = () => {
            margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
         <Tooltip />   
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end"/>
+        <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" name="Czas"/>
         <YAxis yAxisId="left" label={{ value: 'Temp [°C]', angle: -90, position: 'insideLeft' }} />
         <YAxis yAxisId="right" orientation="right" label={{ value: 'Moc [W]', angle: -90, position: 'insideRight' }} />
         <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#8884d8" name="Temp. przed parownikiem" dot={{ r: 1 }} />
