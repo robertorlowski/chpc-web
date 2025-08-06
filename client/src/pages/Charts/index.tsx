@@ -27,7 +27,7 @@ export const HeatPumpChart: React.FC = () => {
         setData(
           json
             .filter(row => all || row?.HP?.HPS == true )
-            .filter((_, index) => index % (all ? 20 : 5 ) === 0)
+            .filter((_, index) => index % (all ? 10 : 2 ) === 0)
             .sort( (a,b) => a.time.localeCompare(b.time) ) 
             .map(row => 
             {
@@ -46,13 +46,15 @@ export const HeatPumpChart: React.FC = () => {
     fetchData(false);
   }, []);
 
-
   return (
- <div style={{ width: '100vw', height: '90vh'}}>
+  <div style={{ width: '100vw', height: '90vh'}}>
     <h2>Temperatury i Moc w dniu &nbsp;
       <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
         style={{fontSize: 24, border: 'none' }}>
-        {uniqueDates.map(date => (
+        {uniqueDates
+            .filter((x): x is string => x !== undefined)
+            .sort((a, b) => b.localeCompare(a))
+            .map(date => (
           <option key={date} value={date}>{date}</option>
         ))}
       </select>
@@ -64,7 +66,7 @@ export const HeatPumpChart: React.FC = () => {
 				name="allData"
 				onChange={(e) => {
 						fetchData(e.target.checked);
-            setSelectedDate(uniqueDates[0] || '');
+            setSelectedDate(uniqueDates[uniqueDates.length-1] || '');
 					}
 				}
 			/>
@@ -73,18 +75,18 @@ export const HeatPumpChart: React.FC = () => {
     <ResponsiveContainer width="100%" height="80%">
       <LineChart data={filteredData} 
            margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
-       <Tooltip />   
-        <CartesianGrid strokeDasharray="5 5" />
-        <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" interval={2}/>
+        <Tooltip />   
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end"/>
         <YAxis yAxisId="left" label={{ value: 'Temp [°C]', angle: -90, position: 'insideLeft' }} />
         <YAxis yAxisId="right" orientation="right" label={{ value: 'Moc [W]', angle: -90, position: 'insideRight' }} />
         <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#8884d8" name="Temp. przed parownikiem" dot={{ r: 1 }} />
         <Line yAxisId="left" type="monotone" dataKey="Tae" stroke="#82ca9d" name="Temp. za parownikiem" dot={{ r: 1 }}  />
         <Line yAxisId="left" type="monotone" dataKey="Tho" stroke="#ffc658" name="Temp. wody za skraplaczem" dot={{ r: 1 }} />
-        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ff5882ff" name="Temp. zadana" dot={{ r: 1 }} />
-        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#000000" strokeDasharray="5 5" name="Watts" dot={{ r: 1 }} />
+        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ff5882ff" name="Temp. CWU" dot={{ r: 1 }} />
+        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#000000" strokeDasharray="5 5" name="Moc" dot={{ r: 1 }} />
         <Legend 
-          wrapperStyle={{ paddingTop: 20 }} 
+          wrapperStyle={{ paddingTop: 30 }} 
         />
       </LineChart>
     </ResponsiveContainer>
