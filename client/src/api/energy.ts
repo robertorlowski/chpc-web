@@ -8,6 +8,7 @@ export function energyKWh(data: THPL[]): number {
 
   // zamiana time -> ms od epoki
   const toMs = (t: THPL["time"]) => {
+    if (!t) return 0;
     // if (t instanceof Date) return t.getTime();
     // if (typeof t === "number") return t; // zakładamy ms
     // "HH:MM:SS" lub ISO
