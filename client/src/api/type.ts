@@ -83,5 +83,6 @@ export type TOperationCO = {
 }
 
 export type THPL = THP & {
-  time? :string
+  time? :string,
+  pv? :number
 };

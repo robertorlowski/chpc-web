@@ -2,16 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { THPL } from '../../api/type';
 import { HpRequests } from '../../api/api';
-
-// Zakładamy, że masz dane w formacie JSON, np. jako props lub zaimportowane z pliku
+import { energyKWh } from '../../api/energy';
 
 export const HeatPumpChart: React.FC = () => {
   
+  const [powerData, setPowerData] = useState<THPL[]>([]);
   const [data, setData] = useState<THPL[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
-  
+  const [cTae, setTae] = useState(true);
+  const [cTbe, setTbe] = useState(true);
+  const [cTho, setTho] = useState(true);
+  const [cTTarget, setTTarget] = useState(true);
+  const [cWatts, setWatts] = useState(true);
+  const [cWattsPV, setWattsPV] = useState(false);
+  const [allData, setAllData] = useState(true);
+  const [kwh, setKwh] = useState(0);      
+
   // Filtrowanie danych do wybranego dnia
   const filteredData = useMemo(() => {
+    setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate))));
+        
     return data
       .filter(d => d.time?.startsWith(selectedDate))
       .map(d => ({ ...d, time: d.time?.split(' ')[1] })); // tylko godzina
@@ -26,18 +36,23 @@ export const HeatPumpChart: React.FC = () => {
   const fetchData = (all: boolean) => {
     HpRequests.getHpAllData()
       .then(json => {
-        setData(
+       const ttt: THPL[] = 
           json
-            .filter(row => all || row?.HP?.HPS == true )
             .filter((_, index) => index % (all ? 10 : 2 ) === 0)
             .sort( (a,b) => a.time.localeCompare(b.time) ) 
-            .map(row => 
+            .map<THPL>(row => 
             {
-              const hp: THPL = row.HP;
-              hp["time"] = row.time; 
-              return row.HP 
+              const hp: THPL = {
+                ...row.HP,
+                Watts: Math.max(0, (row.HP?.Watts ?? 0) - 120),
+                time: row.time, 
+                pv: row.PV?.total_power ?? 0
+              }  
+              return hp;
             })
-        );
+
+        setPowerData(ttt);
+        setData(ttt.filter(row => all || row.HPS == true ));
       })
       .catch(err => {
         console.log(err);
@@ -45,8 +60,8 @@ export const HeatPumpChart: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData(false);
-  }, []);
+    fetchData(allData);
+  }, [allData]); 
 
   return (
   <div style={{ width: '100vw', height: '90vh'}}>
@@ -62,18 +77,98 @@ export const HeatPumpChart: React.FC = () => {
         }
       </select>
     </h2>
+    <h5>
+ 		<label>Zużyta energia dzienna: {kwh.toFixed(2)} kWh</label>
+    </h5>
+
     <div style={{ display: "flex", justifyContent: 'flex-start', marginBottom: 10, marginLeft: 65 }}>
-			<input
-				title="Pokaż rozkład w ciągu całego dnia"
-				type="checkbox"
-				name="allData"
-				onChange={(e) => {
-						fetchData(e.target.checked);
-            setSelectedDate(uniqueDates[uniqueDates.length-1] || '');
-					}
-				}
-			/>
-    	<span className="label" style={{minWidth: 100}}>Rozkład całego dnia</span>
+			<label>
+        <input
+          title="Pokaż rozkład w ciągu całego dnia"
+          type="checkbox"
+          name="allData"
+          checked={allData}
+          onChange={(e) => {
+              setAllData(e.target.checked); 
+            }
+          }
+        />
+        Rozkład całego dnia
+      </label>
+      <span className="spacer"/>
+			<label>
+        <input
+          title="Tbe"
+          type="checkbox"
+          name="cTbe"
+          checked={cTbe}
+          onChange={(e)=>{
+            setTbe(e.target.checked)
+          }}
+        />
+        Temp. przed parownikiem
+      </label>
+      <span className="spacer"/>
+			<label>
+        <input
+          title="Tae"
+          type="checkbox"
+          name="cTae"
+          checked={cTae}
+          onChange={(e)=>{
+            setTae(e.target.checked)
+          }}
+        />
+        Temp. za parownikiem  
+      </label>
+      <span className="spacer"/>
+			<label>
+        <input
+          type="checkbox"
+          name="cTho"
+          checked={cTho}
+          onChange={(e)=>{
+            setTho(e.target.checked)
+          }}
+        />
+        Temp. wody za skraplaczem
+      </label>
+      <span className="spacer"/>
+			<label>
+        <input
+          type="checkbox"
+          name="cTTarget"
+          checked={cTTarget}
+          onChange={(e)=>{
+            setTTarget(e.target.checked)
+          }}
+        />
+        Temp. CWU
+      </label>
+      <span className="spacer"/>
+			<label>
+        <input
+          type="checkbox"
+          name="cWatt"
+          checked={cWatts}
+          onChange={(e)=>{
+            setWatts(e.target.checked)
+          }}
+        />
+        Moc
+      </label>
+     <span className="spacer"/>
+			<label>
+        <input
+          type="checkbox"
+          name="cWattPV"
+          checked={cWattsPV}
+          onChange={(e)=>{
+            setWattsPV(e.target.checked)
+          }}
+        />
+        Moc PV
+      </label>
 		</div>
     <ResponsiveContainer width="100%" height="80%">
       <LineChart data={filteredData} 
@@ -83,11 +178,12 @@ export const HeatPumpChart: React.FC = () => {
         <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" name="Czas"/>
         <YAxis yAxisId="left" label={{ value: 'Temp [°C]', angle: -90, position: 'insideLeft' }} />
         <YAxis yAxisId="right" orientation="right" label={{ value: 'Moc [W]', angle: -90, position: 'insideRight' }} />
-        <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#8884d8" name="Temp. przed parownikiem" dot={{ r: 1 }} />
-        <Line yAxisId="left" type="monotone" dataKey="Tae" stroke="#82ca9d" name="Temp. za parownikiem" dot={{ r: 1 }}  />
-        <Line yAxisId="left" type="monotone" dataKey="Tho" stroke="#ffc658" name="Temp. wody za skraplaczem" dot={{ r: 1 }} />
-        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ff5882ff" name="Temp. CWU" dot={{ r: 1 }} />
-        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#000000" strokeDasharray="5 5" name="Moc" dot={{ r: 1 }} />
+        <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#463de0ff" name="Temp. przed parownikiem" dot={{ r: 1 }} hide={!cTbe}/>
+        <Line yAxisId="left" type="monotone" dataKey="Tae" stroke="#0ace55ff" name="Temp. za parownikiem" dot={{ r: 1 }} hide={!cTae} />
+        <Line yAxisId="left" type="monotone" dataKey="Tho" stroke="#c4922fff" name="Temp. wody za skraplaczem" dot={{ r: 1 }} hide={!cTho}/>
+        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ec1b4fff" name="Temp. CWU" dot={{ r: 1 }} hide={!cTTarget}/>
+        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#5f5050ff" strokeDasharray="5 5" name="Moc" dot={{ r: 1 }} hide={!cWatts}/>
+        <Line yAxisId="right" type="monotone" dataKey="pv" stroke="#ec30a4ff" strokeDasharray="5 5" name="Moc PV" dot={{ r: 1 }} hide={!cWattsPV}/>
         <Legend 
           wrapperStyle={{ paddingTop: 30 }} 
         />
