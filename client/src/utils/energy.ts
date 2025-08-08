@@ -1,9 +1,7 @@
-import { THPL } from "./type";
-
-// type Point = { time: string | number | Date; Watts: number };
+import { THPL } from "../api/type";
 
 /** Zwraca energię w kWh dla serii (czas, moc[W]) */
-export function energyKWh(data: THPL[]): number {
+export function energyKWh(data: THPL[], pv: boolean): number {
   if (!data || data.length < 2) return 0;
 
   // zamiana time -> ms od epoki
@@ -28,9 +26,15 @@ export function energyKWh(data: THPL[]): number {
     const t0 = toMs(sorted[i - 1].time);
     const t1 = toMs(sorted[i].time);
     const dt_h = (t1 - t0) / 3_600_000;        // różnica czasu w godzinach
-    const p0 = sorted[i - 1].Watts ?? 0;
-    const p1 = sorted[i].Watts ?? 0;
-    wh += ((p0 + p1) / 2) * dt_h;              // całka trapezami w Wh
+    if (!pv) {
+      const p0 = sorted[i - 1].Watts ?? 0;
+      const p1 = sorted[i].Watts ?? 0;  
+      wh += ((p0 + p1) / 2) * dt_h;              // całka trapezami w Wh
+    } else {
+      const p0 = Math.max(0, (sorted[i - 1]?.Watts ?? 0) - sorted[i - 1]?.pv );
+      const p1 = Math.max(0, (sorted[i]?.Watts ?? 0) - sorted[i]?.pv );
+      wh += ((p0 + p1) / 2) * dt_h;              // całka trapezami w Wh
+    }
   }
   return wh / 1000; // kWh
 }

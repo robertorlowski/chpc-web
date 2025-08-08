@@ -282,10 +282,13 @@ export default class Settings extends Component<{}, IState> {
 			.then((data) => {
 				const jsonData:THPL[] = data
 					.map(row => 
-						{
-							const hp: THPL = row.HP;
-							hp["time"] = row.time; 
-							return row.HP 
+						{	
+							const hp: THPL = {
+								...row.HP,
+								time: row.time,
+								pv: row.PV.total_power
+							} 
+							return hp;
 						})
 					.filter(row => row.HPS == true );
 				

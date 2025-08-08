@@ -1,6 +1,6 @@
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { THP } from '../../api/type';
+import { THPL } from '../../api/type';
 import React, { useEffect, useState } from 'react';
 import {
 	ColumnDef,
@@ -10,14 +10,11 @@ import {
 	getFilteredRowModel
 } from '@tanstack/react-table';
 
-type THPL = THP & {
-  time? :string
-};
-
 const columns: ColumnDef<THPL>[] = [
   { header: 'Data', accessorKey: 'time', minSize: 100, size: 100},
   { header: 'EEV pos', accessorKey: 'EEV_pos'},
   { header: 'Watts', accessorKey: 'Watts' },
+  { header: 'PV', accessorKey: 'pv' },
   { header: 'T. be', accessorKey: 'Tbe'},
   { header: 'T. ae', accessorKey: 'Tae' },
   { header: 'T. ho', accessorKey: 'Tho' },
@@ -26,7 +23,7 @@ const columns: ColumnDef<THPL>[] = [
 ];
 
 export const HeatPumpTable: React.FC = () => {
-	const [data, setData] = useState<THP[]>([]);
+	const [data, setData] = useState<THPL[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const fetchData = (all: boolean) => {
@@ -37,11 +34,15 @@ export const HeatPumpTable: React.FC = () => {
 						.filter(row => all || row?.HP?.HPS == true )
 						.sort( (a,b) => b.time.localeCompare(a.time) ) 
 						.map(row => 
-						{
-							const hp: THPL = row.HP;
-							hp["time"] = row.time; 
-							return row.HP 
-						})
+							{	
+								const hp: THPL = {
+									...row.HP,
+									time: row.time,
+									pv: row.PV.total_power
+								} 
+								return hp;
+							})
+						
 				);
 			})
 			.catch(err => {

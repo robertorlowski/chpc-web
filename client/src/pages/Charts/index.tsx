@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { THPL } from '../../api/type';
 import { HpRequests } from '../../api/api';
-import { energyKWh } from '../../api/energy';
+import { energyKWh } from '../../utils/energy';
 
 export const HeatPumpChart: React.FC = () => {
   
@@ -17,21 +17,32 @@ export const HeatPumpChart: React.FC = () => {
   const [cWattsPV, setWattsPV] = useState(false);
   const [allData, setAllData] = useState(true);
   const [kwh, setKwh] = useState(0);      
+  const [kwhPV, setKwhPV] = useState(0);      
+  const [uniqueDates, setUniqueDates] = useState<string[]>([]);
+ 
 
   // Filtrowanie danych do wybranego dnia
   const filteredData = useMemo(() => {
-    setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate))));
+    setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), false));
+    setKwhPV(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), true));
         
     return data
       .filter(d => d.time?.startsWith(selectedDate))
       .map(d => ({ ...d, time: d.time?.split(' ')[1] })); // tylko godzina
   }, [data, selectedDate]);
-  
-  const uniqueDates = useMemo(() => {
-    const ccc= [...new Set(data.map(d => d.time?.split(' ')[0]))]
-    setSelectedDate(ccc[ccc.length-1]||'');
-    return ccc;
-  }, [data]);
+    
+  useEffect(() => {
+    if (uniqueDates.length === 0 && data.length > 0) {
+      console.log("uniqueDates");
+      const ccc= [...new Set(data
+            .map(d => d.time?.split(' ')[0])
+            .filter((d): d is string => d !== undefined)
+          )
+      ];
+      setUniqueDates(ccc);
+      setSelectedDate(ccc[ccc.length-1]||'');
+    }
+  }, [data, uniqueDates]);
 
   const fetchData = (all: boolean) => {
     HpRequests.getHpAllData()
@@ -44,7 +55,7 @@ export const HeatPumpChart: React.FC = () => {
             {
               const hp: THPL = {
                 ...row.HP,
-                Watts: Math.max(0, (row.HP?.Watts ?? 0) - 120),
+                Watts: Math.max(0, (row.HP?.Watts ?? 0) - 120 ),
                 time: row.time, 
                 pv: row.PV?.total_power ?? 0
               }  
@@ -78,7 +89,7 @@ export const HeatPumpChart: React.FC = () => {
       </select>
     </h2>
     <h5>
- 		<label>Zużyta energia dzienna: {kwh.toFixed(2)} kWh</label>
+ 		<label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
     </h5>
 
     <div style={{ display: "flex", justifyContent: 'flex-start', marginBottom: 10, marginLeft: 65 }}>
