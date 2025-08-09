@@ -33,7 +33,6 @@ export const HeatPumpChart: React.FC = () => {
     
   useEffect(() => {
     if (uniqueDates.length === 0 && data.length > 0) {
-      console.log("uniqueDates");
       const ccc= [...new Set(data
             .map(d => d.time?.split(' ')[0])
             .filter((d): d is string => d !== undefined)

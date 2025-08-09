@@ -24,7 +24,35 @@ const columns: ColumnDef<THPL>[] = [
 
 export const HeatPumpTable: React.FC = () => {
 	const [data, setData] = useState<THPL[]>([]);
+	const [filteredData, setFilteredData] = useState<THPL[]>([]);
+
 	const [error, setError] = useState<string | null>(null);
+	const [uniqueDates, setUniqueDates] = useState<string[]>([]);
+	const [selectedDate, setSelectedDate] = useState('');
+		
+	useEffect(() => {
+			setFilteredData(data
+				.filter(d => d.time?.startsWith(selectedDate))
+				.map<THPL>(d => ({ ...d, time: d.time?.split(' ')[1] }))
+			)
+		}, 
+		[data, selectedDate]
+	);
+
+	useEffect(() => {
+			if (uniqueDates.length === 0 && data.length > 0) {
+			const ccc= [...new Set(data
+					.map(d => d.time?.split(' ')[0])
+					.filter((d): d is string => d !== undefined)
+				)
+			];
+			setUniqueDates(ccc);
+			setSelectedDate(ccc[0]||'');
+			}
+		}, 
+		[data, uniqueDates]
+	);
+
 
 	const fetchData = (all: boolean) => {
 		HpRequests.getHpAllData()
@@ -33,7 +61,7 @@ export const HeatPumpTable: React.FC = () => {
 					json
 						.filter(row => all || row?.HP?.HPS == true )
 						.sort( (a,b) => b.time.localeCompare(a.time) ) 
-						.map(row => 
+						.map<THPL>(row => 
 							{	
 								const hp: THPL = {
 									...row.HP,
@@ -55,7 +83,7 @@ export const HeatPumpTable: React.FC = () => {
 	}, []);
 
 	const table = useReactTable({
-		data,
+		data: filteredData,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
 		getFilteredRowModel: getFilteredRowModel(), 
@@ -65,8 +93,20 @@ export const HeatPumpTable: React.FC = () => {
 
   return (
     <div style={{ overflowX: 'auto', padding: '16px' }}>
+    	<h3>Dzień: &nbsp;
+			<select value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+				style={{fontSize: 16, border: 'none' }}>
+				{uniqueDates
+					.filter((x): x is string => x !== undefined)
+					.sort((a, b) => b.localeCompare(a))
+					.map(date => (
+				<option key={date} value={date}>{date}</option>
+				))
+				}
+			</select>
+		</h3>
 		<div style={{ display: "flex" }}>
-			<span className="label">Wszystkie dane:</span>
+			<label>
 			<input
 				title="Wszystkie dane"
 				type="checkbox"
@@ -76,6 +116,8 @@ export const HeatPumpTable: React.FC = () => {
 					}
 				}
 			/>
+			Wszystkie dane
+			</label>
 		</div>
 	
 		<table style={{
@@ -105,7 +147,7 @@ export const HeatPumpTable: React.FC = () => {
 						whiteSpace: 'nowrap',
 						position: 'sticky',
 						top: 0,
-						width: 110
+						width: 60
 					} :
 					{
 						padding: '10px 12px',
@@ -155,7 +197,7 @@ export const HeatPumpTable: React.FC = () => {
 						color: '#333',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
-						width: 110
+						width: 60
 					}
 					:
 					{
