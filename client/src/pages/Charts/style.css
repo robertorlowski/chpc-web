@@ -1,0 +1,11 @@
+
+.chart-checkbox {
+    display: "flex";
+    justify-content: 'flex-start';
+    margin-bottom: 10;
+    margin-left: 65;
+}
+
+.label {
+    margin-right: 15px;
+}

@@ -1,3 +1,4 @@
+import './style.css';
 import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { THPL } from '../../api/type';
@@ -9,17 +10,18 @@ export const HeatPumpChart: React.FC = () => {
   const [powerData, setPowerData] = useState<THPL[]>([]);
   const [data, setData] = useState<THPL[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
-  const [cTae, setTae] = useState(true);
-  const [cTbe, setTbe] = useState(true);
-  const [cTho, setTho] = useState(true);
-  const [cTTarget, setTTarget] = useState(true);
-  const [cWatts, setWatts] = useState(true);
-  const [cWattsPV, setWattsPV] = useState(false);
-  const [allData, setAllData] = useState(true);
+  const [allData, setAllData] = useState(false);
   const [kwh, setKwh] = useState(0);      
   const [kwhPV, setKwhPV] = useState(0);      
   const [uniqueDates, setUniqueDates] = useState<string[]>([]);
- 
+  const [cTemp, setTemp] = useState(true);
+  
+
+  
+  const [cPower, setPower] = useState(true);
+  const [cPV, setPV] = useState(false);
+  
+  
 
   // Filtrowanie danych do wybranego dnia
   const filteredData = useMemo(() => {
@@ -91,8 +93,8 @@ export const HeatPumpChart: React.FC = () => {
  		<label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
     </h5>
 
-    <div style={{ display: "flex", justifyContent: 'flex-start', marginBottom: 10, marginLeft: 65 }}>
-			<label>
+    <div className='chart-checkbox'>
+			<label className='label'>
         <input
           title="Pokaż rozkład w ciągu całego dnia"
           type="checkbox"
@@ -103,97 +105,57 @@ export const HeatPumpChart: React.FC = () => {
             }
           }
         />
-        Rozkład całego dnia
+        Cały dzień
       </label>
-      <span className="spacer"/>
-			<label>
+			<label className='label'>
         <input
-          title="Tbe"
+          title="Temp"
           type="checkbox"
-          name="cTbe"
-          checked={cTbe}
+          name="cTemp"
+          checked={cTemp}
           onChange={(e)=>{
-            setTbe(e.target.checked)
+            setTemp(e.target.checked)
           }}
         />
-        Temp. przed parownikiem
+        Temperatura
       </label>
-      <span className="spacer"/>
-			<label>
-        <input
-          title="Tae"
-          type="checkbox"
-          name="cTae"
-          checked={cTae}
-          onChange={(e)=>{
-            setTae(e.target.checked)
-          }}
-        />
-        Temp. za parownikiem  
-      </label>
-      <span className="spacer"/>
-			<label>
+			<label className='label'>
         <input
           type="checkbox"
-          name="cTho"
-          checked={cTho}
+          name="cPower"
+          checked={cPower}
           onChange={(e)=>{
-            setTho(e.target.checked)
-          }}
-        />
-        Temp. wody za skraplaczem
-      </label>
-      <span className="spacer"/>
-			<label>
-        <input
-          type="checkbox"
-          name="cTTarget"
-          checked={cTTarget}
-          onChange={(e)=>{
-            setTTarget(e.target.checked)
-          }}
-        />
-        Temp. CWU
-      </label>
-      <span className="spacer"/>
-			<label>
-        <input
-          type="checkbox"
-          name="cWatt"
-          checked={cWatts}
-          onChange={(e)=>{
-            setWatts(e.target.checked)
+            setPower(e.target.checked)
           }}
         />
         Moc
       </label>
-     <span className="spacer"/>
-			<label>
+			<label className='label'>
         <input
           type="checkbox"
-          name="cWattPV"
-          checked={cWattsPV}
+          name="cPV"
+          checked={cPV}
           onChange={(e)=>{
-            setWattsPV(e.target.checked)
+            setPV(e.target.checked)
           }}
         />
-        Moc PV
+        PV
       </label>
 		</div>
     <ResponsiveContainer width="100%" height="80%">
       <LineChart data={filteredData} 
            margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
         <Tooltip />   
-        <CartesianGrid strokeDasharray="3 3" />
+        <CartesianGrid strokeDasharray="1 1" />
         <XAxis dataKey="time" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" name="Czas"/>
         <YAxis yAxisId="left" label={{ value: 'Temp [°C]', angle: -90, position: 'insideLeft' }} />
         <YAxis yAxisId="right" orientation="right" label={{ value: 'Moc [W]', angle: -90, position: 'insideRight' }} />
-        <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#463de0ff" name="Temp. przed parownikiem" dot={{ r: 1 }} hide={!cTbe}/>
-        <Line yAxisId="left" type="monotone" dataKey="Tae" stroke="#0ace55ff" name="Temp. za parownikiem" dot={{ r: 1 }} hide={!cTae} />
-        <Line yAxisId="left" type="monotone" dataKey="Tho" stroke="#c4922fff" name="Temp. wody za skraplaczem" dot={{ r: 1 }} hide={!cTho}/>
-        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ec1b4fff" name="Temp. CWU" dot={{ r: 1 }} hide={!cTTarget}/>
-        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#5f5050ff" strokeDasharray="5 5" name="Moc" dot={{ r: 1 }} hide={!cWatts}/>
-        <Line yAxisId="right" type="monotone" dataKey="pv" stroke="#ec30a4ff" strokeDasharray="5 5" name="Moc PV" dot={{ r: 1 }} hide={!cWattsPV}/>
+        <Line yAxisId="left" type="monotone" dataKey="Tbe" stroke="#463de0ff" name="Temp. przed parownikiem" dot={{ r: 1 }} hide={!cTemp}/>
+        <Line yAxisId="left" type="monotone" dataKey="Tae" stroke="#0ace55ff" name="Temp. za parownikiem" dot={{ r: 1 }} hide={!cTemp} />
+        <Line yAxisId="left" type="monotone" dataKey="Tho" stroke="#c4922fff" name="Temp. wody za skraplaczem" dot={{ r: 1 }} hide={!cTemp}/>
+        <Line yAxisId="left" type="monotone" dataKey="Ttarget" stroke="#ec1b4fff" name="Temp. CWU" dot={{ r: 1 }} hide={!cTemp}/>
+        <Line yAxisId="right" type="monotone" dataKey="Watts" stroke="#5f5050ff" strokeDasharray="1 1" name="Moc" dot={{ r: 1 }} hide={!cPower}/>
+        <Line yAxisId="right" type="monotone" dataKey="pv" stroke="#ec30a4ff" strokeDasharray="1 1" name="Moc PV" dot={{ r: 1 }} hide={!cPV}/>
         <Legend 
           wrapperStyle={{ paddingTop: 30 }} 
         />
