@@ -8,7 +8,7 @@ export const getOperationData = () => {
 }
 
 export const clearOperation = () => {
-  operation = {};
+  operation = Object.assign({});
   return;
 }
 

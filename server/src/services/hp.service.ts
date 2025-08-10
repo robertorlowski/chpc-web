@@ -1,5 +1,6 @@
 import db from '../middleware/db';
-import { TCO } from '../middleware/type';
+import { TCO, THP } from '../middleware/type';
+import { sendMessage } from '../middleware/webSocet';
 
 const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 
@@ -43,8 +44,11 @@ export const getHpAllData = async () => {
 export const addHpData = async (data :TCO) => {
   await db.read();
   if ( data && data.HP ) {
+    data.HP.Watts = Math.max(20, (data.HP.Watts ?? 0) - 120 ),
     db.data.hp.push(data);
   }
   await db.write();
+
+  sendMessage('update');
   return data;
 }

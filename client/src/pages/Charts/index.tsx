@@ -56,7 +56,6 @@ export const HeatPumpChart: React.FC = () => {
             {
               const hp: THPL = {
                 ...row.HP,
-                Watts: Math.max(0, (row.HP?.Watts ?? 0) - 120 ),
                 time: row.time, 
                 pv: row.PV?.total_power ?? 0
               }  

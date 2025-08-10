@@ -3,8 +3,6 @@ import { Request, Response } from 'express'
 import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/hp.service'
 import { TCO, TOperationCO } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
-import { sendMessage } from '../middleware/webSocet'
-
 
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
   try {
@@ -42,21 +40,17 @@ export async function getHpAll(req: Request, res: Response) {
 
 export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
   const data :TCO = req.body;
-  
   console.log("Add HP data");
 
-  const operation: TOperationCO  = {...getOperationData()};	
+  const operation: TOperationCO = Object.assign(getOperationData()); 
   console.log("Get HP operation");
   console.log(operation);
-
-  console.log("Clear HP operation");
-  clearOperation();
-
   try {   
     if (data && data.HP && data.HP.Ttarget) {
       await addHpData(data);
-      sendMessage('update');
     }    
+    console.log("Clear HP operation");
+    clearOperation();    
     
     return res.status(201).json({ operation: operation});
   } catch (error) {
