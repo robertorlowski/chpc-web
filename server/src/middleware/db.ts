@@ -1,13 +1,13 @@
 import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
-import { TCO, TSettings } from './type';
+import { HpEntry, SettingsEntry } from './type';
 
 
 const adapter = () => {
     return new JSONFile<TData>('./database/db.json');   
 }
 
-export type TData = { hp: TCO[], settings: TSettings};
+export type TData = { hp: HpEntry[], settings: SettingsEntry};
 export const db: Low<TData> = new Low<TData>(adapter(), {hp: [], settings: {}});
 
 export default db

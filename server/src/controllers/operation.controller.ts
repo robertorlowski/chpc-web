@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { clearOperation, getOperationData, setOperationData } from '../services/operation.service';
-import { TOperationCO } from '../middleware/type';
+import { OperationEntry } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
 import { sendMessage } from '../middleware/webSocet';
 
@@ -10,7 +10,7 @@ export async function prepareOperation(req: Request, res: Response) {
     console.log("Prepare operation");
 
     const data = await getHpLastData()
-    const op :TOperationCO = {};
+    const op :OperationEntry = {};
     op.force = data.HP?.F ? "1" :"0";
     op.co_min = data?.co_min;
     op.co_max = data?.co_max;
@@ -42,7 +42,7 @@ export async function getOperation(req: Request, res: Response) {
 export async function getAndClearOperation(req: Request, res: Response) {
   try { 
     console.log("Get & Clear operation");
-    const operation: TOperationCO = {};
+    const operation: OperationEntry = {};
     Object.assign(operation, getOperationData());
     clearOperation();
     return res.status(200).send(operation);
@@ -52,11 +52,11 @@ export async function getAndClearOperation(req: Request, res: Response) {
   }
 }
 
-export const setOperation = async (req: Request<{}, {}, TOperationCO>, res: Response) => {
+export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Response) => {
   
   console.log("Set operation");
   
-  const op :TOperationCO = req.body;
+  const op :OperationEntry = req.body;
   console.log(op);
   setOperationData(op)
   console.log(getOperationData());

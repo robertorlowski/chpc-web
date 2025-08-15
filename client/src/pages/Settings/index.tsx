@@ -1,14 +1,14 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { THPL, TOperationCO, TSettings } from '../../api/type';
+import { THPL, OperationEntry, SettingsEntry } from '../../api/type';
 import { Component } from 'react';
 import { ResourceBlock } from '../../components/ResourceBlock';
 
 
 interface IState {
-	data?: TSettings | null;
-	value?: TOperationCO | null;
+	data?: SettingsEntry | null;
+	value?: OperationEntry | null;
 	error: boolean ;
 }
 
@@ -233,7 +233,7 @@ export default class Settings extends Component<{}, IState> {
 		);
 	}
 
-	handleSave(value: TOperationCO) {
+	handleSave(value: OperationEntry) {
 		// const merged = {...this.state.value, ...value };	
 		this.setState({
 			value: value

@@ -1,16 +1,16 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests, wsAddressServer } from '../../api/api';
-import { TCO, THP, TPV } from '../../api/type';
+import { HpEntry, HpMetrics, PvMetrics } from '../../api/type';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../assets/swith_on.svg';
 import swith_off from '../../assets/swith_off.svg';
 
 const HP: React.FC = () => {
 
-  const [_pv, setPV] = useState<TPV | null >(null);
-  const [_hp, setHP] = useState<THP | null >(null);
-  const [_data, setData] = useState<TCO | null>(null);
+  const [_pv, setPV] = useState<PvMetrics | null >(null);
+  const [_hp, setHP] = useState<HpMetrics | null >(null);
+  const [_data, setData] = useState<HpEntry | null>(null);
   const ws = useRef<WebSocket | null>(null);
   
   useEffect(() => {

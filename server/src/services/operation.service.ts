@@ -1,7 +1,7 @@
 
-import { TOperationCO } from '../middleware/type';
+import { OperationEntry  } from '../middleware/type';
 
-let operation: TOperationCO = {};
+let operation: OperationEntry = {};
 
 export const getOperationData = () => {
   return operation;
@@ -12,7 +12,7 @@ export const clearOperation = () => {
   return;
 }
 
-export const setOperationData = (data :TOperationCO) => {
+export const setOperationData = (data :OperationEntry) => {
   operation = {...operation, ...data };	
   return operation;
 }

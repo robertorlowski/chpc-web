@@ -1,17 +1,17 @@
-export type TSlot = {
+export type TimeSlot = {
     slot_start_hour?: number,
     slot_start_minute?: number,
     slot_stop_hour?: number,
     slot_stop_minute?: number
 };
 
-export type TSettings  = {
-  night_hour?: TSlot,
-  settings?: TSlot[],
-  cwu_settings?: TSlot[]
+export type SettingsEntry  = {
+  night_hour?: TimeSlot,
+  settings?: TimeSlot[],
+  cwu_settings?: TimeSlot[]
 };
 
-export type THP = {
+export type HpMetrics = {
     Tbe: number,
     Tae: number,
     Tco: number,
@@ -42,16 +42,16 @@ export type THP = {
 
   }
 
-export type TPV = {
+export type PvMetrics = {
   total_power: number,
   total_prod: number,
   total_prod_today: number,
   temperature: number
 }
 
-export type TCO = {
-  HP: THP,
-  PV: TPV,
+export type HpEntry = {
+  HP: HpMetrics,
+  PV: PvMetrics,
   time: string,
   co_pomp: boolean,
   cwu_pomp: Boolean,
@@ -67,7 +67,7 @@ export type TCO = {
   cop:number
 }
 
-export type TOperationCO = {
+export type OperationEntry = {
   force?: string,
   work_mode?: string,
   sump_heater?: string,
@@ -82,7 +82,7 @@ export type TOperationCO = {
   eev_setpoint?: string
 }
 
-export type THPL = THP & {
+export type THPL = HpMetrics & {
   time :string,
   pv :number
 };

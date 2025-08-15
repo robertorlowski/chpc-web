@@ -1,5 +1,5 @@
 import db from '../middleware/db';
-import { TCO, THP } from '../middleware/type';
+import { HpEntry, HpMetrics } from '../middleware/type';
 import { sendMessage } from '../middleware/webSocet';
 
 const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
@@ -8,7 +8,7 @@ const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace
 export const clearData = async () => {
   await db.read();
   db.data.hp = [];
-  const hp: TCO[] = db.data.hp;
+  const hp: HpEntry[] = db.data.hp;
   db.write();
   return hp;
 }
@@ -16,7 +16,7 @@ export const clearData = async () => {
 
 export const getHpLastData = async () => {
   await db.read();
-  const hp: TCO[] = db.data.hp;
+  const hp: HpEntry[] = db.data.hp;
   if (hp.length == 0) {
     return {};
   }
@@ -25,10 +25,10 @@ export const getHpLastData = async () => {
 
 export const getHpAllData = async () => {
   await db.read();
-  const hp: TCO[] = db.data.hp;
+  const hp: HpEntry[] = db.data.hp;
   return hp
     .filter(row => row.HP && row.time)
-    .sort((a: TCO, b: TCO) => {
+    .sort((a: HpEntry, b: HpEntry) => {
       if ( !a || !b || !a.time || !b.time) {
         return 0;
       }
@@ -41,7 +41,7 @@ export const getHpAllData = async () => {
 }
 
 
-export const addHpData = async (data :TCO) => {
+export const addHpData = async (data :HpEntry) => {
   await db.read();
   if ( data && data.HP ) {
     data.HP.Watts = Math.max(20, (data.HP.Watts ?? 0) - 120 ),

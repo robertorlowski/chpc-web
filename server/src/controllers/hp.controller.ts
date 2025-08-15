@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 
 import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/hp.service'
-import { TCO, TOperationCO } from '../middleware/type'
+import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
 
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
@@ -38,11 +38,11 @@ export async function getHpAll(req: Request, res: Response) {
   }
 }
 
-export const addHp = async (req: Request<{}, {}, TCO>, res: Response) => {
-  const data :TCO = req.body;
+export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
+  const data :HpEntry = req.body;
   console.log("Add HP data");
 
-  const operation: TOperationCO = Object.assign(getOperationData()); 
+  const operation: OperationEntry = Object.assign(getOperationData()); 
   console.log("Get HP operation");
   console.log(operation);
   try {   

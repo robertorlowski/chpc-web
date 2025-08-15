@@ -1,10 +1,10 @@
 import React from 'react';
-import { TSlot } from '../api/type';
+import { TimeSlot } from '../api/type';
 
 interface ResourceBlockProps {
   title: string;
   description: string;
-  data?: TSlot[];
+  data?: TimeSlot[];
 }
 
 const format = (num?: number): string => {

@@ -7,9 +7,10 @@ export const createWsServer = (server: any) => {
   
   console.log("server create");
 
+
   wss.on('connection', (ws: WebSocket, req) => {
     const ip = req.socket.remoteAddress;
-    console.log(`New client connected: ${ip}`);
+    console.log(`New client connected: ${espClients.size}`);
     espClients.add(ws);
 
     ws.on('message', (message) => {
@@ -17,7 +18,7 @@ export const createWsServer = (server: any) => {
     });
 
     ws.on('close', () => {
-      console.log(`Client disconnected: ${ip}`);
+      console.log(`Client disconnected: ${espClients.size}`);
       espClients.delete(ws);
     });
   });

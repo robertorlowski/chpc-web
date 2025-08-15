@@ -1,17 +1,4 @@
-export type TSlot = {
-    slot_start_hour?: Number,
-    slot_start_minute?: Number,
-    slot_stop_hour?: Number,
-    slot_stop_minute?: Number
-};
-
-export type TSettings  = {
-  night_hour?: TSlot,
-  settings?: TSlot[],
-  cwu_settings?: TSlot[]
-};
-
-export type THP = {
+export interface HpMetrics {
     Tbe?: number,
     Tae?: number,
     Tco?: number,
@@ -41,16 +28,16 @@ export type THP = {
     lt_hp_on?: number
   }
 
-export type TPV = {
+export interface PvMetrics {
   total_power?: number,
   total_prod?: number,
   total_prod_today?: number,
   temperature?: number
 }
 
-export type TCO = {
-  HP?: THP,
-  PV?: TPV,
+export interface HpEntry {
+  HP?: HpMetrics,
+  PV?: PvMetrics,
   time?: String,
   co_pomp?: boolean,
   cwu_pomp?: Boolean,
@@ -66,7 +53,20 @@ export type TCO = {
   cop?:number
 }
 
-export type TOperationCO = {
+export interface TimeSlot {
+    slot_start_hour?: Number,
+    slot_start_minute?: Number,
+    slot_stop_hour?: Number,
+    slot_stop_minute?: Number
+};
+
+export interface SettingsEntry {
+  night_hour?: TimeSlot,
+  settings?: TimeSlot[],
+  cwu_settings?: TimeSlot[]
+};
+
+export interface OperationEntry {
   force?: String,
   work_mode?: String,
   sump_heater?: String,
@@ -79,4 +79,9 @@ export type TOperationCO = {
   working_watt?: String,
   eev_max_pulse_open?: String,
   eev_setpoint?: String
+}
+
+export interface Root {
+  hp: HpEntry[];
+  settings: SettingsEntry;
 }

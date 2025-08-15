@@ -1,4 +1,4 @@
-import { TCO, TOperationCO, TSettings } from "./type";
+import { HpEntry, OperationEntry, SettingsEntry } from "./type";
 
 export const wsAddressServer = () => {
   // if (process.env.NODE_ENV !== "production") 
@@ -71,15 +71,15 @@ class Requests {
 
 
 export class HpRequests {
-  static getSettings() : Promise<TSettings> {
+  static getSettings() : Promise<SettingsEntry> {
       return Requests.get("/settings");
   }
 
-  static getCoData() : Promise<TCO> {
+  static getCoData() : Promise<HpEntry> {
       return Requests.get("/hp");
   } 
 
-  static getHpAllData() : Promise<TCO[]> {
+  static getHpAllData() : Promise<HpEntry[]> {
       return Requests.get("/hp/all");
   } 
 
@@ -87,15 +87,15 @@ export class HpRequests {
     return Requests.post("/hp/clear", {}, false);
   } 
 
-  static prepareOperation() : Promise<TOperationCO> {
+  static prepareOperation() : Promise<OperationEntry> {
       return Requests.get("/operation");
   } 
 
-  static getOperation() : Promise<TOperationCO> {
+  static getOperation() : Promise<OperationEntry> {
       return Requests.get("/operation/get");
   } 
 
-  static setOperation(data: TOperationCO) {
+  static setOperation(data: OperationEntry) {
       console.log(JSON.stringify(data));
       return Requests.post("/operation/set", data, false);
   } 
