@@ -148,7 +148,8 @@ export const Settings: React.FC = () => {
 							name="work_mode"
 							className="dict-select"
 							onChange={(e) => setValueOperation( {...valueOpration, work_mode: e.currentTarget.value})}
-							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode}
+							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode }
+							defaultValue={defaultOperation.work_mode}
 						>
 							<option value="M">ręczny</option>
 							<option value="A">automatyczny</option>
@@ -164,14 +165,16 @@ export const Settings: React.FC = () => {
 							className="temperature"
 							type="number"
 							name="cwu_min"
-							value={!!valueOpration.cwu_min ? valueOpration.cwu_min : defaultOperation.cwu_min}
+							placeholder={defaultOperation.co_min}
+							value={valueOpration.cwu_min}
 							onChange={(e) => setValueOperation({...valueOpration, cwu_min: e.currentTarget.value})}
 						/>
 						<input
 							className="temperature"
 							type="number"
 							name="cwu_max"
-							value={ !!valueOpration.cwu_max ? valueOpration.cwu_max : defaultOperation.cwu_max}
+							placeholder={defaultOperation.cwu_max}
+							value={ valueOpration.cwu_max }
 							onChange={(e) => setValueOperation({...valueOpration, cwu_max: e.currentTarget.value})}
 						/>
 					</div>
@@ -182,14 +185,16 @@ export const Settings: React.FC = () => {
 							className="temperature"
 							type="number"
 							name="co_min"
-							value={ !!valueOpration.co_min ? valueOpration.co_min : defaultOperation.co_min}
+							placeholder= { defaultOperation.co_min }
+							value={ valueOpration.co_min }
 							onChange={(e) => setValueOperation({...valueOpration, co_min: e.currentTarget.value})}
 						/>
 						<input
 							className="temperature"
 							type="number"
 							name="co_max"
-							value={ !!valueOpration.co_max ? valueOpration.co_max : defaultOperation.co_max}
+							placeholder= { defaultOperation.co_max }
+							value={ valueOpration.co_max }
 							onChange={(e) => setValueOperation({...valueOpration, co_max: e.target.value })}
 						/>
 					</div>
@@ -201,7 +206,8 @@ export const Settings: React.FC = () => {
 							type="number"
 							name="eev_setpoint"
 							step="any"
-							value={ !!valueOpration.eev_setpoint ? valueOpration.eev_setpoint :  defaultOperation.eev_setpoint}
+							placeholder={defaultOperation.eev_setpoint}
+							value={ valueOpration.eev_setpoint }
 							onChange={(e) => setValueOperation({...valueOpration, eev_setpoint: !e.currentTarget.value ? "0" : e.currentTarget.value.replace(',', '.')
 							})}
 						/>
@@ -213,7 +219,8 @@ export const Settings: React.FC = () => {
 							className="temperature"
 							type="number"
 							name="eev_max_pulse_open"
-							value={ !!valueOpration.eev_max_pulse_open ? valueOpration.eev_max_pulse_open : defaultOperation?.eev_max_pulse_open}
+							placeholder= {defaultOperation.eev_max_pulse_open}
+							value={ valueOpration.eev_max_pulse_open }
 							onChange={(e) => setValueOperation({...valueOpration, eev_max_pulse_open: e.currentTarget.value})}
 						/>
 					</div>
@@ -222,7 +229,8 @@ export const Settings: React.FC = () => {
 						<input
 							title="Wymuszenie pracy:"
 							type="checkbox"
-							checked={ !!valueOpration.force ? valueOpration.force === "1" :  defaultOperation.force === "1"}
+							placeholder = { valueOpration.force }
+							checked={ valueOpration.force === "1" }
 							onChange={(e) => setValueOperation({...valueOpration, force: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
@@ -233,7 +241,8 @@ export const Settings: React.FC = () => {
 							title="Pompa zimnej wody"
 							type="checkbox"
 							name="coldPomp"
-							checked={ !!valueOpration.cold_pomp ? valueOpration.cold_pomp === "1" :  defaultOperation.cold_pomp === "1"}
+							placeholder = {defaultOperation.cold_pomp }
+							checked={ valueOpration.cold_pomp === "1" }
 							onChange={(e) => setValueOperation({...valueOpration, cold_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
@@ -244,7 +253,8 @@ export const Settings: React.FC = () => {
 							title="Pompa ciepłej wody"
 							type="checkbox"
 							name="hotPomp"
-							checked={ !!valueOpration.hot_pomp ? valueOpration.hot_pomp === "1" : defaultOperation.hot_pomp === "1"}
+							placeholder= {defaultOperation.hot_pomp}
+							checked={ valueOpration.hot_pomp === "1" }
 							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
@@ -255,7 +265,8 @@ export const Settings: React.FC = () => {
 							title="Grzałka krateru"
 							name="sumpHeater"
 							type="checkbox"
-							checked={ !!valueOpration.sump_heater ? valueOpration.sump_heater ==="1" : defaultOperation.sump_heater === "1"}
+							placeholder= {defaultOperation.sump_heater}
+							checked={ valueOpration.sump_heater ==="1" }
 							onChange={(e) => setValueOperation({...valueOpration, sump_heater: e.target.checked ? "1" : "0" })}
 						/>
 					</div>

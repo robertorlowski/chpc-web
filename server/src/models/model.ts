@@ -71,7 +71,7 @@ const HpEntrySchema = new Schema(
     t_max: { type: Number },
     cop: { type: Number },
   },
-  { timestamps: true, collection: 'hpentrys' }
+  { timestamps: true, _id: true, collection: 'hp' }
 );
 
 const SettingsEntrySchema = new Schema(
@@ -80,26 +80,26 @@ const SettingsEntrySchema = new Schema(
     settings: { type: [TimeSlotSchema] },
     cwu_settings: { type: [TimeSlotSchema] },
   },
-  { timestamps: true, collection: 'settingsentrys' }
+  { timestamps: true, _id: true, collection: 'settings' }
 );
 
-const OperationEntrySchema = new Schema(
-  {
-    force: { type: String },
-    work_mode: { type: String },
-    sump_heater: { type: String },
-    cold_pomp: { type: String },
-    hot_pomp: { type: String },
-    co_min: { type: String },
-    co_max: { type: String },
-    cwu_min: { type: String },
-    cwu_max: { type: String },
-    working_watt: { type: String },
-    eev_max_pulse_open: { type: String },
-    eev_setpoint: { type: String },
-  },
-  { timestamps: true, collection: 'operationentrys' }
-);
+// const OperationEntrySchema = new Schema(
+//   {
+//     force: { type: String },
+//     work_mode: { type: String },
+//     sump_heater: { type: String },
+//     cold_pomp: { type: String },
+//     hot_pomp: { type: String },
+//     co_min: { type: String },
+//     co_max: { type: String },
+//     cwu_min: { type: String },
+//     cwu_max: { type: String },
+//     working_watt: { type: String },
+//     eev_max_pulse_open: { type: String },
+//     eev_setpoint: { type: String },
+//   },
+//   { timestamps: true, collection: 'operationentrys' }
+// );
 
 const RootSchema = new Schema(
   {
@@ -115,5 +115,5 @@ export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
 export type SettingsEntryDoc = InferSchemaType<typeof SettingsEntrySchema>;
 export const SettingsEntryModel = model<SettingsEntryDoc>('SettingsEntry', SettingsEntrySchema);
 
-export type     OperationEntryDoc = InferSchemaType<typeof OperationEntrySchema>;
-export const OperationEntryModel = model<OperationEntryDoc>('OperationEntry', OperationEntrySchema);
+// export type     OperationEntryDoc = InferSchemaType<typeof OperationEntrySchema>;
+// export const OperationEntryModel = model<OperationEntryDoc>('OperationEntry', OperationEntrySchema);

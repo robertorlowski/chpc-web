@@ -2,14 +2,15 @@ import { Request, Response } from 'express'
 
 import { getSettingsData, setSettingsData } from '../services/settings.service'
 import { SettingsEntry } from '../middleware/type'
+import { SettingsEntryModel } from '../models/model';
 
 export async function getSettings(req: Request, res: Response) {
   try {
     console.log("Get settings");
-    const result = await getSettingsData()
-    return res.status(200).send(result)
+    const doc = await getSettingsData();
+    return res.status(200).send(doc)
   } catch (error) {
-    return res.status(500).send({ error: error })
+    return res.status(500).send({ message: error })
   }
 }
 
@@ -18,8 +19,8 @@ export const setSettings = async (req: Request<{}, {}, SettingsEntry>, res: Resp
   try {
     console.log("Set settings");
     await setSettingsData(data);
-    return res.status(201);
+    return res.status(201).send({ message: "OK" });
   } catch (error) {
-    return res.status(500).send({ error: error })
+    return res.status(500).send({ message: error })
   }
 }

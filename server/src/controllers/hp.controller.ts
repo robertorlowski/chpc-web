@@ -10,8 +10,8 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
     const result = await clearData();
     return res.status(200).send({ message: 'OK' });
   } catch (error) {
-    console.log(error)
-    return res.status(500).send({ message: 'Something went wrong' })
+    console.log()
+    return res.status(500).send({ message: error })
   }
 }
 
@@ -23,7 +23,7 @@ export async function getHp(req: Request, res: Response) {
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
-    return res.status(500).send({ message: 'Something went wrong' })
+    return res.status(500).send({ message: error })
   }
 }
 
@@ -34,7 +34,7 @@ export async function getHpAll(req: Request, res: Response) {
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
-    return res.status(500).send({ message: 'Something went wrong' })
+    return res.status(500).send({ message: error })
   }
 }
 
