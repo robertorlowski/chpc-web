@@ -36,7 +36,7 @@ export interface PvMetrics {
 }
 
 export interface HpEntry {
-  HP?: HpMetrics,
+  HP?: HpMetrics | null,
   PV?: PvMetrics,
   time?: String,
   co_pomp?: boolean,

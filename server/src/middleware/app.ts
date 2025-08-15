@@ -5,7 +5,7 @@ import { verifyApiKey } from './auth'
 
 const app = express()
 
-app.use(verifyApiKey);
+// app.use(verifyApiKey);
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*'); // <- zezwala wszystkim
