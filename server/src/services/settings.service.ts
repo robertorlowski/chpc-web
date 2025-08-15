@@ -8,11 +8,18 @@ export const getSettingsData = async () => {
 }
 
 export const setSettingsData = async (data :SettingsEntry) => {
-  let doc = await SettingsEntryModel.findOneAndUpdate({}, data, { createdAt: -1 });
-  if (!doc) {
-    doc = await SettingsEntryModel.create(data);
-  }
-  return data;
+  let doc: SettingsEntry | null | undefined = await SettingsEntryModel.findOneAndUpdate(
+      {}, 
+      data, 
+      {
+        new: true,                         // zwróć zaktualizowany
+        upsert: true,                      // utwórz, jeśli nie istnieje
+        sort: { createdAt: -1 },           // „ostatni” po dacie
+      }
+    )
+    .lean<SettingsEntry>()
+    .exec();
+  return doc;
 }
 
 

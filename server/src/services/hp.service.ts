@@ -21,7 +21,16 @@ export const getHpLastData = async () => {
 }
 
 export const getHpAllData = async () => {
-  const doc = await HpEntryModel.find({}).sort({ createdAt: -1 }).limit(100000);
+  // data sprzed 7 dni
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const doc = await HpEntryModel
+    .find({
+      createdAt: { $gte: sevenDaysAgo }
+    })
+    .sort({ createdAt: -1 })
+    .lean<HpEntry>();
   return doc;
 }
 
