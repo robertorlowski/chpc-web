@@ -6,6 +6,7 @@ import { getAndClearOperation, getOperation, prepareOperation, setOperation } fr
 
 
 const router = express.Router()
+
 router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
 router.get('/operation/get', getOperation);

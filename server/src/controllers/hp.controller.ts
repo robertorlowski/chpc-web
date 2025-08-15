@@ -4,11 +4,20 @@ import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/h
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
 
+interface THpClear {
+  clear?: Boolean
+}
+
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
   try {
     console.log("Clear HP data");
-    const result = await clearData();
-    return res.status(200).send({ message: 'OK' });
+    const data: THpClear | null = req.body;
+    if (data?.clear == true) {
+      await clearData();
+      return res.status(200).send({ message: 'OK' });
+    } else {
+      return res.status(500).send({ message: 'Bad params' });
+    }
   } catch (error) {
     console.log()
     return res.status(500).send({ message: error })
