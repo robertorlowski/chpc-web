@@ -2,7 +2,7 @@ import "./style.css"
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
-import Settings from "./pages/Settings";
+import { Settings } from "./pages/Settings";
 import HP from "./pages/HP";
 import { HeatPumpTable } from "./pages/Data"
 import { HeatPumpChart  } from "./pages/Charts"

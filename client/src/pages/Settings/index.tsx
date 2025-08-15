@@ -2,282 +2,34 @@ import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
 import { THPL, OperationEntry, SettingsEntry } from '../../api/type';
-import { Component } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ResourceBlock } from '../../components/ResourceBlock';
 
 
-interface IState {
-	data?: SettingsEntry | null;
-	value?: OperationEntry | null;
-	error: boolean ;
-}
 
-export default class Settings extends Component<{}, IState> {
-	render() {
-		if (!this.state?.data || !this.state?.value) {
-			return 'Loading...';
-		}
-		return (
-			<div className="settings">
-				<h2>Główne ustawienia</h2>
-				<section>
-					<div className="resource">
-						<div className='header3'>
-							<h3>Ustaw</h3>
-							{/* <button onClick={this.clearDa}>
-								Pobierz dane HP JSON
-							</button> */}
-							<button onClick={this.handleDownloadCsv}>
-								Pobierz dane HP CSV
-							</button>
-						</div>
-						<hr />
-						<div style={{ minWidth: '200px' }}>
-							<span className="label">Tryb pracy:</span>
-							<select
-								name="work_mode"
-								className="dict-select"
-								onChange={(e) => this.handleSave({ work_mode: e.currentTarget.value })}
-								value={this.state.value.work_mode}
-							>
-								<option value="M">ręczny</option>
-								<option value="A">automatyczny</option>
-								<option value="PV">automatyczny z PV</option>
-								<option value="CWU">CWU</option>
-								<option value="OFF">OFF</option>
-							</select>
-						</div>
+	// handleDownload() {
+	// 	HpRequests.getHpAllData()
+	// 		.then((data) => {
+	// 			const json = JSON.stringify(data, null, 2);
+	// 			const blob = new Blob([json], { type: 'application/json' });
+	// 			const href = URL.createObjectURL(blob);
 
-						<div style={{ minWidth: '200px' }}>
-							<span className="label" style={{ width: '160px' }}>CWU min/max:</span>
-							<input
-								className="temperature"
-								type="number"
-								name="cwu_min"
-								value={this.state.value.cwu_min}
-								onBlur={(e) => this.handleSave({
-									cwu_min: e.currentTarget.value,
-									cwu_max: this.state.value?.cwu_max
-								})}
-							/>
-							<input
-								className="temperature"
-								type="number"
-								name="cwu_max"
-								value={this.state.value.cwu_max}
-								onBlur={(e) => this.handleSave({
-									cwu_min: this.state.value?.cwu_min,
-									cwu_max: e.currentTarget.value
-								})}
-							/>
-						</div>
+	// 			const link = document.createElement('a');
+	// 			link.href = href;
+	// 			link.download = 'dane.json';
+	// 			document.body.appendChild(link);
+	// 			link.click();
+	// 			document.body.removeChild(link);
 
-						<div style={{ minWidth: '200px' }}>
-							<span className="label" style={{ width: '160px' }}>CO min/max:</span>
-							<input
-								className="temperature"
-								type="number"
-								name="co_min"
-								value={this.state.value.co_min}
-								onBlur={(e) => this.handleSave({
-									co_min: e.currentTarget.value,
-									co_max: this.state.value?.co_max
-								})}
-							/>
-							<input
-								className="temperature"
-								type="number"
-								name="co_max"
-								value={this.state.value.co_max}
-								onBlur={(e) => this.handleSave({
-									co_min: this.state.value?.co_min,
-									co_max: e.target.value
-								})}
-							/>
-						</div>
+	// 			// HpRequests.clearHpData().then();
+	// 		})
+	// 		.catch((err) => {
+	// 			console.log(err);
+	// 			this.setState({ error: true });
+	// 	});
+	// };
 
-						<div style={{ minWidth: '200px' }}>
-							<span className="label" style={{ width: '160px' }}>EEV temp.:</span>
-							<input
-								className="temperature"
-								type="number"
-								name="eev_setpoint"
-								step="any"
-								value={this.state.value.eev_setpoint}
-								onBlur={(e) => this.handleSave({
-									eev_setpoint: !e.currentTarget.value ? "0" : e.currentTarget.value.replace(',', '.')
-								})}
-							/>
-						</div>
-
-						<div style={{ minWidth: '200px' }}>
-							<span className="label" style={{ width: '160px' }}>EEV max pulse:</span>
-							<input
-								className="temperature"
-								type="number"
-								name="eev_max_pulse_open"
-								value={this.state.value.eev_max_pulse_open}
-								onBlur={(e) => this.handleSave({
-									eev_max_pulse_open: e.currentTarget.value
-								})}
-							/>
-						</div>
-
-						<div style={{ minWidth: '200px' }}>
-							<span className="label" style={{ width: '160px' }}>WATT:</span>
-							<input
-								className="temperature"
-								type="number"
-								name="working_Watt"
-								value={this.state.value.working_watt}
-								onBlur={(e) => this.handleSave({
-									working_watt: e.currentTarget.value
-								})}
-							/>
-						</div>
-
-						<div style={{ minWidth: '240px' }}>
-							<span className="label">Wymuszenie pracy:</span>
-							<input
-								title="Wymuszenie pracy:"
-								type="checkbox"
-								checked={this.state.value.force === "1"}
-								onChange={(e) => this.handleSave({ force: e.target.checked ? "1" : "0" })}
-							/>
-						</div>
-
-						<div style={{ minWidth: '240px' }}>
-							<span className="label">Pompa zimnej wody:</span>
-							<input
-								title="Pompa zimnej wody"
-								type="checkbox"
-								name="coldPomp"
-								checked={this.state.value.cold_pomp === "1"}
-								onChange={(e) => this.handleSave({ cold_pomp: e.target.checked ? "1" : "0" })}
-							/>
-						</div>
-
-						<div style={{ minWidth: '240px' }}>
-							<span className="label">Pompa ciepłej wody:</span>
-							<input
-								title="Pompa ciepłej wody"
-								type="checkbox"
-								name="hotPomp"
-								checked={this.state.value.hot_pomp === "1"}
-								onChange={(e) => this.handleSave({ hot_pomp: e.target.checked ? "1" : "0" })}
-							/>
-						</div>
-
-						<div style={{ minWidth: '240px' }}>
-							<span className="label">Grzałka krateru:</span>
-							<input
-								title="Grzałka krateru"
-								name="sumpHeater"
-								type="checkbox"
-								checked={this.state.value.sump_heater === "1"}
-								onChange={(e) => this.handleSave({ sump_heater: e.target.checked ? "1" : "0" })}
-							/>
-						</div>
-
-						<p>
-							<span className={this.state.error ? `error show` : `error hide`}>
-								Wystąpił błąd podczas wykonywania operacji..
-							</span>
-						</p>
-					</div>
-
-
-					<ResourceBlock
-						title="Automatyczny start CO"
-						description="Przedziały czasu w którym nastąpi włączenie HP."
-						data={this.state.data?.settings}
-					/>
-
-					<ResourceBlock
-						title="Wymuszenie startu CWU"
-						description="Okres w którym następuje wymuszenie startu ładowania CWU"
-						data={this.state.data?.cwu_settings}
-					/>
-					{this.state.data?.night_hour && (
-					<ResourceBlock
-						title="Wyłączenie wykorzystania mocy z PV"
-						description="Przedziały czasu w którym nastąpi wyłączenie weryfikacji wytwarzanej mocy na panelach fotowoltaicznych."
-						data={[this.state.data?.night_hour]}
-					/>)
-					}
-				</section>
-			</div>
-		);
-	}
-
-	componentWillMount() {
-		this.setState({ error: false });
-
-		HpRequests.getSettings()
-			.then((resp) => {
-				this.setState({ data: resp });
-			})
-			.catch((err) => {
-				console.log(err);
-				this.setState({ error: true });
-		});
-
-		HpRequests.prepareOperation()
-			.then((resp) => {
-				this.setState({value: resp});
-			})
-			.catch((err) => {
-				console.log(err);
-				this.setState({ error: true });
-			} 
-		);
-	}
-
-	handleSave(value: OperationEntry) {
-		// const merged = {...this.state.value, ...value };	
-		this.setState({
-			value: value
-		});
-
-		HpRequests.setOperation(value).then(response => {
-			this.setState({ error: response?.status === 201 ? false : true });
-		});
-
-
-		HpRequests.getOperation()
-			.then((resp) => {
-				console.log(resp)
-			})
-			.catch((err) => {
-				console.log(err);
-			} 
-		);
-
-	}
-
-	handleDownload() {
-		HpRequests.getHpAllData()
-			.then((data) => {
-				const json = JSON.stringify(data, null, 2);
-				const blob = new Blob([json], { type: 'application/json' });
-				const href = URL.createObjectURL(blob);
-
-				const link = document.createElement('a');
-				link.href = href;
-				link.download = 'dane.json';
-				document.body.appendChild(link);
-				link.click();
-				document.body.removeChild(link);
-
-				// HpRequests.clearHpData().then();
-			})
-			.catch((err) => {
-				console.log(err);
-				this.setState({ error: true });
-		});
-	};
-
-	handleDownloadCsv() {
+	const handleDownloadCsv = () => {
 		HpRequests.getHpAllData()
 			.then((data) => {
 				const jsonData:THPL[] = data
@@ -289,8 +41,7 @@ export default class Settings extends Component<{}, IState> {
 								pv: row.PV.total_power
 							} 
 							return hp;
-						})
-					.filter(row => row.HPS == true );
+						});
 				
 				if ( jsonData.length == 0 )	{
 					return;
@@ -321,4 +72,228 @@ export default class Settings extends Component<{}, IState> {
 				URL.revokeObjectURL(url);
 			});
 	};
+
+export const Settings: React.FC = () => {
+	const [settings, setSettings] = useState<SettingsEntry>({});
+	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
+	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
+	const [error, setError] = useState<boolean>(false);
+	
+	const enableSave = useMemo(() => {
+		return Object.entries(valueOpration).length > 0;
+	}, [valueOpration]);
+
+	useEffect( () => {
+		HpRequests.getSettings()
+			.then((resp) => {
+				setSettings(resp);
+			})
+			.catch((err) => {
+				console.log(err);
+				setError(true);
+		});
+	
+		HpRequests.prepareOperation()
+			.then((resp) => {
+				console.log(resp);
+				setDefaultOperation(resp);
+			})
+			.catch((err) => {
+				console.log(err);
+				setError(true);
+			} 
+		);
+	}, []);
+
+	const handleSave = () => {
+		console.log(valueOpration);
+		if ( Object.entries(valueOpration).length == 0 ) {
+			return;
+		}
+
+		HpRequests.setOperation(valueOpration).then(response => {
+			setError( response?.status === 201 ? false : true );
+
+			HpRequests.getOperation()
+				.then((resp) => {
+					console.log(resp)
+				})
+				.catch((err) => {
+					console.log(err);
+				} 
+			);
+		});
+	}
+
+	return (
+		<div className="settings">
+			<h2>Główne ustawienia</h2>
+			<section>
+				<div className="resource">
+					<div className='header3'>
+						<h3>Ustaw</h3>
+						{/* <button onClick={this.clearDa}>
+							Pobierz dane HP JSON
+						</button> */}
+						<div>
+							<button onClick={handleDownloadCsv}>
+								Pobierz dane HP CSV
+							</button>
+						</div>
+					</div>
+					<hr />
+					<div style={{ minWidth: '200px' }}>
+						<span className="label">Tryb pracy:</span>
+						<select
+							name="work_mode"
+							className="dict-select"
+							onChange={(e) => setValueOperation( {...valueOpration, work_mode: e.currentTarget.value})}
+							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode}
+						>
+							<option value="M">ręczny</option>
+							<option value="A">automatyczny</option>
+							<option value="PV">automatyczny z PV</option>
+							<option value="CWU">CWU</option>
+							<option value="OFF">OFF</option>
+						</select>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>CWU min/max:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="cwu_min"
+							value={!!valueOpration.cwu_min ? valueOpration.cwu_min : defaultOperation.cwu_min}
+							onChange={(e) => setValueOperation({...valueOpration, cwu_min: e.currentTarget.value})}
+						/>
+						<input
+							className="temperature"
+							type="number"
+							name="cwu_max"
+							value={ !!valueOpration.cwu_max ? valueOpration.cwu_max : defaultOperation.cwu_max}
+							onChange={(e) => setValueOperation({...valueOpration, cwu_max: e.currentTarget.value})}
+						/>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>CO min/max:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="co_min"
+							value={ !!valueOpration.co_min ? valueOpration.co_min : defaultOperation.co_min}
+							onChange={(e) => setValueOperation({...valueOpration, co_min: e.currentTarget.value})}
+						/>
+						<input
+							className="temperature"
+							type="number"
+							name="co_max"
+							value={ !!valueOpration.co_max ? valueOpration.co_max : defaultOperation.co_max}
+							onChange={(e) => setValueOperation({...valueOpration, co_max: e.target.value })}
+						/>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>EEV temp.:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="eev_setpoint"
+							step="any"
+							value={ !!valueOpration.eev_setpoint ? valueOpration.eev_setpoint :  defaultOperation.eev_setpoint}
+							onChange={(e) => setValueOperation({...valueOpration, eev_setpoint: !e.currentTarget.value ? "0" : e.currentTarget.value.replace(',', '.')
+							})}
+						/>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>EEV max pulse:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="eev_max_pulse_open"
+							value={ !!valueOpration.eev_max_pulse_open ? valueOpration.eev_max_pulse_open : defaultOperation?.eev_max_pulse_open}
+							onChange={(e) => setValueOperation({...valueOpration, eev_max_pulse_open: e.currentTarget.value})}
+						/>
+					</div>
+					<div style={{ minWidth: '240px' }}>
+						<span className="label">Wymuszenie pracy:</span>
+						<input
+							title="Wymuszenie pracy:"
+							type="checkbox"
+							checked={ !!valueOpration.force ? valueOpration.force === "1" :  defaultOperation.force === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, force: e.target.checked ? "1" : "0" })}
+						/>
+					</div>
+
+					<div style={{ minWidth: '240px' }}>
+						<span className="label">Pompa zimnej wody:</span>
+						<input
+							title="Pompa zimnej wody"
+							type="checkbox"
+							name="coldPomp"
+							checked={ !!valueOpration.cold_pomp ? valueOpration.cold_pomp === "1" :  defaultOperation.cold_pomp === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, cold_pomp: e.target.checked ? "1" : "0" })}
+						/>
+					</div>
+
+					<div style={{ minWidth: '240px' }}>
+						<span className="label">Pompa ciepłej wody:</span>
+						<input
+							title="Pompa ciepłej wody"
+							type="checkbox"
+							name="hotPomp"
+							checked={ !!valueOpration.hot_pomp ? valueOpration.hot_pomp === "1" : defaultOperation.hot_pomp === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
+						/>
+					</div>
+
+					<div style={{ minWidth: '240px' }}>
+						<span className="label">Grzałka krateru:</span>
+						<input
+							title="Grzałka krateru"
+							name="sumpHeater"
+							type="checkbox"
+							checked={ !!valueOpration.sump_heater ? valueOpration.sump_heater ==="1" : defaultOperation.sump_heater === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, sump_heater: e.target.checked ? "1" : "0" })}
+						/>
+					</div>
+					<div className='header3'>
+						<p>
+							<span className={error ? `error show` : `error hide`}>
+								Wystąpił błąd podczas wykonywania operacji..
+							</span>
+						</p>
+								
+						<button 
+							disabled ={!enableSave}
+							onClick={handleSave}>
+							Zapisz
+						</button>
+					</div>
+				</div>
+
+
+				<ResourceBlock
+					title="Automatyczny start CO"
+					description="Przedziały czasu w którym nastąpi włączenie HP."
+					data={settings?.settings}
+				/>
+
+				<ResourceBlock
+					title="Wymuszenie startu CWU"
+					description="Okres w którym następuje wymuszenie startu ładowania CWU"
+					data={settings?.cwu_settings}
+				/>
+				{settings?.night_hour && (
+				<ResourceBlock
+					title="Wyłączenie wykorzystania mocy z PV"
+					description="Przedziały czasu w którym nastąpi wyłączenie weryfikacji wytwarzanej mocy na panelach fotowoltaicznych."
+					data={[settings?.night_hour]}
+				/>)
+				}
+			</section>
+		</div>
+	);
 }

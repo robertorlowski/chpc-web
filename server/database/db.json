@@ -22,7 +22,7 @@
         "F": 0,
         "CO": 1,
         "Working_Watt": 2400,
-        "EEV_max_pulse_open": 41,
+        "EEVmax": 41,
         "last_power": "2624",
         "last_heatpump_on": "4123"
       },

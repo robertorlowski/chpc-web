@@ -22,12 +22,17 @@ button {
   border: none;
   color: white;
   padding: 9px 24px;
+  margin-left: 9px;
   text-align: center;
   text-decoration: none;
   display: inline-block;
   font-size: 16px;
   cursor: pointer;
   border-radius: 6px
+}
+
+button:disabled {
+    background-color: darkgray;
 }
 
 .header3 {

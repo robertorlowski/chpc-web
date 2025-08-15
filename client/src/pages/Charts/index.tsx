@@ -15,14 +15,9 @@ export const HeatPumpChart: React.FC = () => {
   const [kwhPV, setKwhPV] = useState(0);      
   const [uniqueDates, setUniqueDates] = useState<string[]>([]);
   const [cTemp, setTemp] = useState(true);
-  
-
-  
   const [cPower, setPower] = useState(true);
   const [cPV, setPV] = useState(false);
   
-  
-
   // Filtrowanie danych do wybranego dnia
   const filteredData = useMemo(() => {
     setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), false));
