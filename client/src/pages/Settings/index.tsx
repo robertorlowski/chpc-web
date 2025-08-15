@@ -113,7 +113,7 @@ export const Settings: React.FC = () => {
 
 		HpRequests.setOperation(valueOpration).then(response => {
 			setError( response?.status === 201 ? false : true );
-
+			setValueOperation({});
 			HpRequests.getOperation()
 				.then((resp) => {
 					console.log(resp)
