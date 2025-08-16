@@ -29,6 +29,7 @@ export const HeatPumpTable: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [uniqueDates, setUniqueDates] = useState<string[]>([]);
 	const [selectedDate, setSelectedDate] = useState('');
+	const [allData, setAllData] = useState<boolean>(false);
 		
 	useEffect(() => {
 			setFilteredData(data
@@ -36,21 +37,23 @@ export const HeatPumpTable: React.FC = () => {
 				.map<THPL>(d => ({ ...d, time: d.time?.split(' ')[1] }))
 			)
 		}, 
-		[data, selectedDate]
+		[allData, data, selectedDate]
 	);
 
 	useEffect(() => {
-			if (uniqueDates.length === 0 && data.length > 0) {
-			const ccc= [...new Set(data
-					.map(d => d.time?.split(' ')[0])
-					.filter((d): d is string => d !== undefined)
-				)
-			];
-			setUniqueDates(ccc);
-			setSelectedDate(ccc[0]||'');
+			if ( data.length > 0) {
+				const ccc= [...new Set(data
+						.map(d => d.time?.split(' ')[0])
+						.filter((d): d is string => d !== undefined)
+					)
+				];
+				setUniqueDates(ccc);
+				if (!selectedDate) {
+					setSelectedDate(ccc[0]||'');
+				}
 			}
 		}, 
-		[data, uniqueDates]
+		[data]
 	);
 
 
@@ -79,8 +82,9 @@ export const HeatPumpTable: React.FC = () => {
 	};
 
 	useEffect(() => {
-		fetchData(false);
-	}, []);
+		fetchData(allData);
+		
+	}, [allData]);
 
 	const table = useReactTable({
 		data: filteredData,
@@ -111,8 +115,9 @@ export const HeatPumpTable: React.FC = () => {
 				title="Wszystkie dane"
 				type="checkbox"
 				name="allData"
+				checked={allData}
 				onChange={(e) => {
-						fetchData(e.target.checked);
+						setAllData(e.target.checked);
 					}
 				}
 			/>

@@ -29,16 +29,18 @@ export const HeatPumpChart: React.FC = () => {
   }, [data, selectedDate]);
     
   useEffect(() => {
-    if (uniqueDates.length === 0 && data.length > 0) {
+    if (data.length > 0) {
       const ccc= [...new Set(data
             .map(d => d.time?.split(' ')[0])
             .filter((d): d is string => d !== undefined)
           )
       ];
       setUniqueDates(ccc);
-      setSelectedDate(ccc[ccc.length-1]||'');
+      if (!selectedDate) {
+        setSelectedDate(ccc[ccc.length-1]||'');
+      }
     }
-  }, [data, uniqueDates]);
+  }, [data]);
 
   const fetchData = (all: boolean) => {
     HpRequests.getHpAllData()
