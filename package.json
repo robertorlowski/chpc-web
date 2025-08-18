@@ -26,7 +26,6 @@
   },
   "dependencies": {
     "express": "^5.1.0",
-    "react-spinners": "^0.17.0",
     "ws": "^8.18.3"
   }
 }
