@@ -10,7 +10,6 @@ import { ClipLoader } from 'react-spinners';
 export const HeatPumpChart: React.FC = () => {
   const [filteredData, setFilteredData] = useState<THPL[]>([]);
   const [loading, setLoading] = useState<boolean>(false); 
-  const [powerData, setPowerData] = useState<THPL[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(formatDateYMD(new Date()));
   const [allData, setAllData] = useState(false);
   const [kwh, setKwh] = useState(0);      
@@ -28,10 +27,8 @@ export const HeatPumpChart: React.FC = () => {
           setLoading(true);
           try {
             const data = await fetchData(true, selectedDate);
-            setPowerData(data);
-
-            setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), false));
-            setKwhPV(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), true));
+            setKwh(energyKWh(data, false));
+            setKwhPV(energyKWh(data, true));
 
             const filtered = data
                 .filter(row => allData || row?.HPS === true)
