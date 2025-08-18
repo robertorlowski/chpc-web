@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 
-import { addHpData, getHpLastData, getHpAllData, clearData } from '../services/hp.service'
+import { addHpData, getHpLastData, getHpAllData, clearData, getHpDataForDay } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
 
@@ -46,6 +46,30 @@ export async function getHpAll(req: Request, res: Response) {
     return res.status(500).send({ message: error })
   }
 }
+
+export async function getHp4Day(req: Request, res: Response) {
+  try {
+    const { date } = req.query;
+    console.log(date);
+
+    if (!date || typeof date !== "string") {
+      return res.status(400).json({ error: "Musisz podać date w formacie YYYY-MM-DD" });
+    }
+
+    // parsujemy date z query
+    const day = new Date(date);
+    if (isNaN(day.getTime())) {
+      return res.status(400).json({ error: "Nieprawidłowy format daty" });
+    }
+    const docs = await getHpDataForDay(day);
+    res.status(200).json(docs);  
+  } catch (error) {
+    console.log(error)
+    return res.status(500).send({ message: error })
+  }
+}
+
+
 
 export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   const data :HpEntry = req.body;

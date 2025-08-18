@@ -1,93 +1,78 @@
 import './style.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { THPL } from '../../api/type';
-import { HpRequests } from '../../api/api';
 import { energyKWh } from '../../utils/energy';
+import DateDict from '../../components/DateDict';
+import { fetchData, formatDateYMD } from '../../utils/utils';
+import { ClipLoader } from 'react-spinners';
 
 export const HeatPumpChart: React.FC = () => {
-  
+  const [filteredData, setFilteredData] = useState<THPL[]>([]);
+  const [loading, setLoading] = useState<boolean>(false); 
   const [powerData, setPowerData] = useState<THPL[]>([]);
-  const [data, setData] = useState<THPL[]>([]);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<string>(formatDateYMD(new Date()));
   const [allData, setAllData] = useState(false);
   const [kwh, setKwh] = useState(0);      
   const [kwhPV, setKwhPV] = useState(0);      
-  const [uniqueDates, setUniqueDates] = useState<string[]>([]);
   const [cTemp, setTemp] = useState(true);
   const [cPower, setPower] = useState(true);
   const [cPV, setPV] = useState(false);
   
-  // Filtrowanie danych do wybranego dnia
-  const filteredData = useMemo(() => {
-    setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), false));
-    setKwhPV(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), true));
-        
-    return data
-      .filter(d => d.time?.startsWith(selectedDate))
-      .map(d => ({ ...d, time: d.time?.split(' ')[1] })); // tylko godzina
-  }, [data, selectedDate]);
+    useEffect(() => {
+        if (!selectedDate) return;
+        let active = true; // guard przeciwko setState po unmount
     
-  useEffect(() => {
-    if (data.length > 0) {
-      const ccc= [...new Set(data
-            .map(d => d.time?.split(' ')[0])
-            .filter((d): d is string => d !== undefined)
-          )
-      ];
-      setUniqueDates(ccc);
-      if (!selectedDate) {
-        setSelectedDate(ccc[ccc.length-1]||'');
-      }
-    }
-  }, [data]);
+        (async () => {
+          if (!active) return;
+          setLoading(true);
+          try {
+            const data = await fetchData(true, selectedDate);
+            setPowerData(data);
 
-  const fetchData = (all: boolean) => {
-    HpRequests.getHpAllData()
-      .then(json => {
-       const ttt: THPL[] = 
-          json
-            .filter((_, index) => index % (all ? 10 : 2 ) === 0)
-            .sort( (a,b) => a.time.localeCompare(b.time) ) 
-            .map<THPL>(row => 
-            {
-              const hp: THPL = {
-                ...row.HP,
-                time: row.time, 
-                pv: row.PV?.total_power ?? 0
-              }  
-              return hp;
-            })
+            setKwh(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), false));
+            setKwhPV(energyKWh(powerData.filter(row => row.time?.startsWith(selectedDate)), true));
 
-        setPowerData(ttt);
-        setData(ttt.filter(row => all || row.HPS == true ));
-      })
-      .catch(err => {
-        console.log(err);
-      })	
-  };
-
-  useEffect(() => {
-    fetchData(allData);
-  }, [allData]); 
-
+            const filtered = data
+                .filter(row => allData || row?.HPS === true)
+                .filter(d => d.time?.startsWith(selectedDate))
+                .filter((_, index) => index % (allData ? 10 : 2 ) === 0)
+                .sort( (a,b) => a.time.localeCompare(b.time) ) 
+                .map(d => ({ ...d, time: d.time?.split(' ')[1] })); // tylko godzina
+    
+            setFilteredData(filtered);
+          } catch (err) {
+            console.log(err);
+          } finally {
+            setLoading(false);
+          }
+        })();
+  
+        return () => {
+          active = false;
+        };
+      }, 
+      [allData, selectedDate]
+    );
+  
   return (
-  <div style={{ width: '100vw', height: '90vh'}}>
-    <h2>Temperatury i Moc w dniu &nbsp;
-      <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-        style={{fontSize: 24, border: 'none' }}>
-        {uniqueDates
-            .filter((x): x is string => x !== undefined)
-            .sort((a, b) => b.localeCompare(a))
-            .map(date => (
-          <option key={date} value={date}>{date}</option>
-        ))
-        }
-      </select>
-    </h2>
-    <h5>
- 		<label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
-    </h5>
+  <div style={{ paddingTop: '20px', width: '100vw', height: '90vh'}}>
+    <h3>
+      Temperatury i moc w dniu: &nbsp; 
+      <DateDict id="date-select" initValue={selectedDate} onDateChange={e => setSelectedDate(e)} />      
+    </h3>
+
+      {loading && 
+        (
+          <div className='loader'>
+              <ClipLoader size={60} color="#333" />
+          </div>
+        )
+      }
+
+    <h4>
+ 		  <label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
+    </h4>
 
     <div className='chart-checkbox'>
 			<label className='label'>

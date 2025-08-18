@@ -17,6 +17,7 @@ function prefixMocks(path: string) {
 
 class Requests {
   static async get(path: string) {
+    // console.log(prefixMocks(path));
     try {
       const response = await fetch(prefixMocks(path), {
         method: "GET",
@@ -83,9 +84,12 @@ export class HpRequests {
       return Requests.get("/hp/all");
   } 
 
-  static clearHpData() {
-    return Requests.post("/hp/clear", {}, false);
-  } 
+  static getHpData4Day(day?: string) : Promise<HpEntry[]> {
+      if (!day) {
+        return Promise.resolve([])
+      }
+      return Requests.get( `/hp/4Day?date=${day}`);
+  }
 
   static prepareOperation() : Promise<OperationEntry> {
       return Requests.get("/operation");

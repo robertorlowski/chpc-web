@@ -1,5 +1,4 @@
 import '../../api/api';
-import { HpRequests } from '../../api/api';
 import { THPL } from '../../api/type';
 import React, { useEffect, useState } from 'react';
 import {
@@ -9,6 +8,9 @@ import {
 	useReactTable,
 	getFilteredRowModel
 } from '@tanstack/react-table';
+import DateDict from '../../components/DateDict';
+import { fetchData, formatDateYMD } from '../../utils/utils';
+import { ClipLoader } from 'react-spinners';
 
 const columns: ColumnDef<THPL>[] = [
   { header: 'Data', accessorKey: 'time', minSize: 100, size: 100},
@@ -23,68 +25,41 @@ const columns: ColumnDef<THPL>[] = [
 ];
 
 export const HeatPumpTable: React.FC = () => {
-	const [data, setData] = useState<THPL[]>([]);
 	const [filteredData, setFilteredData] = useState<THPL[]>([]);
-
+	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string | null>(null);
-	const [uniqueDates, setUniqueDates] = useState<string[]>([]);
-	const [selectedDate, setSelectedDate] = useState('');
+	const [selectedDate, setSelectedDate] = useState<string>( formatDateYMD( new Date()));
 	const [allData, setAllData] = useState<boolean>(false);
 		
 	useEffect(() => {
-			setFilteredData(data
-				.filter(d => d.time?.startsWith(selectedDate))
-				.map<THPL>(d => ({ ...d, time: d.time?.split(' ')[1] }))
-			)
-		}, 
-		[allData, data, selectedDate]
-	);
+			if (!selectedDate) return;
+			let active = true; // guard przeciwko setState po unmount
 
-	useEffect(() => {
-			if ( data.length > 0) {
-				const ccc= [...new Set(data
-						.map(d => d.time?.split(' ')[0])
-						.filter((d): d is string => d !== undefined)
-					)
-				];
-				setUniqueDates(ccc);
-				if (!selectedDate) {
-					setSelectedDate(ccc[0]||'');
+			(async () => {
+				if (!active) return;
+				setLoading(true);
+				try {
+					const data = await fetchData(allData, selectedDate);
+					const filtered = data
+					    .filter(d => d.time?.startsWith(selectedDate))
+						.map(d => ({ ...d, time: d.time?.split(' ')[1] })); // tylko godzina
+	
+					setFilteredData(filtered);
+				} catch (err) {
+					if (active) setError((err as Error).message);
+				} finally {
+					setLoading(false);
 				}
-			}
+
+			})();
+
+			return () => {
+				active = false;
+			};
 		}, 
-		[data]
+		[allData, selectedDate]
 	);
 
-
-	const fetchData = (all: boolean) => {
-		HpRequests.getHpAllData()
-			.then(json => {
-				setData(
-					json
-						.filter(row => all || row?.HP?.HPS == true )
-						.sort( (a,b) => b.time.localeCompare(a.time) ) 
-						.map<THPL>(row => 
-							{	
-								const hp: THPL = {
-									...row.HP,
-									time: row.time,
-									pv: row.PV.total_power
-								} 
-								return hp;
-							})
-						
-				);
-			})
-			.catch(err => {
-				setError((err as Error).message);
-			})	
-	};
-
-	useEffect(() => {
-		fetchData(allData);
-		
-	}, [allData]);
 
 	const table = useReactTable({
 		data: filteredData,
@@ -97,18 +72,19 @@ export const HeatPumpTable: React.FC = () => {
 
   return (
     <div style={{ overflowX: 'auto', padding: '16px' }}>
-    	<h3>Dzień: &nbsp;
-			<select value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-				style={{fontSize: 16, border: 'none' }}>
-				{uniqueDates
-					.filter((x): x is string => x !== undefined)
-					.sort((a, b) => b.localeCompare(a))
-					.map(date => (
-				<option key={date} value={date}>{date}</option>
-				))
-				}
-			</select>
+    	<h3>
+	    	<label htmlFor="date-select">Dane na dzień: &nbsp; </label>
+    		<DateDict id="date-select" initValue={selectedDate} onDateChange={e => setSelectedDate(e)} />
 		</h3>
+
+      	{loading && 
+	  		(
+				<div className='loader'>
+					<ClipLoader size={60} color="#333" />
+				</div>
+			)	
+		}
+
 		<div style={{ display: "flex" }}>
 			<label>
 			<input

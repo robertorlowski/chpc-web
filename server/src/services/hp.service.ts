@@ -34,6 +34,29 @@ export const getHpAllData = async () => {
   return doc;
 }
 
+export const getHpDataForDay = async (day: Date) => {
+  // ustawiamy początek dnia (00:00:00.000)
+  const startOfDay = new Date(day);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  // ustawiamy koniec dnia (23:59:59.999)
+  const endOfDay = new Date(day);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const doc = await HpEntryModel
+    .find({
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    })
+    .sort({ createdAt: -1 })
+    .lean<HpEntry>();
+
+  return doc;
+};
+
+
 
 export const addHpData = async (data :HpEntry) => {
   lastData = data;
