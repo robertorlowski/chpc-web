@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-
+import { fromZonedTime } from "date-fns-tz";
+import { addDays } from "date-fns";
 import { addHpData, getHpLastData, getHpAllData, clearData, getHpDataForDay } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
@@ -9,16 +10,14 @@ interface THpClear {
   clear?: Boolean
 }
 
-// Akceptuj "YYYY-MM-DD" lub "YYYY.MM.DD"
-function parseYMDToUTC(dateStr: string) {
-  const norm = dateStr.replace(/\./g, "-"); // "2025.08.19" -> "2025-08-19"
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(norm);
-  if (!m) throw new Error("Nieprawidłowy format daty");
-  const [_, ys, ms, ds] = m;
-  const y = Number(ys), mo = Number(ms) - 1, d = Number(ds);
-  const start = new Date(Date.UTC(y, mo, d, 0, 0, 0, 0));
-  const end   = new Date(Date.UTC(y, mo, d + 1, 0, 0, 0, 0));
-  return { start, end };
+function warsawDayBoundsUTC(dateStr: string) {
+  const norm = dateStr.replace(/\./g, "-");         // 2025.08.19 -> 2025-08-19
+  const startLocal = new Date(`${norm}T00:00:00`);
+  const endLocal = addDays(startLocal, 1);
+
+  const startUTC = fromZonedTime(startLocal, "Europe/Warsaw");
+  const endUTC   = fromZonedTime(endLocal,   "Europe/Warsaw");
+  return { startUTC, endUTC }; // używaj zakresu [startUTC, endUTC)
 }
 
 
@@ -69,10 +68,7 @@ export async function getHp4Day(req: Request, res: Response) {
       return res.status(400).json({ error: "Musisz podać date w formacie YYYY-MM-DD lub YYYY.MM.DD" });
     }
 
-    const { start, end } = parseYMDToUTC(date);
-
-    // Przy okazji: upewnij się, że masz indeks na createdAt
-    // db.hpentries.createIndex({ createdAt: 1 })
+    const { startUTC: start, endUTC: end } = warsawDayBoundsUTC(date);
 
     const docs = await HpEntryModel
       .find({ createdAt: { $gte: start, $lt: end } }) // [start, end)
