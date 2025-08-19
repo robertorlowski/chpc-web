@@ -31,8 +31,8 @@ export function energyKWh(data: THPL[], pv: boolean): number {
       const p1 = sorted[i].Watts ?? 0;  
       wh += ((p0 + p1) / 2) * dt_h;              // całka trapezami w Wh
     } else {
-      const p0 = Math.max(0, (sorted[i - 1]?.Watts ?? 0) - sorted[i - 1]?.pv );
-      const p1 = Math.max(0, (sorted[i]?.Watts ?? 0) - sorted[i]?.pv );
+      const p0 = Math.max(0, (sorted[i - 1]?.Watts ?? 0) - (sorted[i - 1].pv ?? 0));
+      const p1 = Math.max(0, (sorted[i]?.Watts ?? 0) - (sorted[i].pv  ?? 0));
       wh += ((p0 + p1) / 2) * dt_h;              // całka trapezami w Wh
     }
   }
