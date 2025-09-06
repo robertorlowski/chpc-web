@@ -50,7 +50,8 @@ export interface HpEntry {
   cwu_max?: String,
   t_min?: number,
   t_max?: number,
-  cop?:number
+  cop?: number,
+  t_out? :number 
 }
 
 export interface TimeSlot {

@@ -113,13 +113,15 @@ th, td {
 
 
 .heat.head {
+	display: flex;
     height: 2rem;
-	justify-content: space-around;
+	justify-content: space-between;
 }
 
 .heat.footer {
+	display: flex;
     height: 2rem;
-	justify-content: left;
+	justify-content: space-between;
 }
 
 img.field {

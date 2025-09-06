@@ -1,3 +1,4 @@
+import { getTemperature } from '../middleware/openmeteo';
 import { HpEntry } from '../middleware/type';
 import { sendMessage } from '../middleware/webSocet';
 import { HpEntryModel } from '../models/model';
@@ -10,9 +11,11 @@ export const clearData = async () => {
 }
 
 export const getHpLastData = async () => {
+
   if (!lastData) {
-     lastData = await HpEntryModel.findOne({}).sort({ createdAt: -1 }).lean<HpEntry>();
+    lastData = await HpEntryModel.findOne({}).sort({ createdAt: -1 }).lean<HpEntry>();
   }
+  lastData!.t_out = getTemperature()!;
   
   if (!lastData) {
     return {};
@@ -59,7 +62,9 @@ export const getHpDataForDay = async (day: Date) => {
 
 
 export const addHpData = async (data :HpEntry) => {
+  data.t_out = getTemperature()!;
   lastData = data;
+  
   const doc = await HpEntryModel.create(data);
   sendMessage('update');
   return doc;

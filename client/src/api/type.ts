@@ -64,7 +64,8 @@ export type HpEntry = {
   cwu_max: string,
   t_min: number,
   t_max: number,
-  cop:number
+  cop:number,
+  t_out: number
 }
 
 export type OperationEntry = {

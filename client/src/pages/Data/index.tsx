@@ -14,14 +14,16 @@ import { ClipLoader } from 'react-spinners';
 
 const columns: ColumnDef<THPL>[] = [
   { header: 'Data', accessorKey: 'time', minSize: 100, size: 100},
-  { header: 'EEV pos', accessorKey: 'EEV_pos'},
   { header: 'Watts', accessorKey: 'Watts' },
   { header: 'PV', accessorKey: 'pv' },
+  { header: 'EEV pos', accessorKey: 'EEV_pos'},
+  { header: 'ΔT', accessorKey: 'EEV_dt' },
   { header: 'T. be', accessorKey: 'Tbe'},
   { header: 'T. ae', accessorKey: 'Tae' },
   { header: 'T. ho', accessorKey: 'Tho' },
   { header: 'T. target', accessorKey: 'Ttarget' },
-  { header: 'T. sump', accessorKey: 'Tsump' }
+  { header: 'T. sump', accessorKey: 'Tsump' },
+  { header: 'T. out', accessorKey: 't_out' },  
 ];
 
 export const HeatPumpTable: React.FC = () => {

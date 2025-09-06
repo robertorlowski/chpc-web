@@ -23,5 +23,6 @@ export const fetchData = async (allData: boolean, selectedDate: string): Promise
       ...(row.HP as THPL),
       time: row.time,
       pv: row.PV?.total_power,
+      t_out: row.t_out
     }));
 }

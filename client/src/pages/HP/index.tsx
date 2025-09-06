@@ -91,7 +91,7 @@ const HP: React.FC = () => {
               <table className="heat table">
                 <tbody>
                   <tr className="left">
-                    <td className="label">CO pump:</td>
+                    <td className="label">CO pompa:</td>
                     <td>
                       {_data?.co_pomp === undefined ? '---' : (
                         <img title="CO pump" src={_data?.co_pomp ? swith_on : swith_off} />
@@ -99,7 +99,7 @@ const HP: React.FC = () => {
                     </td>
                   </tr>
                   <tr>
-                    <td className="label">CWU pump:</td>
+                    <td className="label">CWU pompa:</td>
                     <td>
                       {_hp?.CWUS === undefined ? '---' : (
                         <img title="CWU circle state" src={_hp?.CWUS ? swith_on : swith_off} />
@@ -110,22 +110,26 @@ const HP: React.FC = () => {
               </table>
             </div>
             <div className="heat footer">
-              <table>
-                <tbody>
-                  <tr>
-                    <td>
-                      PV:
-                      <span
-                        className={_data?.pv_power ? 'field correct' : 'field'}
-                        style={{ marginLeft: '5px' }}
-                      >
-                        {_pv && _pv.total_power ? _pv.total_power : '---'}
-                      </span>{' '}
-                      W
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div>
+                Moc PV:
+                <span
+                  className={_data?.pv_power ? 'field correct' : 'field'}
+                  style={{ marginLeft: '5px' }}
+                >
+                  {_pv && _pv.total_power ? _pv.total_power : '---'}
+                </span>{' '}
+                W
+              </div>
+              <div>
+                Temp. zewnętrzna:
+                <span
+                  className={'field'}
+                  style={{ marginLeft: '5px' }}
+                >
+                  {_data?.t_out!  ? _data.t_out.toFixed(0) : '---'}
+                </span>{' '}
+                °C
+              </div>
             </div>
           </div>
         </div>
@@ -151,11 +155,11 @@ const HP: React.FC = () => {
                   <td className={_hp?.Tco < 0 ? 'field incorrect' : 'field'}>{_hp?.Tco || '---'}</td>
                 </tr> */}
                 <tr>
-                  <td className="label">Temp. comp.:</td>
+                  <td className="label">Temp. komp.:</td>
                   <td className="field">{_hp?.Tsump || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">Temp. hot out:</td>
+                  <td className="label">Temp. w. wyj:</td>
                   <td className="field">{_hp?.Tho || '---'}</td>
                 </tr>
                 <tr>
@@ -163,7 +167,7 @@ const HP: React.FC = () => {
                   <td className="field">{_hp?.EEVmax || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">Wat max:</td>
+                  <td className="label">Moc min:</td>
                   <td className="field">{_hp?.WWatt || '---'}</td>
                 </tr>
                 <tr>
@@ -185,11 +189,11 @@ const HP: React.FC = () => {
                   <td className={_hp?.Tae !== undefined && _hp?.Tae < 0 ? 'field incorrect' : 'field'}>{_hp?.Tae ?? '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">Wat:</td>
+                  <td className="label">Moc:</td>
                   <td className="field">{_hp?.Watts || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">EEV position:</td>
+                  <td className="label">EEV pozycja:</td>
                   <td className="field">{_hp?.EEV_pos || '---'}</td>
                 </tr>
                 <tr>
@@ -209,13 +213,13 @@ const HP: React.FC = () => {
             <table>
               <tbody>
                 <tr>
-                  <td className="label">Hot pump:</td>
+                  <td className="label">Obieg gorący:</td>
                   <td className="field">
                     <img title="Hot circle state" src={_hp?.HCS ? swith_on : swith_off} />
                   </td>
                 </tr>
                 <tr>
-                  <td className="label">Cold pump:</td>
+                  <td className="label">Obieg zimny:</td>
                   <td className="field">
                     <img title="Cold circle state" src={_hp?.CCS ? swith_on : swith_off} />
                   </td>
@@ -225,15 +229,15 @@ const HP: React.FC = () => {
             <table>
               <tbody>
                 <tr>
-                  <td className="label">Compressor:</td>
+                  <td className="label">Kompresor:</td>
                   <td className="field">
-                    <img title="Compressor on/off" src={_hp?.HPS ? swith_on : swith_off} />
+                    <img title="Kompresor wł/wył" src={_hp?.HPS ? swith_on : swith_off} />
                   </td>
                 </tr>
                 <tr>
-                  <td className="label">Force:</td>
+                  <td className="label">Praca wym.:</td>
                   <td className="field">
-                    <img title="Force (t. min = t. max)" src={_hp?.F ? swith_on : swith_off} />
+                    <img title="Praca wymuszona (t. min = t. max)" src={_hp?.F ? swith_on : swith_off} />
                   </td>
                 </tr>
               </tbody>
@@ -254,11 +258,11 @@ const HP: React.FC = () => {
                   <td className="field">{_hp?.lt_pow ? _hp?.lt_pow + ' W' : '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">T. min:</td>
+                  <td className="label">Temp. min:</td>
                   <td className="field">{_data?.t_min || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">T. max:</td>
+                  <td className="label">Temp. max:</td>
                   <td className="field">{_data?.t_max || '---'}</td>
                 </tr>
                 <tr>
