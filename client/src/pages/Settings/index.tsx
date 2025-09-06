@@ -165,7 +165,7 @@ export const Settings: React.FC = () => {
 							className="temperature"
 							type="number"
 							name="cwu_min"
-							placeholder={defaultOperation.co_min}
+							placeholder={defaultOperation.cwu_min}
 							value={valueOpration.cwu_min}
 							onChange={(e) => setValueOperation({...valueOpration, cwu_min: e.currentTarget.value})}
 						/>
