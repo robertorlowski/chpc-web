@@ -3,7 +3,7 @@ import http from 'http';
 import app from './middleware/app'
 import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
-import { getTemperature, prepareMeteoData, prepareMeteoDate } from './middleware/openmeteo';
+import { getTemperature, prepareMeteoData } from './middleware/openmeteo';
 
 const server = http.createServer(app);
 createWsServer(server);
