@@ -70,6 +70,7 @@ const HpEntrySchema = new Schema(
     t_min: { type: Number },
     t_max: { type: Number },
     cop: { type: Number },
+    t_out: {type: Number}
   },
   { timestamps: true, _id: true, collection: 'hp' }
 );

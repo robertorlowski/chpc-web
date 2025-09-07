@@ -11,7 +11,7 @@ const url = "https://api.open-meteo.com/v1/ecmwf";
 
 let temperature_2m :number | null | undefined;
 
-export const prepareMeteoDate = async () => {
+export const prepareMeteoData = async () => {
 	const responses = await fetchWeatherApi(url, params);
 	const hourly = responses[0].hourly()!;
 	temperature_2m = hourly.variables(0)?.values(0);

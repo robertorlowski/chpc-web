@@ -3,7 +3,7 @@ import http from 'http';
 import app from './middleware/app'
 import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
-import { getTemperature, prepareMeteoDate } from './middleware/openmeteo';
+import { getTemperature, prepareMeteoData, prepareMeteoDate } from './middleware/openmeteo';
 
 const server = http.createServer(app);
 createWsServer(server);
@@ -16,9 +16,12 @@ const PORT = Number(process.env.PORT ?? 3001);
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
 
+  await prepareMeteoData()
+  console.log("Get meteo data");
+
   setInterval(()=> (async() => {
-    await prepareMeteoDate()
-    console.log(`Temperture in Biały Dunajec: ${getTemperature()?.toFixed(0)}°C`);
+    await prepareMeteoData()
+    console.log(`Temperture: ${getTemperature()?.toFixed(0)}°C`);
   })(), 10 * 60 * 1000 );
   
   server.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));

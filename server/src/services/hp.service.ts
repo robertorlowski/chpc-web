@@ -15,7 +15,6 @@ export const getHpLastData = async () => {
   if (!lastData) {
     lastData = await HpEntryModel.findOne({}).sort({ createdAt: -1 }).lean<HpEntry>();
   }
-  lastData!.t_out = getTemperature()!;
   
   if (!lastData) {
     return {};
