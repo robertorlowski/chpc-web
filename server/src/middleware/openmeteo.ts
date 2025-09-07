@@ -1,20 +1,20 @@
 import { fetchWeatherApi } from 'openmeteo';
 
 const params = { 
-	latitude: 49.3803,
-	longitude: 20.0131,
+	latitude: 49.374298,
+	longitude: 20.007237,
 	timezone: "Europe/Warsaw",
-	hourly: "temperature_2m",
+	current: "temperature_2m",
 };
 
-const url = "https://api.open-meteo.com/v1/ecmwf";
+const url = "https://api.open-meteo.com/v1/forecast";
 
 let temperature_2m :number | null | undefined;
 
 export const prepareMeteoData = async () => {
 	const responses = await fetchWeatherApi(url, params);
-	const hourly = responses[0].hourly()!;
-	temperature_2m = hourly.variables(0)?.values(0);
+	const current = responses[0].current()!;
+	temperature_2m = current.variables(0)?.value();
 }
 
 export function getTemperature() :number|null|undefined {
