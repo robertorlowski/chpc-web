@@ -43,7 +43,7 @@
 //-----------------------TEMPERATURES-----------------------
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
 #define T_DELTA_MAX 30.0;              //defines max delta temperature
-#define T_HOTCIRCLE_DELTA_MIN 10.0;    //useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
+#define T_HOTCIRCLE_DELTA_MIN 3.0;    //useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
 #define T_SUMP_MIN 5;                  //9.0;	//HP will not start if T lower
 #define T_SUMP_MAX 85.0;               //116 //HP will stop if T higher
 #define T_SUMP_HEAT_THRESHOLD 10.0     //16.0;	//sump heater will be powered on if T lower
@@ -54,10 +54,10 @@
 #define T_WORKINGOK_SUMP_MIN 5.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS 3300.0  //user for power protection
+#define MAX_WATTS 3700.0  //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE  60000  //3000 000
-#define DEFFERED_STOP_COLDCIRCLE 30000  //3000 000
+#define DEFFERED_STOP_COLDCIRCLE 10000  //3000 000
 #define POWERON_PAUSE 100000             //50s
 #define MINCYCLE_POWEROFF 1200000       //10 mins
 #define MINCYCLE_POWERON   180000       //5 min  	//60 mins
@@ -95,7 +95,7 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 //if dangerous condition:  real_diff =< (target_diff - EEV_EMERG_DIFF)
 //occured then EEV will be closed to min. work position
 //Ex: EEV_EMERG_DIFF = 2.0, target diff 5.0, if real_diff =< (5.0 - 2.0) than EEV will be closed
-#define EEV_HYSTERESIS 0.5
+#define EEV_HYSTERESIS 0.2 //05
 //must be less than EEV_PRECISE_START,
 //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done;
 #define EEV_CLOSEEVERY 86400000
@@ -1190,10 +1190,6 @@ void eevise(void) {
       || (EEV_adonotcare == 1)
     )     
   {
-    #ifdef WATCHDOG
-      wdt_reset();
-    #endif
-
     if (EEV_apulses != 0) {
       if (EEV_apulses > 0) {
         if (EEV_cur_pos + 1 <= eee) {
@@ -1564,8 +1560,8 @@ void loop(void) {
     em_i = 0;
     double I_RATIO = em_calibration * ((supply_voltage / 1000.0) / (ADC_COUNTS));
     async_Irms_1 = I_RATIO * sqrt(sumI_1 / em_samplesnum);
-    async_wattage = async_Irms_1 * 230.0;
-
+    async_wattage =  (async_Irms_1 * 230.0)-120;
+    async_wattage = (async_wattage < 20) ? 20 : async_wattage;
     //Reset accumulators
     sumI_1 = 0;
 
@@ -1599,13 +1595,17 @@ void loop(void) {
     stopOnError(F("Err CP"));
   }
 
-  if (error_count >= 3) {
-    PrintS_and_D(F("Error x3"));
+  if (error_count >= 5) {
+    PrintS_and_D(F("Error x5"));
     #ifdef WATCHDOG
       wdt_reset();
     #endif
     return;
   }
+
+  #ifdef WATCHDOG
+    wdt_reset();
+  #endif
 
 //-------------------buttons processing
 #ifdef INPUTS_AS_BUTTONS
@@ -1785,7 +1785,7 @@ void loop(void) {
       Print_D2(outString, 1);
       displ_inc++;
       
-     } else if (displ_inc  == 3) {
+    } else if (displ_inc  == 3) {
       outString = "HP:";
       outString.concat(String(Tsump.T, 1));
       if (Tco.e == 1) {
@@ -1829,7 +1829,7 @@ void loop(void) {
     //--------------------important logic
     //check T sensors
     if (errorcode == ERR_OK) {
-      for (e = 0; e < 3; e++) 
+      for (e = 0; e < 2; e++) 
       {
         Get_Temperatures();
         if (
@@ -2019,7 +2019,7 @@ void loop(void) {
       PrintS(F("EEV: 13 open to work"));
 #endif
       if (EEV_MINWORKPOS != 0 && EEV_MINWORKPOS > EEV_cur_pos) {  //full close protection
-        EEV_apulses = (EEV_MINWORKPOS+2) - EEV_cur_pos;
+        EEV_apulses = (EEV_MINWORKPOS +3)- EEV_cur_pos;
         EEV_adonotcare = 0;
         EEV_fast = 1;
       }
@@ -2241,8 +2241,8 @@ void loop(void) {
 #endif
   
     if (millis_last_heatpump_on > millis_last_heatpump_off) {
-      last_power += async_wattage * (( millis() - last_power_milis)/1000);
-      last_power_milis = millis();
+      last_power += async_wattage * (( millis_now - last_power_milis)/1000);
+      last_power_milis = millis_now;
     }  
   }
 
@@ -2285,7 +2285,7 @@ void loop(void) {
           if ((int(inData[2]) + int(inData[3])/100) > cT_delta_max || (int(inData[2]) + int(inData[3])/100) < 0) {
             break;
           }
-          T_delta =  int(inData[2]) + int(inData[3])/100;
+          T_delta =  double(int(inData[2])) + double(int(inData[3])/100);
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);
           break;
         case 0x07:
@@ -2293,7 +2293,7 @@ void loop(void) {
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);  
           break;
         case 0x08:
-          T_EEV_setpoint =  int(inData[2]) + int(inData[3])/100;
+          T_EEV_setpoint =  double(int(inData[2])) + double(int(inData[3]))/100;
           WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint); 
           break;
         case 0x09:
@@ -2327,6 +2327,42 @@ void loop(void) {
 	}
 }
 
+// void StatsSerial(void) {
+//   outString = "{";
+//   outString.concat("\"Tbe\":"     + String(Tbe.T, 1) + ",");
+//   outString.concat("\"Tae\":"     + String(Tae.T, 1) + ",");
+//   outString.concat("\"Tco\":"     + String(Tco.T, 1) + ",");
+//   outString.concat("\"Tho\":"     + String(Tho.T, 1) + ",");
+//   outString.concat("\"Ttarget\":" + String(Ttarget.T, 1) + ",");
+//   outString.concat("\"Tsump\":"   + String(Tsump.T, 1) + ",");
+//   outString.concat("\"EEV_dt\":"  + String(T_EEV_dt, 1) + ",");
+//   outString.concat("\"Tmax\":"    + String(T_setpoint, 1) + ",");
+//   outString.concat("\"Tmin\":"    + String(T_setpoint-T_delta,1) + ",");
+//   outString.concat("\"Watts\":"   + String(async_wattage,0) + ",");
+//   outString.concat("\"EEV\":"     + String(T_EEV_setpoint, 1) + ",");
+//   outString.concat("\"EEV_pos\":" + String(EEV_cur_pos) + ",");
+//   outString.concat("\"EEV_pulse\":" + String(EEV_apulses) + ",");
+//   outString.concat( (sump_heater_state == 1 || sump_heater_on == 1) ? "\"SHS\":1," : "\"SHS\":0,");
+//   outString.concat( (hotside_circle_state == 1 || hot_pomp_on == 1) ? "\"HCS\":1," : "\"HCS\":0,");
+//   outString.concat( (coldside_circle_state == 1 || cold_pomp_on == 1) ? "\"CCS\":1," : "\"CCS\":0,");
+//   outString.concat( (heatpump_state == 1) ? "\"HPS\":1," : "\"HPS\":0,");
+//   outString.concat( (start_force == 1) ? "\"F\":1," : "\"F\":0,");
+//   outString.concat( (co_on == 1) ? "\"CO\":1," : "\"CO\":0,");
+//   outString.concat("\"WWatt\":"+  String(c_workingOK_wattage) + ",");
+//   outString.concat("\"EEVmax\":"+ String(EEV_MAXPULSES_OPEN) + ",");
+//   outString.concat( (co_on == 1) ? "\"CO\":1," : "\"CO\":0,");
+//   outString.concat( "\"lt_pow\":" + String(last_power/3600) + "," );
+//   if (millis_last_heatpump_on < millis_last_heatpump_off ) {
+//     outString.concat( "\"lt_hp_on\":" + String((millis_last_heatpump_off - millis_last_heatpump_on)/1000));
+//   } else if ( millis_last_heatpump_on > 0 ) {
+//     outString.concat( "\"lt_hp_on\":" + String((millis_now - millis_last_heatpump_on)/1000));
+//   } else {
+//     outString.concat( "\"lt_hp_on\":0" );
+//   }
+//   outString.concat("}");
+// }
+
+       
 void StatsSerial(void) {
   outString = "{";
   outString.concat("\"Tbe\":\""+ String(Tbe.T, 1) +"\",");
@@ -2361,5 +2397,3 @@ void StatsSerial(void) {
   }
   outString.concat("}");
 }
-
-       
