@@ -48,17 +48,17 @@
 #define T_SUMP_MAX 85.0;               //116 //HP will stop if T higher
 #define T_SUMP_HEAT_THRESHOLD 10.0     //16.0;	//sump heater will be powered on if T lower
 #define T_BEFORE_CONDENSER_MAX 108.0;  //discharge MAX, system stops if discharge higher
-#define T_AFTER_EVAPORATOR_MIN -7.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
-#define T_COLD_MIN -4.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
+#define T_AFTER_EVAPORATOR_MIN -5.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
+#define T_COLD_MIN -2.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
 #define T_HOTOUT_MAX 60.0;             //hot loop: stop if outlet temperature higher than this
 #define T_WORKINGOK_SUMP_MIN 5.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 
 //-----------------------TUNING OPTIONS -----------------------
-#define MAX_WATTS 3700.0  //user for power protection
+#define MAX_WATTS 3500//3700.0  //user for power protection
 
 #define DEFFERED_STOP_HOTCIRCLE  60000  //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 10000  //3000 000
-#define POWERON_PAUSE 100000             //50s
+#define POWERON_PAUSE 185000             //50s
 #define MINCYCLE_POWEROFF 1200000       //10 mins
 #define MINCYCLE_POWERON   180000       //5 min  	//60 mins
 #define POWERON_HIGHTIME 9000           //1 sec, defines time after start when power consumption can be 2 times greater than normal
@@ -67,7 +67,7 @@
 //EEV
 #define EEV_MAXPULSES  480
 
-#define xEEV_MAXPULSES_OPEN  42
+#define xEEV_MAXPULSES_OPEN  64//42
 int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 //+22.06.2025
@@ -83,11 +83,11 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES 8  //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE 31
+#define EEV_OPEN_AFTER_CLOSE 20
 //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS 35  //52 04.07->37
+#define EEV_MINWORKPOS 27//35  //52 04.07->37
 // position will be not less during normal work, set after compressor start
 #define EEV_PRECISE_START	8
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
@@ -447,7 +447,7 @@ const double cT_hotout_max = T_HOTOUT_MAX;
 const double cT_workingOK_sump_min = T_WORKINGOK_SUMP_MIN;  //need to be not very high to normal start after deep freeze
 const double c_wattage_max = MAX_WATTS;                     //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
                                                             //PH165X1CY : 920 Watts, 4.2 A
-const double c_workingOK_wattage_min 	= c_wattage_max/2.5;     //
+const double c_workingOK_wattage_min 	= c_wattage_max/3.5;     //
 int c_workingOK_wattage 	            = 2500;
 
 bool heatpump_state = 0;
@@ -503,6 +503,7 @@ unsigned int displ_inc = 1;
 unsigned long millis_lasteesave = 0;
 unsigned long millis_last_printstats = 0;
 
+bool first_full_open = true;
 unsigned long millis_eev_last_close = 0;
 unsigned long millis_eev_last_on = 0;
 unsigned long millis_eev_last_step = 0;
@@ -1172,8 +1173,9 @@ void halifise(void) {
 }
 
 void eevise(void) {
-  int eee = EEV_MAXPULSES_OPEN;
+  int eee = EEV_MAXPULSES ;
   if (async_wattage > c_workingOK_wattage_min) {
+    eee = EEV_MAXPULSES_OPEN;
     if (EEV_cur_pos > eee) {
       EEV_apulses = -1;
       EEV_fast = 1;
@@ -1382,7 +1384,7 @@ void setup(void) {
   
     c_workingOK_wattage = ReadIntEEPROM(eeprom_addr_WATT);
     if (isnan(c_workingOK_wattage) || c_workingOK_wattage <= c_workingOK_wattage_min  || c_workingOK_wattage > c_wattage_max) {
-      c_workingOK_wattage = 2400;
+      c_workingOK_wattage = 1500;
     }
     // Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
   
@@ -1896,7 +1898,7 @@ void loop(void) {
 #ifdef EEV_SUPPORT
     //v1.1 algo
     if (errorcode == 0 && async_wattage > c_workingOK_wattage_min && EEV_cur_pos > 0) {   
-      T_EEV_dt = Tae.T - Tbe.T;      
+      T_EEV_dt = fabs(Tae.T - Tbe.T);    
 
       //zawor otwarty
       if (EEV_apulses >= 0 && EEV_cur_pos >= EEV_MINWORKPOS) {
@@ -1975,7 +1977,13 @@ void loop(void) {
     }
 
     if (EEV_apulses == 0) {
-      if (((async_wattage < c_workingOK_wattage_min) && ((unsigned long)(millis_now - millis_eev_last_close) > EEV_CLOSEEVERY)) || millis_eev_last_close == 0) {  //close every 24h by default
+      if ((_1st_start_sleeped == 0) && first_full_open ) {
+        first_full_open = false;
+        EEV_apulses = EEV_MAXPULSES;
+        EEV_adonotcare = 1;
+        EEV_fast = 1;
+      
+      } else if (((async_wattage < c_workingOK_wattage_min) && ((unsigned long)(millis_now - millis_eev_last_close) > EEV_CLOSEEVERY)) || millis_eev_last_close == 0) {  //close every 24h by default
 #ifdef EEV_DEBUG
         PrintS(F("EEV: 10 FULL closing"));
 #endif
@@ -2053,6 +2061,7 @@ void loop(void) {
     if (_1st_start_sleeped == 0) {
       if ((millis_now < poweron_pause) && (_1st_start_sleeped == 0)) {
         Print_D("Wait: " + String(((poweron_pause - millis_now)) / 1000) + " s. ");
+        //Print_D2( String(EEV_apulses) + "/" + String(EEV_cur_pos), 1);
         return;
       } else {
         _1st_start_sleeped = 1;
@@ -2388,12 +2397,12 @@ void StatsSerial(void) {
   outString.concat("\"EEVmax\":\""+ String(EEV_MAXPULSES_OPEN) +"\",");
   outString.concat( (co_on == 1) ? "\"CO\":1," : "\"CO\":0,");
   outString.concat( "\"lt_pow\":\"" + String(last_power/3600) + "\"," );
-  if (millis_last_heatpump_on < millis_last_heatpump_off ) {
-    outString.concat( "\"lt_hp_on\":\"" + String((millis_last_heatpump_off - millis_last_heatpump_on)/1000) + "\"" );
-  } else if ( millis_last_heatpump_on > 0 ) {
-    outString.concat( "\"lt_hp_on\":\"" + String((millis_now - millis_last_heatpump_on)/1000) + "\"" );
-  } else {
-    outString.concat( "\"lt_hp_on\":\"0\"" );
-  }
+  // if (millis_last_heatpump_on < millis_last_heatpump_off ) {
+  //   outString.concat( "\"lt_hp_on\":\"" + String((millis_last_heatpump_off - millis_last_heatpump_on)/1000) + "\"" );
+  // } else if ( millis_last_heatpump_on > 0 ) {
+  //   outString.concat( "\"lt_hp_on\":\"" + String((millis_now - millis_last_heatpump_on)/1000) + "\"" );
+  // } else {
+  //   outString.concat( "\"lt_hp_on\":\"0\"" );
+  // }
   outString.concat("}");
 }
