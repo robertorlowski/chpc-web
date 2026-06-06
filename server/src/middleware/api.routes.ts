@@ -3,7 +3,7 @@ import express from 'express'
 import { getHp, addHp, getHpAll, clearHp, getHp4Day } from './../controllers/hp.controller'
 import { getSettings, setSettings } from './../controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation } from '../controllers/operation.controller'
-
+import { getTemperature } from '../controllers/meteo.controller'
 
 const router = express.Router()
 
@@ -20,5 +20,7 @@ router.post('/hp/clear', clearHp)
 
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)
+
+router.get('/temperature', getTemperature)
 
 export default router

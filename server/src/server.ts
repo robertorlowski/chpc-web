@@ -17,11 +17,11 @@ const PORT = Number(process.env.PORT ?? 3001);
   console.log("Mongo connected");
 
   await prepareMeteoData()
-  console.log(`Temperture: ${getTemperature()?.toFixed(0)}°C`);
+  console.log(`Temperture: ${getTemperature()?.toFixed(0)} °C`);
 
   setInterval(()=> (async() => {
     await prepareMeteoData()
-    console.log(`Temperture: ${getTemperature()?.toFixed(0)}°C`);
+    console.log(`Temperture: ${getTemperature()?.toFixed(0)} °C`);
   })(), 10 * 60 * 1000 );
   
   server.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
