@@ -9,13 +9,17 @@ const params = {
 
 const url = "https://api.open-meteo.com/v1/forecast";
 
-let temperature_2m :number | null | undefined;
+let temperature_2m :number | null | undefined = null;
 
 export const prepareMeteoData = async () => {
-	// const responses = await fetchWeatherApi(url, params);
-	// const current = responses[0].current()!;
-	// temperature_2m =  Math.trunc(current.variables(0)?.value()! * 10) / 10;
-	// console.log(temperature_2m)
+	try { 
+		const responses = await fetchWeatherApi(url, params);
+		const current = responses[0].current()!;
+		temperature_2m =  Math.trunc(current.variables(0)?.value()! * 10) / 10;
+		console.log(temperature_2m)
+	} catch( e ) {
+		console.log(e);
+	}
 }
 
 export function getTemperature() :number|null|undefined {
