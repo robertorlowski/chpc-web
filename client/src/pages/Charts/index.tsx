@@ -2,10 +2,10 @@ import './style.css';
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { THPL } from '../../api/type';
-import { energyKWh } from '../../utils/energy';
 import DateDict from '../../components/DateDict';
 import { fetchData, formatDateYMD } from '../../utils/utils';
 import { ClipLoader } from 'react-spinners';
+import { energyCostG12w } from '../../utils/energy-cost-g12w';
 
 export const HeatPumpChart: React.FC = () => {
   const [filteredData, setFilteredData] = useState<THPL[]>([]);
@@ -17,7 +17,8 @@ export const HeatPumpChart: React.FC = () => {
   const [cTemp, setTemp] = useState(true);
   const [cPower, setPower] = useState(true);
   const [cPV, setPV] = useState(false);
-  
+  const [cost, setCost] = useState(0);
+
     useEffect(() => {
         if (!selectedDate) return;
         let active = true; // guard przeciwko setState po unmount
@@ -27,9 +28,16 @@ export const HeatPumpChart: React.FC = () => {
           setLoading(true);
           try {
             const data = await fetchData(true, selectedDate);
-            setKwh(energyKWh(data, false));
-            setKwhPV(energyKWh(data, true));
+            // setKwh(energyKWh(data, false));
+            // setKwhPV(energyKWh(data, true));
 
+            const result = energyCostG12w(data, {
+              maxGapMinutes: 15,
+            });
+            setKwh(result.consumptionKWh);
+            setKwhPV(result.consumptionKWh - result.pvUsedKWh);
+            setCost(result.totalVariableCostPLN);
+            
             const filtered = data
                 .filter(row => allData || row?.HPS === true)
                 .filter(d => d.time?.startsWith(selectedDate))
@@ -67,10 +75,11 @@ export const HeatPumpChart: React.FC = () => {
         )
       }
 
-    <h4>
- 		  <label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
-    </h4>
-
+    
+    <label>Zużyta energia dzienna: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh</label>
+    <br/>
+    <label>Wartość zużytej energii: {cost.toFixed(2)}  PLN</label>
+    <p/>
     <div className='chart-checkbox'>
 			<label className='label'>
         <input
