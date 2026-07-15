@@ -126,7 +126,7 @@ const HP: React.FC = () => {
                   className={'field'}
                   style={{ marginLeft: '5px' }}
                 >
-                  {_data?.t_out!  ? _data.t_out.toFixed(0) : '---'}
+                  {_data?.t_out!  ? _data.t_out.toFixed(1) : '---'}
                 </span>{' '}
                 °C
               </div>

@@ -43,12 +43,16 @@ export function getTemperature() :number|null|undefined {
 
 export const prepareMeteoData = async () => {
 	try { 
+		/*
 		const response = await fetch('https://danepubliczne.imgw.pl/api/data/synop');
 		const stacje: ImgwStacja[] = await response.json(); // <-- Informujemy TS, że to tablica stacji
-
 		// Teraz TypeScript wie, że 's' to obiekt typu ImgwStacja
 		const lokalnaStacja = stacje.find((s: ImgwStacja) => s.stacja === "Zakopane");
+		*/
 
+		const response = await fetch('https://danepubliczne.imgw.pl/api/data/synop/station/zakopane');
+		const lokalnaStacja: ImgwStacja = await response.json();
+		
 		if (lokalnaStacja) {
 			// Ważne: IMGW zwraca temperaturę jako string (np. "18.2"), musisz ją sparsować na liczbę
 			temperature_2m = parseFloat(lokalnaStacja.temperatura);
