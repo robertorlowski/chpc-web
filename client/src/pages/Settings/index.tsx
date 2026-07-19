@@ -224,6 +224,21 @@ export const Settings: React.FC = () => {
 							onChange={(e) => setValueOperation({...valueOpration, eev_max_pulse_open: e.currentTarget.value})}
 						/>
 					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>Params:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="working_watt"
+							placeholder= {defaultOperation.working_watt}
+							value={ valueOpration.working_watt }
+							onChange={(e) => setValueOperation({...valueOpration, working_watt: e.currentTarget.value})}
+						/>
+					</div>
+
+
+
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Wymuszenie pracy:</span>
 						<input
@@ -258,7 +273,7 @@ export const Settings: React.FC = () => {
 							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
-
+{/* 
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Grzałka krateru:</span>
 						<input
@@ -269,7 +284,8 @@ export const Settings: React.FC = () => {
 							checked={ valueOpration.sump_heater ==="1" }
 							onChange={(e) => setValueOperation({...valueOpration, sump_heater: e.target.checked ? "1" : "0" })}
 						/>
-					</div>
+					</div> */}
+	
 					<div className='header3'>
 						<p>
 							<span className={error ? `error show` : `error hide`}>
