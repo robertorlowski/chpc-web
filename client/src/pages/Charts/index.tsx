@@ -103,6 +103,17 @@ const getMonday = (date: Date): Date => {
   return result;
 };
 
+const isCompressorWorking = (row: THPL): boolean => {
+  const value = (row as THPL & { HPS?: unknown }).HPS;
+
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+
+  return ['true', '1', 'on', 'active', 'working', 'yes'].includes(
+    String(value).trim().toLowerCase(),
+  );
+};
+
 const getMonthName = (month: number): string => {
   return new Intl.DateTimeFormat('pl-PL', {
     month: 'long',
@@ -556,16 +567,7 @@ export const HeatPumpChart: React.FC = () => {
             stroke="#f4f4f4"
             dot={{ r: 1 }}
             hide={!cPower}
-            isCompressorWorking={(row: THPL): boolean => {
-              const value = (row as THPL & { HPS?: unknown }).HPS;
-
-              if (typeof value === 'boolean') return value;
-              if (typeof value === 'number') return value !== 0;
-
-              return ['true', '1', 'on', 'active', 'working', 'yes'].includes(
-                String(value).trim().toLowerCase(),
-              );
-            }}
+            isCompressorWorking={isCompressorWorking}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -573,13 +575,4 @@ export const HeatPumpChart: React.FC = () => {
   );
 };
 
-const isCompressorWorking = (row: THPL): boolean => {
-  const value = (row as THPL & { HPS?: unknown }).HPS;
 
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-
-  return ['true', '1', 'on', 'active', 'working', 'yes'].includes(
-    String(value).trim().toLowerCase(),
-  );
-};
