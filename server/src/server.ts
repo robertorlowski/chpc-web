@@ -21,7 +21,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 
   setInterval(()=> (async() => {
     await prepareMeteoData()
-  })(), 10 * 60 * 1000 );
+  })(), 60 * 1000 );
   
   server.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
 })();

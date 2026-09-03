@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 
 import { getSettingsData, setSettingsData } from '../services/settings.service'
 import { SettingsEntry } from '../middleware/type'
-import { SettingsEntryModel } from '../models/model';
+
 
 export async function getSettings(req: Request, res: Response) {
   try {

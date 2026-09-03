@@ -1,6 +1,8 @@
-import mongoose, { Schema, model, InferSchemaType } from 'mongoose';
+import mongoose, { Schema, model, InferSchemaType, Model, Document } from 'mongoose';
+import { Device, DeviceType, HpEntry, HpMetrics, PvMetrics, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from '../middleware/type';
 
-const TimeSlotSchema = new Schema(
+
+const TimeSlotSchema = new Schema<TimeSlot>(
   {
     slot_start_hour: { type: Number },
     slot_start_minute: { type: Number },
@@ -10,7 +12,7 @@ const TimeSlotSchema = new Schema(
   { _id: false }
 );
 
-const HpMetricsSchema = new Schema(
+const HpMetricsSchema = new Schema<HpMetrics>(
   {
     Tbe: { type: Number },
     Tae: { type: Number },
@@ -43,7 +45,7 @@ const HpMetricsSchema = new Schema(
   { _id: false }
 );
 
-const PvMetricsSchema = new Schema(
+const PvMetricsSchema = new Schema<PvMetrics>(
   {
     total_power: { type: Number },
     total_prod: { type: Number },
@@ -53,7 +55,7 @@ const PvMetricsSchema = new Schema(
   { _id: false }
 );
 
-const HpEntrySchema = new Schema(
+const HpEntrySchema = new Schema<HpEntry>(
   {
     HP: { type: HpMetricsSchema },
     PV: { type: PvMetricsSchema },
@@ -75,7 +77,7 @@ const HpEntrySchema = new Schema(
   { timestamps: true, _id: true, collection: 'hp' }
 );
 
-const SettingsEntrySchema = new Schema(
+const SettingsEntrySchema = new Schema<SettingsEntry>(
   {
     night_hour: { type: TimeSlotSchema },
     settings: { type: [TimeSlotSchema] },
@@ -84,31 +86,97 @@ const SettingsEntrySchema = new Schema(
   { timestamps: true, _id: true, collection: 'settings' }
 );
 
-// const OperationEntrySchema = new Schema(
-//   {
-//     force: { type: String },
-//     work_mode: { type: String },
-//     sump_heater: { type: String },
-//     cold_pomp: { type: String },
-//     hot_pomp: { type: String },
-//     co_min: { type: String },
-//     co_max: { type: String },
-//     cwu_min: { type: String },
-//     cwu_max: { type: String },
-//     working_watt: { type: String },
-//     eev_max_pulse_open: { type: String },
-//     eev_setpoint: { type: String },
-//   },
-//   { timestamps: true, collection: 'operationentrys' }
-// );
 
-const RootSchema = new Schema(
+const ScheduleEntrySchema = new Schema<ScheduleEntry>(
   {
+    dayOfWeek: {
+      type: Number,
+      enum: Object.values(WeekDay).filter(
+        (value) => typeof value === 'number',
+      )
+    },
+
+    date: { 
+      type: Date,
+      required: false,
+    },
+
+    startTime: {
+      type: String,
+      required: true,
+      match: timePattern,
+    },
+
+    endTime: {
+      type: String,
+      required: true,
+      match: timePattern,
+    },
+
+    type: {
+      type: String,
+      enum: Object.values(ScheduleType),
+      required: true,
+    },
+
+    enabled: {
+      type: Boolean,
+      default: true,
+      required: true,
+    },
+
+    deviceEnabled: {
+      type: Boolean,
+      required: true,
+    },
+
+    minTemperature: {
+      type: Number,
+      required: true,
+    },
+
+    maxTemperature: {
+      type: Number,
+      required: true,
+    }
+  },
+  {
+    timestamps: true,
+    _id: true,
+    collection: 'schedules'
+  },
+);
+
+export interface DeviceDocument extends Device, Document {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const DeviceSchema = new Schema<DeviceDocument>(
+  {
+    deviceType: {
+      type: String,
+      enum: Object.values(DeviceType),
+      required: true,
+    },
+    deviceId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     hp: { type: [HpEntrySchema] },
     settings: { type: SettingsEntrySchema },
+    schedules: { type: [ScheduleEntrySchema] },
   },
-  { timestamps: true, collection: 'roots' }
+  { timestamps: true, collection: 'devices' }
 );
+
+
 
 export type HpEntryDoc = InferSchemaType<typeof HpEntrySchema>;
 export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
@@ -116,5 +184,9 @@ export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
 export type SettingsEntryDoc = InferSchemaType<typeof SettingsEntrySchema>;
 export const SettingsEntryModel = model<SettingsEntryDoc>('SettingsEntry', SettingsEntrySchema);
 
-// export type     OperationEntryDoc = InferSchemaType<typeof OperationEntrySchema>;
-// export const OperationEntryModel = model<OperationEntryDoc>('OperationEntry', OperationEntrySchema);
+// export type ScheduleEntryDoc = InferSchemaType<typeof ScheduleEntrySchema>;
+// export const ScheduleEntryModel = model<ScheduleEntryDoc>('ScheduleEntry', ScheduleEntrySchema);
+
+export const DeviceModel: Model<DeviceDocument> =
+  mongoose.models.Root ||
+  mongoose.model<DeviceDocument>('Root', DeviceSchema);

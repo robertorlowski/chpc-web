@@ -1,3 +1,58 @@
+export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+export enum DeviceType {
+  HP = 'heat_pump',
+}
+
+export enum ScheduleType {
+  CWU = 'cwu',
+  CO = 'co'
+}
+
+export enum WeekDay {
+  SUNDAY = 0,
+  MONDAY = 1,
+  TUESDAY = 2,
+  WEDNESDAY = 3,
+  THURSDAY = 4,
+  FRIDAY = 5,
+  SATURDAY = 6,
+}
+
+export interface ScheduleEntry {
+  type: ScheduleType;
+
+  /**
+   * Czy wpis harmonogramu jest aktywny.
+   */
+  enabled: boolean;
+ 
+  /**
+   * Wpis harmonogramu może dotyczyć:
+   * - konkretnego dnia tygodnia,
+   * - konkretnej daty.
+   *
+   * W przypadku ustawienia konkretnej daty pole date
+   * ma pierwszeństwo przed dayOfWeek.
+   */
+  dayOfWeek?: WeekDay;
+  date?: Date;
+
+  /**
+   * Godziny w formacie HH:mm.
+   */
+  startTime: string;
+  endTime: string;
+
+  /**
+   * Stan, który ma zostać ustawiony na urządzeniu.
+   */
+  deviceEnabled: boolean;
+  
+  minTemperature: number;
+  maxTemperature: number;
+}
+
 export interface HpMetrics {
     Tbe?: number,
     Tae?: number,
@@ -58,7 +113,11 @@ export interface TimeSlot {
     slot_start_hour?: Number,
     slot_start_minute?: Number,
     slot_stop_hour?: Number,
-    slot_stop_minute?: Number
+    slot_stop_minute?: Number,
+    work_mode?: String,
+    min_temp?: number;
+    max_temp?: number;
+    force?: String; 
 };
 
 export interface SettingsEntry {
@@ -82,7 +141,12 @@ export interface OperationEntry {
   eev_setpoint?: String
 }
 
-export interface Root {
-  hp: HpEntry[];
-  settings: SettingsEntry;
+export interface Device {
+  deviceType: DeviceType;
+  deviceId: string;
+  name?: string;
+  hp?: HpEntry[];
+  settings?: SettingsEntry;
+  schedules?: ScheduleEntry[];
 }
+
