@@ -288,7 +288,7 @@ export const HeatPumpChart: React.FC = () => {
       {cPower && (
         <span>
           <i className="legend-color power-color" />
-          Pobrana energia
+          Energia pob.
         </span>
       )}
 
@@ -303,15 +303,15 @@ export const HeatPumpChart: React.FC = () => {
         <>
           <span>
             <i className="legend-color tbe-color" />
-            Tbe
+            Temp. przed parownikiem
           </span>
           <span>
             <i className="legend-color tae-color" />
-            Tae
+            Temp. za parownikiem 
           </span>
           <span>
             <i className="legend-color tho-color" />
-            Tho
+            Temp. wody wyj.
           </span>
           <span>
             <i className="legend-color target-color" />
@@ -348,11 +348,15 @@ export const HeatPumpChart: React.FC = () => {
       </div>
 
       {isDay && (
-        <DateDict
-          id="date-select"
-          initValue={selectedDate}
-          onDateChange={setSelectedDate}
-        />
+        <div className="period-filter">
+          <label>Dzień:
+          <DateDict
+            id="date-select"
+            initValue={selectedDate}
+            onDateChange={setSelectedDate}
+          />
+          </label>
+        </div>
       )}
 
       {period === 'week' && (
@@ -452,7 +456,7 @@ export const HeatPumpChart: React.FC = () => {
               setPower(event.target.checked)
             }
           />
-          Pobrana energia
+          Energia pob.
         </label>
 
         <label className="label">
@@ -499,7 +503,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="right"
             type="monotone"
             dataKey="Watts"
-            name={isDay ? 'Moc [W]' : 'Pobrana energia [kWh]'}
+            name={'Energia pob. [kWh]'}
             stroke="#5f5050"
             dot={{ r: 1 }}
             hide={!cPower}
@@ -519,7 +523,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tbe"
-            name="Tbe [°C]"
+            name="Temp. przed parownikiem [°C]"
             stroke="#463de0"
             dot={{ r: 1 }}
             connectNulls
@@ -530,7 +534,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tae"
-            name="Tae [°C]"
+            name="Temp. za parownikiem [°C]"
             stroke="#0ace55"
             dot={{ r: 1 }}
             connectNulls
@@ -541,7 +545,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tho"
-            name="Tho [°C]"
+            name="Temp. wody wyj. [°C]"
             stroke="#c4922f"
             dot={{ r: 1 }}
             connectNulls
@@ -557,16 +561,6 @@ export const HeatPumpChart: React.FC = () => {
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
-          />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="HPS"
-            name="Czynność kompresora"
-            stroke="#f4f4f4"
-            dot={{ r: 1 }}
-            hide
           />
         </LineChart>
       </ResponsiveContainer>

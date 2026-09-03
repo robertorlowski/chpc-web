@@ -1,5 +1,5 @@
 .dateDict {
-	border: 0px;
+	border: 1px solid #ccc;
     font-weight: 400;
-    font-size: large;
+    font-size: medium;
 }
