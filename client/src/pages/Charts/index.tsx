@@ -566,8 +566,7 @@ export const HeatPumpChart: React.FC = () => {
             name="Czynność kompresora"
             stroke="#f4f4f4"
             dot={{ r: 1 }}
-            hide={!cPower}
-            isCompressorWorking={isCompressorWorking}
+            hide
           />
         </LineChart>
       </ResponsiveContainer>
