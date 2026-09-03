@@ -103,9 +103,9 @@ export async function getSchedulesForDate(
   return [
     ...schedulesForSpecificDate,
     ...schedulesForWeekDay,
-  ].sort((first, second) => {
-    if (first.date  !== second.date) {
-      return second.date - first.date;
+  ].sort((first: ScheduleEntry, second: ScheduleEntry) => {
+    if ( !!first.date && !!second.date && first.date  !== second.date) {
+      return new Date(second.date).getTime() - new Date(first.date).getTime();
     }
 
     return first.startTime.localeCompare(second.startTime);
