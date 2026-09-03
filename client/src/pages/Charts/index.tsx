@@ -189,22 +189,18 @@ export const HeatPumpChart: React.FC = () => {
         setCost(total.totalVariableCostPLN || 0);
 
         if (period === 'day') {
-          const points = (responses[0] || [])
-            .filter((row: THPL) => row?.time)
-            .filter((_: THPL, index: number) =>
-              index % (allData ? 10 : 2) === 0,
-            )
-            .sort((a: THPL, b: THPL) =>
-              a.time.localeCompare(b.time),
-            )
-            .map((row: THPL) => ({
+          const points = (responses[0] as THPL[])
+            .filter((row) => row?.time)
+            .filter((row) => allData || isCompressorWorking(row))
+            .filter((_, index) => index % 5 === 0)
+            .sort((a, b) => a.time.localeCompare(b.time))
+            .map((row) => ({
               ...row,
-              time: row.time.split(' ')[1] || row.time,
+              time: row.time.split(' ')[1]?.slice(0, 5) || row.time,
               Tbe: row.Tbe != null ? Number(row.Tbe) : undefined,
               Tae: row.Tae != null ? Number(row.Tae) : undefined,
               Tho: row.Tho != null ? Number(row.Tho) : undefined,
-              Ttarget:
-                row.Ttarget != null ? Number(row.Ttarget) : undefined,
+              Ttarget: row.Ttarget != null ? Number(row.Ttarget) : undefined,
               Watts: row.Watts != null ? Number(row.Watts) : undefined,
               pv: row.pv != null ? Number(row.pv) : undefined,
             }));
@@ -551,8 +547,39 @@ export const HeatPumpChart: React.FC = () => {
             connectNulls
             hide={period !== 'day' || !cTemp}
           />
+
+          <Line
+            yAxisId="left"
+            type="monotone"
+            dataKey="HPS"
+            name="Czynność kompresora"
+            stroke="#f4f4f4"
+            dot={{ r: 1 }}
+            hide={!cPower}
+            isCompressorWorking={(row: THPL): boolean => {
+              const value = (row as THPL & { HPS?: unknown }).HPS;
+
+              if (typeof value === 'boolean') return value;
+              if (typeof value === 'number') return value !== 0;
+
+              return ['true', '1', 'on', 'active', 'working', 'yes'].includes(
+                String(value).trim().toLowerCase(),
+              );
+            }}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
+  );
+};
+
+const isCompressorWorking = (row: THPL): boolean => {
+  const value = (row as THPL & { HPS?: unknown }).HPS;
+
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+
+  return ['true', '1', 'on', 'active', 'working', 'yes'].includes(
+    String(value).trim().toLowerCase(),
   );
 };
