@@ -1,14 +1,14 @@
 import { HpEntry, OperationEntry, SettingsEntry } from "./type";
 
 export const wsAddressServer = () => {
-  if (process.env.NODE_ENV !== "production") 
+  if (import.meta.env.DEV)
     return  "ws://localhost:4001"
   else 
     return  "wss://chpc-web.onrender.com/";
 }
 
 function prefixMocks(path: string) {
-  if (process.env.NODE_ENV !== "production") 
+  if (import.meta.env.DEV)
     return  "http://localhost:4001/api".concat(path)
   else 
     return  "https://chpc-web.onrender.com/api".concat(path);
