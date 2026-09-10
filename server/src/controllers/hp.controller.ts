@@ -103,105 +103,74 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
     const { startUTC: start } = warsawDayBoundsUTC(startDate);
     const { endUTC: end } = warsawDayBoundsUTC(endDate);
     const groupByWeek = group === "week";
-    const bucketExpression = groupByWeek
-      ? {
-          $floor: {
-            $divide: [
-              {
-                $dateDiff: {
-                  startDate: start,
-                  endDate: "$createdAt",
-                  unit: "day",
-                  timezone: "Europe/Warsaw",
-                },
-              },
-              7,
-            ],
-          },
-        }
-      : { $month: { date: "$createdAt", timezone: "Europe/Warsaw" } };
+    const docs = await HpEntryModel.find({
+      createdAt: { $gte: start, $lt: end },
+    }).sort({ createdAt: 1 }).lean() as unknown as Array<HpEntry & { createdAt: Date }>;
 
-    const result = await HpEntryModel.aggregate([
-      { $match: { createdAt: { $gte: start, $lt: end } } },
-      { $sort: { createdAt: 1 } },
-      {
-        $setWindowFields: {
-          sortBy: { createdAt: 1 },
-          output: {
-            previousCreatedAt: { $shift: { output: "$createdAt", by: -1 } },
-            previousWatts: { $shift: { output: "$HP.Watts", by: -1 } },
-            previousPv: { $shift: { output: "$PV.total_power", by: -1 } },
-          },
-        },
-      },
-      {
-        $set: {
-          intervalHours: {
-            $divide: [
-              { $subtract: ["$createdAt", "$previousCreatedAt"] },
-              3600000,
-            ],
-          },
-          bucket: bucketExpression,
-        },
-      },
-      {
-        $match: {
-          intervalHours: { $gt: 0, $lte: 0.25 },
-          previousWatts: { $gte: 0 },
-        },
-      },
-      {
-        $set: {
-          consumptionWh: {
-            $multiply: [
-              { $avg: ["$previousWatts", { $ifNull: ["$HP.Watts", 0] }] },
-              "$intervalHours",
-            ],
-          },
-          pvWh: {
-            $multiply: [
-              { $avg: ["$previousPv", { $ifNull: ["$PV.total_power", 0] }] },
-              "$intervalHours",
-            ],
-          },
-          gridWh: {
-            $multiply: [
-              {
-                $max: [
-                  0,
-                  {
-                    $avg: [
-                      { $subtract: ["$previousWatts", { $ifNull: ["$previousPv", 0] }] },
-                      { $subtract: [{ $ifNull: ["$HP.Watts", 0] }, { $ifNull: ["$PV.total_power", 0] }] },
-                    ],
-                  },
-                ],
-              },
-              "$intervalHours",
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: "$bucket",
-          consumptionKWh: { $sum: { $divide: ["$consumptionWh", 1000] } },
-          pvGenerationKWh: { $sum: { $divide: ["$pvWh", 1000] } },
-          gridEnergyKWh: { $sum: { $divide: ["$gridWh", 1000] } },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          ...(groupByWeek ? { week: "$_id" } : { month: "$_id" }),
-          consumptionKWh: 1,
-          pvGenerationKWh: 1,
-          gridEnergyKWh: 1,
-        },
-      },
-      { $sort: { month: 1 } },
-    ]);
+    const startCalendar = new Date(`${startDate.replace(/\./g, "-")}T00:00:00Z`);
+    const totals = new Map<number, {
+      consumptionKWh: number;
+      pvGenerationKWh: number;
+      gridEnergyKWh: number;
+      peakGridEnergyKWh: number;
+      offPeakGridEnergyKWh: number;
+    }>();
+
+    const getLocalParts = (date: Date) => {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Warsaw",
+        weekday: "short",
+        hour: "2-digit",
+        hourCycle: "h23",
+        month: "2-digit",
+      }).formatToParts(date);
+      return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    };
+
+    docs.slice(1).forEach((current, index) => {
+      const previous = docs[index];
+      const currentDate = current.createdAt as Date;
+      const previousDate = previous.createdAt as Date;
+      const intervalHours = (currentDate.getTime() - previousDate.getTime()) / 3600000;
+
+      if (intervalHours <= 0 || intervalHours > 0.25) return;
+
+      const previousWatts = Math.max(0, Number(previous.HP?.Watts || 0));
+      const currentWatts = Math.max(0, Number(current.HP?.Watts || 0));
+      const previousPv = Math.max(0, Number(previous.PV?.total_power || 0));
+      const currentPv = Math.max(0, Number(current.PV?.total_power || 0));
+      const consumptionWh = ((previousWatts + currentWatts) / 2) * intervalHours;
+      const pvWh = ((previousPv + currentPv) / 2) * intervalHours;
+      const gridWh = Math.max(0, ((previousWatts - previousPv) + (currentWatts - currentPv)) / 2) * intervalHours;
+      const local = getLocalParts(new Date((previousDate.getTime() + currentDate.getTime()) / 2));
+      const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(local.weekday);
+      const hour = Number(local.hour);
+      const isPeak = weekday >= 1 && weekday <= 5 &&
+        ((hour >= 6 && hour < 13) || (hour >= 15 && hour < 22));
+      const dayOffset = Math.floor((currentDate.getTime() - startCalendar.getTime()) / 86400000);
+      const bucket = groupByWeek ? Math.floor(dayOffset / 7) : Number(local.month);
+      const total = totals.get(bucket) || {
+        consumptionKWh: 0,
+        pvGenerationKWh: 0,
+        gridEnergyKWh: 0,
+        peakGridEnergyKWh: 0,
+        offPeakGridEnergyKWh: 0,
+      };
+
+      total.consumptionKWh += consumptionWh / 1000;
+      total.pvGenerationKWh += pvWh / 1000;
+      total.gridEnergyKWh += gridWh / 1000;
+      if (isPeak) total.peakGridEnergyKWh += gridWh / 1000;
+      else total.offPeakGridEnergyKWh += gridWh / 1000;
+      totals.set(bucket, total);
+    });
+
+    const result = Array.from(totals.entries()).map(([bucket, total]) => ({
+      ...(groupByWeek ? { week: bucket } : { month: bucket }),
+      ...total,
+      totalVariableCostPLN: total.peakGridEnergyKWh * 1.2302 +
+        total.offPeakGridEnergyKWh * 0.6305,
+    }));
 
     return res.status(200).json(result);
   } catch (error) {

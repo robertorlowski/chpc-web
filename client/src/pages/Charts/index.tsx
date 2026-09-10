@@ -26,6 +26,7 @@ type ChartPoint = {
   time: string;
   Watts?: number;
   pv?: number;
+  cost?: number;
   Tbe?: number;
   Tae?: number;
   Tho?: number;
@@ -192,13 +193,16 @@ export const HeatPumpChart: React.FC = () => {
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
               pv: value.pv + Number(item.gridEnergyKWh || 0),
+              cost: value.cost + Number(
+                Number(item.totalVariableCostPLN || 0).toFixed(2),
+              ),
             }),
-            { energy: 0, pv: 0 },
+            { energy: 0, pv: 0, cost: 0 },
           );
 
-          setKwh(total.energy);
-          setKwhPV(total.pv);
-          setCost(0);
+          setKwh(Number(total.energy.toFixed(2)));
+          setKwhPV(Number(total.pv.toFixed(2)));
+          setCost(Number(total.cost.toFixed(2)));
           setFilteredData(Array.from({ length: 12 }, (_, monthIndex) => {
             const item = monthlyData.find(
               (summary) => summary.month === monthIndex + 1,
@@ -206,8 +210,9 @@ export const HeatPumpChart: React.FC = () => {
 
             return {
               time: String(monthIndex + 1),
-              Watts: Number(item?.consumptionKWh || 0),
-              pv: Number(item?.gridEnergyKWh || 0),
+              Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              pv: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
           }));
           return;
@@ -227,13 +232,14 @@ export const HeatPumpChart: React.FC = () => {
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
               grid: value.grid + Number(item.gridEnergyKWh || 0),
+              cost: value.cost + Number(item.totalVariableCostPLN || 0),
             }),
-            { energy: 0, grid: 0 },
+            { energy: 0, grid: 0, cost: 0 },
           );
 
-          setKwh(total.energy);
-          setKwhPV(total.grid);
-          setCost(0);
+          setKwh(Number(total.energy.toFixed(2)));
+          setKwhPV(Number(total.grid.toFixed(2)));
+          setCost(Number(total.cost.toFixed(2)));
           setFilteredData(Array.from({ length: 4 }, (_, weekIndex) => {
             const item = weeklyData.find(
               (summary) => summary.week === weekIndex,
@@ -241,8 +247,9 @@ export const HeatPumpChart: React.FC = () => {
 
             return {
               time: dates[weekIndex * 7],
-              Watts: Number(item?.consumptionKWh || 0),
-              pv: Number(item?.gridEnergyKWh || 0),
+              Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              pv: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
           }));
           return;
@@ -288,8 +295,8 @@ export const HeatPumpChart: React.FC = () => {
           { energy: 0, pv: 0, cost: 0 },
         );
 
-        setKwh(periodTotal.energy);
-        setKwhPV(periodTotal.energy - periodTotal.pv);
+        setKwh(Number(periodTotal.energy.toFixed(2)));
+        setKwhPV(Number((periodTotal.energy - periodTotal.pv).toFixed(2)));
         setCost(periodTotal.cost);
 
         if (period === 'day') {
@@ -364,6 +371,13 @@ export const HeatPumpChart: React.FC = () => {
         <span>
           <i className="legend-color pv-color" />
           PV
+        </span>
+      )}
+
+      {!isDay && (
+        <span>
+          <i className="legend-color cost-color" />
+          Koszt [PLN]
         </span>
       )}
 
@@ -559,7 +573,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="right"
             orientation="right"
             label={{
-              value: isDay ? 'Moc [W]' : 'Energia [kWh]',
+              value: isDay ? 'Moc [W]' : 'Koszt [PLN]',
               angle: -90,
               position: 'insideRight',
             }}
@@ -568,23 +582,33 @@ export const HeatPumpChart: React.FC = () => {
           <Legend content={renderLegend} />
 
           <Line
-            yAxisId="right"
+            yAxisId={isDay ? 'right' : 'left'}
             type="monotone"
             dataKey="Watts"
-            name={'Energia pob. [kWh]'}
+            name={isDay ? 'Energia pob. [W]' : 'Energia z sieci [kWh]'}
             stroke="#5f5050"
             dot={{ r: 1 }}
             hide={!cPower}
           />
 
           <Line
-            yAxisId="right"
+            yAxisId={isDay ? 'right' : 'left'}
             type="monotone"
             dataKey="pv"
             name={isDay ? 'PV [W]' : 'PV [kWh]'}
             stroke="#ec30a4"
             dot={{ r: 1 }}
             hide={!cPV}
+          />
+
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="cost"
+            name="Koszt [PLN]"
+            stroke="#e06b2f"
+            dot={{ r: 2 }}
+            hide={isDay}
           />
 
           <Line
