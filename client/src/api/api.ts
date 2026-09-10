@@ -85,6 +85,7 @@ export class HpRequests {
         consumptionKWh: number;
         pvGenerationKWh: number;
         gridEnergyKWh: number;
+        pvUsedKWh: number;
         totalVariableCostPLN: number;
       }> | null>;
   }

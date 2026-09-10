@@ -192,7 +192,7 @@ export const HeatPumpChart: React.FC = () => {
           const total = monthlyData.reduce(
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
-              pv: value.pv + Number(item.gridEnergyKWh || 0),
+              pv: value.pv + Number(item.pvUsedKWh || 0),
               cost: value.cost + Number(
                 Number(item.totalVariableCostPLN || 0).toFixed(2),
               ),
@@ -211,7 +211,7 @@ export const HeatPumpChart: React.FC = () => {
             return {
               time: String(monthIndex + 1),
               Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
-              pv: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              pv: Number(Number(item?.pvUsedKWh || 0).toFixed(2)),
               cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
           }));
@@ -232,9 +232,10 @@ export const HeatPumpChart: React.FC = () => {
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
               grid: value.grid + Number(item.gridEnergyKWh || 0),
+              pv: value.pv + Number(item.pvUsedKWh || 0),
               cost: value.cost + Number(item.totalVariableCostPLN || 0),
             }),
-            { energy: 0, grid: 0, cost: 0 },
+            { energy: 0, grid: 0, pv: 0, cost: 0 },
           );
 
           setKwh(Number(total.energy.toFixed(2)));
@@ -248,7 +249,7 @@ export const HeatPumpChart: React.FC = () => {
             return {
               time: dates[weekIndex * 7],
               Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
-              pv: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              pv: Number(Number(item?.pvUsedKWh || 0).toFixed(2)),
               cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
           }));

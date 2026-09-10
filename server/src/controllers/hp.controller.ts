@@ -178,6 +178,12 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
           consumptionKWh: 1,
           pvGenerationKWh: 1,
           gridEnergyKWh: 1,
+          pvUsedKWh: {
+            $max: [
+              0,
+              { $subtract: ["$consumptionKWh", "$gridEnergyKWh"] },
+            ],
+          },
           totalVariableCostPLN: {
             $max: [
               { $add: [
