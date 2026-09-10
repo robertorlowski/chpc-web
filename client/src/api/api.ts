@@ -72,6 +72,22 @@ class Requests {
 
 
 export class HpRequests {
+  static getHpMonthlySummary(
+    startDate: string,
+    endDate: string,
+    group: 'month' | 'week' = 'month',
+  ) {
+      return Requests.get(
+        `/hp/monthly-summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&group=${group}`,
+      ) as Promise<Array<{
+        month?: number;
+        week?: number;
+        consumptionKWh: number;
+        pvGenerationKWh: number;
+        gridEnergyKWh: number;
+      }> | null>;
+  }
+
   static getSettings() : Promise<SettingsEntry> {
       return Requests.get("/settings");
   }
@@ -84,11 +100,16 @@ export class HpRequests {
       return Requests.get("/hp/all");
   } 
 
-  static getHpData4Day(day?: string) : Promise<HpEntry[]> {
-      if (!day) {
+  static getHpData4Day(day?: string, endDay?: string) : Promise<HpEntry[]> {
+      if (!day || (endDay && !day)) {
         return Promise.resolve([])
       }
-      return Requests.get( `/hp/4Day?date=${day}`);
+
+      const query = endDay
+        ? `startDate=${encodeURIComponent(day)}&endDate=${encodeURIComponent(endDay)}`
+        : `date=${encodeURIComponent(day)}`;
+
+      return Requests.get(`/hp/4Day?${query}`);
   }
 
   static prepareOperation() : Promise<OperationEntry> {

@@ -20,6 +20,12 @@ function warsawDayBoundsUTC(dateStr: string) {
   return { startUTC, endUTC }; // używaj zakresu [startUTC, endUTC)
 }
 
+function warsawDateRangeBoundsUTC(startDate: string, endDate: string) {
+  const { startUTC } = warsawDayBoundsUTC(startDate);
+  const { endUTC } = warsawDayBoundsUTC(endDate);
+  return { startUTC, endUTC };
+}
+
 
 
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
@@ -63,12 +69,17 @@ export async function getHpAll(req: Request, res: Response) {
 
 export async function getHp4Day(req: Request, res: Response) {
   try {
-    const { date } = req.query;
-    if (!date || typeof date !== "string") {
-      return res.status(400).json({ error: "Musisz podać date w formacie YYYY-MM-DD lub YYYY.MM.DD" });
+    const { date, startDate, endDate } = req.query;
+    const isDate = typeof date === "string";
+    const isRange = typeof startDate === "string" && typeof endDate === "string";
+
+    if (!isDate && !isRange) {
+      return res.status(400).json({ error: "Musisz podać date albo startDate i endDate" });
     }
 
-    const { startUTC: start, endUTC: end } = warsawDayBoundsUTC(date);
+    const { startUTC: start, endUTC: end } = isRange
+      ? warsawDateRangeBoundsUTC(startDate, endDate)
+      : warsawDayBoundsUTC(date as string);
 
     const docs = await HpEntryModel
       .find({ createdAt: { $gte: start, $lt: end } }) // [start, end)
@@ -76,6 +87,123 @@ export async function getHp4Day(req: Request, res: Response) {
       .lean<HpEntry>();
 
     return res.status(200).json(docs);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: String(error) });
+  }
+}
+
+export async function getHpMonthlySummary(req: Request, res: Response) {
+  try {
+    const { startDate, endDate, group } = req.query;
+    if (typeof startDate !== "string" || typeof endDate !== "string") {
+      return res.status(400).json({ error: "Musisz podać startDate i endDate" });
+    }
+
+    const { startUTC: start } = warsawDayBoundsUTC(startDate);
+    const { endUTC: end } = warsawDayBoundsUTC(endDate);
+    const groupByWeek = group === "week";
+    const bucketExpression = groupByWeek
+      ? {
+          $floor: {
+            $divide: [
+              {
+                $dateDiff: {
+                  startDate: start,
+                  endDate: "$createdAt",
+                  unit: "day",
+                  timezone: "Europe/Warsaw",
+                },
+              },
+              7,
+            ],
+          },
+        }
+      : { $month: { date: "$createdAt", timezone: "Europe/Warsaw" } };
+
+    const result = await HpEntryModel.aggregate([
+      { $match: { createdAt: { $gte: start, $lt: end } } },
+      { $sort: { createdAt: 1 } },
+      {
+        $setWindowFields: {
+          sortBy: { createdAt: 1 },
+          output: {
+            previousCreatedAt: { $shift: { output: "$createdAt", by: -1 } },
+            previousWatts: { $shift: { output: "$HP.Watts", by: -1 } },
+            previousPv: { $shift: { output: "$PV.total_power", by: -1 } },
+          },
+        },
+      },
+      {
+        $set: {
+          intervalHours: {
+            $divide: [
+              { $subtract: ["$createdAt", "$previousCreatedAt"] },
+              3600000,
+            ],
+          },
+          bucket: bucketExpression,
+        },
+      },
+      {
+        $match: {
+          intervalHours: { $gt: 0, $lte: 0.25 },
+          previousWatts: { $gte: 0 },
+        },
+      },
+      {
+        $set: {
+          consumptionWh: {
+            $multiply: [
+              { $avg: ["$previousWatts", { $ifNull: ["$HP.Watts", 0] }] },
+              "$intervalHours",
+            ],
+          },
+          pvWh: {
+            $multiply: [
+              { $avg: ["$previousPv", { $ifNull: ["$PV.total_power", 0] }] },
+              "$intervalHours",
+            ],
+          },
+          gridWh: {
+            $multiply: [
+              {
+                $max: [
+                  0,
+                  {
+                    $avg: [
+                      { $subtract: ["$previousWatts", { $ifNull: ["$previousPv", 0] }] },
+                      { $subtract: [{ $ifNull: ["$HP.Watts", 0] }, { $ifNull: ["$PV.total_power", 0] }] },
+                    ],
+                  },
+                ],
+              },
+              "$intervalHours",
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$bucket",
+          consumptionKWh: { $sum: { $divide: ["$consumptionWh", 1000] } },
+          pvGenerationKWh: { $sum: { $divide: ["$pvWh", 1000] } },
+          gridEnergyKWh: { $sum: { $divide: ["$gridWh", 1000] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          ...(groupByWeek ? { week: "$_id" } : { month: "$_id" }),
+          consumptionKWh: 1,
+          pvGenerationKWh: 1,
+          gridEnergyKWh: 1,
+        },
+      },
+      { $sort: { month: 1 } },
+    ]);
+
+    return res.status(200).json(result);
   } catch (error) {
     console.error(error);
     return res.status(500).send({ message: String(error) });

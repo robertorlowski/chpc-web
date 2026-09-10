@@ -12,7 +12,11 @@ import {
 } from 'recharts';
 import { THPL } from '../../api/type';
 import DateDict from '../../components/DateDict';
-import { fetchData, formatDateYMD } from '../../utils/utils';
+import {
+  fetchData,
+  fetchMonthlySummary,
+  formatDateYMD,
+} from '../../utils/utils';
 import { ClipLoader } from 'react-spinners';
 import { energyCostG12w } from '../../utils/energy-cost-g12w';
 
@@ -60,6 +64,15 @@ const toDateString = (date: Date): string => {
   ].join('-');
 };
 
+const getRowDate = (time: string): string => {
+  const date = time.split(/[ T]/)[0] || '';
+  const parts = date.split(/[./-]/);
+
+  if (parts.length !== 3) return date;
+  if (parts[0].length === 4) return parts.join('-');
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+};
+
 const getDates = (
   selectedDate: string,
   period: ChartPeriod,
@@ -75,8 +88,9 @@ const getDates = (
     start = new Date(year, 0, 1);
     end = new Date(year, 11, 31);
   } else if (period === 'week') {
-    start = new Date(year, month, 1);
-    end = new Date(year, month + 1, 0);
+    start = getMonday(new Date(year, month, 1));
+    end = new Date(start);
+    end.setDate(end.getDate() + 27);
   } else {
     start = selected;
     end = selected;
@@ -165,42 +179,121 @@ export const HeatPumpChart: React.FC = () => {
       try {
         const dates = getDates(selectedDate, period);
 
-        const responses = await Promise.all(
-          dates.map((date) => fetchData(true, date)),
+        if (period === 'month') {
+          const summaries = await fetchMonthlySummary(
+            dates[0],
+            dates[dates.length - 1],
+          );
+
+          if (!active) return;
+
+          const monthlyData = summaries || [];
+          const total = monthlyData.reduce(
+            (value, item) => ({
+              energy: value.energy + Number(item.consumptionKWh || 0),
+              pv: value.pv + Number(item.gridEnergyKWh || 0),
+            }),
+            { energy: 0, pv: 0 },
+          );
+
+          setKwh(total.energy);
+          setKwhPV(total.pv);
+          setCost(0);
+          setFilteredData(Array.from({ length: 12 }, (_, monthIndex) => {
+            const item = monthlyData.find(
+              (summary) => summary.month === monthIndex + 1,
+            );
+
+            return {
+              time: String(monthIndex + 1),
+              Watts: Number(item?.consumptionKWh || 0),
+              pv: Number(item?.gridEnergyKWh || 0),
+            };
+          }));
+          return;
+        }
+
+        if (period === 'week') {
+          const summaries = await fetchMonthlySummary(
+            dates[0],
+            dates[dates.length - 1],
+            'week',
+          );
+
+          if (!active) return;
+
+          const weeklyData = summaries || [];
+          const total = weeklyData.reduce(
+            (value, item) => ({
+              energy: value.energy + Number(item.consumptionKWh || 0),
+              grid: value.grid + Number(item.gridEnergyKWh || 0),
+            }),
+            { energy: 0, grid: 0 },
+          );
+
+          setKwh(total.energy);
+          setKwhPV(total.grid);
+          setCost(0);
+          setFilteredData(Array.from({ length: 4 }, (_, weekIndex) => {
+            const item = weeklyData.find(
+              (summary) => summary.week === weekIndex,
+            );
+
+            return {
+              time: dates[weekIndex * 7],
+              Watts: Number(item?.consumptionKWh || 0),
+              pv: Number(item?.gridEnergyKWh || 0),
+            };
+          }));
+          return;
+        }
+
+        const data = await fetchData(
+          true,
+          dates[0],
+          dates[dates.length - 1],
         );
 
         if (!active) return;
 
-        const dailyResults = responses.map((response, index) => {
-          const rows = Array.isArray(response)
-            ? (response as THPL[])
-            : [];
+        const rowsByDate = new Map<string, THPL[]>();
+        data.forEach((row) => {
+          const dateRows = rowsByDate.get(getRowDate(row.time)) || [];
+          dateRows.push(row);
+          rowsByDate.set(getRowDate(row.time), dateRows);
+        });
+
+        const dailyResults = dates.map((date) => {
+          const rows = rowsByDate.get(date) || [];
 
           const result = energyCostG12w(rows, {
             maxGapMinutes: 15,
           });
 
           return {
-            date: dates[index],
+            date,
             rows,
             energy: Number(result.consumptionKWh || 0),
             pv: Number(result.pvUsedKWh || 0),
+            cost: Number(result.totalVariableCostPLN || 0),
           };
         });
 
-        const data = responses.flat() as THPL[];
-        const total = energyCostG12w(data, {
-          maxGapMinutes: 15,
-        });
-
-        setKwh(total.consumptionKWh || 0);
-        setKwhPV(
-          (total.consumptionKWh || 0) - (total.pvUsedKWh || 0),
+        const periodTotal = dailyResults.reduce(
+          (total, item) => ({
+            energy: total.energy + item.energy,
+            pv: total.pv + item.pv,
+            cost: total.cost + item.cost,
+          }),
+          { energy: 0, pv: 0, cost: 0 },
         );
-        setCost(total.totalVariableCostPLN || 0);
+
+        setKwh(periodTotal.energy);
+        setKwhPV(periodTotal.energy - periodTotal.pv);
+        setCost(periodTotal.cost);
 
         if (period === 'day') {
-          const points = (responses[0] as THPL[])
+          const points = data
             .filter((row) => row?.time)
             .filter((row) => allData || isCompressorWorking(row))
             .filter((_, index) => index % 5 === 0)
@@ -217,55 +310,30 @@ export const HeatPumpChart: React.FC = () => {
             }));
 
           setFilteredData(points);
-        } else if (period === 'month') {
-          const points = Array.from({ length: 12 }, (_, month) => {
-            const monthData = dailyResults.filter((item) => {
-              return new Date(`${item.date}T00:00:00`).getMonth() === month;
-            });
-
-            return {
-              time: getMonthName(month),
-              Watts: Number(monthData.reduce(
-                (sum, item) => sum + item.energy,
-                0,
-              ).toFixed(2)),
-              pv: Number(monthData.reduce(
-                (sum, item) => sum + item.pv,
-                0,
-              ).toFixed(2)),
-            };
-          });
-
-          setFilteredData(points);
         } else {
-          const weeks = new Map<
-            string,
-            { energy: number; pv: number }
-          >();
+          const weeks = Array.from(
+            { length: 4 },
+            () => ({ energy: 0, pv: 0 }),
+          );
 
           dailyResults.forEach((item) => {
-            const monday = toDateString(
-              getMonday(new Date(`${item.date}T00:00:00`)),
+            const itemDate = new Date(`${item.date}T00:00:00`);
+            const firstWeek = new Date(`${dates[0]}T00:00:00`);
+            const dayOffset = Math.round(
+              (itemDate.getTime() - firstWeek.getTime()) / 86400000,
             );
+            const weekIndex = Math.floor(dayOffset / 7);
 
-            const current = weeks.get(monday) || {
-              energy: 0,
-              pv: 0,
-            };
-
-            weeks.set(monday, {
-              energy: current.energy + item.energy,
-              pv: current.pv + item.pv,
-            });
+            if (weekIndex < 0 || weekIndex > 3) return;
+            weeks[weekIndex].energy += item.energy;
+            weeks[weekIndex].pv += item.pv;
           });
 
-          setFilteredData(
-            Array.from(weeks.entries()).map(([week, value]) => ({
-              time: `Tydz. ${week}`,
-              Watts: parseFloat(value.energy.toFixed(2)),
-              pv: parseFloat(value.pv.toFixed(2)),
-            })),
-          );
+          setFilteredData(weeks.map((value, index) => ({
+            time: dates[index * 7],
+            Watts: parseFloat(value.energy.toFixed(2)),
+            pv: parseFloat(value.pv.toFixed(2)),
+          })));
         }
       } catch (error) {
         console.error('Błąd ładowania danych:', error);

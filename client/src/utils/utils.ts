@@ -14,8 +14,12 @@ export const stringToDate = (value: string): Date => {
     return parsed;
 }
 
-export const fetchData = async (allData: boolean, selectedDate: string): Promise<THPL[]> => {
-  const json = await HpRequests.getHpData4Day(selectedDate); // Promise<HpEntry[]>
+export const fetchData = async (
+  allData: boolean,
+  selectedDate: string,
+  endDate?: string,
+): Promise<THPL[]> => {
+  const json = await HpRequests.getHpData4Day(selectedDate, endDate);
   return (json ?? [])
     .filter(row => allData || row?.HP?.HPS === true)
     .sort((a, b) => (b.time ?? "").localeCompare(a.time ?? ""))
@@ -26,3 +30,9 @@ export const fetchData = async (allData: boolean, selectedDate: string): Promise
       t_out: row.t_out
     }));
 }
+
+export const fetchMonthlySummary = (
+  startDate: string,
+  endDate: string,
+  group: 'month' | 'week' = 'month',
+) => HpRequests.getHpMonthlySummary(startDate, endDate, group);
