@@ -102,9 +102,9 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
 
     const { startUTC: start } = warsawDayBoundsUTC(startDate);
     const { endUTC: end } = warsawDayBoundsUTC(endDate);
-    const groupByWeek = group === "week";
-    const bucket = groupByWeek
-      ? { $floor: { $divide: [{ $dateDiff: { startDate: start, endDate: "$createdAt", unit: "day", timezone: "Europe/Warsaw" } }, 7] } }
+    const groupByDay = group === "day";
+    const bucket = groupByDay
+      ? { $dayOfMonth: { date: "$createdAt", timezone: "Europe/Warsaw" } }
       : { $month: { date: "$createdAt", timezone: "Europe/Warsaw" } };
 
     const result = await HpEntryModel.aggregate([
@@ -174,7 +174,7 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
       {
         $project: {
           _id: 0,
-          ...(groupByWeek ? { week: "$_id" } : { month: "$_id" }),
+          ...(groupByDay ? { day: "$_id" } : { month: "$_id" }),
           consumptionKWh: 1,
           pvGenerationKWh: 1,
           gridEnergyKWh: 1,
@@ -195,7 +195,7 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
           },
         },
       },
-      { $sort: groupByWeek ? { week: 1 } : { month: 1 } },
+      { $sort: groupByDay ? { day: 1 } : { month: 1 } },
     ]);
 
     return res.status(200).json(result);

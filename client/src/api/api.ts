@@ -75,13 +75,13 @@ export class HpRequests {
   static getHpMonthlySummary(
     startDate: string,
     endDate: string,
-    group: 'month' | 'week' = 'month',
+    group: 'month' | 'day' = 'month',
   ) {
       return Requests.get(
         `/hp/monthly-summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&group=${group}`,
       ) as Promise<Array<{
         month?: number;
-        week?: number;
+        day?: number;
         consumptionKWh: number;
         pvGenerationKWh: number;
         gridEnergyKWh: number;

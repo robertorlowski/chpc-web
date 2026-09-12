@@ -34,5 +34,5 @@ export const fetchData = async (
 export const fetchMonthlySummary = (
   startDate: string,
   endDate: string,
-  group: 'month' | 'week' = 'month',
+  group: 'month' | 'day' = 'month',
 ) => HpRequests.getHpMonthlySummary(startDate, endDate, group);

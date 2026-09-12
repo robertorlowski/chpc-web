@@ -2,7 +2,9 @@ import './style.css';
 import { useEffect, useState } from 'react';
 import {
   LineChart,
+  ComposedChart,
   Line,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -20,7 +22,7 @@ import {
 import { ClipLoader } from 'react-spinners';
 import { energyCostG12w } from '../../utils/energy-cost-g12w';
 
-type ChartPeriod = 'day' | 'week' | 'month';
+type ChartPeriod = 'day' | 'month' | 'year';
 
 type ChartPoint = {
   time: string;
@@ -80,18 +82,16 @@ const getDates = (
 ): string[] => {
   const selected = parseSelectedDate(selectedDate);
   const year = selected.getFullYear();
-  const month = selected.getMonth();
 
   let start: Date;
   let end: Date;
 
-  if (period === 'month') {
+  if (period === 'year') {
     start = new Date(year, 0, 1);
     end = new Date(year, 11, 31);
-  } else if (period === 'week') {
-    start = getMonday(new Date(year, month, 1));
-    end = new Date(start);
-    end.setDate(end.getDate() + 27);
+  } else if (period === 'month') {
+    start = new Date(year, selected.getMonth(), 1);
+    end = new Date(year, selected.getMonth() + 1, 0);
   } else {
     start = selected;
     end = selected;
@@ -110,14 +110,6 @@ const getDates = (
   return dates;
 };
 
-const getMonday = (date: Date): Date => {
-  const result = new Date(date);
-  const day = result.getDay() || 7;
-
-  result.setDate(result.getDate() - day + 1);
-  return result;
-};
-
 const isCompressorWorking = (row: THPL): boolean => {
   const value = (row as THPL & { HPS?: unknown }).HPS;
 
@@ -130,9 +122,7 @@ const isCompressorWorking = (row: THPL): boolean => {
 };
 
 const getMonthName = (month: number): string => {
-  return new Intl.DateTimeFormat('pl-PL', {
-    month: 'long',
-  }).format(new Date(2020, month, 1));
+  return String(month + 1);
 };
 
 export const HeatPumpChart: React.FC = () => {
@@ -142,12 +132,13 @@ export const HeatPumpChart: React.FC = () => {
     formatDateYMD(new Date()),
   );
   const [period, setPeriod] = useState<ChartPeriod>('day');
-  const [allData, setAllData] = useState(false);
+  const [allData, setAllData] = useState(true);
   const [kwh, setKwh] = useState(0);
   const [kwhPV, setKwhPV] = useState(0);
   const [cTemp, setTemp] = useState(true);
   const [cPower, setPower] = useState(true);
   const [cPV, setPV] = useState(false);
+  const [cCost, setCostVisible] = useState(true);
   const [cost, setCost] = useState(0);
 
   const selected = parseSelectedDate(selectedDate);
@@ -165,12 +156,6 @@ export const HeatPumpChart: React.FC = () => {
     );
   };
 
-  const changeMonth = (month: number) => {
-    setSelectedDate(
-      toDateString(new Date(selectedYear, month, 1)),
-    );
-  };
-
   useEffect(() => {
     let active = true;
 
@@ -180,7 +165,7 @@ export const HeatPumpChart: React.FC = () => {
       try {
         const dates = getDates(selectedDate, period);
 
-        if (period === 'month') {
+        if (period === 'year') {
           const summaries = await fetchMonthlySummary(
             dates[0],
             dates[dates.length - 1],
@@ -209,8 +194,8 @@ export const HeatPumpChart: React.FC = () => {
             );
 
             return {
-              time: String(monthIndex + 1),
-              Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              time: getMonthName(monthIndex),
+              Watts: Number(Number(item?.consumptionKWh || 0).toFixed(2)),
               pv: Number(Number(item?.pvUsedKWh || 0).toFixed(2)),
               cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
@@ -218,37 +203,35 @@ export const HeatPumpChart: React.FC = () => {
           return;
         }
 
-        if (period === 'week') {
+        if (period === 'month') {
           const summaries = await fetchMonthlySummary(
             dates[0],
             dates[dates.length - 1],
-            'week',
+            'day',
           );
 
           if (!active) return;
 
-          const weeklyData = summaries || [];
-          const total = weeklyData.reduce(
+          const dailyData = summaries || [];
+          const total = dailyData.reduce(
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
-              grid: value.grid + Number(item.gridEnergyKWh || 0),
               pv: value.pv + Number(item.pvUsedKWh || 0),
               cost: value.cost + Number(item.totalVariableCostPLN || 0),
             }),
-            { energy: 0, grid: 0, pv: 0, cost: 0 },
+            { energy: 0, pv: 0, cost: 0 },
           );
 
           setKwh(Number(total.energy.toFixed(2)));
-          setKwhPV(Number(total.grid.toFixed(2)));
+          setKwhPV(Number(total.pv.toFixed(2)));
           setCost(Number(total.cost.toFixed(2)));
-          setFilteredData(Array.from({ length: 4 }, (_, weekIndex) => {
-            const item = weeklyData.find(
-              (summary) => summary.week === weekIndex,
-            );
+          setFilteredData(dates.map((date) => {
+            const day = Number(date.slice(8, 10));
+            const item = dailyData.find((summary) => summary.day === day);
 
             return {
-              time: dates[weekIndex * 7],
-              Watts: Number(Number(item?.gridEnergyKWh || 0).toFixed(2)),
+              time: String(day),
+              Watts: Number(Number(item?.consumptionKWh || 0).toFixed(2)),
               pv: Number(Number(item?.pvUsedKWh || 0).toFixed(2)),
               cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
             };
@@ -319,28 +302,11 @@ export const HeatPumpChart: React.FC = () => {
 
           setFilteredData(points);
         } else {
-          const weeks = Array.from(
-            { length: 4 },
-            () => ({ energy: 0, pv: 0 }),
-          );
-
-          dailyResults.forEach((item) => {
-            const itemDate = new Date(`${item.date}T00:00:00`);
-            const firstWeek = new Date(`${dates[0]}T00:00:00`);
-            const dayOffset = Math.round(
-              (itemDate.getTime() - firstWeek.getTime()) / 86400000,
-            );
-            const weekIndex = Math.floor(dayOffset / 7);
-
-            if (weekIndex < 0 || weekIndex > 3) return;
-            weeks[weekIndex].energy += item.energy;
-            weeks[weekIndex].pv += item.pv;
-          });
-
-          setFilteredData(weeks.map((value, index) => ({
-            time: dates[index * 7],
-            Watts: parseFloat(value.energy.toFixed(2)),
-            pv: parseFloat(value.pv.toFixed(2)),
+          setFilteredData(dailyResults.map((item) => ({
+            time: String(Number(item.date.slice(8, 10))),
+            Watts: Number(item.energy.toFixed(2)),
+            pv: Number(item.pv.toFixed(2)),
+            cost: Number(item.cost.toFixed(2)),
           })));
         }
       } catch (error) {
@@ -375,7 +341,7 @@ export const HeatPumpChart: React.FC = () => {
         </span>
       )}
 
-      {!isDay && (
+      {!isDay && cCost && (
         <span>
           <i className="legend-color cost-color" />
           Koszt [PLN]
@@ -416,17 +382,17 @@ export const HeatPumpChart: React.FC = () => {
         </button>
 
         <button
-          className={period === 'week' ? 'active' : ''}
-          onClick={() => setPeriod('week')}
-        >
-          Tydzień
-        </button>
-
-        <button
           className={period === 'month' ? 'active' : ''}
           onClick={() => setPeriod('month')}
         >
           Miesiąc
+        </button>
+
+        <button
+          className={period === 'year' ? 'active' : ''}
+          onClick={() => setPeriod('year')}
+        >
+          Rok
         </button>
       </div>
 
@@ -442,7 +408,7 @@ export const HeatPumpChart: React.FC = () => {
         </div>
       )}
 
-      {period === 'week' && (
+      {period !== 'day' && (
         <div className="period-filter">
           <label>
             Rok:
@@ -460,41 +426,29 @@ export const HeatPumpChart: React.FC = () => {
             </select>
           </label>
 
-          <label>
-            Miesiąc:
-            <select
-              value={selectedMonth}
-              onChange={(event) =>
-                changeMonth(Number(event.target.value))
-              }
-            >
-              {Array.from({ length: 12 }, (_, month) => (
-                <option key={month} value={month}>
-                  {getMonthName(month)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      {period === 'month' && (
-        <div className="period-filter">
-          <label>
-            Rok:
-            <select
-              value={selectedYear}
-              onChange={(event) =>
-                changeYear(Number(event.target.value))
-              }
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
+          {period === 'month' && (
+            <label>
+              Miesiąc:
+              <select
+                value={selectedMonth}
+                onChange={(event) =>
+                  setSelectedDate(
+                    toDateString(new Date(
+                      selectedYear,
+                      Number(event.target.value),
+                      1,
+                    )),
+                  )
+                }
+              >
+                {Array.from({ length: 12 }, (_, month) => (
+                  <option key={month} value={month}>
+                    {getMonthName(month)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       )}
 
@@ -542,6 +496,17 @@ export const HeatPumpChart: React.FC = () => {
           Energia pob.
         </label>
 
+        {!isDay && (
+          <label className="label">
+            <input
+              type="checkbox"
+              checked={cCost}
+              onChange={(event) => setCostVisible(event.target.checked)}
+            />
+            Koszt
+          </label>
+        )}
+
         <label className="label">
           <input
             type="checkbox"
@@ -559,7 +524,7 @@ export const HeatPumpChart: React.FC = () => {
       </div>
 
       <ResponsiveContainer width="100%" height="75%">
-        <LineChart data={filteredData}>
+        {isDay ? <LineChart data={filteredData}>
           <CartesianGrid strokeDasharray="1 1" />
           <XAxis dataKey="time" />
           <YAxis
@@ -583,21 +548,23 @@ export const HeatPumpChart: React.FC = () => {
           <Legend content={renderLegend} />
 
           <Line
-            yAxisId={isDay ? 'right' : 'left'}
+            yAxisId="right"
             type="monotone"
             dataKey="Watts"
-            name={isDay ? 'Energia pob. [W]' : 'Energia z sieci [kWh]'}
+            name="Energia pob. [W]"
             stroke="#5f5050"
+            strokeWidth={1}
             dot={{ r: 1 }}
             hide={!cPower}
           />
 
           <Line
-            yAxisId={isDay ? 'right' : 'left'}
+            yAxisId="right"
             type="monotone"
             dataKey="pv"
-            name={isDay ? 'PV [W]' : 'PV [kWh]'}
+            name="PV [W]"
             stroke="#ec30a4"
+            strokeWidth={1}
             dot={{ r: 1 }}
             hide={!cPV}
           />
@@ -608,8 +575,9 @@ export const HeatPumpChart: React.FC = () => {
             dataKey="cost"
             name="Koszt [PLN]"
             stroke="#e06b2f"
+            strokeWidth={1}
             dot={{ r: 2 }}
-            hide={isDay}
+            hide={isDay || !cCost}
           />
 
           <Line
@@ -618,6 +586,7 @@ export const HeatPumpChart: React.FC = () => {
             dataKey="Tbe"
             name="Temp. przed parownikiem [°C]"
             stroke="#463de0"
+            strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
@@ -629,6 +598,7 @@ export const HeatPumpChart: React.FC = () => {
             dataKey="Tae"
             name="Temp. za parownikiem [°C]"
             stroke="#0ace55"
+            strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
@@ -640,6 +610,7 @@ export const HeatPumpChart: React.FC = () => {
             dataKey="Tho"
             name="Temp. wody wyj. [°C]"
             stroke="#c4922f"
+            strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
@@ -651,11 +622,61 @@ export const HeatPumpChart: React.FC = () => {
             dataKey="Ttarget"
             name="Temperatura docelowa [°C]"
             stroke="#ec1b4f"
+            strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
           />
-        </LineChart>
+        </LineChart> : <ComposedChart data={filteredData}>
+          <CartesianGrid strokeDasharray="1 1" />
+          <XAxis dataKey="time" />
+          <YAxis
+            yAxisId="left"
+            label={{
+              value: 'Energia [kWh]',
+              angle: -90,
+              position: 'insideLeft',
+            }}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            label={{
+              value: 'Koszt [PLN]',
+              angle: -90,
+              position: 'insideRight',
+            }}
+          />
+          <Tooltip />
+          <Legend content={renderLegend} />
+          <Bar
+            yAxisId="left"
+            dataKey="Watts"
+            name="Energia pobrana [kWh]"
+            fill="#008CBA"
+            hide={!cPower}
+          />
+          <Line
+            yAxisId="left"
+            dataKey="pv"
+            name="PV [kWh]"
+            stroke="#ec30a4"
+            strokeWidth={3}
+            type="monotone"
+            dot={{ r: 2 }}
+            hide={!cPV}
+          />
+          <Line
+            yAxisId="right"
+            dataKey="cost"
+            name="Koszt [PLN]"
+            stroke="#e06b2f"
+            strokeWidth={3}
+            type="monotone"
+            dot={{ r: 2 }}
+            hide={!cCost}
+          />
+        </ComposedChart>}
       </ResponsiveContainer>
     </div>
   );
