@@ -11,6 +11,48 @@ export type SettingsEntry  = {
   cwu_settings?: TimeSlot[]
 };
 
+export enum DeviceType {
+  HP = 'heat_pump',
+}
+
+export type Device = {
+  rootId: string;
+  deviceType: DeviceType;
+  deviceId: string;
+  name: string;
+};
+
+export enum ScheduleType {
+  CWU = 'cwu',
+  CO = 'co',
+  OFF = 'off',
+}
+
+export enum WeekDay {
+  ANY_DAY = -1,
+  WORKDAYS = -2,
+  SUNDAY = 0,
+  MONDAY = 1,
+  TUESDAY = 2,
+  WEDNESDAY = 3,
+  THURSDAY = 4,
+  FRIDAY = 5,
+  SATURDAY = 6,
+}
+
+export type ScheduleEntry = {
+  _id?: string;
+  type: ScheduleType;
+  enabled: boolean;
+  dayOfWeek?: WeekDay;
+  date?: string;
+  startTime: string;
+  endTime: string;
+  forceStart: boolean;
+  minTemperature: number;
+  maxTemperature: number;
+};
+
 export type HpMetrics = {
     Tbe: number,
     Tae: number,

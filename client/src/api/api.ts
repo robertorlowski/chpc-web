@@ -1,4 +1,16 @@
-import { HpEntry, OperationEntry, SettingsEntry } from "./type";
+import { Device, HpEntry, OperationEntry, ScheduleEntry, SettingsEntry } from "./type";
+import { getSelectedDevice } from '../context/DeviceContext';
+
+function withDeviceContext(path: string, includeDevice: boolean) {
+  if (!includeDevice) return path;
+
+  const device = getSelectedDevice();
+  if (!device) throw new Error('Wybierz urządzenie przed użyciem aplikacji.');
+
+  const separator = path.includes('?') ? '&' : '?';
+  const params = `rootId=${encodeURIComponent(device.rootId)}&deviceId=${encodeURIComponent(device.deviceId)}`;
+  return `${path}${separator}${params}`;
+}
 
 export const wsAddressServer = () => {
   if (import.meta.env.DEV)
@@ -16,10 +28,10 @@ function prefixMocks(path: string) {
 }
 
 class Requests {
-  static async get(path: string) {
+  static async get(path: string, includeDevice = true) {
     // console.log(prefixMocks(path));
     try {
-      const response = await fetch(prefixMocks(path), {
+      const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
         method: "GET",
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -38,9 +50,9 @@ class Requests {
     }
   }
 
-  static post(path :string, data = {}, json = true) {
+  static post(path :string, data = {}, json = true, includeDevice = true) {
     return fetch(
-      prefixMocks(path),
+      prefixMocks(withDeviceContext(path, includeDevice)),
         Object.assign(
           {
             method: "POST",
@@ -68,10 +80,49 @@ class Requests {
       });
   }
 
+  static async delete(path: string) {
+    const response = await fetch(prefixMocks(withDeviceContext(path, true)), {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  }
+
+  static async put(path: string, data: unknown) {
+    const response = await fetch(prefixMocks(withDeviceContext(path, true)), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
 }
 
 
 export class HpRequests {
+  static getDevices(): Promise<Device[]> {
+    return Requests.get('/devices', false) as Promise<Device[]>;
+  }
+
+  static createDevice(data: Omit<Device, 'rootId'>) {
+    return Requests.post('/devices', data, true, false) as Promise<Device>;
+  }
+
   static getHpMonthlySummary(
     startDate: string,
     endDate: string,
@@ -126,4 +177,20 @@ export class HpRequests {
       console.log(JSON.stringify(data));
       return Requests.post("/operation/set", data, false);
   } 
+
+      static getSchedules(): Promise<ScheduleEntry[] | null> {
+        return Requests.get('/schedules');
+      }
+
+      static createSchedule(data: Omit<ScheduleEntry, 'enabled'> & { enabled?: boolean }) {
+        return Requests.post('/schedules', data);
+      }
+
+      static updateSchedule(id: string, data: Omit<ScheduleEntry, 'enabled'> & { enabled?: boolean }) {
+        return Requests.put(`/schedules/${encodeURIComponent(id)}`, data);
+      }
+
+      static deleteSchedule(id: string) {
+        return Requests.delete(`/schedules/${encodeURIComponent(id)}`);
+      }
 }

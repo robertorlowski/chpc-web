@@ -1,0 +1,196 @@
+.schedules-page {
+  width: min(1100px, 96vw);
+  padding: 1rem 0 2rem;
+}
+
+.schedules-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(320px, 1fr);
+  gap: 0.3rem;
+  align-items: start;
+}
+
+.schedules-layout-list-only {
+  display: flex;
+  justify-content: center;
+}
+
+.schedules-layout-list-only > .schedule-card {
+  width: min(100%, 700px);
+}
+
+.schedule-card {
+  padding: 1rem;
+  background: #f1f1f1;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  text-align: left;
+}
+
+.schedule-card:hover {
+  border-color: #008CBA;
+}
+
+.schedule-card h3 {
+  margin-top: 0;
+}
+
+.schedule-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.schedule-list-header button {
+  margin: -0.75rem 0 0;
+  white-space: nowrap;
+}
+
+.schedule-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+}
+
+.schedule-card select,
+.schedule-card input:not([type='checkbox']) {
+  width: 100%;
+  min-height: 2rem;
+  box-sizing: border-box;
+  padding: 0.25rem 0.4rem;
+}
+
+.schedule-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.schedule-fields > label {
+  min-width: 0;
+}
+
+.schedule-toggle {
+  flex-direction: row !important;
+  align-items: center;
+}
+
+.schedule-card button {
+  margin: 0.5rem 0 0;
+}
+
+.schedule-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.schedule-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.schedule-group h4 {
+  margin: 0 0 0.4rem;
+  color: #333;
+}
+
+.schedule-row {
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.3rem 2rem 0.3rem 0.3rem;
+  background: white;
+  border-left: 4px solid #008CBA;
+}
+
+.schedule-row-details {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  justify-content: flex-start;
+}
+
+.schedule-row-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+  justify-content: flex-start;
+}
+
+.schedule-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+}
+
+.schedule-row-details {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.schedule-status {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.schedule-status input {
+  margin: 0;
+}
+
+.schedule-toggle:has(input[aria-label='Automatyczny start']) { font-size: 0; }
+.schedule-toggle:has(input[aria-label='Automatyczny start']) .schedule-start-label { display: inline; font-size: 1rem; }
+
+.schedule-row-main strong {
+  transform: translateY(0.2rem);
+}
+
+.schedule-card .schedule-edit,
+.schedule-card .schedule-delete {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  background: #b00020;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.schedule-card .schedule-edit {
+  right: 1.9rem;
+  background: #008CBA;
+}
+
+.schedule-error {
+  color: #b00020;
+}
+
+@media (max-width: 720px) {
+  .schedules-layout {
+    grid-template-columns: 1fr;
+  }
+}

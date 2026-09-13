@@ -9,7 +9,7 @@ export async function prepareOperation(req: Request, res: Response) {
   try {
     console.log("Prepare operation");
 
-    const data = await getHpLastData()
+    const data = await getHpLastData(req.deviceRootId as string)
     const op :OperationEntry = {};
     op.force = data.HP?.F ? "1" :"0";
     op.co_min = data?.co_min;
@@ -36,7 +36,7 @@ export async function prepareOperation(req: Request, res: Response) {
 export async function getOperation(req: Request, res: Response) {
   try { 
     console.log("Get operation");
-    return res.status(200).send(getOperationData());
+    return res.status(200).send(getOperationData(req.deviceRootId as string));
   } catch (error) {
     return res.status(500).send({ error: error })
   }
@@ -46,8 +46,8 @@ export async function getAndClearOperation(req: Request, res: Response) {
   try { 
     console.log("Get & Clear operation");
     const operation: OperationEntry = {};
-    Object.assign(operation, getOperationData());
-    clearOperation();
+    Object.assign(operation, getOperationData(req.deviceRootId as string));
+    clearOperation(req.deviceRootId as string);
     return res.status(200).send(operation);
 
   } catch (error) {
@@ -61,8 +61,8 @@ export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Re
   
   const op :OperationEntry = req.body;
   console.log(op);
-  setOperationData(op)
-  console.log(getOperationData());
+  setOperationData(req.deviceRootId as string, op)
+  console.log(getOperationData(req.deviceRootId as string));
 
   sendMessage("operation");
   return res.status(201).json({ message: op });

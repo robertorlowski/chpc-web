@@ -412,41 +412,13 @@ export const HeatPumpChart: React.FC = () => {
         <div className="period-filter">
           <label>
             Rok:
-            <select
-              value={selectedYear}
-              onChange={(event) =>
-                changeYear(Number(event.target.value))
-              }
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            <select value={selectedYear} onChange={(event) => changeYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select>
           </label>
 
           {period === 'month' && (
             <label>
               Miesiąc:
-              <select
-                value={selectedMonth}
-                onChange={(event) =>
-                  setSelectedDate(
-                    toDateString(new Date(
-                      selectedYear,
-                      Number(event.target.value),
-                      1,
-                    )),
-                  )
-                }
-              >
-                {Array.from({ length: 12 }, (_, month) => (
-                  <option key={month} value={month}>
-                    {getMonthName(month)}
-                  </option>
-                ))}
-              </select>
+              <select value={selectedMonth} onChange={(event) => setSelectedDate(toDateString(new Date(selectedYear, Number(event.target.value), 1)))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{getMonthName(month)}</option>)}</select>
             </label>
           )}
         </div>

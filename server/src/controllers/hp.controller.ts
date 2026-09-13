@@ -33,7 +33,7 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
     console.log("Clear HP data");
     const data: THpClear | null = req.body;
     if (data?.clear == true) {
-      await clearData();
+      await clearData(req.deviceRootId as string);
       return res.status(200).send({ message: 'OK' });
     } else {
       return res.status(500).send({ message: 'Bad params' });
@@ -47,8 +47,8 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
 
 export async function getHp(req: Request, res: Response) {
   try {
-    console.log("Get HP last data");
-    const result = await getHpLastData()
+    console.log("Get HP last data: " + req.deviceRootId as string);
+    const result = await getHpLastData(req.deviceRootId as string)
     return res.status(200).send(result)
   } catch (error) {
     console.log(error)
@@ -58,7 +58,7 @@ export async function getHp(req: Request, res: Response) {
 
 export async function getHpAll(req: Request, res: Response) {
   try {
-    const result = await getHpAllData()
+    const result = await getHpAllData(req.deviceRootId as string)
     console.log("Get HP all data");
     return res.status(200).send(result)
   } catch (error) {
@@ -82,7 +82,7 @@ export async function getHp4Day(req: Request, res: Response) {
       : warsawDayBoundsUTC(date as string);
 
     const docs = await HpEntryModel
-      .find({ createdAt: { $gte: start, $lt: end } }) // [start, end)
+      .find({ rootId: req.deviceRootId as string, createdAt: { $gte: start, $lt: end } }) // [start, end)
       .sort({ createdAt: -1 })
       .lean<HpEntry>();
 
@@ -108,7 +108,7 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
       : { $month: { date: "$createdAt", timezone: "Europe/Warsaw" } };
 
     const result = await HpEntryModel.aggregate([
-      { $match: { createdAt: { $gte: start, $lt: end } } },
+      { $match: { rootId: req.deviceRootId as string, createdAt: { $gte: start, $lt: end } } },
       { $sort: { createdAt: 1 } },
       {
         $setWindowFields: {
@@ -209,15 +209,15 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   const data :HpEntry = req.body;
   console.log("Add HP data");
 
-  const operation: OperationEntry = Object.assign(getOperationData()); 
+  const operation: OperationEntry = Object.assign(getOperationData(req.deviceRootId as string)); 
   console.log("Get HP operation");
   console.log(operation);
   try {   
     if (data && data.HP && data.HP.Ttarget) {
-      await addHpData(data);
+      await addHpData(req.deviceRootId as string, data);
     }    
     console.log("Clear HP operation");
-    clearOperation();    
+    clearOperation(req.deviceRootId as string);    
     
     return res.status(201).json({ operation: operation});
   } catch (error) {

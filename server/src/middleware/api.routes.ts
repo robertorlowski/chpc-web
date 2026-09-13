@@ -4,8 +4,13 @@ import { getHp, addHp, getHpAll, clearHp, getHp4Day, getHpMonthlySummary } from 
 import { getSettings, setSettings } from './../controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation } from '../controllers/operation.controller'
 import { getTemperature } from '../controllers/meteo.controller'
+import { createScheduleEntry, deleteScheduleEntry, getScheduleEntries, updateScheduleEntry } from '../controllers/schedule.controller'
+import { addDevice, getDevices } from '../controllers/device.controller'
 
 const router = express.Router()
+
+router.get('/devices', getDevices)
+router.post('/devices', addDevice)
 
 router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
@@ -21,6 +26,11 @@ router.post('/hp/clear', clearHp)
 
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)
+
+router.get('/schedules', getScheduleEntries)
+router.post('/schedules', createScheduleEntry)
+router.put('/schedules/:id', updateScheduleEntry)
+router.delete('/schedules/:id', deleteScheduleEntry)
 
 router.get('/temperature', getTemperature)
 

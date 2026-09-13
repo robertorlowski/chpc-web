@@ -6,10 +6,13 @@ export enum DeviceType {
 
 export enum ScheduleType {
   CWU = 'cwu',
-  CO = 'co'
+  CO = 'co',
+  OFF = 'off',
 }
 
 export enum WeekDay {
+  ANY_DAY = -1,
+  WORKDAYS = -2,
   SUNDAY = 0,
   MONDAY = 1,
   TUESDAY = 2,
@@ -20,6 +23,8 @@ export enum WeekDay {
 }
 
 export interface ScheduleEntry {
+  /** Jednoznaczny identyfikator slotu harmonogramu. */
+  _id?: string;
   type: ScheduleType;
 
   /**
@@ -47,7 +52,7 @@ export interface ScheduleEntry {
   /**
    * Stan, który ma zostać ustawiony na urządzeniu.
    */
-  deviceEnabled: boolean;
+  forceStart: boolean;
   
   minTemperature: number;
   maxTemperature: number;
@@ -91,6 +96,7 @@ export interface PvMetrics {
 }
 
 export interface HpEntry {
+  rootId?: string;
   HP?: HpMetrics | null,
   PV?: PvMetrics,
   time?: String,
@@ -121,6 +127,7 @@ export interface TimeSlot {
 };
 
 export interface SettingsEntry {
+  rootId?: string;
   night_hour?: TimeSlot,
   settings?: TimeSlot[],
   cwu_settings?: TimeSlot[]
@@ -148,5 +155,13 @@ export interface Device {
   hp?: HpEntry[];
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      deviceRootId?: string;
+    }
+  }
 }
 

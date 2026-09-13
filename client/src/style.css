@@ -28,7 +28,62 @@ body {
   margin-top: 15px; /* dopasuj do faktycznej wysokości <Header /> */
   overflow-y: auto;
   padding-top: 2rem;
+	padding-bottom: 4.5rem;
   flex-grow: 1;
+}
+
+.device-footer {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 1rem;
+	box-sizing: border-box;
+	padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+	background: #673ab8;
+	border-top: 1px solid rgba(255, 255, 255, 0.35);
+	box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+	color: #fff;
+}
+
+.device-footer-info {
+	display: flex;
+	align-items: baseline;
+	gap: 0.6rem;
+}
+
+.device-footer-info span,
+.device-footer-info small {
+	font-size: inherit;
+	opacity: 0.85;
+}
+
+.device-footer-change {
+	display: inline-grid;
+	place-items: center;
+	width: 2.25rem;
+	height: 2rem;
+	box-sizing: border-box;
+	padding: 0.2rem;
+	color: #fff;
+}
+
+.device-footer-change:hover {
+	background-color: #0008;
+}
+
+.device-footer-change svg {
+	width: 1.35rem;
+	height: 1.35rem;
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.8;
 }
 
 

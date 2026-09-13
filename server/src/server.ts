@@ -4,6 +4,9 @@ import app from './middleware/app'
 import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
 import { getTemperature, prepareMeteoData } from './middleware/openmeteo';
+import { getOrCreateDeviceRootId } from './services/device.service';
+import { assignLegacyHpData } from './services/hp.service';
+import { DeviceType } from './middleware/type';
 
 const server = http.createServer(app);
 createWsServer(server);
@@ -15,6 +18,9 @@ const PORT = Number(process.env.PORT ?? 3001);
 (async () => {
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
+
+  const defaultRootId = await getOrCreateDeviceRootId(DeviceType.HP, 'hp-1', 'Pompa ciepła');
+  await assignLegacyHpData(defaultRootId);
 
   await prepareMeteoData()
   

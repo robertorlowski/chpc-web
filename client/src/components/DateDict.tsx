@@ -50,11 +50,7 @@ export default function DateDict({id, initValue, onDateChange, style }: DateDrop
       onChange={handleChange}>
       {dates.map((date) => {
         const v = formatDateYMD(date);
-        return (
-          <option key={v} value={v}>
-            {v}
-          </option>
-        );
+        return <option key={v} value={v}>{v}</option>;
       })}
     </select>
   );

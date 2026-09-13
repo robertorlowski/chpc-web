@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import apiRoute from './api.routes'
 import { verifyApiKey } from './auth'
+import { resolveDeviceContext } from './deviceContext'
 
 const app = express()
 
@@ -17,6 +18,7 @@ app.use((req, res, next) => {
 app.use(cors())
 app.use(express.json())
 
+app.use('/api', resolveDeviceContext)
 app.use('/api', apiRoute)
 
 export default app

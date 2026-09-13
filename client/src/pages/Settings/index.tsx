@@ -127,7 +127,7 @@ export const Settings: React.FC = () => {
 
 	return (
 		<div className="settings">
-			<h2>Główne ustawienia</h2>
+			<h2>Ustawienia</h2>
 			<section>
 				<div className="resource">
 					<div className='header3'>
@@ -151,10 +151,9 @@ export const Settings: React.FC = () => {
 							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode }
 							defaultValue={defaultOperation.work_mode}
 						>
-							<option value="M">ręczny</option>
-							<option value="A">automatyczny</option>
-							<option value="PV">automatyczny z PV</option>
-							<option value="CWU">CWU</option>
+							<option value="M">CO</option>
+							<option value="A">CO harmonogram</option>
+							<option value="CWU">CWU harmonogram</option>
 							<option value="OFF">OFF</option>
 						</select>
 					</div>
@@ -302,17 +301,6 @@ export const Settings: React.FC = () => {
 				</div>
 
 
-				<ResourceBlock
-					title="Automatyczny start CO"
-					description="Przedziały czasu w którym nastąpi włączenie HP."
-					data={settings?.settings}
-				/>
-
-				<ResourceBlock
-					title="Wymuszenie startu CWU"
-					description="Okres w którym następuje wymuszenie startu ładowania CWU"
-					data={settings?.cwu_settings}
-				/>
 				{settings?.night_hour && (
 				<ResourceBlock
 					title="Wyłączenie wykorzystania mocy z PV"

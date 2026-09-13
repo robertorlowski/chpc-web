@@ -1,19 +1,20 @@
 
 import { OperationEntry  } from '../middleware/type';
 
-let operation: OperationEntry = {};
+const operations = new Map<string, OperationEntry>();
 
-export const getOperationData = () => {
-  return operation;
+export const getOperationData = (rootId: string) => {
+  return operations.get(rootId) ?? {};
 }
 
-export const clearOperation = () => {
-  operation = Object.assign({});
+export const clearOperation = (rootId: string) => {
+  operations.delete(rootId);
   return;
 }
 
-export const setOperationData = (data :OperationEntry) => {
-  operation = {...operation, ...data };	
+export const setOperationData = (rootId: string, data :OperationEntry) => {
+  const operation = { ...getOperationData(rootId), ...data };
+  operations.set(rootId, operation);
   return operation;
 }
 

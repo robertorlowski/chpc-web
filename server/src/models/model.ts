@@ -57,6 +57,7 @@ const PvMetricsSchema = new Schema<PvMetrics>(
 
 const HpEntrySchema = new Schema<HpEntry>(
   {
+    rootId: { type: String, required: true, index: true },
     HP: { type: HpMetricsSchema },
     PV: { type: PvMetricsSchema },
     time: { type: String },
@@ -79,6 +80,7 @@ const HpEntrySchema = new Schema<HpEntry>(
 
 const SettingsEntrySchema = new Schema<SettingsEntry>(
   {
+    rootId: { type: String, required: true, index: true },
     night_hour: { type: TimeSlotSchema },
     settings: { type: [TimeSlotSchema] },
     cwu_settings: { type: [TimeSlotSchema] },
@@ -125,8 +127,9 @@ const ScheduleEntrySchema = new Schema<ScheduleEntry>(
       required: true,
     },
 
-    deviceEnabled: {
+    forceStart: {
       type: Boolean,
+      default: false,
       required: true,
     },
 

@@ -4,16 +4,28 @@ import { sendMessage } from '../middleware/webSocet';
 import { HpEntryModel } from '../models/model';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
-let lastData :HpEntry | null ;
+const lastDataByRoot = new Map<string, HpEntry>();
 
-export const clearData = async () => {
-  await HpEntryModel.deleteMany({});
+export const assignLegacyHpData = async (rootId: string) => {
+  await HpEntryModel.updateMany(
+    { rootId: { $exists: false } },
+    { $set: { rootId } },
+  );
+};
+
+export const clearData = async (rootId: string) => {
+  await HpEntryModel.deleteMany({ rootId });
+  lastDataByRoot.delete(rootId);
 }
 
-export const getHpLastData = async () => {
+export const getHpLastData = async (rootId: string) => {
 
-  if (!lastData) {
-    lastData = await HpEntryModel.findOne({}).sort({ createdAt: -1 }).lean<HpEntry>();
+  const cached = lastDataByRoot.get(rootId);
+  if (cached) return cached;
+
+  const lastData = await HpEntryModel.findOne({ rootId }).sort({ createdAt: -1 }).lean<HpEntry>();
+  if (lastData) {
+    lastDataByRoot.set(rootId, lastData);
   }
   
   if (!lastData) {
@@ -22,21 +34,18 @@ export const getHpLastData = async () => {
   return lastData;
 }
 
-export const getHpAllData = async () => {
-  // data sprzed 7 dni
+export const getHpAllData = async (rootId: string) => {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   const doc = await HpEntryModel
-    .find({
-      createdAt: { $gte: sevenDaysAgo }
-    })
+    .find({ rootId, createdAt: { $gte: sevenDaysAgo } })
     .sort({ createdAt: -1 })
     .lean<HpEntry>();
   return doc;
 }
 
-export const getHpDataForDay = async (day: Date) => {
+export const getHpDataForDay = async (rootId: string, day: Date) => {
   // ustawiamy początek dnia (00:00:00.000)
   const startOfDay = new Date(day);
   startOfDay.setHours(0, 0, 0, 0);
@@ -46,7 +55,7 @@ export const getHpDataForDay = async (day: Date) => {
   endOfDay.setHours(23, 59, 59, 999);
 
   const doc = await HpEntryModel
-    .find({
+    .find({ rootId,
       createdAt: {
         $gte: startOfDay,
         $lte: endOfDay,
@@ -60,11 +69,12 @@ export const getHpDataForDay = async (day: Date) => {
 
 
 
-export const addHpData = async (data :HpEntry) => {
+export const addHpData = async (rootId: string, data :HpEntry) => {
   data.t_out = getTemperature()!;
-  lastData = data;
+  const dataWithRoot = { ...data, rootId };
+  lastDataByRoot.set(rootId, dataWithRoot);
   
-  const doc = await HpEntryModel.create(data);
+  const doc = await HpEntryModel.create(dataWithRoot);
   sendMessage('update');
   return doc;
 }

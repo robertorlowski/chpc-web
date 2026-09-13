@@ -7,20 +7,22 @@ export async function createDevice(
   deviceId: string,
   name?: string
 ): Promise<DeviceDocument> {  
-  
-  const rootId = await getDeviceById(deviceType, deviceId);
-  if (!rootId) {
-    let deviceDocument: DeviceDocument | null = null;
-    deviceDocument = await DeviceModel.create({
-      deviceType: deviceType,
-      deviceId: deviceId,
-      name: name
-    });
-    return deviceDocument;
-  
-  } else {
-    throw new Error('Device already exists.');
-  }
+  const existing = await DeviceModel.findOne({ deviceType, deviceId });
+  if (existing) throw new Error('Device already exists.');
+
+  return DeviceModel.create({
+    deviceType,
+    deviceId,
+    name: name || deviceId,
+    schedules: [],
+  });
+}
+
+export async function listDevices(): Promise<DeviceDocument[]> {
+  return DeviceModel.find()
+    .select('deviceType deviceId name')
+    .sort({ name: 1 })
+    .lean<DeviceDocument[]>();
 }
 
 export async function getDeviceById(
@@ -38,5 +40,24 @@ export async function getDeviceById(
     throw new Error('Device not found');
   }
   return deviceDocument._id.toString();
+}
+
+export async function getOrCreateDeviceRootId(
+  deviceType: DeviceType = DeviceType.HP,
+  deviceId = 'hp-1',
+  name = 'Pompa ciepła',
+): Promise<string> {
+  let device = await DeviceModel.findOne({ deviceType, deviceId });
+
+  if (!device) {
+    device = await DeviceModel.create({
+      deviceType,
+      deviceId,
+      name,
+      schedules: [],
+    });
+  }
+
+  return String(device._id);
 }
 

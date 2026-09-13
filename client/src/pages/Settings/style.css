@@ -45,6 +45,10 @@ button:disabled {
 	box-shadow: 0 25px 50px -12px #673ab888;
 }
 
+.settings > section > .resource:first-child {
+    width: min(450px, calc(100vw - 2rem));
+    box-sizing: border-box;
+}
 
 .dict-select {
     height: 24px;
