@@ -1,82 +1,16 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { THPL, OperationEntry, SettingsEntry } from '../../api/type';
+import { DeviceProperties, OperationEntry } from '../../api/type';
 import { useEffect, useMemo, useState } from 'react';
-import { ResourceBlock } from '../../components/ResourceBlock';
-
-
-
-	// handleDownload() {
-	// 	HpRequests.getHpAllData()
-	// 		.then((data) => {
-	// 			const json = JSON.stringify(data, null, 2);
-	// 			const blob = new Blob([json], { type: 'application/json' });
-	// 			const href = URL.createObjectURL(blob);
-
-	// 			const link = document.createElement('a');
-	// 			link.href = href;
-	// 			link.download = 'dane.json';
-	// 			document.body.appendChild(link);
-	// 			link.click();
-	// 			document.body.removeChild(link);
-
-	// 			// HpRequests.clearHpData().then();
-	// 		})
-	// 		.catch((err) => {
-	// 			console.log(err);
-	// 			this.setState({ error: true });
-	// 	});
-	// };
-
-	const handleDownloadCsv = () => {
-		HpRequests.getHpAllData()
-			.then((data) => {
-				const jsonData:THPL[] = data
-					.map(row => 
-						{	
-							const hp: THPL = {
-								...row.HP,
-								time: row.time,
-								pv: row.PV.total_power
-							} 
-							return hp;
-						});
-				
-				if ( jsonData.length == 0 )	{
-					return;
-				}
-				const headers = Object.keys(jsonData[0]);
-				const csvContent = [
-					headers.join(';'), // nagłówki
-					...jsonData.map(row =>
-					headers.map(field => {
-						const value = row[field as keyof THPL];
-						if (field == 'time') return value;
-						if (typeof value === 'boolean') return value ? '1' : '0';
-						if (typeof value === 'number') return `"${String(value).replace('.', ',').replace(/"/g, '""')}"`;
-						if (typeof value === 'string') return `"${value.replace(/"/g, '""').replace('.', ',')}"`;
-						return value;
-					}).join(';')
-					),
-				].join('\n');
-			
-				const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-				const url = URL.createObjectURL(blob);
-				
-
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = "data.csv";
-				a.click();
-				URL.revokeObjectURL(url);
-			});
-	};
+import Notification from '../../components/Notification';
 
 export const Settings: React.FC = () => {
-	const [settings, setSettings] = useState<SettingsEntry>({});
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
+	const [temperatureDefaults, setTemperatureDefaults] = useState<DeviceProperties>({});
+	const [propertiesSaving, setPropertiesSaving] = useState(false);
+	const [saveNotice, setSaveNotice] = useState('');
 	const [error, setError] = useState<boolean>(false);
 	
 	const enableSave = useMemo(() => {
@@ -84,15 +18,6 @@ export const Settings: React.FC = () => {
 	}, [valueOpration]);
 
 	useEffect( () => {
-		HpRequests.getSettings()
-			.then((resp) => {
-				setSettings(resp);
-			})
-			.catch((err) => {
-				console.log(err);
-				setError(true);
-		});
-	
 		HpRequests.prepareOperation()
 			.then((resp) => {
 				console.log(resp);
@@ -103,7 +28,31 @@ export const Settings: React.FC = () => {
 				setError(true);
 			} 
 		);
+		HpRequests.getDeviceProperties()
+			.then((value) => setTemperatureDefaults(value ?? {}))
+			.catch(() => setError(true));
 	}, []);
+
+	const updateTemperatureDefault = (field: keyof DeviceProperties, value: string) => {
+		setTemperatureDefaults((current) => ({ ...current, [field]: value }));
+	};
+
+	const showSaveNotice = () => {
+		setSaveNotice('Dane zostały zapisane.');
+		window.setTimeout(() => setSaveNotice(''), 3000);
+	};
+
+	const handleSaveTemperatureDefaults = async () => {
+		setPropertiesSaving(true);
+		try {
+			await HpRequests.updateDeviceProperties(temperatureDefaults);
+			showSaveNotice();
+		} catch {
+			setError(true);
+		} finally {
+			setPropertiesSaving(false);
+		}
+	};
 
 	const handleSave = () => {
 		console.log(valueOpration);
@@ -113,6 +62,7 @@ export const Settings: React.FC = () => {
 
 		HpRequests.setOperation(valueOpration).then(response => {
 			setError( response?.status === 201 ? false : true );
+			if (response?.status === 201) showSaveNotice();
 			setValueOperation({});
 			HpRequests.getOperation()
 				.then((resp) => {
@@ -127,21 +77,11 @@ export const Settings: React.FC = () => {
 
 	return (
 		<div className="settings">
-			<h2>Ustawienia</h2>
+			<Notification message={saveNotice} />
+			<h2>Aktualne ustawienia</h2>
 			<section>
 				<div className="resource">
-					<div className='header3'>
-						<h3>Ustaw</h3>
-						{/* <button onClick={this.clearDa}>
-							Pobierz dane HP JSON
-						</button> */}
-						<div>
-							<button onClick={handleDownloadCsv}>
-								Pobierz dane HP CSV
-							</button>
-						</div>
-					</div>
-					<hr />
+					<h3 className="settings-section-title">Ustaw</h3>
 					<div style={{ minWidth: '200px' }}>
 						<span className="label">Tryb pracy:</span>
 						<select
@@ -158,8 +98,10 @@ export const Settings: React.FC = () => {
 						</select>
 					</div>
 
+					<h3 className="settings-section-title">Aktualne ustawienia temperatur</h3>
+
 					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>CWU min/max:</span>
+						<span className="label" style={{ width: '160px' }}>Temperatura CWU:</span>
 						<input
 							className="temperature"
 							type="number"
@@ -173,30 +115,32 @@ export const Settings: React.FC = () => {
 							type="number"
 							name="cwu_max"
 							placeholder={defaultOperation.cwu_max}
-							value={ valueOpration.cwu_max }
+							value={valueOpration.cwu_max}
 							onChange={(e) => setValueOperation({...valueOpration, cwu_max: e.currentTarget.value})}
 						/>
 					</div>
 
 					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>CO min/max:</span>
+						<span className="label" style={{ width: '160px' }}>Temperatura CO:</span>
 						<input
 							className="temperature"
 							type="number"
 							name="co_min"
-							placeholder= { defaultOperation.co_min }
-							value={ valueOpration.co_min }
+							placeholder={defaultOperation.co_min}
+							value={valueOpration.co_min}
 							onChange={(e) => setValueOperation({...valueOpration, co_min: e.currentTarget.value})}
 						/>
 						<input
 							className="temperature"
 							type="number"
 							name="co_max"
-							placeholder= { defaultOperation.co_max }
-							value={ valueOpration.co_max }
-							onChange={(e) => setValueOperation({...valueOpration, co_max: e.target.value })}
+							placeholder={defaultOperation.co_max}
+							value={valueOpration.co_max}
+							onChange={(e) => setValueOperation({...valueOpration, co_max: e.target.value})}
 						/>
 					</div>
+
+					<h3 className="settings-section-title">Aktualne ustawienia HP</h3>
 
 					<div style={{ minWidth: '200px' }}>
 						<span className="label" style={{ width: '160px' }}>EEV temp.:</span>
@@ -236,8 +180,7 @@ export const Settings: React.FC = () => {
 						/>
 					</div>
 
-
-
+					<h3 className="settings-section-title">Uruchom</h3>
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Wymuszenie pracy:</span>
 						<input
@@ -284,30 +227,43 @@ export const Settings: React.FC = () => {
 							onChange={(e) => setValueOperation({...valueOpration, sump_heater: e.target.checked ? "1" : "0" })}
 						/>
 					</div> */}
-	
 					<div className='header3'>
-						<p>
-							<span className={error ? `error show` : `error hide`}>
-								Wystąpił błąd podczas wykonywania operacji..
-							</span>
-						</p>
-								
-						<button 
-							disabled ={!enableSave}
-							onClick={handleSave}>
-							Zapisz
-						</button>
-					</div>
+					<p>
+						<span className={error ? `error show` : `error hide`}>
+							Wystąpił błąd podczas wykonywania operacji..
+						</span>
+					</p>
+							
+					<button 
+						disabled ={!enableSave}
+						onClick={handleSave}>
+						Zapisz
+					</button>
+				</div>	
 				</div>
 
+			</section>
+			<h3>Domyślne ustawienia</h3>
+			<section>
+				<div className="resource">
+					<h3 className="settings-section-title">Domyślne ustawienia temperatur</h3>
+					<div className="settings-default-temperatures">
+						<div>
+							<span className="label">Temperatura CWU:</span>
+							<input className="temperature" type="number" value={temperatureDefaults.cwu_min ?? ''} onChange={(e) => updateTemperatureDefault('cwu_min', e.currentTarget.value)} />
+							<input className="temperature" type="number" value={temperatureDefaults.cwu_max ?? ''} onChange={(e) => updateTemperatureDefault('cwu_max', e.currentTarget.value)} />
+						</div>
+						<div >
+							<span className="label">Temperatura CO:</span>
+							<input className="temperature" type="number" value={temperatureDefaults.co_min ?? ''} onChange={(e) => updateTemperatureDefault('co_min', e.currentTarget.value)} />
+							<input className="temperature" type="number" value={temperatureDefaults.co_max ?? ''} onChange={(e) => updateTemperatureDefault('co_max', e.currentTarget.value)} />
+						</div>
+						<div className="settings-section-actions">
+			<button type="button" disabled={propertiesSaving} onClick={handleSaveTemperatureDefaults}>{propertiesSaving ? 'Zapisywanie...' : 'Zapisz'}</button>
+						</div>
+					</div>
 
-				{settings?.night_hour && (
-				<ResourceBlock
-					title="Wyłączenie wykorzystania mocy z PV"
-					description="Przedziały czasu w którym nastąpi wyłączenie weryfikacji wytwarzanej mocy na panelach fotowoltaicznych."
-					data={[settings?.night_hour]}
-				/>)
-				}
+				</div>
 			</section>
 		</div>
 	);

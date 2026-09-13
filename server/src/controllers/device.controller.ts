@@ -1,6 +1,22 @@
 import { Request, Response } from 'express';
-import { DeviceType } from '../middleware/type';
-import { createDevice, listDevices } from '../services/device.service';
+import { DeviceProperties, DeviceType } from '../middleware/type';
+import { createDevice, getDeviceProperties, listDevices, updateDeviceProperties } from '../services/device.service';
+
+export async function getProperties(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getDeviceProperties(req.deviceRootId as string));
+  } catch (error) {
+    return res.status(404).json({ message: String(error) });
+  }
+}
+
+export async function updateProperties(req: Request<{}, {}, DeviceProperties>, res: Response) {
+  try {
+    return res.status(200).json(await updateDeviceProperties(req.deviceRootId as string, req.body));
+  } catch (error) {
+    return res.status(400).json({ message: String(error) });
+  }
+}
 
 export async function getDevices(_req: Request, res: Response) {
   try {

@@ -5,12 +5,14 @@ import { getSettings, setSettings } from './../controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation } from '../controllers/operation.controller'
 import { getTemperature } from '../controllers/meteo.controller'
 import { createScheduleEntry, deleteScheduleEntry, getScheduleEntries, updateScheduleEntry } from '../controllers/schedule.controller'
-import { addDevice, getDevices } from '../controllers/device.controller'
+import { addDevice, getDevices, getProperties, updateProperties } from '../controllers/device.controller'
 
 const router = express.Router()
 
 router.get('/devices', getDevices)
 router.post('/devices', addDevice)
+router.get('/device/properties', getProperties)
+router.put('/device/properties', updateProperties)
 
 router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);

@@ -35,11 +35,11 @@ export const getHpLastData = async (rootId: string) => {
 }
 
 export const getHpAllData = async (rootId: string) => {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const currentYear = new Date().getFullYear();
+  const startOfCurrentYear = new Date(currentYear, 0, 1);
 
   const doc = await HpEntryModel
-    .find({ rootId, createdAt: { $gte: sevenDaysAgo } })
+    .find({ rootId, createdAt: { $gte: startOfCurrentYear } })
     .sort({ createdAt: -1 })
     .lean<HpEntry>();
   return doc;

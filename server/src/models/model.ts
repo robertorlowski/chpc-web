@@ -1,5 +1,5 @@
 import mongoose, { Schema, model, InferSchemaType, Model, Document } from 'mongoose';
-import { Device, DeviceType, HpEntry, HpMetrics, PvMetrics, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from '../middleware/type';
+import { Device, DeviceProperties, DeviceType, HpEntry, HpMetrics, PvMetrics, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from '../middleware/type';
 
 
 const TimeSlotSchema = new Schema<TimeSlot>(
@@ -86,6 +86,16 @@ const SettingsEntrySchema = new Schema<SettingsEntry>(
     cwu_settings: { type: [TimeSlotSchema] },
   },
   { timestamps: true, _id: true, collection: 'settings' }
+);
+
+const DevicePropertiesSchema = new Schema<DeviceProperties>(
+  {
+    co_min: { type: String },
+    co_max: { type: String },
+    cwu_min: { type: String },
+    cwu_max: { type: String },
+  },
+  { _id: false }
 );
 
 
@@ -175,6 +185,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
     hp: { type: [HpEntrySchema] },
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },
+    properties: { type: DevicePropertiesSchema },
   },
   { timestamps: true, collection: 'devices' }
 );

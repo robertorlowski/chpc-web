@@ -2,6 +2,7 @@ import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { HpRequests } from '../../api/api';
 import { ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
+import Notification from '../../components/Notification';
 
 const weekDays = [
   ['Poniedziałek', WeekDay.MONDAY],
@@ -48,6 +49,12 @@ export const Schedules: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [saveNotice, setSaveNotice] = useState('');
+
+  const showSaveNotice = () => {
+    setSaveNotice('Dane zostały zapisane.');
+    window.setTimeout(() => setSaveNotice(''), 3000);
+  };
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -97,6 +104,7 @@ export const Schedules: React.FC = () => {
 
       resetForm();
       loadSchedules();
+      showSaveNotice();
     } catch {
       setError('Nie udało się zapisać harmonogramu.');
     } finally {
@@ -152,6 +160,7 @@ export const Schedules: React.FC = () => {
 
   return (
     <div className="schedules-page">
+      <Notification message={saveNotice} />
       <h2>Harmonogramy</h2>
       <div className={`schedules-layout${showForm ? '' : ' schedules-layout-list-only'}`}>
         {showForm && <form className="schedule-card" onSubmit={handleSubmit}>

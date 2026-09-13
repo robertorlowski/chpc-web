@@ -1,5 +1,5 @@
 
-import { DeviceType } from '../middleware/type';
+import { DeviceProperties, DeviceType } from '../middleware/type';
 import { DeviceDocument, DeviceModel } from '../models/model';
 
 export async function createDevice(
@@ -23,6 +23,22 @@ export async function listDevices(): Promise<DeviceDocument[]> {
     .select('deviceType deviceId name')
     .sort({ name: 1 })
     .lean<DeviceDocument[]>();
+}
+
+export async function getDeviceProperties(rootId: string): Promise<DeviceProperties> {
+  const device = await DeviceModel.findById(rootId).select('properties').lean<DeviceDocument>();
+  if (!device) throw new Error('Device not found.');
+  return device.properties ?? {};
+}
+
+export async function updateDeviceProperties(rootId: string, properties: DeviceProperties): Promise<DeviceProperties> {
+  const device = await DeviceModel.findByIdAndUpdate(
+    rootId,
+    { $set: { properties } },
+    { new: true, runValidators: true },
+  ).select('properties').lean<DeviceDocument>();
+  if (!device) throw new Error('Device not found.');
+  return device.properties ?? {};
 }
 
 export async function getDeviceById(

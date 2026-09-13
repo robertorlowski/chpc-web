@@ -148,6 +148,13 @@ export interface OperationEntry {
   eev_setpoint?: String
 }
 
+export interface DeviceProperties {
+  co_min?: String;
+  co_max?: String;
+  cwu_min?: String;
+  cwu_max?: String;
+}
+
 export interface Device {
   deviceType: DeviceType;
   deviceId: string;
@@ -155,6 +162,7 @@ export interface Device {
   hp?: HpEntry[];
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];
+  properties?: DeviceProperties;
 }
 
 declare global {

@@ -123,6 +123,14 @@ export class HpRequests {
     return Requests.post('/devices', data, true, false) as Promise<Device>;
   }
 
+  static getDeviceProperties(): Promise<NonNullable<Device['properties']>> {
+    return Requests.get('/device/properties') as Promise<NonNullable<Device['properties']>>;
+  }
+
+  static updateDeviceProperties(properties: NonNullable<Device['properties']>) {
+    return Requests.put('/device/properties', properties) as Promise<NonNullable<Device['properties']>>;
+  }
+
   static getHpMonthlySummary(
     startDate: string,
     endDate: string,

@@ -15,11 +15,19 @@ export enum DeviceType {
   HP = 'heat_pump',
 }
 
+export type DeviceProperties = {
+  co_min?: string;
+  co_max?: string;
+  cwu_min?: string;
+  cwu_max?: string;
+};
+
 export type Device = {
   rootId: string;
   deviceType: DeviceType;
   deviceId: string;
   name: string;
+  properties?: DeviceProperties;
 };
 
 export enum ScheduleType {

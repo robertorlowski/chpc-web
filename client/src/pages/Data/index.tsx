@@ -1,4 +1,4 @@
-import '../../api/api';
+import { HpRequests } from '../../api/api';
 import { THPL } from '../../api/type';
 import React, { useEffect, useState } from 'react';
 import {
@@ -32,6 +32,33 @@ export const HeatPumpTable: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [selectedDate, setSelectedDate] = useState<string>( formatDateYMD( new Date()));
 	const [allData, setAllData] = useState<boolean>(false);
+	const [downloading, setDownloading] = useState(false);
+
+	const handleDownloadCsv = async () => {
+		setDownloading(true);
+		try {
+		const data = await HpRequests.getHpAllData();
+		const jsonData: THPL[] = data.map(row => ({ ...row.HP, time: row.time, pv: row.PV?.total_power ?? '' }));
+		if (jsonData.length === 0) return;
+		const headers = Object.keys(jsonData[0]);
+		const csvContent = [headers.join(';'), ...jsonData.map(row => headers.map(field => {
+			const value = row[field as keyof THPL];
+			if (field === 'time') return value;
+			if (typeof value === 'boolean') return value ? '1' : '0';
+			if (typeof value === 'number') return `"${String(value).replace('.', ',')}"`;
+			if (typeof value === 'string') return `"${value.replace(/"/g, '""').replace('.', ',')}"`;
+			return value;
+		}).join(';'))].join('\n');
+		const url = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }));
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'dane.csv';
+		link.click();
+		URL.revokeObjectURL(url);
+		} finally {
+			setDownloading(false);
+		}
+	};
 		
 	useEffect(() => {
 			if (!selectedDate) return;
@@ -87,7 +114,7 @@ export const HeatPumpTable: React.FC = () => {
 			)	
 		}
 
-		<div style={{ display: "flex" }}>
+		<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
 			<label>
 			<input
 				title="Wszystkie dane"
@@ -101,6 +128,7 @@ export const HeatPumpTable: React.FC = () => {
 			/>
 			Wszystkie dane
 			</label>
+			<button type="button" disabled={downloading} onClick={handleDownloadCsv} style={{ padding: '6px 10px'}}>{downloading ? 'Pobieranie…' : 'Pobierz dane'}</button>
 		</div>
 	
 		<table style={{

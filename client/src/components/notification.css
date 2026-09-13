@@ -1,0 +1,18 @@
+.notification {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 4rem;
+  z-index: 1000;
+  padding: 0.75rem 1rem;
+  border-radius: 0.4rem;
+  background: #187a35;
+  color: white;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: notification-in 0.3s ease-out;
+}
+
+@keyframes notification-in {
+  from { transform: translateY(120%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
