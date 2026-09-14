@@ -1,5 +1,5 @@
 import './style.css'
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { formatDateYMD, stringToDate } from "../utils/utils";
 
 export type DateDropdownProps = {
@@ -33,10 +33,21 @@ export default function DateDict({id, initValue, onDateChange, style }: DateDrop
     return t;
   }, []);
 
-  const dates = useMemo<Date[]>(() => generateDates(startDate, today), [startDate, today]);
+  const dates = useMemo<Date[]>(() => {
+    // Pozwól wyświetlić również datę przekazaną przez rodzica, nawet jeśli
+    // jest wcześniejsza niż początek dostępnych danych.
+    const firstDate = today < startDate ? today : startDate;
+    return generateDates(firstDate, today);
+  }, [startDate, today]);
 
   // domyślnie wybrany dzień bieżący
   const [selectedDate, setSelectedDate] = useState<string>( formatDateYMD(today));
+
+  useEffect(() => {
+    if (initValue) {
+      setSelectedDate(initValue);
+    }
+  }, [initValue]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDate(e.target.value);

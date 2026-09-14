@@ -23,9 +23,9 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 }
 
 function DeviceFooter() {
-	const { device } = useDevice();
+	const { device, hideDeviceFooter } = useDevice();
 
-	if (!device) return null;
+	if (!device || hideDeviceFooter) return null;
 
 	return (
 		<footer className="device-footer">

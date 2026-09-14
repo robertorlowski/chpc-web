@@ -20,10 +20,16 @@ export const Devices: React.FC = () => {
     loadDevices();
   }, []);
 
-  const chooseDevice = (device: Device) => {
-    selectDevice(device);
+  const chooseDevice = (device: Device, automatic = false) => {
+    selectDevice(device, automatic);
     navigate('/hp');
   };
+
+  useEffect(() => {
+    if (devices.length === 1) {
+      chooseDevice(devices[0], true);
+    }
+  }, [devices]);
 
   return (
     <main className="device-selection">
