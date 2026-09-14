@@ -97,6 +97,8 @@ export interface PvMetrics {
 
 export interface HpEntry {
   rootId?: string;
+  deviceType?: DeviceType;
+  deviceId?: string;
   HP?: HpMetrics | null,
   PV?: PvMetrics,
   time?: String,
@@ -159,7 +161,6 @@ export interface Device {
   deviceType: DeviceType;
   deviceId: string;
   name?: string;
-  hp?: HpEntry[];
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];
   properties?: DeviceProperties;

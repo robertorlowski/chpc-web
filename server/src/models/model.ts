@@ -58,6 +58,8 @@ const PvMetricsSchema = new Schema<PvMetrics>(
 const HpEntrySchema = new Schema<HpEntry>(
   {
     rootId: { type: String, required: true, index: true },
+    deviceType: { type: String, enum: Object.values(DeviceType), required: true },
+    deviceId: { type: String, required: true, index: true },
     HP: { type: HpMetricsSchema },
     PV: { type: PvMetricsSchema },
     time: { type: String },
@@ -182,7 +184,6 @@ const DeviceSchema = new Schema<DeviceDocument>(
       required: true,
       trim: true,
     },
-    hp: { type: [HpEntrySchema] },
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },
     properties: { type: DevicePropertiesSchema },
