@@ -1,4 +1,4 @@
-import { Device, HpEntry, OperationEntry, ScheduleEntry, SettingsEntry } from "./type";
+import { Device, HpEntry, OperationEntry, ScheduleEntry } from "./type";
 import { getSelectedDevice } from '../context/DeviceContext';
 
 function withDeviceContext(path: string, includeDevice: boolean) {
@@ -147,10 +147,6 @@ export class HpRequests {
         pvUsedKWh: number;
         totalVariableCostPLN: number;
       }> | null>;
-  }
-
-  static getSettings() : Promise<SettingsEntry> {
-      return Requests.get("/settings");
   }
 
   static getCoData() : Promise<HpEntry> {

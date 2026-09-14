@@ -195,6 +195,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
 export type HpEntryDoc = InferSchemaType<typeof HpEntrySchema>;
 export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
 
+// To do usunięcia po nadpisaniu programu na ESP32
 export type SettingsEntryDoc = InferSchemaType<typeof SettingsEntrySchema>;
 export const SettingsEntryModel = model<SettingsEntryDoc>('SettingsEntry', SettingsEntrySchema);
 
