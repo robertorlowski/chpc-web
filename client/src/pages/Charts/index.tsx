@@ -177,16 +177,16 @@ export const HeatPumpChart: React.FC = () => {
           const total = monthlyData.reduce(
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
-              pv: value.pv + Number(item.pvUsedKWh || 0),
+              grid: value.grid + Number(item.gridEnergyKWh || 0),
               cost: value.cost + Number(
                 Number(item.totalVariableCostPLN || 0).toFixed(2),
               ),
             }),
-            { energy: 0, pv: 0, cost: 0 },
+            { energy: 0, grid: 0, cost: 0 },
           );
 
           setKwh(Number(total.energy.toFixed(2)));
-          setKwhPV(Number(total.pv.toFixed(2)));
+          setKwhPV(Number(total.grid.toFixed(2)));
           setCost(Number(total.cost.toFixed(2)));
           setFilteredData(Array.from({ length: 12 }, (_, monthIndex) => {
             const item = monthlyData.find(
@@ -216,14 +216,14 @@ export const HeatPumpChart: React.FC = () => {
           const total = dailyData.reduce(
             (value, item) => ({
               energy: value.energy + Number(item.consumptionKWh || 0),
-              pv: value.pv + Number(item.pvUsedKWh || 0),
+              grid: value.grid + Number(item.gridEnergyKWh || 0),
               cost: value.cost + Number(item.totalVariableCostPLN || 0),
             }),
-            { energy: 0, pv: 0, cost: 0 },
+            { energy: 0, grid: 0, cost: 0 },
           );
 
           setKwh(Number(total.energy.toFixed(2)));
-          setKwhPV(Number(total.pv.toFixed(2)));
+          setKwhPV(Number(total.grid.toFixed(2)));
           setCost(Number(total.cost.toFixed(2)));
           setFilteredData(dates.map((date) => {
             const day = Number(date.slice(8, 10));
