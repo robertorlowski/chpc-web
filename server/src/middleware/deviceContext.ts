@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { DeviceModel } from '../models/model';
+import { getDefaultDeviceRootId } from '../services/device.service';
 
 const publicPaths = new Set(['/devices']);
 
@@ -10,10 +11,14 @@ export async function resolveDeviceContext(
 ) {
   if (publicPaths.has(req.path)) return next();
 
-  const rootId = typeof req.query.rootId === 'string' ? req.query.rootId : '';
+  let rootId = typeof req.query.rootId === 'string' ? req.query.rootId : '';
   const deviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : '';
   if (!rootId) {
-    return res.status(400).json({ message: 'rootId jest wymagane.' });
+    if (req.path === '/hp/add') {
+      rootId = await getDefaultDeviceRootId();
+    } else {
+      return res.status(400).json({ message: 'rootId jest wymagane.' });
+    }
   }
   if (!deviceId) {
     return res.status(400).json({ message: 'deviceId jest wymagane.' });

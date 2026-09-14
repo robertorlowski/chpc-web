@@ -58,11 +58,10 @@ export async function getDeviceById(
   return deviceDocument._id.toString();
 }
 
-export async function getOrCreateDeviceRootId(
-  deviceType: DeviceType = DeviceType.HP,
-  deviceId = 'hp-1',
-  name = 'Pompa ciepła',
-): Promise<string> {
+export async function getDefaultDeviceRootId(): Promise<string> {
+  const deviceType = DeviceType.HP;
+  const deviceId = 'hp-1';
+  const name = 'Pompa ciepła';
   let device = await DeviceModel.findOne({ deviceType, deviceId });
 
   if (!device) {

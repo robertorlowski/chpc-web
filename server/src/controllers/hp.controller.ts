@@ -209,15 +209,17 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   const data :HpEntry = req.body;
   console.log("Add HP data");
 
-  const operation: OperationEntry = Object.assign(getOperationData(req.deviceRootId as string)); 
+  try {
+    const rootId = req.deviceRootId as string;
+    const dataWithRoot: HpEntry = { ...data, rootId };
+    const operation: OperationEntry = Object.assign(getOperationData(rootId));
   console.log("Get HP operation");
   console.log(operation);
-  try {   
-    if (data && data.HP && data.HP.Ttarget) {
-      await addHpData(req.deviceRootId as string, data);
+    if (dataWithRoot && dataWithRoot.HP && dataWithRoot.HP.Ttarget) {
+      await addHpData(rootId, dataWithRoot);
     }    
     console.log("Clear HP operation");
-    clearOperation(req.deviceRootId as string);    
+    clearOperation(rootId);    
     
     return res.status(201).json({ operation: operation});
   } catch (error) {
