@@ -116,6 +116,6 @@ export const addHpData = async (rootId: string, data :HpEntry) => {
   lastDataByRoot.set(rootId, dataWithRoot);
   
   const doc = await HpEntryModel.create(dataWithRoot);
-  sendMessage('update');
+  sendMessage('update', rootId);
   return doc;
 }

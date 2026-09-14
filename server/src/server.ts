@@ -18,8 +18,8 @@ const PORT = Number(process.env.PORT ?? 3001);
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
 
-  const defaultRootId = await getDefaultDeviceRootId();
-  await assignLegacyHpData(defaultRootId);
+  // const defaultRootId = await getDefaultDeviceRootId();
+  // await assignLegacyHpData(defaultRootId);
 
   await prepareMeteoData()
   

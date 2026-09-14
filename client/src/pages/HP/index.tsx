@@ -1,6 +1,7 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests, wsAddressServer } from '../../api/api';
+import { getSelectedDevice } from '../../context/DeviceContext';
 import { HpEntry, HpMetrics, PvMetrics } from '../../api/type';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../assets/swith_on.svg';
@@ -28,7 +29,10 @@ const HP: React.FC = () => {
   );
 
   useEffect(() => {
-    ws.current = new WebSocket(wsAddressServer());
+    const device = getSelectedDevice();
+    const wsUrl = new URL(wsAddressServer());
+    if (device) wsUrl.searchParams.set('rootId', device.rootId);
+    ws.current = new WebSocket(wsUrl.toString());
     ws.current.onmessage = (event) => {
       // Sprawdź, czy komunikat to info o zmianie danych
       if (event.data === 'update') {

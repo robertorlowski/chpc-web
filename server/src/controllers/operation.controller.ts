@@ -64,7 +64,7 @@ export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Re
   setOperationData(req.deviceRootId as string, op)
   console.log(getOperationData(req.deviceRootId as string));
 
-  sendMessage("operation");
+  sendMessage("operation", req.deviceRootId as string);
   return res.status(201).json({ message: op });
 }
 
