@@ -15,11 +15,14 @@ export enum DeviceType {
   HP = 'heat_pump',
 }
 
+export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
+
 export type DeviceProperties = {
   co_min?: string;
   co_max?: string;
   cwu_min?: string;
   cwu_max?: string;
+  work_mode?: WorkMode;
 };
 
 export type Device = {
@@ -39,6 +42,7 @@ export enum ScheduleType {
 export enum WeekDay {
   ANY_DAY = -1,
   WORKDAYS = -2,
+  DAYS_OFF = -3,
   SUNDAY = 0,
   MONDAY = 1,
   TUESDAY = 2,
@@ -57,8 +61,8 @@ export type ScheduleEntry = {
   startTime: string;
   endTime: string;
   forceStart: boolean;
-  minTemperature: number;
-  maxTemperature: number;
+  minTemperature?: number;
+  maxTemperature?: number;
 };
 
 export type HpMetrics = {
@@ -121,6 +125,7 @@ export type HpEntry = {
 export type OperationEntry = {
   force?: string,
   work_mode?: string,
+  co_pomp?: string,
   sump_heater?: string,
   cold_pomp?: string,
   hot_pomp?: string,
@@ -135,5 +140,6 @@ export type OperationEntry = {
 
 export type THPL = HpMetrics & {
   time :string,
+  work_mode?: string,
   pv :number
 };

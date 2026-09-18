@@ -1,8 +1,7 @@
 import { Request, Response } from 'express'
-import { clearOperation, getOperationData, setOperationData } from '../services/operation.service';
+import { clearOperation, getOperationData, setManualOperationData } from '../services/operation.service';
 import { OperationEntry } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
-import { sendMessage } from '../middleware/webSocet';
 
 
 export async function prepareOperation(req: Request, res: Response) {
@@ -22,6 +21,7 @@ export async function prepareOperation(req: Request, res: Response) {
     op.cold_pomp = "0";
     op.hot_pomp = "0";
     op.sump_heater = "0";
+    op.co_pomp = "0"
     op.work_mode = data?.work_mode;
     op.eev_max_pulse_open = String(data?.HP?.EEVmax);
     op.working_watt = String(data?.HP?.WWatt);
@@ -61,10 +61,8 @@ export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Re
   
   const op :OperationEntry = req.body;
   console.log(op);
-  setOperationData(req.deviceRootId as string, op)
+  setManualOperationData(req.deviceRootId as string, op);
   console.log(getOperationData(req.deviceRootId as string));
 
-  sendMessage("operation", req.deviceRootId as string);
   return res.status(201).json({ message: op });
 }
-

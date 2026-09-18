@@ -4,10 +4,11 @@
 }
 
 .schedules-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 380px) minmax(320px, 1fr);
-  gap: 0.3rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
 }
 
 .schedules-layout-list-only {
@@ -15,16 +16,80 @@
   justify-content: center;
 }
 
+.schedules-layout > .schedule-card,
 .schedules-layout-list-only > .schedule-card {
   width: min(100%, 700px);
 }
 
 .schedule-card {
+  box-sizing: border-box;
   padding: 1rem;
   background: #f1f1f1;
   border: 1px solid transparent;
   border-radius: 0.5rem;
   text-align: left;
+}
+
+.schedule-defaults-section {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.schedule-defaults-resource {
+  width: min(100%, 700px);
+  box-sizing: border-box;
+  padding: 1rem;
+  background: #f1f1f1;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+}
+
+.schedule-defaults-resource:hover {
+  border-color: #008CBA;
+  box-shadow: 0 25px 50px -12px #673ab888;
+}
+
+.schedule-defaults-resource .settings-section-title {
+  width: 100%;
+  margin: 1rem 0 0.25rem;
+  padding-top: 0.2rem;
+  border-bottom: 1px solid #ccc;
+}
+
+.schedule-defaults-resource .settings-section-title:first-child {
+  margin-top: 0;
+}
+
+.schedule-defaults-resource .settings-default-temperatures > div {
+  text-align: left;
+}
+
+.schedule-defaults-resource .settings-section-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  text-align: right;
+  margin-top: 0.5rem;
+}
+
+.schedule-defaults-resource span.label {
+  min-width: 11rem;
+  display: inline-block;
+}
+
+.schedule-defaults-resource .dict-select {
+  height: 24px;
+  min-width: 125px;
+  margin-left: 4px;
+}
+
+.schedule-defaults-resource input.temperature {
+  width: 3.5rem;
+  display: inline-block;
+  height: 16px;
+  margin: 4px;
 }
 
 .schedule-card:hover {
@@ -190,7 +255,7 @@
 }
 
 @media (max-width: 720px) {
-  .schedules-layout {
-    grid-template-columns: 1fr;
+  .schedule-defaults-resource {
+    width: 100%;
   }
 }

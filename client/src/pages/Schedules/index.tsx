@@ -1,7 +1,7 @@
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { HpRequests } from '../../api/api';
-import { ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
+import { DeviceProperties, ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
 import Notification from '../../components/Notification';
 
 const weekDays = [
@@ -17,6 +17,7 @@ const weekDays = [
 const scheduleDayOptions = [
   ['Dowolny dzień', WeekDay.ANY_DAY],
   ['Dni robocze (poniedziałek–piątek)', WeekDay.WORKDAYS],
+  ['Dni wolne', WeekDay.DAYS_OFF],
   ...weekDays,
 ] as const;
 
@@ -36,15 +37,20 @@ const formatScheduleTarget = (schedule: ScheduleEntry): string => {
   if (schedule.date) return new Date(schedule.date).toLocaleDateString('pl-PL');
   if (schedule.dayOfWeek === WeekDay.ANY_DAY) return 'Dowolny dzień';
   if (schedule.dayOfWeek === WeekDay.WORKDAYS) return 'Dni robocze';
+  if (schedule.dayOfWeek === WeekDay.DAYS_OFF) return 'Dni wolne';
   return weekDays.find(([, value]) => value === schedule.dayOfWeek)?.[0] || 'Każdy dzień';
 };
 
 export const Schedules: React.FC = () => {
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  const [defaultProperties, setDefaultProperties] = useState<DeviceProperties>({
+    work_mode: 'CWU',
+  });
   const [form, setForm] = useState(emptyForm);
   const [useDate, setUseDate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [defaultSaving, setDefaultSaving] = useState(false);
   const [deleting, setDeleting] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,10 +77,42 @@ export const Schedules: React.FC = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadSchedules, []);
+  const loadDefaultProperties = () => {
+    HpRequests.getDeviceProperties()
+      .then((value) => setDefaultProperties(value ?? { work_mode: 'CWU' }))
+      .catch(() => setError('Nie udało się pobrać wartości domyślnych.'));
+  };
+
+  useEffect(() => {
+    loadSchedules();
+    loadDefaultProperties();
+  }, []);
+
+  const updateDefaultProperty = (field: keyof DeviceProperties, value: string) => {
+    setDefaultProperties((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSaveDefaultProperties = async () => {
+    setDefaultSaving(true);
+    setError('');
+
+    try {
+      await HpRequests.updateDeviceProperties(defaultProperties);
+      showSaveNotice();
+    } catch {
+      setError('Nie udało się zapisać wartości domyślnych.');
+    } finally {
+      setDefaultSaving(false);
+    }
+  };
 
   const updateForm = (field: keyof typeof form, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const parseOptionalTemperature = (value: string): number | undefined => {
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : Number(trimmed);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -92,8 +130,8 @@ export const Schedules: React.FC = () => {
         startTime: form.startTime,
         endTime: form.endTime,
         forceStart: form.forceStart,
-        minTemperature: Number(form.minTemperature),
-        maxTemperature: Number(form.maxTemperature),
+        minTemperature: parseOptionalTemperature(form.minTemperature),
+        maxTemperature: parseOptionalTemperature(form.maxTemperature),
       };
 
       if (editingId) {
@@ -123,8 +161,8 @@ export const Schedules: React.FC = () => {
       endTime: schedule.endTime,
       enabled: schedule.enabled,
       forceStart: schedule.forceStart,
-      minTemperature: String(schedule.minTemperature),
-      maxTemperature: String(schedule.maxTemperature),
+      minTemperature: schedule.minTemperature === undefined ? '' : String(schedule.minTemperature),
+      maxTemperature: schedule.maxTemperature === undefined ? '' : String(schedule.maxTemperature),
     });
     setUseDate(Boolean(schedule.date));
     setEditingId(schedule._id);
@@ -148,8 +186,8 @@ export const Schedules: React.FC = () => {
   };
 
   const scheduleGroups = [
-    { type: ScheduleType.CWU, label: 'CWU' },
-    { type: ScheduleType.CO, label: 'CO' },
+    { type: ScheduleType.CWU, label: 'CWU Harmonogram' },
+    { type: ScheduleType.CO, label: 'CO Harmonogram' },
     { type: ScheduleType.OFF, label: 'OFF' },
   ]
     .map((group) => ({
@@ -162,6 +200,42 @@ export const Schedules: React.FC = () => {
     <div className="schedules-page">
       <Notification message={saveNotice} />
       <h2>Harmonogramy</h2>
+      <h3>Domyślne ustawienia</h3>
+      <section className="schedule-defaults-section">
+        <div className="resource schedule-defaults-resource">
+          <h3 className="settings-section-title">Domyślne ustawienia</h3>
+          <div className="settings-default-temperatures">
+            <div>
+              <span className="label">Domyślny tryb pracy:</span>
+              <select
+                className="dict-select"
+                value={defaultProperties.work_mode ?? 'CWU'}
+                onChange={(event) => updateDefaultProperty('work_mode', event.target.value)}
+              >
+                <option value="CWU">CWU Harmonogram</option>
+                <option value="M">CO</option>
+              <option value="A">CO Harmonogram</option>
+                <option value="OFF">OFF</option>
+              </select>
+            </div>
+            <div>
+              <span className="label">Temperatura CWU:</span>
+              <input className="temperature" type="number" value={defaultProperties.cwu_min ?? ''} onChange={(event) => updateDefaultProperty('cwu_min', event.target.value)} />
+              <input className="temperature" type="number" value={defaultProperties.cwu_max ?? ''} onChange={(event) => updateDefaultProperty('cwu_max', event.target.value)} />
+            </div>
+            <div>
+              <span className="label">Temperatura CO:</span>
+              <input className="temperature" type="number" value={defaultProperties.co_min ?? ''} onChange={(event) => updateDefaultProperty('co_min', event.target.value)} />
+              <input className="temperature" type="number" value={defaultProperties.co_max ?? ''} onChange={(event) => updateDefaultProperty('co_max', event.target.value)} />
+            </div>
+            <div className="settings-section-actions">
+              <button type="button" disabled={defaultSaving} onClick={handleSaveDefaultProperties}>
+                {defaultSaving ? 'Zapisywanie...' : 'Zapisz'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
       <div className={`schedules-layout${showForm ? '' : ' schedules-layout-list-only'}`}>
         {showForm && <form className="schedule-card" onSubmit={handleSubmit}>
           <h3>{editingId ? 'Edycja harmonogramu' : 'Nowy harmonogram'}</h3>
@@ -170,8 +244,8 @@ export const Schedules: React.FC = () => {
             Rodzaj
             <select required value={form.type} onChange={(event) => updateForm('type', event.target.value)}>
               <option value="" disabled>Wybierz typ</option>
-              <option value={ScheduleType.CO}>CO</option>
-              <option value={ScheduleType.CWU}>CWU</option>
+              <option value={ScheduleType.CO}>CO Harmonogram</option>
+              <option value={ScheduleType.CWU}>CWU Harmonogram</option>
             </select>
           </label>
 
@@ -201,8 +275,8 @@ export const Schedules: React.FC = () => {
           </div>
 
           <div className="schedule-fields">
-            <label>Min. [°C]<input type="number" step="0.1" required value={form.minTemperature} onChange={(event) => updateForm('minTemperature', event.target.value)} /></label>
-            <label>Maks. [°C]<input type="number" step="0.1" required value={form.maxTemperature} onChange={(event) => updateForm('maxTemperature', event.target.value)} /></label>
+            <label>Min. [°C]<input type="number" step="0.1" value={form.minTemperature} onChange={(event) => updateForm('minTemperature', event.target.value)} /></label>
+            <label>Maks. [°C]<input type="number" step="0.1" value={form.maxTemperature} onChange={(event) => updateForm('maxTemperature', event.target.value)} /></label>
           </div>
 
           <label className="schedule-toggle">
@@ -217,12 +291,10 @@ export const Schedules: React.FC = () => {
           </label>
 
           <div className="schedule-form-actions">
-            <button type="submit" disabled={saving}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Dodaj harmonogram'}</button>
-            {editingId && (
-              <button type="button" className="schedule-cancel" onClick={resetForm}>
-                Anuluj
-              </button>
-            )}
+          <button type="submit" disabled={saving}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
+            <button type="button" className="schedule-cancel" onClick={resetForm}>
+              {editingId ? 'Anuluj' : 'Zamknij'}
+            </button>
           </div>
           {error && <p className="schedule-error">{error}</p>}
         </form>}
@@ -230,9 +302,11 @@ export const Schedules: React.FC = () => {
         <section className="schedule-card">
           <div className="schedule-list-header">
             <h3>Lista harmonogramów</h3>
-            <button type="button" onClick={() => setShowForm((current) => !current)}>
-              {showForm ? 'Ukryj formularz' : 'Dodaj nowy harmonogram'}
-            </button>
+            {!showForm && (
+              <button type="button" onClick={() => setShowForm(true)}>
+                Dodaj nowy harmonogram
+              </button>
+            )}
           </div>
           {loading ? <p>Ładowanie...</p> : schedules.length === 0 ? <p>Brak zdefiniowanych harmonogramów.</p> : (
             <div className="schedule-groups">
@@ -248,7 +322,7 @@ export const Schedules: React.FC = () => {
                           <span>{schedule.startTime} – {schedule.endTime}</span>
                         </div>
                         <div className="schedule-row-details">
-                          <span>{schedule.minTemperature} – {schedule.maxTemperature} °C</span>
+                          <span>{schedule.minTemperature ?? 'domyślna'} – {schedule.maxTemperature ?? 'domyślna'} °C</span>
                           <label className="schedule-status">
                             <input type="checkbox" checked={schedule.forceStart} readOnly aria-label="Start" />
                             Wymuś Start                            

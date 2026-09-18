@@ -1,17 +1,16 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { DeviceProperties, OperationEntry } from '../../api/type';
+import { OperationEntry } from '../../api/type';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../components/Notification';
 
 export const Settings: React.FC = () => {
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
-	const [temperatureDefaults, setTemperatureDefaults] = useState<DeviceProperties>({});
-	const [propertiesSaving, setPropertiesSaving] = useState(false);
 	const [saveNotice, setSaveNotice] = useState('');
 	const [error, setError] = useState<boolean>(false);
+
 	
 	const enableSave = useMemo(() => {
 		return Object.entries(valueOpration).length > 0;
@@ -28,30 +27,11 @@ export const Settings: React.FC = () => {
 				setError(true);
 			} 
 		);
-		HpRequests.getDeviceProperties()
-			.then((value) => setTemperatureDefaults(value ?? {}))
-			.catch(() => setError(true));
 	}, []);
-
-	const updateTemperatureDefault = (field: keyof DeviceProperties, value: string) => {
-		setTemperatureDefaults((current) => ({ ...current, [field]: value }));
-	};
 
 	const showSaveNotice = () => {
 		setSaveNotice('Dane zostały zapisane.');
 		window.setTimeout(() => setSaveNotice(''), 3000);
-	};
-
-	const handleSaveTemperatureDefaults = async () => {
-		setPropertiesSaving(true);
-		try {
-			await HpRequests.updateDeviceProperties(temperatureDefaults);
-			showSaveNotice();
-		} catch {
-			setError(true);
-		} finally {
-			setPropertiesSaving(false);
-		}
 	};
 
 	const handleSave = () => {
@@ -70,7 +50,7 @@ export const Settings: React.FC = () => {
 				})
 				.catch((err) => {
 					console.log(err);
-				} 
+				}
 			);
 		});
 	}
@@ -92,8 +72,8 @@ export const Settings: React.FC = () => {
 							defaultValue={defaultOperation.work_mode}
 						>
 							<option value="M">CO</option>
-							<option value="A">CO harmonogram</option>
-							<option value="CWU">CWU harmonogram</option>
+							<option value="A">CO Harmonogram</option>
+							<option value="CWU">CWU Harmonogram</option>
 							<option value="OFF">OFF</option>
 						</select>
 					</div>
@@ -136,7 +116,7 @@ export const Settings: React.FC = () => {
 							name="co_max"
 							placeholder={defaultOperation.co_max}
 							value={valueOpration.co_max}
-							onChange={(e) => setValueOperation({...valueOpration, co_max: e.target.value})}
+							onChange={(e) => setValueOperation({...valueOpration, co_max: e.currentTarget.value})}
 						/>
 					</div>
 
@@ -193,6 +173,17 @@ export const Settings: React.FC = () => {
 					</div>
 
 					<div style={{ minWidth: '240px' }}>
+						<span className="label">Pompa CO:</span>
+						<input
+							title="Pompa CO"
+							type="checkbox"
+							name="coPomp"
+							checked={(valueOpration.co_pomp ?? defaultOperation.co_pomp) === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, co_pomp: e.target.checked ? "1" : "0" })}
+						/>
+					</div>
+
+					<div style={{ minWidth: '240px' }}>
 						<span className="label">Pompa zimnej wody:</span>
 						<input
 							title="Pompa zimnej wody"
@@ -242,28 +233,6 @@ export const Settings: React.FC = () => {
 				</div>	
 				</div>
 
-			</section>
-			<h3>Domyślne ustawienia</h3>
-			<section>
-				<div className="resource">
-					<h3 className="settings-section-title">Domyślne ustawienia temperatur</h3>
-					<div className="settings-default-temperatures">
-						<div>
-							<span className="label">Temperatura CWU:</span>
-							<input className="temperature" type="number" value={temperatureDefaults.cwu_min ?? ''} onChange={(e) => updateTemperatureDefault('cwu_min', e.currentTarget.value)} />
-							<input className="temperature" type="number" value={temperatureDefaults.cwu_max ?? ''} onChange={(e) => updateTemperatureDefault('cwu_max', e.currentTarget.value)} />
-						</div>
-						<div >
-							<span className="label">Temperatura CO:</span>
-							<input className="temperature" type="number" value={temperatureDefaults.co_min ?? ''} onChange={(e) => updateTemperatureDefault('co_min', e.currentTarget.value)} />
-							<input className="temperature" type="number" value={temperatureDefaults.co_max ?? ''} onChange={(e) => updateTemperatureDefault('co_max', e.currentTarget.value)} />
-						</div>
-						<div className="settings-section-actions">
-			<button type="button" disabled={propertiesSaving} onClick={handleSaveTemperatureDefaults}>{propertiesSaving ? 'Zapisywanie...' : 'Zapisz'}</button>
-						</div>
-					</div>
-
-				</div>
 			</section>
 		</div>
 	);

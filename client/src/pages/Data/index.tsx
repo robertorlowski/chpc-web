@@ -12,8 +12,17 @@ import DateDict from '../../components/DateDict';
 import { fetchData, formatDateYMD } from '../../utils/utils';
 import { ClipLoader } from 'react-spinners';
 
+const formatDataWorkMode = (workMode?: string): string => (
+  workMode === 'A' || workMode === 'M' ? 'CO' : workMode || '---'
+);
+
 const columns: ColumnDef<THPL>[] = [
   { header: 'Data', accessorKey: 'time', minSize: 100, size: 100},
+  {
+    header: 'Praca',
+    accessorKey: 'work_mode',
+    cell: ({ getValue }) => formatDataWorkMode(getValue<string>()),
+  },
   { header: 'Watts', accessorKey: 'Watts' },
   { header: 'PV', accessorKey: 'pv' },
   { header: 'EEV pos', accessorKey: 'EEV_pos'},
@@ -38,7 +47,12 @@ export const HeatPumpTable: React.FC = () => {
 		setDownloading(true);
 		try {
 		const data = await HpRequests.getHpAllData();
-		const jsonData: THPL[] = data.map(row => ({ ...row.HP, time: row.time, pv: row.PV?.total_power ?? '' }));
+		const jsonData: THPL[] = data.map(row => ({
+			...row.HP,
+			time: row.time,
+			work_mode: formatDataWorkMode(row.work_mode),
+			pv: row.PV?.total_power ?? '',
+		}));
 		if (jsonData.length === 0) return;
 		const headers = Object.keys(jsonData[0]);
 		const csvContent = [headers.join(';'), ...jsonData.map(row => headers.map(field => {

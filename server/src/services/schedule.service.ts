@@ -2,6 +2,7 @@
 import { DeviceType, ScheduleEntry, WeekDay } from '../middleware/type';
 import { DeviceDocument, DeviceModel } from '../models/model';
 import { getDeviceById } from './device.service';
+import { getLocalDayOfWeek, isPolishDayOff } from './calendar.service';
 
 
 export async function saveSchedule(
@@ -133,7 +134,8 @@ export async function getSchedulesForDate(
   }
 
   const schedules = root?.schedules ?? [];
-  const dayOfWeek = selectedDate.getDay() as WeekDay;
+  const dayOfWeek = getLocalDayOfWeek(selectedDate) as WeekDay;
+  const dayOff = isPolishDayOff(selectedDate);
 
   const startOfDay = getStartOfDay(selectedDate);
   const endOfDay = getEndOfDay(selectedDate);
@@ -152,7 +154,11 @@ export async function getSchedulesForDate(
       !schedule.date &&
       (schedule.dayOfWeek === dayOfWeek ||
         schedule.dayOfWeek === WeekDay.ANY_DAY ||
-        (schedule.dayOfWeek === WeekDay.WORKDAYS && dayOfWeek >= WeekDay.MONDAY && dayOfWeek <= WeekDay.FRIDAY)),
+        (schedule.dayOfWeek === WeekDay.WORKDAYS
+          && dayOfWeek >= WeekDay.MONDAY
+          && dayOfWeek <= WeekDay.FRIDAY
+          && !dayOff) ||
+        (schedule.dayOfWeek === WeekDay.DAYS_OFF && dayOff)),
   );
 
   return [

@@ -4,6 +4,8 @@ export enum DeviceType {
   HP = 'heat_pump',
 }
 
+export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
+
 export enum ScheduleType {
   CWU = 'cwu',
   CO = 'co',
@@ -13,6 +15,7 @@ export enum ScheduleType {
 export enum WeekDay {
   ANY_DAY = -1,
   WORKDAYS = -2,
+  DAYS_OFF = -3,
   SUNDAY = 0,
   MONDAY = 1,
   TUESDAY = 2,
@@ -53,9 +56,11 @@ export interface ScheduleEntry {
    * Stan, który ma zostać ustawiony na urządzeniu.
    */
   forceStart: boolean;
+
+  /** Opcjonalna wartość historyczna; stan pompy CO ustala sterownik. */
   
-  minTemperature: number;
-  maxTemperature: number;
+  minTemperature?: number;
+  maxTemperature?: number;
 }
 
 export interface HpMetrics {
@@ -138,6 +143,7 @@ export interface SettingsEntry {
 export interface OperationEntry {
   force?: String,
   work_mode?: String,
+  co_pomp?: String,
   sump_heater?: String,
   cold_pomp?: String,
   hot_pomp?: String,
@@ -155,6 +161,7 @@ export interface DeviceProperties {
   co_max?: String;
   cwu_min?: String;
   cwu_max?: String;
+  work_mode?: WorkMode;
 }
 
 export interface Device {

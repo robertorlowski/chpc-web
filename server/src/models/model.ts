@@ -96,6 +96,11 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
     co_max: { type: String },
     cwu_min: { type: String },
     cwu_max: { type: String },
+    work_mode: {
+      type: String,
+      enum: ['M', 'A', 'CWU', 'OFF'],
+      default: 'CWU',
+    },
   },
   { _id: false }
 );
@@ -147,12 +152,10 @@ const ScheduleEntrySchema = new Schema<ScheduleEntry>(
 
     minTemperature: {
       type: Number,
-      required: true,
     },
 
     maxTemperature: {
       type: Number,
-      required: true,
     }
   },
   {

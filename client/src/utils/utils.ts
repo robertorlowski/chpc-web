@@ -26,6 +26,7 @@ export const fetchData = async (
     .map<THPL>(row => ({
       ...(row.HP as THPL),
       time: row.time,
+      work_mode: row.work_mode,
       pv: row.PV?.total_power,
       t_out: row.t_out
     }));

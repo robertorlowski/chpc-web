@@ -12,7 +12,9 @@ export async function getProperties(req: Request, res: Response) {
 
 export async function updateProperties(req: Request<{}, {}, DeviceProperties>, res: Response) {
   try {
-    return res.status(200).json(await updateDeviceProperties(req.deviceRootId as string, req.body));
+    const rootId = req.deviceRootId as string;
+    const properties = await updateDeviceProperties(rootId, req.body);
+    return res.status(200).json(properties);
   } catch (error) {
     return res.status(400).json({ message: String(error) });
   }
