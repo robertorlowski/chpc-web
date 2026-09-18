@@ -175,9 +175,9 @@ const HP: React.FC = () => {
                   <td className="field">{_hp?.WWatt || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">CO:</td>
+                  <td className="label">Pompa ciepła:</td>
                   <td className="field">
-                      <img title="Cold circle state" src={_hp?.CO ? swith_on : swith_off} />
+                      <img title="Właćzuna " src={_hp?.CO ? swith_on : swith_off} />
                   </td>
                 </tr>
               </tbody>

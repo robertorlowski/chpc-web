@@ -5,6 +5,8 @@ import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
 import { prepareMeteoData } from './services/meteo.service';
 import { startScheduler } from './services/scheduler.service';
+import { getDefaultDeviceRootId } from './services/device.service';
+import { assignLegacyHpData } from './services/hp.service';
 
 
 const server = http.createServer(app);
