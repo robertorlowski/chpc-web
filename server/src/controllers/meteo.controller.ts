@@ -1,10 +1,10 @@
-import { getTemperatureData } from "../services/meteo.service";
+import { getTemperature as getTemperatureData } from "../services/meteo.service";
 import { Request, Response } from 'express'
 
 export async function getTemperature(req: Request, res: Response) {
   try {
     console.log("Get temperature data");
-    const result = await getTemperatureData();
+    const result = getTemperatureData();
     return res.status(200).send( {temperature: result } );
 
   } catch (error) {

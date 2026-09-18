@@ -1,7 +1,7 @@
-import { getTemperature } from '../middleware/openmeteo';
 import { HpEntry } from '../middleware/type';
 import { sendMessage } from '../middleware/webSocet';
 import { DeviceModel, HpEntryModel } from '../models/model';
+import { getTemperature } from './meteo.service';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 const lastDataByRoot = new Map<string, HpEntry>();

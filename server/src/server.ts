@@ -3,9 +3,8 @@ import http from 'http';
 import app from './middleware/app'
 import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
-import { getTemperature, prepareMeteoData } from './middleware/openmeteo';
-import { getDefaultDeviceRootId } from './services/device.service';
-import { assignLegacyHpData } from './services/hp.service';
+import { prepareMeteoData } from './services/meteo.service';
+
 
 const server = http.createServer(app);
 createWsServer(server);
