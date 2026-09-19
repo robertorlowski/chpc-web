@@ -105,8 +105,8 @@ const HP: React.FC = () => {
                   <tr>
                     <td className="label">CWU pompa:</td>
                     <td>
-                      {_hp?.CWUS === undefined ? '---' : (
-                        <img title="CWU circle state" src={_hp?.CWUS ? swith_on : swith_off} />
+                      {_data?.cwu_pomp === undefined ? '---' : (
+                        <img title="CWU pump" src={_data.cwu_pomp ? swith_on : swith_off} />
                       )}
                     </td>
                   </tr>

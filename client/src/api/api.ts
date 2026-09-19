@@ -157,6 +157,10 @@ export class HpRequests {
       return Requests.get("/hp/all");
   } 
 
+  static getHpAvailableDates(): Promise<string[] | null> {
+      return Requests.get('/hp/dates');
+  }
+
   static getHpData4Day(day?: string, endDay?: string) : Promise<HpEntry[]> {
       if (!day || (endDay && !day)) {
         return Promise.resolve([])

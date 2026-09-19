@@ -70,28 +70,77 @@
 }
 
 .energy-summary {
-  text-align: center;
-  margin: 12px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  min-height: 24px;
+  margin: 12px 0 30px;
 }
 
-.recharts-legend-wrapper {
-  text-align: center;
+.energy-summary span {
+  white-space: nowrap;
 }
 
 .custom-legend {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 8px;
   flex-wrap: wrap;
   margin-top: 12px;
   text-align: center;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.chart-legend-bottom {
+  width: 100%;
+  min-height: 40px;
 }
 
 .custom-legend span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.chart-tooltip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.96);
+
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(196, 190, 190, 0.12);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.chart-tooltip-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-tooltip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.chart-tooltip-color {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
 }
 
 .legend-color {
@@ -127,5 +176,13 @@
 
 .target-color {
   background: #ec1b4f;
+}
+
+@media (max-width: 600px) {
+  .custom-legend {
+    column-gap: 10px;
+    row-gap: 6px;
+    font-size: 14px;
+  }
 }
 

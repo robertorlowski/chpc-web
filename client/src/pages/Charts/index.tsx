@@ -8,7 +8,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts';
@@ -26,6 +25,7 @@ type ChartPeriod = 'day' | 'month' | 'year';
 
 type ChartPoint = {
   time: string;
+  timeValue?: number;
   Watts?: number;
   pv?: number;
   cost?: number;
@@ -125,6 +125,106 @@ const getMonthName = (month: number): string => {
   return String(month + 1);
 };
 
+const getTimeValue = (time: string): number => {
+  const match = time.match(/[ T](\d{2}):(\d{2})/);
+  if (!match) return 0;
+
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const formatTimeValue = (value: number): string => {
+  const minutes = Math.max(0, Math.min(24 * 60, Math.round(value)));
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(restMinutes).padStart(2, '0')}`;
+};
+
+const dayTicks = Array.from({ length: 13 }, (_, index) => index * 120);
+
+const getDayTicks = (endMinutes: number): number[] => {
+  const ticks = dayTicks.filter((tick) => tick < endMinutes);
+
+  if (endMinutes > 0 && !ticks.includes(endMinutes)) {
+    ticks.push(endMinutes);
+  }
+
+  return ticks;
+};
+
+const formatTooltipLabel = (name: unknown): string => ({
+  Watts: 'Energia pob.',
+  pv: 'PV',
+  cost: 'Koszt',
+  Tbe: 'T. przed parownikiem',
+  Tae: 'T. za parownikiem',
+  Tho: 'T. wody wyj.',
+  Ttarget: 'T. docelowa',
+  'Energia pob. [W]': 'Energia pob.',
+  'PV [W]': 'PV',
+  'Koszt [PLN]': 'Koszt',
+  'Energia pobrana [kWh]': 'Energia pobrana',
+  'PV [kWh]': 'PV [kWh]',
+}[String(name)] ?? String(name));
+
+const formatTooltipValue = (item: ChartTooltipItem, isDay: boolean): string => {
+  const dataKey = String(item.dataKey ?? item.name);
+  const value = String(item.value ?? '---');
+  const unit = dataKey === 'cost'
+    ? 'PLN'
+    : ['Tbe', 'Tae', 'Tho', 'Ttarget'].includes(dataKey)
+      ? '\u00B0C'
+      : dataKey === 'Watts' || dataKey === 'pv'
+        ? (isDay ? 'W' : 'kWh')
+        : '';
+
+  return unit ? `${value}${unit}` : value;
+};
+
+type ChartTooltipItem = {
+  dataKey?: string | number;
+  name?: string | number;
+  value?: unknown;
+  color?: string;
+};
+
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: ChartTooltipItem[];
+  label?: string | number;
+  isDay: boolean;
+  allData: boolean;
+};
+
+const ChartTooltip: React.FC<ChartTooltipProps> = ({
+  active,
+  payload,
+  label,
+  isDay,
+  allData,
+}) => {
+  if (!active || !payload?.length) return null;
+
+  const labelText = isDay && allData
+    ? formatTimeValue(Number(label))
+    : String(label ?? '');
+
+  return (
+    <div className="chart-tooltip">
+      <span className="chart-tooltip-label">{labelText}</span>
+      {payload.map((item, index) => (
+        <span className="chart-tooltip-item" key={`${String(item.dataKey ?? item.name)}-${index}`}>
+          <i
+            className="chart-tooltip-color"
+            style={{ backgroundColor: item.color ?? '#666' }}
+          />
+          {formatTooltipLabel(item.dataKey ?? item.name)}:{' '}{formatTooltipValue(item, isDay)}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 export const HeatPumpChart: React.FC = () => {
   const [filteredData, setFilteredData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -140,10 +240,23 @@ export const HeatPumpChart: React.FC = () => {
   const [cPV, setPV] = useState(false);
   const [cCost, setCostVisible] = useState(true);
   const [cost, setCost] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const selected = parseSelectedDate(selectedDate);
   const selectedYear = selected.getFullYear();
   const selectedMonth = selected.getMonth();
+  const isCurrentDay = selectedDate === formatDateYMD(currentTime);
+  const currentDayEnd = currentTime.getHours() * 60 + currentTime.getMinutes();
+  const dayEndMinutes = isCurrentDay ? Math.max(currentDayEnd, 1) : 24 * 60;
+  const visibleDayTicks = getDayTicks(dayEndMinutes);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const years = Array.from(
     { length: 4 },
@@ -291,6 +404,7 @@ export const HeatPumpChart: React.FC = () => {
             .sort((a, b) => a.time.localeCompare(b.time))
             .map((row) => ({
               ...row,
+              timeValue: getTimeValue(row.time),
               time: row.time.split(' ')[1]?.slice(0, 5) || row.time,
               Tbe: row.Tbe != null ? Number(row.Tbe) : undefined,
               Tae: row.Tae != null ? Number(row.Tae) : undefined,
@@ -328,9 +442,9 @@ export const HeatPumpChart: React.FC = () => {
   const renderLegend = () => (
     <div className="custom-legend">
       {cPower && (
-        <span>
-          <i className="legend-color power-color" />
-          Energia pob.
+          <span>
+            <i className="legend-color power-color" />
+            Energia pob.
         </span>
       )}
 
@@ -344,7 +458,7 @@ export const HeatPumpChart: React.FC = () => {
       {!isDay && cCost && (
         <span>
           <i className="legend-color cost-color" />
-          Koszt [PLN]
+          Szcowany koszt [PLN]
         </span>
       )}
 
@@ -352,19 +466,19 @@ export const HeatPumpChart: React.FC = () => {
         <>
           <span>
             <i className="legend-color tbe-color" />
-            Temp. przed parownikiem
+            T. przed parownikiem
           </span>
           <span>
             <i className="legend-color tae-color" />
-            Temp. za parownikiem 
+            T. za parownikiem
           </span>
           <span>
             <i className="legend-color tho-color" />
-            Temp. wody wyj.
+            T. wody wyj.
           </span>
           <span>
             <i className="legend-color target-color" />
-            Temperatura docelowa
+            T. docelowa
           </span>
         </>
       )}
@@ -490,15 +604,29 @@ export const HeatPumpChart: React.FC = () => {
       </div>
 
       <div className="energy-summary">
+        <span>
         Zużycie: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh
-        <br />
+        </span>
+        <span>
         Koszt: {cost.toFixed(2)} PLN
+        </span>
       </div>
 
       <ResponsiveContainer width="100%" height="75%">
         {isDay ? <LineChart data={filteredData}>
           <CartesianGrid strokeDasharray="1 1" />
-          <XAxis dataKey="time" />
+          {allData ? (
+            <XAxis
+              type="number"
+              dataKey="timeValue"
+              domain={[0, dayEndMinutes]}
+              ticks={visibleDayTicks}
+              tickFormatter={formatTimeValue}
+              allowDataOverflow={false}
+            />
+          ) : (
+            <XAxis dataKey="time" />
+          )}
           <YAxis
             yAxisId="left"
             label={{
@@ -516,9 +644,12 @@ export const HeatPumpChart: React.FC = () => {
               position: 'insideRight',
             }}
           />
-          <Tooltip />
-          <Legend content={renderLegend} />
-
+          <Tooltip
+            content={<ChartTooltip isDay={isDay} allData={allData} />}
+            position={{ x: 0, y: -30 }}
+            allowEscapeViewBox={{ x: false, y: true }}
+            wrapperStyle={{ width: '100%', pointerEvents: 'none' }}
+          />
           <Line
             yAxisId="right"
             type="monotone"
@@ -556,7 +687,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tbe"
-            name="Temp. przed parownikiem [°C]"
+            name="T. przed parownikiem [°C]"
             stroke="#463de0"
             strokeWidth={1}
             dot={{ r: 1 }}
@@ -568,7 +699,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tae"
-            name="Temp. za parownikiem [°C]"
+            name="T. za parownikiem [°C]"
             stroke="#0ace55"
             strokeWidth={1}
             dot={{ r: 1 }}
@@ -580,7 +711,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Tho"
-            name="Temp. wody wyj. [°C]"
+            name="T. wody wyj. [°C]"
             stroke="#c4922f"
             strokeWidth={1}
             dot={{ r: 1 }}
@@ -592,7 +723,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             type="monotone"
             dataKey="Ttarget"
-            name="Temperatura docelowa [°C]"
+            name="T. docelowa [°C]"
             stroke="#ec1b4f"
             strokeWidth={1}
             dot={{ r: 1 }}
@@ -619,8 +750,12 @@ export const HeatPumpChart: React.FC = () => {
               position: 'insideRight',
             }}
           />
-          <Tooltip />
-          <Legend content={renderLegend} />
+          <Tooltip
+            content={<ChartTooltip isDay={false} allData={allData} />}
+            position={{ x: 0, y: -48 }}
+            allowEscapeViewBox={{ x: false, y: true }}
+            wrapperStyle={{ width: '100%', pointerEvents: 'none' }}
+          />
           <Bar
             yAxisId="left"
             dataKey="Watts"
@@ -650,6 +785,9 @@ export const HeatPumpChart: React.FC = () => {
           />
         </ComposedChart>}
       </ResponsiveContainer>
+      <div className="chart-legend-bottom">
+        {renderLegend()}
+      </div>
     </div>
   );
 };

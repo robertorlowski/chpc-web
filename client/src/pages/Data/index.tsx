@@ -25,7 +25,7 @@ const columns: ColumnDef<THPL>[] = [
   },
   { header: 'Watts', accessorKey: 'Watts' },
   { header: 'PV', accessorKey: 'pv' },
-  { header: 'EEV pos', accessorKey: 'EEV_pos'},
+  { header: 'EEV', accessorKey: 'EEV_pos'},
   { header: 'ΔT', accessorKey: 'EEV_dt' },
   { header: 'T. be', accessorKey: 'Tbe'},
   { header: 'T. ae', accessorKey: 'Tae' },
@@ -163,7 +163,7 @@ export const HeatPumpTable: React.FC = () => {
 				key={header.id}
 				style={
 						header.index == 0 ? {
-						padding: '10px 12px',
+						padding: '9px 9px',
 						borderBottom: '1px solid #ddd',
 						textAlign: 'left',
 						fontWeight: 600,
@@ -175,7 +175,7 @@ export const HeatPumpTable: React.FC = () => {
 						width: 60
 					} :
 					{
-						padding: '10px 12px',
+						padding: '9px 9px',
 						borderBottom: '1px solid #ddd',
 						textAlign: 'left',
 						fontWeight: 600,
@@ -217,18 +217,20 @@ export const HeatPumpTable: React.FC = () => {
 				key={cell.id}
 				style={
 						cell.column.getIndex() == 0 ? {
-						padding: '10px 12px',
+						padding: '9px 9px',
 						borderBottom: '1px solid #eee',
 						color: '#333',
+						textAlign: 'center',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
 						width: 60
 					}
 					:
 					{
-						padding: '10px 12px',
+						padding: '9px 9px',
 						borderBottom: '1px solid #eee',
 						color: '#333',
+						textAlign: 'center',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
 						width: 40

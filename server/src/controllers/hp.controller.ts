@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { fromZonedTime } from "date-fns-tz";
 import { addDays } from "date-fns";
-import { addHpData, getHpLastData, getHpAllData, clearData, getHpDataForDay } from '../services/hp.service'
+import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
@@ -64,6 +64,16 @@ export async function getHpAll(req: Request, res: Response) {
   } catch (error) {
     console.log(error)
     return res.status(500).send({ message: error })
+  }
+}
+
+export async function getHpAvailableDates(req: Request, res: Response) {
+  try {
+    const dates = await getCachedHpAvailableDates(req.deviceRootId as string);
+    return res.status(200).json(dates);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: String(error) });
   }
 }
 

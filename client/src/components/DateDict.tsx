@@ -1,68 +1,73 @@
-import './style.css'
-import React, { useEffect, useMemo, useState } from "react";
-import { formatDateYMD, stringToDate } from "../utils/utils";
+import './style.css';
+import React, { useEffect, useState } from 'react';
+import { HpRequests } from '../api/api';
 
 export type DateDropdownProps = {
-  /** Wywoływane przy każdej zmianie; przekazuje datę w formacie YYYY.MM.DD */
+  /** Wywoływane przy każdej zmianie; przekazuje datę w formacie YYYY.MM.DD. */
   onDateChange?: (value: string) => void;
   initValue?: string;
   id?: string;
   style?: React.CSSProperties;
 };
 
-const generateDates = (start: Date, end: Date): Date[] => {
-  const out: Date[] = [];
-  const cur = new Date(start);
-  // zerujemy czas, żeby porównania <= działały przewidywalnie
-  cur.setHours(0, 0, 0, 0);
-  const endCopy = new Date(end);
-  endCopy.setHours(0, 0, 0, 0);
-
-  while (cur <= endCopy) {
-    out.push(new Date(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return out;
-};
-
-export default function DateDict({id, initValue, onDateChange, style }: DateDropdownProps) {
-  const startDate = useMemo(() => new Date(2025, 7, 15), []); // 15.08.2025 (miesiące: 0-index)
-  const today = useMemo(() => {
-    const t = !!initValue ? stringToDate(initValue) : new Date();
-    t.setHours(0, 0, 0, 0);
-    return t;
-  }, []);
-
-  const dates = useMemo<Date[]>(() => {
-    // Pozwól wyświetlić również datę przekazaną przez rodzica, nawet jeśli
-    // jest wcześniejsza niż początek dostępnych danych.
-    const firstDate = today < startDate ? today : startDate;
-    return generateDates(firstDate, today);
-  }, [startDate, today]);
-
-  // domyślnie wybrany dzień bieżący
-  const [selectedDate, setSelectedDate] = useState<string>( formatDateYMD(today));
+export default function DateDict({ id, initValue, onDateChange, style }: DateDropdownProps) {
+  const [dates, setDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState(initValue ?? '');
 
   useEffect(() => {
-    if (initValue) {
+    let active = true;
+
+    const loadDates = async () => {
+      const availableDates = await HpRequests.getHpAvailableDates();
+      if (!active) return;
+
+      const uniqueDates = Array.from(new Set(availableDates ?? [])).sort().reverse();
+      setDates(uniqueDates);
+
+      const nextDate = initValue && uniqueDates.includes(initValue)
+        ? initValue
+        : uniqueDates[0] ?? '';
+
+      setSelectedDate(nextDate);
+      if (nextDate && nextDate !== initValue) {
+        onDateChange?.(nextDate);
+      }
+    };
+
+    loadDates();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (initValue && dates.includes(initValue)) {
       setSelectedDate(initValue);
     }
-  }, [initValue]);
+  }, [dates, initValue]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedDate(e.target.value);
-    onDateChange?.(e.target.value); 
-};
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedDate(event.target.value);
+    onDateChange?.(event.target.value);
+  };
 
   return (
-    <select id={id} value={selectedDate} 
+    <select
+      id={id}
+      value={selectedDate}
       className="dateDict"
       style={style}
-      onChange={handleChange}>
-      {dates.map((date) => {
-        const v = formatDateYMD(date);
-        return <option key={v} value={v}>{v}</option>;
-      })}
+      onChange={handleChange}
+      disabled={dates.length === 0}
+    >
+      {dates.length === 0 ? (
+        <option value="">Brak danych</option>
+      ) : (
+        dates.map((date) => (
+          <option key={date} value={date}>{date}</option>
+        ))
+      )}
     </select>
   );
 }

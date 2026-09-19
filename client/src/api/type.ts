@@ -108,7 +108,7 @@ export type HpEntry = {
   PV: PvMetrics,
   time: string,
   co_pomp: boolean,
-  cwu_pomp: Boolean,
+  cwu_pomp?: boolean,
   pv_power: boolean,
   schedule_on: boolean,
   work_mode: string,

@@ -2,9 +2,12 @@ import { HpEntry } from '../middleware/type';
 import { sendMessage } from '../middleware/webSocet';
 import { DeviceModel, HpEntryModel } from '../models/model';
 import { getTemperature } from './meteo.service';
+import { formatInTimeZone } from 'date-fns-tz';
+import { TIME_ZONE } from './calendar.service';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 const lastDataByRoot = new Map<string, HpEntry>();
+const availableDatesByRoot = new Map<string, Set<string>>();
 const deviceInfoByRoot = new Map<string, {
   deviceType: HpEntry['deviceType'];
   deviceId: string;
@@ -49,8 +52,42 @@ export const assignLegacyHpData = async (rootId: string) => {
 export const clearData = async (rootId: string) => {
   await HpEntryModel.deleteMany({ rootId });
   lastDataByRoot.delete(rootId);
+  availableDatesByRoot.delete(rootId);
   deviceInfoByRoot.delete(rootId);
 }
+
+export const getHpAvailableDates = async (rootId: string): Promise<string[]> => {
+  const cachedDates = availableDatesByRoot.get(rootId);
+  if (cachedDates) {
+    return Array.from(cachedDates).sort().reverse();
+  }
+
+  const result = await HpEntryModel.aggregate<{ date: string }>([
+    {
+      $match: {
+        rootId,
+        createdAt: { $exists: true },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: '%Y.%m.%d',
+            date: '$createdAt',
+            timezone: TIME_ZONE,
+          },
+        },
+      },
+    },
+    { $project: { _id: 0, date: '$_id' } },
+  ]);
+
+  const dates = new Set(result.map(({ date }) => date));
+  availableDatesByRoot.set(rootId, dates);
+
+  return Array.from(dates).sort().reverse();
+};
 
 export const getHpLastData = async (rootId: string) => {
 
@@ -116,6 +153,14 @@ export const addHpData = async (rootId: string, data :HpEntry) => {
   lastDataByRoot.set(rootId, dataWithRoot);
   
   const doc = await HpEntryModel.create(dataWithRoot);
+
+  const cachedDates = availableDatesByRoot.get(rootId);
+  if (cachedDates) {
+    const createdAt = (doc as unknown as { createdAt?: Date }).createdAt ?? new Date();
+    const date = formatInTimeZone(createdAt, TIME_ZONE, 'yyyy.MM.dd');
+    cachedDates.add(date);
+  }
+
   sendMessage('update', rootId);
   return doc;
 }
