@@ -32,10 +32,11 @@ export const sendMessage = async (message: String, rootId: string) => {
  if (!message) {
     return;
   }
+  const payload = JSON.stringify({ type: String(message), rootId });
   setTimeout(() => {
     espClients.forEach((clientRootId, client) => {
       if (clientRootId === rootId && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+        client.send(payload);
       }
     });
   }, 1000);

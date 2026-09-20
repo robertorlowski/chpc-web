@@ -34,8 +34,10 @@ const HP: React.FC = () => {
     if (device) wsUrl.searchParams.set('rootId', device.rootId);
     ws.current = new WebSocket(wsUrl.toString());
     ws.current.onmessage = (event) => {
-      // Sprawdź, czy komunikat to info o zmianie danych
-      if (event.data === 'update') {
+      try {
+        const message = JSON.parse(event.data) as { type?: string; rootId?: string };
+        if (message.type !== 'update' || message.rootId !== device?.rootId) return;
+
         // pobierz aktualne dane z REST API
         HpRequests.getCoData()
           .then(resp => {
@@ -44,6 +46,8 @@ const HP: React.FC = () => {
             setPV(resp?.PV);
           })
           .catch(err => console.error('Błąd przy pobieraniu danych:', err));
+      } catch (error) {
+        console.error('Nieprawidłowy komunikat WebSocket:', error);
       }
     };
     return () => {
