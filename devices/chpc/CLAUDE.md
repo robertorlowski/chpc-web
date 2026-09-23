@@ -115,3 +115,54 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 
 - `0x04` above `T_SETPOINT_MAX` and `0x05` above `T_DELTA_MAX` are silently ignored.
 - With `RS485_HUMAN`, `PrintS_and_D()` also writes status and error text to the bus without being asked (for example "Err: x" every second while `errorcode != 0`). That breaks the rule against sending unrequested data and can corrupt HP or PV reads.
+
+## Cloud path: `co` ⇄ `chpc-web`
+
+The data from this firmware continues to a web app, `D:\DevLocal\arduino_src\chpc-web` (its own git repo). It has an Express + TypeScript + Mongoose server in `server/src`, a React + Vite client in `client/src`, and a system description in `SYSTEM-LOGIC.md`. It is deployed at `https://chpc-web.onrender.com`. The whole chain is **chpc ⇄ RS-485 ⇄ co ⇄ HTTPS/WebSocket ⇄ chpc-web**. A change to any field has to be followed through all three repos. On the `co` side, the relevant files are `src/cloud_client.cpp`, `telemetry.cpp`, `operation_parser.cpp` and `operation_controller.cpp`.
+
+**Telemetry.** `co` sends `POST /api/hp/add?rootId=<id>` every 10 s while the compressor runs and every 30 s when idle. The body contains:
+- `HP`: the JSON from `StatsSerial()`, forwarded unchanged;
+- `PV`: the inverter data;
+- `time` as `"YYYY.MM.DD HH:MM:SS"`;
+- `work_mode`, `co_min`, `co_max`, `cwu_min`, `cwu_max`, `co_pomp`, `cwu_pomp`, `pv_power`, `controller_mode`;
+- COP estimates (`cop`, `cop_min`, `cop_max`, `t_min`, `t_max`, `cop_bottom_start`), computed by `co` from `HPS`, `Tho`, `Ttarget`, `lt_pow` and `lt_hp_on`;
+- diagnostic counters (`serial_read_timeout`, `hp_json_error`, `pv_crc_error`, `cloud_*`, `operation_validation_error`…).
+
+The server saves a record only when `HP.Ttarget` is truthy. It adds `t_out` (outdoor temperature from a weather API) and pushes a WebSocket `"update"` to browsers.
+
+**The Mongo schema is strict** (`server/src/models/model.ts`), so any key it does not list is silently dropped. That includes `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` and **all diagnostic counters**. The latest raw body stays available through `GET /api/hp`, which serves an in-memory cache, until the server restarts. **A new telemetry key must be added to the schema, the TS types `server/src/middleware/type.ts` and `client/src/api/type.ts`, and the client views**, or it will not be stored or shown.
+
+**Operation.** The response to every POST is `{"operation":{…}}`. **All values are strings**, e.g. `"1"`, `"45"`. The keys are:
+- `work_mode`: `M`, `A`, `CWU`, `OFF`. `co` also accepts `PV`, which the server never sends.
+- `force`, `co_pomp`, `hot_pomp`, `cold_pomp`, `sump_heater`: `"0"` or `"1"`.
+- `co_min`, `co_max`, `cwu_min`, `cwu_max`;
+- `working_watt`, `eev_max_pulse_open`, `eev_setpoint`.
+
+Where the values come from:
+- **Scheduler** (every 60 s): `work_mode`, `force` and the temperatures, from device defaults or the active schedule.
+- **Manual overrides** from the `/settings` page (`POST /api/operation/set`): any key. They win over the scheduler, are re-sent on every POST, live only in server memory, and are cleared when an active schedule ends.
+
+`co` parses the operation and turns changed values into RS-485 commands:
+- `co_max` / `cwu_max` → `0x04`;
+- max − min → `0x05`;
+- `working_watt` → `0x0E`;
+- `eev_*` → `0x0D` / `0x08`;
+- pumps and force → `0x09`–`0x0B`, `0x03`;
+- work mode → `0x0C` plus `co`'s own CO/CWU relays.
+
+`co` sends each value only once, and does not resend it until it changes.
+
+**Validation happens in three places, each silently:**
+- `chpc-web` checks nothing: neither the UI nor `/operation/set` has range checks.
+- `co` rounds `co_*`/`cwu_*` to whole degrees in 1–50, and accepts `working_watt` 0–25599, `eev_max_pulse_open` 0–255 and `eev_setpoint` 0–255.99.
+- CHPC applies its own limits (see the RS-485 table).
+
+A value rejected downstream still shows as "set" in the web UI. Compare it with the telemetry (`WWatt`, `EEVmax`, `Tmax`) to see what the pump really uses.
+
+**Known mismatches** (as of 2026-09-24):
+- `co` waits for a WebSocket message `{type:"operation"}` to post at once, but the server only ever sends `"update"`. Settings therefore reach the pump at the next periodic POST, 10–30 s later.
+- The client shows `lt_pow` with a "W" unit, but the value is Wh.
+- The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) expects `YYYY-MM-DD` timestamps, while `co` sends `YYYY.MM.DD`.
+- No error state from CHPC (sensor error, `Error x5`, `Err. RY`) reaches the cloud, because the JSON has no error field.
+- The server's API-key check (`verifyApiKey`) is disabled in `server/src/middleware/app.ts`. `POST /api/operation/set` is open and unvalidated.
+- `chpc-web` has no test for `POST /api/hp/add` or the WebSocket. Its tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler.
