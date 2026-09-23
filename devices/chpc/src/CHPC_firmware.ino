@@ -1377,9 +1377,6 @@ void setup(void) {
     // }
 
     co_on = ReadIntEEPROM(eeprom_addr_co);
-    if (isnan(co_on)) {
-      co_on = 1;
-    }
 
     // cwu_on = ReadIntEEPROM(eeprom_addr_cwu_on);
     // if (isnan(cwu_on)) {
@@ -1392,12 +1389,12 @@ void setup(void) {
     }
 
     EEV_MAXPULSES_OPEN = ReadIntEEPROM(eeprom_addr_EEV_MAX);
-    if (isnan(EEV_MAXPULSES_OPEN) || EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS || EEV_MAXPULSES_OPEN > xEEV_MAXPULSES_OPEN) {
+    if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS || EEV_MAXPULSES_OPEN > xEEV_MAXPULSES_OPEN) {
       EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
     }
 
     c_wattage_max = ReadIntEEPROM(eeprom_addr_WATT);
-    if (isnan(c_wattage_max) || c_wattage_max <= c_wattage_max_min) {
+    if (c_wattage_max <= c_wattage_max_min || c_wattage_max > MAX_WATTS_LIMIT) {
       c_wattage_max = MAX_WATTS;
     }
     // Tcwu_setpoint = ReadFloatEEPROM(eeprom_addr_cwu);
