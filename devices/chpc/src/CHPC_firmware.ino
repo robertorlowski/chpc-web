@@ -2293,17 +2293,19 @@ void loop(void) {
           }
           break;
         case 0x04:
-          if (((int(inData[2]) + int(inData[3]) / 100) < 0) || ((int(inData[2]) + int(inData[3]) / 100) > cT_setpoint_max)) {
+          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          if (tempdouble < 0 || tempdouble > cT_setpoint_max) {
             break;
           }
-          T_setpoint = int(inData[2]) + int(inData[3]) / 100;
+          T_setpoint = tempdouble;
           SaveSetpointEE(1);
           break;
         case 0x05:
-          if ((int(inData[2]) + int(inData[3]) / 100) > cT_delta_max || (int(inData[2]) + int(inData[3]) / 100) < 0) {
+          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          if (tempdouble > cT_delta_max || tempdouble < 0) {
             break;
           }
-          T_delta = double(int(inData[2])) + double(int(inData[3]) / 100);
+          T_delta = tempdouble;
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);
           break;
         case 0x07:
