@@ -52,6 +52,8 @@
 #define T_COLD_MIN -2.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
 #define T_HOTOUT_MAX 60.0;             //hot loop: stop if outlet temperature higher than this
 #define T_WORKINGOK_SUMP_MIN 3.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
+#define T_FROST_ON 0.0      //przy wyłączonej sprężarce: obieg gorący włączany, gdy któryś czujnik <= tej temperatury
+#define T_FROST_OFF 2.0     //i wyłączany, gdy wszystkie czujniki >= tej temperatury
 
 //-----------------------TUNING OPTIONS -----------------------
 #define MAX_WATTS 3200  //3700.0  //user for power protection
@@ -83,12 +85,18 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
 #define EEV_CLOSE_ADD_PULSES 8  //read below, close algo
-#define EEV_OPEN_AFTER_CLOSE 45
+#define xEEV_OPEN_AFTER_CLOSE 45
 //0 - close to zero position, than close on EEV_CLOSE_ADD_PULSES (close insurance, read EEV manuals for this value)
 //N - close to zero position, than close on EEV_CLOSE_ADD_PULSES, than open on EEV_OPEN_AFTER_CLOSE pulses
 //i.e. it is "waiting position" while HP not working
-#define EEV_MINWORKPOS 49 //52 04.07->37
+#define xEEV_MINWORKPOS 49 //52 04.07->37  //domyślne minimum, zmieniane przyciskami (EEPROM)
+#define EEV_MINWORKPOS_LOW 25   //najniższe minimum możliwe do ustawienia przyciskami
+int EEV_MINWORKPOS = xEEV_MINWORKPOS;
 // position will be not less during normal work, set after compressor start
+//pozycja oczekiwania musi być zawsze mniejsza od minimum pracy: przy niższym minimum
+//obniża się razem z nim, z odstępem EEV_WAIT_BELOW_MIN (domyślnie 49 -> 45)
+#define EEV_WAIT_BELOW_MIN 4
+#define EEV_OPEN_AFTER_CLOSE ((EEV_MINWORKPOS - EEV_WAIT_BELOW_MIN < xEEV_OPEN_AFTER_CLOSE) ? EEV_MINWORKPOS - EEV_WAIT_BELOW_MIN : xEEV_OPEN_AFTER_CLOSE)
 #define EEV_PRECISE_START 4
 //T difference, threshold: make slower pulses if (real_diff-target_diff) less than this value. Used for fine auto-tuning.
 // #define EEV_EMERG_DIFF 2.5
@@ -113,6 +121,7 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 #define eeprom_addr_EEV_setpoint 0x78
 #define eeprom_addr_dT 0x82
 #define eeprom_addr_WATT 0x86
+#define eeprom_addr_EEV_MIN 0x8A
 
 //#define eeprom_addr_cwu 0x86
 
@@ -460,6 +469,7 @@ bool heatpump_state = 0;
 bool hotside_circle_state = 0;
 bool coldside_circle_state = 0;
 bool sump_heater_state = 0;
+bool frost_protect = 0;  //obieg gorący włączony przez ochronę przed zamarzaniem
 //bool cwu_state = 0;
 bool start_force = 0;
 
@@ -528,6 +538,8 @@ unsigned int error_count = 0;
 #define INPUT_TYPE_COLD_POMP_ON 6
 #define INPUT_TYPE_SUMP_HEATER_ON 7
 #define INPUT_TYPE_WATT 8
+#define INPUT_TYPE_EEV_MIN 9
+#define INPUT_TYPES 10
 
 int input_type = INPUT_TYPE_CO;
 
@@ -707,10 +719,24 @@ void Inc_EEV(void) {
 }
 
 void Dec_EEV(void) {
-  if (EEV_MAXPULSES_OPEN - 1 < EEV_MINWORKPOS) {
+  if (EEV_MAXPULSES_OPEN - 1 <= EEV_MINWORKPOS) {
     return;
   }
   EEV_MAXPULSES_OPEN -= 1;
+}
+
+void Inc_EEV_MIN(void) {
+  if (EEV_MINWORKPOS + 1 >= EEV_MAXPULSES_OPEN) {
+    return;
+  }
+  EEV_MINWORKPOS += 1;
+}
+
+void Dec_EEV_MIN(void) {
+  if (EEV_MINWORKPOS - 1 < EEV_MINWORKPOS_LOW) {
+    return;
+  }
+  EEV_MINWORKPOS -= 1;
 }
 
 void Inc_Tdelta(void) {
@@ -1020,7 +1046,7 @@ void halifise(void) {
   //0
   digitalWrite(CLK_595, 0);
   __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, hotside_circle_state);
+  digitalWrite(DATA_595, hotside_circle_state || frost_protect);
   digitalWrite(CLK_595, 1);
   __asm__ __volatile__("nop\n\t");
   digitalWrite(CLK_595, 0);
@@ -1032,7 +1058,7 @@ void halifise(void) {
 #endif
 #ifdef BOARD_TYPE_G
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state || sump_heater_on);
-  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on /*|| cwu_state*/);
+  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on || frost_protect /*|| cwu_state*/);
   digitalWrite(RELAY_HEATPUMP, heatpump_state);
   digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state || cold_pomp_on);
   digitalWrite(RELAY_4WAY_VALVE, 0 /*cwu_state*/);
@@ -1066,7 +1092,7 @@ void halifise(void) {
   //5
   digitalWrite(CLK_595, 0);
   __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, hotside_circle_state);
+  digitalWrite(DATA_595, hotside_circle_state || frost_protect);
   digitalWrite(CLK_595, 1);
   __asm__ __volatile__("nop\n\t");
   //4
@@ -1311,9 +1337,17 @@ void setup(void) {
       T_EEV_setpoint = EEV_TARGET_TEMP_DIFF;
     }
 
+    EEV_MINWORKPOS = ReadIntEEPROM(eeprom_addr_EEV_MIN);  //przed maksimum, które jest sprawdzane względem minimum
+    if (EEV_MINWORKPOS < EEV_MINWORKPOS_LOW || EEV_MINWORKPOS >= EEV_MAXPULSES) {
+      EEV_MINWORKPOS = xEEV_MINWORKPOS;
+    }
+
     EEV_MAXPULSES_OPEN = ReadIntEEPROM(eeprom_addr_EEV_MAX);
     if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS || EEV_MAXPULSES_OPEN > EEV_MAXPULSES) {
       EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
+    }
+    if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS) {
+      EEV_MINWORKPOS = xEEV_MINWORKPOS;
     }
 
     c_wattage_max = ReadIntEEPROM(eeprom_addr_WATT);
@@ -1592,7 +1626,7 @@ void loop(void) {
     }
 
     if ((i == 1) || (z == 1) || (d == 1)) {
-      switch (input_type % 9) {
+      switch (input_type % INPUT_TYPES) {
         case INPUT_TYPE_TEMP:
           if (z == 1) {
             Dec_T();
@@ -1631,6 +1665,16 @@ void loop(void) {
           }
           Print_D("EEV: " + String(EEV_MAXPULSES_OPEN));
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          break;
+
+        case INPUT_TYPE_EEV_MIN:
+          if (z == 1) {
+            Dec_EEV_MIN();
+          } else if (i == 1) {
+            Inc_EEV_MIN();
+          }
+          Print_D("EEV min: " + String(EEV_MINWORKPOS));
+          WriteIntEEPROM(eeprom_addr_EEV_MIN, EEV_MINWORKPOS);
           break;
 
         case INPUT_TYPE_EEV_SETPOINT:
@@ -2114,6 +2158,27 @@ void loop(void) {
       }
     }
 
+    //ochrona przed zamarzaniem: przy wyłączonej sprężarce, gdy którykolwiek czujnik <= T_FROST_ON,
+    //włącz obieg gorący, by ogrzać pompę; wyłącz, gdy wszystkie czujniki >= T_FROST_OFF
+    if (heatpump_state == 0) {
+      tempint = 0;  //1: któryś czujnik <= T_FROST_ON, 2: któryś poniżej T_FROST_OFF
+      for (byte n = 0; n < T_SENSORS; n++) {
+        if (sensors[n].e != 1 || sensors[n].T == -127) continue;
+        if (sensors[n].T <= T_FROST_ON) {
+          tempint = 1;
+        } else if (sensors[n].T < T_FROST_OFF && tempint == 0) {
+          tempint = 2;
+        }
+      }
+      if (tempint == 1) {
+        frost_protect = 1;
+      } else if (tempint == 0) {
+        frost_protect = 0;
+      }
+    } else {
+      frost_protect = 0;
+    }
+
     //protective_cycle:
     //stop if
     //      (error)
@@ -2263,7 +2328,7 @@ void StatsSerial(void) {
   RS485Serial.print(sump_heater_state || sump_heater_on);
 
   RS485Serial.print(F(",\"HCS\":"));
-  RS485Serial.print(hotside_circle_state || hot_pomp_on);
+  RS485Serial.print(hotside_circle_state || hot_pomp_on || frost_protect);
 
   RS485Serial.print(F(",\"CCS\":"));
   RS485Serial.print(coldside_circle_state || cold_pomp_on);

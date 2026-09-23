@@ -28,7 +28,7 @@ The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from
 pio run && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli sim --scenario scenario.yaml --timeout 280000
 ```
 
-The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts.
+The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts. A sensor's temperature can be changed during a run with `set-control: { part-id: sTbe, control: temperature, value: -1 }`. This works although the Wokwi docs do not list it. Messages printed with `Print_D` go only to the LCD, so scenarios cannot wait for them.
 
 RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#define` for `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
@@ -58,9 +58,9 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
   3. Checks for overload and reads the emergency input. If `error_count >= 5`, the loop stops doing anything, including RS-485.
   4. Parses RS-485 commands. This block sits before the check cycle so that it still runs while the check cycle `return`s during `POWERON_PAUSE`. Code placed after the check cycle can be skipped by that `return`.
   5. Handles buttons (`input_type` selects which setting the buttons edit: `INPUT_TYPE_*`), then updates the display.
-  6. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path.
+  6. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path. While the compressor is off, frost protection (`frost_protect`) runs the hot-side pump when any connected sensor is ≤ `T_FROST_ON` (0 °C). It stops the pump once all sensors are ≥ `T_FROST_OFF` (2 °C).
 - **Sensors:** the DS18B20s live in `st_tsens sensors[T_SENSORS]`, indexed by `BIT_*`, which is also their bit in `used_sensors` and their slot in the EEPROM address layout. `Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu` are references to the array elements, and `sensor_names[]` holds their display names. Code that handles every sensor the same way loops over the array. `.e` marks a sensor as enabled. The README table explains the abbreviations.
-- **EEPROM:** runtime-tunable settings sit at fixed addresses (`eeprom_addr_co`, `_EEV_MAX`, `_EEV_setpoint`, `_dT`, `_WATT`) and are written with `WriteFloatEEPROM`/`WriteIntEEPROM`. The sensor addresses are stored before these, so keep new addresses clear of both.
+- **EEPROM:** runtime-tunable settings sit at fixed addresses (`eeprom_addr_co`, `_EEV_MAX`, `_EEV_MIN`, `_EEV_setpoint`, `_dT`, `_WATT`) and are written with `WriteFloatEEPROM`/`WriteIntEEPROM`. The sensor addresses are stored before these, so keep new addresses clear of both.
 - **RS-485 commands:** handled in the `switch` in the RS-485 block of `loop()` (step 4 above). The response is built by `StatsSerial()`. New settings must be written to EEPROM when they need to survive a reboot. The protocol is a contract with another project, described in the next section.
 
 ## RS-485 contract with the `co` controller
@@ -96,7 +96,7 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 | `0x08` | EEV superheat setpoint, decimal | SET_EEV_SETPOINT |
 | `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater, `d1` = 0/1 | SET_HOT_PUMP / SET_COLD_PUMP / SET_SUMP_HEATER |
 | `0x0C` | CO on/off, `d1` = 0/1 | SET_HP_CO_ON/OFF |
-| `0x0D` | EEV max open pulses, `d1` = 50–255 (≤ `EEV_MINWORKPOS` is ignored; `0x07` behaves the same) | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255; values ≤ 49 are silently ignored by CHPC, a known and accepted mismatch) |
+| `0x0D` | EEV max open pulses, `d1` up to 255. Values ≤ `EEV_MINWORKPOS` are ignored; `0x07` behaves the same. `EEV_MINWORKPOS` is 49 by default and can be set from 25 up with the buttons (stored in EEPROM) | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255; values ≤ the current minimum are silently ignored by CHPC, a known and accepted mismatch) |
 | `0x0E` | max watts, `d1*100 + d2`. ≤1000 = watchdog reset when `WATCHDOG` is on; above `MAX_WATTS_LIMIT` (4000) the command is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
