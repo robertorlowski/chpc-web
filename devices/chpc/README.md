@@ -5,7 +5,7 @@
 ## Real life installation.
 Works from ground heat collectors (loops) to radiant in-floor heating system.
 
- ![Installation example](./m_CHPC_i2.jpg)
+ ![Installation example](./docs/m_CHPC_i2.jpg)
 
 Driving:
 - EEV, 
@@ -60,7 +60,7 @@ For more information about Heap Pumps look at [Wikipedia about HP](https://en.wi
 \* RS-485 specification. The hardware test succeeded on 400 meters line.
 
 Example: day/night setpoint control and data visualization with JSON communication way.
-![graph example](./m_t_graph_example.png)
+![graph example](./docs/m_t_graph_example.png)
 <br><br>
 
 ## Relays:
@@ -80,14 +80,14 @@ Only one Relay: drive an electric heater (any)
 * 3 sensors needed for "HP with EEV" (absolute minimum scheme)
 <br><br>
 ## Temperature sensors installation example (medium scheme)
-![medium scheme](./m_HeatPump_t_sensors_med.png)
+![medium scheme](./docs/m_HeatPump_t_sensors_med.png)
 <br><br>
  ## Get your own CHPC:
-* download PCB Gerber file, *CHPC_v1.x_PCB_Gerber.zip*
+* download PCB Gerber file, [CHPC_v1.3_PCB_Gerber.zip](./docs/CHPC_v1.3_PCB_Gerber.zip) (schematic: [CHPC_v1.3_PCB_schematic.pdf](./docs/CHPC_v1.3_PCB_schematic.pdf))
 * search google [where to order PCB](https://www.google.com/search?q=order+pcb) or make your own at CNC machine
-* order electronic components, see BOM (Bill Of Materials) list, *CHPC_v1.x_PCB_BOM.html*
+* order electronic components, see BOM (Bill Of Materials) list, [CHPC_v1.3_PCB_BOM.html](./docs/CHPC_v1.3_PCB_BOM.html)
 * solder, [assembly instructions here](https://github.com/gonzho000/chpc/wiki/assembly)
-* install firmware *CHPC_firmware.ino*
+* install firmware [src/CHPC_firmware.ino](./src/CHPC_firmware.ino): the project builds with [PlatformIO](https://platformio.org/) (`pio run -t upload`, board: Arduino Pro Mini 5V/16MHz)
 * install CHPC at your system
 * enjoy
 <br><br>
@@ -112,31 +112,31 @@ These abbreviations used in the interface during sensors installation procedure
 
 <br><br>
  ## Photos:<br>
- ![v1.3](./m_PCB_v1.3_noscreen.jpg)
- ![v1.3](./m_PCB_v1.3_screen.jpg)
- ![v1.3](./m_v1.3_PCBdemo.png) 
+ ![v1.3](./docs/m_PCB_v1.3_noscreen.jpg)
+ ![v1.3](./docs/m_PCB_v1.3_screen.jpg)
+ ![v1.3](./docs/m_v1.3_PCBdemo.png) 
 
  
  ## Older revisions and prototypes:<br>
  PCB v1.1
  
- ![proto3](./m_proto3.jpg)
- ![proto3 without screen](./m_proto3_noscreen.jpg)
+ ![proto3](./docs/m_proto3.jpg)
+ ![proto3 without screen](./docs/m_proto3_noscreen.jpg)
  
  This is prototype 2 (PCB v1.0).
  1602 is the best choice.
  
- ![proto2](./m_proto2.jpg)
+ ![proto2](./docs/m_proto2.jpg)
  
  EEV development started here, PCB v1.0.
  
- ![proto2_EEVdev](./m_proto2_EEVdev.jpg)
+ ![proto2_EEVdev](./docs/m_proto2_EEVdev.jpg)
  
- ![proto2 PCB](./m_proto2_PCB.jpg)
+ ![proto2 PCB](./docs/m_proto2_PCB.jpg)
  
 Prototype 1. Say v0.0.
 History ) But worked well for a 2018-19 season.
- ![proto1](./m_proto1.jpg)
+ ![proto1](./docs/m_proto1.jpg)
 
 <br><br>
 
