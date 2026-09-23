@@ -57,6 +57,25 @@ describe('API with MongoDB', () => {
     expect(response.body.work_mode).toBe('CWU');
   });
 
+  it('stores EEVmin from telemetry and offers it as eev_min_pulse_open', async () => {
+    const posted = await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ work_mode: 'A', HP: { Ttarget: 40, EEVmax: 61, EEVmin: 45 } });
+
+    expect(posted.status).toBe(201);
+    expect(posted.body).toHaveProperty('operation');
+
+    const stored = await HpEntryModel.findOne({ rootId }).sort({ createdAt: -1 }).lean();
+    expect(stored?.HP?.EEVmin).toBe(45);
+
+    const operation = await request(app)
+      .get(`/api/operation?rootId=${rootId}&deviceId=${deviceId}`);
+
+    expect(operation.status).toBe(200);
+    expect(operation.body.eev_max_pulse_open).toBe('61');
+    expect(operation.body.eev_min_pulse_open).toBe('45');
+  });
+
   it('returns settings for the selected device', async () => {
     const response = await request(app)
       .get(`/api/settings?rootId=${rootId}&deviceId=${deviceId}`);

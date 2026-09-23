@@ -89,6 +89,7 @@ export interface HpMetrics {
     SHS?: boolean,
     WWatt?: number,
     EEVmax?: number,
+    EEVmin?: number,
     lt_pow?: number,
     lt_hp_on?: number
   }
@@ -153,6 +154,7 @@ export interface OperationEntry {
   cwu_max?: String,
   working_watt?: String,
   eev_max_pulse_open?: String,
+  eev_min_pulse_open?: String,
   eev_setpoint?: String
 }
 

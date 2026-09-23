@@ -175,6 +175,10 @@ const HP: React.FC = () => {
                   <td className="field">{_hp?.EEVmax || '---'}</td>
                 </tr>
                 <tr>
+                  <td className="label">EEV min:</td>
+                  <td className="field">{_hp?.EEVmin || '---'}</td>
+                </tr>
+                <tr>
                   <td className="label">Moc min:</td>
                   <td className="field">{_hp?.WWatt || '---'}</td>
                 </tr>

@@ -39,6 +39,7 @@ const HpMetricsSchema = new Schema<HpMetrics>(
     SHS: { type: Boolean },
     WWatt: { type: Number },
     EEVmax: { type: Number },
+    EEVmin: { type: Number },
     lt_pow: { type: Number },
     lt_hp_on: { type: Number },
   },

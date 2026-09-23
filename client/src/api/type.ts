@@ -90,7 +90,8 @@ export type HpMetrics = {
     CO: boolean,
     SHS: boolean,
     WWatt: number,
-    EEVmax: number,    
+    EEVmax: number,
+    EEVmin?: number,
     lt_pow: number,
     lt_hp_on: number
 
@@ -135,6 +136,7 @@ export type OperationEntry = {
   cwu_max?: string,
   working_watt?: string,
   eev_max_pulse_open?: string,
+  eev_min_pulse_open?: string,
   eev_setpoint?: string
 }
 

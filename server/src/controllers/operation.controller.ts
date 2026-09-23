@@ -24,6 +24,7 @@ export async function prepareOperation(req: Request, res: Response) {
     op.co_pomp = "0"
     op.work_mode = data?.work_mode;
     op.eev_max_pulse_open = String(data?.HP?.EEVmax);
+    op.eev_min_pulse_open = String(data?.HP?.EEVmin);
     op.working_watt = String(data?.HP?.WWatt);
     op.eev_setpoint = String(data?.HP?.EEV);
  

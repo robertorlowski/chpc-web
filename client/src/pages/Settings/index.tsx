@@ -149,6 +149,19 @@ export const Settings: React.FC = () => {
 					</div>
 
 					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>EEV min pulse:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="eev_min_pulse_open"
+							min={25}
+							placeholder= {defaultOperation.eev_min_pulse_open}
+							value={ valueOpration.eev_min_pulse_open }
+							onChange={(e) => setValueOperation({...valueOpration, eev_min_pulse_open: e.currentTarget.value})}
+						/>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
 						<span className="label" style={{ width: '160px' }}>Params:</span>
 						<input
 							className="temperature"
