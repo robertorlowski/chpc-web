@@ -47,13 +47,13 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
 - **`loop()`:** is non-blocking and timed with `millis()`. Each pass:
   1. Takes one current sample for the asynchronous RMS power measurement (`async_wattage`). Supply voltage comes from `ReadVcc()`.
   2. Advances the EEV stepper by at most one step (`eevise()`), following `EEV_apulses`, `EEV_fast` and the `EEV_PULSE_*_MILLIS` pacing.
-  3. Checks for overload and reads the emergency input. If `error_count >= 5`, the loop stops doing anything.
-  4. Handles buttons (`input_type` selects which setting the buttons edit: `INPUT_TYPE_*`), then updates the display.
-  5. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path.
-  6. Parses RS-485 commands.
+  3. Checks for overload and reads the emergency input. If `error_count >= 5`, the loop stops doing anything, including RS-485.
+  4. Parses RS-485 commands. This block sits before the check cycle so that it still runs while the check cycle `return`s during `POWERON_PAUSE`. Code placed after the check cycle can be skipped by that `return`.
+  5. Handles buttons (`input_type` selects which setting the buttons edit: `INPUT_TYPE_*`), then updates the display.
+  6. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path.
 - **Sensors:** each DS18B20 is an `st_tsens` global (`Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu`). `.e` marks it enabled, and its `BIT_*` index is its slot in `used_sensors` and in the EEPROM address layout. The README table explains the abbreviations.
 - **EEPROM:** runtime-tunable settings sit at fixed addresses (`eeprom_addr_co`, `_EEV_MAX`, `_EEV_setpoint`, `_dT`, `_WATT`) and are written with `WriteFloatEEPROM`/`WriteIntEEPROM`. The sensor addresses are stored before these, so keep new addresses clear of both.
-- **RS-485 commands:** handled in the `switch` near the end of `loop()`. The response is built by `StatsSerial()`. New settings must be written to EEPROM when they need to survive a reboot. The protocol is a contract with another project, described in the next section.
+- **RS-485 commands:** handled in the `switch` in the RS-485 block of `loop()` (step 4 above). The response is built by `StatsSerial()`. New settings must be written to EEPROM when they need to survive a reboot. The protocol is a contract with another project, described in the next section.
 
 ## RS-485 contract with the `co` controller
 
@@ -93,7 +93,7 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
 
-- It must answer within 3 s. Blocking `delay()`s, slow `GetT` retries and the `return` during the 90 s power-on pause all risk timeouts, which `co` counts in its `serial_read_timeout` telemetry.
+- It must answer within 3 s. Blocking `delay()`s, slow `GetT` retries and the `error_count >= 5` lock-up all risk timeouts, which `co` counts in its `serial_read_timeout` telemetry.
 - The JSON must go out without pauses longer than 5 ms.
 - Nothing else may be sent while `co` waits for the response. JSON that fails to parse is counted in `hp_json_error`.
 

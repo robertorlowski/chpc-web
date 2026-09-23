@@ -1632,6 +1632,101 @@ void loop(void) {
   wdt_reset();
 #endif
 
+  //-------------------RS-485 (przed cyklem kontrolnym, by odpowiadać także w czasie POWERON_PAUSE)
+  if (RS485Serial.available() > 0) {
+    index = 0;
+    while (RS485Serial.available()) {
+      inChar = RS485Serial.read();
+      //delayMicroseconds(80);
+      delayMicroseconds(1300);
+      if (index < 49) {
+        inData[index] = inChar;
+        index++;
+        inData[index] = '\0';
+      }
+    }
+    // 0x41 {devID}, 0x01 {operacja}, 0x01 {dane 1}, 0x00 {dane 2}, 0xFF
+    if (inData[0] == devID && inData[4] == endID) {
+      switch (inData[1]) {
+        case 0x01:
+        case 0x02:
+          // StatsSerial();
+          // RS485Serial.println(&outString[0]);
+          // RS485Serial.flush();
+          StatsSerial();
+          RS485Serial.flush();
+          // digitalWrite(SerialTxControl, RS485Receive);
+          // delay(10);
+          break;
+        case 0x03:
+          if (heatpump_state == 0) {
+            start_force = (inData[2] == 0x01);
+          }
+          break;
+        case 0x04:
+          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          if (tempdouble < 0 || tempdouble > cT_setpoint_max) {
+            break;
+          }
+          T_setpoint = tempdouble;
+          SaveSetpointEE(1);
+          break;
+        case 0x05:
+          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          if (tempdouble > cT_delta_max || tempdouble < 0) {
+            break;
+          }
+          T_delta = tempdouble;
+          WriteFloatEEPROM(eeprom_addr_dT, T_delta);
+          break;
+        case 0x07:
+          EEV_MAXPULSES_OPEN = int(inData[2]);
+          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          break;
+        case 0x08:
+          T_EEV_setpoint = double(int(inData[2])) + double(int(inData[3])) / 100;
+          WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
+          break;
+        case 0x09:
+          hot_pomp_on = (inData[2] == 0x01);
+          break;
+        case 0x0A:
+          cold_pomp_on = (inData[2] == 0x01);
+          break;
+        case 0x0B:
+          sump_heater_on = (inData[2] == 0x01);
+          break;
+        case 0x0C:
+          co_on = (inData[2] == 0x01);
+          WriteIntEEPROM(eeprom_addr_co, co_on);
+          break;
+        case 0x0D:
+          EEV_MAXPULSES_OPEN = int(inData[2]);
+          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          break;
+        case 0x0E:
+          if ( int(inData[2]) * 100 + int(inData[3]) <= 1000 ) {
+            #ifdef WATCHDOG
+              stopOnError(F("STOP"));
+              delay(1000);
+              wdt_enable(WDTO_120MS);
+              while (true) {// oczekiwanie na reset
+              }
+            #endif
+          } else if ( int(inData[2]) * 100 + int(inData[3]) <= MAX_WATTS_LIMIT ) {
+            c_wattage_max = int(inData[2]) * 100 + int(inData[3]);
+            WriteIntEEPROM(eeprom_addr_WATT, c_wattage_max);
+          }
+          break;
+      }
+    }
+
+    //clear buffer
+    for (i = 0; i < 49; i++) {
+      inData[i] = 0;
+    }
+  }
+
 //-------------------buttons processing
 #ifdef INPUTS_AS_BUTTONS
   z = digitalRead(BUT_LEFT);
@@ -1915,6 +2010,7 @@ void loop(void) {
         PrintS_and_D(F("ERR: T.sens."));
         tone(speakerOut, ERR_HZ);
         delay(1000);
+        noTone(speakerOut);
         // for (i = 0; i < errorcode; i++) {
         //   tone(speakerOut, ERR_HZ);
         //   delay(1000);
@@ -2266,100 +2362,6 @@ void loop(void) {
       last_power_milis = millis_now;
     }
 
-  }
-
-  if (RS485Serial.available() > 0) {
-    index = 0;
-    while (RS485Serial.available()) {
-      inChar = RS485Serial.read();
-      //delayMicroseconds(80);
-      delayMicroseconds(1300);
-      if (index < 49) {
-        inData[index] = inChar;
-        index++;
-        inData[index] = '\0';
-      }
-    }
-    // 0x41 {devID}, 0x01 {operacja}, 0x01 {dane 1}, 0x00 {dane 2}, 0xFF
-    if (inData[0] == devID && inData[4] == endID) {
-      switch (inData[1]) {
-        case 0x01:
-        case 0x02:
-          // StatsSerial();
-          // RS485Serial.println(&outString[0]);
-          // RS485Serial.flush();
-          StatsSerial();
-          RS485Serial.flush();
-          // digitalWrite(SerialTxControl, RS485Receive);
-          // delay(10);
-          break;
-        case 0x03:
-          if (heatpump_state == 0) {
-            start_force = (inData[2] == 0x01);
-          }
-          break;
-        case 0x04:
-          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
-          if (tempdouble < 0 || tempdouble > cT_setpoint_max) {
-            break;
-          }
-          T_setpoint = tempdouble;
-          SaveSetpointEE(1);
-          break;
-        case 0x05:
-          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
-          if (tempdouble > cT_delta_max || tempdouble < 0) {
-            break;
-          }
-          T_delta = tempdouble;
-          WriteFloatEEPROM(eeprom_addr_dT, T_delta);
-          break;
-        case 0x07:
-          EEV_MAXPULSES_OPEN = int(inData[2]);
-          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
-          break;
-        case 0x08:
-          T_EEV_setpoint = double(int(inData[2])) + double(int(inData[3])) / 100;
-          WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
-          break;
-        case 0x09:
-          hot_pomp_on = (inData[2] == 0x01);
-          break;
-        case 0x0A:
-          cold_pomp_on = (inData[2] == 0x01);
-          break;
-        case 0x0B:
-          sump_heater_on = (inData[2] == 0x01);
-          break;
-        case 0x0C:
-          co_on = (inData[2] == 0x01);
-          WriteIntEEPROM(eeprom_addr_co, co_on);
-          break;
-        case 0x0D:
-          EEV_MAXPULSES_OPEN = int(inData[2]);
-          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
-          break;
-        case 0x0E:
-          if ( int(inData[2]) * 100 + int(inData[3]) <= 1000 ) {
-            #ifdef WATCHDOG
-              stopOnError(F("STOP"));
-              delay(1000);
-              wdt_enable(WDTO_120MS);
-              while (true) {// oczekiwanie na reset
-              }
-            #endif
-          } else if ( int(inData[2]) * 100 + int(inData[3]) <= MAX_WATTS_LIMIT ) {
-            c_wattage_max = int(inData[2]) * 100 + int(inData[3]);
-            WriteIntEEPROM(eeprom_addr_WATT, c_wattage_max);
-          }
-          break;
-      }
-    }
-
-    //clear buffer
-    for (i = 0; i < 49; i++) {
-      inData[i] = 0;
-    }
   }
 }
 
