@@ -95,16 +95,18 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 
 ### Protections
 
-| Condition | Reaction |
-|---|---|
-| Tho > 60 °C, Tsump > 85 °C, Tae < −2 °C, Tbc > 70 °C, Tco < −2 °C while running | compressor stops; LCD shows `Err. temp. …` |
-| Tsump < 3 °C, 60 s after start | compressor stops |
-| Power below `power limit / 3.5`, 60 s after start (compressor not working) | compressor stops, error counted (`Err. WATTAGE MIN`) |
-| Power above the power limit (after 9 s from start, or above 3.5× the limit at any time) | compressor stops, error counted (`Overload …`) |
-| No flow on the flow input, 50 s after start. **Active only when the power limit is above 3200 W** | compressor stops, error counted (`Err CP`) |
-| Power drawn while the compressor is off (stuck relay) | pumps forced on (`Err. RY`) |
-| Required sensor missing (reads −127) | compressor stops, `ERR: T.sens.`, buzzer every 33 s. Cleared automatically when the sensor comes back |
-| 5 counted errors | controller locks (`Error x5`) until power-cycled. The counter resets after a normal compressor cycle |
+| Code | Condition | Reaction | LCD |
+|---|---|---|---|
+| 1 | Required sensor missing (reads −127) | compressor stops, buzzer every 33 s. Cleared automatically when the sensor comes back | `ERR: Temp. Sens.` |
+| 2 | Power above the power limit (after 9 s from start, or above 3.5× the limit at any time) | compressor stops, error counted | `ERR: Overload` |
+| 3 | No flow on the flow input, 50 s after start. **Active only when the power limit is above 3200 W** | compressor stops, error counted | `ERR: Cold Flow` |
+| 4 | Power below `power limit / 3.5`, 60 s after start (compressor not working) | compressor stops, error counted | `ERR: Wattage Min` |
+| 5–9 | Tho > 60 °C, Tsump > 85 °C, Tbc > 70 °C, Tae < −2 °C, Tco < −2 °C while running | compressor stops | `ERR: Temp. Tho` / `Tsump` / `Tbc` / `Tae` / `Tco` |
+| 10 | Power drawn while the compressor is off (stuck relay) | pumps forced on | `ERR: Relay` |
+| 11 | 5 counted errors | control locks. RS-485 keeps answering, so the lock shows in the web app and can be cleared there ("Odblokuj", command `0x10`) or with a restart. The counter also resets after a normal compressor cycle | `ERR: Locked x5` |
+| 12 | Tsump < 3 °C, 60 s after start | compressor stops | `ERR: Temp. Low` |
+
+Every event is reported in the status JSON (`ERR` code, `ERRn` sequence number, `ERRc` error counter). The web app keeps a history of errors with their times.
 
 The **power limit** also works as a switch for the flow protection. Setting it to exactly 3200 W disables that protection, for example when the pump runs from a power source on which the flow sensor is unreliable.
 
@@ -150,14 +152,16 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 | `0x0C` | heating (CO) on/off | `d1` = 0/1 |
 | `0x0D` (`0x07`) | EEV maximum opening | `d1` = steps, 26–255. If it is ≤ EEV min, EEV min drops to max − 1 |
 | `0x0F` | EEV minimum opening | `d1` = steps, 25–255. If it is ≥ EEV max, EEV max rises to min + 1 |
-| `0x0E` | power limit | W, up to 4000. Values ≤ 1000 are ignored (with `WATCHDOG` enabled they reset the controller) |
+| `0x0E` | power limit | W, 1001–4000; other values are ignored |
+| `0x10` | unlock | clears the error counter and the `Error x5` lock |
+| `0x11` | restart | software restart: relays off, start-up from scratch (90 s pause) |
 
 **Response to `0x01`:** one line of JSON:
 
 ```json
 {"Tbe":"2.0","Tae":"5.0","Tco":"0.0","Tho":"0.0","Ttarget":"30.0","Tsump":"0.0","EEV_dt":"0.0",
  "Tmax":"30.0","Tmin":"25.0","Watts":"0","EEV":"1.0","EEV_pos":"0","EEV_pulse":"0",
- "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","EEVmin":"49","lt_pow":"0","lt_hp_on":"0"}
+ "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","EEVmin":"49","ERR":0,"ERRn":0,"ERRc":0,"lt_pow":"0","lt_hp_on":"0"}
 ```
 
 | Key | Meaning |
@@ -167,6 +171,7 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 | `Tmax`, `Tmin` | thermostat limits |
 | `Watts`, `WWatt` | current power, power limit |
 | `EEV`, `EEV_pos`, `EEV_pulse`, `EEVmax`, `EEVmin` | superheat setpoint, valve position, pending steps, maximum and minimum opening |
+| `ERR`, `ERRn`, `ERRc` | last error code (see the protections table), event sequence number, error counter (5 = locked) |
 | `HPS`, `HCS`, `CCS`, `SHS` | compressor, hot pump, cold pump, sump heater (1 = on) |
 | `F`, `CO` | force start, heating on |
 | `lt_pow` | energy used in the current or last compressor run, Wh |

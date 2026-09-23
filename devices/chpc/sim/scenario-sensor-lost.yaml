@@ -90,7 +90,7 @@ steps:
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
   - delay: 500ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: 'ERR: T.sens.'
+  - wait-serial: 'ERR: Temp. Sens.'
   - delay: 2000ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
   - wait-serial: '"Tbe":"-127.0"'

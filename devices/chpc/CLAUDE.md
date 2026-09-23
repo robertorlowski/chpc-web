@@ -40,7 +40,7 @@ Behaviour is selected by editing the `USER OPTIONS` block at the top of the `.in
 - **Board:** only `BOARD_TYPE_G` (the gonzho000 PCB v1.3) is supported. Support for boards F and G9 (relays driven through a 74HC595) was removed. `halifise()` writes the relay outputs.
 - **Display:** `DISPLAY_1602` (I2C LCD 16x2, address 0x27) or `DISPLAY_NONE`. The 0.96" OLED support (`DISPLAY_096`) was removed.
 - **Serial mode:** `RS485_HUMAN`, `RS485_PYTHON` or `RS485_NONE`.
-- **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS`, `WATCHDOG` and `EEV_DEBUG`.
+- **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS` and `EEV_DEBUG`. `WATCHDOG` was removed: on a Pro Mini with the stock bootloader, a watchdog reset can end in an endless reset loop. Restart is done in software instead (`softRestart()`, a jump to address 0).
 - **Protection thresholds:** `T_*_MIN/MAX`, `MAX_WATTS`. **Timing constants:** `POWERON_PAUSE`, `MINCYCLE_*`, `DEFFERED_STOP_*`. **EEV tuning:** `EEV_*`. Note: several `T_*` defines end with a stray `;`, so they can only be used as whole initializers (`const double cT_x = T_X;`), not inside expressions.
 
 The power limit `c_wattage_max` also works as a deliberate switch. When it is above `MAX_WATTS` (3200), the flow protection ("Err CP") is on. The user sets exactly 3200 W to turn it off, for example when the heat pump runs from another power source on which the flow sensor is unreliable. Keep this coupling.
@@ -55,8 +55,8 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
 - **`loop()`:** is non-blocking and timed with `millis()`. Each pass:
   1. Takes one current sample for the asynchronous RMS power measurement (`async_wattage`). Supply voltage comes from `ReadVcc()`.
   2. Advances the EEV stepper by at most one step (`eevise()`), following `EEV_apulses`, `EEV_fast` and the `EEV_PULSE_*_MILLIS` pacing.
-  3. Checks for overload and reads the emergency input. If `error_count >= 5`, the loop stops doing anything, including RS-485.
-  4. Parses RS-485 commands. This block sits before the check cycle so that it still runs while the check cycle `return`s during `POWERON_PAUSE`. Code placed after the check cycle can be skipped by that `return`.
+  3. Checks for overload and reads the emergency input.
+  4. Parses RS-485 commands. This block sits before the check cycle so that it still runs while the check cycle `return`s during `POWERON_PAUSE`. Code placed after the check cycle can be skipped by that `return`. Right after it, `error_count >= 5` (lock) ends the pass: control stops, but RS-485 keeps answering and accepts `0x10` (unlock) and `0x11` (restart).
   5. Handles buttons (`input_type` selects which setting the buttons edit: `INPUT_TYPE_*`), then updates the display.
   6. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path. While the compressor is off, frost protection (`frost_protect`) runs the hot-side pump when any connected sensor is ≤ `T_FROST_ON` (0 °C). It stops the pump once all sensors are ≥ `T_FROST_OFF` (2 °C).
 - **Sensors:** the DS18B20s live in `st_tsens sensors[T_SENSORS]`, indexed by `BIT_*`, which is also their bit in `used_sensors` and their slot in the EEPROM address layout. `Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu` are references to the array elements, and `sensor_names[]` holds their display names. Code that handles every sensor the same way loops over the array. `.e` marks a sensor as enabled. The README table explains the abbreviations.
@@ -98,7 +98,9 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 | `0x0C` | CO on/off, `d1` = 0/1 | SET_HP_CO_ON/OFF |
 | `0x0D` | EEV max open pulses, `d1` 26–255 (≤ 25 ignored). If the new maximum is ≤ the minimum, the minimum drops to max − 1. `0x07` behaves the same | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255) |
 | `0x0F` | EEV min work position, `d1` 25–255 (< 25 ignored). If the new minimum is ≥ the maximum, the maximum rises to min + 1. It is stored in EEPROM, the same as the buttons use. `co` sends `0x0D` before `0x0F`, so any valid pair ends up as requested | SET_EEV_MINWORKPOS (`co` accepts `eev_min_pulse_open` 0–255, set in the web UI Settings tab) |
-| `0x0E` | max watts, `d1*100 + d2`. ≤1000 = watchdog reset when `WATCHDOG` is on; above `MAX_WATTS_LIMIT` (4000) the command is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
+| `0x0E` | max watts, `d1*100 + d2`. Only 1001 to `MAX_WATTS_LIMIT` (4000) is accepted; anything else is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
+| `0x10` | unlock: resets `error_count` (clears the `Error x5` lock); pumps keep running | HP_ERROR_RESET from the one-shot operation `error_reset:"1"` |
+| `0x11` | software restart (`softRestart()`): relays off, `setup()` again, EEPROM reload, EEV calibration, 90 s pause | HP_RESTART from the one-shot operation `restart:"1"`. `co` then resends its whole state with the next operation, because CHPC forgets forced pumps and force start |
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
 
@@ -111,6 +113,12 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 - **COP calculation:** `HPS` (>0 = compressor running), `Tho`, `Ttarget`. Also `lt_pow`: Wh used since the last compressor start, reset at every start. And `lt_hp_on`: seconds of the current run, or the length of the last run once the compressor has stopped.
 - **Dashboard:** `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `HCS`, `CCS`.
 - **Web app (chpc-web):** `EEVmax` and `EEVmin`, the current EEV limits. They also fill in the defaults of the Settings form.
+- **Errors:**
+  - `ERR`: code of the last error event;
+  - `ERRn`: event sequence number, which grows with every event, so a repeated code is still a new event;
+  - `ERRc`: `error_count`; 5 means locked.
+
+  The codes are `ERRC_*` in the firmware and `client/src/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low. Each event also shows `ERR: …` on the LCD.
 - **Cloud:** the whole object is forwarded as telemetry `HP`.
 
 **Known mismatches with the current firmware:**
@@ -132,6 +140,8 @@ The data from this firmware continues to a web app, `D:\DevLocal\arduino_src\chp
 
 The server saves a record only when `HP.Ttarget` is truthy. It adds `t_out` (outdoor temperature from a weather API) and pushes a WebSocket `"update"` to browsers.
 
+**Errors.** When `HP.ERRn` differs from the previous record and `HP.ERR` is not 0, the server stores the code in the top-level `error_code` field of the new record (`detectErrorEvent` in `server/src/services/hp.service.ts`). `GET /api/hp/last-error` returns the newest record with `error_code` from the last 24 hours (a rolling window, not calendar days); older errors stay only in the data list. The client shows a small red bell in front of the "T:" label on the main view (error within 24 h or lock; description and time in the tooltip), a red row under the record in the data list, and the error, the counter and the "Odblokuj" and "Restart sterownika" buttons on the Settings tab.
+
 **The Mongo schema is strict** (`server/src/models/model.ts`), so any key it does not list is silently dropped. That includes `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` and **all diagnostic counters**. The latest raw body stays available through `GET /api/hp`, which serves an in-memory cache, until the server restarts. **A new telemetry key must be added to the schema, the TS types `server/src/middleware/type.ts` and `client/src/api/type.ts`, and the client views**, or it will not be stored or shown.
 
 **Operation.** The response to every POST is `{"operation":{…}}`. **All values are strings**, e.g. `"1"`, `"45"`. The keys are:
@@ -139,6 +149,7 @@ The server saves a record only when `HP.Ttarget` is truthy. It adds `t_out` (out
 - `force`, `co_pomp`, `hot_pomp`, `cold_pomp`, `sump_heater`: `"0"` or `"1"`.
 - `co_min`, `co_max`, `cwu_min`, `cwu_max`;
 - `working_watt`, `eev_max_pulse_open`, `eev_min_pulse_open`, `eev_setpoint`.
+- **One-shot actions** `error_reset` and `restart` (value `"1"`). They are queued by `POST /api/operation/action {action}`, added to exactly one `/hp/add` response and never merged into the manual or scheduled operation. `co` turns them into `0x10` / `0x11` and does not keep them.
 
 Where the values come from:
 - **Scheduler** (every 60 s): `work_mode`, `force` and the temperatures, from device defaults or the active schedule.
@@ -162,9 +173,9 @@ Where the values come from:
 A value rejected downstream still shows as "set" in the web UI. Compare it with the telemetry (`WWatt`, `EEVmax`, `Tmax`) to see what the pump really uses.
 
 **Known mismatches** (as of 2026-09-24):
-- `co` waits for a WebSocket message `{type:"operation"}` to post at once, but the server only ever sends `"update"`. Settings therefore reach the pump at the next periodic POST, 10–30 s later.
+- The server sends the WebSocket message `{type:"operation"}` only for one-shot actions (`/api/operation/action`), so they reach the pump within seconds. Ordinary settings from `/operation/set` still wait for the next periodic POST, 10–30 s later.
 - The client shows `lt_pow` with a "W" unit, but the value is Wh.
 - The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) expects `YYYY-MM-DD` timestamps, while `co` sends `YYYY.MM.DD`.
-- No error state from CHPC (sensor error, `Error x5`, `Err. RY`) reaches the cloud, because the JSON has no error field.
+- The time of an error is the time of the telemetry record that first carries the new `ERRn` (see **Errors** above), so it is accurate to 10–30 s. CHPC has no clock.
 - The server's API-key check (`verifyApiKey`) is disabled in `server/src/middleware/app.ts`. `POST /api/operation/set` is open and unvalidated.
-- `chpc-web` has no test for `POST /api/hp/add` or the WebSocket. Its tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler.
+- `chpc-web` tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler, `EEVmin` storage, error-event detection and one-shot actions. They do not cover the WebSocket.

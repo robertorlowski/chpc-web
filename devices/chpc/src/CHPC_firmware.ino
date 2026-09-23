@@ -35,7 +35,6 @@
 
 #define HUMAN_AUTOINFO 5000  //print stats to console
 
-//#define WATCHDOG  1//only if u know what to do
 
 //-----------------------TEMPERATURES-----------------------
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
@@ -281,7 +280,6 @@ String hw_version = "Type G v1.x";
 #endif
 #endif
 
-#include <avr/wdt.h>
 #include <EEPROM.h>
 
 // RS-485 na sprzętowym UART: pin 0 (RX) <- RO, pin 1 (TX) -> DI
@@ -472,6 +470,23 @@ const int eeprom_magic = MAGIC;
 #define ERR_WATTAGE 5
 
 int errorcode = 0;
+
+//-------------kody zdarzeń błędów w JSON ("ERR"); opisy po stronie chpc-web, zmiana = zmiana w obu projektach
+#define ERRC_T_SENSOR 1     //ERR: Temp. Sens.
+#define ERRC_OVERLOAD 2     //ERR: Overload
+#define ERRC_NO_FLOW 3      //ERR: Cold Flow
+#define ERRC_WATTAGE_MIN 4  //ERR: Wattage Min
+#define ERRC_TEMP_THO 5     //ERR: Temp. Tho
+#define ERRC_TEMP_TSUMP 6   //ERR: Temp. Tsump
+#define ERRC_TEMP_TBC 7     //ERR: Temp. Tbc
+#define ERRC_TEMP_TAE 8     //ERR: Temp. Tae
+#define ERRC_TEMP_TCO 9     //ERR: Temp. Tco
+#define ERRC_RELAY 10       //ERR: Relay
+#define ERRC_LOCKED 11      //ERR: Locked x5
+#define ERRC_TEMP_LOW 12    //ERR: Temp. Low
+uint8_t err_last = 0;  //kod ostatniego zdarzenia
+uint8_t err_seq = 0;   //numer kolejny zdarzenia (od startu)
+bool relay_fault = false;
 
 
 //--------------------------- for wattage
@@ -791,9 +806,6 @@ unsigned char FindAddr(String what, int required = 0) {
 //bez delay(): brak czujnika nie może wstrzymywać pętli (EEV, RS-485) na kilka sekund
 double GetT(st_tsens &s) {
   for (i = 0; i < 3; i++) {  //-127 zwykle z zakłócenia na linii: ponów od razu
-#ifdef WATCHDOG
-    wdt_reset();
-#endif
 #ifdef EEV_SUPPORT
     eevise();
 #endif
@@ -901,17 +913,17 @@ void eevise(void) {
   }
 }
 
-void stopOnError(String error = "") {
-#ifdef RS485_HUMAN
+//zdarzenie błędu widoczne w JSON (ERR, ERRn): kolejny numer pozwala odróżnić powtórzenie tego samego kodu
+void reportError(uint8_t code) {
+  err_last = code;
+  err_seq++;
+}
 
-  if (error != "") {
-    PrintS_and_D(error);
-  } else if (errorcode != 0) {
-    PrintS_and_D("Err " + String(errorcode, HEX));
-  } else {
-    PrintS_and_D(F("Error"));
-  }
+void stopOnError(String error, uint8_t code) {
+#ifdef RS485_HUMAN
+  PrintS_and_D(error);
 #endif
+  reportError(code);
 
   millis_last_heatpump_off = millis_now;
   heatpump_state = 0;
@@ -920,20 +932,49 @@ void stopOnError(String error = "") {
   sump_heater_state = 0;
 
   error_count += 1;
+  if (error_count == 5) {
+#ifdef RS485_HUMAN
+    PrintS_and_D(F("ERR: Locked x5"));
+#endif
+    reportError(ERRC_LOCKED);
+  }
   halifise();
 
   tone(speakerOut, ERR_HZ, 500);  //sygnał w tle, bez wstrzymywania pętli
+}
+
+//zatrzymanie sprężarki przez zabezpieczenie temperaturowe (bez licznika błędów)
+void stopByTemperature(const __FlashStringHelper *msg, uint8_t code) {
+#ifdef RS485_HUMAN
+  PrintS_and_D(msg);
+#endif
+  reportError(code);
+  millis_last_heatpump_off = millis_now;
+  heatpump_state = 0;
+}
+
+//restart programowy przez skok do adresu 0: zmienne globalne i setup() od nowa;
+//bez watchdoga, który z bootloaderem Pro Mini grozi pętlą resetów
+void softRestart(void) {
+  heatpump_state = 0;
+  hotside_circle_state = 0;
+  coldside_circle_state = 0;
+  sump_heater_state = 0;
+  frost_protect = 0;
+  hot_pomp_on = cold_pomp_on = sump_heater_on = false;
+  halifise();
+#ifdef EEV_SUPPORT
+  off_EEV();
+#endif
+  RS485Serial.flush();
+  cli();
+  asm volatile("jmp 0");
 }
 
 //--------------------------- functions END
 
 void setup(void) {
 
-#ifdef WATCHDOG
-  MCUSR = 0;
-  wdt_disable();
-  delay(2000);
-#endif
 
 #ifdef BOARD_TYPE_G
   pinMode(RELAY_HEATPUMP, OUTPUT);
@@ -1074,9 +1115,6 @@ void setup(void) {
   }
   T_setpoint_lastsaved = T_setpoint;
 
-#ifdef WATCHDOG
-  wdt_enable(WDTO_8S);
-#endif
   Get_Temperatures();
   outString.reserve(256);  
 }
@@ -1137,7 +1175,7 @@ void loop(void) {
 
   if (heatpump_state == 1 && async_wattage > c_wattage_max) {
     if (((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME) || (async_wattage > c_wattage_max * 3.5)) {
-      stopOnError(("Overload " + String(async_wattage)));
+      stopOnError(F("ERR: Overload"), ERRC_OVERLOAD);
     }
   }
 
@@ -1151,18 +1189,6 @@ void loop(void) {
   if ((unsigned long)(millis_now - emergency_notification) > POWERON_HIGHTIME) {
     emergency = emergency_tmp;
   }
-
-  if (error_count >= 5) {
-    PrintS_and_D(F("Error x5"));
-#ifdef WATCHDOG
-    wdt_reset();
-#endif
-    return;
-  }
-
-#ifdef WATCHDOG
-  wdt_reset();
-#endif
 
   //-------------------RS-485 (przed cyklem kontrolnym, by odpowiadać także w czasie POWERON_PAUSE)
   if (RS485Serial.available() > 0) {
@@ -1246,18 +1272,19 @@ void loop(void) {
           WriteIntEEPROM(eeprom_addr_co, co_on);
           break;
         case 0x0E:
-          if ( int(frame[2]) * 100 + int(frame[3]) <= 1000 ) {
-            #ifdef WATCHDOG
-              stopOnError(F("STOP"));
-              delay(1000);
-              wdt_enable(WDTO_120MS);
-              while (true) {// oczekiwanie na reset
-              }
-            #endif
-          } else if ( int(frame[2]) * 100 + int(frame[3]) <= MAX_WATTS_LIMIT ) {
-            c_wattage_max = int(frame[2]) * 100 + int(frame[3]);
+          tempint = int(frame[2]) * 100 + int(frame[3]);
+          if (tempint > 1000 && tempint <= MAX_WATTS_LIMIT) {
+            c_wattage_max = tempint;
             WriteIntEEPROM(eeprom_addr_WATT, c_wattage_max);
           }
+          break;
+        case 0x10:
+          //odblokowanie po ERRC_LOCKED: zerowanie licznika błędów
+          error_count = 0;
+          break;
+        case 0x11:
+          //restart programowy: setup() od nowa (przekaźniki wyłączone, EEPROM, kalibracja EEV, POWERON_PAUSE)
+          softRestart();
           break;
       }
     }
@@ -1266,6 +1293,11 @@ void loop(void) {
     for (i = 0; i < 49; i++) {
       inData[i] = 0;
     }
+  }
+
+  //blokada po 5 błędach: sterowanie stoi, ale RS-485 (wyżej) nadal odpowiada i przyjmuje 0x10/0x11
+  if (error_count >= 5) {
+    return;
   }
 
 //-------------------buttons processing
@@ -1407,7 +1439,7 @@ void loop(void) {
     //gdy przy innym źródle zasilania czujnik przepływu nie działa poprawnie
     if ((heatpump_state == 1) && (emergency > 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > COLDOFF_HIGHTIME)
         && (c_wattage_max > MAX_WATTS)) {
-        stopOnError(F("Err CP"));
+        stopOnError(F("ERR: Cold Flow"), ERRC_NO_FLOW);
     }
 
 #ifndef EEV_ONLY
@@ -1505,6 +1537,9 @@ void loop(void) {
           //|| (Touter.e == 1 && Touter.T == -127)
           //|| (Tcwu.e == 1 && Tcwu.T == -127)
         ) {
+          if (errorcode != ERR_T_SENSOR) {
+            reportError(ERRC_T_SENSOR);
+          }
           errorcode = ERR_T_SENSOR;
         } else {
           errorcode = ERR_OK;
@@ -1536,7 +1571,7 @@ void loop(void) {
     if (errorcode != ERR_OK) {
       if (((unsigned long)(millis_now - millis_notification) > millis_notification_interval) || millis_notification == 0) {
         millis_notification = millis_now;
-        PrintS_and_D(F("ERR: T.sens."));
+        PrintS_and_D(F("ERR: Temp. Sens."));
         tone(speakerOut, ERR_HZ, 1000);  //sygnał w tle, bez wstrzymywania pętli
       }
     }
@@ -1785,42 +1820,20 @@ void loop(void) {
     //
     if (heatpump_state == 1 && errorcode == ERR_OK) {
       if (Tho.e == 1 && Tho.T > cT_hotout_max) {
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. temp. THO"));
-#endif
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopByTemperature(F("ERR: Temp. Tho"), ERRC_TEMP_THO);
       }
-
       if (Tsump.e == 1 && Tsump.T > cT_sump_max) {
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. temp. Tsump"));
-#endif
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopByTemperature(F("ERR: Temp. Tsump"), ERRC_TEMP_TSUMP);
       }
-
       if (Tae.e == 1 && Tae.T < cT_after_evaporator_min) {
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. temp. Tae"));
-#endif
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopByTemperature(F("ERR: Temp. Tae"), ERRC_TEMP_TAE);
       }
       if (Tbc.e == 1 && Tbc.T > cT_before_condenser_max) {
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. temp. Tbc"));
-#endif
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopByTemperature(F("ERR: Temp. Tbc"), ERRC_TEMP_TBC);
       }
       // (Tci.e == 1 && Tci.T < cT_cold_min) ||
       if (Tco.e == 1 && Tco.T < cT_cold_min) {
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. temp. Tco"));
-#endif
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
+        stopByTemperature(F("ERR: Temp. Tco"), ERRC_TEMP_TCO);
       }
     }
 
@@ -1835,28 +1848,17 @@ void loop(void) {
 
     if (heatpump_state == 1 && ((unsigned long)(millis_now - millis_last_heatpump_on) > MINCYKLE_CHECK)) {
       if ((errorcode == ERR_OK) && (Tsump.e == 1 && Tsump.T < cT_workingOK_sump_min)) {
-        millis_last_heatpump_off = millis_now;
-        heatpump_state = 0;
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. HP temp. MIN"));
-#endif
+        stopByTemperature(F("ERR: Temp. Low"), ERRC_TEMP_LOW);
       }
       if ((errorcode == ERR_OK) && (async_wattage < c_wattage_max_min)) {
-        millis_last_heatpump_off = millis_now;
-        stopOnError();
-#ifdef RS485_HUMAN
-        PrintS_and_D(F("Err. WATTAGE MIN"));
-#endif
+        stopOnError(F("ERR: Wattage Min"), ERRC_WATTAGE_MIN);
       }
     }
 
-    //disable pump by error
+    //disable pump by error (komunikat "ERR: Temp. Sens." co millis_notification_interval, wyżej)
     if (errorcode != ERR_OK) {
       millis_last_heatpump_off = millis_now;
       heatpump_state = 0;
-#ifdef RS485_HUMAN
-      PrintS_and_D("Err: " + String(errorcode, HEX));
-#endif
     }
 
     //prevent error - zepsuty przekaźnik
@@ -1865,7 +1867,13 @@ void loop(void) {
       hot_pomp_on = 1;
       cold_pomp_on = 1;
       heatpump_state = 0;
-      PrintS_and_D(F("Err. RY"));
+      if (!relay_fault) {  //jedno zdarzenie na wystąpienie, nie co cykl
+        relay_fault = true;
+        PrintS_and_D(F("ERR: Relay"));
+        reportError(ERRC_RELAY);
+      }
+    } else {
+      relay_fault = false;
     }
 
     halifise();
@@ -1946,7 +1954,15 @@ void StatsSerial(void) {
   RS485Serial.print(F("\",\"EEVmin\":\""));
   RS485Serial.print(EEV_MINWORKPOS);
 
-  RS485Serial.print(F("\",\"lt_pow\":\""));
+  //błędy: kod ostatniego zdarzenia, numer kolejny zdarzenia, licznik do blokady (5 = zablokowany)
+  RS485Serial.print(F("\",\"ERR\":"));
+  RS485Serial.print(err_last);
+  RS485Serial.print(F(",\"ERRn\":"));
+  RS485Serial.print(err_seq);
+  RS485Serial.print(F(",\"ERRc\":"));
+  RS485Serial.print(error_count);
+
+  RS485Serial.print(F(",\"lt_pow\":\""));
   RS485Serial.print(last_power / 3600);
 
   RS485Serial.print(F("\",\"lt_hp_on\":\""));
