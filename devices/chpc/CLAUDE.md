@@ -10,7 +10,7 @@ The entire firmware is one file: [src/CHPC_firmware.ino](src/CHPC_firmware.ino),
 
 ## Building / flashing
 
-The project builds with PlatformIO ([platformio.ini](platformio.ini), env `promini` = Arduino Pro Mini ATmega328P 5V/16MHz). There is no linter or test suite. The libraries (`OneWire`, `DallasTemperature`, `LiquidCrystal_I2C`) come from `lib_deps`. Add `greiman/SSD1306Ascii` only if you switch to `DISPLAY_096`.
+The project builds with PlatformIO ([platformio.ini](platformio.ini), env `promini` = Arduino Pro Mini ATmega328P 5V/16MHz). There is no linter or test suite. The libraries (`OneWire`, `DallasTemperature`, `LiquidCrystal_I2C`) come from `lib_deps`.
 
 ```sh
 pio run                            # compile (pio is in ~/.platformio/penv/Scripts/ if not on PATH)
@@ -18,7 +18,7 @@ pio run -t upload --upload-port COM3
 pio device monitor                 # 9600 baud
 ```
 
-The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
+The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
 **Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
 
@@ -37,15 +37,15 @@ RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#d
 
 Behaviour is selected by editing the `USER OPTIONS` block at the top of the `.ino`, lines ~21–119. Nothing is selected at runtime:
 
-- **Board variant:** `BOARD_TYPE_G` (the current one), `BOARD_TYPE_F` or `BOARD_TYPE_G9`. Each variant defines its own pin map for relays, buttons and EEV. F and G9 drive some relays through a 74HC595 shift register (`halifise()`), so relay-handling code differs by board.
-- **Display:** `DISPLAY_1602`, `DISPLAY_096` or `DISPLAY_NONE`, which resolves to `DISPLAY`.
+- **Board:** only `BOARD_TYPE_G` (the gonzho000 PCB v1.3) is supported. Support for boards F and G9 (relays driven through a 74HC595) was removed. `halifise()` writes the relay outputs.
+- **Display:** `DISPLAY_1602` (I2C LCD 16x2, address 0x27) or `DISPLAY_NONE`. The 0.96" OLED support (`DISPLAY_096`) was removed.
 - **Serial mode:** `RS485_HUMAN`, `RS485_PYTHON` or `RS485_NONE`.
 - **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS`, `WATCHDOG` and `EEV_DEBUG`.
 - **Protection thresholds:** `T_*_MIN/MAX`, `MAX_WATTS`. **Timing constants:** `POWERON_PAUSE`, `MINCYCLE_*`, `DEFFERED_STOP_*`. **EEV tuning:** `EEV_*`. Note: several `T_*` defines end with a stray `;`, so they can only be used as whole initializers (`const double cT_x = T_X;`), not inside expressions.
 
 The power limit `c_wattage_max` also works as a deliberate switch. When it is above `MAX_WATTS` (3200), the flow protection ("Err CP") is on. The user sets exactly 3200 W to turn it off, for example when the heat pump runs from another power source on which the flow sensor is unreliable. Keep this coupling.
 
-Code is heavily wrapped in `#ifdef`. When you change logic, make sure it still compiles under the other board, display and EEV combinations, or guard it correctly.
+Code is heavily wrapped in `#ifdef`. When you change logic, make sure it still compiles under the other display, serial and EEV combinations, or guard it correctly.
 
 ## Runtime architecture
 

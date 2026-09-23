@@ -20,10 +20,7 @@
 
 //-----------------------USER OPTIONS-----------------------
 #define BOARD_TYPE_G  //Type "G", PCB from github.com/gonzho000/chpc/
-//#define BOARD_TYPE_F				  //Type "F"
-//#define BOARD_TYPE_G9 			  //Type "G9" or "G-MAX", current testing
 
-//#define DISPLAY_096 		1		  //1st tests, support WILL BE DROPPED OUT SOON! small OLEDs support
 #define DISPLAY_1602 2  //if only 1st character appears: patch 1602 library "inline size_t LiquidCrystal_I2C::write(uint8_t value)"  "return 1" instead of "return 0"
 //#define DISPLAY_NONE		-1
 
@@ -233,15 +230,6 @@ wattage1
 
 // String fw_version = "2.0";
 
-#ifdef DISPLAY_096
-#define DISPLAY DISPLAY_096
-#include <Wire.h>
-#include "SSD1306Ascii.h"
-#include "SSD1306AsciiWire.h"
-#define I2C_ADDRESS 0x3C
-SSD1306AsciiWire oled;
-#endif
-
 #ifdef DISPLAY_1602
 #define DISPLAY DISPLAY_1602
 #include "LiquidCrystal_I2C.h"
@@ -285,43 +273,6 @@ String hw_version = "Type G v1.x";
 #define BUT_LEFT A2
 #define BUT_3 A1
 #endif
-#ifdef EEV_SUPPORT
-#define EEV_1 2
-#define EEV_2 4
-#define EEV_3 3
-#define EEV_4 5
-#endif
-#endif
-#ifdef BOARD_TYPE_F
-// String hw_version = "Type F v1.x";
-#define RELAY_HEATPUMP 7
-#define RELAY_COLDSIDE_CIRCLE 8
-#define LATCH_595 10
-#define CLK_595 11
-#define DATA_595 9
-//595.0: relay 3 RELAY_HOTSIDE_CIRCLE, 595.1: relay 4 RELAY_SUMP_HEATER, 595.2: relay 5 RELAY_4WAY_VALVE, 595.3: uln 6, 595.4: uln 7, 595.5: uln 8, 595.6: uln 9, 595.7: uln 10
-#ifdef EEV_SUPPORT
-#define EEV_1 5
-#define EEV_2 3
-#define EEV_3 4
-#define EEV_4 2
-#endif
-#ifdef INPUTS_AS_BUTTONS  //not sure
-#define BUT_RIGHT A3
-#define BUT_LEFT A2
-#endif
-
-#endif
-#ifdef BOARD_TYPE_G9
-String hw_version = "Type G9 v1.x";
-#define RELAY_4WAY_VALVE 8
-#define RELAY_SUMP_HEATER 7
-
-#define LATCH_595 10
-#define CLK_595 9
-#define DATA_595 11
-#define OE_595 A1
-
 #ifdef EEV_SUPPORT
 #define EEV_1 2
 #define EEV_2 4
@@ -418,12 +369,6 @@ bool sump_heater_state = 0;
 bool frost_protect = 0;  //obieg gorący włączony przez ochronę przed zamarzaniem
 bool start_force = 0;
 
-#ifdef BOARD_TYPE_G9
-bool relay6_state = 0;
-bool relay7_state = 0;
-bool relay8_state = 0;
-bool relay9_state = 0;
-#endif
 
 const long poweron_pause = POWERON_PAUSE;          //default 5 mins
 const long mincycle_poweroff = MINCYCLE_POWEROFF;  //default 5 mins
@@ -585,11 +530,6 @@ char CheckAddrExists(void) {
 }
 
 void InitS_and_D(void) {
-#ifdef DISPLAY_096
-  Wire.begin();
-  oled.begin(&Adafruit128x64, I2C_ADDRESS);
-  oled.setFont(Adafruit5x7);
-#endif
 #ifdef DISPLAY_1602
   lcd.init();  // initialize the lcd
   lcd.begin(16, 2);
@@ -607,11 +547,6 @@ void PrintS_and_D(String str) {
   RS485Serial.print(outChar);
   RS485Serial.println();
   RS485Serial.flush();
-#endif
-
-#ifdef DISPLAY_096
-  oled.clear();
-  oled.println(str);
 #endif
 
 #ifdef DISPLAY_1602
@@ -901,141 +836,11 @@ void off_EEV() {  //1 = do not take care of position
 #endif
 
 void halifise(void) {
-#ifdef BOARD_TYPE_F
-  /*#define LATCH_595 = 10;
-		#define CLK_595 = 11;
-		#DEFINE DATA_595 = 9;
-		//595.0: relay 3 RELAY_HOTSIDE_CIRCLE, 595.1: relay 4 RELAY_SUMP_HEATER, 595.2: relay 5 RELAY_4WAY_VALVE, 595.3: uln 6, 595.4: uln 7, 595.5: uln 8, 595.6: uln 9, 595.7: uln 10 
-		*/
-  digitalWrite(LATCH_595, 0);
-  //7
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //6
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //5
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //4
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //3
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //2
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);  //4way valve here
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //1
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, sump_heater_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //0
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, hotside_circle_state || frost_protect);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(CLK_595, 0);
-  //
-  digitalWrite(LATCH_595, 1);
-
-  digitalWrite(RELAY_HEATPUMP, heatpump_state);
-  digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state);
-#endif
 #ifdef BOARD_TYPE_G
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state || sump_heater_on);
   digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on || frost_protect);
   digitalWrite(RELAY_HEATPUMP, heatpump_state);
   digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state || cold_pomp_on);
-  digitalWrite(RELAY_4WAY_VALVE, 0);
-#endif
-#ifdef BOARD_TYPE_G9
-  /*
-		595.0: relay 10(not used)
-		595.1: relay 8		//use for 1st test of DAC
-		595.2: relay 9		//use for 1st test of DAC
-		595.3: relay 5 		RELAY_HEATPUMP
-		595.4: relay 4 		RELAY_COLDSIDE_CIRCLE
-		595.5: relay 3 		RELAY_HOTSIDE_CIRCLE
-		595.6: relay 6
-		595.7: relay 7		
-		*/
-
-  digitalWrite(LATCH_595, 0);
-  //7
-  digitalWrite(CLK_595, 0);
-  digitalWrite(DATA_595, relay7_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //6
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, relay6_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //5
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, hotside_circle_state || frost_protect);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //4
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, coldside_circle_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //3
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, heatpump_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //2
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, relay9_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //1
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, relay8_state);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  //0
-  digitalWrite(CLK_595, 0);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(CLK_595, 0);
-  //
-  digitalWrite(LATCH_595, 1);
-  __asm__ __volatile__("nop\n\t");
-  digitalWrite(LATCH_595, 0);
-  digitalWrite(RELAY_SUMP_HEATER, sump_heater_state);
   digitalWrite(RELAY_4WAY_VALVE, 0);
 #endif
 }
@@ -1141,35 +946,6 @@ void setup(void) {
   digitalWrite(RELAY_SUMP_HEATER, LOW);
   digitalWrite(RELAY_HOTSIDE_CIRCLE, LOW);
   halifise();
-#endif
-#ifdef BOARD_TYPE_F
-  pinMode(RELAY_HEATPUMP, OUTPUT);
-  pinMode(RELAY_COLDSIDE_CIRCLE, OUTPUT);
-  digitalWrite(RELAY_HEATPUMP, LOW);
-  digitalWrite(RELAY_COLDSIDE_CIRCLE, LOW);
-  //
-  pinMode(LATCH_595, OUTPUT);
-  pinMode(CLK_595, OUTPUT);
-  pinMode(DATA_595, OUTPUT);
-  digitalWrite(LATCH_595, LOW);
-  digitalWrite(CLK_595, LOW);
-  digitalWrite(DATA_595, LOW);
-  halifise();
-#endif
-#ifdef BOARD_TYPE_G9
-  pinMode(LATCH_595, OUTPUT);
-  pinMode(CLK_595, OUTPUT);
-  pinMode(DATA_595, OUTPUT);
-  pinMode(RELAY_SUMP_HEATER, OUTPUT);
-  pinMode(RELAY_4WAY_VALVE, OUTPUT);
-  pinMode(OE_595, OUTPUT);
-  digitalWrite(LATCH_595, LOW);
-  digitalWrite(CLK_595, LOW);
-  digitalWrite(DATA_595, LOW);
-  digitalWrite(RELAY_SUMP_HEATER, LOW);
-  digitalWrite(RELAY_4WAY_VALVE, LOW);
-  halifise();
-  digitalWrite(OE_595, LOW);
 #endif
 
 
@@ -1611,7 +1387,7 @@ void loop(void) {
 //-------------------buttons processing END
 
 //-------------------display
-#if (DISPLAY == 2) || (DISPLAY == 1)
+#ifdef DISPLAY_1602
   if ((_1st_start_sleeped == 1) && (((unsigned long)(millis_now - millis_displ_update) > millis_displ_update_interval) || (millis_displ_update == 0))) {
 //!!!EEV_ONLY SUPPORT???
 
