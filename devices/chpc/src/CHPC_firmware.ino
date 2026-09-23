@@ -396,20 +396,6 @@ typedef struct {
 
 DeviceAddress dev_addr;  //temp
 
-st_tsens Tae;
-st_tsens Tbe;
-st_tsens Ttarget;
-st_tsens Tsump;
-st_tsens Tci;
-st_tsens Tco;
-st_tsens Thi;
-st_tsens Tho;
-st_tsens Tbc;
-st_tsens Tac;
-st_tsens Touter;
-st_tsens Tcwu;
-// st_tsens Ts2;
-
 #define BIT_Tae 0
 #define BIT_Tbe 1
 #define BIT_Ttarget 2
@@ -422,7 +408,24 @@ st_tsens Tcwu;
 #define BIT_Tac 9
 #define BIT_Touter 10
 #define BIT_Tcwu 11
-// #define BIT_Ts2 12
+#define T_SENSORS 12
+
+//kolejność = indeks BIT_* = kolejność adresów w EEPROM
+st_tsens sensors[T_SENSORS];
+const char *const sensor_names[T_SENSORS] = { "Tae", "Tbe", "Ttarget", "Tsump", "Tci", "Tco", "Thi", "Tho", "Tbc", "Tac", "Touter", "Tcwu" };
+
+st_tsens &Tae = sensors[BIT_Tae];
+st_tsens &Tbe = sensors[BIT_Tbe];
+st_tsens &Ttarget = sensors[BIT_Ttarget];
+st_tsens &Tsump = sensors[BIT_Tsump];
+st_tsens &Tci = sensors[BIT_Tci];
+st_tsens &Tco = sensors[BIT_Tco];
+st_tsens &Thi = sensors[BIT_Thi];
+st_tsens &Tho = sensors[BIT_Tho];
+st_tsens &Tbc = sensors[BIT_Tbc];
+st_tsens &Tac = sensors[BIT_Tac];
+st_tsens &Touter = sensors[BIT_Touter];
+st_tsens &Tcwu = sensors[BIT_Tcwu];
 
 unsigned int used_sensors = 0;  //bit array
 
@@ -619,59 +622,9 @@ long ReadVcc() {
 }
 
 char CheckAddrExists(void) {
-
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tae.addr[i]) break;
+  for (byte n = 0; n < T_SENSORS; n++) {
+    if (memcmp(dev_addr, sensors[n].addr, 8) == 0) return 1;
   }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tbe.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Ttarget.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tsump.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tci.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tco.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Thi.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tho.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tbc.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tac.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Touter.addr[i]) break;
-  }
-  if (i == 8) return 1;
-  for (i = 0; i < 8; i++) {
-    if (dev_addr[i] != Tcwu.addr[i]) break;
-  }
-  // if (i == 8) return 1;
-  // for (i = 0; i < 8; i++) {
-  //   if (dev_addr[i] != Ts2.addr[i]) break;
-  // }
-  if (i == 8) return 1;
   return 0;
 }
 
@@ -988,40 +941,11 @@ double GetT(unsigned char *str) {
 }
 
 void Get_Temperatures(void) {
-  if (Tae.e) Tae.T = GetT(Tae.addr);
-  // PrintS_and_D("Tae:" + String(Tae.T, 1));
-  // delay(1000);
-
-  if (Tbe.e) Tbe.T = GetT(Tbe.addr);
-  // PrintS_and_D("Tbe:" + String(Tbe.T, 1));
-  // delay(1000);
-
-  if (Ttarget.e) Ttarget.T = (GetT(Ttarget.addr) + GetT(Ttarget.addr)) / 2;
-  // PrintS_and_D("Ttarget:" + String(Ttarget.T, 1));
-  // delay(1000);
-
-  if (Tsump.e) Tsump.T = GetT(Tsump.addr);
-  // PrintS_and_D("Tsump:" + String(Tsump.T, 1));
-  // delay(1000);
-
-  if (Tci.e) Tci.T = GetT(Tci.addr);
-
-  if (Tco.e) Tco.T = GetT(Tco.addr);
-  // PrintS_and_D("Tco:" + String(Tco.T, 1));
-  // delay(1000);
-
-  if (Thi.e) Thi.T = GetT(Thi.addr);
-
-  if (Tho.e) Tho.T = GetT(Tho.addr);
-  // PrintS_and_D("Tho:" + String(Tho.T, 1));
-  // delay(1000);
-
-  if (Tbc.e) Tbc.T = GetT(Tbc.addr);
-  if (Tac.e) Tac.T = GetT(Tac.addr);
-
-  if (Touter.e) Touter.T = GetT(Touter.addr);
-  if (Tcwu.e) Tcwu.T = GetT(Tcwu.addr);
-  // if (Ts2.e) Ts2.T = GetT(Ts2.addr);
+  for (byte n = 0; n < T_SENSORS; n++) {
+    if (sensors[n].e) sensors[n].T = GetT(sensors[n].addr);
+  }
+  //Ttarget: średnia z dwóch odczytów
+  if (Ttarget.e) Ttarget.T = (Ttarget.T + GetT(Ttarget.addr)) / 2;
 
   s_allTsensors.requestTemperatures();  //global request
 }
@@ -1409,19 +1333,7 @@ void setup(void) {
     eeprom_addr += 1;
     used_sensors = word(z, i);
 
-    Tae.e = bitRead(used_sensors, BIT_Tae);
-    Tbe.e = bitRead(used_sensors, BIT_Tbe);
-    Ttarget.e = bitRead(used_sensors, BIT_Ttarget);
-    Tsump.e = bitRead(used_sensors, BIT_Tsump);
-    Tci.e = bitRead(used_sensors, BIT_Tci);
-    Tco.e = bitRead(used_sensors, BIT_Tco);
-    Thi.e = bitRead(used_sensors, BIT_Thi);
-    Tho.e = bitRead(used_sensors, BIT_Tho);
-    Tbc.e = bitRead(used_sensors, BIT_Tbc);
-    Tac.e = bitRead(used_sensors, BIT_Tac);
-    Touter.e = bitRead(used_sensors, BIT_Touter);
-    Tcwu.e = bitRead(used_sensors, BIT_Tcwu);
-    // Ts2.e = bitRead(used_sensors, BIT_Ts2);
+    for (byte n = 0; n < T_SENSORS; n++) sensors[n].e = bitRead(used_sensors, n);
 #ifdef EEV_SUPPORT
     if (Tae.e != 1 || Tbe.e != 1) {
       while (1) {
@@ -1431,19 +1343,7 @@ void setup(void) {
     }
 #endif
 
-    ReadEECheckAddr("Tae", Tae.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tbe", Tbe.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Ttarget", Ttarget.addr);  //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tsump", Tsump.addr);      //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tci", Tci.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tco", Tco.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Thi", Thi.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tho", Tho.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tbc", Tbc.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tac", Tac.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Touter", Touter.addr);    //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tcwu", Tcwu.addr);        //eeprom_addr incremeneted here
-    // ReadEECheckAddr(Ts2.addr);  //eeprom_addr incremeneted here
+    for (byte n = 0; n < T_SENSORS; n++) ReadEECheckAddr(sensor_names[n], sensors[n].addr);  //eeprom_addr incremeneted here
 
   } else {
     eeprom_addr += 1;
@@ -1453,73 +1353,23 @@ void setup(void) {
     eeprom_addr += 2;  //used sensors, skip
                        //Ttarget -needed, other - optional
 
-#ifdef EEV_SUPPORT
-    z = FindAddr("Tae", 1);  //holds result in dev_addr, returns "is used"
-#else
-    z = FindAddr("Tae");  //holds result in dev_addr, returns "is used"
-#endif
-
-    Tae.e = z;
-    CopyAddrStoreEE(Tae.addr, BIT_Tae);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-#ifdef EEV_SUPPORT
-    z = FindAddr("Tbe", 1);
-#else
-    z = FindAddr("Tbe");
-#endif
-
-    Tbe.e = z;
-    CopyAddrStoreEE(Tbe.addr, BIT_Tbe);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
+    for (byte n = 0; n < T_SENSORS; n++) {
+      //Ttarget wymagany (poza EEV_ONLY), Tae i Tbe wymagane przy EEV_SUPPORT, pozostałe opcjonalne
 #ifdef EEV_ONLY
-      //z = FindAddr("Ttarget");
-    z = 0;
-#else
-    z = FindAddr("Ttarget", 1);
+      if (n == BIT_Ttarget) {
+        z = 0;
+      } else
 #endif
-
-    Ttarget.e = z;
-    CopyAddrStoreEE(Ttarget.addr, BIT_Ttarget);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tsump");
-    Tsump.e = z;
-    CopyAddrStoreEE(Tsump.addr, BIT_Tsump);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tci");
-    Tci.e = z;
-    CopyAddrStoreEE(Tci.addr, BIT_Tci);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tco");
-    Tco.e = z;
-    CopyAddrStoreEE(Tco.addr, BIT_Tco);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Thi");
-    Thi.e = z;
-    CopyAddrStoreEE(Thi.addr, BIT_Thi);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tho");
-    Tho.e = z;
-    CopyAddrStoreEE(Tho.addr, BIT_Tho);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tbc");
-    Tbc.e = z;
-    CopyAddrStoreEE(Tbc.addr, BIT_Tbc);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tac");
-    Tac.e = z;
-    CopyAddrStoreEE(Tac.addr, BIT_Tac);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Touter");
-    Touter.e = z;
-    CopyAddrStoreEE(Touter.addr, BIT_Touter);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    z = FindAddr("Tcwu");
-    Tcwu.e = z;
-    CopyAddrStoreEE(Tcwu.addr, BIT_Tcwu);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
-
-    // z = FindAddr("Ts2");
-    // Ts2.e = z;
-    // CopyAddrStoreEE(Ts2.addr, BIT_Ts2);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
+      {
+        tempint = (n == BIT_Ttarget);
+#ifdef EEV_SUPPORT
+        if (n == BIT_Tae || n == BIT_Tbe) tempint = 1;
+#endif
+        z = FindAddr(sensor_names[n], tempint);  //holds result in dev_addr, returns "is used"
+      }
+      sensors[n].e = z;
+      CopyAddrStoreEE(sensors[n].addr, n);  //dev_addr and z used by proc, autoincrement eeprom_addr, store bit
+    }
 
     //final, off-the-sequence
     EEPROM.write(0 + 1 + 4 + 0, highByte(used_sensors));

@@ -20,7 +20,7 @@ pio device monitor                 # 9600 baud
 
 The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
-**Flash is ~98–99% full** (30 KB available). Check the `Flash:` line after every change. Adding features will usually require cutting something else, such as unused strings or the `EEV_DEBUG` and `HUMAN_AUTOINFO` output.
+**Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
 
 RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#define` for `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
@@ -51,7 +51,7 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
   4. Parses RS-485 commands. This block sits before the check cycle so that it still runs while the check cycle `return`s during `POWERON_PAUSE`. Code placed after the check cycle can be skipped by that `return`.
   5. Handles buttons (`input_type` selects which setting the buttons edit: `INPUT_TYPE_*`), then updates the display.
   6. Runs the **check cycle** once every `millis_cycle` (1 s). It reads the temperatures (`Get_Temperatures`; `-127` means the sensor is missing). It sets `errorcode` (`ERR_*`), runs the EEV control algorithm (keep superheat Tae−Tbe at `T_EEV_setpoint`), and then decides whether the compressor, pumps and sump heater should run. That decision applies the protections and the minimum on/off cycle times. `stopOnError()` is the common shutdown path.
-- **Sensors:** each DS18B20 is an `st_tsens` global (`Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu`). `.e` marks it enabled, and its `BIT_*` index is its slot in `used_sensors` and in the EEPROM address layout. The README table explains the abbreviations.
+- **Sensors:** the DS18B20s live in `st_tsens sensors[T_SENSORS]`, indexed by `BIT_*`, which is also their bit in `used_sensors` and their slot in the EEPROM address layout. `Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu` are references to the array elements, and `sensor_names[]` holds their display names. Code that handles every sensor the same way loops over the array. `.e` marks a sensor as enabled. The README table explains the abbreviations.
 - **EEPROM:** runtime-tunable settings sit at fixed addresses (`eeprom_addr_co`, `_EEV_MAX`, `_EEV_setpoint`, `_dT`, `_WATT`) and are written with `WriteFloatEEPROM`/`WriteIntEEPROM`. The sensor addresses are stored before these, so keep new addresses clear of both.
 - **RS-485 commands:** handled in the `switch` in the RS-485 block of `loop()` (step 4 above). The response is built by `StatsSerial()`. New settings must be written to EEPROM when they need to survive a reboot. The protocol is a contract with another project, described in the next section.
 
