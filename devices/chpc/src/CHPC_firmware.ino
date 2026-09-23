@@ -876,7 +876,7 @@ float ReadFloatEEPROM(int addr) {
 }
 
 void SaveSetpointEE(int pforce = 0) {
-  if ((T_setpoint_lastsaved != T_setpoint) && (pforce == 1 || ((unsigned long)(millis_now - millis_lasteesave) > 15 * 60 * 1000) || (millis_lasteesave == 0))) {
+  if ((T_setpoint_lastsaved != T_setpoint) && (pforce == 1 || ((unsigned long)(millis_now - millis_lasteesave) > 15UL * 60 * 1000) || (millis_lasteesave == 0))) {
     eeprom_addr = 1;
     WriteFloatEEPROM(eeprom_addr, T_setpoint);
     // WriteFloatEEPROM(eeprom_addr_cwu, Tcwu_setpoint);
@@ -946,7 +946,12 @@ unsigned char FindAddr(String what, int required = 0) {
 
   while (1) {
     //PrintAddr(dev_addr);
-    PrintS_and_D(dev_addr);
+    outString = "";
+    for (i = 0; i < 8; i++) {
+      if (dev_addr[i] < 0x10) outString += "0";
+      outString += String(dev_addr[i], HEX);
+    }
+    PrintS_and_D(outString);
     delay(1000);
 
     if (s_allTsensors.getAddress(dev_addr, 0)) {
@@ -2256,7 +2261,7 @@ void loop(void) {
 #endif
 
     if (millis_last_heatpump_on > millis_last_heatpump_off) {
-      last_power += async_wattage * ((millis_now - last_power_milis) / 1000);
+      last_power += async_wattage * (millis_now - last_power_milis) / 1000;
       last_power_milis = millis_now;
     }
 
