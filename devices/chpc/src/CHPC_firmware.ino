@@ -370,19 +370,17 @@ String hw_version = "Type G9 v1.x";
 
 #include <avr/wdt.h>
 #include <EEPROM.h>
-#include <SoftwareSerial.h>
 
-#define SerialRX 0  //RX connected to RO - Receiver Output
-#define SerialTX 1  //TX connected to DI - Driver Output Pin
+// RS-485 na sprzętowym UART: pin 0 (RX) <- RO, pin 1 (TX) -> DI
 // #define RS485Transmit HIGH
 // #define RS485Receive LOW
 
-const char devID = 0x41;
-const char endID = 0xFF;
+const uint8_t devID = 0x41;
+const uint8_t endID = 0xFF;
 
 const char hostID = 0x30;
 
-SoftwareSerial RS485Serial(SerialRX, SerialTX);  // RX, TX
+#define RS485Serial Serial
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -532,7 +530,7 @@ int input_type = INPUT_TYPE_CO;
 
 #define ERR_HZ 2500
 
-char inData[50];   // Allocate some space for the string, do not change that size!
+uint8_t inData[50];   // Allocate some space for the string, do not change that size!
 char inChar = -1;  // space to store the character read
 byte index = 0;    // Index into array; where to store the character
 
@@ -2202,7 +2200,13 @@ void loop(void) {
         millis_last_heatpump_off = millis_now;
         heatpump_state = 0;
       }
-      // (Tbc.e == 1 && Tbc.T > cT_before_condenser_max) ||
+      if (Tbc.e == 1 && Tbc.T > cT_before_condenser_max) {
+#ifdef RS485_HUMAN
+        PrintS_and_D(F("Err. temp. Tbc"));
+#endif
+        millis_last_heatpump_off = millis_now;
+        heatpump_state = 0;
+      }
       // (Tci.e == 1 && Tci.T < cT_cold_min) ||
       if (Tco.e == 1 && Tco.T < cT_cold_min) {
 #ifdef RS485_HUMAN

@@ -20,9 +20,9 @@ pio device monitor                 # 9600 baud
 
 The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
-**Flash is ~99% full** (≈30.5 KB of 30 KB). Check the `Flash:` line after every change. Adding features will usually require cutting something else, such as unused strings or the `EEV_DEBUG` and `HUMAN_AUTOINFO` output.
+**Flash is ~98–99% full** (30 KB available). Check the `Flash:` line after every change. Adding features will usually require cutting something else, such as unused strings or the `EEV_DEBUG` and `HUMAN_AUTOINFO` output.
 
-RS-485 runs at 9600 baud on pins 0/1, the hardware UART pins, but it is driven by `SoftwareSerial` (`RS485Serial`) rather than `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
+RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#define` for `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
 
 ## Configuration model (compile-time `#define`s)
@@ -103,7 +103,5 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 
 **Known mismatches with the current firmware:**
 
-- `0x04`/`0x05` drop `d2`, because `int(inData[3]) / 100` is integer division. `co` does send the hundredths, so the fix is `/ 100.0`.
-- `inData` is `char` (signed), so `d1` above 127 comes out negative. That affects `0x0D` above 127 pulses and `0x0E` above 12 799 W.
 - `0x04` above `T_SETPOINT_MAX` and `0x05` above `T_DELTA_MAX` are silently ignored.
 - With `RS485_HUMAN`, `PrintS_and_D()` also writes status and error text to the bus without being asked (for example "Err: x" every second while `errorcode != 0`). That breaks the rule against sending unrequested data and can corrupt HP or PV reads.
