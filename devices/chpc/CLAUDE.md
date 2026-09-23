@@ -88,7 +88,7 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 | `0x08` | EEV superheat setpoint, decimal | SET_EEV_SETPOINT |
 | `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater, `d1` = 0/1 | SET_HOT_PUMP / SET_COLD_PUMP / SET_SUMP_HEATER |
 | `0x0C` | CO on/off, `d1` = 0/1 | SET_HP_CO_ON/OFF |
-| `0x0D` | EEV max open pulses, `d1` = 0–255 | SET_EEV_MAXPULSES_OPEN |
+| `0x0D` | EEV max open pulses, `d1` = 50–255 (≤ `EEV_MINWORKPOS` is ignored; `0x07` behaves the same) | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255; values ≤ 49 are silently ignored by CHPC, a known and accepted mismatch) |
 | `0x0E` | max watts, `d1*100 + d2`. ≤1000 = watchdog reset when `WATCHDOG` is on; above `MAX_WATTS_LIMIT` (4000) the command is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:

@@ -1389,7 +1389,7 @@ void setup(void) {
     }
 
     EEV_MAXPULSES_OPEN = ReadIntEEPROM(eeprom_addr_EEV_MAX);
-    if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS || EEV_MAXPULSES_OPEN > xEEV_MAXPULSES_OPEN) {
+    if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS || EEV_MAXPULSES_OPEN > EEV_MAXPULSES) {
       EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
     }
 
@@ -1677,6 +1677,7 @@ void loop(void) {
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);
           break;
         case 0x07:
+          if (inData[2] <= EEV_MINWORKPOS) break;
           EEV_MAXPULSES_OPEN = int(inData[2]);
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
           break;
@@ -1698,6 +1699,7 @@ void loop(void) {
           WriteIntEEPROM(eeprom_addr_co, co_on);
           break;
         case 0x0D:
+          if (inData[2] <= EEV_MINWORKPOS) break;
           EEV_MAXPULSES_OPEN = int(inData[2]);
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
           break;
