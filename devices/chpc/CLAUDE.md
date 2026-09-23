@@ -96,7 +96,8 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 | `0x08` | EEV superheat setpoint, decimal | SET_EEV_SETPOINT |
 | `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater, `d1` = 0/1 | SET_HOT_PUMP / SET_COLD_PUMP / SET_SUMP_HEATER |
 | `0x0C` | CO on/off, `d1` = 0/1 | SET_HP_CO_ON/OFF |
-| `0x0D` | EEV max open pulses, `d1` up to 255. Values ≤ `EEV_MINWORKPOS` are ignored; `0x07` behaves the same. `EEV_MINWORKPOS` is 49 by default and can be set from 25 up with the buttons (stored in EEPROM) | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255; values ≤ the current minimum are silently ignored by CHPC, a known and accepted mismatch) |
+| `0x0D` | EEV max open pulses, `d1` 26–255 (≤ 25 ignored). If the new maximum is ≤ the minimum, the minimum drops to max − 1. `0x07` behaves the same | SET_EEV_MAXPULSES_OPEN (`co` accepts `eev_max_pulse_open` 0–255) |
+| `0x0F` | EEV min work position, `d1` 25–255 (< 25 ignored). If the new minimum is ≥ the maximum, the maximum rises to min + 1. It is stored in EEPROM, the same as the buttons use. `co` sends `0x0D` before `0x0F`, so any valid pair ends up as requested | SET_EEV_MINWORKPOS (`co` accepts `eev_min_pulse_open` 0–255, set in the web UI Settings tab) |
 | `0x0E` | max watts, `d1*100 + d2`. ≤1000 = watchdog reset when `WATCHDOG` is on; above `MAX_WATTS_LIMIT` (4000) the command is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
@@ -109,6 +110,7 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 
 - **COP calculation:** `HPS` (>0 = compressor running), `Tho`, `Ttarget`. Also `lt_pow`: Wh used since the last compressor start, reset at every start. And `lt_hp_on`: seconds of the current run, or the length of the last run once the compressor has stopped.
 - **Dashboard:** `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `HCS`, `CCS`.
+- **Web app (chpc-web):** `EEVmax` and `EEVmin`, the current EEV limits. They also fill in the defaults of the Settings form.
 - **Cloud:** the whole object is forwarded as telemetry `HP`.
 
 **Known mismatches with the current firmware:**
@@ -136,7 +138,7 @@ The server saves a record only when `HP.Ttarget` is truthy. It adds `t_out` (out
 - `work_mode`: `M`, `A`, `CWU`, `OFF`. `co` also accepts `PV`, which the server never sends.
 - `force`, `co_pomp`, `hot_pomp`, `cold_pomp`, `sump_heater`: `"0"` or `"1"`.
 - `co_min`, `co_max`, `cwu_min`, `cwu_max`;
-- `working_watt`, `eev_max_pulse_open`, `eev_setpoint`.
+- `working_watt`, `eev_max_pulse_open`, `eev_min_pulse_open`, `eev_setpoint`.
 
 Where the values come from:
 - **Scheduler** (every 60 s): `work_mode`, `force` and the temperatures, from device defaults or the active schedule.
@@ -146,7 +148,7 @@ Where the values come from:
 - `co_max` / `cwu_max` → `0x04`;
 - max − min → `0x05`;
 - `working_watt` → `0x0E`;
-- `eev_*` → `0x0D` / `0x08`;
+- `eev_max_pulse_open` → `0x0D`, then `eev_min_pulse_open` → `0x0F`, then `eev_setpoint` → `0x08`;
 - pumps and force → `0x09`–`0x0B`, `0x03`;
 - work mode → `0x0C` plus `co`'s own CO/CWU relays.
 

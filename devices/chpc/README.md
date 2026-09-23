@@ -88,7 +88,7 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 - **Superheat above setpoint + 4.2 K:** the valve opens fast (one step per 1.3 s).
 - **Emergency close:** the valve closes fast when superheat < 0.2 K, Tae < 0.2 °C, or Tci/Tco < 0 °C.
 - **Limits while the compressor runs:**
-  - **minimum** opening `EEV min`: default 49 steps, settable 25 up to max − 1;
+  - **minimum** opening `EEV min`: default 49 steps, settable 25 up to max − 1 from the buttons, or from the web app Settings tab (RS-485 `0x0F`);
   - **maximum** opening `EEV`: default 67 steps, settable min + 1 up to 480.
 - **While the compressor is off:** the valve waits in the **waiting position**, which is always below the minimum: `min(45, EEV min − 4)`.
 - **Recalibration:** every 24 h of idle time the valve is fully closed to recalibrate its position.
@@ -148,7 +148,8 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 | `0x08` | EEV superheat setpoint | decimal |
 | `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater | `d1` = 0/1 |
 | `0x0C` | heating (CO) on/off | `d1` = 0/1 |
-| `0x0D` (`0x07`) | EEV maximum opening | `d1` = steps. Values ≤ EEV min are ignored |
+| `0x0D` (`0x07`) | EEV maximum opening | `d1` = steps, 26–255. If it is ≤ EEV min, EEV min drops to max − 1 |
+| `0x0F` | EEV minimum opening | `d1` = steps, 25–255. If it is ≥ EEV max, EEV max rises to min + 1 |
 | `0x0E` | power limit | W, up to 4000. Values ≤ 1000 are ignored (with `WATCHDOG` enabled they reset the controller) |
 
 **Response to `0x01`:** one line of JSON:
@@ -156,7 +157,7 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 ```json
 {"Tbe":"2.0","Tae":"5.0","Tco":"0.0","Tho":"0.0","Ttarget":"30.0","Tsump":"0.0","EEV_dt":"0.0",
  "Tmax":"30.0","Tmin":"25.0","Watts":"0","EEV":"1.0","EEV_pos":"0","EEV_pulse":"0",
- "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","lt_pow":"0","lt_hp_on":"0"}
+ "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","EEVmin":"49","lt_pow":"0","lt_hp_on":"0"}
 ```
 
 | Key | Meaning |
@@ -165,7 +166,7 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 | `EEV_dt` | current superheat |
 | `Tmax`, `Tmin` | thermostat limits |
 | `Watts`, `WWatt` | current power, power limit |
-| `EEV`, `EEV_pos`, `EEV_pulse`, `EEVmax` | superheat setpoint, valve position, pending steps, maximum opening |
+| `EEV`, `EEV_pos`, `EEV_pulse`, `EEVmax`, `EEVmin` | superheat setpoint, valve position, pending steps, maximum and minimum opening |
 | `HPS`, `HCS`, `CCS`, `SHS` | compressor, hot pump, cold pump, sump heater (1 = on) |
 | `F`, `CO` | force start, heating on |
 | `lt_pow` | energy used in the current or last compressor run, Wh |
@@ -202,7 +203,7 @@ Compile-time options are at the top of [src/CHPC_firmware.ino](./src/CHPC_firmwa
 | Scenario | Checks |
 |---|---|
 | `scenario.yaml` | sensor discovery, RS-485 commands, EEPROM after reset, back-to-back frames |
-| `scenario-eev-min.yaml` | EEV minimum set with the buttons |
+| `scenario-eev-min.yaml` | EEV minimum and maximum: buttons, RS-485 `0x0F`/`0x0D`, limits adjusting each other |
 | `scenario-frost.yaml` | frost protection |
 | `scenario-sensor-lost.yaml` | sensor loss: RS-485 keeps answering, the error clears when the sensor returns |
 

@@ -1,4 +1,4 @@
-name: 'CHPC: minimum EEV ustawiane przyciskami'
+name: 'CHPC: minimum i maksimum EEV (przyciski, RS-485 0x0F/0x0D)'
 version: 1
 author: 'CHPC'
 
@@ -67,11 +67,9 @@ steps:
   - set-control: { part-id: cTbc, control: pressed, value: 1 }
   - delay: 3000ms
 
-  # przed zmianą: maksimum 47 <= minimum 49, więc 0x0D 47 jest ignorowane
-  - write-serial: [0x41, 0x0D, 47, 0, 0xFF]
-  - delay: 600ms
+  # wartości domyślne
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"67"'
+  - wait-serial: '"EEVmax":"67","EEVmin":"49"'
   - delay: 600ms
 
   # menu: 9 naciśnięć przycisku "menu" -> pozycja INPUT_TYPE_EEV_MIN
@@ -128,30 +126,38 @@ steps:
   - delay: 100ms
   - set-control: { part-id: btnLeft, control: pressed, value: 0 }
   - delay: 1000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"67","EEVmin":"45"'
+  - delay: 600ms
 
-  # po zmianie: 0x0D 47 > minimum 45, więc przyjęte
-  - write-serial: [0x41, 0x0D, 47, 0, 0xFF]
+  # RS-485 0x0F: minimum 70 >= maksimum 67 -> maksimum podniesione do 71
+  - write-serial: [0x41, 0x0F, 70, 0, 0xFF]
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"47"'
+  - wait-serial: '"EEVmax":"71","EEVmin":"70"'
   - delay: 600ms
 
-  # restart: minimum 45 wczytane z EEPROM, więc 0x0D 46 przyjęte
+  # RS-485 0x0D: maksimum 40 <= minimum 70 -> minimum obniżone do 39
+  - write-serial: [0x41, 0x0D, 40, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'
+  - delay: 600ms
+
+  # poza zakresem: minimum 20 < 25 i maksimum 25 <= 25 ignorowane
+  - write-serial: [0x41, 0x0F, 20, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x0D, 25, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'
+  - delay: 600ms
+
+  # restart: obie wartości wczytane z EEPROM
   - set-control: { part-id: btnReset, control: pressed, value: 1 }
   - delay: 200ms
   - set-control: { part-id: btnReset, control: pressed, value: 0 }
   - wait-serial: 'ID: 0x41'
   - delay: 4000ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"47"'
-  - delay: 600ms
-  - write-serial: [0x41, 0x0D, 46, 0, 0xFF]
-  - delay: 600ms
-  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"46"'
-  - delay: 600ms
-  # 0x0D 45 = minimum: nadal ignorowane
-  - write-serial: [0x41, 0x0D, 45, 0, 0xFF]
-  - delay: 600ms
-  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"46"'
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'

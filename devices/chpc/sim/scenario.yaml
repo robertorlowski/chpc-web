@@ -87,10 +87,10 @@ steps:
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
   - wait-serial: '"WWatt":"3800.00"'
   - delay: 600ms
-  - write-serial: [0x41, 0x0D, 45, 0, 0xFF]       # 45 <= EEV_MINWORKPOS: ignorowane
+  - write-serial: [0x41, 0x0D, 45, 0, 0xFF]       # 45 <= minimum 49: maksimum 45, minimum obniżone do 44
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"EEVmax":"67"'
+  - wait-serial: '"EEVmax":"45","EEVmin":"44"'
   - delay: 600ms
   - write-serial: [0x41, 0x0D, 200, 0, 0xFF]      # 200 > 127: bajt bez znaku
   - delay: 600ms

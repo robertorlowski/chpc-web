@@ -1208,9 +1208,25 @@ void loop(void) {
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);
           break;
         case 0x07:
-          if (frame[2] <= EEV_MINWORKPOS) break;
+        case 0x0D:
+          //maksimum EEV; gdy nie jest większe od minimum, minimum obniża się do maksimum - 1
+          if (frame[2] <= EEV_MINWORKPOS_LOW) break;
           EEV_MAXPULSES_OPEN = int(frame[2]);
+          if (EEV_MINWORKPOS >= EEV_MAXPULSES_OPEN) {
+            EEV_MINWORKPOS = EEV_MAXPULSES_OPEN - 1;
+            WriteIntEEPROM(eeprom_addr_EEV_MIN, EEV_MINWORKPOS);
+          }
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          break;
+        case 0x0F:
+          //minimum EEV; gdy nie jest mniejsze od maksimum, maksimum podnosi się do minimum + 1
+          if (frame[2] < EEV_MINWORKPOS_LOW) break;
+          EEV_MINWORKPOS = int(frame[2]);
+          if (EEV_MAXPULSES_OPEN <= EEV_MINWORKPOS) {
+            EEV_MAXPULSES_OPEN = EEV_MINWORKPOS + 1;
+            WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
+          }
+          WriteIntEEPROM(eeprom_addr_EEV_MIN, EEV_MINWORKPOS);
           break;
         case 0x08:
           T_EEV_setpoint = double(int(frame[2])) + double(int(frame[3])) / 100;
@@ -1228,11 +1244,6 @@ void loop(void) {
         case 0x0C:
           co_on = (frame[2] == 0x01);
           WriteIntEEPROM(eeprom_addr_co, co_on);
-          break;
-        case 0x0D:
-          if (frame[2] <= EEV_MINWORKPOS) break;
-          EEV_MAXPULSES_OPEN = int(frame[2]);
-          WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
           break;
         case 0x0E:
           if ( int(frame[2]) * 100 + int(frame[3]) <= 1000 ) {
@@ -1931,6 +1942,9 @@ void StatsSerial(void) {
 
   RS485Serial.print(F("\",\"EEVmax\":\""));
   RS485Serial.print(EEV_MAXPULSES_OPEN);
+
+  RS485Serial.print(F("\",\"EEVmin\":\""));
+  RS485Serial.print(EEV_MINWORKPOS);
 
   RS485Serial.print(F("\",\"lt_pow\":\""));
   RS485Serial.print(last_power / 3600);
