@@ -55,6 +55,7 @@
 
 //-----------------------TUNING OPTIONS -----------------------
 #define MAX_WATTS 3200  //3700.0  //user for power protection
+#define MAX_WATTS_LIMIT 4000  //górna granica limitu mocy ustawianego przyciskami
 
 #define DEFFERED_STOP_HOTCIRCLE 60000   //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 10000  //3000 000
@@ -791,7 +792,7 @@ void Dec_T(void) {
 }
 
 void Inc_Watt(void) {
-  if (c_wattage_max + 50 > c_wattage_max) {
+  if (c_wattage_max + 50 > MAX_WATTS_LIMIT) {
     return;
   }
   c_wattage_max += 50;
@@ -1170,8 +1171,8 @@ void halifise(void) {
   digitalWrite(CLK_595, 0);
   __asm__ __volatile__("nop\n\t");
   digitalWrite(DATA_595, 0);
-  digitalWrite(CLK_595, 1);g
-  __asm__ __volatile__("nop\n\t");c_wattage_max_min
+  digitalWrite(CLK_595, 1);
+  __asm__ __volatile__("nop\n\t");
   digitalWrite(CLK_595, 0);
   //
   digitalWrite(LATCH_595, 1);
@@ -1436,7 +1437,7 @@ void setup(void) {
     ReadEECheckAddr("Ttarget", Ttarget.addr);  //eeprom_addr incremeneted here
     ReadEECheckAddr("Tsump", Tsump.addr);      //eeprom_addr incremeneted here
     ReadEECheckAddr("Tci", Tci.addr);          //eeprom_addr incremeneted here
-    ReadEECheckAddr("Tci", Tci.addr);          //eeprom_addr incremeneted here
+    ReadEECheckAddr("Tco", Tco.addr);          //eeprom_addr incremeneted here
     ReadEECheckAddr("Thi", Thi.addr);          //eeprom_addr incremeneted here
     ReadEECheckAddr("Tho", Tho.addr);          //eeprom_addr incremeneted here
     ReadEECheckAddr("Tbc", Tbc.addr);          //eeprom_addr incremeneted here
@@ -2339,7 +2340,7 @@ void loop(void) {
               while (true) {// oczekiwanie na reset
               }
             #endif
-          } else {
+          } else if ( int(inData[2]) * 100 + int(inData[3]) <= MAX_WATTS_LIMIT ) {
             c_wattage_max = int(inData[2]) * 100 + int(inData[3]);
             WriteIntEEPROM(eeprom_addr_WATT, c_wattage_max);
           }

@@ -51,4 +51,59 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
   6. Parses RS-485 commands.
 - **Sensors:** each DS18B20 is an `st_tsens` global (`Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu`). `.e` marks it enabled, and its `BIT_*` index is its slot in `used_sensors` and in the EEPROM address layout. The README table explains the abbreviations.
 - **EEPROM:** runtime-tunable settings sit at fixed addresses (`eeprom_addr_co`, `_EEV_MAX`, `_EEV_setpoint`, `_dT`, `_WATT`) and are written with `WriteFloatEEPROM`/`WriteIntEEPROM`. The sensor addresses are stored before these, so keep new addresses clear of both.
-- **RS-485 protocol:** each frame is 5 bytes, `[devID=0x41][cmd][data1][data2][0xFF]`. Commands `0x01`/`0x02` return stats (`StatsSerial()`, a text/JSON-style dump in `outString`). Commands `0x03`–`0x0E` do the following: force start, setpoint, delta, EEV max open, EEV superheat setpoint, force hot/cold pump or sump heater, CO on/off, and max watts. With `WATCHDOG` on, a value ≤1000 for max watts triggers a reset through the watchdog. New commands go in the `switch` near the end of `loop()` and must be persisted to EEPROM when they need to survive a reboot.
+- **RS-485 commands:** handled in the `switch` near the end of `loop()`. The response is built by `StatsSerial()`. New settings must be written to EEPROM when they need to survive a reboot. The protocol is a contract with another project, described in the next section.
+
+## RS-485 contract with the `co` controller
+
+The bus master is a separate ESP32 project, `D:\DevLocal\arduino_src\heatpump\co` (PlatformIO, its own git repo). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
+
+- `src/modbus_frame.cpp`: command encoding, covered by `test/test_modbus_frame` (`pio test -e native`).
+- `src/serial_bus.cpp`: queue, timing and frame detection.
+- `src/heat_pump_data_processor.cpp` and `src/cop_estimator.cpp`: JSON parsing and COP.
+- `src/device_io.cpp`: the TFT dashboard.
+- `src/operation_controller.cpp`: which commands are sent and when.
+
+**Bus.** Half-duplex RS-485, 9600 8N1. The same line carries three devices, and only `co` starts a transfer:
+
+| Address | Device | Frame format |
+|---|---|---|
+| `0x41` | this heat pump | 5-byte frames described below |
+| `0x69` | Hoymiles DTU (PV inverters) | Modbus RTU with CRC; responses are about 200 bytes |
+| `0x10` | `co` itself | answers 4-byte requests `[0x10][op][x][0xFF]` |
+
+CHPC must ignore every frame whose first byte isn't `0x41` and must never send anything it wasn't asked for.
+
+**Request.** `[0x41][cmd][d1][d2][0xFF]`. Decimal values are sent as `d1` = whole part and `d2` = hundredths, so 45.5 is sent as `[45][50]`. Watts are sent as `d1` = W/100 and `d2` = W%100.
+
+| cmd | Meaning | Sent by `co` |
+|---|---|---|
+| `0x01` | return JSON stats | GET_HP_DATA: every 10 s while running, every 30 s idle (every 10th poll goes to the PV inverters instead) |
+| `0x02` | same as `0x01` | not used |
+| `0x03` | force start, `d1` = 0/1 | SET_HP_FORCE_ON/OFF |
+| `0x04` | T setpoint (CO max), decimal | SET_T_SETPOINT_CO = `co_max` or `cwu_max` |
+| `0x05` | T delta, decimal | SET_T_DELTA_CO = max − min |
+| `0x07` | EEV max open | not used (duplicate of `0x0D`) |
+| `0x08` | EEV superheat setpoint, decimal | SET_EEV_SETPOINT |
+| `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater, `d1` = 0/1 | SET_HOT_PUMP / SET_COLD_PUMP / SET_SUMP_HEATER |
+| `0x0C` | CO on/off, `d1` = 0/1 | SET_HP_CO_ON/OFF |
+| `0x0D` | EEV max open pulses, `d1` = 0–255 | SET_EEV_MAXPULSES_OPEN |
+| `0x0E` | max watts, `d1*100 + d2`. ≤1000 = watchdog reset when `WATCHDOG` is on; above `MAX_WATTS_LIMIT` (4000) the command is ignored | SET_WORKING_WATT (`co` accepts `working_watt` 0–25599 from the cloud) |
+
+**Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
+
+- It must answer within 3 s. Blocking `delay()`s, slow `GetT` retries and the `return` during the 90 s power-on pause all risk timeouts, which `co` counts in its `serial_read_timeout` telemetry.
+- The JSON must go out without pauses longer than 5 ms.
+- Nothing else may be sent while `co` waits for the response. JSON that fails to parse is counted in `hp_json_error`.
+
+JSON keys `co` depends on (don't rename or remove them; adding keys is fine within the flash budget). Values may be numbers or quoted strings, because `co` accepts both:
+
+- **COP calculation:** `HPS` (>0 = compressor running), `Tho`, `Ttarget`. Also `lt_pow`: Wh used since the last compressor start, reset at every start. And `lt_hp_on`: seconds of the current run, or the length of the last run once the compressor has stopped.
+- **Dashboard:** `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `HCS`, `CCS`.
+- **Cloud:** the whole object is forwarded as telemetry `HP`.
+
+**Known mismatches with the current firmware:**
+
+- `0x04`/`0x05` drop `d2`, because `int(inData[3]) / 100` is integer division. `co` does send the hundredths, so the fix is `/ 100.0`.
+- `inData` is `char` (signed), so `d1` above 127 comes out negative. That affects `0x0D` above 127 pulses and `0x0E` above 12 799 W.
+- `0x04` above `T_SETPOINT_MAX` and `0x05` above `T_DELTA_MAX` are silently ignored.
+- With `RS485_HUMAN`, `PrintS_and_D()` also writes status and error text to the bus without being asked (for example "Err: x" every second while `errorcode != 0`). That breaks the rule against sending unrequested data and can corrupt HP or PV reads.
