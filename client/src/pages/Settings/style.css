@@ -95,3 +95,25 @@ button:disabled {
 }
 
 
+
+/* osobna sekcja błędów sterownika na dole strony */
+.settings > section > .resource.settings-errors {
+    width: min(450px, calc(100vw - 2rem));
+    box-sizing: border-box;
+}
+
+.settings-errors > div {
+  margin-bottom: 6px;
+}
+
+.settings-error-text {
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.settings-error-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}

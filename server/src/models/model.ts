@@ -40,6 +40,9 @@ const HpMetricsSchema = new Schema<HpMetrics>(
     WWatt: { type: Number },
     EEVmax: { type: Number },
     EEVmin: { type: Number },
+    ERR: { type: Number },
+    ERRn: { type: Number },
+    ERRc: { type: Number },
     lt_pow: { type: Number },
     lt_hp_on: { type: Number },
   },
@@ -76,7 +79,9 @@ const HpEntrySchema = new Schema<HpEntry>(
     t_min: { type: Number },
     t_max: { type: Number },
     cop: { type: Number },
-    t_out: {type: Number}
+    t_out: {type: Number},
+    // kod błędu CHPC, gdy w tym odczycie pojawiło się nowe zdarzenie (HP.ERRn się zmienił)
+    error_code: { type: Number }
   },
   { timestamps: true, _id: true, collection: 'hp' }
 );

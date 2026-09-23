@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-table';
 import DateDict from '../../components/DateDict';
 import { fetchData, formatDateYMD } from '../../utils/utils';
+import { errorDescription } from '../../utils/errors';
 import { ClipLoader } from 'react-spinners';
 
 const formatDataWorkMode = (workMode?: string): string => (
@@ -205,8 +206,8 @@ export const HeatPumpTable: React.FC = () => {
 		</thead>
 		<tbody>
 		{table.getRowModel().rows.map(row => (
+			<React.Fragment key={row.id}>
 			<tr
-			key={row.id}
 			style={{
 				backgroundColor: row.index % 2 === 0 ? '#fafafa' : '#fff',
 				borderBottom: '1px solid #eee',
@@ -240,6 +241,25 @@ export const HeatPumpTable: React.FC = () => {
 				</td>
 			))}
 			</tr>
+			{row.original.error_code ? (
+				<tr className="error-row">
+					<td
+						colSpan={row.getVisibleCells().length}
+						style={{
+							padding: '6px 9px',
+							borderBottom: '1px solid #eee',
+							flex: '1 1 100%',  // tr ma globalnie display: flex (HP/style.css)
+							backgroundColor: '#fdecea',
+							color: '#b3261e',
+							fontSize: '13.5px',
+							textAlign: 'left',
+						}}
+					>
+						⚠ Błąd sterownika (kod {row.original.error_code}): {errorDescription(row.original.error_code)}
+					</td>
+				</tr>
+			) : null}
+			</React.Fragment>
 		))}
 		</tbody>
 	</table>

@@ -92,6 +92,9 @@ export type HpMetrics = {
     WWatt: number,
     EEVmax: number,
     EEVmin?: number,
+    ERR?: number,
+    ERRn?: number,
+    ERRc?: number,
     lt_pow: number,
     lt_hp_on: number
 
@@ -120,7 +123,8 @@ export type HpEntry = {
   t_min: number,
   t_max: number,
   cop:number,
-  t_out: number
+  t_out: number,
+  error_code?: number
 }
 
 export type OperationEntry = {
@@ -137,11 +141,14 @@ export type OperationEntry = {
   working_watt?: string,
   eev_max_pulse_open?: string,
   eev_min_pulse_open?: string,
+  error_reset?: string,
+  restart?: string,
   eev_setpoint?: string
 }
 
 export type THPL = HpMetrics & {
   time :string,
   work_mode?: string,
-  pv :number
+  pv :number,
+  error_code?: number
 };

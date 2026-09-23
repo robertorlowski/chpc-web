@@ -90,6 +90,9 @@ export interface HpMetrics {
     WWatt?: number,
     EEVmax?: number,
     EEVmin?: number,
+    ERR?: number,
+    ERRn?: number,
+    ERRc?: number,
     lt_pow?: number,
     lt_hp_on?: number
   }
@@ -120,7 +123,8 @@ export interface HpEntry {
   t_min?: number,
   t_max?: number,
   cop?: number,
-  t_out? :number 
+  t_out? :number,
+  error_code?: number
 }
 
 export interface TimeSlot {
@@ -155,6 +159,8 @@ export interface OperationEntry {
   working_watt?: String,
   eev_max_pulse_open?: String,
   eev_min_pulse_open?: String,
+  error_reset?: String,
+  restart?: String,
   eev_setpoint?: String
 }
 

@@ -60,6 +60,24 @@ export const setManualOperationData = (rootId: string, data: OperationEntry) => 
   return manualOperation;
 };
 
+// Akcje jednorazowe dla sterownika: nie są scalane z operacją ręczną ani harmonogramem,
+// trafiają do jednej odpowiedzi na /hp/add i znikają.
+export type OperationAction = 'error_reset' | 'restart';
+export const OPERATION_ACTIONS: OperationAction[] = ['error_reset', 'restart'];
+const pendingActions = new Map<string, OperationEntry>();
+
+export const addOperationAction = (rootId: string, action: OperationAction) => {
+  const actions = { ...(pendingActions.get(rootId) ?? {}), [action]: '1' };
+  pendingActions.set(rootId, actions);
+  return actions;
+};
+
+export const takeOperationActions = (rootId: string): OperationEntry => {
+  const actions = pendingActions.get(rootId) ?? {};
+  pendingActions.delete(rootId);
+  return actions;
+};
+
 export const clearManualOperation = (rootId: string) => {
   manualOperations.delete(rootId);
 

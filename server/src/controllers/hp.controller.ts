@@ -1,9 +1,9 @@
 import { Request, Response } from 'express'
 import { fromZonedTime } from "date-fns-tz";
 import { addDays } from "date-fns";
-import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay } from '../services/hp.service'
+import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
-import { clearOperation, getOperationData } from '../services/operation.service'
+import { clearOperation, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
 
 interface THpClear {
@@ -221,7 +221,8 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
 
   try {
     const rootId = req.deviceRootId as string;
-    const operation: OperationEntry = { ...getOperationData(rootId) };
+    // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
+    const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
     clearOperation(rootId);
     console.log("Get HP operation");
     console.log(operation);
@@ -232,6 +233,16 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     return res.status(201).json({ operation: operation});
   } catch (error) {
     return res.status(500).send({ error: error })
+  }
+}
+
+export const getLastError = async (req: Request, res: Response) => {
+  try {
+    const doc = await getHpLastError(req.deviceRootId as string);
+    return res.status(200).json(doc);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: String(error) });
   }
 }
 

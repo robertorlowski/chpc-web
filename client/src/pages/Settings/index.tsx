@@ -1,15 +1,45 @@
 import './style.css';
 import '../../api/api';
 import { HpRequests } from '../../api/api';
-import { OperationEntry } from '../../api/type';
+import { HpEntry, OperationEntry } from '../../api/type';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../components/Notification';
+import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
 export const Settings: React.FC = () => {
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
 	const [saveNotice, setSaveNotice] = useState('');
 	const [error, setError] = useState<boolean>(false);
+	const [lastError, setLastError] = useState<HpEntry | null>(null);
+	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
+
+	useEffect(() => {
+		HpRequests.getHpLastError()
+			.then((resp) => setLastError(resp))
+			.catch((err) => console.log(err));
+		HpRequests.getCoData()
+			.then((resp) => setErrorCount(resp?.HP?.ERRc))
+			.catch((err) => console.log(err));
+	}, []);
+
+	const runAction = (action: 'error_reset' | 'restart', notice: string) => {
+		HpRequests.runOperationAction(action).then(response => {
+			const ok = response?.status === 201;
+			setError(!ok);
+			if (ok) {
+				setSaveNotice(notice);
+				window.setTimeout(() => setSaveNotice(''), 4000);
+			}
+		});
+	};
+
+	const handleRestart = () => {
+		if (!window.confirm('Zrestartować sterownik pompy? Sprężarka i pompy zostaną zatrzymane, a start nastąpi po ok. 90 s.')) {
+			return;
+		}
+		runAction('restart', 'Polecenie restartu wysłane do sterownika.');
+	};
 
 	
 	const enableSave = useMemo(() => {
@@ -238,12 +268,42 @@ export const Settings: React.FC = () => {
 						</span>
 					</p>
 							
-					<button 
+					<button
 						disabled ={!enableSave}
 						onClick={handleSave}>
 						Zapisz
 					</button>
-				</div>	
+				</div>
+				</div>
+
+				<div className="resource settings-errors">
+					<h3 className="settings-section-title">Błędy sterownika</h3>
+					<div>
+						<span className={lastError?.error_code ? 'settings-error-text' : ''}>
+							{lastError?.error_code
+								? `${errorDescription(lastError.error_code)} (${lastError.time ?? ''})`
+								: 'Brak błędów'}
+						</span>
+					</div>
+					<div>
+						<span className="label">Licznik błędów:</span>
+						<span className={isLocked(errorCount) ? 'settings-error-text' : ''}>
+							{errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`}
+							{isLocked(errorCount) ? ' (sterowanie zablokowane)' : ''}
+						</span>
+					</div>
+					<div className="settings-error-actions">
+						<button
+							title="Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej"
+							onClick={() => runAction('error_reset', 'Polecenie odblokowania wysłane do sterownika.')}>
+							Odblokuj
+						</button>
+						<button
+							title="Uruchamia sterownik od nowa (przerwa startowa ok. 90 s)"
+							onClick={handleRestart}>
+							Restart sterownika
+						</button>
+					</div>
 				</div>
 
 			</section>

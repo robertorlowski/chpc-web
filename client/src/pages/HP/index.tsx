@@ -6,14 +6,22 @@ import { HpEntry, HpMetrics, PvMetrics } from '../../api/type';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../assets/swith_on.svg';
 import swith_off from '../../assets/swith_off.svg';
+import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
 const HP: React.FC = () => {
 
   const [_pv, setPV] = useState<PvMetrics | null >(null);
   const [_hp, setHP] = useState<HpMetrics | null >(null);
   const [_data, setData] = useState<HpEntry | null>(null);
+  const [_lastError, setLastError] = useState<HpEntry | null>(null);
   const ws = useRef<WebSocket | null>(null);
-  
+
+  const loadLastError = () => {
+    HpRequests.getHpLastError()
+      .then(resp => setLastError(resp))
+      .catch(err => console.log(err));
+  };
+
   useEffect(() => {
    HpRequests.getCoData()
         .then(resp => {
@@ -24,7 +32,8 @@ const HP: React.FC = () => {
         .catch(err => {
           console.log(err);
         });
-    }, 
+      loadLastError();
+    },
     []
   );
 
@@ -46,6 +55,7 @@ const HP: React.FC = () => {
             setPV(resp?.PV);
           })
           .catch(err => console.error('Błąd przy pobieraniu danych:', err));
+        loadLastError();
       } catch (error) {
         console.error('Nieprawidłowy komunikat WebSocket:', error);
       }
@@ -89,7 +99,27 @@ const HP: React.FC = () => {
               >
                 <tbody>
                   <tr>
-                    <td className="label">T:</td>
+                    <td className="label hp-temp-label">
+                      <span className="hp-bell-slot">
+                        {(_lastError?.error_code || isLocked(_hp?.ERRc)) ? (
+                          <svg
+                            className="hp-error-bell"
+                            viewBox="0 0 24 24"
+                            role="img"
+                            aria-label="Błąd sterownika"
+                          >
+                            <title>
+                              {[
+                                isLocked(_hp?.ERRc) ? `Sterowanie zablokowane (${_hp?.ERRc}/${ERROR_LOCK_LIMIT} błędów)` : '',
+                                _lastError?.error_code ? `${errorDescription(_lastError.error_code)} (${_lastError.time ?? ''})` : '',
+                              ].filter(Boolean).join('\n')}
+                            </title>
+                            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" />
+                          </svg>
+                        ) : null}
+                      </span>
+                      T:
+                    </td>
                     <td className={_data?.HP?.HPS ? 'field correct' : 'field '}>
                       {_hp?.Ttarget || '---'}
                     </td>

@@ -140,15 +140,42 @@ export const getHpDataForDay = async (rootId: string, day: Date) => {
 
 
 
+// CHPC podaje kod ostatniego błędu (ERR) i numer kolejny zdarzenia (ERRn).
+// Nowy błąd to zmiana ERRn przy niezerowym ERR; zwraca jego kod albo undefined.
+export const detectErrorEvent = (previous: HpEntry | undefined, current: HpEntry) => {
+  const code = current.HP?.ERR;
+  const sequence = current.HP?.ERRn;
+  if (!code || sequence === undefined || sequence === null) return undefined;
+  if (previous?.HP?.ERRn === sequence) return undefined;
+  return code;
+};
+
+// Ostatni błąd z ostatnich 24 godzin (okno ruchome); starszy nie jest już pokazywany.
+export const LAST_ERROR_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export const getHpLastError = async (rootId: string, now = new Date()) => {
+  const since = new Date(now.getTime() - LAST_ERROR_WINDOW_MS);
+  const doc = await HpEntryModel
+    .findOne({ rootId, error_code: { $gt: 0 }, createdAt: { $gte: since } })
+    .sort({ createdAt: -1 })
+    .select('time createdAt error_code HP.ERRc')
+    .lean<HpEntry & { createdAt?: Date }>();
+  return doc ?? {};
+};
+
 export const addHpData = async (rootId: string, data :HpEntry) => {
   data.t_out = getTemperature()!;
   const device = await getDeviceInfo(rootId);
+
+  const previous = await getHpLastData(rootId) as HpEntry;
+  const errorCode = detectErrorEvent(previous, data);
 
   const dataWithRoot = {
     ...data,
     rootId,
     deviceType: device.deviceType,
     deviceId: device.deviceId,
+    ...(errorCode ? { error_code: errorCode } : {}),
   };
   lastDataByRoot.set(rootId, dataWithRoot);
   

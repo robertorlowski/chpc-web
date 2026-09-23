@@ -133,3 +133,23 @@ img.field {
 		grid-template-columns: 1fr;
 	}
 }
+
+/* sygnalizacja błędu sterownika (ostatnie 24 h): dzwonek na środku miejsca przed "T:" */
+td.label.hp-temp-label {
+  display: flex;
+  align-items: center;
+}
+
+.hp-bell-slot {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hp-error-bell {
+  width: 26px;
+  height: 26px;
+  fill: #d32f2f;
+  cursor: help;
+}

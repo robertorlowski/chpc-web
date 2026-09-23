@@ -184,7 +184,16 @@ export class HpRequests {
   static setOperation(data: OperationEntry) {
       console.log(JSON.stringify(data));
       return Requests.post("/operation/set", data, false);
-  } 
+  }
+
+  // akcja jednorazowa dla sterownika: 'error_reset' (odblokowanie) albo 'restart'
+  static runOperationAction(action: 'error_reset' | 'restart') {
+      return Requests.post("/operation/action", { action }, false);
+  }
+
+  static getHpLastError() : Promise<HpEntry | null> {
+      return Requests.get("/hp/last-error");
+  }
 
       static getSchedules(): Promise<ScheduleEntry[] | null> {
         return Requests.get('/schedules');

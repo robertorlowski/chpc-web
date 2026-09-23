@@ -1,7 +1,8 @@
 import { Request, Response } from 'express'
-import { clearOperation, getOperationData, setManualOperationData } from '../services/operation.service';
+import { addOperationAction, clearOperation, getOperationData, OPERATION_ACTIONS, OperationAction, setManualOperationData } from '../services/operation.service';
 import { OperationEntry } from '../middleware/type';
 import { getHpLastData } from '../services/hp.service';
+import { sendMessage } from '../middleware/webSocet';
 
 
 export async function prepareOperation(req: Request, res: Response) {
@@ -66,4 +67,19 @@ export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Re
   console.log(getOperationData(req.deviceRootId as string));
 
   return res.status(201).json({ message: op });
+}
+
+// POST /api/operation/action { action: 'error_reset' | 'restart' }
+// Akcja trafia do sterownika raz, przy najbliższym /hp/add. Komunikat WebSocket
+// "operation" budzi sterownik, żeby wysłał telemetrię od razu, a nie po 10-30 s.
+export const setOperationAction = async (req: Request<{}, {}, { action?: string }>, res: Response) => {
+  const action = req.body?.action as OperationAction;
+  if (!OPERATION_ACTIONS.includes(action)) {
+    return res.status(400).json({ message: `Nieznana akcja: ${req.body?.action}` });
+  }
+
+  const rootId = req.deviceRootId as string;
+  addOperationAction(rootId, action);
+  sendMessage('operation', rootId);
+  return res.status(201).json({ action });
 }
