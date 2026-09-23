@@ -1,146 +1,246 @@
-### CHPC: Cheap Heat Pump Controller v1.x
-<b>The CHPC a minimal cost Heat Pump (HP) controller, which can be used as provided, or can be adopted to nearly all use cases due to open source nature.</b>
-<br><br>
+# CHPC: Cheap Heat Pump Controller
 
-## Real life installation.
-Works from ground heat collectors (loops) to radiant in-floor heating system.
+Firmware for a low-cost heat pump (HP) controller built on an Arduino Pro Mini (ATmega328P, 5 V / 16 MHz) and the CHPC v1.3 PCB. It runs a ground-source heat pump that feeds an in-floor heating loop.
 
- ![Installation example](./docs/m_CHPC_i2.jpg)
+This repository is a fork of [gonzho000/chpc](https://github.com/gonzho000/chpc). It changes the firmware for one specific installation. The main changes are:
+- remote control over RS-485 by an ESP32 master controller;
+- a configurable power limit;
+- adjustable minimum and maximum opening of the electronic expansion valve (EEV);
+- frost protection;
+- faster response on the bus;
+- a Wokwi simulation for testing without hardware.
 
-Driving:
-- EEV, 
-- Heat Pump Compressor (1kW electrical power),
-- Circulating Pumps,
-- Compressor Heater.
+![Installation example](./docs/m_CHPC_i2.jpg)
 
-Temperature sensors installed:
-- Before/After Evaporator,
-- Cold In/Cold Out,
-- Hot In(used as Target)/Hot Out,
-- Outdoor temperature,
-- Compressor.
+## What the controller drives
 
-Controlled via both RS-485 and 16x2 display with buttons.
+| Output | Pin | Function |
+|---|---|---|
+| Relay: compressor | D8 | heat pump compressor |
+| Relay: hot-side pump | D7 | circulating pump of the heating (floor) loop |
+| Relay: cold-side pump | D10 | circulating pump of the ground loop |
+| Relay: sump heater | D11 | compressor crankcase heater |
+| Relay: 4-way valve | D9 | reserved, always off |
+| EEV | D2–D5 | stepper-driven electronic expansion valve |
+| Buzzer | D6 | error signal |
 
-## Changelog
-- 13 Apr, 2019: EEV support development started
-- 16 Apr, 2019: Standalone EEV (no thermostat) with only 2 T sensors written and debugged
-- 30 Apr, 2019: HP system updated to CHPC
-- 01 May, 2019: CHPC fully tested and released
-- 02 May, 2019: PCB rev.1.3 coming up, main feature: a lot of DS18B20 inputs
-- 17 May, 2019: <b>PCB 1.3 tested, [assembly instructions added](https://github.com/gonzho000/chpc/wiki/assembly)</b>
-<br><br>
-## Applications:
-| Usage. |	Brief description. | 	Application examples	| Available protections	|
-| ---------- | ------------------ | ------------------ | -------------------- |
-| 1. Thermostat.	|  Precision thermostat. Simple and cheap. Only one relay and one temperature sensor required.<br> | Room heat control. A chicken coop climate control. Distillation column. Else. | N/A	|
-| 2. Heat pump (HP) control. | Controller drives HP system components: compressor, Cold and Hot side Circulating Pumps (CP). Protect system from an overload, overheat and freezing up. Drives EEV to optimize running conditions. | DIY heat pump system. Repair module for commercial system. Water heater, house heating systems and same applications. | Compressor: cold start or overheat. Discharge and suction lines protection. Short-term power loss. Anti-freeze. Power overload protection. |
-| 3. EEV controller. | Only drives EEV, no relays. Require two T sensors. | Upgrade your system from capillary tube to EEV. | Protects from liquid at suction line by design. |
+| Input | Pin | Function |
+|---|---|---|
+| DS18B20 bus | D12 | up to 12 temperature sensors on one OneWire bus |
+| Current transformer | A6 | compressor power measurement (RMS, 230 V assumed) |
+| Flow sensor | A7 | above 4 V = no flow |
+| Buttons | A2 `<`, A3 `>`, A1 `menu` | local settings (pull-down resistors required) |
+| LCD 16x2 | A4/A5 (I2C, 0x27) | local display |
+| RS-485 | D0/D1 (hardware UART) | 9600 baud, 8N1 |
 
-For more information about Heap Pumps look at [Wikipedia about HP](https://en.wikipedia.org/wiki/Heat_pump)
-<br><br>
-## Features:
-- Up to 13 T sensors (see "T sensor abbreviations" for full list)
-- 5 relays (Compressor, Hot CP or Air Fun, Cold CP or Air Fun, Compressor Heater, 4-way valve)
-- 4 inputs
-- 5/6 pin EEV connection,
-- 1602 display support
-- RS485 or Serial(UART 5V) support
-- Automatically turns on/of system when heating required
-- Takes care of system components health
-- On board or off board power supply
-<br><br>
-## Control interfaces:
- <b>None:</b> Target temperature uploaded to board with firmware and not changed anymore. System used as an fixed thermostat. You can change target temperature with firmware re-upload.<br>
- <b>0.96 OLED or 1602 LCD screen + buttons:</b> Simple, local screen controlled system. <br>
- <b>Remote computer terminal over RS-485 line. </b> Target temperature and running conditions under remote control. A user can get stats from all T sensors. Up to 1.2 kilometer line.\*<br>
- <b> Remote automated control/stats via RS-485.</b> Firmware was written with python scripting in mind (and real scripts at the prototype 485 network).<br>
- <b> Both screen + buttons and RS-485.</b> Combination allowed.
- 
-\* RS-485 specification. The hardware test succeeded on 400 meters line.
+## Temperature sensors
 
-Example: day/night setpoint control and data visualization with JSON communication way.
-![graph example](./docs/m_t_graph_example.png)
-<br><br>
+Sensors are identified by their 1-Wire address. The addresses are learned on first start (see [First start](#first-start-sensor-discovery)) and stored in EEPROM.
 
-## Relays:
-### "Thermostat":
-Only one Relay: drive an electric heater (any) 
-### "Heat Pump". Capillary tube, TXV, EEV:
-5 Relays, drives all you need:
-* Compressor (relay can be used as external relay driver for High Power systems)
-* Cold Circulating Pump (CP)
-* Hot CP
-* Compressor Heater (optional, recommended for outdoor HP installations)
-* and one reserved to support 4-way Valve
-<br><br>
-## Temperature sensors:
-* Up to 13 temperature sensors can be connected to CHPC to control all processes that you want. 
-* Only 1 sensor needed for "Thermostat" or "Heat Pump capillary/TXV" 
-* 3 sensors needed for "HP with EEV" (absolute minimum scheme)
-<br><br>
-## Temperature sensors installation example (medium scheme)
+| Abbr. | Position | Used for |
+|---|---|---|
+| Tae | after evaporator | EEV superheat, suction anti-freeze **(required)** |
+| Tbe | before evaporator | EEV superheat **(required)** |
+| Ttarget | heated water / floor loop | thermostat: start and stop of the compressor **(required)** |
+| Tsump | compressor sump | sump heater, compressor over- and under-temperature |
+| Tci / Tco | cold loop in / out | ground loop anti-freeze |
+| Thi / Tho | hot loop in / out | hot-side overheat, hot pump run-on |
+| Tbc | before condenser (discharge) | discharge overheat |
+| Tac | after condenser | information only |
+| Touter | outdoor | information only |
+| Tcwu | domestic hot water | information only |
+
 ![medium scheme](./docs/m_HeatPump_t_sensors_med.png)
-<br><br>
- ## Get your own CHPC:
-* download PCB Gerber file, [CHPC_v1.3_PCB_Gerber.zip](./docs/CHPC_v1.3_PCB_Gerber.zip) (schematic: [CHPC_v1.3_PCB_schematic.pdf](./docs/CHPC_v1.3_PCB_schematic.pdf))
-* search google [where to order PCB](https://www.google.com/search?q=order+pcb) or make your own at CNC machine
-* order electronic components, see BOM (Bill Of Materials) list, [CHPC_v1.3_PCB_BOM.html](./docs/CHPC_v1.3_PCB_BOM.html)
-* solder, [assembly instructions here](https://github.com/gonzho000/chpc/wiki/assembly)
-* install firmware [src/CHPC_firmware.ino](./src/CHPC_firmware.ino): the project builds with [PlatformIO](https://platformio.org/) (`pio run -t upload`, board: Arduino Pro Mini 5V/16MHz)
-* install CHPC at your system
-* enjoy
-<br><br>
-## T sensor abbreviations:
-These abbreviations used in the interface during sensors installation procedure
 
-| Abbr. | Full name | Required for |
-| ----- | -------------------- | -------------------- |
-| Tae | after evaporator | EEV <br>Anti-liquid protection at suction line |
-| Tbe | before evaporator | EEV |
-| Ttarget | target | Thermostat<br>Thermostat+EEV |
-| Tsump | sump | Automatic Compressor Heater<br>Compressor  overheat protection |
-| Tci | cold in | Antifreeze protection |
-| Tco | cold out | Antifreeze protection |
-| Thi | hot in |  Hot CP automatic control   |
-| Tho | hot out | Overheat protection     |
-| Tbc | before condenser | Discharge overheat protection           |
-| Tac | after condenser |          |
-| Touter | outer (outdoor) |          |
-| Ts1 | additional sensor1 |          |
-| Ts2 | additional sensor2 |          |
+## How it works
 
-<br><br>
- ## Photos:<br>
- ![v1.3](./docs/m_PCB_v1.3_noscreen.jpg)
- ![v1.3](./docs/m_PCB_v1.3_screen.jpg)
- ![v1.3](./docs/m_v1.3_PCBdemo.png) 
+### Start-up
+1. The relays are switched off and the LCD and RS-485 are initialised. The LCD shows `ID: 0x41`.
+2. The sensor addresses and settings are read from EEPROM. On a fresh board, sensor discovery runs instead.
+3. The EEV is fully closed to calibrate its position, then opened to the waiting position.
+4. For **90 s** the compressor is not allowed to start. The LCD counts down (`Wait: N s.`). RS-485 already answers during this time.
 
- 
- ## Older revisions and prototypes:<br>
- PCB v1.1
- 
- ![proto3](./docs/m_proto3.jpg)
- ![proto3 without screen](./docs/m_proto3_noscreen.jpg)
- 
- This is prototype 2 (PCB v1.0).
- 1602 is the best choice.
- 
- ![proto2](./docs/m_proto2.jpg)
- 
- EEV development started here, PCB v1.0.
- 
- ![proto2_EEVdev](./docs/m_proto2_EEVdev.jpg)
- 
- ![proto2 PCB](./docs/m_proto2_PCB.jpg)
- 
-Prototype 1. Say v0.0.
-History ) But worked well for a 2018-19 season.
- ![proto1](./docs/m_proto1.jpg)
+### Compressor control (thermostat)
+The compressor **starts** when all of the following are true:
+- `CO` (heating) is on and there is no error;
+- the compressor has been off for at least **20 min**;
+- `Ttarget` < `T max − delta` (the `T min` shown on the LCD). With force start (`F`), `Ttarget` < `T max − 3 °C` is enough;
+- the protections allow it:
+  - Tsump between 5 and 85 °C;
+  - Tae > −2 °C;
+  - Tbc < 70 °C;
+  - Tci and Tco > −2 °C;
+  - the EEV is at least in its waiting position.
 
-<br><br>
+The compressor **stops** when `Ttarget` > `T max` (or `CO` is switched off), after running for at least **3 min**.
 
-## Author:
-gonzho АТ web.de (c) 2018-2019
+### Circulating pumps
+- **Hot-side pump:** on 2.25 s after the compressor starts. After the compressor stops, it keeps running for **60 s**, and longer while `Tho` > `Ttarget` + 3 °C.
+- **Cold-side pump:** on 2.25 s after the compressor starts. It stops 10 s after the compressor stops, once Tbe and Tae are above 0 °C.
+- **Sump heater:** on while Tsump < 10 °C.
+- **Frost protection:** while the compressor is off, the hot-side pump runs when any connected sensor reads ≤ 0 °C. It stops once all sensors are ≥ 2 °C.
+- **Manual override:** each pump and the sump heater can be forced on from the buttons or over RS-485.
 
-If you have any comments or questions, please do not hesitate to contact me.
+### EEV (electronic expansion valve)
+The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (default 1.0 K, range 0–8 K):
+- **Superheat too low:** the valve closes one step at a time.
+- **Superheat above setpoint + 0.2 K:** the valve opens slowly (one step per 40 s).
+- **Superheat above setpoint + 4.2 K:** the valve opens fast (one step per 1.3 s).
+- **Emergency close:** the valve closes fast when superheat < 0.2 K, Tae < 0.2 °C, or Tci/Tco < 0 °C.
+- **Limits while the compressor runs:**
+  - **minimum** opening `EEV min`: default 49 steps, settable 25 up to max − 1;
+  - **maximum** opening `EEV`: default 67 steps, settable min + 1 up to 480.
+- **While the compressor is off:** the valve waits in the **waiting position**, which is always below the minimum: `min(45, EEV min − 4)`.
+- **Recalibration:** every 24 h of idle time the valve is fully closed to recalibrate its position.
+
+### Protections
+
+| Condition | Reaction |
+|---|---|
+| Tho > 60 °C, Tsump > 85 °C, Tae < −2 °C, Tbc > 70 °C, Tco < −2 °C while running | compressor stops; LCD shows `Err. temp. …` |
+| Tsump < 3 °C, 60 s after start | compressor stops |
+| Power below `power limit / 3.5`, 60 s after start (compressor not working) | compressor stops, error counted (`Err. WATTAGE MIN`) |
+| Power above the power limit (after 9 s from start, or above 3.5× the limit at any time) | compressor stops, error counted (`Overload …`) |
+| No flow on the flow input, 50 s after start. **Active only when the power limit is above 3200 W** | compressor stops, error counted (`Err CP`) |
+| Power drawn while the compressor is off (stuck relay) | pumps forced on (`Err. RY`) |
+| Required sensor missing (reads −127) | compressor stops, `ERR: T.sens.`, buzzer every 33 s. Cleared automatically when the sensor comes back |
+| 5 counted errors | controller locks (`Error x5`) until power-cycled. The counter resets after a normal compressor cycle |
+
+The **power limit** also works as a switch for the flow protection. Setting it to exactly 3200 W disables that protection, for example when the pump runs from a power source on which the flow sensor is unreliable.
+
+## Local operation (LCD and buttons)
+
+The LCD shows three screens in turn, each for 5 s:
+
+| Screen | Line 1 | Line 2 |
+|---|---|---|
+| 1 | `CO:` T min / T max | `T CO:` Ttarget |
+| 2 | `Be:` Tbe `Ae:` Tae | `dT:` superheat, `E:` EEV position (`+`/`−` while moving) |
+| 3 | `HP:` Tsump, `Co:` Tco (or `Ho:` Tho) | `W:` power, `F` = force start, `Flow:0/1` |
+
+`menu` selects the next setting, and `<` / `>` change it. Held buttons repeat every 0.75 s.
+
+| # | LCD | Setting | Step, range | Saved in EEPROM |
+|---|---|---|---|---|
+| 0 | `CO:` | heating on/off | 0/1 | yes |
+| 1 | `T max:` | stop temperature | 0.5 °C, 1–50 °C | yes |
+| 2 | `T min:` | start temperature (T max − delta) | 0.5 °C | yes |
+| 3 | `EEV:` | EEV maximum opening | 1 step, min+1 to 480 | yes |
+| 4 | `EEV Td:` | superheat setpoint | 0.1 K | yes |
+| 5 | `H POMP:` | force hot-side pump on | 0/1 | no |
+| 6 | `C POMP:` | force cold-side pump on | 0/1 | no |
+| 7 | `HEATER:` | force sump heater on | 0/1 | no |
+| 8 | `WATT:` | power limit | 50 W, 914–4000 W | yes |
+| 9 | `EEV min:` | EEV minimum opening (waiting position follows it) | 1 step, 25 to max−1 | yes |
+
+## Remote operation (RS-485)
+
+The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a separate ESP32 controller. It polls the heat pump every 10 s while running and every 30 s when idle, forwards the data to a cloud service, computes COP and sends settings back. The same bus also carries Modbus traffic to the PV inverters (address `0x69`), which the controller ignores.
+
+**Request:** 5 bytes, `[0x41] [cmd] [d1] [d2] [0xFF]`. Decimal values are sent as whole part and hundredths (45.5 → `45, 50`). Power is sent as W/100 and W%100 (3800 W → `38, 0`). Several frames that arrive back to back are all processed.
+
+| cmd | Meaning | Data |
+|---|---|---|
+| `0x01`, `0x02` | return status JSON | — |
+| `0x03` | force start | `d1` = 0/1 |
+| `0x04` | T max | decimal, 0–50 °C |
+| `0x05` | delta (T max − T min) | decimal, 0–30 °C |
+| `0x08` | EEV superheat setpoint | decimal |
+| `0x09` / `0x0A` / `0x0B` | force hot pump / cold pump / sump heater | `d1` = 0/1 |
+| `0x0C` | heating (CO) on/off | `d1` = 0/1 |
+| `0x0D` (`0x07`) | EEV maximum opening | `d1` = steps. Values ≤ EEV min are ignored |
+| `0x0E` | power limit | W, up to 4000. Values ≤ 1000 are ignored (with `WATCHDOG` enabled they reset the controller) |
+
+**Response to `0x01`:** one line of JSON:
+
+```json
+{"Tbe":"2.0","Tae":"5.0","Tco":"0.0","Tho":"0.0","Ttarget":"30.0","Tsump":"0.0","EEV_dt":"0.0",
+ "Tmax":"30.0","Tmin":"25.0","Watts":"0","EEV":"1.0","EEV_pos":"0","EEV_pulse":"0",
+ "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","lt_pow":"0","lt_hp_on":"0"}
+```
+
+| Key | Meaning |
+|---|---|
+| `Tbe`, `Tae`, `Tco`, `Tho`, `Ttarget`, `Tsump` | temperatures, °C |
+| `EEV_dt` | current superheat |
+| `Tmax`, `Tmin` | thermostat limits |
+| `Watts`, `WWatt` | current power, power limit |
+| `EEV`, `EEV_pos`, `EEV_pulse`, `EEVmax` | superheat setpoint, valve position, pending steps, maximum opening |
+| `HPS`, `HCS`, `CCS`, `SHS` | compressor, hot pump, cold pump, sump heater (1 = on) |
+| `F`, `CO` | force start, heating on |
+| `lt_pow` | energy used in the current or last compressor run, Wh |
+| `lt_hp_on` | length of the current or last compressor run, s |
+
+## First start: sensor discovery
+
+On a new board (or after changing `MAGIC` in the source) the controller learns the sensor addresses. Connect **one sensor at a time**, when the LCD asks for it:
+- `Insert Tae`: connect the sensor. The LCD shows its address, then `OK! Remove Tae`. Disconnect it.
+- `Press > to skip`: optional sensor. Press `>` to skip it, or connect it.
+- Tae, Tbe and Ttarget are required. The order is Tae, Tbe, Ttarget, Tsump, Tci, Tco, Thi, Tho, Tbc, Tac, Touter, Tcwu.
+
+After the last sensor, connect all of them together. On later starts the addresses are read from EEPROM. A sensor that no longer matches its address shows `Err, s.: <name>`.
+
+## Building and flashing
+
+The project uses [PlatformIO](https://platformio.org/):
+
+```sh
+pio run                                   # build
+pio run -t upload --upload-port COM3      # flash (disconnect RS-485 first: it shares pins 0/1)
+pio device monitor                        # serial console, 9600 baud
+```
+
+Compile-time options are at the top of [src/CHPC_firmware.ino](./src/CHPC_firmware.ino):
+- `USER OPTIONS`: display, buttons, EEV support;
+- `TEMPERATURES`: protection thresholds;
+- `TUNING OPTIONS`: timings, EEV and power limits.
+
+## Simulation
+
+[sim/](./sim/) contains a [Wokwi](https://wokwi.com/) project with the same wiring (an Arduino Nano stands in for the Pro Mini) and test scenarios:
+
+| Scenario | Checks |
+|---|---|
+| `scenario.yaml` | sensor discovery, RS-485 commands, EEPROM after reset, back-to-back frames |
+| `scenario-eev-min.yaml` | EEV minimum set with the buttons |
+| `scenario-frost.yaml` | frost protection |
+| `scenario-sensor-lost.yaml` | sensor loss: RS-485 keeps answering, the error clears when the sensor returns |
+
+```sh
+pio run
+cd sim && WOKWI_CLI_TOKEN=<token> wokwi-cli . --scenario scenario.yaml --timeout 280000
+```
+
+`sim/latency.sh` measures the RS-485 response time from a logic-analyzer recording (`--vcd-file`).
+
+## Hardware
+
+- PCB: [CHPC_v1.3_PCB_Gerber.zip](./docs/CHPC_v1.3_PCB_Gerber.zip), schematic: [CHPC_v1.3_PCB_schematic.pdf](./docs/CHPC_v1.3_PCB_schematic.pdf)
+- Components: [CHPC_v1.3_PCB_BOM.html](./docs/CHPC_v1.3_PCB_BOM.html)
+- Assembly: [instructions in the original project wiki](https://github.com/gonzho000/chpc/wiki/assembly)
+
+![v1.3](./docs/m_PCB_v1.3_noscreen.jpg)
+![v1.3](./docs/m_PCB_v1.3_screen.jpg)
+![v1.3](./docs/m_v1.3_PCBdemo.png)
+
+### Older revisions and prototypes
+
+PCB v1.1
+
+![proto3](./docs/m_proto3.jpg)
+![proto3 without screen](./docs/m_proto3_noscreen.jpg)
+
+Prototype 2 (PCB v1.0) and EEV development
+
+![proto2](./docs/m_proto2.jpg)
+![proto2_EEVdev](./docs/m_proto2_EEVdev.jpg)
+![proto2 PCB](./docs/m_proto2_PCB.jpg)
+
+Prototype 1
+
+![proto1](./docs/m_proto1.jpg)
+
+## Author and license
+
+Original design and firmware: gonzho (c) 2018–2019, [github.com/gonzho000/chpc](https://github.com/gonzho000/chpc).
+Licensed under the GNU General Public License v3, see [docs/LICENSE](./docs/LICENSE).
