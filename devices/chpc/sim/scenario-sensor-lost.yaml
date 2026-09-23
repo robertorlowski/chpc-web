@@ -1,0 +1,101 @@
+name: 'CHPC: odłączony czujnik nie blokuje pętli'
+version: 1
+author: 'CHPC'
+
+steps:
+  # --- pierwszy start: wykrywanie czujników (pętla w setup()) ---
+  - wait-serial: 'ID: 0x41'
+  - wait-serial: 'Insert Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 0 }
+  - wait-serial: 'Insert Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 0 }
+  - wait-serial: 'Insert Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 0 }
+
+  # Tsump, Tci, Tco, Thi, Tho: pomijane przyciskiem ">"
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tsump'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tci'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tco'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Thi'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tho'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # Tbc: podłączony
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbc'
+  - set-control: { part-id: cTbc, control: pressed, value: 0 }
+
+  # Tac, Touter, Tcwu: pomijane
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tac'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Touter'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tcwu'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # wszystkie czujniki na magistrali
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - delay: 3000ms
+
+  - delay: 40000ms
+  # odłączenie Tbe (czujnik sprawdzany w cyklu kontrolnym); zapytania od razu, co 500 ms
+  - set-control: { part-id: cTbe, control: pressed, value: 0 }
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - delay: 500ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: 'ERR: T.sens.'
+  - delay: 2000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"Tbe":"-127.0"'
+  # ponowne podłączenie Tbe: błąd czujnika powinien zniknąć, a odczyt wrócić do 2.0
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - delay: 5000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"Tbe":"2.0"'

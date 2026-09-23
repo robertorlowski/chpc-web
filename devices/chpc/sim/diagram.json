@@ -25,6 +25,8 @@
 
     { "type": "wokwi-potentiometer", "id": "potA6", "top": 300, "left": 400, "attrs": { "value": "512" } },
 
+    { "type": "wokwi-logic-analyzer", "id": "la", "top": 450, "left": 400, "attrs": {} },
+
     { "type": "wokwi-pushbutton", "id": "btnReset", "top": 120, "left": 660, "attrs": { "color": "red", "label": "reset" } }
   ],
   "connections": [
@@ -70,6 +72,10 @@
     [ "potA6:SIG", "nano:A6", "yellow", [] ],
     [ "potA6:GND", "nano:GND.2", "black", [] ],
     [ "nano:A7", "nano:GND.2", "black", [] ],
+
+    [ "la:D0", "nano:0", "gray", [] ],
+    [ "la:D1", "nano:1", "gray", [] ],
+    [ "la:GND", "nano:GND.2", "black", [] ],
 
     [ "btnReset:1.l", "nano:RESET", "red", [] ],
     [ "btnReset:2.l", "nano:GND.2", "black", [] ]

@@ -512,6 +512,12 @@ unsigned long millis_notification_interval = 33000;
 unsigned long millis_displ_update = 0;
 unsigned long millis_displ_update_interval = 5000;
 unsigned long millis_lcd_reinit = 0;
+unsigned long millis_last_button = 0;
+#ifdef EEV_ONLY
+#define BUTTON_REPEAT_MS 300
+#else
+#define BUTTON_REPEAT_MS 750
+#endif
 unsigned int displ_inc = 1;
 
 // unsigned long millis_escinput = 0;
@@ -691,7 +697,6 @@ void PrintS_and_D(String str) {
   lcd.backlight();
   lcd.clear();
   lcd.print(str);
-  delay(200);
 #endif
 }
 
@@ -942,24 +947,20 @@ unsigned char FindAddr(String what, int required = 0) {
   return 1;
 }
 
-double GetT(unsigned char *str) {
-  tempdouble = -127.0;
-  for (i = 0; i < 8; i++) {
+//bez delay(): brak czujnika nie może wstrzymywać pętli (EEV, RS-485) na kilka sekund
+double GetT(st_tsens &s) {
+  for (i = 0; i < 3; i++) {  //-127 zwykle z zakłócenia na linii: ponów od razu
 #ifdef WATCHDOG
     wdt_reset();
 #endif
 #ifdef EEV_SUPPORT
     eevise();
 #endif
-    tempdouble = s_allTsensors.getTempC(str);
-    if ((tempdouble == 85.0) || (tempdouble == -127.0)) {
-      if (tempdouble == 85.0) {  //initial value in dallas register after poweron
-        delay(375);              //375 actual for 11 bits resolution, 2-3 retries OK for 12-bits resolution
-      } else {
-        //delay(37);
-        delay(375);
-      }
-    } else {
+    tempdouble = s_allTsensors.getTempC(s.addr);
+    if (tempdouble == 85.0) {  //initial value in dallas register after poweron
+      return s.T;              //zostaw poprzedni odczyt do czasu pierwszego pomiaru
+    }
+    if (tempdouble != -127.0) {
       break;
     }
   }
@@ -968,10 +969,10 @@ double GetT(unsigned char *str) {
 
 void Get_Temperatures(void) {
   for (byte n = 0; n < T_SENSORS; n++) {
-    if (sensors[n].e) sensors[n].T = GetT(sensors[n].addr);
+    if (sensors[n].e) sensors[n].T = GetT(sensors[n]);
   }
   //Ttarget: średnia z dwóch odczytów
-  if (Ttarget.e) Ttarget.T = (Ttarget.T + GetT(Ttarget.addr)) / 2;
+  if (Ttarget.e) Ttarget.T = (Ttarget.T + GetT(Ttarget)) / 2;
 
   s_allTsensors.requestTemperatures();  //global request
 }
@@ -1213,10 +1214,7 @@ void stopOnError(String error = "") {
   error_count += 1;
   halifise();
 
-  tone(speakerOut, ERR_HZ);
-  delay(500);
-  noTone(speakerOut);
-  delay(500);
+  tone(speakerOut, ERR_HZ, 500);  //sygnał w tle, bez wstrzymywania pętli
 }
 
 //--------------------------- functions END
@@ -1619,7 +1617,8 @@ void loop(void) {
 
   if ((z == 1) && (i == 1)) {
     //
-  } else if ((z == 1) || (i == 1) || (d == 1)) {
+  } else if (((z == 1) || (i == 1) || (d == 1)) && ((unsigned long)(millis_now - millis_last_button) > BUTTON_REPEAT_MS)) {
+    millis_last_button = millis_now;  //zamiast delay(): kolejne naciśnięcie (lub powtórzenie przytrzymanego) po BUTTON_REPEAT_MS
 #ifndef EEV_ONLY
     if (d == 1) {
       input_type++;
@@ -1735,7 +1734,6 @@ void loop(void) {
           //   WriteIntEEPROM(eeprom_addr_cwu_on, cwu_on);
           //   break;
       }
-      delay(750);
     }
 #else
     if (z == 1) {
@@ -1745,7 +1743,6 @@ void loop(void) {
       T_EEV_setpoint += 0.25;
     }
     PrintS_and_D("New EEV Td: " + String(T_EEV_setpoint));
-    delay(300);
 #endif
   }
 #endif
@@ -1885,6 +1882,9 @@ void loop(void) {
     }
     SaveSetpointEE();
 
+    if (errorcode == ERR_T_SENSOR) {
+      Get_Temperatures();  //bez odczytu w stanie błędu błąd czujnika nigdy by nie zniknął
+    }
     //auto-clean sensor error on sensor appear
     // add 1xor enable here!
     if ((errorcode == ERR_T_SENSOR) && (((Tae.e == 1 && Tae.T != -127) || (Tae.e ^ 1)) && ((Tbe.e == 1 && Tbe.T != -127) || (Tbe.e ^ 1)) && ((Ttarget.e == 1 && Ttarget.T != -127) || (Ttarget.e ^ 1)) && ((Tsump.e == 1 && Tsump.T != -127) || (Tsump.e ^ 1))
@@ -1906,9 +1906,7 @@ void loop(void) {
       if (((unsigned long)(millis_now - millis_notification) > millis_notification_interval) || millis_notification == 0) {
         millis_notification = millis_now;
         PrintS_and_D(F("ERR: T.sens."));
-        tone(speakerOut, ERR_HZ);
-        delay(1000);
-        noTone(speakerOut);
+        tone(speakerOut, ERR_HZ, 1000);  //sygnał w tle, bez wstrzymywania pętli
         // for (i = 0; i < errorcode; i++) {
         //   tone(speakerOut, ERR_HZ);
         //   delay(1000);
