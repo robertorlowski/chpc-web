@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CHPC (Cheap Heat Pump Controller) is an Arduino firmware for an AVR board that runs a heat pump. It switches the compressor, the hot-side and cold-side circulating pumps, the sump (compressor) heater and a 4-way valve. It drives a stepper EEV, reads DS18B20 temperature sensors on OneWire, measures compressor power with a current transformer, and is controlled from a 1602 I2C LCD with buttons and/or RS-485. This is a fork of github.com/gonzho000/chpc (GPLv3). The fork adds changes on this branch, such as COP calculation, RS-485 commands and wattage limits stored in EEPROM. Commit messages and some code comments are in Polish.
 
-The entire firmware is one file: [CHPC_firmware.ino](CHPC_firmware.ino), about 2400 lines. [archiwum/](archiwum/) holds old snapshots of the firmware and is not built. Do not read, search or use it as a reference (access is denied in `.claude/settings.json`). [docs/](docs/) holds the PCB files (Gerber, BOM, schematic) and photos.
+The entire firmware is one file: [src/CHPC_firmware.ino](src/CHPC_firmware.ino), about 2400 lines. [archiwum/](archiwum/) holds old snapshots of the firmware and is not built. Do not read, search or use it as a reference (access is denied in `.claude/settings.json`). [docs/](docs/) holds the PCB files (Gerber, BOM, schematic) and photos.
 
 ## Building / flashing
 
@@ -18,11 +18,11 @@ pio run -t upload --upload-port COM3
 pio device monitor                 # 9600 baud
 ```
 
-`src_dir = .` with `build_src_filter = +<CHPC_firmware.ino*>`. The trailing `*` matters because PlatformIO generates a temporary `CHPC_firmware.ino.cpp`. The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
+The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
 **Flash is ~99% full** (≈30.5 KB of 30 KB). Check the `Flash:` line after every change. Adding features will usually require cutting something else, such as unused strings or the `EEV_DEBUG` and `HUMAN_AUTOINFO` output.
 
-RS-485 runs through the hardware UART (pins 0/1) at 9600 baud. That means RS-485 is disconnected while the board is being flashed over USB.
+RS-485 runs at 9600 baud on pins 0/1, the hardware UART pins, but it is driven by `SoftwareSerial` (`RS485Serial`) rather than `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
 
 ## Configuration model (compile-time `#define`s)
