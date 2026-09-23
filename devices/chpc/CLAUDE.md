@@ -22,6 +22,14 @@ The "redefined" warnings for `DISPLAY`, `RELAY_*`, `EEV_*` and similar come from
 
 **Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
 
+**Simulation (Wokwi).** [sim/](sim/) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
+
+```sh
+pio run && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli sim --scenario scenario.yaml --timeout 280000
+```
+
+The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts.
+
 RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#define` for `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
 
@@ -93,7 +101,7 @@ CHPC must ignore every frame whose first byte isn't `0x41` and must never send a
 
 **Response to `0x01`.** One JSON object on one line, sent by `StatsSerial()`. `co` detects the end of the frame by 5 ms of silence and times out after 3 s. It spaces commands at least 500 ms apart and never waits for a reply to set-commands. This puts three constraints on CHPC:
 
-- It must answer within 3 s. Blocking `delay()`s, slow `GetT` retries and the `error_count >= 5` lock-up all risk timeouts, which `co` counts in its `serial_read_timeout` telemetry.
+- It must answer within 3 s, and the loop must not block for long. While it blocks, frames from `co` pile up in the UART buffer. The parser handles consecutive `[0x41 … 0xFF]` frames in one read, but a frame behind other bus traffic (a PV response) is still lost. `LiquidCrystal_I2C::begin()` alone contains `delay(1000)`, so outside `setup()` it is called only once a minute. Other blocking `delay()`s, slow `GetT` retries and the `error_count >= 5` lock-up still risk timeouts, which `co` counts in its `serial_read_timeout` telemetry.
 - The JSON must go out without pauses longer than 5 ms.
 - Nothing else may be sent while `co` waits for the response. JSON that fails to parse is counted in `hp_json_error`.
 

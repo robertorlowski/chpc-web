@@ -501,6 +501,7 @@ unsigned long millis_notification_interval = 33000;
 
 unsigned long millis_displ_update = 0;
 unsigned long millis_displ_update_interval = 5000;
+unsigned long millis_lcd_reinit = 0;
 unsigned int displ_inc = 1;
 
 // unsigned long millis_escinput = 0;
@@ -684,7 +685,6 @@ void PrintS_and_D(String str) {
 
 void Print_D(String outString) {
 #ifdef DISPLAY_1602
-  lcd.begin(16, 2);
   lcd.clear();
   delay(10);
   lcd.setCursor(0, 0);
@@ -1167,7 +1167,6 @@ void eevise(void) {
 
 void stopOnError(String error = "") {
 #ifdef RS485_HUMAN
-  lcd.begin(16, 2);
 
   if (error != "") {
     PrintS_and_D(error);
@@ -1493,8 +1492,10 @@ void loop(void) {
       }
     }
     // 0x41 {devID}, 0x01 {operacja}, 0x01 {dane 1}, 0x00 {dane 2}, 0xFF
-    if (inData[0] == devID && inData[4] == endID) {
-      switch (inData[1]) {
+    // kilka ramek może czekać w buforze UART (np. komenda i zapytanie z co), obsłuż kolejno wszystkie
+    for (byte f = 0; f + 5 <= index && inData[f] == devID && inData[f + 4] == endID; f += 5) {
+      uint8_t *frame = &inData[f];
+      switch (frame[1]) {
         case 0x01:
         case 0x02:
           // StatsSerial();
@@ -1507,11 +1508,11 @@ void loop(void) {
           break;
         case 0x03:
           if (heatpump_state == 0) {
-            start_force = (inData[2] == 0x01);
+            start_force = (frame[2] == 0x01);
           }
           break;
         case 0x04:
-          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          tempdouble = int(frame[2]) + int(frame[3]) / 100.0;
           if (tempdouble < 0 || tempdouble > cT_setpoint_max) {
             break;
           }
@@ -1519,7 +1520,7 @@ void loop(void) {
           SaveSetpointEE(1);
           break;
         case 0x05:
-          tempdouble = int(inData[2]) + int(inData[3]) / 100.0;
+          tempdouble = int(frame[2]) + int(frame[3]) / 100.0;
           if (tempdouble > cT_delta_max || tempdouble < 0) {
             break;
           }
@@ -1527,34 +1528,34 @@ void loop(void) {
           WriteFloatEEPROM(eeprom_addr_dT, T_delta);
           break;
         case 0x07:
-          if (inData[2] <= EEV_MINWORKPOS) break;
-          EEV_MAXPULSES_OPEN = int(inData[2]);
+          if (frame[2] <= EEV_MINWORKPOS) break;
+          EEV_MAXPULSES_OPEN = int(frame[2]);
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
           break;
         case 0x08:
-          T_EEV_setpoint = double(int(inData[2])) + double(int(inData[3])) / 100;
+          T_EEV_setpoint = double(int(frame[2])) + double(int(frame[3])) / 100;
           WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
           break;
         case 0x09:
-          hot_pomp_on = (inData[2] == 0x01);
+          hot_pomp_on = (frame[2] == 0x01);
           break;
         case 0x0A:
-          cold_pomp_on = (inData[2] == 0x01);
+          cold_pomp_on = (frame[2] == 0x01);
           break;
         case 0x0B:
-          sump_heater_on = (inData[2] == 0x01);
+          sump_heater_on = (frame[2] == 0x01);
           break;
         case 0x0C:
-          co_on = (inData[2] == 0x01);
+          co_on = (frame[2] == 0x01);
           WriteIntEEPROM(eeprom_addr_co, co_on);
           break;
         case 0x0D:
-          if (inData[2] <= EEV_MINWORKPOS) break;
-          EEV_MAXPULSES_OPEN = int(inData[2]);
+          if (frame[2] <= EEV_MINWORKPOS) break;
+          EEV_MAXPULSES_OPEN = int(frame[2]);
           WriteIntEEPROM(eeprom_addr_EEV_MAX, EEV_MAXPULSES_OPEN);
           break;
         case 0x0E:
-          if ( int(inData[2]) * 100 + int(inData[3]) <= 1000 ) {
+          if ( int(frame[2]) * 100 + int(frame[3]) <= 1000 ) {
             #ifdef WATCHDOG
               stopOnError(F("STOP"));
               delay(1000);
@@ -1562,8 +1563,8 @@ void loop(void) {
               while (true) {// oczekiwanie na reset
               }
             #endif
-          } else if ( int(inData[2]) * 100 + int(inData[3]) <= MAX_WATTS_LIMIT ) {
-            c_wattage_max = int(inData[2]) * 100 + int(inData[3]);
+          } else if ( int(frame[2]) * 100 + int(frame[3]) <= MAX_WATTS_LIMIT ) {
+            c_wattage_max = int(frame[2]) * 100 + int(frame[3]);
             WriteIntEEPROM(eeprom_addr_WATT, c_wattage_max);
           }
           break;
@@ -1720,7 +1721,11 @@ void loop(void) {
     }
 
 #ifndef EEV_ONLY
-    lcd.begin(16, 2);
+    //pełna reinicjalizacja LCD (odzyskanie po zakłóceniach) trwa >1 s, więc tylko raz na minutę
+    if ((unsigned long)(millis_now - millis_lcd_reinit) > 60000UL) {
+      lcd.begin(16, 2);
+      millis_lcd_reinit = millis_now;
+    }
     lcd.clear();
     delay(10);
 

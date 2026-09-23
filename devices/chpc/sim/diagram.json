@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "author": "CHPC",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-nano", "id": "nano", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-lcd1602", "id": "lcd", "top": -200, "left": 0, "attrs": { "pins": "i2c" } },
+
+    { "type": "wokwi-resistor", "id": "r_ow", "top": 150, "left": 300, "attrs": { "value": "4700" } },
+    { "type": "wokwi-ds18b20", "id": "sTae", "top": 250, "left": 0, "attrs": { "deviceID": "0000000000A1", "temperature": "5" } },
+    { "type": "wokwi-ds18b20", "id": "sTbe", "top": 250, "left": 80, "attrs": { "deviceID": "0000000000B1", "temperature": "2" } },
+    { "type": "wokwi-ds18b20", "id": "sTtarget", "top": 250, "left": 160, "attrs": { "deviceID": "0000000000C1", "temperature": "30" } },
+    { "type": "wokwi-ds18b20", "id": "sTbc", "top": 250, "left": 240, "attrs": { "deviceID": "0000000000D1", "temperature": "50" } },
+    { "type": "wokwi-pushbutton", "id": "cTae", "top": 350, "left": 0, "attrs": { "color": "blue", "label": "Tae" } },
+    { "type": "wokwi-pushbutton", "id": "cTbe", "top": 350, "left": 80, "attrs": { "color": "blue", "label": "Tbe" } },
+    { "type": "wokwi-pushbutton", "id": "cTtarget", "top": 350, "left": 160, "attrs": { "color": "blue", "label": "Ttarget" } },
+    { "type": "wokwi-pushbutton", "id": "cTbc", "top": 350, "left": 240, "attrs": { "color": "blue", "label": "Tbc" } },
+
+    { "type": "wokwi-pushbutton", "id": "btnLeft", "top": 120, "left": 400, "attrs": { "color": "green", "label": "<" } },
+    { "type": "wokwi-pushbutton", "id": "btnRight", "top": 120, "left": 480, "attrs": { "color": "green", "label": ">" } },
+    { "type": "wokwi-pushbutton", "id": "btn3", "top": 120, "left": 560, "attrs": { "color": "green", "label": "menu" } },
+    { "type": "wokwi-resistor", "id": "rA2", "top": 200, "left": 400, "attrs": { "value": "10000" } },
+    { "type": "wokwi-resistor", "id": "rA3", "top": 200, "left": 480, "attrs": { "value": "10000" } },
+    { "type": "wokwi-resistor", "id": "rA1", "top": 200, "left": 560, "attrs": { "value": "10000" } },
+
+    { "type": "wokwi-potentiometer", "id": "potA6", "top": 300, "left": 400, "attrs": { "value": "512" } },
+
+    { "type": "wokwi-pushbutton", "id": "btnReset", "top": 120, "left": 660, "attrs": { "color": "red", "label": "reset" } }
+  ],
+  "connections": [
+    [ "lcd:GND", "nano:GND.1", "black", [] ],
+    [ "lcd:VCC", "nano:5V", "red", [] ],
+    [ "lcd:SDA", "nano:A4", "blue", [] ],
+    [ "lcd:SCL", "nano:A5", "purple", [] ],
+
+    [ "r_ow:1", "nano:5V", "red", [] ],
+    [ "r_ow:2", "nano:12", "orange", [] ],
+
+    [ "sTae:GND", "nano:GND.2", "black", [] ],
+    [ "sTae:VCC", "nano:5V", "red", [] ],
+    [ "sTae:DQ", "cTae:1.l", "orange", [] ],
+    [ "cTae:2.l", "nano:12", "orange", [] ],
+    [ "sTbe:GND", "nano:GND.2", "black", [] ],
+    [ "sTbe:VCC", "nano:5V", "red", [] ],
+    [ "sTbe:DQ", "cTbe:1.l", "orange", [] ],
+    [ "cTbe:2.l", "nano:12", "orange", [] ],
+    [ "sTtarget:GND", "nano:GND.2", "black", [] ],
+    [ "sTtarget:VCC", "nano:5V", "red", [] ],
+    [ "sTtarget:DQ", "cTtarget:1.l", "orange", [] ],
+    [ "cTtarget:2.l", "nano:12", "orange", [] ],
+    [ "sTbc:GND", "nano:GND.2", "black", [] ],
+    [ "sTbc:VCC", "nano:5V", "red", [] ],
+    [ "sTbc:DQ", "cTbc:1.l", "orange", [] ],
+    [ "cTbc:2.l", "nano:12", "orange", [] ],
+
+    [ "btnLeft:1.l", "nano:5V", "red", [] ],
+    [ "btnLeft:2.l", "nano:A2", "green", [] ],
+    [ "rA2:1", "nano:A2", "green", [] ],
+    [ "rA2:2", "nano:GND.2", "black", [] ],
+    [ "btnRight:1.l", "nano:5V", "red", [] ],
+    [ "btnRight:2.l", "nano:A3", "green", [] ],
+    [ "rA3:1", "nano:A3", "green", [] ],
+    [ "rA3:2", "nano:GND.2", "black", [] ],
+    [ "btn3:1.l", "nano:5V", "red", [] ],
+    [ "btn3:2.l", "nano:A1", "green", [] ],
+    [ "rA1:1", "nano:A1", "green", [] ],
+    [ "rA1:2", "nano:GND.2", "black", [] ],
+
+    [ "potA6:VCC", "nano:5V", "red", [] ],
+    [ "potA6:SIG", "nano:A6", "yellow", [] ],
+    [ "potA6:GND", "nano:GND.2", "black", [] ],
+    [ "nano:A7", "nano:GND.2", "black", [] ],
+
+    [ "btnReset:1.l", "nano:RESET", "red", [] ],
+    [ "btnReset:2.l", "nano:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}
