@@ -35,6 +35,8 @@ Behaviour is selected by editing the `USER OPTIONS` block at the top of the `.in
 - **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS`, `WATCHDOG` and `EEV_DEBUG`.
 - **Protection thresholds:** `T_*_MIN/MAX`, `MAX_WATTS`. **Timing constants:** `POWERON_PAUSE`, `MINCYCLE_*`, `DEFFERED_STOP_*`. **EEV tuning:** `EEV_*`. Note: several `T_*` defines end with a stray `;`, so they can only be used as whole initializers (`const double cT_x = T_X;`), not inside expressions.
 
+The power limit `c_wattage_max` also works as a deliberate switch. When it is above `MAX_WATTS` (3200), the flow protection ("Err CP") is on. The user sets exactly 3200 W to turn it off, for example when the heat pump runs from another power source on which the flow sensor is unreliable. Keep this coupling.
+
 Code is heavily wrapped in `#ifdef`. When you change logic, make sure it still compiles under the other board, display and EEV combinations, or guard it correctly.
 
 ## Runtime architecture

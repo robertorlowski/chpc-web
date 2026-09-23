@@ -452,7 +452,6 @@ const double cT_workingOK_sump_min = T_WORKINGOK_SUMP_MIN;   //need to be not ve
 double c_wattage_max = MAX_WATTS;                      //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
                                                              //PH165X1CY : 920 Watts, 4.2 A
 const double c_wattage_max_min = c_wattage_max / 3.5;  //
-double lastWorkingWattage = 0;
 
 bool heatpump_state = 0;
 bool hotside_circle_state = 0;
@@ -1768,13 +1767,15 @@ void loop(void) {
   if ((_1st_start_sleeped == 1) && (((unsigned long)(millis_now - millis_displ_update) > millis_displ_update_interval) || (millis_displ_update == 0))) {
 //!!!EEV_ONLY SUPPORT???
 
+    //ochrona przepływu: brak przepływu (emergency) po COLDOFF_HIGHTIME od startu
+    //celowo aktywna tylko przy limicie mocy > MAX_WATTS: ustawienie 3200 W wyłącza ją,
+    //gdy przy innym źródle zasilania czujnik przepływu nie działa poprawnie
     if ((heatpump_state == 1) && (emergency > 0) && ((unsigned long)(millis_now - millis_last_heatpump_on) > COLDOFF_HIGHTIME)
         && (c_wattage_max > MAX_WATTS)) {
         stopOnError(F("Err CP"));
     }
 
 #ifndef EEV_ONLY
-    lastWorkingWattage = async_wattage;
     lcd.begin(16, 2);
     lcd.clear();
     delay(10);
@@ -1978,16 +1979,12 @@ void loop(void) {
         }
 
         if (
-              (T_EEV_dt < EEV_HYSTERESIS || Tae.T < EEV_HYSTERESIS ) || 
-              (     ((long)(lastWorkingWattage - async_wattage)  > 200 ) && 
-                    (c_wattage_max == MAX_WATTS)
-              ) || 
+              (T_EEV_dt < EEV_HYSTERESIS || Tae.T < EEV_HYSTERESIS ) ||
               (Tci.e == 1 && Tci.T < cT_cold_min + 2) || 
               (Tco.e == 1 && Tco.T < cT_cold_min + 2)
           ) {  
           //emerg!
           //PrintS(F("EEV: 1 emergency closing!"));
-          lastWorkingWattage = async_wattage;
           EEV_apulses = -1;
           EEV_adonotcare = 0;
           EEV_fast = 1;
