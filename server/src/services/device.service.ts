@@ -18,6 +18,25 @@ export async function createDevice(
   });
 }
 
+// Used by controllers registering themselves on start: a controller that is
+// already known gets its existing record back instead of an error.
+export async function registerDevice(
+  deviceType: DeviceType,
+  deviceId: string,
+  name?: string
+): Promise<{ device: DeviceDocument; created: boolean }> {
+  const existing = await DeviceModel.findOne({ deviceType, deviceId });
+  if (existing) return { device: existing, created: false };
+
+  const device = await DeviceModel.create({
+    deviceType,
+    deviceId,
+    name: name || deviceId,
+    schedules: [],
+  });
+  return { device, created: true };
+}
+
 export async function listDevices(): Promise<DeviceDocument[]> {
   return DeviceModel.find()
     .select('deviceType deviceId name')

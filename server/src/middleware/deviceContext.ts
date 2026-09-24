@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { DeviceModel } from '../models/model';
 import { getDefaultDeviceRootId } from '../services/device.service';
 
-const publicPaths = new Set(['/devices']);
+const publicPaths = new Set(['/devices', '/devices/register']);
 
 export async function resolveDeviceContext(
   req: Request,

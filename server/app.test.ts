@@ -141,6 +141,35 @@ describe('API with MongoDB', () => {
     expect(second.body.operation.error_reset).toBeUndefined();
   });
 
+  it('registers a new controller and returns its rootId', async () => {
+    const response = await request(app)
+      .post('/api/devices/register')
+      .send({ deviceId: 'A4CF12345678' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.deviceId).toBe('A4CF12345678');
+    const device = await DeviceModel.findById(response.body.rootId).lean();
+    expect(device?.deviceType).toBe(DeviceType.HP);
+  });
+
+  it('returns the existing rootId when a known controller registers again', async () => {
+    const response = await request(app)
+      .post('/api/devices/register')
+      .send({ deviceId });
+
+    expect(response.status).toBe(200);
+    expect(response.body.rootId).toBe(rootId);
+    expect(await DeviceModel.countDocuments({ deviceId })).toBe(1);
+  });
+
+  it('rejects a registration without deviceId', async () => {
+    const response = await request(app)
+      .post('/api/devices/register')
+      .send({ deviceId: '  ' });
+
+    expect(response.status).toBe(400);
+  });
+
   it('returns settings for the selected device', async () => {
     const response = await request(app)
       .get(`/api/settings?rootId=${rootId}&deviceId=${deviceId}`);
