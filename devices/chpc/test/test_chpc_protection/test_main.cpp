@@ -18,14 +18,15 @@ static void startCompressor() {
   setTemp("Ttarget", 27.0);  // między T min a T max: bez zatrzymania przez termostat
 }
 
-// Sprawdza nowe zdarzenie błędu w JSON i komunikat na RS-485/LCD.
+// Sprawdza nowe zdarzenie błędu w JSON, komunikat na LCD i to, że RS-485 milczał bez zapytania.
 static void expectNewError(int code, const char *lcdText) {
   std::string out = sim::tx;
   std::string json = query();
   TEST_ASSERT_EQUAL_DOUBLE(code, jsonNumber(json, "ERR"));
   TEST_ASSERT_TRUE_MESSAGE(jsonNumber(json, "ERRn") > lastSeq, "ERRn nie wzrósł");
   lastSeq = jsonNumber(json, "ERRn");
-  if (lcdText) TEST_ASSERT_TRUE_MESSAGE(out.find(lcdText) != std::string::npos, lcdText);
+  if (lcdText) TEST_ASSERT_TRUE_MESSAGE(sim::lcdLog.find(lcdText) != std::string::npos, lcdText);
+  TEST_ASSERT_TRUE_MESSAGE(out.empty(), "sterownik nadawał na RS-485 bez zapytania");
 }
 
 void testHotSideOverheatStopsCompressor() {
@@ -38,6 +39,7 @@ void testHotSideOverheatStopsCompressor() {
 
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setTemp("Tho", 65.0);
   TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 3000) >= 0);
   expectNewError(ERRC_TEMP_THO, "ERR: Temp. Tho");
@@ -48,6 +50,7 @@ void testHotSideOverheatStopsCompressor() {
 void testDischargeOverheatStopsCompressor() {
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setTemp("Tbc", 75.0);
   TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 3000) >= 0);
   expectNewError(ERRC_TEMP_TBC, "ERR: Temp. Tbc");
@@ -57,6 +60,7 @@ void testDischargeOverheatStopsCompressor() {
 void testSuctionFreezeStopsCompressor() {
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setTemp("Tae", -3.0);
   TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 3000) >= 0);
   expectNewError(ERRC_TEMP_TAE, "ERR: Temp. Tae");
@@ -66,6 +70,7 @@ void testSuctionFreezeStopsCompressor() {
 void testOverloadStopsAndCountsError() {
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   compressorWatts = 5000.0;
   // przez POWERON_HIGHTIME (9 s) po starcie moc rozruchowa jest tolerowana
   TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 12000) >= 0);
@@ -79,6 +84,7 @@ void testCompressorWithoutPowerIsDetected() {
   setTemp("Ttarget", 24.0);
   TEST_ASSERT_TRUE(waitUntil([] { return compressor(); }, 25 * 60 * 1000UL, 2000) >= 0);
   sim::tx.clear();
+  sim::lcdLog.clear();
   long stopped = waitUntil([] { return !compressor(); }, 70000);
   TEST_ASSERT_TRUE(stopped >= 55000);  // po MINCYKLE_CHECK (60 s)
   expectNewError(ERRC_WATTAGE_MIN, "ERR: Wattage Min");
@@ -89,6 +95,7 @@ void testCompressorWithoutPowerIsDetected() {
 void testLowSumpTemperatureAfterStart() {
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setTemp("Tsump", 2.0);
   long stopped = waitUntil([] { return !compressor(); }, 70000);
   TEST_ASSERT_TRUE(stopped >= 0);
@@ -111,6 +118,7 @@ void testNoFlowStopsAbovePowerLimitSwitch() {
   runMs(600);
   startCompressor();
   sim::tx.clear();
+  sim::lcdLog.clear();
   long stopped = waitUntil([] { return !compressor(); }, 70000);
   TEST_ASSERT_TRUE(stopped >= 40000);  // COLDOFF_HIGHTIME 50 s od startu
   expectNewError(ERRC_NO_FLOW, "ERR: Cold Flow");
@@ -121,10 +129,12 @@ void testNoFlowStopsAbovePowerLimitSwitch() {
 
 void testStuckCompressorRelayIsReportedOnce() {
   offWatts = 1500.0;  // pobór mocy mimo wyłączonej sprężarki
+  sim::tx.clear();
+  sim::lcdLog.clear();
   runMs(15000);
   TEST_ASSERT_TRUE(hotPump());
   TEST_ASSERT_TRUE(coldPump());
-  expectNewError(ERRC_RELAY, nullptr);
+  expectNewError(ERRC_RELAY, "ERR: Relay");
   runMs(10000);
   TEST_ASSERT_EQUAL_DOUBLE(lastSeq, jsonNumber(query(), "ERRn"));  // jedno zdarzenie, nie co cykl
   offWatts = 0.0;
@@ -134,6 +144,7 @@ void testStuckCompressorRelayIsReportedOnce() {
 void testLostSensorStopsControlAndRecovers() {
   cold_pomp_on = hot_pomp_on = false;  // zdjęcie wymuszeń po "ERR: Relay"
   sim::tx.clear();
+  sim::lcdLog.clear();
   sensor("Tbe")->connected = false;
   TEST_ASSERT_TRUE(waitUntil([] { return errorcode == ERR_T_SENSOR; }, 3000) >= 0);
   uint64_t latency = 0;

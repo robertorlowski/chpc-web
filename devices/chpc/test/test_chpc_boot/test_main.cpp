@@ -21,16 +21,17 @@ void testDiscoveryStoresSensorsInEeprom() {
   TEST_ASSERT_FALSE(Tci.e);
   TEST_ASSERT_FALSE(Tco.e);
   TEST_ASSERT_EQUAL_MEMORY(sensor("Tbc")->addr, Tbc.addr, 8);
-  TEST_ASSERT_TRUE(sim::tx.find("OK! Remove Tbc") != std::string::npos);
+  TEST_ASSERT_TRUE(sim::lcdLog.find("OK! Remove Tbc") != std::string::npos);
 }
 
 void testSecondBootReadsSensorsFromEeprom() {
   resetGlobalsLikeReboot();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setup();
 
-  TEST_ASSERT_TRUE(sim::tx.find("Insert") == std::string::npos);
-  TEST_ASSERT_TRUE(sim::tx.find("Err, s.") == std::string::npos);
+  TEST_ASSERT_TRUE(sim::lcdLog.find("Insert") == std::string::npos);
+  TEST_ASSERT_TRUE(sim::lcdLog.find("Err, s.") == std::string::npos);
   TEST_ASSERT_EQUAL_MEMORY(sensor("Tae")->addr, Tae.addr, 8);
   TEST_ASSERT_TRUE(Tbc.e);
 }

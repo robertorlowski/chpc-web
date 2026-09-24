@@ -27,8 +27,11 @@
 #define INPUTS_AS_BUTTONS 1  //pulldown resistors required
 
 //#define RS485_PYTHON		1
-#define RS485_HUMAN 2
+//#define RS485_HUMAN 2  //komunikaty tekstowe na RS-485 bez zapytania: tylko do testów (env wokwi), psuje magistralę z co
 //#define RS485_NONE		3
+#if !defined(RS485_PYTHON) && !defined(RS485_HUMAN) && !defined(RS485_NONE)
+#define RS485_PYTHON 1  //domyślnie: na RS-485 tylko odpowiedzi na zapytania co
+#endif
 #define EEV_SUPPORT
 
 //#define	EEV_ONLY				      //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
@@ -555,12 +558,11 @@ void InitS_and_D(void) {
 }
 
 void PrintS_and_D(String str) {
-  char *outChar = &str[0];
   if (str == "") {
     return;
   }
 #ifdef RS485_HUMAN
-  RS485Serial.print(outChar);
+  RS485Serial.print(&str[0]);
   RS485Serial.println();
   RS485Serial.flush();
 #endif
@@ -919,9 +921,7 @@ void reportError(uint8_t code) {
 }
 
 void stopOnError(String error, uint8_t code) {
-#ifdef RS485_HUMAN
-  PrintS_and_D(error);
-#endif
+  PrintS_and_D(error);  //LCD zawsze, RS-485 tylko w RS485_HUMAN
   reportError(code);
 
   millis_last_heatpump_off = millis_now;
@@ -932,9 +932,7 @@ void stopOnError(String error, uint8_t code) {
 
   error_count += 1;
   if (error_count == 5) {
-#ifdef RS485_HUMAN
     PrintS_and_D(F("ERR: Locked x5"));
-#endif
     reportError(ERRC_LOCKED);
   }
   halifise();
@@ -944,9 +942,7 @@ void stopOnError(String error, uint8_t code) {
 
 //zatrzymanie sprężarki przez zabezpieczenie temperaturowe (bez licznika błędów)
 void stopByTemperature(const __FlashStringHelper *msg, uint8_t code) {
-#ifdef RS485_HUMAN
   PrintS_and_D(msg);
-#endif
   reportError(code);
   millis_last_heatpump_off = millis_now;
   heatpump_state = 0;

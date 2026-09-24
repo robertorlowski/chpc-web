@@ -91,7 +91,7 @@ inline long waitUntil(Pred pred, uint64_t maxMs, uint32_t stepUs = LOOP_US) {
 }
 
 // ------------------------------------------------------------------ wykrywanie czujników (pierwszy start)
-// Odpowiada na komunikaty FindAddr() tak jak człowiek: podłącza czujnik, gdy firmware prosi
+// Odpowiada na komunikaty FindAddr() na LCD tak jak człowiek: podłącza czujnik, gdy firmware prosi
 // "Insert X", odłącza po "OK! Remove X", a brakujący pomija przyciskiem ">".
 inline void discoveryHook() {
   static size_t seen = 0;
@@ -99,8 +99,8 @@ inline void discoveryHook() {
   static bool buttonHeld = false;
   const char *order[] = {"Tae", "Tbe", "Ttarget", "Tsump", "Tci", "Tco", "Thi", "Tho", "Tbc", "Tac", "Touter", "Tcwu"};
   if (buttonHeld) { sim::inputs[A3] = 0; buttonHeld = false; }
-  std::string fresh = sim::tx.substr(seen);
-  seen = sim::tx.size();
+  std::string fresh = sim::lcdLog.substr(seen);
+  seen = sim::lcdLog.size();
   if (index >= 12) return;
   const std::string name = order[index];
   SimSensor *s = sensor(name);

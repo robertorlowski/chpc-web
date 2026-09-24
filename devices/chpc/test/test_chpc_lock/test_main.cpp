@@ -25,7 +25,8 @@ void testFiveErrorsLockTheController() {
   std::string json = query();
   TEST_ASSERT_EQUAL_DOUBLE(5, jsonNumber(json, "ERRc"));
   TEST_ASSERT_EQUAL_DOUBLE(ERRC_LOCKED, jsonNumber(json, "ERR"));
-  TEST_ASSERT_TRUE(out.find("ERR: Locked x5") != std::string::npos);
+  TEST_ASSERT_TRUE(sim::lcdLog.find("ERR: Locked x5") != std::string::npos);
+  TEST_ASSERT_TRUE_MESSAGE(out.find("ERR:") == std::string::npos, "komunikat błędu wysłany na RS-485 bez zapytania");
 }
 
 void testLockedControllerStillAnswersButDoesNotRun() {
@@ -71,8 +72,9 @@ void testRestartCommandRestartsController() {
   resetGlobalsLikeReboot();
   sim::rx.clear();
   sim::tx.clear();
+  sim::lcdLog.clear();
   setup();
-  TEST_ASSERT_TRUE(sim::tx.find("Insert") == std::string::npos);
+  TEST_ASSERT_TRUE(sim::lcdLog.find("Insert") == std::string::npos);
   runMs(60000, 1000);
   TEST_ASSERT_FALSE_MESSAGE(compressor(), "sprężarka ruszyła w czasie POWERON_PAUSE po restarcie");
   TEST_ASSERT_TRUE(query().size() > 0);

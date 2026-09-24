@@ -17,7 +17,7 @@ Dlatego Wokwi jest ścieżką **dodatkową**. Podstawą są testy z `test/`.
 
 | Plik | Opis |
 |---|---|
-| `wokwi.toml` | wskazuje firmware z builda PlatformIO: `../.pio/build/promini/firmware.hex` i `.elf` |
+| `wokwi.toml` | wskazuje firmware z builda PlatformIO: `../.pio/build/wokwi/firmware.hex` i `.elf` (env `wokwi`: jak `promini`, ale z `RS485_HUMAN`, bo scenariusze czekają na komunikaty tekstowe na UART) |
 | `diagram.json` | schemat połączeń (opis niżej) |
 | `scenario.yaml` | scenariusz główny |
 | `scenario-eev-min.yaml` | granice EEV |
@@ -73,7 +73,7 @@ Polecenia wykonuje się w Git Bash, w katalogu głównym repozytorium. Po każde
 
 ```sh
 cd D:/DevLocal/arduino_src/chpc
-pio run                                                      # buduje .pio/build/promini/firmware.hex
+pio run -e wokwi                                             # buduje .pio/build/wokwi/firmware.hex (tryb RS485_HUMAN)
 export WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token)
 
 wokwi-cli test-wokwi --scenario scenario.yaml --timeout 280000

@@ -27,7 +27,7 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
 - **Unity firmware simulation.** `pio test -e native` runs 6 scenario suites in `test/test_chpc_*`, about 12 s in total. Each suite compiles the unmodified `src/CHPC_firmware.ino` against hardware mocks in [test/sim_env/](test/sim_env/):
   - `Arduino.h`: virtual `millis`/`delay`, a `String` class, the UART, and a CT sine wave for the power reading;
   - `DallasTemperature.h`: sensors that can be plugged in and out;
-  - `EEPROM.h` and `LiquidCrystal_I2C.h`.
+  - `EEPROM.h` and `LiquidCrystal_I2C.h`. The LCD mock also keeps `sim::lcdLog`, a log of everything printed. Tests and the sensor discovery hook read status and error texts from it, because the production build sends them only to the LCD. `sim::tx` should hold only JSON.
 
   `chpc_sim.h` provides the helpers: `boot()`, which runs sensor discovery like a human would, plus `runMs()`, `waitUntil()`, `query()`/`sendFrame()` (acting as `co`), `jsonNumber()` and `resetGlobalsLikeReboot()`.
 - **Harness rules.**
@@ -48,7 +48,7 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
 **Simulation (Wokwi, secondary).** [test-wokwi/](test-wokwi/) (described in its README.md) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
 
 ```sh
-pio run && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli test-wokwi --scenario scenario.yaml --timeout 280000
+pio run -e wokwi && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli test-wokwi --scenario scenario.yaml --timeout 280000
 ```
 
 The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts. A sensor's temperature can be changed during a run with `set-control: { part-id: sTbe, control: temperature, value: -1 }`. This works although the Wokwi docs do not list it. Messages printed with `Print_D` go only to the LCD, so scenarios cannot wait for them. A logic analyzer (`la`) records RX (D0) and TX (D1). Run with `--vcd-file out.vcd`, then `test-wokwi/latency.sh out.vcd` prints, for each RS-485 request, the simulated time until the reply starts ("brak" means no reply). Wall-clock time is useless for this, because Wokwi does not run at a steady speed. The free plan also has a monthly CI-minute quota, which ran out on 2026-09-23.
@@ -62,7 +62,7 @@ Behaviour is selected by editing the `USER OPTIONS` block at the top of the `.in
 
 - **Board:** only `BOARD_TYPE_G` (the gonzho000 PCB v1.3) is supported. Support for boards F and G9 (relays driven through a 74HC595) was removed. `halifise()` writes the relay outputs.
 - **Display:** `DISPLAY_1602` (I2C LCD 16x2, address 0x27) or `DISPLAY_NONE`. The 0.96" OLED support (`DISPLAY_096`) was removed.
-- **Serial mode:** `RS485_HUMAN`, `RS485_PYTHON` or `RS485_NONE`.
+- **Serial mode:** `RS485_HUMAN`, `RS485_PYTHON` or `RS485_NONE`. The default is `RS485_PYTHON`: the bus carries only replies to `co`, and status and error texts go to the LCD only. A `-D` build flag overrides it. The `wokwi` env builds with `RS485_HUMAN`, because the Wokwi scenarios wait for those texts on the UART. Never flash the `wokwi` build to a pump that is wired to `co`.
 - **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS` and `EEV_DEBUG`. `WATCHDOG` was removed: on a Pro Mini with the stock bootloader, a watchdog reset can end in an endless reset loop. Restart is done in software instead (`softRestart()`, a jump to address 0).
 - **Protection thresholds:** `T_*_MIN/MAX`, `MAX_WATTS`. **Timing constants:** `POWERON_PAUSE`, `MINCYCLE_*`, `DEFFERED_STOP_*`. **EEV tuning:** `EEV_*`. Note: several `T_*` defines end with a stray `;`, so they can only be used as whole initializers (`const double cT_x = T_X;`), not inside expressions.
 
@@ -147,7 +147,7 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 **Known mismatches with the current firmware:**
 
 - `0x04` above `T_SETPOINT_MAX` and `0x05` above `T_DELTA_MAX` are silently ignored.
-- With `RS485_HUMAN`, `PrintS_and_D()` also writes status and error text to the bus without being asked (for example "Err: x" every second while `errorcode != 0`). That breaks the rule against sending unrequested data and can corrupt HP or PV reads.
+- With `RS485_HUMAN` (the `wokwi` env only), `PrintS_and_D()` also writes status and error text to the bus without being asked. That breaks the rule against sending unrequested data and can corrupt HP or PV reads. The production build (`promini`, `RS485_PYTHON`) does not do this.
 
 ## Cloud path: `co` ⇄ `chpc-web`
 
@@ -198,7 +198,7 @@ A value rejected downstream still shows as "set" in the web UI. Compare it with 
 **Known mismatches** (as of 2026-09-24):
 - The server sends the WebSocket message `{type:"operation"}` only for one-shot actions (`/api/operation/action`), so they reach the pump within seconds. Ordinary settings from `/operation/set` still wait for the next periodic POST, 10–30 s later.
 - (fixed 2026-09-24) The main view showed `lt_pow` with a "W" unit; it is now labelled "Energia cyklu" in Wh.
-- The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) expects `YYYY-MM-DD` timestamps, while `co` sends `YYYY.MM.DD`.
+- (fixed 2026-09-24) The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) parsed only `YYYY-MM-DD`, while `co` sends `YYYY.MM.DD`. Dotted timestamps fell back to `new Date()`, which depends on the browser: Chrome/Edge read browser-local time, stricter engines threw "Nieprawidłowy czas" and no cost was shown. The parser now accepts both separators and always uses Warsaw time.
 - The time of an error is the time of the telemetry record that first carries the new `ERRn` (see **Errors** above), so it is accurate to 10–30 s. CHPC has no clock.
 - The server's API-key check (`verifyApiKey`) is disabled in `server/src/middleware/app.ts`. `POST /api/operation/set` is open and unvalidated.
 - `chpc-web` tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler, `EEVmin` storage, error-event detection and one-shot actions. They do not cover the WebSocket.

@@ -161,6 +161,7 @@ inline std::vector<SimSensor> sensors;
 inline std::deque<uint8_t> rx;  // bajty RS-485 do sterownika
 inline std::string tx;          // bajty RS-485 ze sterownika
 inline std::string lcd[2];
+inline std::string lcdLog;     // wszystko, co wypisano na LCD (komunikaty szybko nadpisuje rotacja ekranów)
 inline unsigned long buzzer_count = 0;
 inline std::function<void()> on_delay;  // hak świata wołany po każdym delay()
 inline bool in_hook = false;
