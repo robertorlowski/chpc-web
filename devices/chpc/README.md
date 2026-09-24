@@ -161,7 +161,7 @@ The controller is a slave (address `0x41`) on an RS-485 bus. The bus master is a
 ```json
 {"Tbe":"2.0","Tae":"5.0","Tco":"0.0","Tho":"0.0","Ttarget":"30.0","Tsump":"0.0","EEV_dt":"0.0",
  "Tmax":"30.0","Tmin":"25.0","Watts":"0","EEV":"1.0","EEV_pos":"0","EEV_pulse":"0",
- "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200.00","EEVmax":"67","EEVmin":"49","ERR":0,"ERRn":0,"ERRc":0,"lt_pow":"0","lt_hp_on":"0"}
+ "SHS":0,"HCS":0,"CCS":0,"HPS":0,"F":0,"CO":1,"WWatt":"3200","EEVmax":"67","EEVmin":"49","ERR":0,"ERRn":0,"ERRc":0,"lt_pow":"0","lt_hp_on":"0"}
 ```
 
 | Key | Meaning |
@@ -201,9 +201,40 @@ Compile-time options are at the top of [src/CHPC_firmware.ino](./src/CHPC_firmwa
 - `TEMPERATURES`: protection thresholds;
 - `TUNING OPTIONS`: timings, EEV and power limits.
 
-## Simulation
+## Tests
 
-[sim/](./sim/) contains a [Wokwi](https://wokwi.com/) project with the same wiring (an Arduino Nano stands in for the Pro Mini) and test scenarios:
+Full description of the tests, what each suite checks and how to run them: **[test/README.md](./test/README.md)** (in Polish).
+
+**Firmware simulation on the PC (Unity).** The unmodified firmware is compiled on the PC against hardware mocks ([test/sim_env/](./test/sim_env/)):
+- virtual clock;
+- DS18B20 sensors that can be plugged in and out;
+- RS-485 UART;
+- current transformer with a 50 Hz sine;
+- EEPROM, LCD and buttons.
+
+Six scenario suites (44 tests) cover:
+- sensor discovery and EEPROM;
+- the start-up pause;
+- the thermostat cycle, pumps and EEV;
+- all RS-485 commands;
+- every protection and error code;
+- the error lock, unlock and restart;
+- frost protection and the buttons.
+
+```sh
+pio test -e native
+```
+
+**Full chain.** [test/e2e/](./test/e2e/) connects:
+- the simulated firmware;
+- the real logic of the ESP32 master controller;
+- a local copy of the web app, including controller registration and the UI.
+
+See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it and [docs/raport-testow/](./docs/raport-testow/) for the latest results.
+
+## Simulation (Wokwi)
+
+[test-wokwi/](./test-wokwi/) contains a [Wokwi](https://wokwi.com/) project with the same wiring (an Arduino Nano stands in for the Pro Mini) and test scenarios. Wiring, scenarios, installation of `wokwi-cli` and the CI token, and how to run them: **[test-wokwi/README.md](./test-wokwi/README.md)** (in Polish).
 
 | Scenario | Checks |
 |---|---|
@@ -214,10 +245,10 @@ Compile-time options are at the top of [src/CHPC_firmware.ino](./src/CHPC_firmwa
 
 ```sh
 pio run
-cd sim && WOKWI_CLI_TOKEN=<token> wokwi-cli . --scenario scenario.yaml --timeout 280000
+WOKWI_CLI_TOKEN=<token> wokwi-cli test-wokwi --scenario scenario.yaml --timeout 280000
 ```
 
-`sim/latency.sh` measures the RS-485 response time from a logic-analyzer recording (`--vcd-file`).
+`test-wokwi/latency.sh` measures the RS-485 response time from a logic-analyzer recording (`--vcd-file`).
 
 ## Hardware
 

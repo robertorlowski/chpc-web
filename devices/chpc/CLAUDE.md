@@ -22,13 +22,36 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
 
 **Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
 
-**Simulation (Wokwi).** [sim/](sim/) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
+**Tests on the PC (main test path).** Use these first, because they are fast and have no quota.
+
+- **Unity firmware simulation.** `pio test -e native` runs 6 scenario suites in `test/test_chpc_*`, about 12 s in total. Each suite compiles the unmodified `src/CHPC_firmware.ino` against hardware mocks in [test/sim_env/](test/sim_env/):
+  - `Arduino.h`: virtual `millis`/`delay`, a `String` class, the UART, and a CT sine wave for the power reading;
+  - `DallasTemperature.h`: sensors that can be plugged in and out;
+  - `EEPROM.h` and `LiquidCrystal_I2C.h`.
+
+  `chpc_sim.h` provides the helpers: `boot()`, which runs sensor discovery like a human would, plus `runMs()`, `waitUntil()`, `query()`/`sendFrame()` (acting as `co`), `jsonNumber()` and `resetGlobalsLikeReboot()`.
+- **Harness rules.**
+  - Each suite runs as its own process. Tests inside a suite form one ordered scenario, because firmware globals are never reset between them.
+  - A reboot is `resetGlobalsLikeReboot()` + `setup()`. It also restarts `millis()` from zero.
+  - Long waits use `runMs(ms, 1000..2000)`. Right after a stop, sample densely (`runMs(3000)`), otherwise the RMS power window still carries the old power.
+  - Firmware functions that are called before they are defined need a prototype in `chpc_sim.h`. Arduino IDE and PlatformIO add these prototypes automatically; this build does not.
+- **Full chain across all three projects.** `test/e2e/` joins the pieces:
+  - `bridge.exe`, built by `build-bridge.sh`, combines the simulated firmware with the real `co` code (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`);
+  - `run-e2e.mjs` plays `co`'s HTTP role against a local `chpc-web` and drives the web UI with Playwright and the system Edge.
+
+  To run it:
+  1. start `npm run local` in chpc-web: a persistent MongoDB in `.local-db/` plus the server on 4001 and the client on 5173;
+  2. `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
+
+  Results go to `docs/raport-testow/` (`e2e-wyniki.json`, screenshots); the full report is in the same folder.
+
+**Simulation (Wokwi, secondary).** [test-wokwi/](test-wokwi/) (described in its README.md) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
 
 ```sh
-pio run && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli sim --scenario scenario.yaml --timeout 280000
+pio run && WOKWI_CLI_TOKEN=$(grep -m1 -o 'wok_[A-Za-z0-9]*' .wokwi-token) wokwi-cli test-wokwi --scenario scenario.yaml --timeout 280000
 ```
 
-The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts. A sensor's temperature can be changed during a run with `set-control: { part-id: sTbe, control: temperature, value: -1 }`. This works although the Wokwi docs do not list it. Messages printed with `Print_D` go only to the LCD, so scenarios cannot wait for them. A logic analyzer (`la`) records RX (D0) and TX (D1). Run with `--vcd-file out.vcd`, then `sim/latency.sh out.vcd` prints, for each RS-485 request, the simulated time until the reply starts ("brak" means no reply). Wall-clock time is useless for this, because Wokwi does not run at a steady speed. The free plan also has a monthly CI-minute quota, which ran out on 2026-09-23.
+The free plan stops a run after 5 minutes, and sensor discovery alone takes about 60 s of simulated time. Wokwi does not simulate resistor dividers, so A6 (the current sensor) is biased by a potentiometer at mid position. Keep the setpoint below `Ttarget` in scenarios, because the simulated current reading is not realistic once the compressor starts. A sensor's temperature can be changed during a run with `set-control: { part-id: sTbe, control: temperature, value: -1 }`. This works although the Wokwi docs do not list it. Messages printed with `Print_D` go only to the LCD, so scenarios cannot wait for them. A logic analyzer (`la`) records RX (D0) and TX (D1). Run with `--vcd-file out.vcd`, then `test-wokwi/latency.sh out.vcd` prints, for each RS-485 request, the simulated time until the reply starts ("brak" means no reply). Wall-clock time is useless for this, because Wokwi does not run at a steady speed. The free plan also has a monthly CI-minute quota, which ran out on 2026-09-23.
 
 RS-485 runs at 9600 baud on the hardware UART (pins 0/1); `RS485Serial` is a `#define` for `Serial`. That means RS-485 is disconnected while the board is being flashed over USB.
 
@@ -174,7 +197,7 @@ A value rejected downstream still shows as "set" in the web UI. Compare it with 
 
 **Known mismatches** (as of 2026-09-24):
 - The server sends the WebSocket message `{type:"operation"}` only for one-shot actions (`/api/operation/action`), so they reach the pump within seconds. Ordinary settings from `/operation/set` still wait for the next periodic POST, 10–30 s later.
-- The client shows `lt_pow` with a "W" unit, but the value is Wh.
+- (fixed 2026-09-24) The main view showed `lt_pow` with a "W" unit; it is now labelled "Energia cyklu" in Wh.
 - The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) expects `YYYY-MM-DD` timestamps, while `co` sends `YYYY.MM.DD`.
 - The time of an error is the time of the telemetry record that first carries the new `ERRn` (see **Errors** above), so it is accurate to 10–30 s. CHPC has no clock.
 - The server's API-key check (`verifyApiKey`) is disabled in `server/src/middleware/app.ts`. `POST /api/operation/set` is open and unvalidated.

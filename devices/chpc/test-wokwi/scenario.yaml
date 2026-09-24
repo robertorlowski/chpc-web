@@ -80,12 +80,12 @@ steps:
   - write-serial: [0x41, 0x0E, 38, 0, 0xFF]       # limit 3800 W
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"WWatt":"3800.00"'
+  - wait-serial: '"WWatt":"3800"'
   - delay: 600ms
   - write-serial: [0x41, 0x0E, 45, 0, 0xFF]       # 4500 W > MAX_WATTS_LIMIT: ignorowane
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"WWatt":"3800.00"'
+  - wait-serial: '"WWatt":"3800"'
   - delay: 600ms
   - write-serial: [0x41, 0x0D, 45, 0, 0xFF]       # 45 <= minimum 49: maksimum 45, minimum obniżone do 44
   - delay: 600ms
@@ -108,7 +108,7 @@ steps:
   - wait-serial: '"Tmax":"25.5"'
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"WWatt":"3800.00","EEVmax":"200"'
+  - wait-serial: '"WWatt":"3800","EEVmax":"200"'
   - delay: 600ms
 
   # --- dwie ramki bez przerwy (sklejone w buforze UART) ---
@@ -118,4 +118,4 @@ steps:
   - wait-serial: '"EEVmax":"100"'
   - delay: 600ms
   - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
-  - wait-serial: '"WWatt":"3900.00"'
+  - wait-serial: '"WWatt":"3900"'
