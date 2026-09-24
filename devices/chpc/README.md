@@ -230,7 +230,7 @@ pio test -e native
 - the real logic of the ESP32 master controller;
 - a local copy of the web app, including controller registration and the UI.
 
-See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it and [docs/raport-testow/](./docs/raport-testow/) for the latest results.
+See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it. Results are written locally to `docs/raport-testow/`, which is not kept in git.
 
 ## Simulation (Wokwi)
 

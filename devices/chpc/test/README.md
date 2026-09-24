@@ -122,4 +122,4 @@ node run-e2e.mjs       # uruchamia scenariusz
 
 Test startuje, gdy http://localhost:4001 i http://localhost:5173 odpowiadają. Każdy krok wypisuje w konsoli `OK` albo `BŁĄD`.
 
-Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do [`docs/raport-testow/`](../docs/raport-testow/): `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`.
+Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do `docs/raport-testow/`: `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`. Katalog tworzy się przy uruchomieniu testu i jest w `.gitignore`, więc istnieje tylko lokalnie.

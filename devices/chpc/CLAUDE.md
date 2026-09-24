@@ -43,7 +43,7 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
   1. start `npm run local` in chpc-web: a persistent MongoDB in `.local-db/` plus the server on 4001 and the client on 5173;
   2. `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
 
-  Results go to `docs/raport-testow/` (`e2e-wyniki.json`, screenshots); the full report is in the same folder.
+  Results go to `docs/raport-testow/` (`e2e-wyniki.json`, `e2e-log.txt`, screenshots). The folder is created by the run and ignored by git, so it exists only locally.
 
 **Simulation (Wokwi, secondary).** [test-wokwi/](test-wokwi/) (described in its README.md) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
 
