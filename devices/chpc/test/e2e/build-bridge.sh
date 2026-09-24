@@ -4,7 +4,7 @@
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHPC="$HERE/../.."
-CO="${CO_DIR:-$CHPC/../heatpump/co}"
+CO="${CO_DIR:-$CHPC/../heatpump}"
 g++ -std=gnu++17 -O1 -w \
   -c "$HERE/bridge_chpc.cpp" -I "$CHPC/test/sim_env" -o "$HERE/bridge_chpc.o"
 g++ -std=gnu++17 -O1 -w \

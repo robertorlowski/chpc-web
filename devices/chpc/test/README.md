@@ -31,11 +31,11 @@ Uwagi:
 
 ```sh
 cd D:/DevLocal/arduino_src
-git clone <adres repo co> heatpump/co           # jeśli jeszcze go nie ma
+git clone <adres repo co> heatpump              # jeśli jeszcze go nie ma
 git clone <adres repo chpc-web> chpc-web
 
 # co: pobranie ArduinoJson do .pio/libdeps/native (potrzebne do zbudowania bridge.exe)
-cd heatpump/co && pio test -e native
+cd heatpump && pio test -e native
 
 # chpc-web: zależności serwera i klienta; MongoDB pobiera się sama przy pierwszym "npm run local"
 cd ../../chpc-web && npm install
@@ -105,7 +105,7 @@ Scenariusz: rejestracja sterownika w interfejsie, harmonogram, pełny cykl grzan
 
 ### Jak uruchomić
 
-Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Jeśli `co` leży gdzie indziej niż `../heatpump/co` względem tego repo, podaj ścieżkę w zmiennej `CO_DIR`.
+Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Jeśli `co` leży gdzie indziej niż `../heatpump` względem tego repo, podaj ścieżkę w zmiennej `CO_DIR`.
 
 ```sh
 # Terminal 1: w chpc-web lokalna baza Mongo (.local-db, port 27027), serwer 4001 i klient 5173.

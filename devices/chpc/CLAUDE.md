@@ -88,7 +88,7 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
 
 ## RS-485 contract with the `co` controller
 
-The bus master is a separate ESP32 project, `D:\DevLocal\arduino_src\heatpump\co` (PlatformIO, its own git repo). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
+The bus master is a separate ESP32 project, `D:\DevLocal\arduino_src\heatpump` (PlatformIO, its own git repo, firmware in the repo root). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
 
 - `src/modbus_frame.cpp`: command encoding, covered by `test/test_modbus_frame` (`pio test -e native`).
 - `src/serial_bus.cpp`: queue, timing and frame detection.
