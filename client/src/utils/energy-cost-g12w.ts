@@ -63,8 +63,9 @@ type NormalizedSample = {
 
 const TIME_ONLY_RE = /^(\d{2}):(\d{2}):(\d{2})$/;
 const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+// Data z myślnikami (ISO) albo z kropkami, jak w telemetrii z co: "2026.07.14 21:30:00".
 const LOCAL_DATE_TIME_RE =
-  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+  /^(\d{4})[-.](\d{2})[-.](\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
 const HAS_TIME_ZONE_RE = /(Z|[+-]\d{2}:?\d{2})$/i;
 const WARSAW_TIME_ZONE = "Europe/Warsaw";
 
