@@ -39,6 +39,7 @@
 //-----------------------TEMPERATURES-----------------------
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
 #define T_DELTA_MAX 30.0;              //defines max delta temperature
+#define T_DELTA_DEFAULT 5.0            //delta (T max - T min) gdy w EEPROM brak zapisanej wartości
 #define T_HOTCIRCLE_DELTA_MIN 3.0;     //useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
 #define T_SUMP_MIN 5;                  //9.0;	//HP will not start if T lower
 #define T_SUMP_MAX 85.0;               //116 //HP will stop if T higher
@@ -338,7 +339,7 @@ st_tsens &Tcwu = sensors[BIT_Tcwu];
 
 unsigned int used_sensors = 0;  //bit array
 
-double T_delta = 5.0;
+double T_delta = T_DELTA_DEFAULT;
 double T_delta_force = 3.0;
 double T_setpoint = 30.0;
 double T_setpoint_lastsaved = T_setpoint;
@@ -714,10 +715,8 @@ void WriteIntEEPROM(int addr, int val) {
 }
 
 int ReadIntEEPROM(int addr) {
-  byte x[2];
-  for (byte u = 0; u < 2; u++) x[u] = EEPROM.read(u + addr);
-  int *y = (int *)&x;
-  return y[0];
+  //16-bit little-endian jak na AVR; jawne złożenie działa też w symulacji na PC (int 32-bit)
+  return (int16_t)(EEPROM.read(addr) | (EEPROM.read(addr + 1) << 8));
 }
 
 float ReadFloatEEPROM(int addr) {
@@ -967,8 +966,12 @@ void softRestart(void) {
   off_EEV();
 #endif
   RS485Serial.flush();
+#ifdef __AVR__
   cli();
   asm volatile("jmp 0");
+#else
+  simRestart();  //symulacja na PC (test/sim_env)
+#endif
 }
 
 //--------------------------- functions END
@@ -1031,7 +1034,7 @@ void setup(void) {
   if (eeprom_magic_read == eeprom_magic) {
     T_delta = ReadFloatEEPROM(eeprom_addr_dT);
     if (isnan(T_delta) || (T_delta < 0.0) || (T_delta > cT_delta_max)) {
-      T_delta = cT_delta_max;
+      T_delta = T_DELTA_DEFAULT;  //wcześniej T_DELTA_MAX (30): po restarcie bez zapisanej delty T min spadało o 30 °C
     }
 
     hot_pomp_on = 0;
@@ -1946,7 +1949,7 @@ void StatsSerial(void) {
   RS485Serial.print(co_on);
 
   RS485Serial.print(F(",\"WWatt\":\""));
-  RS485Serial.print(c_wattage_max);
+  RS485Serial.print(c_wattage_max, 0);  // W bez miejsc po przecinku
 
   RS485Serial.print(F("\",\"EEVmax\":\""));
   RS485Serial.print(EEV_MAXPULSES_OPEN);
