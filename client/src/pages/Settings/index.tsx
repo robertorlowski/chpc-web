@@ -64,7 +64,7 @@ export const Settings: React.FC = () => {
 	}, []);
 
 	const showSaveNotice = () => {
-		setSaveNotice('Dane zostały zapisane.');
+		setSaveNotice('Polecenie wysłane do sterownika.');
 		window.setTimeout(() => setSaveNotice(''), 3000);
 	};
 
@@ -196,7 +196,7 @@ export const Settings: React.FC = () => {
 					</div>
 
 					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>Params:</span>
+						<span className="label" style={{ width: '160px' }} title="Maksymalna moc sprężarki; 1001-4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy [W]:</span>
 						<input
 							className="temperature"
 							type="number"
@@ -273,9 +273,11 @@ export const Settings: React.FC = () => {
 					</p>
 							
 					<button
+						className="settings-change"
+						data-action="send-operation"
 						disabled ={!enableSave}
 						onClick={handleSave}>
-						Zapisz
+						Zmień
 					</button>
 				</div>
 				</div>

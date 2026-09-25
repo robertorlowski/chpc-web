@@ -210,7 +210,7 @@ const HP: React.FC = () => {
                   <td className="field">{_hp?.EEVmin || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">Moc min:</td>
+                  <td className="label" title="Maksymalna moc sprężarki (WWatt); powyżej 3200 W włącza ochronę przepływu">Limit mocy:</td>
                   <td className="field">{_hp?.WWatt || '---'}</td>
                 </tr>
                 <tr>
@@ -297,8 +297,8 @@ const HP: React.FC = () => {
                   </td>
                 </tr>
                 <tr>
-                  <td className="label">Moc:</td>
-                  <td className="field">{_hp?.lt_pow ? _hp?.lt_pow + ' W' : '---'}</td>
+                  <td className="label" title="Energia pobrana w bieżącym lub ostatnim cyklu sprężarki">Energia cyklu:</td>
+                  <td className="field">{_hp?.lt_pow ? _hp?.lt_pow + ' Wh' : '---'}</td>
                 </tr>
                 <tr>
                   <td className="label">Temp. min:</td>
