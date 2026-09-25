@@ -14,15 +14,19 @@ import { useEffect, useState } from 'react';
 import { HpRequests } from './api/api';
 
 function DeviceGuard({ children }: { children: React.ReactNode }) {
-	const { device, clearDevice } = useDevice();
+	const { device, selectDevice, clearDevice } = useDevice();
 	const location = useLocation();
 
 	// zapamiętany sterownik może nie istnieć w bazie (np. po przełączeniu z bazy lokalnej na produkcyjną);
 	// wtedy każde żądanie kończy się 404, więc wybór jest czyszczony. Błąd sieci (null) niczego nie czyści.
+	// Istniejący sterownik jest odświeżany z serwera, żeby w localStorage nie zostały stara nazwa czy deviceId.
 	useEffect(() => {
 		if (!device) return;
 		HpRequests.getDevices().then((list) => {
-			if (list && !list.some((item) => item.rootId === device.rootId)) clearDevice();
+			if (!list) return;
+			const current = list.find((item) => item.rootId === device.rootId);
+			if (!current) clearDevice();
+			else if (current.deviceId !== device.deviceId || current.name !== device.name) selectDevice(current);
 		});
 	}, [device?.rootId]);
 

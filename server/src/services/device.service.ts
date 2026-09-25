@@ -70,38 +70,4 @@ export async function updateDeviceProperties(rootId: string, properties: DeviceP
   return device.properties ?? {};
 }
 
-export async function getDeviceById(
-  deviceType: DeviceType = DeviceType.HP,
-  deviceId: string = 'hp-1',
-): Promise<String | null | unknown> {
-
-  const deviceDocument = await DeviceModel.findOne<DeviceDocument>({
-      deviceType: deviceType,
-      deviceId: deviceId
-  })
-  .lean();
-  
-  if (!deviceDocument) {
-    throw new Error('Device not found');
-  }
-  return deviceDocument._id.toString();
-}
-
-export async function getDefaultDeviceRootId(): Promise<string> {
-  const deviceType = DeviceType.HP;
-  const deviceId = 'hp-1';
-  const name = 'Pompa ciepła';
-  let device = await DeviceModel.findOne({ deviceType, deviceId });
-
-  if (!device) {
-    device = await DeviceModel.create({
-      deviceType,
-      deviceId,
-      name,
-      schedules: [],
-    });
-  }
-
-  return String(device._id);
-}
 

@@ -1,7 +1,6 @@
 
 import { DeviceType, ScheduleEntry, WeekDay } from '../middleware/type';
 import { DeviceDocument, DeviceModel } from '../models/model';
-import { getDeviceById } from './device.service';
 import { getLocalDayOfWeek, isPolishDayOff } from './calendar.service';
 
 

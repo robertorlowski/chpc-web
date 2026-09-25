@@ -88,13 +88,13 @@ Middleware:
 3. zapisuje wynik w `req.deviceRootId`;
 4. przekazuje żądanie do kontrolera.
 
-Wyjątki korzystające z urządzenia domyślnego `hp-1` bez `rootId` to między innymi `/hp/add`, `/operation` i `/settings`. Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
+Urządzenia domyślnego nie ma: żądanie bez `rootId` dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
 
 Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod kluczem `chpc.selectedDevice`. [`DeviceProvider`](client/src/context/DeviceContext.tsx) udostępnia wybór, zmianę i czyszczenie urządzenia. `DeviceGuard` przekierowuje użytkownika do `/devices`, jeśli nie wybrano pompy. Stopka „Aktywne urządzenie” z przyciskiem zmiany jest widoczna tylko wtedy, gdy `GET /api/devices` zwraca co najmniej dwa sterowniki (sprawdzane przy każdym wyborze urządzenia); przy jednym nie ma na co przełączyć. Dawny klucz `chpc.hideDeviceFooter` nie jest już używany.
 
 ### Rejestracja sterownika
 
-`POST /api/devices/register` z `{deviceId, deviceType?, name?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. `co` bez zapisanego Root ID wywołuje ten endpoint po połączeniu z internetem, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex), i zapisuje otrzymany `rootId` w NVS. Nieudaną rejestrację ponawia co 60 s i do tego czasu nie wysyła telemetrii, żeby nie trafiła do urządzenia domyślnego `hp-1`.
+`POST /api/devices/register` z `{deviceId, deviceType?, name?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. `co` bez zapisanego Root ID wywołuje ten endpoint po połączeniu z internetem, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex), i zapisuje otrzymany `rootId` w NVS. Nieudaną rejestrację ponawia co 60 s i do tego czasu nie wysyła telemetrii.
 
 **Sterowniki dodaje się tylko przez samodzielną rejestrację.** Klient nie ma funkcji dodawania sterownika. Nowy sterownik pojawia się na liście w `/devices` bez nazwy, a użytkownik nadaje ją przez `PUT /api/devices/:rootId` z `{name}` (zmienia tylko nazwę; `rootId` i `deviceId` nie podlegają edycji; pusta nazwa jest dozwolona).
 
@@ -107,7 +107,7 @@ Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod k
 Model główny to `DeviceModel` z kolekcją `devices`. Urządzenie zawiera między innymi:
 
 - `deviceType` — obecnie `heat_pump`;
-- `deviceId` — identyfikator sterownika: `hp-1` dla najstarszego sterownika, SN dla sterowników zarejestrowanych automatycznie;
+- `deviceId` — identyfikator sterownika, SN (MAC ESP32); najstarszy sterownik miał `hp-1`, w produkcji zmienione na SN (także w rekordach `hp`, 2026-09-26);
 - `name` — opcjonalna nazwa nadana przez użytkownika (domyślnie pusta; rejestracja automatyczna jej nie ustawia). Klient pokazuje `name`, a gdy jest pusta — `deviceId` (`deviceLabel` w [`DeviceContext.tsx`](client/src/context/DeviceContext.tsx));
 - `properties` — ustawienia domyślne;
 - `schedules` — osadzone definicje harmonogramów.
@@ -560,4 +560,4 @@ Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro 
 - Zwykłe ustawienia z `/operation/set` czekają na kolejny cykliczny POST `co` (10–30 s); natychmiast (WebSocket) docierają tylko akcje jednorazowe.
 - `0x04` powyżej `T_SETPOINT_MAX` i `0x05` powyżej `T_DELTA_MAX` CHPC po cichu ignoruje.
 - Liczniki diagnostyczne `co` i `controller_mode` nie są zapisywane w bazie (ścisły schemat); widać je tylko w `GET /api/hp` do restartu serwera i na stronie `/` sterownika.
-- Najstarszy sterownik ma `deviceId = hp-1` i Root ID wkompilowany w `secrets.h`; nowe sterowniki rejestrują się pod SN.
+- Najstarszy sterownik ma Root ID wkompilowany w `secrets.h` (nie rejestruje się); jego `deviceId` zmieniono w bazie z `hp-1` na SN. Serwer trzyma `deviceId` w pamięci (`deviceInfoByRoot`), więc po zmianie w bazie trzeba zrestartować serwer.

@@ -5,8 +5,6 @@ import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
 import { prepareMeteoData } from './services/meteo.service';
 import { startScheduler } from './services/scheduler.service';
-import { getDefaultDeviceRootId } from './services/device.service';
-import { assignLegacyHpData } from './services/hp.service';
 
 
 const server = http.createServer(app);
@@ -21,9 +19,6 @@ const PORT = Number(process.env.PORT ?? 3001);
   console.log("Mongo connected");
 
   startScheduler();
-
-  // const defaultRootId = await getDefaultDeviceRootId();
-  // await assignLegacyHpData(defaultRootId);
 
   await prepareMeteoData()
   

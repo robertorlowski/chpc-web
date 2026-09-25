@@ -1,5 +1,4 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { getDefaultDeviceRootId } from '../services/device.service';
 
 const espClients = new Map<WebSocket, string>();
 
@@ -12,7 +11,12 @@ export const createWsServer = (server: any) => {
     const ip = req.socket.remoteAddress;
     console.log(`New client connected: ${ip}`);
     const queryRootId = new URL(req.url ?? '/', 'http://localhost').searchParams.get('rootId');
-    const rootId = queryRootId || await getDefaultDeviceRootId();
+    // bez rootId nie wiadomo, do którego sterownika kierować komunikaty
+    if (!queryRootId) {
+      ws.close(1008, 'rootId jest wymagane');
+      return;
+    }
+    const rootId = queryRootId;
     espClients.set(ws, rootId);
     console.log(`WebSocket registered for device: ${rootId}`);
 
