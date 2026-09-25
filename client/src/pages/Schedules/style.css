@@ -170,6 +170,12 @@
   color: #333;
 }
 
+/* grupa działająca w zapisanym „Trybie pracy”: rodzaj podkreślony czerwoną linią */
+.schedule-group-active h4 {
+  text-decoration: underline red 2px;
+  text-underline-offset: 3px;
+}
+
 .schedule-row {
   position: relative;
   display: grid;
@@ -270,7 +276,7 @@
   }
 }
 
-/* „Domyślne ustawienia”: siatka etykieta | min | max. Lista wyboru zajmuje obie kolumny pól,
+/* „Ustawienia harmonogramu”: siatka etykieta | min | max. Lista wyboru zajmuje obie kolumny pól,
    więc jej prawa krawędź pokrywa się z polem max i przyciskiem „Zapisz” */
 .schedule-defaults-resource .settings-default-temperatures > div:not(.settings-section-actions) {
   display: grid;

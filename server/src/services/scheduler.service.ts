@@ -9,18 +9,22 @@ import {
 } from '../middleware/type';
 import { DeviceDocument, DeviceModel } from '../models/model';
 import { getHpLastData } from './hp.service';
-import { clearManualOperation, replaceOperationData } from './operation.service';
+import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
 import { getLocalDayOfWeek, isPolishDayOff, TIME_ZONE } from './calendar.service';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 
 const previousScheduleState = new Map<string, boolean>();
+const previousSchedulerDay = new Map<string, string>();
 
-const scheduleTypePriority: Record<ScheduleType, number> = {
-  [ScheduleType.OFF]: 300,
-  [ScheduleType.CO]: 200,
-  [ScheduleType.CWU]: 100,
-};
+// Tryb pracy z ustawień harmonogramu wybiera rodzaj harmonogramów, które działają:
+// A (CO Harmonogram) -> CO, CWU (CWU Harmonogram) -> CWU, pozostałe -> żaden.
+// OFF działa w obu trybach harmonogramu jako przerwa.
+export function scheduleTypesForWorkMode(workMode: string | undefined): ScheduleType[] {
+  if (workMode === 'A') return [ScheduleType.CO, ScheduleType.OFF];
+  if (workMode === 'CWU') return [ScheduleType.CWU, ScheduleType.OFF];
+  return [];
+}
 
 function toMinutes(value: string): number {
   const [hour, minute] = value.split(':').map(Number);
@@ -63,19 +67,18 @@ function isScheduleActive(schedule: ScheduleEntry, now: Date): boolean {
   return current >= start || current < end;
 }
 
+// Data jednorazowa ma pierwszeństwo przed harmonogramem cyklicznym, a przerwa OFF przed CO/CWU.
 function scheduleScore(schedule: ScheduleEntry): number {
-  const datePriority = schedule.date ? 1000 : 0;
-  const typePriority = scheduleTypePriority[schedule.type] ?? 0;
-
-  return datePriority + typePriority;
+  return (schedule.date ? 10 : 0) + (schedule.type === ScheduleType.OFF ? 1 : 0);
 }
 
 function getActiveSchedule(
   schedules: ScheduleEntry[],
+  types: ScheduleType[],
   now: Date,
 ): ScheduleEntry | undefined {
   return schedules
-    .filter((schedule) => isScheduleActive(schedule, now))
+    .filter((schedule) => types.includes(schedule.type) && isScheduleActive(schedule, now))
     .sort((first, second) => {
       const scoreDifference = scheduleScore(second) - scheduleScore(first);
       if (scoreDifference !== 0) return scoreDifference;
@@ -156,9 +159,27 @@ export async function runSchedulerOnce(now = new Date()): Promise<void> {
 
   for (const device of devices) {
     const rootId = String(device._id);
+
+    // Po północy (Warszawa) tryb ręczny M wraca na automatyczny A: w ustawieniach
+    // harmonogramu i w ręcznym nadpisaniu. Pierwszy przebieg po starcie serwera nie przełącza.
+    const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
+    const previousDay = previousSchedulerDay.get(rootId);
+    previousSchedulerDay.set(rootId, today);
+    if (previousDay && previousDay !== today) {
+      if (device.properties?.work_mode === 'M') {
+        await DeviceModel.updateOne({ _id: device._id }, { 'properties.work_mode': 'A' });
+        device.properties.work_mode = 'A';
+      }
+      switchManualWorkMode(rootId, 'M', 'A');
+    }
+
     const lastData = await getHpLastData(rootId);
     const defaultOperation = getDefaultOperation(device, lastData);
-    const activeSchedule = getActiveSchedule(device.schedules ?? [], now);
+    const activeSchedule = getActiveSchedule(
+      device.schedules ?? [],
+      scheduleTypesForWorkMode(stringValue(defaultOperation.work_mode)),
+      now,
+    );
 
     const hasActiveSchedule = Boolean(activeSchedule);
     if (previousScheduleState.get(rootId) === true && !hasActiveSchedule) {

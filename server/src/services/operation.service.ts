@@ -60,6 +60,16 @@ export const setManualOperationData = (rootId: string, data: OperationEntry) => 
   return manualOperation;
 };
 
+// Zmienia tryb w ręcznym nadpisaniu (np. M -> A po północy). Bieżącą operację
+// odświeży najbliższy replaceOperationData schedulera.
+export const switchManualWorkMode = (rootId: string, from: string, to: string) => {
+  const manualOperation = manualOperations.get(rootId);
+  if (manualOperation?.work_mode !== from) return false;
+
+  manualOperations.set(rootId, { ...manualOperation, work_mode: to });
+  return true;
+};
+
 // Akcje jednorazowe dla sterownika: nie są scalane z operacją ręczną ani harmonogramem,
 // trafiają do jednej odpowiedzi na /hp/add i znikają.
 export type OperationAction = 'error_reset' | 'restart';

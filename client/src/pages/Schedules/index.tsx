@@ -56,6 +56,13 @@ export const Schedules: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
+  // zapisany tryb pracy (nie bieżąca wartość listy): tylko on decyduje, które harmonogramy działają
+  const [savedWorkMode, setSavedWorkMode] = useState<string | undefined>(undefined);
+  // OFF działa w obu trybach harmonogramu jako przerwa
+  const activeScheduleTypes = savedWorkMode === 'A'
+    ? [ScheduleType.CO, ScheduleType.OFF]
+    : savedWorkMode === 'CWU' ? [ScheduleType.CWU, ScheduleType.OFF] : [];
+  const isOffForm = form.type === ScheduleType.OFF;
 
   const showSaveNotice = () => {
     setSaveNotice('Dane zostały zapisane.');
@@ -79,7 +86,10 @@ export const Schedules: React.FC = () => {
 
   const loadDefaultProperties = () => {
     HpRequests.getDeviceProperties()
-      .then((value) => setDefaultProperties(value ?? { work_mode: 'CWU' }))
+      .then((value) => {
+        setDefaultProperties(value ?? { work_mode: 'CWU' });
+        setSavedWorkMode(value?.work_mode ?? 'CWU');
+      })
       .catch(() => setError('Nie udało się pobrać wartości domyślnych.'));
   };
 
@@ -98,6 +108,7 @@ export const Schedules: React.FC = () => {
 
     try {
       await HpRequests.updateDeviceProperties(defaultProperties);
+      setSavedWorkMode(defaultProperties.work_mode);
       showSaveNotice();
     } catch {
       setError('Nie udało się zapisać wartości domyślnych.');
@@ -129,9 +140,10 @@ export const Schedules: React.FC = () => {
           : { dayOfWeek: Number(form.dayOfWeek) }),
         startTime: form.startTime,
         endTime: form.endTime,
-        forceStart: form.forceStart,
-        minTemperature: parseOptionalTemperature(form.minTemperature),
-        maxTemperature: parseOptionalTemperature(form.maxTemperature),
+        // przerwa OFF nie używa temperatur ani wymuszenia
+        forceStart: isOffForm ? false : form.forceStart,
+        minTemperature: isOffForm ? undefined : parseOptionalTemperature(form.minTemperature),
+        maxTemperature: isOffForm ? undefined : parseOptionalTemperature(form.maxTemperature),
       };
 
       if (editingId) {
@@ -202,10 +214,10 @@ export const Schedules: React.FC = () => {
       <h2>Harmonogramy</h2>
       <section className="schedule-defaults-section">
         <div className="resource schedule-defaults-resource">
-          <h3 className="settings-section-title">Domyślne ustawienia</h3>
+          <h3 className="settings-section-title">Ustawienia harmonogramu</h3>
           <div className="settings-default-temperatures">
             <div>
-              <span className="label">Domyślny tryb pracy:</span>
+              <span className="label">Tryb pracy:</span>
               <select
                 className="dict-select"
                 value={defaultProperties.work_mode ?? 'CWU'}
@@ -245,6 +257,7 @@ export const Schedules: React.FC = () => {
               <option value="" disabled>Wybierz typ</option>
               <option value={ScheduleType.CO}>CO Harmonogram</option>
               <option value={ScheduleType.CWU}>CWU Harmonogram</option>
+              <option value={ScheduleType.OFF}>OFF (przerwa)</option>
             </select>
           </label>
 
@@ -273,16 +286,18 @@ export const Schedules: React.FC = () => {
             <label>Do<input type="time" required value={form.endTime} onChange={(event) => updateForm('endTime', event.target.value)} /></label>
           </div>
 
-          <div className="schedule-fields">
-            <label>Min. [°C]<input type="number" step="0.1" value={form.minTemperature} onChange={(event) => updateForm('minTemperature', event.target.value)} /></label>
-            <label>Maks. [°C]<input type="number" step="0.1" value={form.maxTemperature} onChange={(event) => updateForm('maxTemperature', event.target.value)} /></label>
-          </div>
+          {!isOffForm && <>
+            <div className="schedule-fields">
+              <label>Min. [°C]<input type="number" step="0.1" value={form.minTemperature} onChange={(event) => updateForm('minTemperature', event.target.value)} /></label>
+              <label>Maks. [°C]<input type="number" step="0.1" value={form.maxTemperature} onChange={(event) => updateForm('maxTemperature', event.target.value)} /></label>
+            </div>
 
-          <label className="schedule-toggle">
-            <input type="checkbox" checked={form.forceStart} aria-label="Automatyczny start" onChange={(event) => updateForm('forceStart', event.target.checked)} />
-            <span className="schedule-start-label">Wymuś start</span>
-            Wymuś start
-          </label>
+            <label className="schedule-toggle">
+              <input type="checkbox" checked={form.forceStart} aria-label="Automatyczny start" onChange={(event) => updateForm('forceStart', event.target.checked)} />
+              <span className="schedule-start-label">Wymuś start</span>
+              Wymuś start
+            </label>
+          </>}
 
           <label className="schedule-toggle">
             <input type="checkbox" checked={form.enabled} onChange={(event) => updateForm('enabled', event.target.checked)} />
@@ -310,7 +325,10 @@ export const Schedules: React.FC = () => {
           {loading ? <p>Ładowanie...</p> : schedules.length === 0 ? <p>Brak zdefiniowanych harmonogramów.</p> : (
             <div className="schedule-groups">
               {scheduleGroups.map((group) => (
-                <section className="schedule-group" key={group.type}>
+                <section
+                  className={`schedule-group${activeScheduleTypes.includes(group.type) ? ' schedule-group-active' : ''}`}
+                  key={group.type}
+                >
                   <h4>{group.label}</h4>
                   <div className="schedule-list">
                     {group.schedules.map((schedule, index) => (
@@ -321,11 +339,13 @@ export const Schedules: React.FC = () => {
                           <span>{schedule.startTime} – {schedule.endTime}</span>
                         </div>
                         <div className="schedule-row-details">
-                          <span>{schedule.minTemperature ?? 'domyślna'} – {schedule.maxTemperature ?? 'domyślna'} °C</span>
-                          <label className="schedule-status">
-                            <input type="checkbox" checked={schedule.forceStart} readOnly aria-label="Start" />
-                            Wymuś Start                            
-                          </label>
+                          {schedule.type === ScheduleType.OFF ? <span>przerwa</span> : <>
+                            <span>{schedule.minTemperature ?? 'domyślna'} – {schedule.maxTemperature ?? 'domyślna'} °C</span>
+                            <label className="schedule-status">
+                              <input type="checkbox" checked={schedule.forceStart} readOnly aria-label="Start" />
+                              Wymuś Start
+                            </label>
+                          </>}
                           <button
                             className="schedule-edit"
                             type="button"

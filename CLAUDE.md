@@ -200,7 +200,7 @@ Dla każdej pompy typu `heat_pump` scheduler:
 1. pobiera urządzenie wraz z `properties` i `schedules`;
 2. pobiera ostatnią telemetrię;
 3. tworzy `defaultOperation`;
-4. wyszukuje jeden aktywny harmonogram;
+4. wyszukuje jeden aktywny harmonogram rodzaju wskazanego przez `work_mode` (niżej);
 5. wykrywa przejście z aktywnego harmonogramu do braku harmonogramu;
 6. w razie takiego przejścia czyści operację ręczną;
 7. tworzy operację z harmonogramu albo operację domyślną;
@@ -254,17 +254,28 @@ Logika dni wolnych jest w [`server/src/services/calendar.service.ts`](server/src
 
 Jeżeli harmonogram ma konkretną `date`, data ma pierwszeństwo przed `dayOfWeek` i jest porównywana w strefie Warszawy.
 
+### Rodzaj harmonogramów wybiera tryb pracy
+
+`properties.work_mode` (w zakładce Harmonogramy pole „Tryb pracy” w „Ustawieniach harmonogramu”) decyduje, które harmonogramy w ogóle działają (`scheduleTypesForWorkMode`):
+
+- `A` (CO Harmonogram) — harmonogramy typu `co` oraz przerwy `off`;
+- `CWU` (CWU Harmonogram) — harmonogramy typu `cwu` oraz przerwy `off`;
+- `M`, `OFF` — żaden; obowiązuje operacja domyślna.
+
+W formularzu klienta rodzaj „OFF (przerwa)” nie ma temperatur ani wymuszenia. Klient podkreśla czerwoną linią nazwy działających grup nad listą; decyduje zapisany tryb, nie bieżąca wartość listy.
+
+### Powrót z trybu ręcznego po północy
+
+Gdy przebieg schedulera trafia na nową datę (Europe/Warsaw), tryb `M` jest zamieniany na `A` w dwóch miejscach: w `properties.work_mode` (zapis w bazie) i w ręcznym nadpisaniu z `/operation/set` (`switchManualWorkMode`; pozostałe ręczne pola zostają). Dzień poprzedniego przebiegu jest trzymany w pamięci, więc pierwszy przebieg po restarcie serwera niczego nie przełącza.
+
 ### Nakładanie harmonogramów
 
 Jeżeli w tej samej chwili aktywnych jest kilka harmonogramów, wybierany jest jeden według kolejności:
 
 1. harmonogram z konkretną datą ma priorytet nad cyklicznym;
-2. `OFF` ma priorytet nad `CO`;
-3. `CO` ma priorytet nad `CWU`;
-4. przy remisie wygrywa późniejszy `startTime`;
-5. ostatecznie rozstrzyga identyfikator `_id`.
-
-Priorytety są zdefiniowane w `scheduleTypePriority`.
+2. przerwa `off` ma priorytet nad `co`/`cwu`;
+3. przy remisie wygrywa późniejszy `startTime`;
+4. ostatecznie rozstrzyga identyfikator `_id`.
 
 ## 7. Operacje
 
@@ -452,9 +463,9 @@ Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy
 - zmianę nazwy urządzenia (bez zmiany `deviceId`, pusta nazwa, nieznany `rootId`);
 - zapis `EEVmin` i wykrywanie zdarzeń błędów (także błąd starszy niż 24 h przy blokadzie);
 - jednorazowe akcje `error_reset` i `restart`;
-- wybór CO/CWU/OFF;
-- priorytet `OFF` nad innymi typami;
+- wybór rodzaju harmonogramu przez tryb pracy (`A` → CO, `CWU` → CWU, `M`/`OFF` → żaden) i przerwę `off` w obu trybach harmonogramu;
 - ręczne nadpisanie harmonogramu;
+- przełączenie trybu `M` na `A` po północy;
 - automatyczne wyczyszczenie operacji ręcznej;
 - temperatury domyślne przy pustym harmonogramie;
 - weekendy i polskie święta jako `DAYS_OFF`;
@@ -496,8 +507,8 @@ Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2
 2. Sterownik dostaje operację w odpowiedzi na zapis telemetrii. WebSocket tylko przyspiesza ten zapis (akcje jednorazowe).
 3. Brak aktywnego harmonogramu oznacza operację domyślną urządzenia.
 4. Ręczne pola mają pierwszeństwo nad schedulerem.
-5. Ręczne nadpisania są tylko w pamięci i są czyszczone po przejściu z harmonogramu do trybu domyślnego.
-6. `OFF > CO > CWU` przy nakładaniu harmonogramów.
+5. Ręczne nadpisania są tylko w pamięci i są czyszczone po przejściu z harmonogramu do trybu domyślnego. Tryb `M` wraca po północy na `A`.
+6. Działają tylko harmonogramy rodzaju wybranego trybem pracy: `A` → CO, `CWU` → CWU, inne → żaden; przerwa `off` działa w `A` i `CWU` i wygrywa z CO/CWU.
 7. `co_pomp` nie należy do harmonogramu i nie jest ustawiane przez scheduler.
 8. Temperatury harmonogramu mogą być pominięte — wtedy używane są temperatury domyślne.
 9. Wszystkie porównania czasu harmonogramu odbywają się w `Europe/Warsaw`.
