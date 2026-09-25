@@ -254,7 +254,7 @@ async function main() {
   await openPage('/settings', 'input[name="eev_min_pulse_open"]');
   await page.fill('input[name="eev_min_pulse_open"]', '45');
   await page.fill('input[name="working_watt"]', '3800');
-  await page.click('text=Zapisz');
+  await page.click('button[data-action="send-operation"]');
   await page.waitForTimeout(800);
   await shot('04-ustawienia-zapis');
   await coCycle();

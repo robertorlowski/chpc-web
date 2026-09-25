@@ -151,7 +151,7 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 
 ## Cloud path: `co` ⇄ `chpc-web`
 
-The data from this firmware continues to a web app, `D:\DevLocal\arduino_src\chpc-web` (its own git repo). It has an Express + TypeScript + Mongoose server in `server/src`, a React + Vite client in `client/src`, and a system description in `SYSTEM-LOGIC.md`. It is deployed at `https://chpc-web.onrender.com`. The whole chain is **chpc ⇄ RS-485 ⇄ co ⇄ HTTPS/WebSocket ⇄ chpc-web**. A change to any field has to be followed through all three repos. On the `co` side, the relevant files are `src/cloud_client.cpp`, `telemetry.cpp`, `operation_parser.cpp` and `operation_controller.cpp`.
+The data from this firmware continues to a web app, `D:\DevLocal\arduino_src\chpc-web` (its own git repo). It has an Express + TypeScript + Mongoose server in `server/src`, a React + Vite client in `client/src`, and a description of the whole system, which is the leading one for all three repos, in its `CLAUDE.md`. It is deployed at `https://chpc-web.onrender.com`. The whole chain is **chpc ⇄ RS-485 ⇄ co ⇄ HTTPS/WebSocket ⇄ chpc-web**. A change to any field has to be followed through all three repos. On the `co` side, the relevant files are `src/cloud_client.cpp`, `telemetry.cpp`, `operation_parser.cpp` and `operation_controller.cpp`.
 
 **Telemetry.** `co` sends `POST /api/hp/add?rootId=<id>` every 10 s while the compressor runs and every 30 s when idle. The body contains:
 - `HP`: the JSON from `StatsSerial()`, forwarded unchanged;
