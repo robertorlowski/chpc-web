@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { DeviceProperties, DeviceType } from '../middleware/type';
-import { createDevice, getDeviceProperties, listDevices, registerDevice, updateDeviceProperties } from '../services/device.service';
+import { createDevice, getDeviceProperties, listDevices, registerDevice, updateDeviceName, updateDeviceProperties } from '../services/device.service';
 
 export async function getProperties(req: Request, res: Response) {
   try {
@@ -77,5 +77,27 @@ export async function registerDeviceEntry(
     });
   } catch (error) {
     return res.status(400).json({ message: String(error) });
+  }
+}
+
+// Zmiana nazwy sterownika z listy urządzeń; rootId i deviceId nie podlegają edycji.
+export async function updateDevice(
+  req: Request<{ rootId: string }, {}, { name?: string }>,
+  res: Response,
+) {
+  if (typeof req.body.name !== 'string') {
+    return res.status(400).json({ message: 'name jest wymagane.' });
+  }
+
+  try {
+    const device = await updateDeviceName(req.params.rootId, req.body.name.trim());
+    return res.status(200).json({
+      rootId: String(device._id),
+      deviceType: device.deviceType,
+      deviceId: device.deviceId,
+      name: device.name,
+    });
+  } catch (error) {
+    return res.status(String(error).includes('not found') ? 404 : 400).json({ message: String(error) });
   }
 }

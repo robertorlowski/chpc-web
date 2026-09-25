@@ -8,30 +8,41 @@ import { HeatPumpTable } from "./pages/Data"
 import { HeatPumpChart  } from "./pages/Charts"
 import { Schedules } from "./pages/Schedules";
 import { Devices } from './pages/Devices';
-import { DeviceProvider, useDevice } from './context/DeviceContext';
+import { DeviceProvider, deviceLabel, useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { HpRequests } from './api/api';
 
 function DeviceGuard({ children }: { children: React.ReactNode }) {
 	const { device } = useDevice();
 	const location = useLocation();
 
 	if (!device && location.pathname !== '/devices') {
-		return <Navigate to="/devices" replace />;
+		return <Navigate to="/devices" replace state={{ auto: true }} />;
 	}
 
 	return <>{children}</>;
 }
 
 function DeviceFooter() {
-	const { device, hideDeviceFooter } = useDevice();
+	const { device } = useDevice();
+	const [deviceCount, setDeviceCount] = useState<number | null>(null);
 
-	if (!device || hideDeviceFooter) return null;
+	// liczba sterowników z serwera przy każdym wyborze urządzenia: sterownik zarejestrowany
+	// w międzyczasie od razu pokazuje stopkę z możliwością przełączenia
+	useEffect(() => {
+		if (!device) return;
+		HpRequests.getDevices().then((list) => setDeviceCount(list ? list.length : null));
+	}, [device?.rootId]);
+
+	// przy jednym sterowniku nie ma na co przełączyć; do czasu odpowiedzi serwera stopka jest ukryta
+	if (!device || deviceCount === null || deviceCount < 2) return null;
 
 	return (
 		<footer className="device-footer">
 			<div className="device-footer-info">
 				<span>Aktywne urządzenie</span>
-				<strong>{device.name}</strong>
+				<strong>{deviceLabel(device)}</strong>
 				{/* <small>Kod: {device.deviceId}</small> */}
 			</div>
 			<Link className="device-footer-change" to="/devices" aria-label="Zmień urządzenie" title="Zmień urządzenie">

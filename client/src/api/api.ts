@@ -98,8 +98,8 @@ class Requests {
     }
   }
 
-  static async put(path: string, data: unknown) {
-    const response = await fetch(prefixMocks(withDeviceContext(path, true)), {
+  static async put(path: string, data: unknown, includeDevice = true) {
+    const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -123,8 +123,9 @@ export class HpRequests {
     return Requests.get('/devices', false) as Promise<Device[]>;
   }
 
-  static createDevice(data: Omit<Device, 'rootId'>) {
-    return Requests.post('/devices', data, true, false) as Promise<Device>;
+  // rootId w ścieżce: na liście urządzeń żadne nie jest jeszcze wybrane
+  static updateDeviceName(rootId: string, name: string): Promise<Device> {
+    return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { name }, false) as Promise<Device>;
   }
 
   static getDeviceProperties(): Promise<NonNullable<Device['properties']>> {

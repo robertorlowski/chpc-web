@@ -182,6 +182,44 @@ describe('API with MongoDB', () => {
     expect(await DeviceModel.countDocuments({ deviceId })).toBe(1);
   });
 
+  it('leaves the name of a self-registered controller empty', async () => {
+    const response = await request(app)
+      .post('/api/devices/register')
+      .send({ deviceId: 'A4CF00000001' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.name).toBe('');
+  });
+
+  it('renames a device without changing deviceId', async () => {
+    const response = await request(app)
+      .put(`/api/devices/${rootId}`)
+      .send({ name: '  Pompa - dom  ', deviceId: 'zmieniony' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe('Pompa - dom');
+    expect(response.body.deviceId).toBe(deviceId);
+    const device = await DeviceModel.findById(rootId).lean();
+    expect(device?.deviceId).toBe(deviceId);
+  });
+
+  it('allows clearing the device name', async () => {
+    const response = await request(app)
+      .put(`/api/devices/${rootId}`)
+      .send({ name: '' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe('');
+  });
+
+  it('rejects renaming an unknown device', async () => {
+    const response = await request(app)
+      .put('/api/devices/000000000000000000000000')
+      .send({ name: 'x' });
+
+    expect(response.status).toBe(404);
+  });
+
   it('rejects a registration without deviceId', async () => {
     const response = await request(app)
       .post('/api/devices/register')

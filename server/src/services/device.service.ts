@@ -31,10 +31,20 @@ export async function registerDevice(
   const device = await DeviceModel.create({
     deviceType,
     deviceId,
-    name: name || deviceId,
+    name: name ?? '',
     schedules: [],
   });
   return { device, created: true };
+}
+
+export async function updateDeviceName(rootId: string, name: string): Promise<DeviceDocument> {
+  const device = await DeviceModel.findByIdAndUpdate(
+    rootId,
+    { $set: { name } },
+    { new: true, runValidators: true },
+  ).select('deviceType deviceId name').lean<DeviceDocument>();
+  if (!device) throw new Error('Device not found.');
+  return device;
 }
 
 export async function listDevices(): Promise<DeviceDocument[]> {

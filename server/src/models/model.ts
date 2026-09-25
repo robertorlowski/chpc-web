@@ -188,9 +188,10 @@ const DeviceSchema = new Schema<DeviceDocument>(
       required: true,
       trim: true,
     },
+    // nazwa nadawana przez użytkownika; sterownik zarejestrowany automatycznie jej nie ma
     name: {
       type: String,
-      required: true,
+      default: '',
       trim: true,
     },
     settings: { type: SettingsEntrySchema },

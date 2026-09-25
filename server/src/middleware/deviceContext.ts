@@ -9,7 +9,8 @@ export async function resolveDeviceContext(
   res: Response,
   next: NextFunction,
 ) {
-  if (publicPaths.has(req.path)) return next();
+  // PUT /devices/:rootId niesie identyfikator w ścieżce, nie w query string
+  if (publicPaths.has(req.path) || req.path.startsWith('/devices/')) return next();
 
   let rootId = typeof req.query.rootId === 'string' ? req.query.rootId : '';
   if (!rootId) {

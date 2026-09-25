@@ -4,6 +4,8 @@ import { HpRequests } from '../../api/api';
 import { HpEntry, OperationEntry } from '../../api/type';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../components/Notification';
+import { DeviceEditModal } from '../../components/DeviceEditModal';
+import { useDevice } from '../../context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
 export const Settings: React.FC = () => {
@@ -11,6 +13,8 @@ export const Settings: React.FC = () => {
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
 	const [saveNotice, setSaveNotice] = useState('');
 	const [error, setError] = useState<boolean>(false);
+	const { device, selectDevice } = useDevice();
+	const [editingDevice, setEditingDevice] = useState(false);
 	const [lastError, setLastError] = useState<HpEntry | null>(null);
 	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
 
@@ -307,7 +311,38 @@ export const Settings: React.FC = () => {
 					</div>
 				</div>
 
+				<div className="resource settings-errors settings-device">
+					<h3 className="settings-section-title">Sterownik</h3>
+					<div>
+						<span className="label">Nazwa:</span>
+						<span>{device?.name?.trim() || '---'}</span>
+					</div>
+					<div>
+						<span className="label">Identyfikator:</span>
+						<code className="settings-root-id">{device?.deviceId ?? '---'}</code>
+					</div>
+					<div>
+						<span className="label">Root ID:</span>
+						<code className="settings-root-id">{device?.rootId ?? '---'}</code>
+					</div>
+					<div className="settings-error-actions">
+						<button type="button" className="settings-change" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
+					</div>
+				</div>
+
 			</section>
+
+			{editingDevice && device && (
+				<DeviceEditModal
+					device={device}
+					onClose={() => setEditingDevice(false)}
+					onSaved={(updated) => {
+						// nowa nazwa trafia też do zapamiętanego wyboru (stopka, localStorage)
+						selectDevice(updated);
+						setEditingDevice(false);
+					}}
+				/>
+			)}
 		</div>
 	);
 }
