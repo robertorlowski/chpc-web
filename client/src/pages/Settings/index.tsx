@@ -54,7 +54,9 @@ export const Settings: React.FC = () => {
 		HpRequests.prepareOperation()
 			.then((resp) => {
 				console.log(resp);
-				setDefaultOperation(resp);
+				// przy błędzie HTTP Requests.get zwraca null; bez tego render wywraca się na defaultOperation.work_mode
+				setDefaultOperation(resp ?? {});
+				if (!resp) setError(true);
 			})
 			.catch((err) => {
 				console.log(err);
