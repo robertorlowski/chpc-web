@@ -78,7 +78,11 @@ export const Settings: React.FC = () => {
 
 		HpRequests.setOperation(valueOpration).then(response => {
 			setError( response?.status === 201 ? false : true );
-			if (response?.status === 201) showSaveNotice();
+			if (response?.status === 201) {
+				showSaveNotice();
+				// telemetria pokaże zmianę dopiero po 10-30 s; bez tego pola wracają do starych wartości
+				setDefaultOperation({...defaultOperation, ...valueOpration});
+			}
 			setValueOperation({});
 			HpRequests.getOperation()
 				.then((resp) => {
@@ -105,7 +109,6 @@ export const Settings: React.FC = () => {
 							className="dict-select"
 							onChange={(e) => setValueOperation( {...valueOpration, work_mode: e.currentTarget.value})}
 							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode }
-							defaultValue={defaultOperation.work_mode}
 						>
 							<option value="M">CO</option>
 							<option value="A">CO Harmonogram</option>
