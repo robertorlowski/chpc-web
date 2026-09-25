@@ -12,16 +12,20 @@ function withDeviceContext(path: string, includeDevice: boolean) {
   return `${path}${separator}${params}`;
 }
 
+// w trybie dev serwer jest na tym samym komputerze co Vite, port 4001; nazwa hosta z paska adresu
+// pozwala otworzyć klienta z telefonu w sieci lokalnej (npm run local -- --host)
+const devServerHost = () => window.location.hostname;
+
 export const wsAddressServer = () => {
   if (import.meta.env.DEV)
-    return  "ws://localhost:4001"
-  else 
+    return  `ws://${devServerHost()}:4001`
+  else
     return  "wss://chpc-web.onrender.com/";
 }
 
 function prefixMocks(path: string) {
   if (import.meta.env.DEV)
-    return  "http://localhost:4001/api".concat(path)
+    return  `http://${devServerHost()}:4001/api`.concat(path)
   else 
     return  "https://chpc-web.onrender.com/api".concat(path);
 

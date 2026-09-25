@@ -10,7 +10,8 @@
     "dev": " concurrently \"npm run server\" \"npm run client\"",
     "test:server": "npm test -w server",
     "test:client": "npm test -w client",
-    "build:server": "npm run build -w server"
+    "build:server": "npm run build -w server",
+    "local": "node scripts/local-dev.mjs"
   },
   "author": "Robert Orlowski",
   "license": "MIT",
