@@ -4,7 +4,7 @@ import { HpRequests } from '../../api/api';
 import { HpEntry, OperationEntry } from '../../api/type';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../components/Notification';
-import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
 export const Settings: React.FC = () => {
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
@@ -279,10 +279,8 @@ export const Settings: React.FC = () => {
 				<div className="resource settings-errors">
 					<h3 className="settings-section-title">Błędy sterownika</h3>
 					<div>
-						<span className={lastError?.error_code ? 'settings-error-text' : ''}>
-							{lastError?.error_code
-								? `${errorDescription(lastError.error_code)} (${lastError.time ?? ''})`
-								: 'Brak błędów'}
+						<span className={lastError?.error_code ? 'settings-error-text settings-error-lines' : ''}>
+							{lastError?.error_code ? errorLine(lastError) : 'Brak błędów'}
 						</span>
 					</div>
 					<div>
@@ -294,7 +292,10 @@ export const Settings: React.FC = () => {
 					</div>
 					<div className="settings-error-actions">
 						<button
-							title="Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej"
+							disabled={!isLocked(errorCount)}
+							title={isLocked(errorCount)
+								? 'Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej'
+								: 'Sterownik nie jest zablokowany'}
 							onClick={() => runAction('error_reset', 'Polecenie odblokowania wysłane do sterownika.')}>
 							Odblokuj
 						</button>

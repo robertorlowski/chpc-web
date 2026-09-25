@@ -6,7 +6,7 @@ import { HpEntry, HpMetrics, PvMetrics } from '../../api/type';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../assets/swith_on.svg';
 import swith_off from '../../assets/swith_off.svg';
-import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
 const HP: React.FC = () => {
 
@@ -65,8 +65,26 @@ const HP: React.FC = () => {
     };
   }, []);
 
+  // dzwonek błędu sterownika (ostatnie 24 h albo blokada); null, gdy błędu nie ma
+  const errorBell = (_lastError?.error_code || isLocked(_hp?.ERRc)) ? (
+    <svg
+      className="hp-error-bell"
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label="Błąd sterownika"
+    >
+      <title>
+        {[
+          isLocked(_hp?.ERRc) ? `Sterowanie zablokowane (${_hp?.ERRc}/${ERROR_LOCK_LIMIT} błędów)` : '',
+          errorLine(_lastError),
+        ].filter(Boolean).join('\n')}
+      </title>
+      <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" />
+    </svg>
+  ) : null;
+
   return (
-    <div className="settings">
+    <div className="settings hp-page">
       <h2>CWU / CO</h2>
       <section>
         <div className="resource">
@@ -100,24 +118,7 @@ const HP: React.FC = () => {
                 <tbody>
                   <tr>
                     <td className="label hp-temp-label">
-                      <span className="hp-bell-slot">
-                        {(_lastError?.error_code || isLocked(_hp?.ERRc)) ? (
-                          <svg
-                            className="hp-error-bell"
-                            viewBox="0 0 24 24"
-                            role="img"
-                            aria-label="Błąd sterownika"
-                          >
-                            <title>
-                              {[
-                                isLocked(_hp?.ERRc) ? `Sterowanie zablokowane (${_hp?.ERRc}/${ERROR_LOCK_LIMIT} błędów)` : '',
-                                _lastError?.error_code ? `${errorDescription(_lastError.error_code)} (${_lastError.time ?? ''})` : '',
-                              ].filter(Boolean).join('\n')}
-                            </title>
-                            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" />
-                          </svg>
-                        ) : null}
-                      </span>
+                      <span className="hp-bell-slot">{errorBell}</span>
                       T:
                     </td>
                     <td className={_data?.HP?.HPS ? 'field correct' : 'field '}>

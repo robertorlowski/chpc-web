@@ -22,3 +22,10 @@ export const errorDescription = (code?: number | null) =>
   code ? ERROR_DESCRIPTIONS[code] ?? `Nieznany błąd (kod ${code})` : '';
 
 export const isLocked = (errorCount?: number | null) => (errorCount ?? 0) >= ERROR_LOCK_LIMIT;
+
+// Błąd w dwóch liniach: data, a pod nią opis błędu; bez czasu zostaje sam opis.
+export const errorLine = (entry?: { error_code?: number | null; time?: string } | null) => {
+  if (!entry?.error_code) return '';
+  const description = errorDescription(entry.error_code);
+  return entry.time ? `${entry.time}\n${description}` : description;
+};

@@ -151,12 +151,16 @@ export const detectErrorEvent = (previous: HpEntry | undefined, current: HpEntry
 };
 
 // Ostatni błąd z ostatnich 24 godzin (okno ruchome); starszy nie jest już pokazywany.
+// Wyjątek: zablokowany sterownik (HP.ERRc >= 5) pokazuje ostatni błąd bez limitu czasu, aż do odblokowania.
 export const LAST_ERROR_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const ERROR_LOCK_LIMIT = 5;
 
 export const getHpLastError = async (rootId: string, now = new Date()) => {
+  const current = await getHpLastData(rootId) as HpEntry;
+  const locked = Number(current?.HP?.ERRc ?? 0) >= ERROR_LOCK_LIMIT;
   const since = new Date(now.getTime() - LAST_ERROR_WINDOW_MS);
   const doc = await HpEntryModel
-    .findOne({ rootId, error_code: { $gt: 0 }, createdAt: { $gte: since } })
+    .findOne({ rootId, error_code: { $gt: 0 }, ...(locked ? {} : { createdAt: { $gte: since } }) })
     .sort({ createdAt: -1 })
     .select('time createdAt error_code HP.ERRc')
     .lean<HpEntry & { createdAt?: Date }>();

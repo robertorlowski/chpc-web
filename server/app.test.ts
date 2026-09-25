@@ -119,6 +119,26 @@ describe('API with MongoDB', () => {
     expect(lastError.body.time).toBe('2026.09.24 10:00:00');
   });
 
+  it('keeps an error older than 24 hours while the controller is locked', async () => {
+    // poprzedni test zostawił sterownik zablokowany (ERRc 5); błędy przesuwamy o 26 h wstecz
+    const old = new Date(Date.now() - 26 * 60 * 60 * 1000);
+    const older = new Date(old.getTime() - 60 * 60 * 1000);
+    await HpEntryModel.collection.updateMany({ rootId, error_code: { $gt: 0 } }, { $set: { createdAt: older } });
+    await HpEntryModel.collection.updateMany({ rootId, error_code: 11 }, { $set: { createdAt: old } });
+
+    const locked = await request(app)
+      .get(`/api/hp/last-error?rootId=${rootId}&deviceId=${deviceId}`);
+    expect(locked.body.error_code).toBe(11);
+
+    // po odblokowaniu (ERRc 0, ten sam ERRn) stary błąd znika zgodnie z oknem 24 h
+    await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ time: '2026.09.24 10:05:00', HP: { Ttarget: 40, ERR: 11, ERRn: 4, ERRc: 0 } });
+    const unlocked = await request(app)
+      .get(`/api/hp/last-error?rootId=${rootId}&deviceId=${deviceId}`);
+    expect(unlocked.body.error_code).toBeUndefined();
+  });
+
   it('sends a maintenance action to the controller exactly once', async () => {
     const invalid = await request(app)
       .post(`/api/operation/action?rootId=${rootId}&deviceId=${deviceId}`)
