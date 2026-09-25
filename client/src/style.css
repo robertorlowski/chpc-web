@@ -26,9 +26,8 @@ body {
 
 .app-main {
   margin-top: 15px; /* dopasuj do faktycznej wysokości <Header /> */
-  overflow-y: auto;
   padding-top: 2rem;
-  padding-bottom: 4.5rem;
+  padding-bottom: 4.5rem; /* miejsce na stałą stopkę „Aktywne urządzenie” */
   flex-grow: 1;
 }
 
@@ -44,7 +43,7 @@ body {
 	gap: 1rem;
 	box-sizing: border-box;
 	padding: 0.2rem 0.5rem 0.2rem 0.5rem;
-	background: #673ab8;
+	background: #1481a5; /* kolor przycisków, m.in. wyboru sterownika */
 	border-top: 1px solid rgba(255, 255, 255, 0.35);
 	box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 	color: #fff;
@@ -97,7 +96,7 @@ header {
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	display: flex;
 	justify-content: flex-start;
-	background-color: #673ab8;
+	background-color: #1481a5; /* kolor przycisków, m.in. wyboru sterownika */
 }
 
 header nav {
@@ -174,6 +173,11 @@ main {
 	margin-bottom: 1rem;
 }
 
+.resource:hover {
+	border: 1px solid #000;
+	box-shadow: 0 25px 50px -12px #1481a588;
+}
+
 h2 {
 	padding-top: 0.5rem;
 	text-align: center;
@@ -198,4 +202,90 @@ h4, h5 {
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
     z-index: 9999;
+}
+/* wąskie ekrany (telefon): same ikony w menu, żeby pasek mieścił się w szerokości ekranu */
+@media (max-width: 560px) {
+	header nav .nav-label {
+		display: none;
+	}
+	header nav a {
+		padding: 0.6rem 0.75rem;
+	}
+}
+
+/* telefon: szare karty od krawędzi do krawędzi ekranu, bez białych marginesów po bokach.
+   Prefiks body podnosi specyficzność ponad style stron, ładowane później. */
+@media (max-width: 560px) {
+	body main {
+		margin-left: 0;
+		margin-right: 0;
+	}
+
+	body .settings,
+	body .settings > section,
+	body .hp-page,
+	body .schedules-page,
+	body .charts-page {
+		width: 100vw;
+		box-sizing: border-box;
+	}
+
+	body .settings > section > .resource,
+	body .settings > section > .resource:first-child,
+	body .settings > section > .resource.settings-errors,
+	body .hp-page > section > .resource,
+	body .schedule-defaults-resource,
+	body .schedules-layout > .schedule-card,
+	body .schedules-layout-list-only > .schedule-card {
+		box-sizing: border-box;
+		width: 100vw;
+		margin-left: 0;
+		margin-right: 0;
+		border-radius: 0;
+	}
+
+	h2 {
+        padding-top: 0.1rem;
+        margin: 0.2rem;
+	}
+}
+
+/* telefon: tabela danych od lewej krawędzi ekranu (kontener przewija się w poziomie) */
+@media (max-width: 560px) {
+	body .data-page {
+		padding-left: 0 !important;
+		padding-right: 0 !important;
+	}
+
+	body .data-page > h3,
+	body .data-page > div {
+		padding-left: 16px;
+		padding-right: 16px;
+	}
+
+	body .data-page .data-table {
+		border-radius: 0 !important;
+	}
+}
+
+/* tabela danych (zakładka Dane): dawniej dostawała te reguły z globalnych selektorów table/tr/td w HP/style.css.
+   :where() zachowuje ich niską specyficzność, więc style inline i klasy tabeli nadal mają pierwszeństwo */
+:where(.data-table) {
+	border-collapse: collapse;
+	margin: 5px 0;
+}
+
+:where(.data-table) tr {
+	display: flex;
+	justify-content: flex-start;
+}
+
+:where(.data-table) td {
+	border: none;
+}
+
+:where(.data-table) th,
+:where(.data-table) td {
+	padding: 2px;
+	text-align: left;
 }

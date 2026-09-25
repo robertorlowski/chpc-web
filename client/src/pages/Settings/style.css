@@ -14,11 +14,11 @@ span.label {
 }
 
 img:hover {
-	filter: drop-shadow(0 0 2em #673ab8aa);
+	filter: drop-shadow(0 0 2em #1481a5aa);
 }
 
 button {
-  background-color: #008CBA; 
+  background-color: #1481a5; 
   border: none;
   color: white;
   padding: 9px 24px;
@@ -40,10 +40,6 @@ button:disabled {
     justify-content: space-between;
 }
 
-.resource:hover {
-	border: 1px solid #000;
-	box-shadow: 0 25px 50px -12px #673ab888;
-}
 
 .settings > section > .resource:first-child {
     width: min(450px, calc(100vw - 2rem));
@@ -73,7 +69,7 @@ button:disabled {
 }
 .settings-section-title {
   width: 100%;
-  margin: 1rem 0 0.25rem;
+  margin: 0.2rem 0 0.25rem;
   padding-top: 0.2rem;
   border-bottom: 1px solid #ccc;
 }
@@ -116,4 +112,83 @@ button:disabled {
   gap: 8px;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+.settings-root-id {
+  word-break: break-all;
+  font-size: 0.9em;
+}
+
+/* wąskie ekrany: etykieta węższa, żeby pola min/max mieściły się w jednej linii */
+@media (max-width: 560px) {
+	span.label {
+		min-width: 8rem;
+	}
+}
+
+/* przyciski „Zmień” (operacja i dane sterownika) w jednym rozmiarze */
+.settings button.settings-change {
+  min-width: 7rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0 1.5rem;
+  align-self: center;
+}
+
+/* etykieta z wartością tuż obok (bez kolumny o stałej szerokości) */
+.settings-inline-label {
+  margin-right: 0.5rem;
+}
+
+/* sekcja „Sterownik”: długie wartości zawijają się we własnej kolumnie, obok etykiety */
+.settings-device > div:not(.settings-error-actions) {
+  display: flex;
+  align-items: baseline;
+}
+
+.settings-device > div > span.label {
+  flex: 0 0 auto;
+}
+
+.settings-device > div > :not(.label) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* telefon (np. Samsung S20, 360 px): etykieta o stałej szerokości, pola min i max w jednej linii */
+@media (max-width: 560px) {
+  .settings span.label {
+    width: 9.5rem !important; /* nadpisuje style={{ width: '160px' }} z komponentu */
+    min-width: 9.5rem;
+    vertical-align: middle;
+  }
+
+  .settings input.temperature {
+    width: 3rem;
+  }
+
+}
+
+/* telefon: wiersz „etykieta + pola” jako flex bez zawijania; znikają odstępy między elementami inline */
+@media (max-width: 560px) {
+  .settings .resource > div:has(> span.label):not(.settings-device > div) {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0 !important;
+  }
+
+  .settings .resource > div:has(> span.label) > span.label {
+    flex: 0 0 9.5rem;
+  }
+
+  .settings .dict-select {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+}
+
+/* ostatni błąd sterownika: data w pierwszej linii, opis pod nią */
+.settings-error-lines {
+  white-space: pre-line;
 }

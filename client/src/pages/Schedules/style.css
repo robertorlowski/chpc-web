@@ -1,6 +1,6 @@
 .schedules-page {
   width: min(1100px, 96vw);
-  padding: 1rem 0 2rem;
+  padding: 0rem 0 2rem;
 }
 
 .schedules-layout {
@@ -44,11 +44,13 @@
   background: #f1f1f1;
   border: 1px solid transparent;
   border-radius: 0.5rem;
+  margin: 0; /* .resource dokłada marginesy boczne, przez które karta była węższa od listy */
+  margin-bottom: 1rem;
 }
 
 .schedule-defaults-resource:hover {
-  border-color: #008CBA;
-  box-shadow: 0 25px 50px -12px #673ab888;
+  border-color: #1481a5;
+  box-shadow: 0 25px 50px -12px #1481a588;
 }
 
 .schedule-defaults-resource .settings-section-title {
@@ -93,7 +95,7 @@
 }
 
 .schedule-card:hover {
-  border-color: #008CBA;
+  border-color: #1481a5;
 }
 
 .schedule-card h3 {
@@ -104,7 +106,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.2rem;
   margin-bottom: 0.75rem;
 }
 
@@ -174,7 +176,7 @@
   gap: 0.1rem;
   padding: 0.3rem 2rem 0.3rem 0.3rem;
   background: white;
-  border-left: 4px solid #008CBA;
+  border-left: 4px solid #1481a5;
 }
 
 .schedule-row-details {
@@ -247,7 +249,7 @@
 
 .schedule-card .schedule-edit {
   right: 1.9rem;
-  background: #008CBA;
+  background: #1481a5;
 }
 
 .schedule-error {
@@ -256,6 +258,73 @@
 
 @media (max-width: 720px) {
   .schedule-defaults-resource {
+    width: 100%;
+  }
+}
+
+/* wąskie ekrany: nagłówek listy zawija przycisk pod tytuł, pola temperatur mieszczą się w jednej linii */
+@media (max-width: 560px) {
+  .schedule-list-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+/* „Domyślne ustawienia”: siatka etykieta | min | max. Lista wyboru zajmuje obie kolumny pól,
+   więc jej prawa krawędź pokrywa się z polem max i przyciskiem „Zapisz” */
+.schedule-defaults-resource .settings-default-temperatures > div:not(.settings-section-actions) {
+  display: grid;
+  grid-template-columns: 11rem 5rem 5rem;
+  column-gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.schedule-defaults-resource .settings-default-temperatures span.label {
+  min-width: 0;
+}
+
+.schedule-defaults-resource .settings-default-temperatures .dict-select {
+  grid-column: 2 / 4;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.schedule-defaults-resource .settings-default-temperatures input.temperature {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  margin: 0;
+}
+
+/* przycisk „Zapisz” kończy się na prawej krawędzi pola max */
+.schedule-defaults-resource .settings-default-temperatures .settings-section-actions {
+  width: calc(11rem + 10rem + 1rem);
+}
+
+.schedule-defaults-resource .settings-section-actions button {
+  margin: 0;
+}
+
+/* „Dodaj nowy harmonogram” przy prawej krawędzi karty, pod tytułem (jak „Zapisz” wyżej) */
+.schedule-list-header {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.schedule-list-header button {
+  align-self: flex-end;
+  margin: 0;
+}
+
+/* telefon: kolumny pól dzielą całą szerokość karty */
+@media (max-width: 560px) {
+  .schedule-defaults-resource .settings-default-temperatures > div:not(.settings-section-actions) {
+    grid-template-columns: 10.5rem 1fr 1fr;
+  }
+
+  .schedule-defaults-resource .settings-default-temperatures .settings-section-actions {
     width: 100%;
   }
 }

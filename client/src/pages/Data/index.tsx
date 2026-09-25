@@ -115,7 +115,7 @@ export const HeatPumpTable: React.FC = () => {
 	if (error) return <p>Błąd: {error}</p>;
 
   return (
-    <div style={{ overflowX: 'auto', padding: '16px' }}>
+    <div className="data-page" style={{ overflowX: 'auto', padding: '16px' }}>
     	<h3>
 	    	<label htmlFor="date-select">Dane na dzień: &nbsp; </label>
     		<DateDict id="date-select" initValue={selectedDate} onDateChange={e => setSelectedDate(e)} />
@@ -146,7 +146,7 @@ export const HeatPumpTable: React.FC = () => {
 			<button type="button" disabled={downloading} onClick={handleDownloadCsv} style={{ padding: '6px 10px'}}>{downloading ? 'Pobieranie…' : 'Pobierz dane'}</button>
 		</div>
 	
-		<table style={{
+		<table className="data-table" style={{
 			borderCollapse: 'separate',
 			borderSpacing: 0,
 			borderRadius: '10px',

@@ -612,7 +612,8 @@ export const HeatPumpChart: React.FC = () => {
         </span>
       </div>
 
-      <ResponsiveContainer width="100%" height="75%">
+      <div className="chart-area">
+      <ResponsiveContainer width="100%" height="100%">
         {isDay ? <LineChart data={filteredData}>
           <CartesianGrid strokeDasharray="1 1" />
           {allData ? (
@@ -760,7 +761,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             dataKey="Watts"
             name="Energia pobrana [kWh]"
-            fill="#008CBA"
+            fill="#1481a5"
             hide={!cPower}
           />
           <Line
@@ -785,6 +786,7 @@ export const HeatPumpChart: React.FC = () => {
           />
         </ComposedChart>}
       </ResponsiveContainer>
+      </div>
       <div className="chart-legend-bottom">
         {renderLegend()}
       </div>

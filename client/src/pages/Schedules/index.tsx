@@ -200,7 +200,6 @@ export const Schedules: React.FC = () => {
     <div className="schedules-page">
       <Notification message={saveNotice} />
       <h2>Harmonogramy</h2>
-      <h3>Domyślne ustawienia</h3>
       <section className="schedule-defaults-section">
         <div className="resource schedule-defaults-resource">
           <h3 className="settings-section-title">Domyślne ustawienia</h3>
@@ -301,7 +300,7 @@ export const Schedules: React.FC = () => {
 
         <section className="schedule-card">
           <div className="schedule-list-header">
-            <h3>Lista harmonogramów</h3>
+            <h3 className="settings-section-title">Lista harmonogramów</h3>
             {!showForm && (
               <button type="button" onClick={() => setShowForm(true)}>
                 Dodaj nowy harmonogram

@@ -111,6 +111,8 @@ const HP: React.FC = () => {
               </div>
             </div>
             <div className="heat body">
+              {/* telefon: dzwonek w osobnym wierszu nad temperaturą; bez błędu element nie istnieje, więc nie zajmuje miejsca */}
+              {errorBell && <div className="hp-bell-mobile">{errorBell}</div>}
               <table
                 className="heat table"
                 style={{ fontSize: '32px'}}

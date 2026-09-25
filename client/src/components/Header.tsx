@@ -12,7 +12,7 @@ export function Header() {
 	return (
 		<header>
 			<nav>
-				<Link to="/"  className={location.pathname === '/' ? 'active' : ''}>
+				<Link to="/" title="HP" aria-label="HP" className={location.pathname === '/' ? 'active' : ''}>
 					<svg x="0px" y="0px" width="25" height="25"
 						fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff"><g id="SVGRepo_bgCarrier" stroke-width="0"></g>
 						<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> 
@@ -20,33 +20,33 @@ export function Header() {
 							 stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						</path> </g>
 					</svg>
-					HP
+					<span className="nav-label">HP</span>
 				</Link>
-				<Link to="/data"  className={location.pathname === '/data' ? 'active' : ''}>
+				<Link to="/data" title="Dane" aria-label="Dane" className={location.pathname === '/data' ? 'active' : ''}>
 					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<path d="M5 19V5M5 19H20M9 16V12M13 16V8M17 16V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 					</svg>
-					Dane
+					<span className="nav-label">Dane</span>
 				</Link>
-				<Link to="/chart"  className={location.pathname === '/chart' ? 'active' : ''}>
+				<Link to="/chart" title="Wykres" aria-label="Wykres" className={location.pathname === '/chart' ? 'active' : ''}>
 					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<path d="M4 18L9 13L13 16L20 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 						<path d="M16 7H20V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 					</svg>
-					Wykres
+					<span className="nav-label">Wykres</span>
 				</Link>
-				<Link to="/settings" className={location.pathname === '/settings' ? 'active' : ''}>
+				<Link to="/settings" title="Ustawienia" aria-label="Ustawienia" className={location.pathname === '/settings' ? 'active' : ''}>
 					<svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="25" height="25" viewBox="0 0 50 50">
 						<path d="M47.16,21.221l-5.91-0.966c-0.346-1.186-0.819-2.326-1.411-3.405l3.45-4.917c0.279-0.397,0.231-0.938-0.112-1.282 l-3.889-3.887c-0.347-0.346-0.893-0.391-1.291-0.104l-4.843,3.481c-1.089-0.602-2.239-1.08-3.432-1.427l-1.031-5.886 C28.607,2.35,28.192,2,27.706,2h-5.5c-0.49,0-0.908,0.355-0.987,0.839l-0.956,5.854c-1.2,0.345-2.352,0.818-3.437,1.412l-4.83-3.45 c-0.399-0.285-0.942-0.239-1.289,0.106L6.82,10.648c-0.343,0.343-0.391,0.883-0.112,1.28l3.399,4.863 c-0.605,1.095-1.087,2.254-1.438,3.46l-5.831,0.971c-0.482,0.08-0.836,0.498-0.836,0.986v5.5c0,0.485,0.348,0.9,0.825,0.985 l5.831,1.034c0.349,1.203,0.831,2.362,1.438,3.46l-3.441,4.813c-0.284,0.397-0.239,0.942,0.106,1.289l3.888,3.891 c0.343,0.343,0.884,0.391,1.281,0.112l4.87-3.411c1.093,0.601,2.248,1.078,3.445,1.424l0.976,5.861C21.3,47.647,21.717,48,22.206,48 h5.5c0.485,0,0.9-0.348,0.984-0.825l1.045-5.89c1.199-0.353,2.348-0.833,3.43-1.435l4.905,3.441 c0.398,0.281,0.938,0.232,1.282-0.111l3.888-3.891c0.346-0.347,0.391-0.894,0.104-1.292l-3.498-4.857 c0.593-1.08,1.064-2.222,1.407-3.408l5.918-1.039c0.479-0.084,0.827-0.5,0.827-0.985v-5.5C47.999,21.718,47.644,21.3,47.16,21.221z M25,32c-3.866,0-7-3.134-7-7c0-3.866,3.134-7,7-7s7,3.134,7,7C32,28.866,28.866,32,25,32z"></path>
 					</svg>
-					Ustawienia
+					<span className="nav-label">Ustawienia</span>
 				</Link>
-				<Link to="/schedules" className={location.pathname === '/schedules' ? 'active' : ''}>
+				<Link to="/schedules" title="Harmonogram" aria-label="Harmonogram" className={location.pathname === '/schedules' ? 'active' : ''}>
 					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="2" />
 						<path d="M8 3V7M16 3V7M4 10H20M8 14H10M12 14H14M16 14H18M8 17H10M12 17H14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
 					</svg>
-					Harmonogram
+					<span className="nav-label">Harmonogram</span>
 				</Link>
 			</nav>
 		</header>

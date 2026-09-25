@@ -290,7 +290,7 @@ export const Settings: React.FC = () => {
 						</span>
 					</div>
 					<div>
-						<span className="label">Licznik błędów:</span>
+						<span className="settings-inline-label">Licznik błędów:</span>
 						<span className={isLocked(errorCount) ? 'settings-error-text' : ''}>
 							{errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`}
 							{isLocked(errorCount) ? ' (sterowanie zablokowane)' : ''}

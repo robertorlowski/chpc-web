@@ -1,73 +1,66 @@
-h3, ul {
+/* reguły dla elementów (h3, ul, table, tr, td) tylko w widoku głównym: CSS stron trafia do jednego pliku i działałby w całej aplikacji */
+.hp-page h3,
+.hp-page ul {
     margin-block-start: 0.2rem;
     margin-block-end: 0.2rem;
 }
 
-.field {
+.hp-page .field {
 	font-weight: bold;
 	min-width: 50px;
 	text-align: left;
 	padding-left: 5px;
 }
 
-.field.correct {
+.hp-page .field.correct {
 	margin-left: 0.2rem;
 	font-weight: bold;
 	color: blue;
 }
 
-.field.incorrect {
+.hp-page .field.incorrect {
 	margin-left: 0.2rem;
 	font-weight: bold;
 	color: red;
 }
 
-.tryb-pracy {
-	display: flex;
-	justify-content: flex-end
-}
-
-.resource:hover {
-	border: 1px solid #000;
-	box-shadow: 0 25px 50px -12px #673ab888;
-}
-
-table {
+.hp-page table {
 	border-collapse: collapse;
 	margin: 5px 0;
 }
 
-td.label {
+.hp-page td.label {
 	width: 50%;
 	min-width: 110px;
 	text-align: right;
 }
 
-tr {
+.hp-page tr {
 	display: flex;
 	justify-content: flex-start;
 }
 
-tr.left {
+.hp-page tr.left {
 	display: flex;
 	justify-content: flex-start;
 }
 
-td {
+.hp-page td {
 	border: none;
 }
 
 
-td img[src*="svg"] {
+.hp-page td img[src*="svg"] {
 	height: 26px;
 	vertical-align:middle;
 	margin-bottom: 0rem;
 }
 
-th, td {
+.hp-page th,
+.hp-page td {
 	padding: 2px;
 	text-align: left;
-	padding-right: 10px;
+
 }
 
 
@@ -94,15 +87,7 @@ th, td {
 
 .heat.body {
 	display: flex;
-}
-
-@media (max-width:360px) {
-	.heat.body {
-		display: flex;
-		flex-direction: column;
-		flex-wrap: wrap;
-        align-content: center;
-	}
+	justify-content: flex-end;
 }
 
 .heat.table {
@@ -124,14 +109,8 @@ th, td {
 	justify-content: space-between;
 }
 
-img.field {
+.hp-page img.field {
 	width: 20px;
-}
-
-@media (max-width:360px) {
-	.settings section {
-		grid-template-columns: 1fr;
-	}
 }
 
 /* sygnalizacja błędu sterownika (ostatnie 24 h): dzwonek na środku miejsca przed "T:" */
@@ -152,4 +131,89 @@ td.label.hp-temp-label {
   height: 26px;
   fill: #d32f2f;
   cursor: help;
+}
+
+/* dzwonek nad temperaturą tylko na telefonie; na komputerze zostaje przed „T:” */
+.hp-bell-mobile {
+	display: none;
+}
+
+/* odstęp 5 px między „T:” a wartością temperatury (telefon i komputer) */
+.hp-page td.label.hp-temp-label {
+	padding-right: 5px;
+	margin-right: 0;
+}
+
+/* telefon (360–560 px) */
+@media (max-width: 560px) {
+	/* karty na całą szerokość ekranu, treść zawija się w karcie zamiast z niej wystawać */
+	.hp-page {
+		width: calc(100vw - 2rem);
+	}
+
+	.hp-page > section {
+		width: 100%;
+	}
+
+	.hp-page > section > .resource,
+	.hp-page > section > .resource:first-child {
+		box-sizing: border-box;
+		width: 100%;
+		margin-left: 0;
+		margin-right: 0;
+	}
+
+	/* data i „Tryb pracy” przechodzą do drugiej linii, gdy się nie mieszczą */
+	.hp-page .heat.head {
+		flex-wrap: wrap;
+		height: auto;
+		column-gap: 1rem;
+	}
+
+	/* dzwonek, „T: 29.8” i pompy w kolejnych wierszach, wyśrodkowane */
+	.hp-page .heat.body {
+		flex-direction: row;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-content: center;
+	}
+
+	.hp-page .hp-bell-mobile {
+		display: flex;
+		justify-content: center;
+		flex-basis: 100%;
+		margin-bottom: -0.25rem;
+	}
+
+	.hp-page .hp-bell-slot {
+		display: none;
+	}
+
+	.hp-page .heat.body > .heat.table:first-of-type {
+
+		justify-content: center;
+	}
+
+	.hp-page td.label.hp-temp-label {
+		justify-content: flex-start;
+		width: auto;
+		min-width: 0;
+		padding-left: 0;
+	}
+
+	/* dwie tabele „Pompa ciepła” obok siebie tylko wtedy, gdy mieszczą się w karcie */
+	.hp-page .hp-data {
+		flex-wrap: wrap;
+	}
+
+	/* „Moc PV” i „Temp. zewnętrzna” w dwóch wierszach zamiast ściśniętych w jednym */
+	.heat.footer {
+		flex-wrap: wrap;
+		height: auto;
+		row-gap: 0.25rem;
+	}
+
+	.heat.footer > div {
+		flex-basis: 100%;
+	}
 }
