@@ -298,6 +298,18 @@ describe('Schedules and manual operation control', () => {
     });
   });
 
+  it('does not take the work mode from the controller telemetry', async () => {
+    await DeviceModel.findByIdAndUpdate(rootId, { $unset: { 'properties.work_mode': 1 } });
+    await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: 40 }, work_mode: 'OFF' })
+      .expect(201);
+
+    await runSchedulerOnce(afterScheduleTime);
+
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'CWU' });
+  });
+
   it('does not treat a Polish public holiday as a workday', async () => {
     await setWorkMode('A');
     await request(app)

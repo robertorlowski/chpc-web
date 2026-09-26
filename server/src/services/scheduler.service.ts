@@ -101,7 +101,9 @@ function getDefaultOperation(
   const properties = device.properties ?? {};
 
   return {
-    work_mode: properties.work_mode ?? stringValue(lastData.work_mode) ?? 'CWU',
+    // Nie z telemetrii: sterownik raportuje w niej tryb dostany od serwera (po
+    // restarcie domyślne OFF), więc serwer odsyłałby mu jego własny stan.
+    work_mode: properties.work_mode ?? 'CWU',
     force: '0',
     co_min: stringValue(properties.co_min) ?? stringValue(lastData.co_min),
     co_max: stringValue(properties.co_max) ?? stringValue(lastData.co_max),

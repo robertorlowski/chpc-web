@@ -160,7 +160,7 @@ To jest główny moment przekazania wyliczonej operacji do sterownika. Scheduler
 
 ### Treść telemetrii wysyłanej przez `co`
 
-`co` wysyła `POST /api/hp/add?rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Treść:
+`co` wysyła `POST /api/hp/add?rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Wysyła też wtedy, gdy CHPC nie odpowiada i `HP` jest puste: serwer nie zapisuje takiej telemetrii, ale odsyła operację, więc sterownik zna `work_mode` przy odłączonej pompie. Treść:
 
 - `HP` — JSON z CHPC (`StatsSerial()`), przekazany bez zmian;
 - `PV` — dane z falowników: `total_power`, `total_prod`, `total_prod_today`, `temperature`, `panels[]` (`serial`, `port`, `power`, `prod_today`, `prod_total`, `temperature`);
@@ -213,8 +213,8 @@ Scheduler nie wysyła komunikatu WebSocket i nie wykonuje bezpośredniego żąda
 `getDefaultOperation` korzysta z następującej kolejności:
 
 1. wartości z `device.properties`;
-2. wartości z ostatniej telemetrii;
-3. dla `work_mode` — `CWU`, jeśli nie ma żadnej wartości.
+2. temperatury — wartości z ostatniej telemetrii;
+3. `work_mode` — `CWU`. Nigdy z telemetrii: sterownik raportuje w niej tryb otrzymany od serwera (po restarcie domyślne `OFF`), więc serwer odsyłałby mu jego własny stan i `OFF` utrwalałby się bez końca.
 
 Operacja domyślna zawsze ustawia `force: '0'`. Nie zawiera `co_pomp`.
 
