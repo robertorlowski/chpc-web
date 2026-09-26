@@ -527,7 +527,7 @@ Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2
 Firmware PlatformIO (`esp32dev`), kod w `src/`. Szczegóły: `README.md` i `docs/server-driven-refactor-2026-09-20.md` w tamtym repozytorium.
 
 - **Odczyty.** Co 10 s (sprężarka pracuje) lub 30 s (spoczynek) odpytuje CHPC; co dziesiąty cykl odpytuje DTU Hoymiles (Modbus, dwa zapytania po pięć portów). Szacuje COP zbiornika 300 l w każdym cyklu grzania.
-- **Tryb sterownika** (przycisk na GPIO5, zapis w NVS): `OFF → CLOUD → MANUAL_CO → MANUAL_CWU → OFF`. Tylko w `CLOUD` stosuje operacje z chmury. `OFF` wysyła do pompy sekwencję bezpieczeństwa (CO off, force off, pompy off) i wyłącza przekaźniki. W `work_mode = PV` `force` wynika z produkcji PV (≥ 2000 W), a nie z serwera.
+- **Tryb sterownika** (przycisk na GPIO5, zapis w NVS): `OFF → CLOUD → MANUAL_CO → MANUAL_CWU → OFF`. Pierwsze naciśnięcie tylko pokazuje bieżący tryb, kolejne przechodzą dalej; wybrany tryb jest stosowany 5 s po ostatnim naciśnięciu. Tylko w `CLOUD` stosuje operacje z chmury. `OFF` wysyła do pompy sekwencję bezpieczeństwa (CO off, force off, pompy off) i wyłącza przekaźniki. W `work_mode = PV` `force` wynika z produkcji PV (≥ 2000 W), a nie z serwera.
 - **Strony WWW na porcie 80** (sieć lokalna i otwarty AP `HP-CO-setup`): `/` podgląd telemetrii, `/telemetry.json`, `/install` (Basic Auth: Wi-Fi, SN i Root ID tylko do odczytu, status rejestracji), `/save`.
 - **Konfiguracja.** Wi-Fi i Root ID w NVS; `src/secrets.h` daje tylko wartości domyślne, a `CLOUD_ROOT_ID` jest opcjonalny.
 - **Kluczowe pliki kontraktu:** `cloud_client.cpp` (HTTP, WebSocket, rejestracja), `telemetry.cpp`, `operation_parser.cpp`, `operation_controller.cpp`, `modbus_frame.cpp`.
