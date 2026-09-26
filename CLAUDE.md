@@ -327,7 +327,10 @@ Odpowiedź na każdy `POST /api/hp/add` ma postać `{"operation":{…}}`. **Wszy
 CHPC nie potwierdza komend, więc `co` po każdym odczycie porównuje stan zgłoszony przez pompę z oczekiwanym i przy różnicy wysyła komendę jeszcze raz:
 
 - `HP.CO` — oczekiwane `1` dla `work_mode` innego niż `OFF`, `0` dla `OFF` i w lokalnym trybie `OFF`. `co_on` to zgoda na start sprężarki; CHPC trzyma ją w EEPROM i można ją zmienić na samej pompie, ale chmura (albo lokalny `OFF`) ją przywraca;
-- `HP.F` — porównywane tylko przy `HPS = 0` i tylko gdy serwer przysłał `force` (albo w trybie `PV`), bo CHPC przyjmuje wymuszenie tylko w spoczynku i kasuje je przy każdym zatrzymaniu.
+- `HP.F` — porównywane tylko przy `HPS = 0` i tylko gdy serwer przysłał `force` (albo w trybie `PV`), bo CHPC przyjmuje wymuszenie tylko w spoczynku i kasuje je przy każdym zatrzymaniu;
+- `HP.Tmax` i `HP.Tmin` (poza `OFF`) — `Tmax` porównywane z `co_max`/`cwu_max` (komenda `0x04`), a `Tmax − Tmin` z różnicą max − min (`0x05`), z tolerancją 0,11 °C, bo CHPC podaje jedno miejsce po przecinku. Pomijane, gdy wartość przekracza limit CHPC (zadana > 50, różnica > 30), bo CHPC i tak by ją odrzucił. Bez tego zgubiona ramka zostawiała pompę na granicach poprzedniego trybu na wiele godzin (np. 26.09 12:31–13:10 tryb `A` 35/45, pompa 22/45: doszło `0x04`, nie doszło `0x05`).
+
+Prawdopodobna przyczyna gubienia ramek: CHPC wczytuje wszystko z magistrali do 49 bajtów i przetwarza tylko wtedy, gdy bufor zaczyna się od jego adresu. Komenda, która trafi do jednego odczytu razem z obcymi bajtami (np. końcówką 205-bajtowej odpowiedzi DTU), jest odrzucana.
 
 Gdy odczyt pompy został bez odpowiedzi (CHPC odłączony albo restartuje), pierwszy odczyt po powrocie powoduje wysłanie całego stanu od nowa. W trybach `MANUAL_*` stan pompy nie jest sprawdzany.
 
@@ -526,7 +529,7 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 ### Firmware
 
-- `co`: `pio test -e native` w `heatpump` (58 testów: kontroler operacji, parser PV, ramki Modbus, polityka AP).
+- `co`: `pio test -e native` w `heatpump` (64 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP).
 - CHPC: `pio test -e native` w `chpc` (symulacja firmware, 6 zestawów, 44 testy). Dodatkowo scenariusze Wokwi w `chpc/test-wokwi/`.
 
 Ostatni pełny przebieg (2026-09-24): serwer chpc-web 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
