@@ -299,6 +299,13 @@ Odpowiedź na każdy `POST /api/hp/add` ma postać `{"operation":{…}}`. **Wszy
 
 `co` zamienia zmienione wartości na komendy RS-485 (tabela w punkcie 13) i nie wysyła ponownie wartości, która się nie zmieniła. Pusta operacja `{}` nic nie zmienia.
 
+CHPC nie potwierdza komend, więc `co` po każdym odczycie porównuje stan zgłoszony przez pompę z oczekiwanym i przy różnicy wysyła komendę jeszcze raz:
+
+- `HP.CO` — oczekiwane `1` dla `work_mode` innego niż `OFF`, `0` dla `OFF` i w lokalnym trybie `OFF`. `co_on` to zgoda na start sprężarki; CHPC trzyma ją w EEPROM i można ją zmienić na samej pompie, ale chmura (albo lokalny `OFF`) ją przywraca;
+- `HP.F` — porównywane tylko przy `HPS = 0` i tylko gdy serwer przysłał `force` (albo w trybie `PV`), bo CHPC przyjmuje wymuszenie tylko w spoczynku i kasuje je przy każdym zatrzymaniu.
+
+Gdy odczyt pompy został bez odpowiedzi (CHPC odłączony albo restartuje), pierwszy odczyt po powrocie powoduje wysłanie całego stanu od nowa. W trybach `MANUAL_*` stan pompy nie jest sprawdzany.
+
 ### Zapis operacji ręcznej
 
 `POST /api/operation/set` wywołuje `setManualOperationData`.
