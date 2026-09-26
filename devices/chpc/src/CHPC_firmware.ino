@@ -81,6 +81,9 @@ int EEV_MAXPULSES_OPEN = xEEV_MAXPULSES_OPEN;
 #define EEV_PULSE_FOPEN_MILLIS 1300   //fast open, fast search
 #define EEV_PULSE_OPEN_MILLIS 40000   //60000   //precise open
 //-22.06.2025
+//kalibracja/pełne zamknięcie (EEV_adonotcare): otwarcie 480, zamknięcie 488 i otwarcie do 45 rozłożone
+//na POWERON_PAUSE z zapasem 10 s (90 s -> 78 ms/krok, ~80 s); wolniej = większy moment, bez gubienia kroków
+#define EEV_PULSE_CALIB_MILLIS ((POWERON_PAUSE - 10000) / (2 * EEV_MAXPULSES + EEV_CLOSE_ADD_PULSES + xEEV_OPEN_AFTER_CLOSE))
 
 
 //#define EEV_STOP_HOLD		500		    //0.1..1sec for Sanhua
@@ -868,14 +871,15 @@ void eevise(void) {
     }
   }
 
-  if (
-    (((EEV_apulses < 0) && (EEV_fast == 1)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FCLOSE_MILLIS)))
-    || (((EEV_apulses < 0) && (EEV_fast == 0)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_CLOSE_MILLIS)))
-    || (((EEV_apulses > 0) && (EEV_cur_pos < EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_WOPEN_MILLIS)))
-    || (((EEV_apulses > 0) && (EEV_fast == 1) && (EEV_cur_pos >= EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_FOPEN_MILLIS)))
-    || (((EEV_apulses > 0) && (EEV_fast == 0) && (EEV_cur_pos >= EEV_MINWORKPOS)) && ((unsigned long)(millis_now - millis_eev_last_step) > (EEV_PULSE_OPEN_MILLIS)))
-    || (millis_eev_last_step == 0)
-    || (EEV_adonotcare == 1)) {
+  unsigned long since_step = millis_now - millis_eev_last_step;
+  if ((millis_eev_last_step == 0) || ((EEV_adonotcare == 1)
+    //kalibracja/pełne zamknięcie: tylko własne tempo (dawniej krok w każdym przebiegu loop(), tempo dawały blokujące delay())
+    ? (since_step > (EEV_PULSE_CALIB_MILLIS))
+    : (((EEV_apulses < 0) && (EEV_fast == 1) && (since_step > (EEV_PULSE_FCLOSE_MILLIS)))
+       || ((EEV_apulses < 0) && (EEV_fast == 0) && (since_step > (EEV_PULSE_CLOSE_MILLIS)))
+       || ((EEV_apulses > 0) && (EEV_cur_pos < EEV_MINWORKPOS) && (since_step > (EEV_PULSE_WOPEN_MILLIS)))
+       || ((EEV_apulses > 0) && (EEV_fast == 1) && (EEV_cur_pos >= EEV_MINWORKPOS) && (since_step > (EEV_PULSE_FOPEN_MILLIS)))
+       || ((EEV_apulses > 0) && (EEV_fast == 0) && (EEV_cur_pos >= EEV_MINWORKPOS) && (since_step > (EEV_PULSE_OPEN_MILLIS)))))) {
     if (EEV_apulses != 0) {
       if (EEV_apulses > 0) {
         if (EEV_cur_pos + 1 <= eee) {
@@ -1114,6 +1118,11 @@ void setup(void) {
   }
   T_setpoint_lastsaved = T_setpoint;
 
+  //pierwszy pomiar z czekaniem (~750 ms): bez niego DS18B20 zwracają 85 °C (stan po włączeniu zasilania),
+  //GetT zostawia wtedy 0 °C i np. grzałka karteru włącza się na jeden cykl
+  s_allTsensors.setWaitForConversion(true);
+  s_allTsensors.requestTemperatures();
+  s_allTsensors.setWaitForConversion(false);
   Get_Temperatures();
   outString.reserve(256);  
 }
@@ -1309,6 +1318,7 @@ void loop(void) {
     //
   } else if (((z == 1) || (i == 1) || (d == 1)) && ((unsigned long)(millis_now - millis_last_button) > BUTTON_REPEAT_MS)) {
     millis_last_button = millis_now;  //zamiast delay(): kolejne naciśnięcie (lub powtórzenie przytrzymanego) po BUTTON_REPEAT_MS
+    millis_displ_update = millis_now;  //ekran główny nie nadpisze menu wcześniej niż po millis_displ_update_interval
 #ifndef EEV_ONLY
     if (d == 1) {
       input_type++;
@@ -1729,8 +1739,8 @@ void loop(void) {
     }
 
     //process_heatpump:
-    if (
-      (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
+    if (  //start dopiero po zakończeniu kalibracji/domykania EEV
+      (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
 
         (Ttarget.T < (T_setpoint - T_delta) && ((T_setpoint - T_delta) < T_setpoint) && co_on == 1) || (Ttarget.T < (T_setpoint - T_delta_force) && co_on == 1 && start_force == 1)
         )

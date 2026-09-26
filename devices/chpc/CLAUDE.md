@@ -24,9 +24,9 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
 
 **Tests on the PC (main test path).** Use these first, because they are fast and have no quota.
 
-- **Unity firmware simulation.** `pio test -e native` runs 6 scenario suites in `test/test_chpc_*`, about 12 s in total. Each suite compiles the unmodified `src/CHPC_firmware.ino` against hardware mocks in [test/sim_env/](test/sim_env/):
+- **Unity firmware simulation.** `pio test -e native` runs 7 scenario suites in `test/test_chpc_*`, about 15 s in total. Each suite compiles the unmodified `src/CHPC_firmware.ino` against hardware mocks in [test/sim_env/](test/sim_env/):
   - `Arduino.h`: virtual `millis`/`delay`, a `String` class, the UART, and a CT sine wave for the power reading;
-  - `DallasTemperature.h`: sensors that can be plugged in and out;
+  - `DallasTemperature.h`: sensors that can be plugged in and out; after `sim::powerOnSensor(s)`/`powerOnSensors()` a sensor returns 85 °C until 750 ms after `requestTemperatures()`, like a real DS18B20;
   - `EEPROM.h` and `LiquidCrystal_I2C.h`. The LCD mock also keeps `sim::lcdLog`, a log of everything printed. Tests and the sensor discovery hook read status and error texts from it, because the production build sends them only to the LCD. `sim::tx` should hold only JSON.
 
   `chpc_sim.h` provides the helpers: `boot()`, which runs sensor discovery like a human would, plus `runMs()`, `waitUntil()`, `query()`/`sendFrame()` (acting as `co`), `jsonNumber()` and `resetGlobalsLikeReboot()`.

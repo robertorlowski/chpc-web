@@ -148,6 +148,7 @@ struct SimSensor {
   uint8_t addr[8];
   double temp;
   bool connected;
+  uint64_t ready_us = 0;  // do tej chwili zwraca 85 °C (DS18B20 po włączeniu zasilania)
 };
 
 namespace sim {

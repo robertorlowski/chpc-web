@@ -51,7 +51,10 @@ void testUnlockResumesControl() {
   runMs(600);
   std::string json = query();
   TEST_ASSERT_EQUAL_DOUBLE(0, jsonNumber(json, "ERRc"));
-  TEST_ASSERT_TRUE_MESSAGE(waitUntil([] { return compressor(); }, 5000) >= 0, "po odblokowaniu sprężarka nie ruszyła");
+  // najpierw domknięcie EEV do zera i otwarcie do pozycji oczekiwania (~8 s), dopiero potem start
+  long started = waitUntil([] { return compressor(); }, 15000);
+  TEST_ASSERT_TRUE_MESSAGE(started >= 0, "po odblokowaniu sprężarka nie ruszyła");
+  TEST_ASSERT_TRUE_MESSAGE(started > 3000, "sprężarka ruszyła w trakcie domykania EEV");
   TEST_ASSERT_EQUAL_DOUBLE(20.0, jsonNumber(query(), "Ttarget"));
 }
 

@@ -212,14 +212,15 @@ Full description of the tests, what each suite checks and how to run them: **[te
 - current transformer with a 50 Hz sine;
 - EEPROM, LCD and buttons.
 
-Six scenario suites (44 tests) cover:
+Seven scenario suites (53 tests) cover:
 - sensor discovery and EEPROM;
 - the start-up pause;
 - the thermostat cycle, pumps and EEV;
 - all RS-485 commands;
 - every protection and error code;
 - the error lock, unlock and restart;
-- frost protection and the buttons.
+- frost protection and the buttons;
+- all 12 sensors, including the 85 °C reading of a DS18B20 after power-on.
 
 ```sh
 pio test -e native

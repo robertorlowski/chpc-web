@@ -7,11 +7,14 @@ using namespace chpc;
 void setUp() {}
 void tearDown() {}
 
-static void press(uint8_t pin, uint32_t holdMs = 100) {
+// Zwraca to, co firmware wypisało na LCD w czasie naciśnięcia (ekran główny i tak nadpisuje menu co 5 s).
+static std::string press(uint8_t pin, uint32_t holdMs = 100) {
+  const size_t from = sim::lcdLog.size();
   sim::inputs[pin] = 1;
   runMs(holdMs);
   sim::inputs[pin] = 0;
   runMs(900);
+  return sim::lcdLog.substr(from);
 }
 
 void testFrostProtectionRunsHotPumpWhileCompressorIsOff() {
@@ -36,11 +39,34 @@ void testFrostProtectionIgnoresMissingSensor() {
   runMs(3000);
 }
 
+// Sekwencja z pompy: na ekranie CO ">" włącza CO, potem "menu" ma przejść do T max.
+void testMenuLeavesCoScreenAfterChangingIt() {
+  std::string shown = press(A3);
+  TEST_ASSERT_TRUE_MESSAGE(shown.find("CO: 1") != std::string::npos, shown.c_str());
+  shown = press(A1);
+  TEST_ASSERT_TRUE_MESSAGE(shown.find("T max: ") != std::string::npos, shown.c_str());
+  for (int k = 0; k < INPUT_TYPES - 1; k++) shown = press(A1);  // pełny obieg menu z powrotem na CO
+  TEST_ASSERT_TRUE_MESSAGE(shown.find("CO: 1") != std::string::npos, shown.c_str());
+}
+
+// Tekst menu zostaje na LCD, zanim ekran główny (co 5 s) go nadpisze, niezależnie od chwili naciśnięcia.
+void testMenuTextStaysOnScreen() {
+  for (int k = 0; k < 10; k++) {
+    runMs(437);  // różne przesunięcia względem odświeżania ekranu głównego
+    press(A1, 50);  // menu: tekst wypisany ~50 ms po naciśnięciu, potem 900 ms czekania
+    const std::string shown = sim::lcd[0];
+    runMs(3000);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(shown.c_str(), sim::lcd[0].c_str(), "ekran główny nadpisał menu");
+  }
+  while (input_type % INPUT_TYPES != INPUT_TYPE_CO) press(A1);  // powrót na CO dla kolejnych testów
+}
+
 void testMenuReachesEevMinimumAndSavesIt() {
-  for (int k = 0; k < 9; k++) press(A1);
-  TEST_ASSERT_TRUE_MESSAGE(sim::lcd[0].find("EEV min: 49") != std::string::npos, sim::lcd[0].c_str());
-  for (int k = 0; k < 4; k++) press(A2);
-  TEST_ASSERT_TRUE(sim::lcd[0].find("EEV min: 45") != std::string::npos);
+  std::string shown;
+  for (int k = 0; k < 9; k++) shown = press(A1);
+  TEST_ASSERT_TRUE_MESSAGE(shown.find("EEV min: 49") != std::string::npos, shown.c_str());
+  for (int k = 0; k < 4; k++) shown = press(A2);
+  TEST_ASSERT_TRUE_MESSAGE(shown.find("EEV min: 45") != std::string::npos, shown.c_str());
   TEST_ASSERT_EQUAL_INT(45, ReadIntEEPROM(eeprom_addr_EEV_MIN));
   TEST_ASSERT_EQUAL_DOUBLE(45, jsonNumber(query(), "EEVmin"));
 }
@@ -71,6 +97,8 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(testFrostProtectionRunsHotPumpWhileCompressorIsOff);
   RUN_TEST(testFrostProtectionIgnoresMissingSensor);
+  RUN_TEST(testMenuLeavesCoScreenAfterChangingIt);
+  RUN_TEST(testMenuTextStaysOnScreen);
   RUN_TEST(testMenuReachesEevMinimumAndSavesIt);
   RUN_TEST(testHeldButtonRepeatsWithoutBlockingTheLoop);
   RUN_TEST(testEevMinimumCannotGoBelowLowerBound);

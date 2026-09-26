@@ -64,16 +64,17 @@ Funkcje pomocnicze z `chpc_sim.h`:
 - `sendFrame(...)`, `query()`: ramki RS-485 wysyłane tak, jak robi to `co`; `jsonNumber(json, "klucz")` wyciąga wartość z odpowiedzi;
 - `resetGlobalsLikeReboot()` + `setup()`: restart płytki z zachowaniem EEPROM.
 
-### Zestawy testów (6 zestawów, 44 testy)
+### Zestawy testów (7 zestawów, 53 testy)
 
 | Zestaw | Testy | Co sprawdza |
 |---|---|---|
-| [`test_chpc_boot`](test_chpc_boot/test_main.cpp) | 3 | wykrywanie czujników i zapis adresów w EEPROM; drugi start z adresami z EEPROM; odpowiedź RS-485 w czasie pauzy startowej (< 0,7 s) |
+| [`test_chpc_boot`](test_chpc_boot/test_main.cpp) | 5 | wykrywanie czujników i zapis adresów w EEPROM; drugi start z adresami z EEPROM; odpowiedź RS-485 w czasie pauzy startowej (< 0,7 s); kalibracja EEV (480 → 0 → 45) rozłożona na pauzę startową, z odstępem kroków `EEV_PULSE_CALIB_MILLIS`; żaden przekaźnik nie klika po włączeniu zasilania |
 | [`test_chpc_thermostat`](test_chpc_thermostat/test_main.cpp) | 10 | start sprężarki poniżej T min i brak startu powyżej; pompy; pozycja EEV w spoczynku i w pracy; minimalny czas pracy i postoju; energia (`lt_pow`) i czas (`lt_hp_on`) cyklu; opóźnione wyłączenie pomp; grzałka karteru; rotacja ekranów LCD |
 | [`test_chpc_rs485`](test_chpc_rs485/test_main.cpp) | 11 | JSON zawiera wszystkie klucze używane przez `co` i chpc-web; czas odpowiedzi; wszystkie komendy (setpoint, delta, limit mocy, granice EEV, przegrzanie EEV, pompy, grzałka, CO, force); dwie sklejone ramki; ignorowanie ruchu innych urządzeń; ustawienia po restarcie |
 | [`test_chpc_protection`](test_chpc_protection/test_main.cpp) | 10 | przegrzanie strony gorącej i tłoczenia; zamarzanie ssania; przeciążenie; sprężarka bez poboru mocy; niska temperatura karteru; brak przepływu przy 3200 W i powyżej; zawieszony przekaźnik; utrata i powrót czujnika |
-| [`test_chpc_lock`](test_chpc_lock/test_main.cpp) | 5 | 5 błędów blokuje sterownik; zablokowany odpowiada, ale nie steruje; odblokowanie `0x10`; restart `0x11` |
-| [`test_chpc_frost_buttons`](test_chpc_frost_buttons/test_main.cpp) | 5 | ochrona przed zamarzaniem (także z odłączonym czujnikiem); ustawianie EEV min z menu; przytrzymany przycisk nie blokuje pętli |
+| [`test_chpc_lock`](test_chpc_lock/test_main.cpp) | 5 | 5 błędów blokuje sterownik; zablokowany odpowiada, ale nie steruje; odblokowanie `0x10` (sprężarka rusza dopiero po domknięciu EEV); restart `0x11` |
+| [`test_chpc_frost_buttons`](test_chpc_frost_buttons/test_main.cpp) | 7 | ochrona przed zamarzaniem (także z odłączonym czujnikiem); przejście menu z ekranu CO dalej; tekst menu nie jest nadpisywany przez ekran główny; ustawianie EEV min z menu; przytrzymany przycisk nie blokuje pętli |
+| [`test_chpc_sensors`](test_chpc_sensors/test_main.cpp) | 5 | wszystkie 12 czujników: wykrywanie; po włączeniu zasilania (DS18B20 zwraca 85 °C) prawdziwe odczyty od razu po `setup()` i w pierwszym JSON, bez kliknięcia przekaźnika; restart pojedynczego czujnika i wszystkich naraz przy pracującej sprężarce nie zatrzymuje jej ani nie zgłasza błędu |
 
 ### Jak uruchomić
 
