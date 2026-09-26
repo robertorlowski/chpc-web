@@ -16,6 +16,7 @@ export const ERROR_DESCRIPTIONS: Record<number, string> = {
   10: 'Uszkodzony (sklejony) przekaźnik sprężarki',
   11: 'Przekroczono maksymalną liczbę błędów: sterowanie zablokowane',
   12: 'Za niska temperatura sprężarki (Tsump)',
+  13: 'Zamarzanie parownika (Tbe poniżej -1 °C dłużej niż 60 s)',
 };
 
 export const errorDescription = (code?: number | null) =>
