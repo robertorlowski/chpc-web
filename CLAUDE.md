@@ -218,6 +218,8 @@ Scheduler nie wysyła komunikatu WebSocket i nie wykonuje bezpośredniego żąda
 
 Operacja domyślna zawsze ustawia `force: '0'`. Nie zawiera `co_pomp`.
 
+Gdy żaden harmonogram nie jest aktywny, a `work_mode` to `A` (CO Harmonogram), scheduler wysyła operację domyślną z `work_mode: 'CWU'`: poza harmonogramem włączona pompa grzeje CWU (`withoutSchedule`). `CWU`, `M` i `OFF` zostają bez zmian.
+
 ### Mapowanie typu harmonogramu
 
 | Typ harmonogramu | `work_mode` | Temperatury | `force` |
@@ -262,7 +264,7 @@ Jeżeli harmonogram ma konkretną `date`, data ma pierwszeństwo przed `dayOfWee
 - `CWU` (CWU Harmonogram) — harmonogramy typu `cwu` oraz przerwy `off`;
 - `M`, `OFF` — żaden; obowiązuje operacja domyślna.
 
-W formularzu klienta rodzaj „OFF (przerwa)” nie ma temperatur ani wymuszenia. Klient podkreśla czerwoną linią nazwy działających grup nad listą; decyduje zapisany tryb, nie bieżąca wartość listy.
+W formularzu klienta rodzaj „OFF (przerwa)” nie ma temperatur ani wymuszenia. Klient podkreśla czerwoną linią nazwy działających grup nad listą; decyduje zapisany tryb, nie bieżąca wartość listy. Pod listą jest pozycja „Poza harmonogramem / Ustawienie domyślne” (tryb i temperatury, które scheduler wysyła bez harmonogramu). Pozycja, która działa teraz, ma czerwoną lewą kreskę: harmonogram z `GET /api/schedules/current` (także przerwa `off`) albo ustawienie domyślne; przy trybie `OFF` nic nie jest zaznaczone. Klient odświeża zaznaczenie co minutę i po każdym zapisie.
 
 ### Powrót z trybu ręcznego po północy
 
@@ -376,6 +378,7 @@ Trasy są zdefiniowane w [`server/src/middleware/api.routes.ts`](server/src/midd
 | `POST /api/operation/set` | zapis operacji ręcznej |
 | `POST /api/operation/action` | akcja jednorazowa `error_reset` albo `restart` |
 | `GET /api/schedules` | lista harmonogramów |
+| `GET /api/schedules/current` | harmonogram działający teraz `{scheduleId, work_mode}`; `scheduleId: null` = ustawienie domyślne |
 | `POST /api/schedules` | utworzenie harmonogramu |
 | `PUT /api/schedules/:id` | aktualizacja harmonogramu |
 | `DELETE /api/schedules/:id` | usunięcie harmonogramu |
@@ -475,6 +478,8 @@ Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy
 - przełączenie trybu `M` na `A` po północy;
 - automatyczne wyczyszczenie operacji ręcznej;
 - temperatury domyślne przy pustym harmonogramie;
+- tryb `CWU` poza harmonogramem w trybie `A`;
+- harmonogram działający teraz (`getCurrentSchedule`);
 - weekendy i polskie święta jako `DAYS_OFF`;
 - brak `co_pomp` w operacji schedulera.
 
@@ -512,7 +517,7 @@ Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2
 
 1. Scheduler liczy stan co minutę, ale nie wysyła osobnego żądania do sterownika.
 2. Sterownik dostaje operację w odpowiedzi na zapis telemetrii. WebSocket tylko przyspiesza ten zapis (akcje jednorazowe).
-3. Brak aktywnego harmonogramu oznacza operację domyślną urządzenia.
+3. Brak aktywnego harmonogramu oznacza operację domyślną urządzenia; w trybie `A` z `work_mode` zamienionym na `CWU`.
 4. Ręczne pola mają pierwszeństwo nad schedulerem.
 5. Ręczne nadpisania są tylko w pamięci i są czyszczone po przejściu z harmonogramu do trybu domyślnego. Tryb `M` wraca po północy na `A`.
 6. Działają tylko harmonogramy rodzaju wybranego trybem pracy: `A` → CO, `CWU` → CWU, inne → żaden; przerwa `off` działa w `A` i `CWU` i wygrywa z CO/CWU.

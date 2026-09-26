@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import app from './src/middleware/app';
 import { DeviceModel } from './src/models/model';
 import { DeviceType, ScheduleType, WeekDay } from './src/middleware/type';
-import { runSchedulerOnce } from './src/services/scheduler.service';
+import { getCurrentSchedule, runSchedulerOnce } from './src/services/scheduler.service';
 import {
   clearManualOperation,
   clearOperation,
@@ -152,7 +152,7 @@ describe('Schedules and manual operation control', () => {
     await runSchedulerOnce(afterScheduleTime);
 
     expect(getOperationData(rootId)).toMatchObject({
-      work_mode: 'A',
+      work_mode: 'CWU',
       force: '0',
       co_min: '32',
       co_max: '42',
@@ -298,6 +298,35 @@ describe('Schedules and manual operation control', () => {
     });
   });
 
+  it('heats CWU outside schedules in CO schedule mode', async () => {
+    await setWorkMode('A');
+    await addSchedules(coAndCwuSchedules());
+    await runSchedulerOnce(afterScheduleTime);
+
+    expect(getOperationData(rootId)).toMatchObject({
+      work_mode: 'CWU',
+      force: '0',
+      cwu_min: '44',
+      cwu_max: '52',
+    });
+  });
+
+  it('reports the schedule that runs now', async () => {
+    await setWorkMode('A');
+    await addSchedules(coAndCwuSchedules());
+    const device = await DeviceModel.findById(rootId).lean();
+    const coSchedule = device?.schedules?.find((schedule) => schedule.type === ScheduleType.CO);
+
+    expect(await getCurrentSchedule(rootId, activeTime)).toEqual({
+      scheduleId: String(coSchedule?._id),
+      work_mode: 'A',
+    });
+    expect(await getCurrentSchedule(rootId, afterScheduleTime)).toEqual({
+      scheduleId: null,
+      work_mode: 'A',
+    });
+  });
+
   it('does not take the work mode from the controller telemetry', async () => {
     await DeviceModel.findByIdAndUpdate(rootId, { $unset: { 'properties.work_mode': 1 } });
     await request(app)
@@ -329,7 +358,7 @@ describe('Schedules and manual operation control', () => {
     await runSchedulerOnce(new Date('2026-12-25T09:30:00.000Z'));
 
     expect(getOperationData(rootId)).toMatchObject({
-      work_mode: 'A',
+      work_mode: 'CWU',
       co_min: '32',
       co_max: '42',
     });

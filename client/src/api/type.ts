@@ -65,6 +65,12 @@ export type ScheduleEntry = {
   maxTemperature?: number;
 };
 
+// GET /schedules/current: scheduleId = null oznacza, że obowiązuje ustawienie domyślne
+export type CurrentSchedule = {
+  scheduleId: string | null;
+  work_mode: string;
+};
+
 export type HpMetrics = {
     Tbe: number,
     Tae: number,

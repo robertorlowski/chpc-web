@@ -1,4 +1,4 @@
-import { Device, HpEntry, OperationEntry, ScheduleEntry } from "./type";
+import { CurrentSchedule, Device, HpEntry, OperationEntry, ScheduleEntry } from "./type";
 import { getSelectedDevice } from '../context/DeviceContext';
 
 function withDeviceContext(path: string, includeDevice: boolean) {
@@ -202,6 +202,10 @@ export class HpRequests {
 
       static getSchedules(): Promise<ScheduleEntry[] | null> {
         return Requests.get('/schedules');
+      }
+
+      static getCurrentSchedule(): Promise<CurrentSchedule | null> {
+        return Requests.get('/schedules/current');
       }
 
       static createSchedule(data: Omit<ScheduleEntry, 'enabled'> & { enabled?: boolean }) {

@@ -1,11 +1,21 @@
 import { Request, Response } from 'express';
 import { ScheduleEntry } from '../middleware/type';
 import { deleteSchedule, getSchedules, saveSchedule, updateSchedule } from '../services/schedule.service';
+import { getCurrentSchedule } from '../services/scheduler.service';
 
 export async function getScheduleEntries(req: Request, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
     return res.status(200).json(await getSchedules(rootId));
+  } catch (error) {
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+export async function getCurrentScheduleEntry(req: Request, res: Response) {
+  try {
+    const rootId = req.deviceRootId as string;
+    return res.status(200).json(await getCurrentSchedule(rootId));
   } catch (error) {
     return res.status(500).json({ message: String(error) });
   }

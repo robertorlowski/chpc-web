@@ -112,6 +112,14 @@ function getDefaultOperation(
   };
 }
 
+// Poza harmonogramem włączona pompa grzeje CWU, także w trybie CO Harmonogram.
+// M (ręczny) i OFF zostają bez zmian.
+function withoutSchedule(defaultOperation: OperationEntry): OperationEntry {
+  return defaultOperation.work_mode === 'A'
+    ? { ...defaultOperation, work_mode: 'CWU' }
+    : defaultOperation;
+}
+
 function scheduleToOperation(
   schedule: ScheduleEntry,
   defaultOperation: OperationEntry,
@@ -153,6 +161,32 @@ function scheduleToOperation(
   }
 }
 
+// Harmonogram, który działa teraz (dla zakładki Harmonogramy); null = obowiązuje ustawienie domyślne.
+export async function getCurrentSchedule(
+  rootId: string,
+  now = new Date(),
+): Promise<{ scheduleId: string | null; work_mode: string }> {
+  const device = await DeviceModel.findById(rootId)
+    .select('schedules properties')
+    .lean<DeviceDocument>();
+
+  if (!device) {
+    throw new Error(`Configuration with ID not found: ${rootId}`);
+  }
+
+  const workMode = device.properties?.work_mode ?? 'CWU';
+  const activeSchedule = getActiveSchedule(
+    device.schedules ?? [],
+    scheduleTypesForWorkMode(workMode),
+    now,
+  );
+
+  return {
+    scheduleId: activeSchedule?._id ? String(activeSchedule._id) : null,
+    work_mode: workMode,
+  };
+}
+
 export async function runSchedulerOnce(now = new Date()): Promise<void> {
   const devices = await DeviceModel
     .find({ deviceType: DeviceType.HP })
@@ -191,7 +225,7 @@ export async function runSchedulerOnce(now = new Date()): Promise<void> {
 
     const operation = activeSchedule
       ? scheduleToOperation(activeSchedule, defaultOperation)
-      : defaultOperation;
+      : withoutSchedule(defaultOperation);
 
     // Sterownik pobiera OperationEntry przy zapisie telemetrii.
     // Scheduler celowo nie wysyła powiadomienia przez WebSocket.

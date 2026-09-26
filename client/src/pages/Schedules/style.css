@@ -185,6 +185,11 @@
   border-left: 4px solid #1481a5;
 }
 
+/* pozycja, która działa teraz (harmonogram albo ustawienie domyślne) */
+.schedule-row-current {
+  border-left-color: #b00020;
+}
+
 .schedule-row-details {
   display: flex;
   align-items: flex-end;

@@ -1,7 +1,7 @@
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { HpRequests } from '../../api/api';
-import { DeviceProperties, ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
+import { CurrentSchedule, DeviceProperties, ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
 import Notification from '../../components/Notification';
 
 const weekDays = [
@@ -56,8 +56,10 @@ export const Schedules: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
-  // zapisany tryb pracy (nie bieżąca wartość listy): tylko on decyduje, które harmonogramy działają
-  const [savedWorkMode, setSavedWorkMode] = useState<string | undefined>(undefined);
+  // zapisane ustawienia (nie bieżące wartości pól): tylko one decydują, które harmonogramy działają
+  const [savedProperties, setSavedProperties] = useState<DeviceProperties | undefined>(undefined);
+  const savedWorkMode = savedProperties?.work_mode;
+  const [currentSchedule, setCurrentSchedule] = useState<CurrentSchedule | null>(null);
   // OFF działa w obu trybach harmonogramu jako przerwa
   const activeScheduleTypes = savedWorkMode === 'A'
     ? [ScheduleType.CO, ScheduleType.OFF]
@@ -88,14 +90,24 @@ export const Schedules: React.FC = () => {
     HpRequests.getDeviceProperties()
       .then((value) => {
         setDefaultProperties(value ?? { work_mode: 'CWU' });
-        setSavedWorkMode(value?.work_mode ?? 'CWU');
+        setSavedProperties({ ...value, work_mode: value?.work_mode ?? 'CWU' });
       })
       .catch(() => setError('Nie udało się pobrać wartości domyślnych.'));
+  };
+
+  const loadCurrentSchedule = () => {
+    HpRequests.getCurrentSchedule()
+      .then((value) => setCurrentSchedule(value))
+      .catch(() => setCurrentSchedule(null));
   };
 
   useEffect(() => {
     loadSchedules();
     loadDefaultProperties();
+    loadCurrentSchedule();
+    // zaznaczenie działającej pozycji zmienia się z upływem czasu, scheduler liczy co minutę
+    const timer = window.setInterval(loadCurrentSchedule, 60 * 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const updateDefaultProperty = (field: keyof DeviceProperties, value: string) => {
@@ -108,7 +120,8 @@ export const Schedules: React.FC = () => {
 
     try {
       await HpRequests.updateDeviceProperties(defaultProperties);
-      setSavedWorkMode(defaultProperties.work_mode);
+      setSavedProperties(defaultProperties);
+      loadCurrentSchedule();
       showSaveNotice();
     } catch {
       setError('Nie udało się zapisać wartości domyślnych.');
@@ -154,6 +167,7 @@ export const Schedules: React.FC = () => {
 
       resetForm();
       loadSchedules();
+      loadCurrentSchedule();
       showSaveNotice();
     } catch {
       setError('Nie udało się zapisać harmonogramu.');
@@ -190,6 +204,7 @@ export const Schedules: React.FC = () => {
     try {
       await HpRequests.deleteSchedule(schedule._id);
       setSchedules((current) => current.filter((item) => item._id !== schedule._id));
+      loadCurrentSchedule();
     } catch {
       setError('Nie udało się usunąć harmonogramu.');
     } finally {
@@ -207,6 +222,17 @@ export const Schedules: React.FC = () => {
       schedules: schedules.filter((schedule) => schedule.type === group.type),
     }))
     .filter((group) => group.schedules.length > 0);
+
+  // Poza harmonogramem: A i CWU grzeją CWU, M to ręczne CO, OFF to wyłączona pompa (jak scheduler na serwerze).
+  const defaultMode = savedWorkMode === 'M' ? 'CO' : savedWorkMode === 'OFF' ? 'OFF' : 'CWU';
+  const defaultTemperatures = defaultMode === 'CO'
+    ? [savedProperties?.co_min, savedProperties?.co_max]
+    : [savedProperties?.cwu_min, savedProperties?.cwu_max];
+  const isDefaultCurrent = Boolean(
+    currentSchedule && !currentSchedule.scheduleId && currentSchedule.work_mode !== 'OFF',
+  );
+  const isScheduleCurrent = (schedule: ScheduleEntry) =>
+    Boolean(schedule._id && currentSchedule?.scheduleId === schedule._id);
 
   return (
     <div className="schedules-page">
@@ -322,8 +348,9 @@ export const Schedules: React.FC = () => {
               </button>
             )}
           </div>
-          {loading ? <p>Ładowanie...</p> : schedules.length === 0 ? <p>Brak zdefiniowanych harmonogramów.</p> : (
+          {loading ? <p>Ładowanie...</p> : (
             <div className="schedule-groups">
+              {schedules.length === 0 && <p>Brak zdefiniowanych harmonogramów.</p>}
               {scheduleGroups.map((group) => (
                 <section
                   className={`schedule-group${activeScheduleTypes.includes(group.type) ? ' schedule-group-active' : ''}`}
@@ -332,7 +359,9 @@ export const Schedules: React.FC = () => {
                   <h4>{group.label}</h4>
                   <div className="schedule-list">
                     {group.schedules.map((schedule, index) => (
-                      <article className="schedule-row" key={schedule._id || `${group.type}-${schedule.startTime}-${index}`}>
+                      <article
+                        className={`schedule-row${isScheduleCurrent(schedule) ? ' schedule-row-current' : ''}`}
+                        key={schedule._id || `${group.type}-${schedule.startTime}-${index}`}>
                         <div className="schedule-row-main">
                           <input type="checkbox" checked={schedule.enabled} readOnly aria-label="Aktywny" />
                           <span><b>{formatScheduleTarget(schedule)}</b></span>
@@ -371,6 +400,24 @@ export const Schedules: React.FC = () => {
                   </div>
                 </section>
               ))}
+              {savedProperties && (
+                <section className="schedule-group">
+                  <h4>Poza harmonogramem</h4>
+                  <div className="schedule-list">
+                    <article className={`schedule-row${isDefaultCurrent ? ' schedule-row-current' : ''}`}>
+                      <div className="schedule-row-main">
+                        <span><b>Ustawienie domyślne</b></span>
+                        <span>{defaultMode}</span>
+                      </div>
+                      <div className="schedule-row-details">
+                        {defaultMode === 'OFF'
+                          ? <span>pompa wyłączona</span>
+                          : <span>{defaultTemperatures[0] ?? '–'} – {defaultTemperatures[1] ?? '–'} °C</span>}
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              )}
             </div>
           )}
         </section>
