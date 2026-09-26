@@ -314,7 +314,7 @@ Serwis utrzymuje trzy mapy w pamięci procesu:
 
 ### Kontrakt operacji z `co`
 
-Odpowiedź na każdy `POST /api/hp/add` ma postać `{"operation":{…}}`. **Wszystkie wartości są napisami**, np. `"1"`, `"45"`. Klucze:
+Odpowiedź na każdy `POST /api/hp/add` ma postać `{"operation":{…}, "t_out": 12.3}`. `t_out` to temperatura zewnętrzna z IMGW (`getTemperature()` w `meteo.service.ts`, stacja Zakopane, odświeżana co 10 min) jako liczba, poza operacją; brak go, dopóki serwer nie pobrał pomiaru. `co` pokazuje ją na ekranie jako „T. zew:” (po 30 min bez nowej wartości `--`). W `operation` **wszystkie wartości są napisami**, np. `"1"`, `"45"`. Klucze:
 
 - `work_mode`: `M`, `A`, `CWU`, `OFF` (`co` przyjmuje też `PV`, którego serwer nie wysyła);
 - `force`, `co_pomp`, `hot_pomp`, `cold_pomp`, `sump_heater`: `"0"` albo `"1"`;
@@ -567,6 +567,7 @@ Firmware PlatformIO (`esp32dev`), kod w `src/`. Szczegóły: `README.md` i `docs
 - **Tryb sterownika** (przycisk na GPIO5, zapis w NVS): `OFF → CLOUD → MANUAL_CO → MANUAL_CWU → OFF`. Pierwsze naciśnięcie tylko pokazuje bieżący tryb, kolejne przechodzą dalej; wybrany tryb jest stosowany 5 s po ostatnim naciśnięciu. Tylko w `CLOUD` stosuje operacje z chmury. `OFF` wysyła do pompy sekwencję bezpieczeństwa (CO off, force off, pompy off) i wyłącza przekaźniki. W `work_mode = PV` `force` wynika z produkcji PV (≥ 2000 W), a nie z serwera.
 - **Strony WWW na porcie 80** (sieć lokalna i otwarty AP `HP-CO-setup`): `/` podgląd telemetrii, `/telemetry.json`, `/install` (Basic Auth: Wi-Fi, SN i Root ID tylko do odczytu, status rejestracji), `/save`.
 - **AP `HP-CO-setup` nie działa stale** (`AccessPointPolicy`). Startuje razem ze sterownikiem i jest wyłączany, gdy przez 3 min Wi-Fi ma adres, a każde żądanie do chmury dostaje odpowiedź HTTP (dowolny kod, także 4xx). Wraca, gdy Wi-Fi jest rozłączone dłużej niż 1 min albo chmura milczy 5 min. Przy wyłączonym AP strony konfiguracji są dostępne pod adresem IP sterownika w sieci lokalnej, a ekran pokazuje `AP: off`.
+- **Ekran:** nad niebieską linią data, godzina i tryb oraz `P:` (moc/produkcja dziś PV) i `T:` (temperatura falowników). Między liniami duże `T:` to `HP.Ttarget` — temperatura czujnika w środku zbiornika, nie zadana; czerwona przy nierozwiązanym błędzie (`ERRc` > 0; `ERR` to tylko kod ostatniego zdarzenia i nie wraca do 0), żółta, gdy pracuje sprężarka (`HPS` > 0), w pozostałych przypadkach biała. Pod nią biała „T. zew:” z `t_out` z chmury (czcionka `FreeSans9pt7b`).
 - **Konfiguracja.** Wi-Fi i Root ID w NVS; `src/secrets.h` daje tylko wartości domyślne, a `CLOUD_ROOT_ID` jest opcjonalny.
 - **Kluczowe pliki kontraktu:** `cloud_client.cpp` (HTTP, WebSocket, rejestracja), `telemetry.cpp`, `pv_telemetry.cpp`, `json_converters.hpp` (pola PV), `operation_parser.cpp`, `operation_controller.cpp`, `modbus_frame.cpp`.
 

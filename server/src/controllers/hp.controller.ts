@@ -6,6 +6,7 @@ import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
 import { getFreshPvSummary } from '../services/pv.service'
+import { getTemperature } from '../services/meteo.service'
 
 interface THpClear {
   clear?: Boolean
@@ -240,7 +241,13 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
       }
       await addHpData(rootId, data);
     }
-    return res.status(201).json({ operation: operation});
+    // Temperatura zewnętrzna z IMGW na ekran sterownika; poza operacją, bo
+    // operacja niesie wyłącznie napisy do zastosowania w pompie.
+    const outdoor = getTemperature();
+    return res.status(201).json({
+      operation: operation,
+      ...(typeof outdoor === 'number' && Number.isFinite(outdoor) ? { t_out: outdoor } : {}),
+    });
   } catch (error) {
     return res.status(500).send({ error: error })
   }

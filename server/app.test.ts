@@ -1,7 +1,14 @@
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+// temperatura z IMGW bez sieci; null = serwis meteo jeszcze nic nie pobrał
+const meteo = vi.hoisted(() => ({ temperature: null as number | null }));
+vi.mock('./src/services/meteo.service', () => ({
+  getTemperature: () => meteo.temperature,
+  prepareMeteoData: async () => meteo.temperature,
+}));
 
 import app from './src/middleware/app'
 import { DeviceModel, HpEntryModel, SettingsEntryModel } from './src/models/model'
@@ -226,6 +233,23 @@ describe('API with MongoDB', () => {
       .send({ deviceId: '  ' });
 
     expect(response.status).toBe(400);
+  });
+
+  it('sends the outdoor temperature to the controller next to the operation', async () => {
+    meteo.temperature = null;
+    const unknown = await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: 40 } });
+    expect(unknown.status).toBe(201);
+    expect(unknown.body).not.toHaveProperty('t_out');
+
+    meteo.temperature = 12.3;
+    const known = await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: 40 } });
+    expect(known.body.t_out).toBe(12.3);
+    expect(known.body.operation).not.toHaveProperty('t_out');
+    meteo.temperature = null;
   });
 
   it('returns settings for the selected device', async () => {
