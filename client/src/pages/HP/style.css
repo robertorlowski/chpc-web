@@ -72,7 +72,7 @@
     flex-wrap: nowrap;
 }
 
-@media (max-width:360px) {
+@media (max-width: 330px) {
 	.hp-data {
 		display: flex;
 		flex-direction: column;
@@ -145,7 +145,7 @@ td.label.hp-temp-label {
 }
 
 /* telefon (360–560 px) */
-@media (max-width: 560px) {
+@media (max-width: 380px) {
 	/* karty na całą szerokość ekranu, treść zawija się w karcie zamiast z niej wystawać */
 	.hp-page {
 		width: calc(100vw - 2rem);
