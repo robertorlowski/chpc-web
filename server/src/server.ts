@@ -5,6 +5,18 @@ import { createWsServer } from './middleware/webSocet';
 import mongoose from 'mongoose';
 import { prepareMeteoData } from './services/meteo.service';
 import { startScheduler } from './services/scheduler.service';
+import { removeExpiredPanelDetails } from './services/pv.service';
+
+const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+const cleanPanelDetails = async () => {
+  try {
+    const cleaned = await removeExpiredPanelDetails();
+    if (cleaned > 0) console.log(`Usunięto szczegóły paneli z ${cleaned} odczytów PV`);
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 
 const server = http.createServer(app);
@@ -19,6 +31,10 @@ const PORT = Number(process.env.PORT ?? 3001);
   console.log("Mongo connected");
 
   startScheduler();
+
+  // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
+  void cleanPanelDetails();
+  setInterval(() => void cleanPanelDetails(), PANEL_CLEANUP_INTERVAL_MS);
 
   await prepareMeteoData()
   

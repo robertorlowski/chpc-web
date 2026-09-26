@@ -13,7 +13,7 @@ const deviceInfoByRoot = new Map<string, {
   deviceId: string;
 }>();
 
-const getDeviceInfo = async (rootId: string) => {
+export const getDeviceInfo = async (rootId: string) => {
   const cached = deviceInfoByRoot.get(rootId);
   if (cached) return cached;
 

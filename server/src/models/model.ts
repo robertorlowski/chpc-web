@@ -1,5 +1,5 @@
 import mongoose, { Schema, model, InferSchemaType, Model, Document } from 'mongoose';
-import { Device, DeviceProperties, DeviceType, HpEntry, HpMetrics, PvMetrics, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from '../middleware/type';
+import { Device, DeviceProperties, DeviceType, HpEntry, HpMetrics, PvEntry, PvMetrics, PvPanel, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from '../middleware/type';
 
 
 const TimeSlotSchema = new Schema<TimeSlot>(
@@ -58,6 +58,47 @@ const PvMetricsSchema = new Schema<PvMetrics>(
   },
   { _id: false }
 );
+
+const PvPanelSchema = new Schema<PvPanel>(
+  {
+    serial: { type: String },
+    port: { type: Number },
+    power: { type: Number },
+    prod_today: { type: Number },
+    prod_total: { type: Number },
+    temperature: { type: Number },
+    pv_voltage: { type: Number },
+    pv_current: { type: Number },
+    grid_voltage: { type: Number },
+    grid_frequency: { type: Number },
+    status: { type: Number },
+    alarm_code: { type: Number },
+    alarm_count: { type: Number },
+    link: { type: Number },
+  },
+  { _id: false }
+);
+
+// Odczyty PV są osobno od telemetrii HP. Rekord hp dostaje przy zapisie
+// tylko PV.total_power, potrzebne do bilansu energii (addHp).
+const PvEntrySchema = new Schema<PvEntry>(
+  {
+    rootId: { type: String, required: true },
+    deviceType: { type: String, enum: Object.values(DeviceType), required: true },
+    deviceId: { type: String, required: true },
+    time: { type: String },
+    total_power: { type: Number },
+    total_prod: { type: Number },
+    total_prod_today: { type: Number },
+    temperature: { type: Number },
+    pv_power: { type: Boolean },
+    panels: { type: [PvPanelSchema], default: undefined },
+  },
+  { timestamps: true, _id: true, collection: 'pv' }
+);
+PvEntrySchema.index({ rootId: 1, createdAt: -1 });
+// czyszczenie szczegółów paneli filtruje po samym createdAt
+PvEntrySchema.index({ createdAt: 1 });
 
 const HpEntrySchema = new Schema<HpEntry>(
   {
@@ -205,6 +246,9 @@ const DeviceSchema = new Schema<DeviceDocument>(
 
 export type HpEntryDoc = InferSchemaType<typeof HpEntrySchema>;
 export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
+
+export type PvEntryDoc = InferSchemaType<typeof PvEntrySchema>;
+export const PvEntryModel = model<PvEntryDoc>('PvEntry', PvEntrySchema);
 
 // To do usunięcia po nadpisaniu programu na ESP32
 export type SettingsEntryDoc = InferSchemaType<typeof SettingsEntrySchema>;

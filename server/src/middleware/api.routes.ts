@@ -6,6 +6,7 @@ import { getAndClearOperation, getOperation, prepareOperation, setOperation, set
 import { getTemperature } from '../controllers/meteo.controller'
 import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from '../controllers/schedule.controller'
 import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDevice, updateProperties } from '../controllers/device.controller'
+import { addPv, getPv, getPvForRange } from '../controllers/pv.controller'
 
 const router = express.Router()
 
@@ -30,6 +31,10 @@ router.get('/hp/monthly-summary', getHpMonthlySummary)
 router.get('/hp/last-error', getLastError)
 router.post('/hp/add', addHp)
 router.post('/hp/clear', clearHp)
+
+router.get('/pv', getPv)
+router.get('/pv/range', getPvForRange)
+router.post('/pv/add', addPv)
 
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)

@@ -104,6 +104,36 @@ export interface PvMetrics {
   temperature?: number
 }
 
+// Jeden port mikrofalownika Hoymiles, tak jak podaje go DTU.
+export interface PvPanel {
+  serial?: string,
+  port?: number,
+  power?: number,
+  prod_today?: number,
+  prod_total?: number,
+  temperature?: number,
+  pv_voltage?: number,
+  pv_current?: number,
+  grid_voltage?: number,
+  grid_frequency?: number,
+  status?: number,
+  alarm_code?: number,
+  alarm_count?: number,
+  link?: number
+}
+
+// Odczyt PV z POST /pv/add: podsumowanie instalacji i szczegóły portów.
+// panels jest usuwane po PANEL_DETAILS_RETENTION_DAYS, podsumowanie zostaje.
+export interface PvEntry extends PvMetrics {
+  rootId?: string;
+  deviceType?: DeviceType;
+  deviceId?: string;
+  time?: string,
+  pv_power?: boolean,
+  panels?: PvPanel[],
+  createdAt?: Date
+}
+
 export interface HpEntry {
   rootId?: string;
   deviceType?: DeviceType;

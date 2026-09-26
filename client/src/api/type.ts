@@ -113,6 +113,32 @@ export type PvMetrics = {
   temperature: number
 }
 
+// Port mikrofalownika z odczytu DTU (GET /pv, /pv/range).
+export type PvPanel = {
+  serial: string,
+  port: number,
+  power: number,
+  prod_today: number,
+  prod_total: number,
+  temperature: number,
+  pv_voltage: number,
+  pv_current: number,
+  grid_voltage: number,
+  grid_frequency: number,
+  status: number,
+  alarm_code: number,
+  alarm_count: number,
+  link: number
+}
+
+// panels znika z odczytów starszych niż 90 dni, podsumowanie zostaje.
+export type PvEntry = PvMetrics & {
+  time: string,
+  pv_power: boolean,
+  panels?: PvPanel[],
+  createdAt: string
+}
+
 export type HpEntry = {
   HP: HpMetrics,
   PV: PvMetrics,

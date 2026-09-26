@@ -35,15 +35,16 @@ Główne elementy przepływu:
 
 ```text
 Sterownik co
-        │ POST /api/hp/add
-        ▼
-Serwer zapisuje telemetrię i zwraca oczekiwaną operację
+        │ POST /api/hp/add                 │ POST /api/pv/add (co 60 s)
+        ▼                                  ▼
+Serwer zapisuje telemetrię HP            Serwer zapisuje odczyt PV
+i zwraca oczekiwaną operację             (kolekcja pv)
         │
         ├── MongoDB: dane pomiarowe
         ├── scheduler: wyliczona operacja
         └── WebSocket: komunikat „update” do klienta
 
-Klient React ── REST API ──► serwer
+Klient React ── REST API ──► serwer (moc PV wpisywana do rekordów HP przy zapisie)
 ```
 
 Scheduler działa niezależnie od klienta. Klient tylko wyświetla dane i zapisuje ustawienia.
@@ -57,9 +58,10 @@ Podczas uruchamiania serwer:
 1. ładuje zmienne środowiskowe;
 2. łączy się z MongoDB przez `MONGODB_URI`;
 3. uruchamia `startScheduler()`;
-4. przygotowuje dane meteorologiczne;
-5. uruchamia cykliczne odświeżanie meteo co 10 minut;
-6. zaczyna nasłuch na porcie `PORT`.
+4. usuwa szczegóły paneli z odczytów PV starszych niż 90 dni i powtarza to co 24 h (`removeExpiredPanelDetails`);
+5. przygotowuje dane meteorologiczne;
+6. uruchamia cykliczne odświeżanie meteo co 10 minut;
+7. zaczyna nasłuch na porcie `PORT`.
 
 Wartości konfiguracyjne:
 
@@ -88,13 +90,15 @@ Middleware:
 3. zapisuje wynik w `req.deviceRootId`;
 4. przekazuje żądanie do kontrolera.
 
-Urządzenia domyślnego nie ma: żądanie bez `rootId` dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
+**Endpointy sterownika (`POST /hp/add`, `POST /pv/add`)** przyjmują też sam `deviceId` (SN): bez `rootId` serwer znajduje urządzenie po `deviceId`. `co` wysyła `deviceId` zawsze, a `rootId` tylko wtedy, gdy ma go w NVS. Gdy przyszły oba, a `rootId` należy do innego `deviceId`, serwer odpowiada **409**; `co` kasuje wtedy swój Root ID i rejestruje się ponownie. Nieznany `deviceId` daje 404. Pozostałe endpointy wymagają `rootId`.
+
+Urządzenia domyślnego nie ma: żądanie bez `rootId` (poza wyjątkiem powyżej) dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
 
 Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod kluczem `chpc.selectedDevice`. [`DeviceProvider`](client/src/context/DeviceContext.tsx) udostępnia wybór, zmianę i czyszczenie urządzenia. `DeviceGuard` przekierowuje użytkownika do `/devices`, jeśli nie wybrano pompy. Stopka „Aktywne urządzenie” z przyciskiem zmiany jest widoczna tylko wtedy, gdy `GET /api/devices` zwraca co najmniej dwa sterowniki (sprawdzane przy każdym wyborze urządzenia); przy jednym nie ma na co przełączyć. Dawny klucz `chpc.hideDeviceFooter` nie jest już używany.
 
 ### Rejestracja sterownika
 
-`POST /api/devices/register` z `{deviceId, deviceType?, name?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. `co` bez zapisanego Root ID wywołuje ten endpoint po połączeniu z internetem, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex), i zapisuje otrzymany `rootId` w NVS. Nieudaną rejestrację ponawia co 60 s i do tego czasu nie wysyła telemetrii.
+`POST /api/devices/register` z `{deviceId, deviceType?, name?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. `co` bez zapisanego Root ID wywołuje ten endpoint po połączeniu z internetem, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex), i zapisuje otrzymany `rootId` w NVS. Nieudaną rejestrację ponawia co 60 s. Telemetrię wysyła także przed rejestracją, z samym `deviceId`; serwer przyjmuje ją, gdy urządzenie o tym SN już istnieje.
 
 **Sterowniki dodaje się tylko przez samodzielną rejestrację.** Klient nie ma funkcji dodawania sterownika. Nowy sterownik pojawia się na liście w `/devices` bez nazwy, a użytkownik nadaje ją przez `PUT /api/devices/:rootId` z `{name}` (zmienia tylko nazwę; `rootId` i `deviceId` nie podlegają edycji; pusta nazwa jest dozwolona).
 
@@ -133,9 +137,13 @@ Kolekcja `hp` przechowuje telemetrię. Dokument jest wzbogacany o:
 - `error_code` — kod błędu CHPC, gdy w tym odczycie pojawiło się nowe zdarzenie;
 - znaczniki `createdAt` i `updatedAt`.
 
-Telemetria zawiera między innymi `HP`, `PV`, `work_mode`, temperatury, moc, stan sprężarki oraz stany pomp. `co_pomp` jest polem telemetrii i może występować w operacji ręcznej, ale nie jest polem harmonogramu.
+Telemetria zawiera między innymi `HP`, `work_mode`, temperatury, moc, stan sprężarki oraz stany pomp. Rekordy sprzed wydzielenia PV (2026-09-26) mają pełne `PV` i `pv_power` z telemetrii; nowe mają tylko `PV.total_power`, wpisane przez serwer (sekcja 5a). `co_pomp` jest polem telemetrii i może występować w operacji ręcznej, ale nie jest polem harmonogramu.
 
 **Schemat jest ścisły** ([`server/src/models/model.ts`](server/src/models/model.ts)): klucz, którego nie wymienia, jest po cichu pomijany przy zapisie. Dotyczy to m.in. `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` i **wszystkich liczników diagnostycznych** z `co`. Ostatnia surowa telemetria jest dostępna przez `GET /api/hp` z pamięci podręcznej do restartu serwera. **Nowe pole telemetrii trzeba dodać do schematu, do typów `server/src/middleware/type.ts` i `client/src/api/type.ts` oraz do widoków klienta**, inaczej nie zostanie zapisane ani pokazane.
+
+### `pv`
+
+Kolekcja `pv` przechowuje odczyty DTU z `POST /api/pv/add`, jeden dokument na odczyt: `rootId`, `deviceType`, `deviceId`, `time`, podsumowanie (`total_power`, `total_prod`, `total_prod_today`, `temperature`, `pv_power`) i `panels[]`. `panels` jest usuwane z dokumentów starszych niż 90 dni (`PANEL_DETAILS_RETENTION_DAYS` w [`server/src/services/pv.service.ts`](server/src/services/pv.service.ts)), podsumowanie zostaje na zawsze. Indeksy: `{rootId, createdAt}` i `{createdAt}`.
 
 ### `settings`
 
@@ -160,12 +168,11 @@ To jest główny moment przekazania wyliczonej operacji do sterownika. Scheduler
 
 ### Treść telemetrii wysyłanej przez `co`
 
-`co` wysyła `POST /api/hp/add?rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Wysyła też wtedy, gdy CHPC nie odpowiada i `HP` jest puste: serwer nie zapisuje takiej telemetrii, ale odsyła operację, więc sterownik zna `work_mode` przy odłączonej pompie. Treść:
+`co` wysyła `POST /api/hp/add?deviceId=<SN>&rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Wysyła też wtedy, gdy CHPC nie odpowiada i `HP` jest puste: serwer nie zapisuje takiej telemetrii, ale odsyła operację, więc sterownik zna `work_mode` przy odłączonej pompie. Treść:
 
 - `HP` — JSON z CHPC (`StatsSerial()`), przekazany bez zmian;
-- `PV` — dane z falowników: `total_power`, `total_prod`, `total_prod_today`, `temperature`, `panels[]` (`serial`, `port`, `power`, `prod_today`, `prod_total`, `temperature`);
 - `time` w formacie `"YYYY.MM.DD HH:MM:SS"` (z kropkami, czas polski);
-- `work_mode`, `co_min`, `co_max`, `cwu_min`, `cwu_max`, `co_pomp`, `cwu_pomp`, `pv_power`, `controller_mode` (`OFF`, `CLOUD`, `MANUAL_CO`, `MANUAL_CWU`);
+- `work_mode`, `co_min`, `co_max`, `cwu_min`, `cwu_max`, `co_pomp`, `cwu_pomp`, `controller_mode` (`OFF`, `CLOUD`, `MANUAL_CO`, `MANUAL_CWU`);
 - estymacja COP zbiornika: `cop`, `cop_min`, `cop_max`, `t_min`, `t_max`, `cop_bottom_start`;
 - liczniki diagnostyczne: `serial_queue_overflow`, `serial_read_timeout`, `serial_receive_overflow`, `pv_crc_error`, `hp_json_error`, `pv_frame_error`, `cloud_http_status`, `cloud_request_error`, `websocket_disconnect`, `cloud_response_parse_error`, `operation_validation_error`, `preference_validation_error`.
 
@@ -180,6 +187,22 @@ Klucze `HP`, na których polegają `co` i chpc-web (nie wolno ich zmieniać ani 
 Gdy `HP.ERRn` różni się od poprzedniego rekordu, a `HP.ERR` ≠ 0, serwer zapisuje kod w polu `error_code` nowego rekordu (`detectErrorEvent` w [`server/src/services/hp.service.ts`](server/src/services/hp.service.ts)). `GET /api/hp/last-error` zwraca najnowszy rekord z `error_code` z ostatnich 24 godzin (okno kroczące). Wyjątek: gdy ostatnia telemetria ma `HP.ERRc` ≥ 5 (sterownik zablokowany), okno nie obowiązuje i błąd jest zwracany aż do odblokowania. Klient pokazuje czerwony dzwonek przed „T:” w widoku głównym (na telefonie w osobnym wierszu nad temperaturą; bez błędu ten wiersz nie istnieje), czerwony wiersz na liście danych oraz w zakładce Ustawienia błąd w dwóch liniach, data i pod nią opis (`errorLine` w [`client/src/utils/errors.ts`](client/src/utils/errors.ts)), licznik błędów i przyciski „Odblokuj” (aktywny tylko przy blokadzie) i „Restart sterownika”.
 
 Kody (`ERRC_*` w CHPC, [`client/src/utils/errors.ts`](client/src/utils/errors.ts) tutaj; zmieniać razem): 1 czujnik, 2 przeciążenie, 3 brak przepływu, 4 za mała moc, 5 Tho, 6 Tsump za wysoka, 7 Tbc, 8 Tae, 9 Tco, 10 przekaźnik, 11 blokada x5, 12 Tsump za niska. Czas błędu to czas pierwszego rekordu z nowym `ERRn`, więc jest dokładny do 10–30 s (CHPC nie ma zegara).
+
+## 5a. PV
+
+Dane PV są oddzielone od telemetrii pompy, pod przyszły widok zarządzania energią. Pełne odczyty są w kolekcji `pv`. Rekordy `hp` dostają od serwera tylko `PV.total_power`, potrzebne do bilansu energii.
+
+`co` odczytuje DTU co 60 s (pierwszy raz zaraz po starcie) i wysyła `POST /api/pv/add?deviceId=<SN>&rootId=<id>`. Nieprzyjęty odczyt ponawia co 60 s, aż zastąpi go nowszy. Odpowiedź to `{}` (201), bez operacji. Treść:
+
+- `time` (jak w telemetrii HP), `total_power` (W, wymagane, inaczej 400), `total_prod`, `total_prod_today` (Wh), `temperature` (°C, **najniższa** z portów: pojedynczy port potrafi podać zawyżoną wartość), `pv_power` (`total_power` ≥ 2000 W);
+- `panels[]`, po jednym na port mikrofalownika: `serial`, `port`, `power` (W), `prod_today`, `prod_total` (Wh), `temperature` (°C), `pv_voltage` (V), `pv_current` (A), `grid_voltage` (V), `grid_frequency` (Hz), `status`, `alarm_code`, `alarm_count`, `link`. Ostatnie cztery są przekazywane surowo, bo ich kody nie są udokumentowane (działająca instalacja podaje 3, 0, 0, 1).
+
+`pv.service.ts` trzyma ostatni odczyt w `lastPvDataByRoot` (po restarcie serwera odtwarzany z bazy). Odczyt starszy niż 3 min (`PV_MAX_AGE_MS`) jest pomijany. Z ostatniego odczytu korzystają:
+
+- `POST /api/hp/add` — przed zapisem `addHp` wpisuje do rekordu `PV: {total_power}`, jeśli telemetria nie ma własnego `PV` (starszy firmware wysyła je sam i zostaje ono bez zmian). `pv_power`, temperatura i produkcja nie trafiają do `hp`;
+- `GET /api/hp` — do bieżącej telemetrii dołącza pełne podsumowanie (`PV` bez `panels` i `pv_power`), bo ekran HP pokazuje też temperaturę i dzisiejszą produkcję.
+
+Dzięki temu `/hp/4day`, `/hp/all` i `monthly-summary` działają bez zmian na `PV.total_power` z rekordów `hp`, a klient (ekran HP, zakładka Dane, koszty G12w) nie wymagał zmian. **Nie łączyć `hp` z `pv` w agregacji:** baza produkcyjna (współdzielony plan Atlas) sortuje w pamięci najwyżej 32 MB i nie pozwala na `allowDiskUse`, a `monthly-summary` za rok mieści się tylko dzięki indeksowi `createdAt` na `hp`. Wersja z `$unionWith` + `$locf` przekraczała limit już dla jednego miesiąca (sprawdzone na produkcji 2026-09-26).
 
 ## 6. Scheduler
 
@@ -364,14 +387,17 @@ Trasy są zdefiniowane w [`server/src/middleware/api.routes.ts`](server/src/midd
 | `POST /api/devices/register` | rejestracja sterownika po SN; zwraca istniejący albo nowy `rootId` |
 | `GET /api/device/properties` | wartości domyślne urządzenia |
 | `PUT /api/device/properties` | zapis wartości domyślnych |
-| `GET /api/hp` | ostatnia telemetria |
+| `GET /api/hp` | ostatnia telemetria (z bieżącym PV) |
 | `GET /api/hp/all` | dane od początku bieżącego roku |
 | `GET /api/hp/dates` | dni, dla których są dane |
 | `GET /api/hp/4day?date=...` | dane dla jednego dnia |
 | `GET /api/hp/monthly-summary` | podsumowania energii |
 | `GET /api/hp/last-error` | ostatni błąd sterownika z 24 h (przy blokadzie bez limitu czasu) |
 | `POST /api/hp/add` | zapis telemetrii i zwrot operacji |
-| `POST /api/hp/clear` | usunięcie telemetrii urządzenia |
+| `POST /api/hp/clear` | usunięcie telemetrii HP urządzenia (bez `pv`) |
+| `GET /api/pv` | ostatni odczyt PV z panelami |
+| `GET /api/pv/range?date=...` lub `?startDate=...&endDate=...` | odczyty PV z zakresu dni |
+| `POST /api/pv/add` | zapis odczytu PV (sterownik) |
 | `GET /api/operation` | przygotowany zestaw wartości do widoku ustawień |
 | `GET /api/operation/get` | bieżąca operacja z pamięci |
 | `GET /api/operation/getAndClear` | pobranie i wyczyszczenie operacji |
@@ -464,6 +490,7 @@ Harmonogram nie zawiera `co_pomp`. To pole nie jest wymagane ani zapisywane dla 
 Testy serwera znajdują się w:
 
 - [`server/app.test.ts`](server/app.test.ts);
+- [`server/pv.test.ts`](server/pv.test.ts);
 - [`server/scheduler.test.ts`](server/scheduler.test.ts).
 
 Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy. Sprawdzają między innymi:
@@ -473,6 +500,7 @@ Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy
 - zmianę nazwy urządzenia (bez zmiany `deviceId`, pusta nazwa, nieznany `rootId`);
 - zapis `EEVmin` i wykrywanie zdarzeń błędów (także błąd starszy niż 24 h przy blokadzie);
 - jednorazowe akcje `error_reset` i `restart`;
+- PV: zapis z samym `deviceId`, 404 i 409 przy identyfikacji, wpisanie samego `PV.total_power` do rekordu `hp` (z limitem 3 min, bez nadpisywania `PV` od starszego firmware), pełne PV w `GET /hp`, bilans `monthly-summary`, usuwanie `panels` po 90 dniach;
 - wybór rodzaju harmonogramu przez tryb pracy (`A` → CO, `CWU` → CWU, `M`/`OFF` → żaden) i przerwę `off` w obu trybach harmonogramu;
 - ręczne nadpisanie harmonogramu;
 - przełączenie trybu `M` na `A` po północy;
@@ -498,7 +526,7 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 ### Firmware
 
-- `co`: `pio test -e native` w `heatpump` (38 testów: kontroler operacji, parser PV, ramki Modbus).
+- `co`: `pio test -e native` w `heatpump` (58 testów: kontroler operacji, parser PV, ramki Modbus, polityka AP).
 - CHPC: `pio test -e native` w `chpc` (symulacja firmware, 6 zestawów, 44 testy). Dodatkowo scenariusze Wokwi w `chpc/test-wokwi/`.
 
 Ostatni pełny przebieg (2026-09-24): serwer chpc-web 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
@@ -531,11 +559,13 @@ Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2
 
 Firmware PlatformIO (`esp32dev`), kod w `src/`. Szczegóły: `README.md` i `docs/server-driven-refactor-2026-09-20.md` w tamtym repozytorium.
 
-- **Odczyty.** Co 10 s (sprężarka pracuje) lub 30 s (spoczynek) odpytuje CHPC; co dziesiąty cykl odpytuje DTU Hoymiles (Modbus, dwa zapytania po pięć portów). Szacuje COP zbiornika 300 l w każdym cyklu grzania.
+- **Odczyty.** Co 10 s (sprężarka pracuje) lub 30 s (spoczynek) odpytuje CHPC. Niezależnie od tego co 60 s i zaraz po starcie odpytuje DTU Hoymiles (Modbus, dwa zapytania po pięć portów: od 0x1000 i od 0x10C8, bo DTU numeruje porty co 0x28 adresów, choć rekord ma 20 rejestrów). Odczyt PV idzie osobno na `pv/add` (sekcja 5a). Szacuje COP zbiornika 300 l w każdym cyklu grzania.
+- **Strony lokalne:** `/telemetry.json` to telemetria HP, a `/pv.json` to odczyt PV z panelami. Odpowiedź RS-485 na zapytanie `0x01` do `co` (adres `0x10`) nadal zawiera `PV` i `pv_power` w jednym JSON-ie.
 - **Tryb sterownika** (przycisk na GPIO5, zapis w NVS): `OFF → CLOUD → MANUAL_CO → MANUAL_CWU → OFF`. Pierwsze naciśnięcie tylko pokazuje bieżący tryb, kolejne przechodzą dalej; wybrany tryb jest stosowany 5 s po ostatnim naciśnięciu. Tylko w `CLOUD` stosuje operacje z chmury. `OFF` wysyła do pompy sekwencję bezpieczeństwa (CO off, force off, pompy off) i wyłącza przekaźniki. W `work_mode = PV` `force` wynika z produkcji PV (≥ 2000 W), a nie z serwera.
 - **Strony WWW na porcie 80** (sieć lokalna i otwarty AP `HP-CO-setup`): `/` podgląd telemetrii, `/telemetry.json`, `/install` (Basic Auth: Wi-Fi, SN i Root ID tylko do odczytu, status rejestracji), `/save`.
+- **AP `HP-CO-setup` nie działa stale** (`AccessPointPolicy`). Startuje razem ze sterownikiem i jest wyłączany, gdy przez 3 min Wi-Fi ma adres, a każde żądanie do chmury dostaje odpowiedź HTTP (dowolny kod, także 4xx). Wraca, gdy Wi-Fi jest rozłączone dłużej niż 1 min albo chmura milczy 5 min. Przy wyłączonym AP strony konfiguracji są dostępne pod adresem IP sterownika w sieci lokalnej, a ekran pokazuje `AP: off`.
 - **Konfiguracja.** Wi-Fi i Root ID w NVS; `src/secrets.h` daje tylko wartości domyślne, a `CLOUD_ROOT_ID` jest opcjonalny.
-- **Kluczowe pliki kontraktu:** `cloud_client.cpp` (HTTP, WebSocket, rejestracja), `telemetry.cpp`, `operation_parser.cpp`, `operation_controller.cpp`, `modbus_frame.cpp`.
+- **Kluczowe pliki kontraktu:** `cloud_client.cpp` (HTTP, WebSocket, rejestracja), `telemetry.cpp`, `pv_telemetry.cpp`, `json_converters.hpp` (pola PV), `operation_parser.cpp`, `operation_controller.cpp`, `modbus_frame.cpp`.
 
 **Komendy RS-485 do CHPC** (ramka `[0x41][cmd][d1][d2][0xFF]`, liczby dziesiętne jako część całkowita + setne, waty jako W/100 i W%100):
 

@@ -5,12 +5,13 @@ import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates 
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
+import { getFreshPvSummary } from '../services/pv.service'
 
 interface THpClear {
   clear?: Boolean
 }
 
-function warsawDayBoundsUTC(dateStr: string) {
+export function warsawDayBoundsUTC(dateStr: string) {
   const norm = dateStr.replace(/\./g, "-");         // 2025.08.19 -> 2025-08-19
   const startLocal = new Date(`${norm}T00:00:00`);
   const endLocal = addDays(startLocal, 1);
@@ -20,7 +21,7 @@ function warsawDayBoundsUTC(dateStr: string) {
   return { startUTC, endUTC }; // używaj zakresu [startUTC, endUTC)
 }
 
-function warsawDateRangeBoundsUTC(startDate: string, endDate: string) {
+export function warsawDateRangeBoundsUTC(startDate: string, endDate: string) {
   const { startUTC } = warsawDayBoundsUTC(startDate);
   const { endUTC } = warsawDayBoundsUTC(endDate);
   return { startUTC, endUTC };
@@ -48,8 +49,11 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
 export async function getHp(req: Request, res: Response) {
   try {
     console.log("Get HP last data: " + req.deviceRootId as string);
-    const result = await getHpLastData(req.deviceRootId as string)
-    return res.status(200).send(result)
+    const rootId = req.deviceRootId as string;
+    const result = await getHpLastData(rootId)
+    // PV nie przychodzi już z telemetrią HP; bieżący odczyt dołącza serwer.
+    const pv = await getFreshPvSummary(rootId);
+    return res.status(200).send(pv ? { ...result, ...pv } : result)
   } catch (error) {
     console.log(error)
     return res.status(500).send({ message: error })
@@ -228,8 +232,14 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     console.log(operation);
     
     if (data && data.HP && data.HP.Ttarget) {
+      // Sterownik wysyła PV osobno (pv/add). Do rekordu HP trafia tylko moc
+      // potrzebna do bilansu energii, z odczytu nie starszego niż 3 min.
+      if (!data.PV) {
+        const pv = await getFreshPvSummary(rootId);
+        if (pv?.PV?.total_power !== undefined) data.PV = { total_power: pv.PV.total_power };
+      }
       await addHpData(rootId, data);
-    }    
+    }
     return res.status(201).json({ operation: operation});
   } catch (error) {
     return res.status(500).send({ error: error })
