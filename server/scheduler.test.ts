@@ -10,6 +10,7 @@ import { getCurrentSchedule, runSchedulerOnce } from './src/services/scheduler.s
 import {
   clearManualOperation,
   clearOperation,
+  getManualOperationData,
   getOperationData,
 } from './src/services/operation.service';
 
@@ -362,5 +363,71 @@ describe('Schedules and manual operation control', () => {
       co_min: '32',
       co_max: '42',
     });
+  });
+
+  const telemetry = (hps: number) =>
+    request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: 40, HPS: hps } })
+      .expect(201);
+
+  it('drops a manual force after the compressor starts', async () => {
+    await runSchedulerOnce(afterScheduleTime);
+    await request(app)
+      .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ force: '1', cwu_max: '47' })
+      .expect(201);
+
+    expect((await telemetry(0)).body.operation.force).toBe('1');
+    expect((await telemetry(1)).body.operation.force).toBe('1');
+    // sprężarka ruszyła: następna odpowiedź już bez wymuszenia, inne ręczne pola zostają
+    const after = await telemetry(1);
+    expect(after.body.operation).toMatchObject({ force: '0', cwu_max: '47' });
+    expect(getManualOperationData(rootId)).toEqual({ cwu_max: '47' });
+
+    // po zatrzymaniu sprężarki serwer nie wymusza kolejnego startu
+    expect((await telemetry(0)).body.operation.force).toBe('0');
+  });
+
+  it('keeps a manual force set during a run until the next start', async () => {
+    await runSchedulerOnce(afterScheduleTime);
+    await telemetry(1);
+    await request(app)
+      .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ force: '1' })
+      .expect(201);
+
+    // bieżący cykl nie był skutkiem wymuszenia: force czeka na postój i kolejny start
+    await telemetry(1);
+    expect((await telemetry(1)).body.operation.force).toBe('1');
+    await telemetry(0);
+    await telemetry(1);
+    expect((await telemetry(1)).body.operation.force).toBe('0');
+  });
+
+  it('keeps a scheduled force for the whole schedule', async () => {
+    await setWorkMode('A');
+    await addSchedules(coAndCwuSchedules());  // CO 10:00-11:00 z forceStart
+    await runSchedulerOnce(activeTime);
+
+    for (const hps of [0, 1, 1, 0, 1]) {
+      expect((await telemetry(hps)).body.operation.force).toBe('1');
+      await runSchedulerOnce(activeTime);
+    }
+  });
+
+  it('lets a scheduled force win again after a manual force is used up', async () => {
+    await setWorkMode('A');
+    await addSchedules(coAndCwuSchedules());
+    await runSchedulerOnce(activeTime);
+    await request(app)
+      .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ force: '1' })
+      .expect(201);
+
+    await telemetry(0);
+    await telemetry(1);
+    expect((await telemetry(1)).body.operation.force).toBe('1');  // z harmonogramu
+    expect(getManualOperationData(rootId)).toEqual({});
   });
 });

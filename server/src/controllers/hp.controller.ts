@@ -3,7 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { addDays } from "date-fns";
 import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
-import { clearOperation, getOperationData, takeOperationActions } from '../services/operation.service'
+import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
 import { getFreshPvSummary } from '../services/pv.service'
 import { getTemperature } from '../services/meteo.service'
@@ -229,6 +229,11 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
     const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
     clearOperation(rootId);
+    if (data?.HP) {
+      // ręczne force jest jednorazowe: znika po starcie sprężarki (HPS > 0)
+      const hps = data.HP.HPS as unknown;
+      consumeManualForceOnStart(rootId, hps === true || Number(hps) > 0);
+    }
     console.log("Get HP operation");
     console.log(operation);
     

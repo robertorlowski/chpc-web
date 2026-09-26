@@ -4,6 +4,8 @@ import { OperationEntry  } from '../middleware/type';
 const operations = new Map<string, OperationEntry>();
 const scheduledOperations = new Map<string, OperationEntry>();
 const manualOperations = new Map<string, OperationEntry>();
+// Ręczne force: czy od jego ustawienia telemetria pokazała sprężarkę w spoczynku.
+const manualForceSeenIdle = new Map<string, boolean>();
 
 const mergeWithManualOperation = (rootId: string, operation: OperationEntry) => ({
   ...operation,
@@ -52,12 +54,42 @@ export const setManualOperationData = (rootId: string, data: OperationEntry) => 
   };
 
   manualOperations.set(rootId, manualOperation);
+  if (data.force !== undefined) manualForceSeenIdle.set(rootId, false);
   const operation = mergeWithManualOperation(
     rootId,
     scheduledOperations.get(rootId) ?? getOperationData(rootId),
   );
   operations.set(rootId, operation);
   return manualOperation;
+};
+
+// Ręczne force: "1" jest jednorazowe. Znika z ręcznych nadpisań przy pierwszym starcie
+// sprężarki (HPS: spoczynek -> praca) po jego ustawieniu; wraca force z harmonogramu
+// (forceStart na czas wpisu) albo domyślne "0". Bez tego co wymuszał start po każdym
+// zatrzymaniu, bo CHPC kasuje force przy stopie, a serwer wciąż przysyłał "1".
+// Wywoływane po clearOperation, więc ustawiona tu operacja idzie w następnej odpowiedzi.
+export const consumeManualForceOnStart = (rootId: string, running: boolean) => {
+  const manualOperation = manualOperations.get(rootId);
+  if (manualOperation?.force !== '1') return false;
+  if (!running) {
+    manualForceSeenIdle.set(rootId, true);
+    return false;
+  }
+  if (!manualForceSeenIdle.get(rootId)) return false;
+
+  manualForceSeenIdle.delete(rootId);
+  const { force: _force, ...rest } = manualOperation;
+  if (Object.keys(rest).length > 0) {
+    manualOperations.set(rootId, rest);
+  } else {
+    manualOperations.delete(rootId);
+  }
+  // jawne force: co trzyma ostatnią przysłaną wartość, więc samo usunięcie klucza nie wystarczy
+  // (bez przebiegu schedulera bieżąca operacja wciąż zawiera ręczne "1")
+  const scheduled = scheduledOperations.get(rootId);
+  const base = scheduled ? { force: '0', ...scheduled } : { ...getOperationData(rootId), force: '0' };
+  operations.set(rootId, mergeWithManualOperation(rootId, base));
+  return true;
 };
 
 // Zmienia tryb w ręcznym nadpisaniu (np. M -> A po północy). Bieżącą operację
@@ -90,6 +122,7 @@ export const takeOperationActions = (rootId: string): OperationEntry => {
 
 export const clearManualOperation = (rootId: string) => {
   manualOperations.delete(rootId);
+  manualForceSeenIdle.delete(rootId);
 
   const scheduledOperation = scheduledOperations.get(rootId);
   if (scheduledOperation) {

@@ -366,7 +366,8 @@ Oznacza to, że ręcznie ustawione pola wygrywają nad schedulerem, ale tylko dl
 - `clearOperation` czyści bieżącą operację po obsłużeniu telemetrii;
 - jeśli istnieje operacja ręczna, odtwarza operację z nadpisaniem;
 - `clearManualOperation` usuwa ręczne nadpisania i przywraca ostatnią operację schedulera;
-- scheduler automatycznie wywołuje `clearManualOperation`, gdy przechodzi z aktywnego harmonogramu do braku aktywnego harmonogramu.
+- scheduler automatycznie wywołuje `clearManualOperation`, gdy przechodzi z aktywnego harmonogramu do braku aktywnego harmonogramu;
+- `consumeManualForceOnStart` (wołane w `/hp/add` po `clearOperation`) usuwa z ręcznych nadpisań samo `force: "1"` przy pierwszym starcie sprężarki (`HP.HPS`: spoczynek → praca) po jego ustawieniu. Inne ręczne pola zostają. Następna odpowiedź niesie jawne `force` z harmonogramu (`forceStart` na czas wpisu) albo `"0"`, bo `co` trzyma ostatnią przysłaną wartość. Bez tego ręczne force działało bez końca: CHPC kasuje force przy każdym stopie, a `co` wysyłał je ponownie. Force ustawione w trakcie pracy czeka na postój i kolejny start.
 
 Nie ma osobnego przycisku wyłączania operacji ręcznej w interfejsie.
 
