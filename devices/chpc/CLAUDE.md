@@ -18,6 +18,8 @@ pio run -t upload --upload-port COM3
 pio device monitor                 # 9600 baud
 ```
 
+**Diagnostic build.** `pio run -e promini_debug -t upload --upload-port COM3` builds with `DEBUG_LOG`: the firmware works as usual and also sends, unasked, JSON lines `{"t":ms,"ev":...}` on the UART: `boot` (settings), `btn` (raw buttons and the menu input ADC reading `a1`, 1023 = 5 V), `rel` (relay changes), `eev` (start and end of each valve move), `err`, `lcd` (every menu and status text) and `st` (temperatures, W, EEV, errors and loop count every 10 s). It still answers `0x01`. Capture with `powershell -ExecutionPolicy Bypass -File tools/serial-log.ps1 -Port COM3 -Seconds 300`; logs go to `logs/` (git-ignored). Never use it on a bus wired to `co`. It fills flash to ~99.9%, so trim it when the firmware grows. `pio test -e native_debug` runs `test/test_chpc_debuglog` against it (`native` skips that suite).
+
 The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
 **Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
@@ -141,7 +143,7 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
   - `ERRn`: event sequence number, which grows with every event, so a repeated code is still a new event;
   - `ERRc`: `error_count`; 5 means locked.
 
-  The codes are `ERRC_*` in the firmware and `client/src/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low. Each event also shows `ERR: …` on the LCD.
+  The codes are `ERRC_*` in the firmware and `client/src/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low, 13 Tbe (evaporating below −1 °C for over 60 s: the plate heat exchanger may freeze). Each event also shows `ERR: …` on the LCD.
 - **Cloud:** the whole object is forwarded as telemetry `HP`.
 
 **Known mismatches with the current firmware:**
@@ -176,7 +178,7 @@ The server saves a record only when `HP.Ttarget` is truthy. It adds `t_out` (out
 
 Where the values come from:
 - **Scheduler** (every 60 s): `work_mode`, `force` and the temperatures, from device defaults or the active schedule.
-- **Manual overrides** from the `/settings` page (`POST /api/operation/set`): any key. They win over the scheduler, are re-sent on every POST, live only in server memory, and are cleared when an active schedule ends.
+- **Manual overrides** from the `/settings` page (`POST /api/operation/set`): any key. They win over the scheduler, are re-sent on every POST, live only in server memory, and are cleared when an active schedule ends. A manual `force: "1"` is one-shot: the server drops it at the first compressor start (`HP.HPS` idle → running) after it was set and sends the scheduled `force` (or `"0"`) instead. A scheduled `forceStart` stays for the whole schedule entry.
 
 `co` parses the operation and turns changed values into RS-485 commands:
 - `co_max` / `cwu_max` → `0x04`;

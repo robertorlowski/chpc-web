@@ -105,6 +105,7 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 | 10 | Power drawn while the compressor is off (stuck relay) | pumps forced on | `ERR: Relay` |
 | 11 | 5 counted errors | control locks. RS-485 keeps answering, so the lock shows in the web app and can be cleared there ("Odblokuj", command `0x10`) or with a restart. The counter also resets after a normal compressor cycle | `ERR: Locked x5` |
 | 12 | Tsump < 3 °C, 60 s after start | compressor stops | `ERR: Temp. Low` |
+| 13 | Tbe (evaporating) < −1 °C for more than 60 s while running. Protects the plate heat exchanger on water without glycol; Tae is warmer by the superheat, so code 8 reacts too late | compressor stops | `ERR: Temp. Tbe` |
 
 Every event is reported in the status JSON (`ERR` code, `ERRn` sequence number, `ERRc` error counter). The web app keeps a history of errors with their times.
 
@@ -196,6 +197,8 @@ pio run -t upload --upload-port COM3      # flash (disconnect RS-485 first: it s
 pio device monitor                        # serial console, 9600 baud
 ```
 
+Diagnostics: `pio run -e promini_debug -t upload` flashes a build that also logs events (buttons, relays, valve moves, errors, LCD texts, status every 10 s) as JSON lines on the UART, unasked. Record them with `tools/serial-log.ps1 -Port COM3`. Use it only with the controller disconnected from `co`, because unrequested data corrupts the bus.
+
 Compile-time options are at the top of [src/CHPC_firmware.ino](./src/CHPC_firmware.ino):
 - `USER OPTIONS`: display, buttons, EEV support;
 - `TEMPERATURES`: protection thresholds;
@@ -212,7 +215,7 @@ Full description of the tests, what each suite checks and how to run them: **[te
 - current transformer with a 50 Hz sine;
 - EEPROM, LCD and buttons.
 
-Seven scenario suites (53 tests) cover:
+Seven scenario suites (54 tests) cover:
 - sensor discovery and EEPROM;
 - the start-up pause;
 - the thermostat cycle, pumps and EEV;

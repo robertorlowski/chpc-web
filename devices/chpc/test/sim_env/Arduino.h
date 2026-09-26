@@ -186,6 +186,7 @@ inline void noTone(uint8_t) {}
 // (I_RATIO = 96 * Vcc / 1024, W = Irms * 230 - 120) policzył zadaną moc.
 inline int analogRead(uint8_t pin) {
   if (pin == A7) return sim::flow_adc;
+  if (pin >= A0 && pin <= A3) return sim::inputs[pin] ? 1023 : 0;  // przyciski z rezystorem ściągającym
   if (pin != A6) return 0;
   const double ratio = 96.0 * (5006 / 1000.0) / 1024.0;
   const double watts = sim::power_w();

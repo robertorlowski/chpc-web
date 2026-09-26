@@ -67,6 +67,26 @@ void testSuctionFreezeStopsCompressor() {
   setTemp("Tae", 5.0);
 }
 
+// Parowanie (Tbe) poniżej -1 °C: krótki spadek (np. przy starcie) nie zatrzymuje, dłuższy niż 60 s tak.
+// Tae zostaje wysoko (duże przegrzanie), więc ochrona po Tae nie zadziała.
+void testEvaporatorFreezeStopsCompressorAfterDelay() {
+  startCompressor();
+  setTemp("Tbe", -2.0);
+  runMs(40000, 1000);
+  setTemp("Tbe", 2.0);
+  runMs(40000, 1000);
+  TEST_ASSERT_TRUE_MESSAGE(compressor(), "krótki spadek Tbe zatrzymał sprężarkę");
+
+  sim::tx.clear();
+  sim::lcdLog.clear();
+  setTemp("Tbe", -2.0);
+  runMs(50000, 1000);
+  TEST_ASSERT_TRUE_MESSAGE(compressor(), "sprężarka zatrzymana przed upływem 60 s");
+  TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 20000, 1000) >= 0);
+  expectNewError(ERRC_TEMP_TBE, "ERR: Temp. Tbe");
+  setTemp("Tbe", 2.0);
+}
+
 void testOverloadStopsAndCountsError() {
   startCompressor();
   sim::tx.clear();
@@ -163,6 +183,7 @@ int main() {
   RUN_TEST(testHotSideOverheatStopsCompressor);
   RUN_TEST(testDischargeOverheatStopsCompressor);
   RUN_TEST(testSuctionFreezeStopsCompressor);
+  RUN_TEST(testEvaporatorFreezeStopsCompressorAfterDelay);
   RUN_TEST(testOverloadStopsAndCountsError);
   RUN_TEST(testCompressorWithoutPowerIsDetected);
   RUN_TEST(testLowSumpTemperatureAfterStart);

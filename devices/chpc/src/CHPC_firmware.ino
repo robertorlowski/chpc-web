@@ -34,6 +34,9 @@
 #endif
 #define EEV_SUPPORT
 
+//#define DEBUG_LOG  //diagnostyka: zdarzenia i stan co 10 s jako linie JSON na UART BEZ ZAPYTANIA (env promini_debug).
+                     //Nigdy na magistrali z co: psuje odczyty pompy i falownika. Odczyt: tools/serial-log.ps1
+
 //#define	EEV_ONLY				      //NO target, no relays. Oly EEV, Tae, Tbe, current sensor and may be additional T sensors
 
 #define HUMAN_AUTOINFO 5000  //print stats to console
@@ -49,6 +52,8 @@
 #define T_SUMP_HEAT_THRESHOLD 10.0     //16.0;	//sump heater will be powered on if T lower
 #define T_BEFORE_CONDENSER_MAX 70.0;  //discharge MAX, system stops if discharge higher
 #define T_AFTER_EVAPORATOR_MIN -2.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
+#define T_BEFORE_EVAPORATOR_MIN -1.0   //parowanie (Tbe): stop, gdy niżej dłużej niż TBE_LOW_MILLIS; woda bez glikolu zamarza w wymienniku
+#define TBE_LOW_MILLIS 60000           //Tae (wyjście) jest cieplejsze o przegrzanie, więc ochrona po Tae reaguje za późno
 #define T_COLD_MIN -2.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
 #define T_HOTOUT_MAX 60.0;             //hot loop: stop if outlet temperature higher than this
 #define T_WORKINGOK_SUMP_MIN 3.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
@@ -397,6 +402,7 @@ unsigned long millis_cycle = 1000;
 
 unsigned long millis_last_heatpump_on = 0;
 unsigned long millis_last_heatpump_off = 0;
+unsigned long millis_tbe_ok = 0;  //ostatnia chwila pracy z Tbe >= T_BEFORE_EVAPORATOR_MIN (albo postoju)
 unsigned long last_power = 0;
 unsigned long last_power_milis = 0;
 
@@ -491,6 +497,7 @@ int errorcode = 0;
 #define ERRC_RELAY 10       //ERR: Relay
 #define ERRC_LOCKED 11      //ERR: Locked x5
 #define ERRC_TEMP_LOW 12    //ERR: Temp. Low
+#define ERRC_TEMP_TBE 13    //ERR: Temp. Tbe
 uint8_t err_last = 0;  //kod ostatniego zdarzenia
 uint8_t err_seq = 0;   //numer kolejny zdarzenia (od startu)
 bool relay_fault = false;
@@ -551,6 +558,113 @@ char CheckAddrExists(void) {
   return 0;
 }
 
+#ifdef DEBUG_LOG
+//linie {"t":ms,"ev":"...",...}: btn (surowe przyciski, ADC wejścia A1), rel (przekaźniki),
+//eev (początek/koniec ruchu), err, lcd (teksty menu i komunikatów), boot, st (stan co 10 s)
+unsigned long dbg_last_status = 0;
+unsigned long dbg_loops = 0;
+int dbg_prev_btn = -1;
+int dbg_prev_rel = -1;
+bool dbg_eev_moving = false;
+
+void dbgHead(const __FlashStringHelper *ev) {
+  RS485Serial.print(F("{\"t\":"));
+  RS485Serial.print(millis_now);
+  RS485Serial.print(F(",\"ev\":\""));
+  RS485Serial.print(ev);
+  RS485Serial.print('"');
+}
+
+void dbgKey(const __FlashStringHelper *k) {
+  RS485Serial.print(F(",\""));
+  RS485Serial.print(k);
+  RS485Serial.print(F("\":"));
+}
+
+void dbgKey(const char *k) {
+  RS485Serial.print(F(",\""));
+  RS485Serial.print(k);
+  RS485Serial.print(F("\":"));
+}
+
+void dbgKV(const __FlashStringHelper *k, long v) {
+  dbgKey(k);
+  RS485Serial.print(v);
+}
+
+void dbgEnd(void) {
+  RS485Serial.println('}');
+}
+
+void dbgText(const __FlashStringHelper *ev, const String &s) {
+  dbgHead(ev);
+  dbgKey(F("txt"));
+  RS485Serial.print('"');
+  RS485Serial.print(s);
+  RS485Serial.print('"');
+  dbgEnd();
+}
+
+void dbgEev(void) {
+  dbgKV(F("pos"), EEV_cur_pos);
+  dbgKV(F("ap"), EEV_apulses);
+  dbgKV(F("calib"), EEV_adonotcare);
+}
+
+void dbgLoop(void) {
+  dbg_loops++;
+#ifdef INPUTS_AS_BUTTONS
+  int b = digitalRead(BUT_LEFT) | (digitalRead(BUT_RIGHT) << 1) | (digitalRead(BUT_3) << 2);
+  if (b != dbg_prev_btn) {
+    dbg_prev_btn = b;
+    dbgHead(F("btn"));
+    dbgKV(F("L"), b & 1);
+    dbgKV(F("R"), (b >> 1) & 1);
+    dbgKV(F("M"), (b >> 2) & 1);
+    dbgKV(F("a1"), analogRead(BUT_3));  //wejście menu: ADC 0..1023 (1023 = 5 V)
+    dbgEnd();
+  }
+#endif
+  int r = heatpump_state | ((hotside_circle_state || hot_pomp_on || frost_protect) << 1)
+          | ((coldside_circle_state || cold_pomp_on) << 2) | ((sump_heater_state || sump_heater_on) << 3);
+  if (r != dbg_prev_rel) {
+    dbg_prev_rel = r;
+    dbgHead(F("rel"));
+    dbgKV(F("hp"), r & 1);
+    dbgKV(F("hot"), (r >> 1) & 1);
+    dbgKV(F("cold"), (r >> 2) & 1);
+    dbgKV(F("sump"), (r >> 3) & 1);
+    dbgEnd();
+  }
+#ifdef EEV_SUPPORT
+  if ((EEV_apulses != 0) != dbg_eev_moving) {
+    dbg_eev_moving = (EEV_apulses != 0);
+    dbgHead(F("eev"));
+    dbgEev();
+    dbgEnd();
+  }
+#endif
+  if ((unsigned long)(millis_now - dbg_last_status) >= 10000UL) {
+    dbgHead(F("st"));
+    dbgKV(F("loops"), dbg_loops);  //przebiegi loop() w 10 s
+    dbg_loops = 0;
+    dbg_last_status = millis_now;
+    for (byte n = 0; n < T_SENSORS; n++) {
+      if (!sensors[n].e) continue;
+      dbgKey(sensor_names[n]);
+      RS485Serial.print(sensors[n].T, 2);
+    }
+    dbgKV(F("W"), (long)async_wattage);
+#ifdef EEV_SUPPORT
+    dbgEev();
+#endif
+    dbgKV(F("err"), errorcode);
+    dbgKV(F("menu"), input_type % INPUT_TYPES);
+    dbgEnd();
+  }
+}
+#endif
+
 void InitS_and_D(void) {
 #ifdef DISPLAY_1602
   lcd.init();  // initialize the lcd
@@ -569,6 +683,9 @@ void PrintS_and_D(String str) {
   RS485Serial.println();
   RS485Serial.flush();
 #endif
+#ifdef DEBUG_LOG
+  dbgText(F("lcd"), str);
+#endif
 
 #ifdef DISPLAY_1602
   lcd.backlight();
@@ -578,6 +695,9 @@ void PrintS_and_D(String str) {
 }
 
 void Print_D(String outString) {
+#ifdef DEBUG_LOG
+  dbgText(F("lcd"), outString);
+#endif
 #ifdef DISPLAY_1602
   lcd.clear();
   delay(10);
@@ -922,6 +1042,12 @@ void eevise(void) {
 void reportError(uint8_t code) {
   err_last = code;
   err_seq++;
+#ifdef DEBUG_LOG
+  dbgHead(F("err"));
+  dbgKV(F("code"), code);
+  dbgKV(F("n"), err_seq);
+  dbgEnd();
+#endif
 }
 
 void stopOnError(String error, uint8_t code) {
@@ -1124,7 +1250,16 @@ void setup(void) {
   s_allTsensors.requestTemperatures();
   s_allTsensors.setWaitForConversion(false);
   Get_Temperatures();
-  outString.reserve(256);  
+  outString.reserve(256);
+#ifdef DEBUG_LOG
+  millis_now = millis();
+  dbgHead(F("boot"));
+  dbgKV(F("sens"), used_sensors);
+  dbgKV(F("EEVmin"), EEV_MINWORKPOS);
+  dbgKV(F("EEVmax"), EEV_MAXPULSES_OPEN);
+  dbgKV(F("co"), co_on);
+  dbgEnd();
+#endif
 }
 
 void loop(void) {
@@ -1178,6 +1313,9 @@ void loop(void) {
   }
 #ifdef EEV_SUPPORT
   eevise();
+#endif
+#ifdef DEBUG_LOG
+  dbgLoop();
 #endif
   //--------------------async fuctions END
 
@@ -1827,7 +1965,13 @@ void loop(void) {
     //      or (t cold in < cold min)
     //      or (t cold out < cold min)
     //
+    if (heatpump_state == 0 || Tbe.e != 1 || Tbe.T >= T_BEFORE_EVAPORATOR_MIN) {
+      millis_tbe_ok = millis_now;
+    }
     if (heatpump_state == 1 && errorcode == ERR_OK) {
+      if ((unsigned long)(millis_now - millis_tbe_ok) > TBE_LOW_MILLIS) {
+        stopByTemperature(F("ERR: Temp. Tbe"), ERRC_TEMP_TBE);
+      }
       if (Tho.e == 1 && Tho.T > cT_hotout_max) {
         stopByTemperature(F("ERR: Temp. Tho"), ERRC_TEMP_THO);
       }
