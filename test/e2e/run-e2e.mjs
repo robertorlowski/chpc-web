@@ -2,7 +2,7 @@
 // <-> lokalny serwer chpc-web (http://localhost:4001) <-> klient (http://localhost:5173, Playwright + Edge).
 //
 // Wymaga uruchomionego "npm run local" w chpc-web (baza .local-db, serwer, klient) i zbudowanego bridge.exe.
-// Wyniki: docs/raport-testow/e2e-wyniki.json i zrzuty w docs/raport-testow/zrzuty/ (repo chpc).
+// Wyniki: test/raport-testow/e2e-wyniki.json i zrzuty w test/raport-testow/zrzuty/ (poza gitem).
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = join(HERE, '..', '..', 'docs', 'raport-testow');
+const OUT = join(HERE, '..', 'raport-testow');
 const SHOTS = join(OUT, 'zrzuty');
 mkdirSync(SHOTS, { recursive: true });
 

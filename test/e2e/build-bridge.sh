@@ -1,10 +1,11 @@
 #!/bin/sh
 # Kompiluje most łańcucha: firmware chpc (symulacja) + logika co. Wymaga g++ (MinGW) i bibliotek pobranych
-# przez "pio test -e native" w repozytorium co (ArduinoJson w .pio/libdeps/native).
+# przez "pio test -e native" w devices/co (ArduinoJson w .pio/libdeps/native).
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CHPC="$HERE/../.."
-CO="${CO_DIR:-$CHPC/../heatpump}"
+ROOT="$HERE/../.."
+CHPC="$ROOT/devices/chpc"
+CO="${CO_DIR:-$ROOT/devices/co}"
 g++ -std=gnu++17 -O1 -w \
   -c "$HERE/bridge_chpc.cpp" -I "$CHPC/test/sim_env" -o "$HERE/bridge_chpc.o"
 g++ -std=gnu++17 -O1 -w \

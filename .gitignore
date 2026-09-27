@@ -46,3 +46,6 @@ yarn-error.log*
 # lokalna baza MongoDB (npm run local)
 .local-db/
 /test/raport-testow
+
+# lokalne ustawienia Claude Code
+.claude/settings.local.json

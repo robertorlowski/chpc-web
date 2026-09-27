@@ -27,21 +27,20 @@ Uwagi:
 - PlatformIO dla środowiska `native` używa `g++` z `PATH`, więc katalog `bin` MinGW musi być w `PATH`. Winget dodaje go sam.
 - Do samej symulacji firmware (punkt 1) wystarczą Python, PlatformIO i g++.
 
-**Dodatkowo dla E2E** (repozytoria obok tego repo, w `D:/DevLocal/arduino_src/`):
+**Dodatkowo dla E2E** (wszystko jest w jednym repozytorium chpc-web):
 
 ```sh
-cd D:/DevLocal/arduino_src
-git clone <adres repo co> heatpump              # jeśli jeszcze go nie ma
-git clone <adres repo chpc-web> chpc-web
+git clone https://github.com/robertorlowski/chpc-web.git
+cd chpc-web
 
 # co: pobranie ArduinoJson do .pio/libdeps/native (potrzebne do zbudowania bridge.exe)
-cd heatpump && pio test -e native
+cd devices/co && pio test -e native
 
 # chpc-web: zależności serwera i klienta; MongoDB pobiera się sama przy pierwszym "npm run local"
-cd ../../chpc-web && npm install
+cd ../.. && npm install
 
-# chpc: Playwright dla testu E2E (przeglądarki nie trzeba pobierać, używany jest Edge)
-cd ../chpc/test/e2e && npm install
+# Playwright dla testu E2E (przeglądarki nie trzeba pobierać, używany jest Edge)
+cd test/e2e && npm install
 ```
 
 Pierwsze `npm run local` w chpc-web pobiera plik binarny MongoDB (ok. 100 MB), więc potrzebny jest internet.
@@ -107,7 +106,7 @@ Scenariusz: rejestracja sterownika w interfejsie, harmonogram, pełny cykl grzan
 
 ### Jak uruchomić
 
-Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Jeśli `co` leży gdzie indziej niż `../heatpump` względem tego repo, podaj ścieżkę w zmiennej `CO_DIR`.
+Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Test leży w `test/e2e/` w katalogu głównym chpc-web i domyślnie bierze kod `co` z `devices/co`; inną ścieżkę podaje się w zmiennej `CO_DIR`.
 
 ```sh
 # Terminal 1: w chpc-web lokalna baza Mongo (.local-db, port 27027), serwer 4001 i klient 5173.
@@ -116,7 +115,7 @@ cd D:/DevLocal/arduino_src/chpc-web
 npm run local
 
 # Terminal 2 (Git Bash): budowanie mostu i test
-cd D:/DevLocal/arduino_src/chpc/test/e2e
+cd D:/DevLocal/arduino_src/chpc-web/test/e2e
 sh build-bridge.sh     # buduje bridge.exe; powtórz po każdej zmianie firmware albo kodu co
                        # (co w innym miejscu: CO_DIR=/sciezka/do/co sh build-bridge.sh)
 node run-e2e.mjs       # uruchamia scenariusz
@@ -124,4 +123,4 @@ node run-e2e.mjs       # uruchamia scenariusz
 
 Test startuje, gdy http://localhost:4001 i http://localhost:5173 odpowiadają. Każdy krok wypisuje w konsoli `OK` albo `BŁĄD`.
 
-Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do `docs/raport-testow/`: `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`. Katalog tworzy się przy uruchomieniu testu i jest w `.gitignore`, więc istnieje tylko lokalnie.
+Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do `test/raport-testow/` w chpc-web: `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`. Katalog tworzy się przy uruchomieniu testu i jest w `.gitignore`, więc istnieje tylko lokalnie.

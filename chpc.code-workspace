@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "name": "chpc-web", "path": "." },
+    { "name": "firmware co (ESP32)", "path": "devices/co" },
+    { "name": "firmware CHPC (Pro Mini)", "path": "devices/chpc" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "devices": true
+    }
+  }
+}

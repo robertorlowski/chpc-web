@@ -15,15 +15,15 @@ DTU Hoymiles (0x69) ─┘                 │
 
 Powiązane repozytoria:
 
-| Repozytorium | Rola |
-|---|---|
-| [robertorlowski/heatpomp](https://github.com/robertorlowski/heatpomp) (to repo) | firmware `co` na ESP32 |
-| [robertorlowski/chpc](https://github.com/robertorlowski/chpc) | firmware pompy CHPC (Arduino Pro Mini) oraz testy E2E całego łańcucha |
-| [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-web) | serwer i klient WWW, harmonogramy, historia telemetrii |
+Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-web)
+(od 2026-09-27; wcześniej to był osobny projekt heatpomp):
 
-Testy E2E z `chpc` szukają tego repozytorium w katalogu `../heatpump` obok
-`chpc` (inną ścieżkę podaje się w zmiennej `CO_DIR`), więc klonuj je poleceniem
-`git clone https://github.com/robertorlowski/heatpomp.git heatpump`.
+| Katalog w chpc-web | Rola |
+|---|---|
+| `devices/co` (ten katalog) | firmware `co` na ESP32 |
+| `devices/chpc` | firmware pompy CHPC (Arduino Pro Mini) |
+| `server`, `client` | serwer i klient WWW, harmonogramy, historia telemetrii |
+| `test/e2e` | testy E2E całego łańcucha |
 
 ## Co robi sterownik
 
@@ -115,12 +115,12 @@ pio test -e native
 | [test_access_point_policy](test/test_access_point_policy/test_main.cpp) | kiedy wyłączyć i włączyć punkt dostępowy `HP-CO-setup` |
 
 **E2E całego łańcucha** (chpc ⇄ RS-485 ⇄ co ⇄ chpc-web ⇄ przeglądarka) są
-w repozytorium `chpc`, w katalogu `test/e2e/`, razem z instrukcją i raportem.
+w `test/e2e/` w katalogu głównym chpc-web; instrukcja w `devices/chpc/test/README.md`.
 Most testowy kompiluje z tego repozytorium pliki `src/operation_parser.cpp`,
 `src/operation_controller.cpp`, `src/modbus_frame.cpp` i
 `src/cop_estimator.cpp`, a ArduinoJson bierze z `.pio/libdeps/native`, więc
 przed pierwszym uruchomieniem E2E wykonaj tu `pio test -e native`. Zmiana nazw
-lub interfejsów tych plików wymaga poprawki w `chpc/test/e2e/build-bridge.sh`.
+lub interfejsów tych plików wymaga poprawki w `test/e2e/build-bridge.sh`.
 
 ## Struktura kodu
 

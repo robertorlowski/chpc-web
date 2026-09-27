@@ -37,15 +37,15 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
   - A reboot is `resetGlobalsLikeReboot()` + `setup()`. It also restarts `millis()` from zero.
   - Long waits use `runMs(ms, 1000..2000)`. Right after a stop, sample densely (`runMs(3000)`), otherwise the RMS power window still carries the old power.
   - Firmware functions that are called before they are defined need a prototype in `chpc_sim.h`. Arduino IDE and PlatformIO add these prototypes automatically; this build does not.
-- **Full chain across all three projects.** `test/e2e/` joins the pieces:
+- **Full chain across all three projects.** `test/e2e/` in the chpc-web root (not in this folder) joins the pieces:
   - `bridge.exe`, built by `build-bridge.sh`, combines the simulated firmware with the real `co` code (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`);
   - `run-e2e.mjs` plays `co`'s HTTP role against a local `chpc-web` and drives the web UI with Playwright and the system Edge.
 
   To run it:
   1. start `npm run local` in chpc-web: a persistent MongoDB in `.local-db/` plus the server on 4001 and the client on 5173;
-  2. `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
+  2. from the chpc-web root: `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
 
-  Results go to `docs/raport-testow/` (`e2e-wyniki.json`, `e2e-log.txt`, screenshots). The folder is created by the run and ignored by git, so it exists only locally.
+  Results go to `test/raport-testow/` in the chpc-web root (`e2e-wyniki.json`, `e2e-log.txt`, screenshots). The folder is created by the run and ignored by git, so it exists only locally.
 
 **Simulation (Wokwi, secondary).** [test-wokwi/](test-wokwi/) (described in its README.md) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
 

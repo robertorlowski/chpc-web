@@ -229,12 +229,12 @@ Seven scenario suites (54 tests) cover:
 pio test -e native
 ```
 
-**Full chain.** [test/e2e/](./test/e2e/) connects:
+**Full chain.** [test/e2e/](../../test/e2e/) in the chpc-web root connects:
 - the simulated firmware;
 - the real logic of the ESP32 master controller;
 - a local copy of the web app, including controller registration and the UI.
 
-See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it. Results are written locally to `docs/raport-testow/`, which is not kept in git.
+See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it. Results are written locally to `test/raport-testow/` in the chpc-web root, which is not kept in git.
 
 ## Simulation (Wokwi)
 

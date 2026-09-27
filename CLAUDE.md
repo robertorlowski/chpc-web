@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Ten plik jest przewodnikiem dla Claude Code (claude.ai/code) i dla ludzi pracujących z tym repozytorium. **chpc-web jest wiodącym projektem całego systemu.** Tu opisany jest cały łańcuch sterowania pompą ciepła, łącznie z dwoma projektami firmware, które mają własne repozytoria. Zmiana kontraktu (pola telemetrii, klucze operacji, komendy RS-485) zaczyna się od tego opisu i musi zostać przeniesiona do wszystkich projektów, których dotyczy.
+Ten plik jest przewodnikiem dla Claude Code (claude.ai/code) i dla ludzi pracujących z tym repozytorium. **chpc-web jest wiodącym projektem całego systemu.** Repozytorium zawiera cały łańcuch sterowania pompą ciepła: serwer, klienta i oba firmware w `devices/`. Zmiana kontraktu (pola telemetrii, klucze operacji, komendy RS-485) zaczyna się od tego opisu i obejmuje wszystkie części, których dotyczy, najlepiej w jednym commicie.
 
 Commity, komentarze i dokumentacja są po polsku.
 
@@ -12,17 +12,23 @@ CHPC (Pro Mini) ⇄ RS-485 ⇄ co (ESP32) ⇄ HTTPS / WebSocket ⇄ chpc-web (se
 DTU Hoymiles (PV) ───────────┘                                   └── MongoDB
 ```
 
-| Projekt | Repozytorium | Lokalnie | Rola |
-|---|---|---|---|
-| **chpc-web** (to repo) | [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-web) | `D:\DevLocal\arduino_src\chpc-web` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
-| **co** | [robertorlowski/heatpomp](https://github.com/robertorlowski/heatpomp) | `D:\DevLocal\arduino_src\heatpump` | firmware ESP32: odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury |
-| **chpc** | [robertorlowski/chpc](https://github.com/robertorlowski/chpc) | `D:\DevLocal\arduino_src\chpc` | firmware pompy (Arduino Pro Mini, fork gonzho000/chpc); testy E2E całego łańcucha |
+Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-web), lokalnie `D:\DevLocal\arduino_src\chpc-web`:
 
-**Gałęzie robocze (stan na 2026-09-24):** chpc-web `device-register` (główna `main`, z niej wdraża Render); heatpump `co-cloud-scheduler` → `origin/co` (główna `main`); chpc `VC---nowa-wersja` (główna `master`). Bieżąca praca nie jest jeszcze scalona z gałęziami głównymi.
+| Katalog | Rola |
+|---|---|
+| `server/`, `client/` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
+| `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; licencja MIT |
+| `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
+| `test/e2e/` | test całego łańcucha (punkt 11) |
+| `scripts/` | środowisko lokalne (`npm run local`) |
 
-Każdy z firmware ma własny `CLAUDE.md` lub `README.md` ze szczegółami. Ten plik zawiera to, co jest potrzebne do pracy nad całym łańcuchem.
+Oba firmware przeniesiono 2026-09-27 z historią z osobnych repozytoriów [heatpomp](https://github.com/robertorlowski/heatpomp) (`main`) i [chpc](https://github.com/robertorlowski/chpc) (`master`); tamte repozytoria nie są już rozwijane. Dawne kopie robocze `D:\DevLocal\arduino_src\heatpump` i `…\chpc` są nieaktualne. Firmware otwiera się w VS Code przez `chpc.code-workspace` (PlatformIO wymaga `platformio.ini` w katalogu głównym folderu), a z terminala: `pio run -d devices/co`, `pio test -d devices/chpc -e native`. Lokalny `devices/co/src/secrets.h` jest poza gitem (wzór: `secrets.example.h`).
 
-**Kolejność wdrożenia.** Jeśli zmiana obejmuje kilka projektów, najpierw wdraża się chpc-web (push na `main` → Render), potem firmware `co`, a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
+**Gałęzie:** praca na `develop`, gałąź główna `main`. Scalanie do `main` i jego push tylko na wyraźne polecenie.
+
+Każdy firmware ma własny `README.md`, a CHPC także `devices/chpc/CLAUDE.md` ze szczegółami. Ten plik zawiera to, co jest potrzebne do pracy nad całym łańcuchem.
+
+**Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`, build na Render uruchamiany ręcznie, nie automatycznie po pushu), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
 
 ## 1. Podział systemu (chpc-web)
 
@@ -535,20 +541,20 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 ### Firmware
 
-- `co`: `pio test -e native` w `heatpump` (64 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP).
-- CHPC: `pio test -e native` w `chpc` (symulacja firmware, 6 zestawów, 44 testy). Dodatkowo scenariusze Wokwi w `chpc/test-wokwi/`.
+- `co`: `pio test -e native` w `devices/co` (64 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP).
+- CHPC: `pio test -e native` w `devices/chpc` (symulacja firmware, 54 testy). Dodatkowo scenariusze Wokwi w `devices/chpc/test-wokwi/`.
 
 Ostatni pełny przebieg (2026-09-24): serwer chpc-web 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
 
 ### E2E całego łańcucha
 
-Testy są w repozytorium `chpc`, w katalogu `test/e2e/`. `bridge.exe` łączy symulowany firmware CHPC z prawdziwym kodem `co` (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`), a `run-e2e.mjs` odgrywa rolę HTTP `co` wobec lokalnego chpc-web i steruje interfejsem przez Playwright z systemowym Edge.
+Testy są w `test/e2e/` (do 2026-09-27 w repozytorium `chpc`). `bridge.exe` łączy symulowany firmware CHPC z prawdziwym kodem `co` (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`), a `run-e2e.mjs` odgrywa rolę HTTP `co` wobec lokalnego chpc-web i steruje interfejsem przez Playwright z systemowym Edge.
 
 1. W chpc-web: `npm run local` (baza, serwer 4001, klient 5173).
-2. W heatpump: `pio test -e native` (pobiera ArduinoJson potrzebny do mostu).
-3. W `chpc/test/e2e`: `npm install && sh build-bridge.sh && node run-e2e.mjs`.
+2. W `devices/co`: `pio test -e native` (pobiera ArduinoJson potrzebny do mostu).
+3. W `test/e2e`: `npm install && sh build-bridge.sh && node run-e2e.mjs` (kod `co` z `devices/co`, inna ścieżka w `CO_DIR`).
 
-Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranów (kroki `01`–`09` oraz `uklad-<strona>-<szerokość>.png` dla 360, 768 i 1280 px). Kopia raportu z opisem (`RAPORT.md`) leży w `chpc-web/test/raport-testow/`, również poza gitem. Test tworzy urządzenie „Pompa testowa (E2E)” w lokalnej bazie.
+Wyniki trafiają do `test/raport-testow/` (tylko lokalnie, poza gitem): `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranów (kroki `01`–`09` oraz `uklad-<strona>-<szerokość>.png` dla 360, 768 i 1280 px), obok raportu z opisem (`RAPORT.md`). Test tworzy urządzenie „Pompa testowa (E2E)” w lokalnej bazie.
 
 ## 12. Najważniejsze zasady systemu
 
@@ -562,11 +568,11 @@ Wyniki trafiają do `chpc/docs/raport-testow/` (tylko lokalnie, poza gitem): `e2
 8. Temperatury harmonogramu mogą być pominięte — wtedy używane są temperatury domyślne.
 9. Wszystkie porównania czasu harmonogramu odbywają się w `Europe/Warsaw`.
 10. Wartości operacji są napisami; nowe pole telemetrii wymaga zmiany schematu Mongo i typów po obu stronach.
-11. Zmiana pola, klucza lub komendy przechodzi przez wszystkie trzy repozytoria, a wdrożenie zaczyna się od chpc-web.
+11. Zmiana pola, klucza lub komendy obejmuje serwer, klienta i oba firmware (`devices/`), a wdrożenie zaczyna się od serwera.
 
-## 13. Sterownik `co` (ESP32, repo heatpomp)
+## 13. Sterownik `co` (ESP32, `devices/co`)
 
-Firmware PlatformIO (`esp32dev`), kod w `src/`. Szczegóły: `README.md` i `docs/server-driven-refactor-2026-09-20.md` w tamtym repozytorium.
+Firmware PlatformIO (`esp32dev`), kod w `devices/co/src/`. Szczegóły: `devices/co/README.md` i `devices/co/docs/server-driven-refactor-2026-09-20.md`.
 
 - **Odczyty.** Co 10 s (sprężarka pracuje) lub 30 s (spoczynek) odpytuje CHPC. 3 s po ostatniej komendzie sterującej z serii czyta pompę od razu, sprawdza, czy komendy doszły, i wysyła świeży stan do `hp/add`; zwykły cykl liczy się wtedy od nowa. Taki szybki odczyt jest najwyżej co 10 s, żeby pompa odrzucająca komendę nie była czytana w kółko. Niezależnie od tego co 60 s i zaraz po starcie odpytuje DTU Hoymiles (Modbus, dwa zapytania po pięć portów: od 0x1000 i od 0x10C8, bo DTU numeruje porty co 0x28 adresów, choć rekord ma 20 rejestrów). Odczyt PV idzie osobno na `pv/add` (sekcja 5a). Szacuje COP zbiornika 300 l w każdym cyklu grzania.
 - **Strony lokalne:** `/telemetry.json` to telemetria HP, a `/pv.json` to odczyt PV z panelami. Odpowiedź RS-485 na zapytanie `0x01` do `co` (adres `0x10`) nadal zawiera `PV` i `pv_power` w jednym JSON-ie.
@@ -596,14 +602,14 @@ Firmware PlatformIO (`esp32dev`), kod w `src/`. Szczegóły: `README.md` i `docs
 
 Na tej samej magistrali (9600 8N1, półdupleks) są: CHPC `0x41`, DTU `0x69` (Modbus RTU z CRC) i sam `co` `0x10`. Transmisję zaczyna tylko `co`: odstęp między komendami co najmniej 500 ms, koniec ramki po 5 ms ciszy, timeout 3 s.
 
-## 14. Firmware CHPC (Pro Mini, repo chpc)
+## 14. Firmware CHPC (Pro Mini, `devices/chpc`)
 
-Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro Mini (ATmega328P). Cały firmware to jeden plik `src/CHPC_firmware.ino`. Szczegóły: `CLAUDE.md` w tamtym repozytorium.
+Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro Mini (ATmega328P). Cały firmware to jeden plik `devices/chpc/src/CHPC_firmware.ino`. Szczegóły: `devices/chpc/CLAUDE.md`.
 
 - Steruje sprężarką, pompami strony gorącej i zimnej, grzałką karteru i zaworem 4-drogowym; prowadzi silnik krokowy EEV, czyta czujniki DS18B20 i mierzy moc przekładnikiem prądowym. Ma wyświetlacz 1602 i przyciski.
 - Zabezpieczenia i ich kody błędów opisuje punkt 5 („Błędy sterownika”). Po 5 błędach sterownik się blokuje: odpowiada po RS-485, ale nie steruje, do czasu `0x10` albo `0x11`.
 - Limit mocy równy dokładnie 3200 W celowo wyłącza zabezpieczenie przepływu („Err CP”).
-- Pamięć Flash jest zajęta w 94,3% (28 964 B, stan na 2026-09-24), więc nowe klucze JSON trzeba dodawać oszczędnie.
+- Pamięć Flash jest zajęta w 95,0% (29 174 B z 30 720 B, stan na 2026-09-27), więc nowe klucze JSON trzeba dodawać oszczędnie.
 - Tryb produkcyjny RS-485 to `RS485_PYTHON`: magistrala niesie tylko odpowiedzi dla `co`. Build `wokwi` (`RS485_HUMAN`) nie może trafić na pompę podłączoną do `co`.
 
 ## 15. Znane niezgodności i otwarte kwestie
