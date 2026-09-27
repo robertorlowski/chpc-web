@@ -369,6 +369,8 @@ Oznacza to, że ręcznie ustawione pola wygrywają nad schedulerem, ale tylko dl
 - scheduler automatycznie wywołuje `clearManualOperation`, gdy przechodzi z aktywnego harmonogramu do braku aktywnego harmonogramu;
 - `consumeManualForceOnStart` (wołane w `/hp/add` po `clearOperation`) usuwa z ręcznych nadpisań samo `force: "1"` przy pierwszym starcie sprężarki (`HP.HPS`: spoczynek → praca) po jego ustawieniu. Inne ręczne pola zostają. Następna odpowiedź niesie jawne `force` z harmonogramu (`forceStart` na czas wpisu) albo `"0"`, bo `co` trzyma ostatnią przysłaną wartość. Bez tego ręczne force działało bez końca: CHPC kasuje force przy każdym stopie, a `co` wysyłał je ponownie. Force ustawione w trakcie pracy czeka na postój i kolejny start.
 
+- zapis z `work_mode`, ale bez `co_pomp`, ustawia w ręcznych nadpisaniach `co_pomp: "1"` (`setManualOperationData`). Samo usunięcie klucza nie działało, bo `co` trzyma ostatnią przysłaną wartość: ręczne `"0"` wyłączało przekaźniki CO/CWU mimo zmiany trybu i restartu sterownika, aż do ręcznego `"1"` (produkcja 27.09, 08:21–08:55). `"1"` działa tak samo jak brak pola (przekaźniki włączone w trybach CO).
+
 Nie ma osobnego przycisku wyłączania operacji ręcznej w interfejsie.
 
 ### Walidacja w trzech miejscach, każda po cichu
@@ -427,7 +429,7 @@ Główne widoki:
 - `/` i `/hp` — bieżący stan pompy;
 - `/data` — tabela danych historycznych;
 - `/chart` — wykresy i podsumowania;
-- `/settings` — ręczne ustawienia operacji (przycisk „Zmień”, komunikat „Polecenie wysłane do sterownika.”), błąd sterownika, „Odblokuj” i „Restart sterownika”, dane sterownika;
+- `/settings` — ręczne ustawienia operacji (przycisk „Zmień”, komunikat „Polecenie wysłane do sterownika.”; checkbox „Pompy CO/CWU” pokazuje rzeczywisty stan przekaźników z telemetrii `co_pomp`, bo `co` przełącza oba razem, i jest zablokowany w trybach `CWU` i `OFF`, w których `co` i tak trzyma je wyłączone; checkbox „Wymuszenie pracy” pokazuje `HP.F` z pompy, czyli wymuszenie od ustawienia do zatrzymania sprężarki, i jest zablokowany w `OFF`; pompy zimnej i ciepłej wody pokazują `HP.CCS` i `HP.HCS`, czyli pracę automatyczną, włączenie komendą albo ochronę przed mrozem; wymuszenie i obie pompy są zablokowane, gdy telemetria przy wejściu na stronę ma `HP.HPS` > 0, bo pompa steruje nimi wtedy sama, a force przyjmuje tylko w spoczynku), błąd sterownika, „Odblokuj” i „Restart sterownika”, dane sterownika;
 - `/schedules` — wartości domyślne i harmonogramy;
 - `/devices` — wybór sterownika i zmiana jego nazwy.
 
@@ -507,6 +509,7 @@ Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy
 - PV: zapis z samym `deviceId`, 404 i 409 przy identyfikacji, wpisanie samego `PV.total_power` do rekordu `hp` (z limitem 3 min, bez nadpisywania `PV` od starszego firmware), pełne PV w `GET /hp`, bilans `monthly-summary`, usuwanie `panels` po 90 dniach;
 - wybór rodzaju harmonogramu przez tryb pracy (`A` → CO, `CWU` → CWU, `M`/`OFF` → żaden) i przerwę `off` w obu trybach harmonogramu;
 - ręczne nadpisanie harmonogramu;
+- przywrócenie `co_pomp: "1"` przy zmianie trybu w operacji ręcznej;
 - przełączenie trybu `M` na `A` po północy;
 - automatyczne wyczyszczenie operacji ręcznej;
 - temperatury domyślne przy pustym harmonogramie;

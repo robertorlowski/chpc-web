@@ -162,6 +162,33 @@ describe('Schedules and manual operation control', () => {
     });
   });
 
+  it('restores the CO pump when the work mode changes without co_pomp', async () => {
+    const setManual = (body: Record<string, string>) => request(app)
+      .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send(body)
+      .expect(201);
+
+    await setManual({ work_mode: 'M' });
+    await setManual({ co_pomp: '0' });
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'M', co_pomp: '0' });
+
+    // same pole bez trybu nie zmienia co_pomp
+    await setManual({ co_max: '46' });
+    expect(getManualOperationData(rootId)).toMatchObject({ co_pomp: '0' });
+
+    await setManual({ work_mode: 'CWU' });
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'CWU', co_pomp: '1' });
+
+    // tryb i co_pomp w jednym zapisie: wygrywa jawna wartość
+    await setManual({ work_mode: 'M', co_pomp: '0' });
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'M', co_pomp: '0' });
+
+    // wartość zostaje po obsłużeniu /hp/add
+    await setManual({ work_mode: 'M' });
+    clearOperation(rootId);
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'M', co_pomp: '1' });
+  });
+
   const coAndCwuSchedules = () => [
       {
         type: ScheduleType.CWU,

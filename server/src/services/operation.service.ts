@@ -47,9 +47,13 @@ export const getManualOperationData = (rootId: string) => {
   return manualOperations.get(rootId) ?? {};
 };
 
+// Zmiana trybu pracy bez co_pomp przywraca pompy CO/CWU ("1"). Samo usunięcie klucza
+// nie wystarczy: co trzyma ostatnią przysłaną wartość, więc ręczne "0" wyłączałoby
+// przekaźniki także po zmianie trybu i restarcie sterownika, aż do ręcznego "1".
 export const setManualOperationData = (rootId: string, data: OperationEntry) => {
   const manualOperation = {
     ...getManualOperationData(rootId),
+    ...(data.work_mode !== undefined ? { co_pomp: '1' } : {}),
     ...data,
   };
 

@@ -8,6 +8,8 @@ import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { useDevice } from '../../context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
+const RUNNING_LOCK_HINT = "Sprężarka pracuje: pompy działają automatycznie, a wymuszenie pompa przyjmuje tylko w spoczynku";
+
 export const Settings: React.FC = () => {
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
@@ -17,13 +19,19 @@ export const Settings: React.FC = () => {
 	const [editingDevice, setEditingDevice] = useState(false);
 	const [lastError, setLastError] = useState<HpEntry | null>(null);
 	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
+	// sprężarka pracuje: pompa sama steruje pompami, a wymuszenie przyjmuje tylko w spoczynku
+	const [running, setRunning] = useState(false);
 
 	useEffect(() => {
 		HpRequests.getHpLastError()
 			.then((resp) => setLastError(resp))
 			.catch((err) => console.log(err));
 		HpRequests.getCoData()
-			.then((resp) => setErrorCount(resp?.HP?.ERRc))
+			.then((resp) => {
+				setErrorCount(resp?.HP?.ERRc);
+				// HPS przychodzi z CHPC jako 0/1
+				setRunning(Number(resp?.HP?.HPS) > 0);
+			})
 			.catch((err) => console.log(err));
 	}, []);
 
@@ -46,6 +54,12 @@ export const Settings: React.FC = () => {
 	};
 
 	
+	// co włącza przekaźniki CO/CWU tylko w trybach CO; w CWU i OFF co_pomp nic nie zmienia
+	const selectedWorkMode = valueOpration.work_mode || defaultOperation.work_mode;
+	const coPompEditable = selectedWorkMode === 'M' || selectedWorkMode === 'A';
+	// w OFF co zawsze wysyła do pompy force 0; w czasie pracy CHPC ignoruje force
+	const forceEditable = selectedWorkMode !== 'OFF' && !running;
+
 	const enableSave = useMemo(() => {
 		return Object.entries(valueOpration).length > 0;
 	}, [valueOpration]);
@@ -81,7 +95,14 @@ export const Settings: React.FC = () => {
 			if (response?.status === 201) {
 				showSaveNotice();
 				// telemetria pokaże zmianę dopiero po 10-30 s; bez tego pola wracają do starych wartości
-				setDefaultOperation({...defaultOperation, ...valueOpration});
+				// zmiana trybu bez co_pomp: serwer przywraca "1", a co włącza pompy tylko w trybach CO
+				const saved = {...defaultOperation, ...valueOpration};
+				if (valueOpration.work_mode) {
+					const coMode = valueOpration.work_mode === 'M' || valueOpration.work_mode === 'A';
+					saved.co_pomp = coMode ? (valueOpration.co_pomp ?? "1") : "0";
+					if (valueOpration.work_mode === 'OFF') saved.force = "0";
+				}
+				setDefaultOperation(saved);
 			}
 			setValueOperation({});
 			HpRequests.getOperation()
@@ -216,20 +237,27 @@ export const Settings: React.FC = () => {
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Wymuszenie pracy:</span>
 						<input
-							title="Wymuszenie pracy:"
+							title={running
+								? RUNNING_LOCK_HINT
+								: forceEditable
+									? "Wymuszenie pracy (pompa kasuje je po zatrzymaniu sprężarki)"
+									: "W trybie OFF sterownik nie wymusza pracy"}
 							type="checkbox"
-							placeholder = { valueOpration.force }
-							checked={ valueOpration.force === "1" }
+							disabled={!forceEditable}
+							checked={(valueOpration.force ?? defaultOperation.force) === "1"}
 							onChange={(e) => setValueOperation({...valueOpration, force: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
 
 					<div style={{ minWidth: '240px' }}>
-						<span className="label">Pompa CO:</span>
+						<span className="label">Pompy CO/CWU:</span>
 						<input
-							title="Pompa CO"
+							title={coPompEditable
+								? "Pompy CO/CWU (sterownik przełącza obie razem)"
+								: "Tylko w trybach CO; w CWU i OFF sterownik trzyma pompy wyłączone"}
 							type="checkbox"
 							name="coPomp"
+							disabled={!coPompEditable}
 							checked={(valueOpration.co_pomp ?? defaultOperation.co_pomp) === "1"}
 							onChange={(e) => setValueOperation({...valueOpration, co_pomp: e.target.checked ? "1" : "0" })}
 						/>
@@ -238,11 +266,11 @@ export const Settings: React.FC = () => {
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Pompa zimnej wody:</span>
 						<input
-							title="Pompa zimnej wody"
 							type="checkbox"
 							name="coldPomp"
-							placeholder = {defaultOperation.cold_pomp }
-							checked={ valueOpration.cold_pomp === "1" }
+							title={running ? RUNNING_LOCK_HINT : "Pompa zimnej wody"}
+							disabled={running}
+							checked={(valueOpration.cold_pomp ?? defaultOperation.cold_pomp) === "1"}
 							onChange={(e) => setValueOperation({...valueOpration, cold_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
@@ -250,11 +278,11 @@ export const Settings: React.FC = () => {
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Pompa ciepłej wody:</span>
 						<input
-							title="Pompa ciepłej wody"
 							type="checkbox"
 							name="hotPomp"
-							placeholder= {defaultOperation.hot_pomp}
-							checked={ valueOpration.hot_pomp === "1" }
+							title={running ? RUNNING_LOCK_HINT : "Pompa ciepłej wody"}
+							disabled={running}
+							checked={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"}
 							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>

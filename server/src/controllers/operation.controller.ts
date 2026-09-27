@@ -16,13 +16,13 @@ export async function prepareOperation(req: Request, res: Response) {
     op.co_max = data?.co_max;
     op.cwu_min = data?.cwu_min,
     op.cwu_max = data?.cwu_max,
-    // op.cold_pomp = data?.HP?.CCS ? "1" : "0";
-    // op.hot_pomp = data?.HP?.HCS ? "1" : "0";
+    // rzeczywisty stan pomp: praca automatyczna, włączenie komendą albo ochrona przed mrozem
+    op.cold_pomp = data?.HP?.CCS ? "1" : "0";
+    op.hot_pomp = data?.HP?.HCS ? "1" : "0";
     // op.sump_heater = data?.HP?.SHS ? "1" : "0";
-    op.cold_pomp = "0";
-    op.hot_pomp = "0";
     op.sump_heater = "0";
-    op.co_pomp = "0"
+    // rzeczywisty stan przekaźników CO/CWU zgłoszony przez co, nie ostatnie ustawienie
+    op.co_pomp = data?.co_pomp ? "1" : "0";
     op.work_mode = data?.work_mode;
     op.eev_max_pulse_open = String(data?.HP?.EEVmax);
     op.eev_min_pulse_open = String(data?.HP?.EEVmin);
