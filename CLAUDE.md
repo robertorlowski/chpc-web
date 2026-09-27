@@ -69,7 +69,7 @@ Wartości konfiguracyjne:
 - `PORT` — port HTTP;
 - `API_KEY` — klucz używany przez middleware autoryzacji; bez niego chronione ścieżki dostają 403.
 
-Wartości są tylko w zmiennych środowiskowych: na Render w Environment usługi, lokalnie w `server/.env` (poza gitem, wzór w [`server/.env.example`](server/.env.example)). W kodzie nie ma wartości domyślnych. Do 2026-09-27 adres z hasłem użytkownika `hp` był wpisany w `server.ts` i jest w historii publicznego repozytorium; ten użytkownik ma zostać usunięty w Atlasie, produkcja łączy się jako `driver`.
+Wartości są tylko w zmiennych środowiskowych: na Render w Environment usługi, lokalnie w `server/.env` (poza gitem, wzór w [`server/.env.example`](server/.env.example)). W kodzie nie ma wartości domyślnych. Do 2026-09-27 adres z hasłem użytkownika `hp` był wpisany w `server.ts` i jest w historii publicznego repozytorium; ten użytkownik został usunięty w Atlasie (2026-09-27), produkcja łączy się jako `driver`.
 
 Middleware `verifyApiKey` jest obecnie zaimportowany, ale `app.use(verifyApiKey)` w [`server/src/middleware/app.ts`](server/src/middleware/app.ts) jest zakomentowane. Oznacza to, że w aktualnym stanie aplikacji kontrola klucza API nie jest globalnie aktywna.
 
