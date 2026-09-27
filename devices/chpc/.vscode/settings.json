@@ -1,0 +1,9 @@
+{
+    "C_Cpp.files.exclude": {
+        "**/archiwum": true,
+        "**/.pio": true
+    },
+    "search.exclude": {
+        "**/archiwum": true
+    }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "chpc-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Test pełnego łańcucha chpc (symulacja) <-> co (logika) <-> chpc-web (lokalny serwer i klient)",
+  "scripts": {
+    "build": "sh build-bridge.sh",
+    "e2e": "node run-e2e.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

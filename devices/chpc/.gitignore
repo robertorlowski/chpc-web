@@ -1,0 +1,8 @@
+/ki
+.pio/
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch/
+.wokwi-token
+docs/raport-testow/
+logs/

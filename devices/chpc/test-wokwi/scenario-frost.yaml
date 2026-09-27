@@ -1,0 +1,95 @@
+name: 'CHPC: ochrona przed zamarzaniem (obieg gorący)'
+version: 1
+author: 'CHPC'
+
+steps:
+  # --- pierwszy start: wykrywanie czujników (pętla w setup()) ---
+  - wait-serial: 'ID: 0x41'
+  - wait-serial: 'Insert Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 0 }
+  - wait-serial: 'Insert Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 0 }
+  - wait-serial: 'Insert Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 0 }
+
+  # Tsump, Tci, Tco, Thi, Tho: pomijane przyciskiem ">"
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tsump'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tci'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tco'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Thi'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tho'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # Tbc: podłączony
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbc'
+  - set-control: { part-id: cTbc, control: pressed, value: 0 }
+
+  # Tac, Touter, Tcwu: pomijane
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tac'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Touter'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tcwu'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # wszystkie czujniki na magistrali
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - delay: 3000ms
+
+  # koniec POWERON_PAUSE (90 s od startu), sprężarka stoi (Ttarget 30 > setpoint - delta)
+  - delay: 40000ms
+  - delay: 3000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"HCS":0'
+  - delay: 600ms
+
+  # Tbe spada do -1 C -> obieg gorący włączony
+  - set-control: { part-id: sTbe, control: temperature, value: -1 }
+  - delay: 3000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"HCS":1'
+  - delay: 600ms
+
+  # Tbe 1 C (poniżej T_FROST_OFF) -> nadal włączony (histereza)
+  - set-control: { part-id: sTbe, control: temperature, value: 1 }
+  - delay: 3000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"HCS":1'
+  - delay: 600ms
+
+  # Tbe 3 C, wszystkie >= 2 C -> obieg gorący wyłączony
+  - set-control: { part-id: sTbe, control: temperature, value: 3 }
+  - delay: 3000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"HCS":0'

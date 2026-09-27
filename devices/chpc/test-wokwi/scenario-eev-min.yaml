@@ -1,0 +1,163 @@
+name: 'CHPC: minimum i maksimum EEV (przyciski, RS-485 0x0F/0x0D)'
+version: 1
+author: 'CHPC'
+
+steps:
+  # --- pierwszy start: wykrywanie czujników (pętla w setup()) ---
+  - wait-serial: 'ID: 0x41'
+  - wait-serial: 'Insert Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tae'
+  - set-control: { part-id: cTae, control: pressed, value: 0 }
+  - wait-serial: 'Insert Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbe'
+  - set-control: { part-id: cTbe, control: pressed, value: 0 }
+  - wait-serial: 'Insert Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Ttarget'
+  - set-control: { part-id: cTtarget, control: pressed, value: 0 }
+
+  # Tsump, Tci, Tco, Thi, Tho: pomijane przyciskiem ">"
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tsump'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tci'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tco'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Thi'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tho'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # Tbc: podłączony
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - wait-serial: 'OK! Remove Tbc'
+  - set-control: { part-id: cTbc, control: pressed, value: 0 }
+
+  # Tac, Touter, Tcwu: pomijane
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tac'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Touter'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+  - wait-serial: 'Press > to skip'
+  - set-control: { part-id: btnRight, control: pressed, value: 1 }
+  - wait-serial: 'Skipped Tcwu'
+  - set-control: { part-id: btnRight, control: pressed, value: 0 }
+
+  # wszystkie czujniki na magistrali
+  - set-control: { part-id: cTae, control: pressed, value: 1 }
+  - set-control: { part-id: cTbe, control: pressed, value: 1 }
+  - set-control: { part-id: cTtarget, control: pressed, value: 1 }
+  - set-control: { part-id: cTbc, control: pressed, value: 1 }
+  - delay: 3000ms
+
+  # wartości domyślne
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"67","EEVmin":"49"'
+  - delay: 600ms
+
+  # menu: 9 naciśnięć przycisku "menu" -> pozycja INPUT_TYPE_EEV_MIN
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btn3, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btn3, control: pressed, value: 0 }
+  - delay: 1000ms
+  # 4 x "<": minimum 49 -> 45
+  - set-control: { part-id: btnLeft, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 0 }
+  - delay: 1000ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 1 }
+  - delay: 100ms
+  - set-control: { part-id: btnLeft, control: pressed, value: 0 }
+  - delay: 1000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"67","EEVmin":"45"'
+  - delay: 600ms
+
+  # RS-485 0x0F: minimum 70 >= maksimum 67 -> maksimum podniesione do 71
+  - write-serial: [0x41, 0x0F, 70, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"71","EEVmin":"70"'
+  - delay: 600ms
+
+  # RS-485 0x0D: maksimum 40 <= minimum 70 -> minimum obniżone do 39
+  - write-serial: [0x41, 0x0D, 40, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'
+  - delay: 600ms
+
+  # poza zakresem: minimum 20 < 25 i maksimum 25 <= 25 ignorowane
+  - write-serial: [0x41, 0x0F, 20, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x0D, 25, 0, 0xFF]
+  - delay: 600ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'
+  - delay: 600ms
+
+  # restart: obie wartości wczytane z EEPROM
+  - set-control: { part-id: btnReset, control: pressed, value: 1 }
+  - delay: 200ms
+  - set-control: { part-id: btnReset, control: pressed, value: 0 }
+  - wait-serial: 'ID: 0x41'
+  - delay: 4000ms
+  - write-serial: [0x41, 0x01, 0x00, 0x00, 0xFF]
+  - wait-serial: '"EEVmax":"40","EEVmin":"39"'
