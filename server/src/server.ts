@@ -22,7 +22,12 @@ const cleanPanelDetails = async () => {
 const server = http.createServer(app);
 createWsServer(server);
 
-const MONGODB_URI =  process.env.MONGODB_URI ?? "mongodb+srv://hp:QzzlrWEruB3ZbE2S@hp.e4k0pox.mongodb.net/hpdb?retryWrites=true&w=majority&appName=hp";
+// adres z hasłem tylko w zmiennej środowiskowej (Render: Environment, lokalnie server/.env)
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error("Brak MONGODB_URI: ustaw zmienną środowiskową albo server/.env (wzór w server/.env.example)");
+  process.exit(1);
+}
 
 const PORT = Number(process.env.PORT ?? 3001);
 

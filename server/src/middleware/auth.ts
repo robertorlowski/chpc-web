@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const API_KEY = process.env.API_KEY || 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510';
+// bez domyślnej wartości: brak API_KEY oznacza odmowę, a nie klucz znany z repozytorium
+const API_KEY = process.env.API_KEY;
 
 export function verifyApiKey(req: Request, res: Response, next: NextFunction): void {
   if (req.method === 'OPTIONS') {
@@ -13,7 +14,7 @@ export function verifyApiKey(req: Request, res: Response, next: NextFunction): v
   
   const apiKey = req.header('x-api-key');
   if (req.path == "/api/operation/set" || req.path == "/hp/clear" ) {
-    if (!apiKey || apiKey !== API_KEY ) {
+    if (!API_KEY || !apiKey || apiKey !== API_KEY ) {
       res.status(403).json({ error: 'Forbidden: Invalid API Key' });
       return;
     }
