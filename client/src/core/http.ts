@@ -3,7 +3,13 @@ import { getSelectedDevice } from './context/DeviceContext';
 // Połączenie z serwerem: adresy API i WebSocket oraz zapytania z kontekstem
 // wybranego urządzenia (rootId, deviceId). API poszczególnych rodzajów
 // sterowników jest w devices/<rodzaj>/api.ts, a urządzeń w core/api.ts.
+//
+// Uwaga na różną obsługę błędów: get zwraca null (nie rzuca), post połyka wyjątek i zwraca
+// undefined (z json = false zwraca Response, więc wywołujący sprawdza status), a put i delete
+// rzucają wyjątek przy statusie innym niż 2xx.
 
+// Dopisuje rootId i deviceId wybranego sterownika. Czyta wybór wprost z localStorage
+// (getSelectedDevice), bo jest wołana poza komponentami React; serwer (device-context) wymaga rootId.
 function withDeviceContext(path: string, includeDevice: boolean) {
   if (!includeDevice) return path;
 
@@ -19,6 +25,9 @@ function withDeviceContext(path: string, includeDevice: boolean) {
 // pozwala otworzyć klienta z telefonu w sieci lokalnej (npm run local -- --host)
 const devServerHost = () => window.location.hostname;
 
+// Adres WebSocket serwera; ?rootId=… dopisuje wywołujący (widok główny pompy), bez niego serwer
+// zamyka połączenie. Serwer przyjmuje dowolną ścieżkę, klient łączy się na ścieżkę główną.
+// Produkcja: stały adres Render; build nie ma konfiguracji adresu przez zmienne środowiskowe.
 export const wsAddressServer = () => {
   if (import.meta.env.DEV)
     return  `ws://${devServerHost()}:4001`
@@ -34,6 +43,8 @@ function prefixMocks(path: string) {
 
 }
 
+// x-api-key jest wkompilowany w klienta, więc jawny dla każdego; kontrola klucza na serwerze
+// (verifyApiKey) jest obecnie wyłączona.
 export class Requests {
   static async get(path: string, includeDevice = true) {
     // console.log(prefixMocks(path));

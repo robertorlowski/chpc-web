@@ -1,3 +1,5 @@
+// Rejestr rodzajów sterowników dla części wspólnej: zgłoszenie (device.service,
+// device.controller) bierze stąd ustawienia startowe i ustawienia dla sterownika.
 import { DeviceType, DeviceTypeModule } from './types';
 import { heatPumpDeviceType } from '../modules/heat-pump/device-type';
 import { waterPressureTankDeviceType } from '../modules/water-pressure-tank/device-type';

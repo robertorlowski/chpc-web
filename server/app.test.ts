@@ -1,3 +1,7 @@
+// Testy API wspólnego i telemetrii pompy (supertest na core/app, baza w
+// mongodb-memory-server, meteo zamockowane): ostatnia telemetria, zapis EEVmin,
+// zdarzenia błędów CHPC (okno 24 h, blokada ERRc >= 5), akcje jednorazowe,
+// zgłoszenie i zmiana nazwy sterownika, t_out w odpowiedzi /hp/add, starsze settings.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'

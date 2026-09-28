@@ -1,5 +1,11 @@
+// WebSocket na tym samym porcie co HTTP (ścieżka dowolna, w praktyce /ws?rootId=…).
+// Łączą się sterownik co i przeglądarki. Serwer tylko powiadamia: "operation"
+// (setOperationAction) budzi co, żeby od razu wysłał /hp/add; "update" (addHpData)
+// każe klientowi odświeżyć dane. Treść wiadomości przychodzących jest tylko logowana.
 import WebSocket, { WebSocketServer } from 'ws';
 
+// połączenie -> rootId; sterownik i przeglądarki tego samego urządzenia są
+// nierozróżnialne, więc każdy komunikat trafia do wszystkich
 const espClients = new Map<WebSocket, string>();
 
 export const createWsServer = (server: any) => {
@@ -32,6 +38,9 @@ export const createWsServer = (server: any) => {
 
 }
 
+// Wysyła {type: message, rootId} do połączeń danego urządzenia z opóźnieniem 1 s,
+// czyli już po zakończeniu bieżącego żądania (zapis w bazie, odpowiedź HTTP).
+// Nie czeka na dostarczenie i nie kolejkuje: niepołączony odbiorca go nie dostanie.
 export const sendMessage = async (message: String, rootId: string) => {
  if (!message) {
     return;

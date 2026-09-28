@@ -1,3 +1,4 @@
+/* Lista sterowników (/devices): kafelki obok siebie, na telefonie jeden pod drugim; gwiazdka domyślnego i ołówek edycji w rogach. */
 .device-selection {
   display: flex;
   flex-direction: column;

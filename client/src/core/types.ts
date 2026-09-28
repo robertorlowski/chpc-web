@@ -2,8 +2,10 @@ import type { ReactElement, ReactNode } from 'react';
 import type { WorkMode } from '../devices/heat-pump/types';
 import type { WaterTank } from '../devices/water-pressure-tank/types';
 
-// Typy części wspólnej: urządzenie i jego ustawienia.
+// Typy części wspólnej: urządzenie i jego ustawienia oraz opis rodzaju sterownika dla rejestru
+// (device-types.tsx). Odpowiadają dokumentom kolekcji devices (GET /api/devices, /api/device/properties).
 
+// Wartości deviceType z bazy; nowy rodzaj wymaga też wpisu w rejestrze device-types.tsx.
 export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
@@ -24,6 +26,8 @@ export type DeviceProperties = {
   tanks?: WaterTank[];
 };
 
+// rootId to _id dokumentu w MongoDB, deviceId to SN sterownika (MAC ESP32); pusta nazwa
+// oznacza sterownik zarejestrowany automatycznie (w interfejsie deviceLabel pokazuje wtedy deviceId).
 export type Device = {
   rootId: string;
   deviceType: DeviceType;

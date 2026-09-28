@@ -1,3 +1,4 @@
+/* Komunikat po zapisie (Notification) w prawym dolnym rogu, nad stopką. */
 .notification {
   position: fixed;
   right: 1.25rem;

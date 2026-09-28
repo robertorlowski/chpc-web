@@ -1,6 +1,11 @@
+// Kontekst urządzenia dla każdego żądania /api (montowany w core/app.ts):
+// z ?rootId= (albo ?deviceId= dla endpointów sterownika) ustala req.deviceRootId,
+// z którego korzystają wszystkie kontrolery. 400 bez identyfikatora, 404 dla
+// nieznanego urządzenia, 409 gdy rootId sterownika należy do innego deviceId.
 import { NextFunction, Request, Response } from 'express';
 import { DeviceModel } from '../models/device.model';
 
+// ścieżki względem /api (req.path w routerze montowanym pod /api)
 const publicPaths = new Set(['/devices', '/devices/register']);
 
 // Endpointy sterownika: urządzenie wskazuje rootId albo sam deviceId (SN),
@@ -28,6 +33,8 @@ export async function resolveDeviceContext(
   try {
     const device = rootId
       ? await DeviceModel.findById(rootId).select('_id deviceId').lean()
+      // szukanie po samym deviceId, bez rodzaju: SN (MAC) jest unikalny w praktyce,
+      // ale baza tego nie wymusza (registerDevice szuka po parze rodzaj + deviceId)
       : await DeviceModel.findOne({ deviceId }).select('_id deviceId').lean();
 
     if (!device) {
@@ -43,6 +50,7 @@ export async function resolveDeviceContext(
     req.deviceRootId = String(device._id);
     return next();
   } catch {
+    // findById rzuca CastError dla rootId, który nie jest ObjectId
     return res.status(400).json({ message: 'Nieprawidłowy rootId.' });
   }
 }

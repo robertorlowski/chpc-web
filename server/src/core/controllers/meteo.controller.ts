@@ -1,3 +1,5 @@
+// GET /api/temperature: ostatnia temperatura z IMGW z pamięci ({temperature: null},
+// dopóki serwer nic nie pobrał). Wymaga rootId jak inne trasy, choć go nie używa.
 import { getTemperature as getTemperatureData } from "../services/meteo.service";
 import { Request, Response } from 'express'
 

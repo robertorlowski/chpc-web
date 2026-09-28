@@ -1,4 +1,6 @@
 
+// Operacje na kolekcji devices dla device.controller: tworzenie, zgłoszenie
+// sterownika, nazwa, sterownik domyślny i ustawienia (properties).
 import { DeviceProperties, DeviceType } from '../types';
 import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
@@ -8,6 +10,8 @@ export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault';
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
 
+// POST /devices (ręcznie, test E2E). W odróżnieniu od registerDevice nadaje
+// nazwę równą deviceId i nie ustawia properties rodzaju sterownika.
 export async function createDevice(
   deviceType: DeviceType,
   deviceId: string,
@@ -26,6 +30,9 @@ export async function createDevice(
 
 // Znany sterownik dostaje swój rekord z powrotem, nowy zostaje utworzony.
 // Nazwa ze zgłoszenia trafia tylko do nowego urządzenia; później nadaje ją użytkownik.
+// Znane urządzenie nie jest zmieniane (ani nazwa, ani properties).
+// Szuka po parze rodzaj + deviceId: ten sam SN zgłoszony z innym rodzajem
+// utworzyłby drugie urządzenie.
 export async function registerDevice(
   deviceType: DeviceType,
   deviceId: string,
@@ -77,6 +84,8 @@ export async function getDeviceProperties(rootId: string): Promise<DevicePropert
   return device.properties ?? {};
 }
 
+// $set całego properties: pominięte klucze znikają (poza wartościami domyślnymi
+// schematu, np. work_mode = CWU).
 export async function updateDeviceProperties(rootId: string, properties: DeviceProperties): Promise<DeviceProperties> {
   const device = await DeviceModel.findByIdAndUpdate(
     rootId,

@@ -1,3 +1,7 @@
+// Testy schedulera i operacji ręcznych (runSchedulerOnce z podanym czasem, baza w
+// mongodb-memory-server): wybór harmonogramów przez tryb pracy, temperatury domyślne,
+// brak co_pomp, nadpisania ręczne i ich czyszczenie, co_pomp "1" przy zmianie trybu,
+// M -> A po północy, dni wolne i święta, CWU poza harmonogramem, jednorazowe force.
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';

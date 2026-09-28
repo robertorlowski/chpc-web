@@ -1,3 +1,6 @@
+// Popup „Dane sterownika” (zmiana nazwy przez PUT /api/devices/:rootId). Otwierany z kafelka
+// na liście sterowników (pages/Devices) i z sekcji „Sterownik” w Ustawieniach pompy i hydroforu.
+// Zamykany przyciskiem Anuluj, klawiszem Esc albo kliknięciem w tło.
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../api';
 import { Device } from '../types';
@@ -28,6 +31,7 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
     setSaving(true);
     setError('');
     try {
+      // pusta nazwa jest dozwolona (wraca wyświetlanie deviceId); onSaved dostaje całe urządzenie z nową nazwą
       const updated = await DeviceRequests.updateDeviceName(device.rootId, name.trim());
       onSaved({ ...device, name: updated.name });
     } catch {

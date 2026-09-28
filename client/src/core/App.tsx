@@ -1,3 +1,6 @@
+// Szkielet aplikacji: router, strażnik wyboru sterownika (DeviceGuard), menu, trasy z rejestru
+// rodzajów sterowników (device-types.tsx) i stopka „Aktywne urządzenie”. Montowany w index.tsx.
+// Serwer: GET /api/devices (lista sterowników, sterownik domyślny isDefault).
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Devices } from './pages/Devices';
@@ -12,10 +15,13 @@ import { allDevicePaths, getDeviceTypeView } from './device-types';
 // domyślnego z bazy; późniejsza zmiana w stopce obowiązuje do końca sesji.
 const defaultAppliedKey = 'chpc.defaultApplied';
 
+// porównanie pól pokazywanych w interfejsie; rootId jest już równy (szukany po nim)
 const sameDevice = (a: Device, b: Device) =>
 	a.deviceId === b.deviceId && a.name === b.name && a.deviceType === b.deviceType
 	&& a.isDefault === b.isDefault;
 
+// Strażnik: bez wybranego sterownika każda ścieżka poza /devices przekierowuje na listę
+// z state.auto, a lista sama wybiera wtedy sterownik domyślny albo jedyny (pages/Devices).
 function DeviceGuard({ children }: { children: React.ReactNode }) {
 	const { device, selectDevice, clearDevice } = useDevice();
 	const location = useLocation();
@@ -33,6 +39,9 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 		});
 	}, [device?.rootId]);
 
+	// tylko przy montowaniu (otwarcie aplikacji albo przeładowanie strony): gdy wybór był już
+	// w localStorage, a w bazie domyślny jest inny sterownik, przełącza na domyślny. Bez wyboru
+	// flaga nie jest ustawiana, bo domyślny wybierze strona /devices (state.auto).
 	useEffect(() => {
 		if (!device || sessionStorage.getItem(defaultAppliedKey)) return;
 		sessionStorage.setItem(defaultAppliedKey, '1');
@@ -49,6 +58,7 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
+// Stała stopka z nazwą aktywnego sterownika i przejściem na /devices (zmiana sterownika).
 function DeviceFooter() {
 	const { device } = useDevice();
 	const [deviceCount, setDeviceCount] = useState<number | null>(null);
@@ -91,6 +101,8 @@ function DeviceRoute({ path }: { path: string }) {
 	return <Fragment key={device?.rootId}>{element}</Fragment>;
 }
 
+// Na liście sterowników (/devices) nie ma menu: bez wybranego sterownika nie wiadomo, jakie widoki pokazać.
+// Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
 	const isDeviceSelection = location.pathname === '/devices';

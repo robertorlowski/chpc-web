@@ -1,4 +1,6 @@
-// middleware/mockResponse.ts
+// core/middleware/mock-response.ts
+// Pozostałość: odpowiedzi testowe z plików src/mock-responses/<service>.json.
+// Nieużywane w kodzie serwera, a katalog mock-responses nie istnieje.
 import fs from 'fs';
 import path from 'path';
 

@@ -1,0 +1,160 @@
+# Moduł core — dokumentacja techniczna
+
+[← Dokumentacja systemu](../../README.md) · [1. Opis biznesowy](1-opis-biznesowy.md) · [2. Zasada działania](2-zasada-dzialania.md) · **3. Dokumentacja techniczna** · [English](../../en/moduly/core/3-technical-documentation.md)
+
+## Pliki — serwer (`server/src`)
+
+| Plik | Rola |
+|---|---|
+| `server.ts` | punkt startowy: MongoDB, scheduler pompy, czyszczenie paneli PV, meteo, nasłuch HTTP i WebSocket |
+| `core/app.ts` | aplikacja Express: CORS, JSON, `device-context` i trasy pod `/api` |
+| `core/routes.ts` | składa trasy: urządzenia i `/temperature` z core oraz `routes.ts` każdego modułu |
+| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties` (jedno pole ustawień dla wszystkich rodzajów), `DeviceTypeModule` |
+| `core/device-types.ts` | rejestr rodzajów sterowników: `DeviceType` → opis modułu (`device-type.ts`) |
+| `core/time.ts` | `TIME_ZONE = Europe/Warsaw`, granice doby w Warszawie jako zakres UTC |
+| `core/websocket.ts` | serwer WebSocket (`/ws?rootId=`), `sendMessage(typ, rootId)` z opóźnieniem 1 s |
+| `core/middleware/device-context.ts` | ustala urządzenie z `rootId` albo (dla ścieżek sterownika) z `deviceId`; 400/404/409 |
+| `core/middleware/auth.ts` | `verifyApiKey` — **nieużywane** (wyłączone w `app.ts`) |
+| `core/middleware/mock-response.ts` | pozostałość, nieużywane |
+| `core/models/device.model.ts` | model Mongoose `devices`: schemat urządzenia, `properties`, osadzone harmonogramy i starsze `settings` |
+| `core/controllers/device.controller.ts` | obsługa tras urządzeń; odpowiedź zgłoszenia z `settings` z rejestru |
+| `core/controllers/meteo.controller.ts` | `GET /temperature` |
+| `core/services/device.service.ts` | lista, utworzenie, zgłoszenie, nazwa, domyślny, odczyt i zapis `properties` |
+| `core/services/device-info.service.ts` | typ i `deviceId` urządzenia w pamięci (do rekordów danych modułów) |
+| `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie |
+| `core/services/meteo.service.ts` | temperatura ze stacji IMGW Zakopane |
+
+## Pliki — klient (`client/src`)
+
+| Plik | Rola |
+|---|---|
+| `index.tsx` | punkt wejścia: `DeviceProvider` + `App` |
+| `style.css` | style globalne (układ, nagłówek, stopka, reguły telefonu `@media (max-width: 560px)`) |
+| `core/App.tsx` | routing, `DeviceGuard` (wymusza wybór sterownika, przełącza na domyślny), `DeviceRoute`, stopka |
+| `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, ekrany menu, dodatkowe trasy) |
+| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
+| `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika |
+| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, `properties` |
+| `core/context/DeviceContext.tsx` | wybrany sterownik (stan + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
+| `core/components/Header.tsx` | menu z rejestru |
+| `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
+| `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
+| `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) |
+| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek |
+| `core/pages/_404.tsx` | pozostałość, nieużywane |
+
+## API
+
+Wszystkie adresy mają przedrostek `/api`. Poza ścieżkami publicznymi zapytanie musi mieć `?rootId=` (klient dodaje go sam, razem z `deviceId`).
+
+| Metoda i ścieżka | Kontekst | Opis | Odpowiedzi |
+|---|---|---|---|
+| `GET /devices` | publiczna | lista urządzeń: `rootId`, `deviceType`, `deviceId`, `name`, `isDefault` | 200 |
+| `POST /devices` | publiczna | ręczne utworzenie (nieużywane przez klienta; używa go test E2E) | 201; 400 gdy SN istnieje |
+| `POST /devices/register` | publiczna | zgłoszenie sterownika `{deviceId, deviceType?, name?}`; `deviceType` domyślnie `heat_pump` | 201 nowe, 200 znane (+ `settings` dla rodzajów z `controllerSettings`); 400 brak SN / nieznany typ |
+| `PUT /devices/:rootId` | publiczna | zmiana nazwy `{name}` (pusta dozwolona) | 200; 400; 404 |
+| `PUT /devices/:rootId/default` | publiczna | sterownik domyślny `{isDefault}` (bez pola: ustawia); zdejmuje znacznik z pozostałych | 200; 404 |
+| `GET /device/properties` | `rootId` | ustawienia urządzenia | 200; 404 |
+| `PUT /device/properties` | `rootId` | zapis całego obiektu ustawień (walidacja schematu Mongoose) | 200; 400 |
+| `GET /temperature` | `rootId` | ostatnia temperatura IMGW (liczba albo `null`) | 200 |
+
+WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"operation"|"update","rootId":"…"}`; połączenie bez `rootId` jest zamykane kodem 1008.
+
+## Model danych — kolekcja `devices`
+
+| Pole | Typ | Opis |
+|---|---|---|
+| `_id` | ObjectId | Root ID |
+| `deviceType` | `heat_pump` \| `water-pressure-tank` | rodzaj sterownika |
+| `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex) |
+| `name` | string | nazwa od użytkownika, domyślnie pusta |
+| `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
+| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]` |
+| `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
+| `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |
+| `createdAt`, `updatedAt` | Date | znaczniki czasu |
+
+Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/models/device.model.ts` importuje schematy części z modułów (harmonogram, zbiornik).
+
+## Rejestr rodzajów sterowników
+
+**Serwer** — `core/types.ts`, `DeviceTypeModule`:
+
+```ts
+{
+  type: DeviceType;
+  initialProperties?: DeviceProperties;                       // ustawienia nowego urządzenia
+  controllerSettings?: (properties: DeviceProperties) => unknown; // pole settings w odpowiedzi na zgłoszenie
+}
+```
+
+**Klient** — `core/types.ts`, `DeviceTypeView`:
+
+```ts
+{
+  type: DeviceType;
+  tileIcon: ReactNode;                                    // ikona kafelka na liście
+  views: { path, label, icon, element }[];                // ekrany w kolejności menu; '/' = strona główna
+  extraRoutes?: { path, element }[];                      // trasy poza menu (np. /hp pompy)
+}
+```
+
+### Jak dodać nowy rodzaj sterownika
+
+1. Wartość w `DeviceType` — w `server/src/core/types.ts` i `client/src/core/types.ts` (ta sama).
+2. Serwer: katalog `server/src/modules/<rodzaj>/` z `controllers/`, `services/`, `models/`, `types.ts`, `routes.ts`, `device-type.ts`; wpis w `server/src/core/device-types.ts`; `routes.ts` dołączone w `server/src/core/routes.ts`; ścieżki wysyłane przez sterownik z samym SN — w `controllerPaths` w `device-context.ts`.
+3. Klient: katalog `client/src/devices/<rodzaj>/` z `pages/`, `api.ts`, `types.ts`, `device-type.tsx`; wpis w `client/src/core/device-types.tsx`.
+4. Jeśli rodzaj ma własne ustawienia w `properties`: pola w `DeviceProperties` (oba `types.ts`) i w schemacie w `device.model.ts`.
+5. Firmware: zgłoszenie z nowym `deviceType`.
+6. Dokumentacja: `docs/moduly/<rodzaj>/` (trzy części) i wpis w `docs/README.md`.
+
+## Konfiguracja
+
+| Zmienna (serwer) | Znaczenie |
+|---|---|
+| `MONGODB_URI` | połączenie z MongoDB; wymagane, bez niego serwer kończy start błędem |
+| `PORT` | port HTTP i WebSocket (domyślnie 3001) |
+| `API_KEY` | klucz dla `verifyApiKey` (obecnie nieużywany) |
+
+Wartości są tylko w zmiennych środowiskowych: na Render w Environment usługi, lokalnie w `server/.env` (poza gitem, wzór `server/.env.example`).
+
+Klient w trybie deweloperskim łączy się z serwerem na porcie 4001 pod tym samym hostem, z którego otwarto stronę; w produkcji z `https://chpc-web.onrender.com`. Adresy są w `client/src/core/http.ts`.
+
+## Środowisko lokalne i dane demonstracyjne
+
+```bash
+npm run local                    # baza (27027, .local-db/), serwer (4001), aplikacja (5173)
+node scripts/seed-local.mjs      # czyści bazę lokalną i wczytuje dane demo
+```
+
+`scripts/seed-local.mjs` pisze tylko do bazy lokalnej. Z produkcji czyta (publiczne GET) telemetrię pompy i PV z ostatnich dni i zmienia w niej identyfikatory na zmyślone; dane hydroforu generuje (kilka miesięcy uruchomień i odczyty wodomierza). Po wczytaniu trzeba zrestartować serwer lokalny, bo trzyma dane w pamięci.
+
+## Testy
+
+- `server/app.test.ts` — urządzenia (zgłoszenie, nazwa, domyślny, nieznany rootId) i API pompy; baza `mongodb-memory-server`.
+- `server/water-pressure-tank.test.ts` — m.in. zgłoszenie hydroforu z ustawieniami, sterownik domyślny, 404/409 kontekstu.
+- Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build`.
+
+```bash
+npx tsc -p server/tsconfig.tests.json --noEmit
+npm test -w server -- --run
+npm run build -w client
+```
+
+## Wdrożenie
+
+Serwer i klient wdraża się razem z gałęzi `main` na Render (build uruchamiany ręcznie). Zmiana w core, która zmienia API, wymaga, by serwer był wdrożony przed firmware.
+
+## Znane problemy
+
+- **Brak ochrony API.** `app.use(verifyApiKey)` jest zakomentowane; klucz `x-api-key` jest wkompilowany w klienta (`core/http.ts`), więc i tak byłby jawny. `verifyApiKey` sprawdza ścieżki `/api/operation/set` i `/hp/clear` — niespójnie (jedna z przedrostkiem, druga bez).
+- **Dane w pamięci serwera** (`device-info.service.ts`, ostatnia telemetria, operacje ręczne) giną przy restarcie; po zmianie `deviceId` w bazie trzeba zrestartować serwer.
+- **Stacja IMGW** jest wpisana w kod (`meteo.service.ts`, Zakopane).
+- **SN a rodzaj.** Zgłoszenie i `POST /devices` szukają urządzenia po parze (rodzaj, SN), a `device-context` dla ścieżek sterownika — po samym SN. Dwa urządzenia różnych rodzajów z tym samym SN byłyby niejednoznaczne (w praktyce SN to MAC, więc się nie powtarza).
+- **`PUT /device/properties` podmienia całe `properties`** — pominięte klucze znikają. Klient zawsze wysyła komplet pól swojego rodzaju.
+- **Moduły nie sprawdzają rodzaju urządzenia** (np. `/hp/add` przyjmie `rootId` hydroforu).
+- **Nowa pompa ciepła nie dostaje `properties`** przy zgłoszeniu (`initialProperties` pompy jest puste); tryb `CWU` wynika z wartości zastępczej w schedulerze.
+- **WebSocket** przyjmuje połączenie na dowolnej ścieżce i nie sprawdza, czy `rootId` istnieje; komunikat trafia do wszystkich połączeń danego `rootId` (przeglądarki dostają też `operation`, a `co` — `update`).
+- **Obsługa błędów w kliencie (`core/http.ts`)**: `get` zwraca `null`, `post` połyka błąd (z `json = false` zwraca `Response`), `put` i `delete` rzucają wyjątek — różne ekrany różnie więc pokazują błędy zapisu.
+- **Style stron trafiają do jednego pakietu CSS** — reguły bez prefiksu (np. `button`, `img`, `span.label` w `devices/heat-pump/pages/Settings/style.css`) działają w całej aplikacji.
+- `mock-response.ts` i `_404.tsx` są nieużywane.

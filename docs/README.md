@@ -1,5 +1,7 @@
 # Dokumentacja systemu chpc-web
 
+[English](en/README.md)
+
 System steruje domową pompą ciepła (CHPC) z chmury, zbiera dane z instalacji fotowoltaicznej i monitoruje hydrofor. Ten plik jest punktem wejścia: opisuje całość i prowadzi do dokumentacji poszczególnych modułów.
 
 ## Co robi system
@@ -36,12 +38,12 @@ Najważniejsza zasada: **sterowniki inicjują połączenie, serwer tylko odpowia
 
 | Moduł | Co robi | Kod | Dokumentacja |
 |---|---|---|---|
-| **core** | część wspólna aplikacji: urządzenia, zgłoszenie sterownika, wybór sterownika, menu, WebSocket, temperatura, kalendarz | `server/src/core`, `client/src/core` | [docs/moduly/core](moduly/core/) |
-| **heat-pump** | pompa ciepła w aplikacji: telemetria, PV, operacje, scheduler, harmonogramy, widoki | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/moduly/heat-pump](moduly/heat-pump/) |
-| **water-pressure-tank** | hydrofor w aplikacji: uruchomienia, szacunek wody, wodomierz, widoki | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/moduly/water-pressure-tank](moduly/water-pressure-tank/) |
-| **firmware co** | sterownik ESP32 między pompą, PV i chmurą | `devices/co` | [devices/co/docs](../devices/co/docs/) |
-| **firmware CHPC** | sterownik pompy ciepła (sprężarka, pompy obiegowe, EEV, zabezpieczenia) | `devices/chpc` | [devices/chpc/docs](../devices/chpc/docs/) |
-| **firmware hydroforu** | sterownik ESP32-C3 kompresora hydroforu | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs](../devices/water-pressure-tank/docs/) |
+| **core** | część wspólna aplikacji: urządzenia, zgłoszenie sterownika, wybór sterownika, menu, WebSocket, temperatura, kalendarz | `server/src/core`, `client/src/core` | [docs/moduly/core](moduly/core/1-opis-biznesowy.md) |
+| **heat-pump** | pompa ciepła w aplikacji: telemetria, PV, operacje, scheduler, harmonogramy, widoki | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/moduly/heat-pump](moduly/heat-pump/1-opis-biznesowy.md) |
+| **water-pressure-tank** | hydrofor w aplikacji: uruchomienia, szacunek wody, wodomierz, widoki | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/moduly/water-pressure-tank](moduly/water-pressure-tank/1-opis-biznesowy.md) |
+| **firmware co** | sterownik ESP32 między pompą, PV i chmurą | `devices/co` | [devices/co/docs](../devices/co/docs/1-opis-biznesowy.md) |
+| **firmware CHPC** | sterownik pompy ciepła (sprężarka, pompy obiegowe, EEV, zabezpieczenia) | `devices/chpc` | [devices/chpc/docs](../devices/chpc/docs/1-opis-biznesowy.md) |
+| **firmware hydroforu** | sterownik ESP32-C3 kompresora hydroforu | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs](../devices/water-pressure-tank/docs/1-opis-biznesowy.md) |
 
 Rodzaj sterownika (`deviceType`) decyduje, którego modułu używa aplikacja: `heat_pump` (sterownik `co` z pompą CHPC) albo `water-pressure-tank` (hydrofor).
 
@@ -69,6 +71,7 @@ Kod ma komentarze na dwóch poziomach: **nagłówek pliku** (do czego służy, k
 ```bash
 npm install
 npm run local            # lokalna baza MongoDB (port 27027), serwer (4001) i aplikacja (5173)
+node scripts/seed-local.mjs   # dane demonstracyjne w bazie lokalnej (czyści ją)
 npm test -w server -- --run
 npm run build -w client
 pio test -d devices/co -e native

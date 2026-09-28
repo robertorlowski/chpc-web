@@ -3,6 +3,8 @@ import { useDevice } from "../context/DeviceContext";
 import { getDeviceTypeView } from "../device-types";
 
 
+// Menu górne (App.tsx, poza stroną /devices). Pozycje i ikony pochodzą z rejestru rodzajów
+// sterowników; na telefonie (≤ 560 px) CSS ukrywa .nav-label i zostają same ikony z title.
 export function Header() {
 	let location  = useLocation();
 	// menu z rejestru rodzajów sterowników: każdy rodzaj ma swoje widoki (hydrofor bez harmonogramów)

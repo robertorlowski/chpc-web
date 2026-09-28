@@ -1,3 +1,6 @@
+// Model urządzenia (kolekcja devices): rodzaj, deviceId (SN sterownika), nazwa,
+// sterownik domyślny, ustawienia (properties) i — dla pompy ciepła — osadzone
+// harmonogramy. _id dokumentu to rootId używany w API, WebSocket i rekordach danych.
 import mongoose, { Schema, Model, Document } from 'mongoose';
 import { Device, DeviceProperties, DeviceType } from '../types';
 import { ScheduleEntrySchema } from '../../modules/heat-pump/models/schedule.model';
@@ -14,6 +17,7 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
     work_mode: {
       type: String,
       enum: ['M', 'A', 'CWU', 'OFF'],
+      // domyślna wartość dopisuje się także hydroforowi, który jej nie używa
       default: 'CWU',
     },
     // hydrofor
@@ -37,6 +41,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
       enum: Object.values(DeviceType),
       required: true,
     },
+    // SN sterownika (MAC ESP32, 12 znaków hex); bez indeksu unikalnego
     deviceId: {
       type: String,
       required: true,
@@ -49,7 +54,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
       trim: true,
     },
     isDefault: { type: Boolean, default: false },
-    // pompa ciepła
+    // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },
     properties: { type: DevicePropertiesSchema },
@@ -57,6 +62,8 @@ const DeviceSchema = new Schema<DeviceDocument>(
   { timestamps: true, collection: 'devices' }
 );
 
+// Nazwa modelu „Root” jest historyczna; kolekcja to devices.
+// mongoose.models.Root chroni przed ponowną rejestracją modelu (testy, hot reload).
 export const DeviceModel: Model<DeviceDocument> =
   mongoose.models.Root ||
   mongoose.model<DeviceDocument>('Root', DeviceSchema);

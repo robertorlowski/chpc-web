@@ -1,3 +1,7 @@
+// Testy hydroforu (baza w mongodb-memory-server): wzór wody i zgodność z klientem,
+// zgłoszenie z ustawieniami, uruchomienia (daty z czasów względnych, kolejka, 404/409,
+// w toku), podsumowania, wodomierz i sugerowane k, ustawienia i czas kompresora ze
+// sterownika, sterownik domyślny.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'

@@ -1,3 +1,7 @@
+// Punkt startowy serwera (npm start, Render): HTTP + WebSocket na jednym porcie,
+// połączenie z MongoDB (MONGODB_URI), scheduler pompy ciepła, czyszczenie
+// szczegółów paneli PV i odświeżanie temperatury z IMGW. Aplikacja Express
+// jest w core/app.ts (osobno, żeby testy mogły jej użyć bez nasłuchu i bazy).
 import 'dotenv/config';
 import http from 'http';
 import app from './core/app'
@@ -35,15 +39,19 @@ const PORT = Number(process.env.PORT ?? 3001);
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
 
+  // scheduler działa w procesie serwera: operacje ręczne i wyliczone są tylko w pamięci,
+  // więc restart serwera je kasuje (pierwszy przebieg od razu po starcie)
   startScheduler();
 
   // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
   void cleanPanelDetails();
   setInterval(() => void cleanPanelDetails(), PANEL_CLEANUP_INTERVAL_MS);
 
+  // przed nasłuchem, żeby pierwsze /hp/add miało już t_out; błąd IMGW nie blokuje startu
   await prepareMeteoData()
-  
 
+
+  // temperatura zewnętrzna co 10 min (t_out w rekordach hp i w odpowiedzi dla co)
   setInterval(()=> (async() => {
     await prepareMeteoData()
   })(), 10 * 60 * 1000 );

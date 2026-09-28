@@ -1,3 +1,6 @@
+// Kalendarz polski dla harmonogramów pompy: dzień tygodnia w czasie warszawskim
+// i dni wolne (weekendy + święta ustawowe). Używa go scheduler (WORKDAYS, DAYS_OFF)
+// i schedule.service. Wewnątrz daty świąt liczone są w UTC jako klucze YYYY-MM-DD.
 import { formatInTimeZone } from 'date-fns-tz';
 
 import { TIME_ZONE } from '../time';
@@ -12,6 +15,7 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
+// Niedziela Wielkanocna (kalendarz gregoriański, algorytm Meeusa/Jonesa/Butchera).
 function getEasterSunday(year: number): Date {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -40,12 +44,14 @@ function getPolishPublicHolidays(year: number): Set<string> {
     `${year}-08-15`,
     `${year}-11-01`,
     `${year}-11-11`,
+    // Wigilia: dzień wolny od 2025 r.; tu dla każdego roku
     `${year}-12-24`,
     `${year}-12-25`,
     `${year}-12-26`,
   ];
   const easterSunday = getEasterSunday(year);
 
+  // Poniedziałek Wielkanocny, Zielone Świątki (niedziela), Boże Ciało
   holidays.push(
     dateKey(addDays(easterSunday, 1)),
     dateKey(addDays(easterSunday, 49)),
@@ -55,11 +61,13 @@ function getPolishPublicHolidays(year: number): Set<string> {
   return new Set(holidays);
 }
 
+// Dzień tygodnia w Warszawie w numeracji WeekDay/JS: 0 = niedziela ... 6 = sobota.
 export function getLocalDayOfWeek(date: Date): number {
   const isoDay = Number(formatInTimeZone(date, TIME_ZONE, 'i'));
   return isoDay === 7 ? 0 : isoDay;
 }
 
+// Sobota, niedziela albo święto ustawowo wolne (data liczona w Warszawie).
 export function isPolishDayOff(date: Date): boolean {
   const dayOfWeek = getLocalDayOfWeek(date);
   if (dayOfWeek === 0 || dayOfWeek === 6) return true;

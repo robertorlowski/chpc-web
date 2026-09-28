@@ -1,3 +1,6 @@
+// Endpointy urządzeń wspólne dla wszystkich rodzajów: lista i wybór w kliencie
+// (/devices), zgłoszenie sterownika (/devices/register), nazwa, sterownik domyślny
+// i ustawienia (/device/properties). Logika w services/device.service.ts.
 import { Request, Response } from 'express';
 import { DeviceProperties, DeviceType } from '../types';
 import { DeviceDocument } from '../models/device.model';
@@ -7,6 +10,7 @@ import {
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
 
+// Kształt urządzenia w API; rootId to _id dokumentu w kolekcji devices.
 const toPublicDevice = (device: DeviceDocument) => ({
   rootId: String(device._id),
   deviceType: device.deviceType,
@@ -27,6 +31,9 @@ export async function getProperties(req: Request, res: Response) {
   }
 }
 
+// Zapis zastępuje całe properties (wszystkie rodzaje w jednym polu): klient musi
+// wysłać komplet, bo pominięte klucze znikną. Pompa: od najbliższego przebiegu
+// schedulera; hydrofor: od następnego zgłoszenia, czyli uruchomienia pompy.
 export async function updateProperties(req: Request<{}, {}, DeviceProperties>, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
@@ -46,6 +53,7 @@ export async function getDevices(_req: Request, res: Response) {
   }
 }
 
+// POST /devices: ręczne utworzenie (test E2E). Duplikat deviceId = 400.
 export async function addDevice(
   req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string }>,
   res: Response,
@@ -68,6 +76,9 @@ const optionalText = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
 // Zgłoszenie sterownika: rootId i (hydrofor) ustawienia do zapisania w sterowniku.
+// Sterownik woła je przy każdym starcie; 201 = nowe urządzenie, 200 = znane.
+// Brak deviceType oznacza pompę ciepła. Wersje oprogramowania (firmwareVersion,
+// components) nie są obsługiwane: ani sterowniki ich nie wysyłają, ani serwer nie zapisuje.
 export async function registerDeviceEntry(
   req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string }>,
   res: Response,
@@ -93,6 +104,7 @@ export async function registerDeviceEntry(
 }
 
 // Zmiana nazwy sterownika z listy urządzeń; rootId i deviceId nie podlegają edycji.
+// Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
 export async function updateDevice(
   req: Request<{ rootId: string }, {}, { name?: string }>,
   res: Response,

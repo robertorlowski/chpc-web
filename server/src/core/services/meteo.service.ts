@@ -1,3 +1,8 @@
+// Temperatura zewnętrzna z IMGW (stacja synoptyczna Zakopane), odświeżana co 10 min
+// przez server.ts. Trafia do rekordów hp (t_out), do odpowiedzi /hp/add dla
+// ekranu sterownika co i do GET /temperature. Trzymana tylko w pamięci.
+
+// undefined/null do pierwszego udanego pobrania; nieudane pobranie zostawia starą wartość
 let temperature_2m :number | null;
 
 interface ImgwStacja {

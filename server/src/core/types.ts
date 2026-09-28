@@ -3,6 +3,8 @@ import type { WaterTank } from '../modules/water-pressure-tank/types';
 
 // Typy części wspólnej: urządzenie, jego ustawienia i opis rodzaju sterownika.
 
+// Wartości są zapisane w bazie (devices.deviceType, rekordy danych) i wysyłane
+// przez sterowniki przy zgłoszeniu; zmiana wymaga migracji i firmware.
 export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
@@ -11,7 +13,8 @@ export enum DeviceType {
 // Ustawienia urządzenia (pole properties). Jedno pole w bazie dla wszystkich
 // rodzajów sterowników; każdy rodzaj używa swojej części.
 export interface DeviceProperties {
-  // pompa ciepła
+  // pompa ciepła: wartości domyślne operacji (scheduler, getDefaultOperation);
+  // temperatury jako napisy, bo tak idą do sterownika w operacji
   co_min?: String;
   co_max?: String;
   cwu_min?: String;

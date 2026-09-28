@@ -1,3 +1,4 @@
+/* Style globalne aplikacji (index.tsx): czcionka i kolory bazowe (:root, body), menu, stopka urządzenia i reguły telefonu (@media max-width 560px). Reguły z prefiksem body rozciągają karty i tabelę danych od krawędzi do krawędzi ekranu telefonu. */
 :root {
 	font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 	line-height: 1.5;

@@ -1,3 +1,6 @@
+// Strona /devices: kafelki sterowników (GET /api/devices), wybór sterownika, gwiazdka sterownika
+// domyślnego (PUT /api/devices/:rootId/default) i ołówek otwierający popup „Dane sterownika”.
+// Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce.
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
@@ -26,6 +29,8 @@ export const Devices: React.FC = () => {
       .catch(() => setError('Nie udało się pobrać urządzeń.'));
   };
 
+  // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
+  // do widoków jest możliwy tylko przez wybór kafelka
   useEffect(() => {
     clearDevice();
     loadDevices();
@@ -43,6 +48,7 @@ export const Devices: React.FC = () => {
     if (preferred) chooseDevice(preferred);
   }, [devices]);
 
+  // serwer zdejmuje flagę z pozostałych sterowników, więc lokalnie też zostaje najwyżej jeden domyślny
   const toggleDefault = async (device: Device) => {
     try {
       const updated = await DeviceRequests.setDefaultDevice(device.rootId, !device.isDefault);

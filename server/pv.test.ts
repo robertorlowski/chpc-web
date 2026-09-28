@@ -1,3 +1,6 @@
+// Testy PV (baza w mongodb-memory-server): zapis /pv/add z samym deviceId, 400/404/409,
+// wpisanie samego PV.total_power do rekordu hp (limit 3 min, PV od starszego firmware
+// bez zmian), bilans monthly-summary i usuwanie panels po 90 dniach.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'

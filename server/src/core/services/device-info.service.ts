@@ -1,3 +1,5 @@
+// Pamięć podręczna rodzaju i deviceId urządzenia dla zapisów danych (hp, pv,
+// hydrofor), żeby każda telemetria nie czytała kolekcji devices.
 import { DeviceType } from '../types';
 import { DeviceModel } from '../models/device.model';
 

@@ -1,7 +1,12 @@
+// Kontekst wybranego sterownika: stan React + kopia w localStorage (klucz chpc.selectedDevice),
+// żeby wybór przetrwał przeładowanie strony. DeviceProvider opakowuje aplikację w index.tsx;
+// http.ts czyta wybór przez getSelectedDevice, żeby dopisać rootId i deviceId do zapytań.
 import { createContext, ReactNode, useContext, useState } from 'react';
 import { Device } from '../types';
 
 const storageKey = 'chpc.selectedDevice';
+
+// uszkodzony JSON w localStorage traktowany jak brak wyboru (strażnik przekieruje na /devices)
 
 const readDevice = (): Device | null => {
   try {
@@ -46,6 +51,7 @@ export function useDevice() {
   return value;
 }
 
+// Odczyt poza komponentami (http.ts, WebSocket w widoku pompy); zawsze wprost z localStorage.
 export function getSelectedDevice(): Device | null {
   return readDevice();
 }
