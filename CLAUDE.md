@@ -161,7 +161,7 @@ Kolekcja `hp` przechowuje telemetrię. Dokument jest wzbogacany o:
 
 Telemetria zawiera między innymi `HP`, `work_mode`, temperatury, moc, stan sprężarki oraz stany pomp. Rekordy sprzed wydzielenia PV (2026-09-26) mają pełne `PV` i `pv_power` z telemetrii; nowe mają tylko `PV.total_power`, wpisane przez serwer (sekcja 5a). `co_pomp` jest polem telemetrii i może występować w operacji ręcznej, ale nie jest polem harmonogramu.
 
-**Schemat jest ścisły** ([`server/src/modules/heat-pump/models/hp.model.ts`](server/src/modules/heat-pump/models/hp.model.ts)): klucz, którego nie wymienia, jest po cichu pomijany przy zapisie. Dotyczy to m.in. `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` i **wszystkich liczników diagnostycznych** z `co`. Ostatnia surowa telemetria jest dostępna przez `GET /api/hp` z pamięci podręcznej do restartu serwera. **Nowe pole telemetrii trzeba dodać do schematu, do typów `server/src/modules/heat-pump/types.ts` i `client/src/api/type.ts` oraz do widoków klienta**, inaczej nie zostanie zapisane ani pokazane.
+**Schemat jest ścisły** ([`server/src/modules/heat-pump/models/hp.model.ts`](server/src/modules/heat-pump/models/hp.model.ts)): klucz, którego nie wymienia, jest po cichu pomijany przy zapisie. Dotyczy to m.in. `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` i **wszystkich liczników diagnostycznych** z `co`. Ostatnia surowa telemetria jest dostępna przez `GET /api/hp` z pamięci podręcznej do restartu serwera. **Nowe pole telemetrii trzeba dodać do schematu, do typów `server/src/modules/heat-pump/types.ts` i `client/src/devices/heat-pump/types.ts` oraz do widoków klienta**, inaczej nie zostanie zapisane ani pokazane.
 
 ### `pv`
 
@@ -498,7 +498,7 @@ Docelowy telefon to Samsung Galaxy S20 (360×800 CSS px); układ sprawdzany jest
 
 ### API klienta
 
-`client/src/api/api.ts` buduje adresy API oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Kontrakty typów są w `client/src/api/type.ts`.
+`client/src/core/http.ts` buduje adresy API i WebSocket oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Urządzenia (lista, nazwa, domyślny, `properties`) obsługuje `DeviceRequests` w `client/src/core/api.ts`, a ich typy są w `client/src/core/types.ts`. API i typy rodzajów sterowników: `client/src/devices/heat-pump/` (`HpRequests`: telemetria, operacje, harmonogramy) i `client/src/devices/water-pressure/` (`WaterRequests`), każdy z `api.ts` i `types.ts`.
 
 ### Zakładka Dane
 

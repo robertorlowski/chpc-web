@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { HpRequests } from '../api/api';
-import { Device } from '../api/type';
+import { DeviceRequests } from '../core/api';
+import { Device } from '../core/types';
 import './deviceEditModal.css';
 
 type Props = {
@@ -28,7 +28,7 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
     setSaving(true);
     setError('');
     try {
-      const updated = await HpRequests.updateDeviceName(device.rootId, name.trim());
+      const updated = await DeviceRequests.updateDeviceName(device.rootId, name.trim());
       onSaved({ ...device, name: updated.name });
     } catch {
       setError('Nie udało się zapisać nazwy.');

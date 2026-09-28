@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { HpRequests, WaterRequests } from '../../api/api';
-import { DeviceProperties, WaterPressureRun } from '../../api/type';
+import { DeviceRequests } from '../../core/api';
+import { WaterRequests } from '../../devices/water-pressure/api';
+import { DeviceProperties } from '../../core/types';
+import { WaterPressureRun } from '../../devices/water-pressure/types';
 import {
   compressorSeconds, estimatedWaterPerRun, formatLiters, formatTime, pumpSeconds, sumWater,
   tankKindLabel, tankWaterLiters, todayWarsaw,
@@ -15,7 +17,7 @@ export const WaterHome: React.FC = () => {
   const [runs, setRuns] = useState<WaterPressureRun[] | null>(null);
 
   useEffect(() => {
-    HpRequests.getDeviceProperties().then((result) => setProperties(result ?? {}));
+    DeviceRequests.getDeviceProperties().then((result) => setProperties(result ?? {}));
     const loadRuns = () => {
       const today = todayWarsaw();
       WaterRequests.getRuns(today, today).then((result) => result && setRuns(result));

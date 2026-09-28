@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { WaterRequests } from '../../api/api';
-import { WaterMeterReading, WaterPressureRun } from '../../api/type';
+import { WaterRequests } from '../../devices/water-pressure/api';
+import { WaterMeterReading, WaterPressureRun } from '../../devices/water-pressure/types';
 import {
   compressorSeconds, downloadText, formatDate, formatLiters, formatTime, monthBounds,
   pumpSeconds, runsToCsv, sumWater, todayWarsaw,

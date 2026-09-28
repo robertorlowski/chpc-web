@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { DeviceType } from "../api/type";
+import { DeviceType } from "../core/types";
 import { useDevice } from "../context/DeviceContext";
 
 

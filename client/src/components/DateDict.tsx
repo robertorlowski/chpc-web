@@ -1,6 +1,6 @@
 import './style.css';
 import React, { useEffect, useState } from 'react';
-import { HpRequests } from '../api/api';
+import { HpRequests } from '../devices/heat-pump/api';
 
 export type DateDropdownProps = {
   /** Wywoływane przy każdej zmianie; przekazuje datę w formacie YYYY.MM.DD. */

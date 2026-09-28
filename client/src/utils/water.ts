@@ -1,4 +1,5 @@
-import { DeviceProperties, WaterPressureRun, WaterTank } from '../api/type';
+import { DeviceProperties } from '../core/types';
+import { WaterPressureRun, WaterTank } from '../devices/water-pressure/types';
 
 const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';

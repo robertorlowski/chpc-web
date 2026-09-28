@@ -11,8 +11,8 @@ import { Devices } from './pages/Devices';
 import { DeviceProvider, deviceLabel, useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Fragment, useEffect, useState } from 'react';
-import { HpRequests } from './api/api';
-import { Device, DeviceType } from './api/type';
+import { DeviceRequests } from './core/api';
+import { Device, DeviceType } from './core/types';
 import { WaterHome } from './pages/WaterPressure/Home';
 import { WaterData } from './pages/WaterPressure/Data';
 import { WaterChart } from './pages/WaterPressure/Chart';
@@ -35,7 +35,7 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 	// Istniejący sterownik jest odświeżany z serwera, żeby w localStorage nie zostały stara nazwa czy deviceId.
 	useEffect(() => {
 		if (!device) return;
-		HpRequests.getDevices().then((list) => {
+		DeviceRequests.getDevices().then((list) => {
 			if (!list) return;
 			const current = list.find((item) => item.rootId === device.rootId);
 			if (!current) clearDevice();
@@ -46,7 +46,7 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (!device || sessionStorage.getItem(defaultAppliedKey)) return;
 		sessionStorage.setItem(defaultAppliedKey, '1');
-		HpRequests.getDevices().then((list) => {
+		DeviceRequests.getDevices().then((list) => {
 			const preferred = list?.find((item) => item.isDefault);
 			if (preferred && preferred.rootId !== device.rootId) selectDevice(preferred);
 		});
@@ -67,7 +67,7 @@ function DeviceFooter() {
 	// w międzyczasie od razu pokazuje stopkę z możliwością przełączenia
 	useEffect(() => {
 		if (!device) return;
-		HpRequests.getDevices().then((list) => setDeviceCount(list ? list.length : null));
+		DeviceRequests.getDevices().then((list) => setDeviceCount(list ? list.length : null));
 	}, [device?.rootId]);
 
 	// przy jednym sterowniku nie ma na co przełączyć; do czasu odpowiedzi serwera stopka jest ukryta

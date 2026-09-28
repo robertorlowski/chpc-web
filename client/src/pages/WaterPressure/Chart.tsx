@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { WaterRequests } from '../../api/api';
-import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../../api/type';
+import { WaterRequests } from '../../devices/water-pressure/api';
+import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../../devices/water-pressure/types';
 import { formatLiters, todayWarsaw } from '../../utils/water';
 import './style.css';
 

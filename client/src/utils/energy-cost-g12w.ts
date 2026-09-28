@@ -1,4 +1,4 @@
-import type { THPL } from "../api/type";
+import type { THPL } from "../devices/heat-pump/types";
 
 export type G12wZone = "peak" | "offPeak";
 

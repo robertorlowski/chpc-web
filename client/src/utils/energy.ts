@@ -1,4 +1,4 @@
-import { THPL } from "../api/type";
+import { THPL } from "../devices/heat-pump/types";
 
 export function energyKWh(data: THPL[], subtractPv: boolean): number {
   if (!Array.isArray(data) || data.length < 2) {

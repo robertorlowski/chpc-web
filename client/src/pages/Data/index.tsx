@@ -1,5 +1,5 @@
-import { HpRequests } from '../../api/api';
-import { THPL } from '../../api/type';
+import { HpRequests } from '../../devices/heat-pump/api';
+import { THPL } from '../../devices/heat-pump/types';
 import React, { useEffect, useState } from 'react';
 import {
 	ColumnDef,

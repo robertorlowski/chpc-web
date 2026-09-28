@@ -11,7 +11,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts';
-import { THPL } from '../../api/type';
+import { THPL } from '../../devices/heat-pump/types';
 import DateDict from '../../components/DateDict';
 import {
   fetchData,

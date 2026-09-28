@@ -1,5 +1,5 @@
 import React from 'react';
-import { TimeSlot } from '../api/type';
+import { TimeSlot } from '../devices/heat-pump/types';
 
 interface ResourceBlockProps {
   title: string;

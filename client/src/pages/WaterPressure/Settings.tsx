@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { HpRequests } from '../../api/api';
-import { DeviceProperties, WaterTank } from '../../api/type';
+import { DeviceRequests } from '../../core/api';
+import { DeviceProperties } from '../../core/types';
+import { WaterTank } from '../../devices/water-pressure/types';
 import Notification from '../../components/Notification';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { useDevice } from '../../context/DeviceContext';
@@ -56,7 +57,7 @@ export const WaterSettings: React.FC = () => {
   const [editingDevice, setEditingDevice] = useState(false);
 
   useEffect(() => {
-    HpRequests.getDeviceProperties().then((result) => {
+    DeviceRequests.getDeviceProperties().then((result) => {
       const loaded = result ?? {};
       setProperties(loaded);
       setCompressor(String(loaded.compressor_seconds ?? 30));
@@ -107,7 +108,7 @@ export const WaterSettings: React.FC = () => {
     }
     setError('');
     try {
-      const saved = await HpRequests.updateDeviceProperties({
+      const saved = await DeviceRequests.updateDeviceProperties({
         ...properties,
         compressor_seconds: seconds,
         pressure_low: pressureLow,

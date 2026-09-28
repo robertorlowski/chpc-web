@@ -1,7 +1,9 @@
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
-import { HpRequests } from '../../api/api';
-import { CurrentSchedule, DeviceProperties, ScheduleEntry, ScheduleType, WeekDay } from '../../api/type';
+import { HpRequests } from '../../devices/heat-pump/api';
+import { DeviceRequests } from '../../core/api';
+import { CurrentSchedule, ScheduleEntry, ScheduleType, WeekDay } from '../../devices/heat-pump/types';
+import { DeviceProperties } from '../../core/types';
 import Notification from '../../components/Notification';
 
 const weekDays = [
@@ -87,7 +89,7 @@ export const Schedules: React.FC = () => {
   };
 
   const loadDefaultProperties = () => {
-    HpRequests.getDeviceProperties()
+    DeviceRequests.getDeviceProperties()
       .then((value) => {
         setDefaultProperties(value ?? { work_mode: 'CWU' });
         setSavedProperties({ ...value, work_mode: value?.work_mode ?? 'CWU' });
@@ -119,7 +121,7 @@ export const Schedules: React.FC = () => {
     setError('');
 
     try {
-      await HpRequests.updateDeviceProperties(defaultProperties);
+      await DeviceRequests.updateDeviceProperties(defaultProperties);
       setSavedProperties(defaultProperties);
       loadCurrentSchedule();
       showSaveNotice();

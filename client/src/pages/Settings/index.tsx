@@ -1,7 +1,6 @@
 import './style.css';
-import '../../api/api';
-import { HpRequests } from '../../api/api';
-import { HpEntry, OperationEntry } from '../../api/type';
+import { HpRequests } from '../../devices/heat-pump/api';
+import { HpEntry, OperationEntry } from '../../devices/heat-pump/types';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../components/Notification';
 import { DeviceEditModal } from '../../components/DeviceEditModal';

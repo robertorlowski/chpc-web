@@ -1,8 +1,8 @@
 import './style.css';
-import '../../api/api';
-import { HpRequests, wsAddressServer } from '../../api/api';
+import { HpRequests } from '../../devices/heat-pump/api';
+import { wsAddressServer } from '../../core/http';
 import { getSelectedDevice } from '../../context/DeviceContext';
-import { HpEntry, HpMetrics, PvMetrics } from '../../api/type';
+import { HpEntry, HpMetrics, PvMetrics } from '../../devices/heat-pump/types';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../assets/swith_on.svg';
 import swith_off from '../../assets/swith_off.svg';

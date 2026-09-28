@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { HpRequests } from '../../api/api';
-import { Device, DeviceType } from '../../api/type';
+import { DeviceRequests } from '../../core/api';
+import { Device, DeviceType } from '../../core/types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { deviceLabel, useDevice } from '../../context/DeviceContext';
 import './style.css';
@@ -20,7 +20,7 @@ export const Devices: React.FC = () => {
   const automaticSelection = (location.state as { auto?: boolean } | null)?.auto === true;
 
   const loadDevices = () => {
-    HpRequests.getDevices()
+    DeviceRequests.getDevices()
       .then((list) => list ? setDevices(list) : setError('Nie udało się pobrać urządzeń.'))
       .catch(() => setError('Nie udało się pobrać urządzeń.'));
   };
@@ -44,7 +44,7 @@ export const Devices: React.FC = () => {
 
   const toggleDefault = async (device: Device) => {
     try {
-      const updated = await HpRequests.setDefaultDevice(device.rootId, !device.isDefault);
+      const updated = await DeviceRequests.setDefaultDevice(device.rootId, !device.isDefault);
       setDevices((list) => list.map((item) => ({
         ...item,
         isDefault: item.rootId === updated.rootId ? updated.isDefault : false,

@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useState } from 'react';
-import { Device } from '../api/type';
+import { Device } from '../core/types';
 
 const storageKey = 'chpc.selectedDevice';
 
