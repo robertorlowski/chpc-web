@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from './src/core/app'
 import { DeviceModel } from './src/core/devices/device.model'
-import { WaterPressureRunModel } from './src/modules/water-pressure/models'
-import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure/water-pressure.service'
+import { WaterPressureRunModel } from './src/modules/water-pressure/models/water-pressure-run.model'
+import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure/services/water-pressure.service'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({

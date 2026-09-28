@@ -336,7 +336,7 @@ Przy złych progach (górny nie większy od dolnego) szacunek wynosi 0.
 3. `k` dotyczy tylko zbiornika z poduszką, bo worek liczy się z `p0`. Wpisujesz je w Ustawieniach; działa dla nowych uruchomień.
 
 **Ten sam wzór jest w trzech miejscach** i trzeba go zmieniać razem:
-- serwer: `estimateWater` w `server/src/modules/water-pressure/water-pressure.service.ts` (wartość zapisywana w rekordach),
+- serwer: `estimateWater` w `server/src/modules/water-pressure/services/water-pressure.service.ts` (wartość zapisywana w rekordach),
 - aplikacja WWW: `client/src/utils/water.ts` (podgląd w Ustawieniach i na głównym oknie),
 - sterownik: `src/settings.cpp` (podgląd na stronie sterownika).
 

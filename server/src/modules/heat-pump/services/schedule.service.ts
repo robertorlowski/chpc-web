@@ -1,8 +1,8 @@
 
-import { ScheduleEntry, WeekDay } from './types';
-import { DeviceType } from '../../core/devices/device.types';
-import { DeviceDocument, DeviceModel } from '../../core/devices/device.model';
-import { getLocalDayOfWeek, isPolishDayOff } from '../../core/calendar.service';
+import { ScheduleEntry, WeekDay } from '../types';
+import { DeviceType } from '../../../core/devices/device.types';
+import { DeviceDocument, DeviceModel } from '../../../core/devices/device.model';
+import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/calendar.service';
 
 
 export async function saveSchedule(

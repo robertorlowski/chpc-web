@@ -5,9 +5,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from './src/core/app'
 import { DeviceModel } from './src/core/devices/device.model'
-import { HpEntryModel, PvEntryModel } from './src/modules/heat-pump/models'
+import { HpEntryModel } from './src/modules/heat-pump/models/hp.model'
+import { PvEntryModel } from './src/modules/heat-pump/models/pv.model'
 import { DeviceType } from './src/core/devices/device.types'
-import { removeExpiredPanelDetails } from './src/modules/heat-pump/pv.service'
+import { removeExpiredPanelDetails } from './src/modules/heat-pump/services/pv.service'
 
 const panel = {
   serial: '116491036767', port: 1, power: 325.2, prod_today: 740,

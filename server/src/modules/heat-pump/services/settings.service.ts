@@ -1,6 +1,6 @@
 
-import { SettingsEntry } from './types';
-import { SettingsEntryModel } from './models';
+import { SettingsEntry } from '../types';
+import { SettingsEntryModel } from '../models/settings.model';
 
 export const getSettingsData = async (rootId: string) => {
   const doc = await SettingsEntryModel.findOne({ rootId }).sort({ createdAt: -1 });

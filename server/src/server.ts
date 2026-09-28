@@ -4,8 +4,8 @@ import app from './core/app'
 import { createWsServer } from './core/websocket';
 import mongoose from 'mongoose';
 import { prepareMeteoData } from './core/meteo.service';
-import { startScheduler } from './modules/heat-pump/scheduler.service';
-import { removeExpiredPanelDetails } from './modules/heat-pump/pv.service';
+import { startScheduler } from './modules/heat-pump/services/scheduler.service';
+import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 

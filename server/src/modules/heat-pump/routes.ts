@@ -1,10 +1,10 @@
 import express from 'express'
 
-import { getHp, addHp, getHpAll, getHpAvailableDates, clearHp, getHp4Day, getHpMonthlySummary, getLastError } from './hp.controller'
-import { getSettings, setSettings } from './settings.controller'
-import { getAndClearOperation, getOperation, prepareOperation, setOperation, setOperationAction } from './operation.controller'
-import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from './schedule.controller'
-import { addPv, getPv, getPvForRange } from './pv.controller'
+import { getHp, addHp, getHpAll, getHpAvailableDates, clearHp, getHp4Day, getHpMonthlySummary, getLastError } from './controllers/hp.controller'
+import { getSettings, setSettings } from './controllers/settings.controller'
+import { getAndClearOperation, getOperation, prepareOperation, setOperation, setOperationAction } from './controllers/operation.controller'
+import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from './controllers/schedule.controller'
+import { addPv, getPv, getPvForRange } from './controllers/pv.controller'
 
 // Pompa ciepła (sterownik co): telemetria, PV, operacje, harmonogramy i starsze ustawienia.
 const router = express.Router()

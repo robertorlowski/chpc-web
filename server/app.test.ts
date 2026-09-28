@@ -12,7 +12,8 @@ vi.mock('./src/core/meteo.service', () => ({
 
 import app from './src/core/app'
 import { DeviceModel } from './src/core/devices/device.model'
-import { HpEntryModel, SettingsEntryModel } from './src/modules/heat-pump/models'
+import { HpEntryModel } from './src/modules/heat-pump/models/hp.model'
+import { SettingsEntryModel } from './src/modules/heat-pump/models/settings.model'
 import { DeviceType } from './src/core/devices/device.types'
 
 describe('API with MongoDB', () => {

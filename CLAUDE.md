@@ -41,8 +41,10 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 **Serwer jest podzielony według rodzaju sterownika** (`server/src`):
 
 - `core/` — część wspólna: `app.ts`, `routes.ts` (składa trasy), `device-context.ts` (`rootId`/`deviceId`), `websocket.ts`, `auth.ts`, `time.ts` (strefa i granice dni w Warszawie), `device-info.ts`, `calendar.service.ts`, `meteo.*`; `core/devices/` — model, typy, trasy, serwis i kontroler urządzeń (lista, zgłoszenie, nazwa, domyślny, `properties`);
-- `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`; własne `types.ts`, `models.ts`, `routes.ts`;
-- `modules/water-pressure/` — hydrofor: uruchomienia, wodomierz, czas kompresora; własne `types.ts`, `models.ts`, `routes.ts`.
+- `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
+- `modules/water-pressure/` — hydrofor: uruchomienia, wodomierz, czas kompresora.
+
+Każdy moduł ma ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-run.model.ts`), a w katalogu modułu `types.ts` (typy wspólne dla warstw), `routes.ts` i `device-type.ts` (wpis do rejestru rodzajów).
 
 Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/devices/device.model.ts` i `device.types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`) i ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor tak, pompa nie). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
 
@@ -159,11 +161,11 @@ Kolekcja `hp` przechowuje telemetrię. Dokument jest wzbogacany o:
 
 Telemetria zawiera między innymi `HP`, `work_mode`, temperatury, moc, stan sprężarki oraz stany pomp. Rekordy sprzed wydzielenia PV (2026-09-26) mają pełne `PV` i `pv_power` z telemetrii; nowe mają tylko `PV.total_power`, wpisane przez serwer (sekcja 5a). `co_pomp` jest polem telemetrii i może występować w operacji ręcznej, ale nie jest polem harmonogramu.
 
-**Schemat jest ścisły** ([`server/src/modules/heat-pump/models.ts`](server/src/modules/heat-pump/models.ts)): klucz, którego nie wymienia, jest po cichu pomijany przy zapisie. Dotyczy to m.in. `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` i **wszystkich liczników diagnostycznych** z `co`. Ostatnia surowa telemetria jest dostępna przez `GET /api/hp` z pamięci podręcznej do restartu serwera. **Nowe pole telemetrii trzeba dodać do schematu, do typów `server/src/modules/heat-pump/types.ts` i `client/src/api/type.ts` oraz do widoków klienta**, inaczej nie zostanie zapisane ani pokazane.
+**Schemat jest ścisły** ([`server/src/modules/heat-pump/models/hp.model.ts`](server/src/modules/heat-pump/models/hp.model.ts)): klucz, którego nie wymienia, jest po cichu pomijany przy zapisie. Dotyczy to m.in. `EEV_pulse`, `cop_min`, `cop_max`, `controller_mode` i **wszystkich liczników diagnostycznych** z `co`. Ostatnia surowa telemetria jest dostępna przez `GET /api/hp` z pamięci podręcznej do restartu serwera. **Nowe pole telemetrii trzeba dodać do schematu, do typów `server/src/modules/heat-pump/types.ts` i `client/src/api/type.ts` oraz do widoków klienta**, inaczej nie zostanie zapisane ani pokazane.
 
 ### `pv`
 
-Kolekcja `pv` przechowuje odczyty DTU z `POST /api/pv/add`, jeden dokument na odczyt: `rootId`, `deviceType`, `deviceId`, `time`, podsumowanie (`total_power`, `total_prod`, `total_prod_today`, `temperature`, `pv_power`) i `panels[]`. `panels` jest usuwane z dokumentów starszych niż 90 dni (`PANEL_DETAILS_RETENTION_DAYS` w [`server/src/modules/heat-pump/pv.service.ts`](server/src/modules/heat-pump/pv.service.ts)), podsumowanie zostaje na zawsze. Indeksy: `{rootId, createdAt}` i `{createdAt}`.
+Kolekcja `pv` przechowuje odczyty DTU z `POST /api/pv/add`, jeden dokument na odczyt: `rootId`, `deviceType`, `deviceId`, `time`, podsumowanie (`total_power`, `total_prod`, `total_prod_today`, `temperature`, `pv_power`) i `panels[]`. `panels` jest usuwane z dokumentów starszych niż 90 dni (`PANEL_DETAILS_RETENTION_DAYS` w [`server/src/modules/heat-pump/services/pv.service.ts`](server/src/modules/heat-pump/services/pv.service.ts)), podsumowanie zostaje na zawsze. Indeksy: `{rootId, createdAt}` i `{createdAt}`.
 
 ### `water_pressure` i `water_meter`
 
@@ -175,7 +177,7 @@ Kolekcja `settings` przechowuje starszy model ustawień czasowych (`night_hour`,
 
 ## 5. Telemetria pompy
 
-Endpoint `POST /api/hp/add` jest obsługiwany przez `addHp` w [`server/src/modules/heat-pump/hp.controller.ts`](server/src/modules/heat-pump/hp.controller.ts).
+Endpoint `POST /api/hp/add` jest obsługiwany przez `addHp` w [`server/src/modules/heat-pump/controllers/hp.controller.ts`](server/src/modules/heat-pump/controllers/hp.controller.ts).
 
 Przebieg:
 
@@ -208,7 +210,7 @@ Klucze `HP`, na których polegają `co` i chpc-web (nie wolno ich zmieniać ani 
 
 ### Błędy sterownika
 
-Gdy `HP.ERRn` różni się od poprzedniego rekordu, a `HP.ERR` ≠ 0, serwer zapisuje kod w polu `error_code` nowego rekordu (`detectErrorEvent` w [`server/src/modules/heat-pump/hp.service.ts`](server/src/modules/heat-pump/hp.service.ts)). `GET /api/hp/last-error` zwraca najnowszy rekord z `error_code` z ostatnich 24 godzin (okno kroczące). Wyjątek: gdy ostatnia telemetria ma `HP.ERRc` ≥ 5 (sterownik zablokowany), okno nie obowiązuje i błąd jest zwracany aż do odblokowania. Klient pokazuje czerwony dzwonek przed „T:” w widoku głównym (na telefonie w osobnym wierszu nad temperaturą; bez błędu ten wiersz nie istnieje), czerwony wiersz na liście danych oraz w zakładce Ustawienia błąd w dwóch liniach, data i pod nią opis (`errorLine` w [`client/src/utils/errors.ts`](client/src/utils/errors.ts)), licznik błędów i przyciski „Odblokuj” (aktywny tylko przy blokadzie) i „Restart sterownika”.
+Gdy `HP.ERRn` różni się od poprzedniego rekordu, a `HP.ERR` ≠ 0, serwer zapisuje kod w polu `error_code` nowego rekordu (`detectErrorEvent` w [`server/src/modules/heat-pump/services/hp.service.ts`](server/src/modules/heat-pump/services/hp.service.ts)). `GET /api/hp/last-error` zwraca najnowszy rekord z `error_code` z ostatnich 24 godzin (okno kroczące). Wyjątek: gdy ostatnia telemetria ma `HP.ERRc` ≥ 5 (sterownik zablokowany), okno nie obowiązuje i błąd jest zwracany aż do odblokowania. Klient pokazuje czerwony dzwonek przed „T:” w widoku głównym (na telefonie w osobnym wierszu nad temperaturą; bez błędu ten wiersz nie istnieje), czerwony wiersz na liście danych oraz w zakładce Ustawienia błąd w dwóch liniach, data i pod nią opis (`errorLine` w [`client/src/utils/errors.ts`](client/src/utils/errors.ts)), licznik błędów i przyciski „Odblokuj” (aktywny tylko przy blokadzie) i „Restart sterownika”.
 
 Kody (`ERRC_*` w CHPC, [`client/src/utils/errors.ts`](client/src/utils/errors.ts) tutaj; zmieniać razem): 1 czujnik, 2 przeciążenie, 3 brak przepływu, 4 za mała moc, 5 Tho, 6 Tsump za wysoka, 7 Tbc, 8 Tae, 9 Tco, 10 przekaźnik, 11 blokada x5, 12 Tsump za niska, 13 Tbe (parowanie poniżej −1 °C dłużej niż 60 s). Czas błędu to czas pierwszego rekordu z nowym `ERRn`, więc jest dokładny do 10–30 s (CHPC nie ma zegara).
 
@@ -236,12 +238,12 @@ Pełny opis: [`devices/water-pressure/docs/water-pressure.md`](devices/water-pre
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.
 - **Wysyłka co 1 s** (`POST /api/water-pressure/add?deviceId=…&rootId=…`, sam `deviceId` wystarcza; 404/409 jak w `/hp/add`): `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` — czasy względne od startu sterownika. Serwer liczy daty ze swojego zegara: pierwsza wiadomość ustala `pumpStart = teraz − pumpRunS`, każda kolejna ustawia `pumpEnd` na chwilę odebrania, więc ostatnia przed utratą zasilania wyznacza koniec pracy pompy (dokładność 1 s). Uruchomienie jest „w toku”, gdy ostatnia wiadomość ma mniej niż 5 s (`RUN_IN_PROGRESS_MS`).
 - **Kolejka.** Uruchomienie, z którego nie doszła żadna wiadomość (brak sieci), sterownik wysyła przy kolejnym starcie z `queued: true`; serwer zapisuje je z `timeApproximate: true` (daty z chwili przyjęcia).
-- **Woda** (`estimateWater` w [`water-pressure.service.ts`](server/src/modules/water-pressure/water-pressure.service.ts); ten sam wzór w `client/src/utils/water.ts` i `devices/water-pressure/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
+- **Woda** (`estimateWater` w [`water-pressure.service.ts`](server/src/modules/water-pressure/services/water-pressure.service.ts); ten sam wzór w `client/src/utils/water.ts` i `devices/water-pressure/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
 - **Wodomierz.** Podsumowanie (`/water-pressure/meter/summary`) interpoluje stan liniowo między odczytami (miesiące) i podpowiada `k` zbiornika z poduszką: `(wodomierz − przepona) / poduszka przy k = 1`.
 
 ## 6. Scheduler
 
-Implementacja znajduje się w [`server/src/modules/heat-pump/scheduler.service.ts`](server/src/modules/heat-pump/scheduler.service.ts).
+Implementacja znajduje się w [`server/src/modules/heat-pump/services/scheduler.service.ts`](server/src/modules/heat-pump/services/scheduler.service.ts).
 
 Stała:
 
@@ -339,7 +341,7 @@ Jeżeli w tej samej chwili aktywnych jest kilka harmonogramów, wybierany jest j
 
 ## 7. Operacje
 
-Logika znajduje się w [`server/src/modules/heat-pump/operation.service.ts`](server/src/modules/heat-pump/operation.service.ts).
+Logika znajduje się w [`server/src/modules/heat-pump/services/operation.service.ts`](server/src/modules/heat-pump/services/operation.service.ts).
 
 Serwis utrzymuje trzy mapy w pamięci procesu:
 

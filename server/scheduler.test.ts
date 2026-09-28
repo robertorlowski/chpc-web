@@ -7,13 +7,13 @@ import app from './src/core/app';
 import { DeviceModel } from './src/core/devices/device.model';
 import { DeviceType } from './src/core/devices/device.types';
 import { ScheduleType, WeekDay } from './src/modules/heat-pump/types';
-import { getCurrentSchedule, runSchedulerOnce } from './src/modules/heat-pump/scheduler.service';
+import { getCurrentSchedule, runSchedulerOnce } from './src/modules/heat-pump/services/scheduler.service';
 import {
   clearManualOperation,
   clearOperation,
   getManualOperationData,
   getOperationData,
-} from './src/modules/heat-pump/operation.service';
+} from './src/modules/heat-pump/services/operation.service';
 
 describe('Schedules and manual operation control', () => {
   let mongoServer: MongoMemoryServer;

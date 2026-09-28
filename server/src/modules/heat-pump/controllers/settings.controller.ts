@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 
-import { getSettingsData, setSettingsData } from './settings.service'
-import { SettingsEntry } from './types'
+import { getSettingsData, setSettingsData } from '../services/settings.service'
+import { SettingsEntry } from '../types'
 
 
 export async function getSettings(req: Request, res: Response) {

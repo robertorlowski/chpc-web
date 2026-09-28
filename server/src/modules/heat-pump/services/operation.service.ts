@@ -1,5 +1,5 @@
 
-import { OperationEntry  } from './types';
+import { OperationEntry  } from '../types';
 
 const operations = new Map<string, OperationEntry>();
 const scheduledOperations = new Map<string, OperationEntry>();
