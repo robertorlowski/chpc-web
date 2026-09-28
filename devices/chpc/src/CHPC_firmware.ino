@@ -18,6 +18,29 @@
 	See https://github.com/gonzho000/chpc/ for more details
 */
 
+//=====================================================================================
+// MAPA PLIKU (fork chpc-web; numery linii przybliżone, szukaj po nazwach)
+//   ~44       USER OPTIONS, TEMPERATURES, TUNING: tryb RS-485, progi zabezpieczeń (T_*),
+//             limity mocy (MAX_WATTS, MAX_WATTS_LIMIT), czasy cykli, strojenie EEV, adresy EEPROM
+//   ~166      opisy podłączeń autora (DS18B20, SCT-013, RS-485), piny płytki G, devID = 0x41
+//   ~339      czujniki DS18B20: tablica sensors[] indeksowana BIT_*, nazwy w sensor_names[]
+//   ~386      zmienne globalne: nastawy (T_setpoint, T_delta, c_wattage_max), stany przekaźników,
+//             start_force, co_on, error_count, INPUT_TYPE_* (menu), ERR_* (stan wewnętrzny),
+//             ERRC_* (kody zdarzeń w JSON), pomiar mocy
+//   ~571      funkcje: ReadVcc, DEBUG_LOG, LCD (PrintS_and_D, Print_D), zmiana nastaw przyciskami,
+//             EEPROM, FindAddr (wykrywanie czujników), GetT/Get_Temperatures, EEV (eevise),
+//             halifise (przekaźniki), reportError/stopOnError/stopByTemperature, softRestart
+//   ~1152     setup(): przekaźniki wyłączone, LCD, EEPROM albo wykrywanie czujników, pierwszy pomiar
+//   ~1312     loop(): próbka mocy (RMS), krok EEV, przeciążenie (ERRC 2), wejście przepływu,
+//   ~1389     loop: RS-485 (komendy 0x01–0x11), blokada po 5 błędach,
+//   ~1511     loop: przyciski i menu, wyświetlacz 1602 (+ ochrona przepływu, ERRC 3),
+//   ~1732     loop: cykl kontrolny co 1 s: czujniki, EEV, grzałka karteru, pauza startowa,
+//             termostat, pompy, ochrona przed mrozem, zabezpieczenia, przekaźnik, energia cyklu
+//   ~2132     StatsSerial(): odpowiedź JSON na 0x01 (kontrakt z co i chpc-web)
+// Kontrakt z łańcuchem chpc-web (co ⇄ RS-485): ramki [0x41][cmd][d1][d2][0xFF], klucze JSON
+// i kody ERRC_* są opisane w CLAUDE.md chpc-web (punkty 5, 13, 14); zmieniać razem z co i klientem.
+//=====================================================================================
+
 //-----------------------USER OPTIONS-----------------------
 #define BOARD_TYPE_G  //Type "G", PCB from github.com/gonzho000/chpc/
 
@@ -43,6 +66,8 @@
 
 
 //-----------------------TEMPERATURES-----------------------
+//Limity komend RS-485 0x04 (T max) i 0x05 (delta): wartość spoza zakresu CHPC po cichu pomija,
+//dlatego co nie wysyła zadanej > 50 ani różnicy > 30. Średnik w #define: używać tylko jako inicjalizatora.
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
 #define T_DELTA_MAX 30.0;              //defines max delta temperature
 #define T_DELTA_DEFAULT 5.0            //delta (T max - T min) gdy w EEPROM brak zapisanej wartości
@@ -61,9 +86,15 @@
 #define T_FROST_OFF 2.0     //i wyłączany, gdy wszystkie czujniki >= tej temperatury
 
 //-----------------------TUNING OPTIONS -----------------------
+//MAX_WATTS: domyślny limit mocy i próg ochrony przepływu (Err CP / ERRC_NO_FLOW działa tylko przy
+//c_wattage_max > MAX_WATTS, więc limit 3200 W lub niższy celowo ją wyłącza). MAX_WATTS/3.5 (~914 W)
+//to stały próg „sprężarka pracuje” (c_wattage_max_min). MAX_WATTS_LIMIT: górna granica także dla 0x0E.
 #define MAX_WATTS 3200  //3700.0  //user for power protection
 #define MAX_WATTS_LIMIT 4000  //górna granica limitu mocy ustawianego przyciskami
 
+//Rzeczywiste wartości (komentarze autora przy liczbach są nieaktualne): wybieg pompy gorącej 60 s,
+//zimnej 10 s, pauza po starcie 90 s, min. postój 20 min, min. praca 3 min, 9 s tolerancji mocy
+//po starcie, ochrona przepływu po 50 s pracy, kontrola „czy pracuje” po 60 s.
 #define DEFFERED_STOP_HOTCIRCLE 60000   //3000 000
 #define DEFFERED_STOP_COLDCIRCLE 10000  //3000 000
 #define POWERON_PAUSE 90000            //50s
@@ -120,6 +151,7 @@ int EEV_MINWORKPOS = xEEV_MINWORKPOS;
 //target difference betweenś Before Evaporator and After Evaporator, the head of whole algo
 //#define EEV_DEBUG			 //debug, usefull during system fine tuning, "RS485_HUMAN" only
 
+//Adresy EEPROM nastaw zmienianych przez RS-485 i przyciski; adresy czujników leżą niżej (0x07–0x66).
 #define MAGIC 0x50  //change if u want to reinit T sensors
 #define eeprom_addr_co 0x70
 #define eeprom_addr_EEV_MAX 0x74
@@ -296,6 +328,7 @@ String hw_version = "Type G v1.x";
 
 // RS-485 na sprzętowym UART: pin 0 (RX) <- RO, pin 1 (TX) -> DI
 
+//Adres CHPC na wspólnej magistrali (co 0x10, DTU 0x69) i bajt końca ramki [devID][cmd][d1][d2][endID].
 const uint8_t devID = 0x41;
 const uint8_t endID = 0xFF;
 
@@ -370,6 +403,8 @@ const double cT_hotout_max = T_HOTOUT_MAX;
 const double cT_workingOK_sump_min = T_WORKINGOK_SUMP_MIN;   //need to be not very high to normal start after deep freeze
 double c_wattage_max = MAX_WATTS;                      //FUNAI: 1000W seems to be normal working wattage INCLUDING 1(one) CR25/4 at 3rd speed
                                                              //PH165X1CY : 920 Watts, 4.2 A
+//Stała z MAX_WATTS (nie z bieżącego limitu): ~914 W. Powyżej = sprężarka pracuje (EEV, błąd przekaźnika),
+//poniżej po 60 s pracy = ERRC_WATTAGE_MIN; zarazem dolna granica limitu z przycisków i z EEPROM.
 const double c_wattage_max_min = c_wattage_max / 3.5;  //
 
 bool heatpump_state = 0;
@@ -377,6 +412,8 @@ bool hotside_circle_state = 0;
 bool coldside_circle_state = 0;
 bool sump_heater_state = 0;
 bool frost_protect = 0;  //obieg gorący włączony przez ochronę przed zamarzaniem
+//Wymuszenie startu (0x03, JSON "F"): start już przy Ttarget < T max - T_delta_force (3 °C).
+//Kasowane przy normalnym zatrzymaniu termostatem i przy restarcie; nie w EEPROM.
 bool start_force = 0;
 
 
@@ -428,6 +465,8 @@ unsigned long millis_eev_last_close = 0;
 unsigned long millis_eev_last_on = 0;
 unsigned long millis_eev_last_step = 0;
 
+//Licznik błędów liczonych przez stopOnError (JSON "ERRc"); 5 = blokada sterowania.
+//Zerowany przez 0x10, normalne zatrzymanie termostatem i restart.
 unsigned int error_count = 0;
 
 #define INPUT_TYPE_CO 0
@@ -446,13 +485,16 @@ int input_type = INPUT_TYPE_CO;
 
 #define ERR_HZ 2500
 
+//Bufor odbioru RS-485: najwyżej 49 bajtów z jednego odczytu, reszta jest odrzucana.
 uint8_t inData[50];   // Allocate some space for the string, do not change that size!
 char inChar = -1;  // space to store the character read
 byte index = 0;    // Index into array; where to store the character
 
+//Ręczne wymuszenia (0x09/0x0A/0x0B, menu), sumowane z automatyką w halifise(); nie w EEPROM.
 bool hot_pomp_on = false;
 bool cold_pomp_on = false;
 bool sump_heater_on = false;
+//Zgoda na start sprężarki (0x0C, menu „CO:”, JSON "CO"); w EEPROM, więc przetrwa restart.
 bool co_on = true;
 
 //-------------temporary variables
@@ -475,6 +517,7 @@ int eeprom_addr = 0x00;
 const int eeprom_magic = MAGIC;
 
 //-------------ERROR states
+//Stan wewnętrzny errorcode: w praktyce tylko ERR_OK i ERR_T_SENSOR. Kody dla chpc-web to ERRC_* niżej.
 #define ERR_OK 0
 #define ERR_T_SENSOR 1
 #define ERR_HOT_PUMP 2
@@ -485,6 +528,8 @@ const int eeprom_magic = MAGIC;
 int errorcode = 0;
 
 //-------------kody zdarzeń błędów w JSON ("ERR"); opisy po stronie chpc-web, zmiana = zmiana w obu projektach
+//Liczone do blokady (stopOnError): 2, 3, 4. Tylko zatrzymanie (stopByTemperature): 5–9, 12, 13.
+//Bez zatrzymania przez funkcję: 1 (errorcode blokuje start), 10 (wymusza pompy), 11 (blokada).
 #define ERRC_T_SENSOR 1     //ERR: Temp. Sens.
 #define ERRC_OVERLOAD 2     //ERR: Overload
 #define ERRC_NO_FLOW 3      //ERR: Cold Flow
@@ -1050,6 +1095,8 @@ void reportError(uint8_t code) {
 #endif
 }
 
+//Błąd liczony: zatrzymuje sprężarkę i automatyczne pompy/grzałkę (ręczne wymuszenia zostają),
+//zwiększa error_count; piąty błąd daje blokadę (ERRC_LOCKED). start_force nie jest kasowane.
 void stopOnError(String error, uint8_t code) {
   PrintS_and_D(error);  //LCD zawsze, RS-485 tylko w RS485_HUMAN
   reportError(code);
@@ -1319,6 +1366,7 @@ void loop(void) {
 #endif
   //--------------------async fuctions END
 
+  //ERRC_OVERLOAD: moc > limitu po POWERON_HIGHTIME (9 s) od startu albo > 3,5 x limit w każdej chwili
   if (heatpump_state == 1 && async_wattage > c_wattage_max) {
     if (((unsigned long)(millis_now - millis_last_heatpump_on) > POWERON_HIGHTIME) || (async_wattage > c_wattage_max * 3.5)) {
       stopOnError(F("ERR: Overload"), ERRC_OVERLOAD);
@@ -1326,6 +1374,8 @@ void loop(void) {
   }
 
   //0 - OK / 1- NotOK
+  //Wejście przepływu A7: > 4 V = brak przepływu. emergency = 1 dopiero, gdy brak trwa > 9 s;
+  //sam błąd ERRC_NO_FLOW sprawdza blok wyświetlacza (niżej).
   emergency_tmp = (analogRead(emergency_pin) * (5.0 / 1023.0) > 4.0) ? 1 : 0;
   if (emergency_tmp == 0)  {
     emergency_notification = millis_now;
@@ -1337,6 +1387,9 @@ void loop(void) {
   }
 
   //-------------------RS-485 (przed cyklem kontrolnym, by odpowiadać także w czasie POWERON_PAUSE)
+  //Cały pakiet czytany jednym ciągiem: 1,3 ms na bajt to nieco więcej niż czas bajtu przy 9600 bd.
+  //Ramki są przetwarzane tylko od początku bufora; gdy przed ramką CHPC są obce bajty (np. końcówka
+  //odpowiedzi DTU), cały odczyt jest odrzucany, a co nie dostaje potwierdzenia i sam porównuje stan.
   if (RS485Serial.available() > 0) {
     index = 0;
     while (RS485Serial.available()) {
@@ -1353,17 +1406,19 @@ void loop(void) {
     for (byte f = 0; f + 5 <= index && inData[f] == devID && inData[f + 4] == endID; f += 5) {
       uint8_t *frame = &inData[f];
       switch (frame[1]) {
-        case 0x01:
+        case 0x01:  //odczyt stanu: jedna linia JSON (StatsSerial), jedyna odpowiedź CHPC na magistrali
         case 0x02:
           StatsSerial();
           RS485Serial.flush();
           break;
         case 0x03:
+          //force start 0/1: tylko w spoczynku; w czasie pracy komenda (także 0) jest pomijana
           if (heatpump_state == 0) {
             start_force = (frame[2] == 0x01);
           }
           break;
         case 0x04:
+          //T max (d1 + d2/100), 0..T_SETPOINT_MAX, inaczej pominięte; zapis w EEPROM
           tempdouble = int(frame[2]) + int(frame[3]) / 100.0;
           if (tempdouble < 0 || tempdouble > cT_setpoint_max) {
             break;
@@ -1372,6 +1427,7 @@ void loop(void) {
           SaveSetpointEE(1);
           break;
         case 0x05:
+          //delta = T max - T min, 0..T_DELTA_MAX, inaczej pominięte; zapis w EEPROM
           tempdouble = int(frame[2]) + int(frame[3]) / 100.0;
           if (tempdouble > cT_delta_max || tempdouble < 0) {
             break;
@@ -1401,10 +1457,11 @@ void loop(void) {
           WriteIntEEPROM(eeprom_addr_EEV_MIN, EEV_MINWORKPOS);
           break;
         case 0x08:
+          //zadane przegrzanie EEV bez kontroli zakresu; po restarcie wartość spoza 0..8 wraca do 1,0
           T_EEV_setpoint = double(int(frame[2])) + double(int(frame[3])) / 100;
           WriteFloatEEPROM(eeprom_addr_EEV_setpoint, T_EEV_setpoint);
           break;
-        case 0x09:
+        case 0x09:  //0x09-0x0B: ręczne wymuszenie pompy gorącej / zimnej / grzałki karteru
           hot_pomp_on = (frame[2] == 0x01);
           break;
         case 0x0A:
@@ -1414,10 +1471,12 @@ void loop(void) {
           sump_heater_on = (frame[2] == 0x01);
           break;
         case 0x0C:
+          //CO on/off: zgoda na start sprężarki; wyłączenie zatrzymuje ją po min. czasie pracy (3 min)
           co_on = (frame[2] == 0x01);
           WriteIntEEPROM(eeprom_addr_co, co_on);
           break;
         case 0x0E:
+          //limit mocy W = d1*100 + d2, tylko 1001..MAX_WATTS_LIMIT; 3200 i mniej wyłącza ochronę przepływu
           tempint = int(frame[2]) * 100 + int(frame[3]);
           if (tempint > 1000 && tempint <= MAX_WATTS_LIMIT) {
             c_wattage_max = tempint;
@@ -1426,6 +1485,7 @@ void loop(void) {
           break;
         case 0x10:
           //odblokowanie po ERRC_LOCKED: zerowanie licznika błędów
+          //ERR (kod ostatniego zdarzenia) zostaje; chpc-web rozpoznaje blokadę po ERRc
           error_count = 0;
           break;
         case 0x11:
@@ -1442,6 +1502,8 @@ void loop(void) {
   }
 
   //blokada po 5 błędach: sterowanie stoi, ale RS-485 (wyżej) nadal odpowiada i przyjmuje 0x10/0x11
+  //W blokadzie nie działa cykl kontrolny: temperatury w JSON nie są odświeżane, przekaźniki zostają
+  //w stanie z stopOnError (ręczne wymuszenia pomp nadal działają), EEV kończy tylko rozpoczęty ruch.
   if (error_count >= 5) {
     return;
   }
@@ -1577,6 +1639,9 @@ void loop(void) {
 //-------------------buttons processing END
 
 //-------------------display
+//Ekrany co 5 s (millis_displ_update_interval), dopiero po pauzie startowej: displ_inc 1-2 CO: T min/T max
+//i Ttarget (10 s), 3 Tbe/Tae, przegrzanie i pozycja EEV, 4 Tsump, Tco (albo Tho), moc, F, Flow.
+//Uwaga: ochrona przepływu jest w tym bloku, więc działa tylko z DISPLAY_1602 i sprawdzana jest co 5 s.
 #ifdef DISPLAY_1602
   if ((_1st_start_sleeped == 1) && (((unsigned long)(millis_now - millis_displ_update) > millis_displ_update_interval) || (millis_displ_update == 0))) {
 //!!!EEV_ONLY SUPPORT???
@@ -1665,11 +1730,15 @@ void loop(void) {
   //-------------------display END
 
   //-------------------check cycle
+  //Co millis_cycle (1 s). W czasie POWERON_PAUSE kończy się na „Wait:” (return), więc termostat,
+  //pompy i zabezpieczenia ruszają po 90 s; RS-485 i EEV działają od razu.
   if (((unsigned long)(millis_now - millis_prev) > millis_cycle) || (millis_prev == 0)) {
     millis_prev = millis_now;
     
     //--------------------important logic
     //check T sensors
+    //ERRC_T_SENSOR: -127 z Tae, Tbe, Ttarget, Tsump, Tco albo Tho (włączonych) po dwóch odczytach;
+    //blokuje start, zatrzymuje sprężarkę (niżej), nie liczy się do blokady, znika sam po powrocie czujnika
     if (errorcode == ERR_OK) {
       for (e = 0; e < 2; e++) {
         Get_Temperatures();
@@ -1724,6 +1793,8 @@ void loop(void) {
     }
 
 //-------------- EEV cycle
+//Przy pracy (moc > ~914 W) utrzymuje przegrzanie Tae-Tbe na T_EEV_setpoint w granicach
+//EEV_MINWORKPOS..EEV_MAXPULSES_OPEN (0x0F/0x0D); w spoczynku pozycja oczekiwania i kalibracja co 24 h.
 #ifdef EEV_SUPPORT
     //v1.1 algo
     if (errorcode == 0 && async_wattage > c_wattage_max_min && EEV_cur_pos > 0) {
@@ -1877,6 +1948,8 @@ void loop(void) {
     }
 
     //process_heatpump:
+    //Start: co_on, brak błędu, EEV po kalibracji, postój >= 20 min, Tsump 5..85, Tae > -2, Tbc < 70,
+    //Tci/Tco > -2 oraz Ttarget < T max - delta (albo < T max - 3 przy start_force).
     if (  //start dopiero po zakończeniu kalibracji/domykania EEV
       (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
 
@@ -1890,6 +1963,7 @@ void loop(void) {
     }
 
     //stop if
+    //Normalne zatrzymanie (Ttarget > T max albo CO off) po min. 3 min pracy: kasuje force i licznik błędów.
     if (
       heatpump_state == 1 && (Ttarget.T > T_setpoint || co_on == 0)
     ) {
@@ -1965,6 +2039,8 @@ void loop(void) {
     //      or (t cold in < cold min)
     //      or (t cold out < cold min)
     //
+    //Zabezpieczenia temperaturowe w czasie pracy: tylko zatrzymanie, bez licznika błędów (start
+    //ponownie po 20 min postoju). Tbe < -1 °C musi trwać > 60 s (TBE_LOW_MILLIS).
     if (heatpump_state == 0 || Tbe.e != 1 || Tbe.T >= T_BEFORE_EVAPORATOR_MIN) {
       millis_tbe_ok = millis_now;
     }
@@ -1999,6 +2075,7 @@ void loop(void) {
     //      or (sump t < 25'C)
     //      or wattage too low
 
+    //Po 60 s pracy: Tsump < 3 °C (ERRC_TEMP_LOW, bez licznika), moc < ~914 W (ERRC_WATTAGE_MIN, liczony)
     if (heatpump_state == 1 && ((unsigned long)(millis_now - millis_last_heatpump_on) > MINCYKLE_CHECK)) {
       if ((errorcode == ERR_OK) && (Tsump.e == 1 && Tsump.T < cT_workingOK_sump_min)) {
         stopByTemperature(F("ERR: Temp. Low"), ERRC_TEMP_LOW);
@@ -2015,6 +2092,8 @@ void loop(void) {
     }
 
     //prevent error - zepsuty przekaźnik
+    //ERRC_RELAY: moc > ~914 W przy sprężarce wyłączonej od > 10 s. Włącza ręczne wymuszenia obu pomp,
+    //które zostają także po ustaniu usterki (do zmiany przez 0x09/0x0A, menu albo restartu).
     if (async_wattage > c_wattage_max_min && heatpump_state == 0 && (millis_now - millis_last_heatpump_off) > 10000
         && (coldside_circle_state == 0 || hotside_circle_state == 0)) {
       hot_pomp_on = 1;
@@ -2032,6 +2111,7 @@ void loop(void) {
     halifise();
 #endif
 
+    //Energia bieżącego cyklu w Ws (JSON lt_pow = last_power/3600 Wh); zerowana przy starcie sprężarki
     if (millis_last_heatpump_on > millis_last_heatpump_off) {
       last_power += async_wattage * (millis_now - last_power_milis) / 1000;
       last_power_milis = millis_now;
@@ -2040,6 +2120,15 @@ void loop(void) {
   }
 }
 
+//Odpowiedź na 0x01/0x02: jedna linia JSON zakończona CRLF, wysyłana bez przerw (co uznaje ramkę
+//za zakończoną po 5 ms ciszy). co przekazuje ją do chmury bez zmian jako telemetrię "HP".
+//Kontrakt: nazw kluczy nie zmieniać ani nie usuwać (co, chpc-web); nowe klucze tylko oszczędnie (Flash).
+//Temperatury i część wartości są napisami, stany 0/1 i błędy liczbami; co przyjmuje oba formaty.
+//Tbe..Tsump [°C, -127 = brak czujnika], EEV_dt przegrzanie, Tmax/Tmin termostat, Watts moc,
+//EEV zadane przegrzanie, EEV_pos/EEV_pulse pozycja i kroki w toku, SHS/HCS/CCS grzałka i pompy
+//(automatyka LUB wymuszenie; HCS także ochrona przed mrozem), HPS sprężarka, F force, CO zgoda,
+//WWatt limit mocy, EEVmax/EEVmin limity EEV, ERR/ERRn/ERRc błędy, lt_pow [Wh] i lt_hp_on [s]
+//bieżącego lub ostatniego cyklu sprężarki.
 void StatsSerial(void) {
   RS485Serial.print(F("{\"Tbe\":\""));
   RS485Serial.print(Tbe.T, 1);

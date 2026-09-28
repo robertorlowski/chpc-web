@@ -10,6 +10,8 @@ This repository is a fork of [gonzho000/chpc](https://github.com/gonzho000/chpc)
 - faster response on the bus;
 - a Wokwi simulation for testing without hardware.
 
+**Documentation in the chpc-web system** (business description, how it works, technical documentation): [Polish](./docs/1-opis-biznesowy.md) · [English](./docs/en/1-business-description.md). Where this README and those documents differ, the documents prevail.
+
 ![Installation example](./docs/m_CHPC_i2.jpg)
 
 ## What the controller drives
@@ -72,7 +74,7 @@ The compressor **starts** when all of the following are true:
   - Tci and Tco > −2 °C;
   - the EEV is at least in its waiting position.
 
-The compressor **stops** when `Ttarget` > `T max` (or `CO` is switched off), after running for at least **3 min**.
+The compressor **stops** when `Ttarget` > `T max` (or `CO` is switched off), after running for at least **3 min**. This normal stop clears force start (`F`) and the error counter. A stop by a protection keeps `F`; force start sent over RS-485 (`0x03`) is accepted only while the compressor is off.
 
 ### Circulating pumps
 - **Hot-side pump:** on 2.25 s after the compressor starts. After the compressor stops, it keeps running for **60 s**, and longer while `Tho` > `Ttarget` + 3 °C.
@@ -100,7 +102,7 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 | 1 | Required sensor missing (reads −127) | compressor stops, buzzer every 33 s. Cleared automatically when the sensor comes back | `ERR: Temp. Sens.` |
 | 2 | Power above the power limit (after 9 s from start, or above 3.5× the limit at any time) | compressor stops, error counted | `ERR: Overload` |
 | 3 | No flow on the flow input, 50 s after start. **Active only when the power limit is above 3200 W** | compressor stops, error counted | `ERR: Cold Flow` |
-| 4 | Power below `power limit / 3.5`, 60 s after start (compressor not working) | compressor stops, error counted | `ERR: Wattage Min` |
+| 4 | Power below ≈ 914 W (`MAX_WATTS / 3.5`, fixed, independent of the configured limit), 60 s after start (compressor not working) | compressor stops, error counted | `ERR: Wattage Min` |
 | 5–9 | Tho > 60 °C, Tsump > 85 °C, Tbc > 70 °C, Tae < −2 °C, Tco < −2 °C while running | compressor stops | `ERR: Temp. Tho` / `Tsump` / `Tbc` / `Tae` / `Tco` |
 | 10 | Power drawn while the compressor is off (stuck relay) | pumps forced on | `ERR: Relay` |
 | 11 | 5 counted errors | control locks. RS-485 keeps answering, so the lock shows in the web app and can be cleared there ("Odblokuj", command `0x10`) or with a restart. The counter also resets after a normal compressor cycle | `ERR: Locked x5` |
@@ -109,11 +111,11 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 
 Every event is reported in the status JSON (`ERR` code, `ERRn` sequence number, `ERRc` error counter). The web app keeps a history of errors with their times.
 
-The **power limit** also works as a switch for the flow protection. Setting it to exactly 3200 W disables that protection, for example when the pump runs from a power source on which the flow sensor is unreliable.
+The **power limit** also works as a switch for the flow protection. Setting it to 3200 W or less disables that protection, for example when the pump runs from a power source on which the flow sensor is unreliable.
 
 ## Local operation (LCD and buttons)
 
-The LCD shows three screens in turn, each for 5 s:
+The LCD shows three screens in turn: screen 1 for 10 s, the others for 5 s:
 
 | Screen | Line 1 | Line 2 |
 |---|---|---|

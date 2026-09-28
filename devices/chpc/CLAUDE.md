@@ -22,7 +22,7 @@ pio device monitor                 # 9600 baud
 
 The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar come from PlatformIO's ino-to-cpp pass, which ignores `#ifdef`. They are harmless. The real compile warnings come after them.
 
-**Flash is ~92% full** (about 2.3 KB of 30 KB free). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
+**Flash is 95.0% full** (29 174 B of 30 720 B, 2026-09-29). Check the `Flash:` line after every change. `String` concatenation is expensive here, so prefer `F("...")` and direct `print` calls.
 
 **Tests on the PC (main test path).** Use these first, because they are fast and have no quota.
 
@@ -68,7 +68,7 @@ Behaviour is selected by editing the `USER OPTIONS` block at the top of the `.in
 - **Feature flags:** `EEV_SUPPORT`, `EEV_ONLY`, `INPUTS_AS_BUTTONS` and `EEV_DEBUG`. `WATCHDOG` was removed: on a Pro Mini with the stock bootloader, a watchdog reset can end in an endless reset loop. Restart is done in software instead (`softRestart()`, a jump to address 0).
 - **Protection thresholds:** `T_*_MIN/MAX`, `MAX_WATTS`. **Timing constants:** `POWERON_PAUSE`, `MINCYCLE_*`, `DEFFERED_STOP_*`. **EEV tuning:** `EEV_*`. Note: several `T_*` defines end with a stray `;`, so they can only be used as whole initializers (`const double cT_x = T_X;`), not inside expressions.
 
-The power limit `c_wattage_max` also works as a deliberate switch. When it is above `MAX_WATTS` (3200), the flow protection ("Err CP") is on. The user sets exactly 3200 W to turn it off, for example when the heat pump runs from another power source on which the flow sensor is unreliable. Keep this coupling.
+The power limit `c_wattage_max` also works as a deliberate switch. When it is above `MAX_WATTS` (3200), the flow protection ("Err CP") is on. Any limit of 3200 W or less turns it off (the user sets 3200 W), for example when the heat pump runs from another power source on which the flow sensor is unreliable. Keep this coupling.
 
 Code is heavily wrapped in `#ifdef`. When you change logic, make sure it still compiles under the other display, serial and EEV combinations, or guard it correctly.
 
@@ -90,7 +90,7 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
 
 ## RS-485 contract with the `co` controller
 
-The bus master is a separate ESP32 project, `D:\DevLocal\arduino_src\heatpump` (PlatformIO, its own git repo, firmware in the repo root). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
+The bus master is the ESP32 firmware `co` in `devices/co` of the same chpc-web repository (PlatformIO; the old `D:\DevLocal\arduino_src\heatpump` copy is out of date). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
 
 - `src/modbus_frame.cpp`: command encoding, covered by `test/test_modbus_frame` (`pio test -e native`).
 - `src/serial_bus.cpp`: queue, timing and frame detection.
