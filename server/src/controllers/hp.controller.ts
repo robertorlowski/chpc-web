@@ -1,31 +1,14 @@
 import { Request, Response } from 'express'
-import { fromZonedTime } from "date-fns-tz";
-import { addDays } from "date-fns";
 import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../middleware/type'
 import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/model'
 import { getFreshPvSummary } from '../services/pv.service'
 import { getTemperature } from '../services/meteo.service'
+import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../core/time'
 
 interface THpClear {
   clear?: Boolean
-}
-
-export function warsawDayBoundsUTC(dateStr: string) {
-  const norm = dateStr.replace(/\./g, "-");         // 2025.08.19 -> 2025-08-19
-  const startLocal = new Date(`${norm}T00:00:00`);
-  const endLocal = addDays(startLocal, 1);
-
-  const startUTC = fromZonedTime(startLocal, "Europe/Warsaw");
-  const endUTC   = fromZonedTime(endLocal,   "Europe/Warsaw");
-  return { startUTC, endUTC }; // używaj zakresu [startUTC, endUTC)
-}
-
-export function warsawDateRangeBoundsUTC(startDate: string, endDate: string) {
-  const { startUTC } = warsawDayBoundsUTC(startDate);
-  const { endUTC } = warsawDayBoundsUTC(endDate);
-  return { startUTC, endUTC };
 }
 
 

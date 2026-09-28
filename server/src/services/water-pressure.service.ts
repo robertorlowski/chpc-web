@@ -1,8 +1,8 @@
 import { DeviceProperties, DeviceType, WaterMeterReading, WaterPressureRun, WaterTank } from '../middleware/type';
 import { DeviceModel, WaterMeterReadingModel, WaterPressureRunModel } from '../models/model';
-import { getDeviceInfo } from './hp.service';
+import { getDeviceInfo } from '../core/device-info';
+import { TIME_ZONE } from '../core/time';
 
-const TIME_ZONE = 'Europe/Warsaw';
 const ATMOSPHERE_BAR = 1.013;
 
 // Uruchomienie jest „w toku”, gdy ostatnia wiadomość sterownika (co 1 s) jest młodsza.

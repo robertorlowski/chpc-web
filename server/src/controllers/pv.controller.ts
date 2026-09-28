@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { PvEntry } from '../middleware/type'
 import { addPvData, getPvLastData, getPvRange } from '../services/pv.service'
-import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from './hp.controller'
+import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../core/time'
 
 // Zapis odczytu DTU wysłanego przez sterownik co 60 s. Odpowiedź nie niesie
 // operacji: tę sterownik dostaje wyłącznie z /hp/add.

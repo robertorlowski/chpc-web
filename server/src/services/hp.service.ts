@@ -1,38 +1,14 @@
 import { HpEntry } from '../middleware/type';
 import { sendMessage } from '../middleware/webSocet';
-import { DeviceModel, HpEntryModel } from '../models/model';
+import { HpEntryModel } from '../models/model';
 import { getTemperature } from './meteo.service';
 import { formatInTimeZone } from 'date-fns-tz';
-import { TIME_ZONE } from './calendar.service';
+import { TIME_ZONE } from '../core/time';
+import { forgetDeviceInfo, getDeviceInfo } from '../core/device-info';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 const lastDataByRoot = new Map<string, HpEntry>();
 const availableDatesByRoot = new Map<string, Set<string>>();
-const deviceInfoByRoot = new Map<string, {
-  deviceType: HpEntry['deviceType'];
-  deviceId: string;
-}>();
-
-export const getDeviceInfo = async (rootId: string) => {
-  const cached = deviceInfoByRoot.get(rootId);
-  if (cached) return cached;
-
-  const device = await DeviceModel
-    .findById(rootId)
-    .select('deviceType deviceId')
-    .lean();
-
-  if (!device) {
-    throw new Error(`Device not found: ${rootId}`);
-  }
-
-  const info = {
-    deviceType: device.deviceType,
-    deviceId: device.deviceId,
-  };
-  deviceInfoByRoot.set(rootId, info);
-  return info;
-};
 
 export const assignLegacyHpData = async (rootId: string) => {
   const device = await getDeviceInfo(rootId);
@@ -53,7 +29,7 @@ export const clearData = async (rootId: string) => {
   await HpEntryModel.deleteMany({ rootId });
   lastDataByRoot.delete(rootId);
   availableDatesByRoot.delete(rootId);
-  deviceInfoByRoot.delete(rootId);
+  forgetDeviceInfo(rootId);
 }
 
 export const getHpAvailableDates = async (rootId: string): Promise<string[]> => {

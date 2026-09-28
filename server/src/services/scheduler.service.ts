@@ -10,7 +10,8 @@ import {
 import { DeviceDocument, DeviceModel } from '../models/model';
 import { getHpLastData } from './hp.service';
 import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
-import { getLocalDayOfWeek, isPolishDayOff, TIME_ZONE } from './calendar.service';
+import { getLocalDayOfWeek, isPolishDayOff } from './calendar.service';
+import { TIME_ZONE } from '../core/time';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 

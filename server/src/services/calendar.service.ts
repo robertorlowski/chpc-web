@@ -1,6 +1,6 @@
 import { formatInTimeZone } from 'date-fns-tz';
 
-export const TIME_ZONE = 'Europe/Warsaw';
+import { TIME_ZONE } from '../core/time';
 
 function dateKey(date: Date): string {
   return date.toISOString().slice(0, 10);

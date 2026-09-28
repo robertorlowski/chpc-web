@@ -5,9 +5,8 @@ import {
   getWaterPressureRuns, getWaterPressureSummary, isCompressorSeconds, listWaterMeterReadings,
   RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
 } from '../services/water-pressure.service';
-import { warsawDayBoundsUTC } from './hp.controller';
+import { TIME_ZONE, warsawDayBoundsUTC } from '../core/time';
 
-const TIME_ZONE = 'Europe/Warsaw';
 const pad = (value: number) => String(value).padStart(2, '0');
 const warsawMidnight = (year: number, month: number, day: number) =>
   fromZonedTime(`${year}-${pad(month)}-${pad(day)}T00:00:00`, TIME_ZONE);
