@@ -97,3 +97,35 @@
   margin: 0;
 }
 
+
+/* gwiazdka „sterownik domyślny” w lewym górnym rogu kafelka */
+.device-list .device-default {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.device-default svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: #fff;
+}
+
+.device-default.active svg {
+  fill: #ffd54f;
+  stroke: #ffd54f;
+}
+
+.device-list .device-default:hover,
+.device-list .device-default:focus-visible {
+  background-color: rgba(255, 255, 255, 0.4);
+}

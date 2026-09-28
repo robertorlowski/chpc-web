@@ -10,8 +10,21 @@ import { Schedules } from "./pages/Schedules";
 import { Devices } from './pages/Devices';
 import { DeviceProvider, deviceLabel, useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { HpRequests } from './api/api';
+import { Device, DeviceType } from './api/type';
+import { WaterHome } from './pages/WaterPressure/Home';
+import { WaterData } from './pages/WaterPressure/Data';
+import { WaterChart } from './pages/WaterPressure/Chart';
+import { WaterSettings } from './pages/WaterPressure/Settings';
+
+// Po otwarciu aplikacji raz na sesję przeglądarki przechodzi do sterownika
+// domyślnego z bazy; późniejsza zmiana w stopce obowiązuje do końca sesji.
+const defaultAppliedKey = 'chpc.defaultApplied';
+
+const sameDevice = (a: Device, b: Device) =>
+	a.deviceId === b.deviceId && a.name === b.name && a.deviceType === b.deviceType
+	&& a.isDefault === b.isDefault;
 
 function DeviceGuard({ children }: { children: React.ReactNode }) {
 	const { device, selectDevice, clearDevice } = useDevice();
@@ -26,9 +39,18 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 			if (!list) return;
 			const current = list.find((item) => item.rootId === device.rootId);
 			if (!current) clearDevice();
-			else if (current.deviceId !== device.deviceId || current.name !== device.name) selectDevice(current);
+			else if (!sameDevice(current, device)) selectDevice(current);
 		});
 	}, [device?.rootId]);
+
+	useEffect(() => {
+		if (!device || sessionStorage.getItem(defaultAppliedKey)) return;
+		sessionStorage.setItem(defaultAppliedKey, '1');
+		HpRequests.getDevices().then((list) => {
+			const preferred = list?.find((item) => item.isDefault);
+			if (preferred && preferred.rootId !== device.rootId) selectDevice(preferred);
+		});
+	}, []);
 
 	if (!device && location.pathname !== '/devices') {
 		return <Navigate to="/devices" replace state={{ auto: true }} />;
@@ -67,6 +89,13 @@ function DeviceFooter() {
 	);
 }
 
+// Widok zależny od typu wybranego sterownika; key daje stronie nowy stan po zmianie sterownika.
+function ByType({ heatPump, waterPressure }: { heatPump: React.ReactElement; waterPressure: React.ReactElement }) {
+	const { device } = useDevice();
+	const element = device?.deviceType === DeviceType.WATER_PRESSURE ? waterPressure : heatPump;
+	return <Fragment key={device?.rootId}>{element}</Fragment>;
+}
+
 function AppContent() {
 	const location = useLocation();
 	const isDeviceSelection = location.pathname === '/devices';
@@ -81,12 +110,12 @@ function AppContent() {
 				<main className="app-main">
 				<Routes>
 					<Route path="/devices" element={<Devices />} />
-					<Route path="/" element={<HP />} />
-					<Route path="/hp" element={<HP />} />
-					<Route path="/settings" element={<Settings />} />
-					<Route path="/data" element={<HeatPumpTable />} />
-					<Route path="/chart" element={<HeatPumpChart/>} />
-					<Route path="/schedules" element={<Schedules />} />
+					<Route path="/" element={<ByType heatPump={<HP />} waterPressure={<WaterHome />} />} />
+					<Route path="/hp" element={<ByType heatPump={<HP />} waterPressure={<WaterHome />} />} />
+					<Route path="/settings" element={<ByType heatPump={<Settings />} waterPressure={<WaterSettings />} />} />
+					<Route path="/data" element={<ByType heatPump={<HeatPumpTable />} waterPressure={<WaterData />} />} />
+					<Route path="/chart" element={<ByType heatPump={<HeatPumpChart />} waterPressure={<WaterChart />} />} />
+					<Route path="/schedules" element={<ByType heatPump={<Schedules />} waterPressure={<Navigate to="/" replace />} />} />
 				</Routes>
 				</main>
 				<DeviceFooter />

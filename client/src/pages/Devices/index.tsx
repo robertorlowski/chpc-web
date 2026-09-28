@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { HpRequests } from '../../api/api';
-import { Device } from '../../api/type';
+import { Device, DeviceType } from '../../api/type';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { deviceLabel, useDevice } from '../../context/DeviceContext';
 import './style.css';
@@ -32,14 +32,27 @@ export const Devices: React.FC = () => {
 
   const chooseDevice = (device: Device) => {
     selectDevice(device);
-    navigate('/hp');
+    navigate('/');
   };
 
+  // przy wejściu do aplikacji: sterownik domyślny z bazy, a bez niego jedyny sterownik
   useEffect(() => {
-    if (automaticSelection && devices.length === 1) {
-      chooseDevice(devices[0]);
-    }
+    if (!automaticSelection) return;
+    const preferred = devices.find((device) => device.isDefault) ?? (devices.length === 1 ? devices[0] : undefined);
+    if (preferred) chooseDevice(preferred);
   }, [devices]);
+
+  const toggleDefault = async (device: Device) => {
+    try {
+      const updated = await HpRequests.setDefaultDevice(device.rootId, !device.isDefault);
+      setDevices((list) => list.map((item) => ({
+        ...item,
+        isDefault: item.rootId === updated.rootId ? updated.isDefault : false,
+      })));
+    } catch {
+      setError('Nie udało się zmienić sterownika domyślnego.');
+    }
+  };
 
   const saved = (updated: Device) => {
     setDevices((list) => list.map((device) => device.rootId === updated.rootId ? updated : device));
@@ -54,12 +67,31 @@ export const Devices: React.FC = () => {
         {devices.map((device) => (
           <div key={device.rootId} className="device-card">
             <button type="button" className="device-choose" onClick={() => chooseDevice(device)}>
-              <svg className="device-selection-icon" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M11.0007 3C11.0007 3 9.86264 7.5 11.9313 12C14 16.5 13.5 21 13.5 21M18.9313 21C18.9313 21 19.6008 16.5 17.5007 13C15.4007 9.5 16.0007 6 16.0007 6M7.92989 21C7.92989 21 8.5993 16.5 6.49927 13C4.39924 9.5 4.99927 6 4.99927 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {device.deviceType === DeviceType.WATER_PRESSURE ? (
+                <svg className="device-selection-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M12 3C12 3 5.5 10.2 5.5 14.5C5.5 18.1 8.4 21 12 21C15.6 21 18.5 18.1 18.5 14.5C18.5 10.2 12 3 12 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                  <path d="M9 15C9 16.7 10.3 18 12 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg className="device-selection-icon" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M11.0007 3C11.0007 3 9.86264 7.5 11.9313 12C14 16.5 13.5 21 13.5 21M18.9313 21C18.9313 21 19.6008 16.5 17.5007 13C15.4007 9.5 16.0007 6 16.0007 6M7.92989 21C7.92989 21 8.5993 16.5 6.49927 13C4.39924 9.5 4.99927 6 4.99927 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
               <strong>{deviceLabel(device)}</strong>
               {/* Device ID pod nazwą; bez nazwy jest już w tytule kafelka */}
               {device.name?.trim() && <small>{device.deviceId}</small>}
+            </button>
+            <button
+              type="button"
+              className={`device-default${device.isDefault ? ' active' : ''}`}
+              title={device.isDefault ? 'Sterownik domyślny (kliknij, aby wyłączyć)' : 'Ustaw jako domyślny: otwierany po starcie aplikacji'}
+              aria-label={device.isDefault ? 'Wyłącz sterownik domyślny' : 'Ustaw jako sterownik domyślny'}
+              aria-pressed={device.isDefault === true}
+              onClick={() => toggleDefault(device)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3.5L14.6 8.8L20.4 9.6L16.2 13.7L17.2 19.5L12 16.8L6.8 19.5L7.8 13.7L3.6 9.6L9.4 8.8L12 3.5Z" strokeWidth="1.8" strokeLinejoin="round" />
+              </svg>
             </button>
             <button
               type="button"

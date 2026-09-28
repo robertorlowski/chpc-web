@@ -1,4 +1,7 @@
-import { CurrentSchedule, Device, HpEntry, OperationEntry, ScheduleEntry } from "./type";
+import {
+  CurrentSchedule, Device, HpEntry, OperationEntry, ScheduleEntry, WaterMeterReading, WaterMeterSummary,
+  WaterPressureRun, WaterSummary, WaterSummaryPeriod,
+} from "./type";
 import { getSelectedDevice } from '../context/DeviceContext';
 
 function withDeviceContext(path: string, includeDevice: boolean) {
@@ -128,6 +131,11 @@ export class HpRequests {
     return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { name }, false) as Promise<Device>;
   }
 
+  // sterownik otwierany po starcie aplikacji; w bazie najwyżej jeden
+  static setDefaultDevice(rootId: string, isDefault: boolean): Promise<Device> {
+    return Requests.put(`/devices/${encodeURIComponent(rootId)}/default`, { isDefault }, false) as Promise<Device>;
+  }
+
   static getDeviceProperties(): Promise<NonNullable<Device['properties']>> {
     return Requests.get('/device/properties') as Promise<NonNullable<Device['properties']>>;
   }
@@ -219,4 +227,37 @@ export class HpRequests {
       static deleteSchedule(id: string) {
         return Requests.delete(`/schedules/${encodeURIComponent(id)}`);
       }
+}
+
+// Hydrofor (sterownik water-pressure).
+export class WaterRequests {
+  // dni czasu warszawskiego YYYY-MM-DD, "to" włącznie
+  static getRuns(from: string, to: string): Promise<WaterPressureRun[] | null> {
+    return Requests.get(`/water-pressure/runs?from=${from}&to=${to}`);
+  }
+
+  // okres między odczytami wodomierza (daty ISO)
+  static getRunsBetween(fromTime: string, toTime: string): Promise<WaterPressureRun[] | null> {
+    return Requests.get(`/water-pressure/runs?fromTime=${encodeURIComponent(fromTime)}&toTime=${encodeURIComponent(toTime)}`);
+  }
+
+  static getSummary(period: WaterSummaryPeriod, date: string): Promise<WaterSummary | null> {
+    return Requests.get(`/water-pressure/summary?period=${period}&date=${date}`);
+  }
+
+  static getMeterReadings(): Promise<WaterMeterReading[] | null> {
+    return Requests.get('/water-pressure/meter');
+  }
+
+  static addMeterReading(reading: { readAt: string; valueM3: number; note?: string }) {
+    return Requests.post('/water-pressure/meter', reading, false) as Promise<Response | void>;
+  }
+
+  static deleteMeterReading(id: string) {
+    return Requests.delete(`/water-pressure/meter/${encodeURIComponent(id)}`);
+  }
+
+  static getMeterSummary(year: number): Promise<WaterMeterSummary | null> {
+    return Requests.get(`/water-pressure/meter/summary?year=${year}`);
+  }
 }

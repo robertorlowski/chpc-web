@@ -1,6 +1,13 @@
 
 import { DeviceProperties, DeviceType } from '../middleware/type';
 import { DeviceDocument, DeviceModel } from '../models/model';
+import { DEFAULT_WATER_PRESSURE_PROPERTIES } from './water-pressure.service';
+
+// Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault';
+
+const initialProperties = (deviceType: DeviceType) =>
+  deviceType === DeviceType.WATER_PRESSURE ? DEFAULT_WATER_PRESSURE_PROPERTIES : undefined;
 
 export async function createDevice(
   deviceType: DeviceType,
@@ -18,12 +25,12 @@ export async function createDevice(
   });
 }
 
-// Used by controllers registering themselves on start: a controller that is
-// already known gets its existing record back instead of an error.
+// Znany sterownik dostaje swój rekord z powrotem, nowy zostaje utworzony.
+// Nazwa ze zgłoszenia trafia tylko do nowego urządzenia; później nadaje ją użytkownik.
 export async function registerDevice(
   deviceType: DeviceType,
   deviceId: string,
-  name?: string
+  name?: string,
 ): Promise<{ device: DeviceDocument; created: boolean }> {
   const existing = await DeviceModel.findOne({ deviceType, deviceId });
   if (existing) return { device: existing, created: false };
@@ -33,8 +40,19 @@ export async function registerDevice(
     deviceId,
     name: name ?? '',
     schedules: [],
+    properties: initialProperties(deviceType),
   });
   return { device, created: true };
+}
+
+// Najwyżej jeden sterownik domyślny: ustawienie zdejmuje znacznik z pozostałych.
+export async function setDefaultDevice(rootId: string, isDefault: boolean): Promise<DeviceDocument> {
+  const device = await DeviceModel.findById(rootId).select('_id');
+  if (!device) throw new Error('Device not found.');
+  if (isDefault) await DeviceModel.updateMany({ _id: { $ne: device._id } }, { $set: { isDefault: false } });
+  const updated = await DeviceModel.findByIdAndUpdate(rootId, { $set: { isDefault } }, { new: true })
+    .select(DEVICE_PUBLIC_FIELDS).lean<DeviceDocument>();
+  return updated as DeviceDocument;
 }
 
 export async function updateDeviceName(rootId: string, name: string): Promise<DeviceDocument> {
@@ -42,14 +60,14 @@ export async function updateDeviceName(rootId: string, name: string): Promise<De
     rootId,
     { $set: { name } },
     { new: true, runValidators: true },
-  ).select('deviceType deviceId name').lean<DeviceDocument>();
+  ).select(DEVICE_PUBLIC_FIELDS).lean<DeviceDocument>();
   if (!device) throw new Error('Device not found.');
   return device;
 }
 
 export async function listDevices(): Promise<DeviceDocument[]> {
   return DeviceModel.find()
-    .select('deviceType deviceId name')
+    .select(DEVICE_PUBLIC_FIELDS)
     .sort({ name: 1 })
     .lean<DeviceDocument[]>();
 }

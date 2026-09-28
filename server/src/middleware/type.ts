@@ -2,6 +2,7 @@ export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export enum DeviceType {
   HP = 'heat_pump',
+  WATER_PRESSURE = 'water-pressure',
 }
 
 export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
@@ -194,21 +195,77 @@ export interface OperationEntry {
   eev_setpoint?: String
 }
 
+// Zbiornik hydroforu: 'air' — poduszka powietrzna (k koryguje nieznaną ilość powietrza),
+// 'membrane' — przeponowy (ilość powietrza wyznacza ciśnienie wstępne precharge).
+export type WaterTankKind = 'air' | 'membrane';
+
+export interface WaterTank {
+  name?: string;
+  kind: WaterTankKind;
+  volumeLiters: number;
+  enabled: boolean;
+  /** ciśnienie wstępne zbiornika przeponowego [bar na manometrze] */
+  precharge?: number;
+  /** współczynnik korekty zbiornika z poduszką powietrzną */
+  k?: number;
+}
+
 export interface DeviceProperties {
+  // pompa ciepła
   co_min?: String;
   co_max?: String;
   cwu_min?: String;
   cwu_max?: String;
   work_mode?: WorkMode;
+  // hydrofor
+  compressor_seconds?: number;
+  /** progi presostatu [bar na manometrze] */
+  pressure_low?: number;
+  pressure_high?: number;
+  tanks?: WaterTank[];
 }
 
 export interface Device {
   deviceType: DeviceType;
   deviceId: string;
   name?: string;
+  /** sterownik otwierany po starcie aplikacji; najwyżej jeden */
+  isDefault?: boolean;
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];
   properties?: DeviceProperties;
+}
+
+// Jedno uruchomienie pompy hydroforu (kolekcja water_pressure).
+export interface WaterPressureRun {
+  rootId: string;
+  deviceType?: DeviceType;
+  deviceId?: string;
+  runId: number;
+  pumpStart: Date;
+  pumpEnd: Date;
+  compressorStart?: Date;
+  compressorEnd?: Date;
+  restarts?: number;
+  /** szacunek wody z włączonych zbiorników w chwili utworzenia rekordu */
+  waterLiters: number;
+  /** część z zbiorników z poduszką przy k = 1 (do podpowiedzi k) */
+  waterAirBaseLiters: number;
+  /** część z zbiorników przeponowych */
+  waterMembraneLiters: number;
+  /** daty z czasu przyjęcia (uruchomienie wysłane z kolejki sterownika) */
+  timeApproximate: boolean;
+  lastSeenAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Ręczny odczyt wodomierza (kolekcja water_meter).
+export interface WaterMeterReading {
+  rootId: string;
+  readAt: Date;
+  valueM3: number;
+  note?: string;
 }
 
 declare global {

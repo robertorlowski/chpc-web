@@ -1,0 +1,370 @@
+/* Hydrofor: karty jak w Ustawieniach pompy (.settings > section > .resource) */
+/* :first-child wygrywa z globalną regułą Ustawień pompy (.settings > section > .resource:first-child) */
+.settings.water-page > section > .resource,
+.settings.water-page > section > .resource:first-child {
+  width: min(560px, calc(100vw - 2rem));
+  box-sizing: border-box;
+}
+
+.water-page .settings-section-title {
+  margin-bottom: 0.5rem;
+}
+
+.water-tanks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.water-tanks li {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.water-tank-off {
+  color: #888;
+}
+
+.water-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.water-table th,
+.water-table td {
+  padding: 0.25rem 0.4rem;
+  text-align: right;
+  border-bottom: 1px solid #ddd;
+}
+
+.water-table th:first-child,
+.water-table td:first-child {
+  text-align: left;
+}
+
+/* data i godzina (ze znacznikiem ≈) w jednej linii */
+.water-table td:first-child,
+.water-table td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.water-run-active td {
+  color: #1481a5;
+  font-weight: 600;
+}
+
+.water-total {
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
+.water-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.water-toolbar button {
+  margin-left: 0;
+}
+
+.water-toolbar .water-toolbar-end {
+  margin-left: auto;
+}
+
+.water-toolbar-center {
+  justify-content: center;
+}
+
+/* pola przeglądarki nie dziedziczą czcionki strony */
+.water-page input,
+.water-page select {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 32px;
+  padding: 0 0.4rem;
+  box-sizing: border-box;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.water-page input[type='checkbox'],
+.water-page input[type='radio'] {
+  min-height: 0;
+}
+
+/* etykieta z polem w jednej linii */
+.water-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.water-field input[type='month'] {
+  min-width: 11rem;
+}
+
+.water-field input[type='number'] {
+  width: 6rem;
+}
+
+/* formularz odczytu: etykiety po lewej, pola wyrównane do prawej */
+.water-form .water-field {
+  justify-content: space-between;
+}
+
+.water-form .water-field input {
+  width: 15rem;
+  max-width: 62%;
+}
+
+.water-form .water-field-wide input {
+  flex: 1;
+  width: auto;
+  max-width: none;
+}
+
+/* odczyt wodomierza: etykiety stałej szerokości, pola wyrównane do lewej */
+.water-form.water-form-left .water-field {
+  justify-content: flex-start;
+}
+
+.water-form.water-form-left span.label {
+  min-width: 6.5rem;
+}
+
+.water-form.water-form-left .water-field input[type='date'] {
+  width: 11rem;
+}
+
+.water-form.water-form-left .water-field input[type='text'] {
+  width: 11rem;
+}
+
+.water-form.water-form-left .water-field-wide input[type='text'] {
+  flex: 1;
+  width: auto;
+}
+
+/* zakładki w Danych, szerokości karty */
+.water-tabs {
+  display: flex;
+  gap: 0.25rem;
+  width: min(560px, calc(100vw - 2rem));
+  margin: 0 auto 0.5rem;
+  border-bottom: 2px solid #1481a5;
+}
+
+.water-tabs button {
+  margin: 0;
+  padding: 0.45rem 1rem;
+  border-radius: 6px 6px 0 0;
+  background-color: #e3eef2;
+  color: #1481a5;
+  font-weight: 500;
+}
+
+.water-tabs button.active {
+  background-color: #1481a5;
+  color: #fff;
+}
+
+.water-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.water-check-bottom {
+  margin: 0.5rem 0 0;
+}
+
+/* Ustawienia: wszystkie pola tej samej szerokości */
+.water-settings-form label > input:not([type='checkbox']),
+.water-settings-form label > select {
+  width: 12rem;
+  max-width: 100%;
+}
+
+/* wartości liczbowe wyrównane do prawej */
+.water-settings-form input[type='number'] {
+  text-align: right;
+}
+
+/* wybór okresu wykresu: kropki dzień / miesiąc / rok */
+.water-periods {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.water-periods label {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  cursor: pointer;
+}
+
+.water-chart {
+  width: 100%;
+  height: 280px;
+}
+
+.water-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.water-form label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.water-form span.label {
+  min-width: 13.5rem;
+}
+
+.water-form input[type='number'],
+.water-form input[type='text'],
+.water-form input[type='datetime-local'],
+.water-form select {
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.water-form input[type='number'] {
+  width: 6rem;
+}
+
+.water-tank-edit {
+  border: 1px solid #ccc;
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.water-tank-edit .water-calc {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  background: #fff;
+  padding: 0.4rem;
+  border-radius: 0.3rem;
+}
+
+.water-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.water-actions button,
+.water-tank-edit button,
+.water-calc button {
+  margin-left: 0;
+}
+
+/* przyciski-ikony (dodaj, usuń, kalkulator) wielkości wielkich liter */
+button.water-icon-button {
+  background: none;
+  border: 0;
+  padding: 0.1rem;
+  margin: 0;
+  color: #1481a5;
+  line-height: 0;
+  cursor: pointer;
+}
+
+button.water-icon-button svg {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+button.water-icon-button:hover,
+button.water-icon-button.active {
+  color: #0c5c77;
+}
+
+/* „Dodaj” nad linią tytułu sekcji, przy prawej krawędzi */
+.water-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.water-tank-edit {
+  position: relative;
+}
+
+button.water-tank-remove {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  color: #7a8c93;
+}
+
+button.water-tank-remove:hover {
+  color: #b00020;
+}
+
+/* szacunek zbiornika po lewej, za nim ikona kalkulatora */
+.water-tank-estimate {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.water-calc-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+button.water-secondary {
+  background-color: #7a8c93;
+}
+
+.water-hint {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.water-error {
+  color: #b00020;
+}
+
+@media (max-width: 560px) {
+  body .settings.water-page > section > .resource,
+  body .settings.water-page > section > .resource:first-child {
+    width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .water-table {
+    font-size: 0.85rem;
+  }
+
+  .water-tabs {
+    width: 100vw;
+  }
+
+  .water-tabs button {
+    flex: 1;
+    padding: 0.45rem 0.3rem;
+  }
+}

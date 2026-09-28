@@ -1,8 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
+import { DeviceType } from "../api/type";
+import { useDevice } from "../context/DeviceContext";
 
 
 export function Header() {
 	let location  = useLocation();
+	// menu zależy od typu sterownika: hydrofor nie ma harmonogramów
+	const { device } = useDevice();
+	const isWaterPressure = device?.deviceType === DeviceType.WATER_PRESSURE;
 
 	// if (location.pathname === '/' || location.pathname === '/hp') {
     //   	//autorefresh
@@ -12,6 +17,14 @@ export function Header() {
 	return (
 		<header>
 			<nav>
+				{isWaterPressure ? (
+				<Link to="/" title="Hydrofor" aria-label="Hydrofor" className={location.pathname === '/' ? 'active' : ''}>
+					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+						<path d="M12 3C12 3 5.5 10.2 5.5 14.5C5.5 18.1 8.4 21 12 21C15.6 21 18.5 18.1 18.5 14.5C18.5 10.2 12 3 12 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+					</svg>
+					<span className="nav-label">Hydrofor</span>
+				</Link>
+				) : (
 				<Link to="/" title="HP" aria-label="HP" className={location.pathname === '/' ? 'active' : ''}>
 					<svg x="0px" y="0px" width="25" height="25"
 						fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff"><g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -22,6 +35,7 @@ export function Header() {
 					</svg>
 					<span className="nav-label">HP</span>
 				</Link>
+				)}
 				<Link to="/data" title="Dane" aria-label="Dane" className={location.pathname === '/data' ? 'active' : ''}>
 					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<path d="M5 19V5M5 19H20M9 16V12M13 16V8M17 16V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -41,6 +55,7 @@ export function Header() {
 					</svg>
 					<span className="nav-label">Ustawienia</span>
 				</Link>
+				{!isWaterPressure && (
 				<Link to="/schedules" title="Harmonogram" aria-label="Harmonogram" className={location.pathname === '/schedules' ? 'active' : ''}>
 					<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 						<rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="2" />
@@ -48,6 +63,7 @@ export function Header() {
 					</svg>
 					<span className="nav-label">Harmonogram</span>
 				</Link>
+				)}
 			</nav>
 		</header>
 	);

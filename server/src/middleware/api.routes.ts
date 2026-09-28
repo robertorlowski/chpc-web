@@ -5,8 +5,12 @@ import { getSettings, setSettings } from './../controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation, setOperationAction } from '../controllers/operation.controller'
 import { getTemperature } from '../controllers/meteo.controller'
 import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from '../controllers/schedule.controller'
-import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDevice, updateProperties } from '../controllers/device.controller'
+import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaultDevice, updateDevice, updateProperties } from '../controllers/device.controller'
 import { addPv, getPv, getPvForRange } from '../controllers/pv.controller'
+import {
+  addWaterMeter, addWaterPressure, deleteWaterMeter, getWaterMeter, getWaterMeterSummaryEntry,
+  getWaterPressureRunList, getWaterPressureSummaryEntry, updateWaterPressureSettings,
+} from '../controllers/water-pressure.controller'
 
 const router = express.Router()
 
@@ -14,6 +18,7 @@ router.get('/devices', getDevices)
 router.post('/devices', addDevice)
 router.post('/devices/register', registerDeviceEntry)
 router.put('/devices/:rootId', updateDevice)
+router.put('/devices/:rootId/default', updateDefaultDevice)
 router.get('/device/properties', getProperties)
 router.put('/device/properties', updateProperties)
 
@@ -35,6 +40,15 @@ router.post('/hp/clear', clearHp)
 router.get('/pv', getPv)
 router.get('/pv/range', getPvForRange)
 router.post('/pv/add', addPv)
+
+router.post('/water-pressure/add', addWaterPressure)
+router.put('/water-pressure/settings', updateWaterPressureSettings)
+router.get('/water-pressure/runs', getWaterPressureRunList)
+router.get('/water-pressure/summary', getWaterPressureSummaryEntry)
+router.get('/water-pressure/meter', getWaterMeter)
+router.post('/water-pressure/meter', addWaterMeter)
+router.delete('/water-pressure/meter/:id', deleteWaterMeter)
+router.get('/water-pressure/meter/summary', getWaterMeterSummaryEntry)
 
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)

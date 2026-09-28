@@ -5,7 +5,7 @@ const publicPaths = new Set(['/devices', '/devices/register']);
 
 // Endpointy sterownika: urządzenie wskazuje rootId albo sam deviceId (SN),
 // więc sterownik bez zapisanego rootId też może wysyłać dane.
-const controllerPaths = new Set(['/hp/add', '/pv/add']);
+const controllerPaths = new Set(['/hp/add', '/pv/add', '/water-pressure/add', '/water-pressure/settings']);
 
 const queryText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 
