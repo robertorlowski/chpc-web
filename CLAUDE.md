@@ -4,6 +4,8 @@ Ten plik jest przewodnikiem dla Claude Code (claude.ai/code) i dla ludzi pracuj�
 
 Commity, komentarze i dokumentacja są po polsku.
 
+**Dokumentacja dla ludzi** jest w [`docs/README.md`](docs/README.md): opis systemu, schemat i dokumentacja każdego modułu w trzech częściach (opis biznesowy, zasada działania ze schematami, dokumentacja techniczna). Moduły aplikacji mają ją w `docs/moduly/<moduł>/`, a firmware w `devices/<firmware>/docs/`. Zmiana w module obejmuje też jego dokumentację i komentarze w kodzie (nagłówek pliku i komentarz przy logice nieoczywistej).
+
 ## 0. System i repozytoria
 
 ```text
