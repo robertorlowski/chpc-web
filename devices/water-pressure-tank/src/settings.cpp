@@ -1,3 +1,5 @@
+// Implementacja settings.hpp: parsowanie i zapis ustawień, czas kompresora
+// z /install, szacunek wody (wzór wspólny z serwerem i klientem).
 #include <settings.hpp>
 
 #include <cmath>
@@ -11,6 +13,8 @@ bool parseSettings(JsonVariantConst json, Settings &out)
 {
   if (!json.is<JsonObjectConst>()) return false;
 
+  // Praca na kopii: przy błędzie out zostaje bez zmian. Brak pola w JSON
+  // zostawia poprzednią wartość.
   Settings next = out;
   JsonVariantConst seconds = json["compressor_seconds"];
   if (!seconds.isNull()) {
@@ -23,6 +27,7 @@ bool parseSettings(JsonVariantConst json, Settings &out)
 
   JsonArrayConst tanks = json["tanks"].as<JsonArrayConst>();
   if (!tanks.isNull()) {
+    // lista zbiorników zastępuje poprzednią w całości; nadmiarowe są pomijane
     next.tankCount = 0;
     for (JsonObjectConst item : tanks) {
       if (next.tankCount >= MAX_TANKS) break;
@@ -61,6 +66,7 @@ std::string serializeSettings(const Settings &settings)
     item["kind"] = tank.membrane ? "membrane" : "air";
     item["volumeLiters"] = tank.volumeLiters;
     item["enabled"] = tank.enabled;
+    // tylko pole właściwe dla rodzaju zbiornika, jak w chmurze
     if (tank.membrane) item["precharge"] = tank.precharge;
     else item["k"] = tank.k;
   }
@@ -80,6 +86,7 @@ bool applyCloudSettings(JsonVariantConst json, Settings &settings, bool keepLoca
 
 bool parseCompressorSecondsText(const std::string &text, uint16_t &out)
 {
+  // ręczne parsowanie zamiast strtol: odrzuca ułamki, znaki i spacje
   if (text.empty() || text.size() > 4) return false;
   long value = 0;
   for (char c : text) {
@@ -105,11 +112,16 @@ float tankWaterLiters(const Tank &tank, float pressureLow, float pressureHigh)
   if (!tank.enabled || !(tank.volumeLiters > 0)) return 0;
   if (!(pressureHigh > pressureLow) || pressureLow < 0) return 0;
 
+  // Progi presostatu są z manometru, a prawo Boyle'a wymaga ciśnień bezwzględnych.
   const float lowAbs = pressureLow + ATMOSPHERE_BAR;
   const float highAbs = pressureHigh + ATMOSPHERE_BAR;
   if (!tank.membrane) {
+    // poduszka: całe V wypełnione powietrzem pod ciśnieniem atmosferycznym
+    // (dobijane kompresorem); k koryguje rzeczywistą ilość powietrza
     return tank.k * tank.volumeLiters * ATMOSPHERE_BAR * (1 / lowAbs - 1 / highAbs);
   }
+  // przepona: ilość powietrza wyznacza ciśnienie wstępne p0; worek oddaje
+  // wodę dopiero poniżej p0, stąd max(p_d, p0)
   const float prechargeAbs = tank.precharge + ATMOSPHERE_BAR;
   if (prechargeAbs >= highAbs) return 0;
   return tank.volumeLiters * prechargeAbs * (1 / std::fmax(lowAbs, prechargeAbs) - 1 / highAbs);

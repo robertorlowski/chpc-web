@@ -1,3 +1,6 @@
+// Stałe sprzętowe i kontraktowe sterownika hydroforu, wspólne dla całego
+// firmware (water-pressure-tank.cpp, settings.*). Zmiana DEVICE_TYPE wymaga
+// zmiany typu urządzenia na serwerze (DeviceType.WATER_PRESSURE_TANK).
 #pragma once
 
 #include <cstdint>
@@ -14,6 +17,8 @@ constexpr bool RELAY_ACTIVE_HIGH = false;
 
 // Opóźnienie startu kompresora po podaniu zasilania (ustabilizowanie zasilania).
 constexpr uint32_t COMPRESSOR_START_DELAY_MS = 1000;
+// Czas domyślny do pierwszego zgłoszenia; zakres 1–MAX taki sam jak walidacja
+// serwera (PUT /api/device/properties i /water-pressure-tank/settings).
 constexpr uint16_t DEFAULT_COMPRESSOR_SECONDS = 30;
 constexpr uint16_t MAX_COMPRESSOR_SECONDS = 3600;
 

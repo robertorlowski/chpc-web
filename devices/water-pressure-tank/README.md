@@ -2,7 +2,7 @@
 
 Sterownik ESP32-C3 SuperMini, który przy każdym uruchomieniu pompy hydroforu raz włącza kompresor dobijający powietrze do zbiornika, a dane uruchomienia wysyła do chpc-web.
 
-Pełny opis działania, schemat podłączenia i sposób szacowania wody: **[docs/water-pressure-tank.md](docs/water-pressure-tank.md)**.
+Dokumentacja: **[1. Opis biznesowy](docs/1-opis-biznesowy.md)** (z listą kontrolną przed wdrożeniem) · [2. Zasada działania](docs/2-zasada-dzialania.md) · [3. Dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) (schemat podłączenia) · [English](docs/en/1-business-description.md). Pierwotna specyfikacja: [docs/water-pressure-tank.md](docs/water-pressure-tank.md).
 
 ## Budowanie i wgrywanie
 
@@ -30,5 +30,6 @@ pio test -e native                       # testy logiki na PC
 - Przekaźnik na `GPIO10`, obecnie sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`). Po przestawieniu modułu na sterowanie stanem wysokim (zalecane) zmień na `true`.
 - Kompresor startuje 1 s po podaniu zasilania (`COMPRESSOR_START_DELAY_MS`).
 - Punkt dostępowy pod adresem `10.11.16.1`, jak w poprzednim szkicu.
+- Firmware nie był jeszcze wgrywany na płytkę (sprawdzony testami `native` i emulatorem stron).
 
 Poprzednia wersja (szkic Arduino) leży w `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino`.

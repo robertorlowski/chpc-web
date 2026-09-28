@@ -1,3 +1,6 @@
+// Rekord uruchomienia pompy, JSON wysyłki (POST /api/water-pressure-tank/add)
+// i kolejka uruchomień bez sieci. Klucze NVS: run_current (bieżące
+// uruchomienie, zapis co 1 s) i run_queue (kolejka). Bez zależności od Arduino.
 #pragma once
 
 #include <cstddef>
@@ -6,6 +9,8 @@
 
 // Stan jednego uruchomienia pompy w czasach względnych (sekundy od startu
 // sterownika). Serwer zamienia je na daty według swojego zegara.
+// Zapisywany w NVS binarnie (kopia bajtów), więc zmiana pól unieważnia zapisane
+// rekordy: odczyt o innym rozmiarze daje „brak klucza”.
 struct RunRecord {
   uint32_t runId = 0;
   uint32_t pumpRunS = 0;

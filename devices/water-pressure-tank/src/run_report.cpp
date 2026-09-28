@@ -1,3 +1,4 @@
+// Implementacja run_report.hpp: JSON wysyłki i kolejka uruchomień w NVS.
 #include <run_report.hpp>
 
 #include <ArduinoJson.h>
@@ -7,6 +8,7 @@ std::string buildRunReport(const RunRecord &run, bool queued)
   JsonDocument document;
   document["runId"] = run.runId;
   document["pumpRunS"] = run.pumpRunS;
+  // pola opcjonalne: brak klucza = jeszcze nie było
   if (run.compressorStartS >= 0) document["compressorStartS"] = run.compressorStartS;
   if (run.compressorEndS >= 0) document["compressorEndS"] = run.compressorEndS;
   document["restarts"] = run.restarts;
@@ -31,6 +33,7 @@ void RunQueue::load(BlobStore &store)
   QueueBlob blob;
   count = 0;
   if (store.read(KEY_RUN_QUEUE, &blob, sizeof(blob)) != sizeof(blob)) return;
+  // count spoza zakresu = uszkodzony zapis; kolejka zostaje pusta
   if (blob.version != 1 || blob.count > CAPACITY) return;
   count = blob.count;
   for (size_t index = 0; index < count; index++) runs[index] = blob.runs[index];
@@ -46,6 +49,7 @@ bool RunQueue::save(BlobStore &store) const
 
 void RunQueue::push(const RunRecord &run)
 {
+  // pełna kolejka: wypada najstarsze uruchomienie
   if (count == CAPACITY) pop();
   runs[count++] = run;
 }
@@ -61,6 +65,8 @@ bool queuePreviousRun(BlobStore &store, RunQueue &queue)
 {
   RunRecord previous;
   if (store.read(KEY_CURRENT_RUN, &previous, sizeof(previous)) != sizeof(previous)) return false;
+  // delivered: serwer zna uruchomienie i sam wyznaczył koniec pracy pompy;
+  // runId 0: pusty rekord (sterownik nadaje numery od 1 wzwyż)
   if (previous.delivered || previous.runId == 0) return false;
   queue.push(previous);
   // zapisany rekord oznaczony jako obsłużony, żeby nie trafił do kolejki drugi raz

@@ -2,6 +2,9 @@
 // Sterownik ma zasilanie tylko w czasie pracy pompy: po starcie raz włącza
 // kompresor na ustawiony czas, a dopóki jest sieć, co 1 s wysyła stan
 // uruchomienia do chmury. Opis: docs/water-pressure-tank.md.
+// Kontrakt z chmurą: POST devices/register (zgłoszenie, rootId + settings),
+// POST water-pressure-tank/add (co 1 s), PUT water-pressure-tank/settings
+// (czas kompresora z /install). NVS: przestrzeń „wp”, klucze niżej i w run_report.hpp.
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
@@ -25,6 +28,7 @@ constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_OLD_CLOUD_URL = "cloud_url";
 constexpr const char *KEY_ROOT_ID = "root_id";
 constexpr const char *KEY_SETTINGS = "settings";
+// numer następnego uruchomienia (runId)
 constexpr const char *KEY_NEXT_RUN = "run_next";
 // czas kompresora zmieniony na /install, jeszcze niewysłany do chmury
 constexpr const char *KEY_COMPRESSOR_PENDING = "comp_pending";
@@ -63,7 +67,8 @@ uint32_t lastDeliveredMs = 0;
 bool compressorPending = false;
 uint32_t lastCompressorSendMs = 0;
 
-// Blob w NVS dla kolejki i bieżącego uruchomienia.
+// Blob w NVS dla kolejki i bieżącego uruchomienia. Blob o innym rozmiarze
+// (np. po zmianie struktury w nowej wersji) jest traktowany jak brak klucza.
 class NvsStore : public BlobStore {
 public:
   size_t read(const char *key, void *data, size_t size) override
@@ -83,6 +88,7 @@ void writeRelay(bool on)
   digitalWrite(RELAY_PIN, on == RELAY_ACTIVE_HIGH ? HIGH : LOW);
 }
 
+// SN = fabryczny MAC z eFuse (12 znaków hex), deviceId w chmurze.
 String readSerial()
 {
   uint8_t mac[6] = {};
@@ -104,6 +110,8 @@ void loadConfig()
   wifiPassword = storedOrDefault(KEY_WIFI_PASSWORD, WIFI_PASSWORD);
   if (preferences.isKey(KEY_OLD_CLOUD_URL)) preferences.remove(KEY_OLD_CLOUD_URL);
   rootId = preferences.getString(KEY_ROOT_ID, "");
+  // Przed pierwszym zgłoszeniem brak zapisu: zostają wartości domyślne z
+  // settings.hpp (30 s, 2/4 bar, bez zbiorników, więc szacunek wody 0).
   parseSettingsText(preferences.getString(KEY_SETTINGS, "").c_str(), settings);
   compressorPending = preferences.getBool(KEY_COMPRESSOR_PENDING, false);
 }
@@ -117,10 +125,13 @@ String requestUrl(const char *path)
   return url;
 }
 
+// Jedno zapytanie HTTP(S) z limitem 2 s. Nie ponawia: wysyłka co 1 s i tak
+// przychodzi za sekundę. lastHttpStatus < 0 oznacza błąd połączenia.
 bool send(const char *method, const String &url, const String &body, String *response = nullptr)
 {
   if (WiFi.status() != WL_CONNECTED) return false;
   const bool secure = url.startsWith("https://");
+  // certyfikat nie jest sprawdzany (jak w sterowniku co)
   if (secure) secureClient.setInsecure();
   // keep-alive: kolejne zapytania co 1 s idą tym samym połączeniem TLS
   http.setReuse(true);
@@ -144,12 +155,14 @@ void forgetRootIdOnConflict()
 {
   if (lastHttpStatus != HTTP_CONFLICT) return;
   // rootId należy do innego urządzenia (np. po wyczyszczeniu bazy)
+  // następny tick() zgłosi sterownik ponownie i dostanie właściwy rootId
   rootId = "";
   preferences.remove(KEY_ROOT_ID);
   registeredThisBoot = false;
 }
 
-// Zgłoszenie przy każdym starcie: rootId, ustawienia.
+// Zgłoszenie przy każdym starcie: rootId, ustawienia. Nazwa trafia tylko do
+// nowego urządzenia (serwer nie nadpisuje nazwy nadanej przez użytkownika).
 void registerDevice()
 {
   lastRegisterAttemptMs = millis();
@@ -202,6 +215,9 @@ bool sendRun(const RunRecord &run, bool queued)
   return ok;
 }
 
+// Bieżące uruchomienie w NVS co 1 s: gdy zasilanie zniknie bez sieci, przy
+// następnym starcie trafi do kolejki (queuePreviousRun). pumpRunS liczy się od
+// startu sterownika, czyli od podania zasilania pompie.
 void updateCurrentRun(uint32_t nowMs)
 {
   currentRun.pumpRunS = nowMs / 1000;
@@ -211,6 +227,9 @@ void updateCurrentRun(uint32_t nowMs)
   store.write(KEY_CURRENT_RUN, &currentRun, sizeof(currentRun));
 }
 
+// Wywoływane co 1 s z loop(). Kolejność: zapis w NVS, czas kompresora do
+// chmury, zgłoszenie (ponawiane co 10 s), wysyłka bieżącego uruchomienia,
+// jedno uruchomienie z kolejki. Bez zgłoszenia nic nie jest wysyłane.
 void tick(uint32_t nowMs)
 {
   updateCurrentRun(nowMs);
@@ -229,6 +248,8 @@ void tick(uint32_t nowMs)
 
   if (sendRun(currentRun, false)) {
     lastDeliveredMs = nowMs;
+    // Pierwsza doręczona wiadomość: od teraz serwer zna uruchomienie, więc po
+    // utracie zasilania nie trafi ono do kolejki.
     if (!currentRun.delivered) {
       currentRun.delivered = true;
       store.write(KEY_CURRENT_RUN, &currentRun, sizeof(currentRun));
@@ -299,6 +320,7 @@ void handleRoot()
   server.send(200, "text/html; charset=utf-8", page);
 }
 
+// JSON dla strony / (odpytywany co 1 s); tylko lokalnie, nie trafia do chmury.
 void handleState()
 {
   const uint32_t now = millis();
@@ -328,6 +350,8 @@ void handleState()
   server.send(200, "application/json", body);
 }
 
+// „Uruchom kompresor ponownie”: pełny ustawiony czas od teraz, także gdy
+// kompresor jeszcze pracuje (licznik restarts rośnie).
 void handleRestart()
 {
   compressor.restart(millis());
@@ -342,6 +366,7 @@ bool authorized()
   return false;
 }
 
+// /install (Basic Auth, login z secrets.h): GET strona, POST zapis Wi-Fi.
 void handleInstall()
 {
   if (!authorized()) return;
@@ -358,6 +383,7 @@ void handleInstall()
         preferences.putString(KEY_WIFI_PASSWORD, password);
       }
     }
+    // Nowa sieć od razu, bez restartu: restart ponownie włączyłby kompresor.
     WiFi.disconnect();
     if (wifiSsid.length() > 0) WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
     server.sendHeader("Location", "/install", true);
@@ -403,6 +429,7 @@ void handleCompressorSeconds()
     server.send(303, "text/plain", "");
     return;
   }
+  // lastCompressorSendMs = 0: tick() wyśle nowy czas od razu, bez czekania 10 s
   if (seconds != settings.compressorSeconds || compressorPending) {
     settings.compressorSeconds = seconds;
     preferences.putString(KEY_SETTINGS, serializeSettings(settings).c_str());
@@ -415,6 +442,8 @@ void handleCompressorSeconds()
   server.send(303, "text/plain", "");
 }
 
+// AP (10.11.16.1) działa przez cały czas pracy, równolegle z połączeniem do
+// sieci domowej (tryb AP+STA). Nieznane ścieżki pokazują stronę główną.
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
@@ -455,6 +484,8 @@ void setup()
   Serial.begin(115200);
   serial = readSerial();
 
+  // Uruchomienie z poprzedniego startu, z którego nic nie doszło do chmury,
+  // trafia do kolejki, zanim bieżące nadpisze klucz run_current.
   queue.load(store);
   if (queuePreviousRun(store, queue)) queue.save(store);
   currentRun = RunRecord();
@@ -472,6 +503,7 @@ void loop()
 {
   server.handleClient();
 
+  // wyłączenie kompresora sprawdzane w każdym obiegu, nie co 1 s
   const uint32_t now = millis();
   if (compressor.update(now)) writeRelay(false);
 

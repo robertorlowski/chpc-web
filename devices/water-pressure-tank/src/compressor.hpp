@@ -1,3 +1,6 @@
+// Logika czasu pracy kompresora bez zależności od Arduino (testowana w
+// test/test_logic). Używa jej water-pressure-tank.cpp: start w setup(),
+// update() w loop(), restart() z przycisku na stronie / (POST /restart).
 #pragma once
 
 #include <cstdint>

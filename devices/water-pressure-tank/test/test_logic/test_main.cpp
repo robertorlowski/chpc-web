@@ -1,3 +1,7 @@
+// Testy native (pio test -e native) logiki hydroforu niezależnej od sprzętu:
+// kompresor, czas z /install, ustawienia, szacunek wody (te same przykłady co
+// test serwera), JSON wysyłki i kolejka NVS na atrapie. Pliki .cpp z src są
+// dołączane bezpośrednio, bo środowisko native nie buduje src.
 #include <unity.h>
 
 #include <cstring>

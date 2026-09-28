@@ -1,3 +1,6 @@
+// Ustawienia hydroforu (odpowiedź na POST /api/devices/register, pole
+// settings), ich zapis w NVS (klucz settings, JSON) oraz szacunek wody na
+// stronę / sterownika. Bez zależności od Arduino (testowane w test_logic).
 #pragma once
 
 #include <ArduinoJson.h>

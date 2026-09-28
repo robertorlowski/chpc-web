@@ -1,5 +1,7 @@
 # Hydrofor — sterownik `water-pressure-tank`
 
+> **Specyfikacja (historia decyzji).** Aktualna dokumentacja: [1. Opis biznesowy](1-opis-biznesowy.md) · [2. Zasada działania](2-zasada-dzialania.md) · [3. Dokumentacja techniczna](3-dokumentacja-techniczna.md), a strona serwerowa w [module water-pressure-tank](../../../docs/moduly/water-pressure-tank/1-opis-biznesowy.md). Gdy się różnią, obowiązują tamte dokumenty.
+
 Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2026-09-28, wersja 4 (zatwierdzona do implementacji).
 
 ## Nazwy
