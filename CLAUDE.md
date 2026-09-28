@@ -113,7 +113,7 @@ Middleware:
 
 Urządzenia domyślnego nie ma: żądanie bez `rootId` (poza wyjątkiem powyżej) dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
 
-Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod kluczem `chpc.selectedDevice`. [`DeviceProvider`](client/src/context/DeviceContext.tsx) udostępnia wybór, zmianę i czyszczenie urządzenia. `DeviceGuard` przekierowuje użytkownika do `/devices`, jeśli nie wybrano pompy. Stopka „Aktywne urządzenie” z przyciskiem zmiany jest widoczna tylko wtedy, gdy `GET /api/devices` zwraca co najmniej dwa sterowniki (sprawdzane przy każdym wyborze urządzenia); przy jednym nie ma na co przełączyć. Dawny klucz `chpc.hideDeviceFooter` nie jest już używany.
+Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod kluczem `chpc.selectedDevice`. [`DeviceProvider`](client/src/core/context/DeviceContext.tsx) udostępnia wybór, zmianę i czyszczenie urządzenia. `DeviceGuard` przekierowuje użytkownika do `/devices`, jeśli nie wybrano pompy. Stopka „Aktywne urządzenie” z przyciskiem zmiany jest widoczna tylko wtedy, gdy `GET /api/devices` zwraca co najmniej dwa sterowniki (sprawdzane przy każdym wyborze urządzenia); przy jednym nie ma na co przełączyć. Dawny klucz `chpc.hideDeviceFooter` nie jest już używany.
 
 ### Rejestracja sterownika
 
@@ -131,7 +131,7 @@ Model główny to `DeviceModel` z kolekcją `devices`. Urządzenie zawiera międ
 
 - `deviceType` — `heat_pump` albo `water-pressure` (hydrofor); scheduler obsługuje tylko `heat_pump`;
 - `deviceId` — identyfikator sterownika, SN (MAC ESP32); najstarszy sterownik miał `hp-1`, w produkcji zmienione na SN (także w rekordach `hp`, 2026-09-26);
-- `name` — opcjonalna nazwa nadana przez użytkownika (domyślnie pusta; rejestracja automatyczna jej nie ustawia). Klient pokazuje `name`, a gdy jest pusta — `deviceId` (`deviceLabel` w [`DeviceContext.tsx`](client/src/context/DeviceContext.tsx));
+- `name` — opcjonalna nazwa nadana przez użytkownika (domyślnie pusta; rejestracja automatyczna jej nie ustawia). Klient pokazuje `name`, a gdy jest pusta — `deviceId` (`deviceLabel` w [`DeviceContext.tsx`](client/src/core/context/DeviceContext.tsx));
 - `isDefault` — sterownik domyślny, otwierany po starcie aplikacji; najwyżej jeden (`PUT /api/devices/:rootId/default`);
 - `properties` — ustawienia domyślne;
 - `schedules` — osadzone definicje harmonogramów.
@@ -210,9 +210,9 @@ Klucze `HP`, na których polegają `co` i chpc-web (nie wolno ich zmieniać ani 
 
 ### Błędy sterownika
 
-Gdy `HP.ERRn` różni się od poprzedniego rekordu, a `HP.ERR` ≠ 0, serwer zapisuje kod w polu `error_code` nowego rekordu (`detectErrorEvent` w [`server/src/modules/heat-pump/services/hp.service.ts`](server/src/modules/heat-pump/services/hp.service.ts)). `GET /api/hp/last-error` zwraca najnowszy rekord z `error_code` z ostatnich 24 godzin (okno kroczące). Wyjątek: gdy ostatnia telemetria ma `HP.ERRc` ≥ 5 (sterownik zablokowany), okno nie obowiązuje i błąd jest zwracany aż do odblokowania. Klient pokazuje czerwony dzwonek przed „T:” w widoku głównym (na telefonie w osobnym wierszu nad temperaturą; bez błędu ten wiersz nie istnieje), czerwony wiersz na liście danych oraz w zakładce Ustawienia błąd w dwóch liniach, data i pod nią opis (`errorLine` w [`client/src/utils/errors.ts`](client/src/utils/errors.ts)), licznik błędów i przyciski „Odblokuj” (aktywny tylko przy blokadzie) i „Restart sterownika”.
+Gdy `HP.ERRn` różni się od poprzedniego rekordu, a `HP.ERR` ≠ 0, serwer zapisuje kod w polu `error_code` nowego rekordu (`detectErrorEvent` w [`server/src/modules/heat-pump/services/hp.service.ts`](server/src/modules/heat-pump/services/hp.service.ts)). `GET /api/hp/last-error` zwraca najnowszy rekord z `error_code` z ostatnich 24 godzin (okno kroczące). Wyjątek: gdy ostatnia telemetria ma `HP.ERRc` ≥ 5 (sterownik zablokowany), okno nie obowiązuje i błąd jest zwracany aż do odblokowania. Klient pokazuje czerwony dzwonek przed „T:” w widoku głównym (na telefonie w osobnym wierszu nad temperaturą; bez błędu ten wiersz nie istnieje), czerwony wiersz na liście danych oraz w zakładce Ustawienia błąd w dwóch liniach, data i pod nią opis (`errorLine` w [`client/src/devices/heat-pump/utils/errors.ts`](client/src/devices/heat-pump/utils/errors.ts)), licznik błędów i przyciski „Odblokuj” (aktywny tylko przy blokadzie) i „Restart sterownika”.
 
-Kody (`ERRC_*` w CHPC, [`client/src/utils/errors.ts`](client/src/utils/errors.ts) tutaj; zmieniać razem): 1 czujnik, 2 przeciążenie, 3 brak przepływu, 4 za mała moc, 5 Tho, 6 Tsump za wysoka, 7 Tbc, 8 Tae, 9 Tco, 10 przekaźnik, 11 blokada x5, 12 Tsump za niska, 13 Tbe (parowanie poniżej −1 °C dłużej niż 60 s). Czas błędu to czas pierwszego rekordu z nowym `ERRn`, więc jest dokładny do 10–30 s (CHPC nie ma zegara).
+Kody (`ERRC_*` w CHPC, [`client/src/devices/heat-pump/utils/errors.ts`](client/src/devices/heat-pump/utils/errors.ts) tutaj; zmieniać razem): 1 czujnik, 2 przeciążenie, 3 brak przepływu, 4 za mała moc, 5 Tho, 6 Tsump za wysoka, 7 Tbc, 8 Tae, 9 Tco, 10 przekaźnik, 11 blokada x5, 12 Tsump za niska, 13 Tbe (parowanie poniżej −1 °C dłużej niż 60 s). Czas błędu to czas pierwszego rekordu z nowym `ERRn`, więc jest dokładny do 10–30 s (CHPC nie ma zegara).
 
 ## 5a. PV
 
@@ -238,7 +238,7 @@ Pełny opis: [`devices/water-pressure/docs/water-pressure.md`](devices/water-pre
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.
 - **Wysyłka co 1 s** (`POST /api/water-pressure/add?deviceId=…&rootId=…`, sam `deviceId` wystarcza; 404/409 jak w `/hp/add`): `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` — czasy względne od startu sterownika. Serwer liczy daty ze swojego zegara: pierwsza wiadomość ustala `pumpStart = teraz − pumpRunS`, każda kolejna ustawia `pumpEnd` na chwilę odebrania, więc ostatnia przed utratą zasilania wyznacza koniec pracy pompy (dokładność 1 s). Uruchomienie jest „w toku”, gdy ostatnia wiadomość ma mniej niż 5 s (`RUN_IN_PROGRESS_MS`).
 - **Kolejka.** Uruchomienie, z którego nie doszła żadna wiadomość (brak sieci), sterownik wysyła przy kolejnym starcie z `queued: true`; serwer zapisuje je z `timeApproximate: true` (daty z chwili przyjęcia).
-- **Woda** (`estimateWater` w [`water-pressure.service.ts`](server/src/modules/water-pressure/services/water-pressure.service.ts); ten sam wzór w `client/src/utils/water.ts` i `devices/water-pressure/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
+- **Woda** (`estimateWater` w [`water-pressure.service.ts`](server/src/modules/water-pressure/services/water-pressure.service.ts); ten sam wzór w `client/src/devices/water-pressure/utils/water.ts` i `devices/water-pressure/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
 - **Wodomierz.** Podsumowanie (`/water-pressure/meter/summary`) interpoluje stan liniowo między odczytami (miesiące) i podpowiada `k` zbiornika z poduszką: `(wodomierz − przepona) / poduszka przy k = 1`.
 
 ## 6. Scheduler
@@ -466,9 +466,16 @@ WebSocket ([`server/src/core/websocket.ts`](server/src/core/websocket.ts)) dzia�
 
 ## 9. Klient React
 
-Routing jest w [`client/src/index.tsx`](client/src/index.tsx).
+**Klient jest podzielony tak jak serwer** (`client/src`):
 
-Główne widoki:
+- `index.tsx` — punkt wejścia; `style.css` — style globalne; `assets/`;
+- `core/` — część wspólna: `App.tsx` (routing, `DeviceGuard`, stopka „Aktywne urządzenie”), `device-types.tsx` (rejestr rodzajów sterowników), `http.ts`, `api.ts`, `types.ts`, `context/DeviceContext.tsx`, `components/` (`Header`, `DeviceEditModal`, `Notification`, ikony menu), `pages/Devices` (wybór sterownika);
+- `devices/heat-pump/` — pompa ciepła: `pages/` (`Home`, `Data`, `Charts`, `Settings`, `Schedules`), `components/` (`DateDict`, `ResourceBlock`), `utils/` (energia, G12w, błędy), `api.ts`, `types.ts`, `device-type.tsx`;
+- `devices/water-pressure/` — hydrofor: `pages/` (`Home`, `Data`, `Chart`, `Settings`), `utils/water.ts`, `api.ts`, `types.ts`, `device-type.tsx`.
+
+**Menu i trasy powstają z rejestru** (`core/device-types.tsx`). Każdy rodzaj podaje w `device-type.tsx` ikonę kafelka i widoki w kolejności menu (`path`, `label`, `icon`, `element`; pompa ma też `/hp` poza menu). `Header` rysuje menu wybranego rodzaju. `App` tworzy trasy dla wszystkich ścieżek, a ścieżka, której wybrany rodzaj nie ma (np. `/schedules` hydroforu), prowadzi na `/`. Nowy rodzaj sterownika to katalog `devices/<rodzaj>/`, wpis w rejestrze i wartość w `DeviceType`, tak jak na serwerze.
+
+Główne widoki pompy ciepła:
 
 - `/` i `/hp` — bieżący stan pompy;
 - `/data` — tabela danych historycznych;
@@ -477,7 +484,7 @@ Główne widoki:
 - `/schedules` — wartości domyślne i harmonogramy;
 - `/devices` — wybór sterownika i zmiana jego nazwy.
 
-**Widoki zależą od typu wybranego sterownika** (`ByType` w `index.tsx`, menu w [`Header.tsx`](client/src/components/Header.tsx)). Dla hydroforu ([`pages/WaterPressure/`](client/src/pages/WaterPressure/)) te same ścieżki pokazują:
+**Widoki zależą od typu wybranego sterownika** (rejestr wyżej). Dla hydroforu ([`devices/water-pressure/pages/`](client/src/devices/water-pressure/pages/)) te same ścieżki pokazują:
 - `/` — podgląd: czas kompresora, progi, zbiorniki z szacunkiem wody i dzisiejsze uruchomienia (odświeżane co 10 s);
 - `/data` — zakładki *Uruchomienia pompy* (miesiąc, CSV) / *Odczyty wodomierza* (dodawanie z samą datą i usuwanie odczytów);
 - `/chart` — „Zużycie wody w okresie”: kropki dzień / miesiąc / rok; w roku znacznik „Pokaż odczyty z wodomierza” (wodomierz vs szacunek w miesiącach, sugerowane `k`);
@@ -492,7 +499,7 @@ Docelowy telefon to Samsung Galaxy S20 (360×800 CSS px); układ sprawdzany jest
 - Po przekierowaniu z `DeviceGuard` (`state.auto`, brak wybranego sterownika) wybierany jest automatycznie sterownik domyślny z bazy, a bez niego jedyny sterownik; nie przy świadomym wejściu na `/devices`.
 - **Sterownik domyślny** ustawia gwiazdka w lewym górnym rogu kafelka (`isDefault` w bazie, najwyżej jeden). Po otwarciu aplikacji `DeviceGuard` raz na sesję przeglądarki (`sessionStorage` `chpc.defaultApplied`) przełącza na niego, także gdy w `localStorage` jest inny wybór; zmiana w stopce obowiązuje do końca sesji.
 - Ikona kafelka zależy od typu: fale (pompa ciepła) albo kropla (hydrofor).
-- Kafelki sterowników stoją obok siebie (zawijane do kolejnych wierszy), a na ekranach ≤ 560 px jeden pod drugim. Kafelek pokazuje nazwę, a pod nią małą czcionką `deviceId`; gdy nazwy nie ma, w tytule kafelka jest samo `deviceId`. Mała ikonka ołówka w rogu kafelka otwiera popup „Dane sterownika” ([`DeviceEditModal`](client/src/components/DeviceEditModal.tsx)): Root ID i Device ID są wyłączone z edycji, nazwę można wpisać lub poprawić (`PUT /api/devices/:rootId`). Popup zamyka „Anuluj”, Esc albo kliknięcie poza nim.
+- Kafelki sterowników stoją obok siebie (zawijane do kolejnych wierszy), a na ekranach ≤ 560 px jeden pod drugim. Kafelek pokazuje nazwę, a pod nią małą czcionką `deviceId`; gdy nazwy nie ma, w tytule kafelka jest samo `deviceId`. Mała ikonka ołówka w rogu kafelka otwiera popup „Dane sterownika” ([`DeviceEditModal`](client/src/core/components/DeviceEditModal.tsx)): Root ID i Device ID są wyłączone z edycji, nazwę można wpisać lub poprawić (`PUT /api/devices/:rootId`). Popup zamyka „Anuluj”, Esc albo kliknięcie poza nim.
 - Nie ma formularza dodawania sterownika (sterowniki rejestrują się same, punkt 3).
 - Zakładka Ustawienia ma sekcję „Sterownik” z nazwą, `deviceId` i Root ID oraz przyciskiem „Zmień”, który otwiera ten sam popup. Po zapisie nowa nazwa trafia też do wybranego urządzenia (stopka, `localStorage`). Zmiana sterownika odbywa się przez ikonkę w stopce.
 
@@ -502,7 +509,7 @@ Docelowy telefon to Samsung Galaxy S20 (360×800 CSS px); układ sprawdzany jest
 
 ### Zakładka Dane
 
-`client/src/utils/utils.ts` pobiera dane z `/hp/4day` i:
+`client/src/devices/heat-pump/utils/utils.ts` pobiera dane z `/hp/4day` i:
 
 1. filtruje rekordy do `HPS === true`, chyba że zaznaczono „Wszystkie dane”;
 2. sortuje je malejąco po czasie;
@@ -519,7 +526,7 @@ Eksport CSV stosuje tę samą prezentację.
 
 ### Koszt energii
 
-[`client/src/utils/energy-cost-g12w.ts`](client/src/utils/energy-cost-g12w.ts) liczy koszt w taryfie G12w. Parser czasu przyjmuje zarówno `YYYY-MM-DD`, jak i `YYYY.MM.DD` (format z `co`) i zawsze używa czasu warszawskiego. W widoku głównym `lt_pow` jest opisane jako „Energia cyklu” w Wh, a `WWatt` jako „Limit mocy” (w Ustawieniach pole `working_watt` to „Limit mocy [W]”).
+[`client/src/devices/heat-pump/utils/energy-cost-g12w.ts`](client/src/devices/heat-pump/utils/energy-cost-g12w.ts) liczy koszt w taryfie G12w. Parser czasu przyjmuje zarówno `YYYY-MM-DD`, jak i `YYYY.MM.DD` (format z `co`) i zawsze używa czasu warszawskiego. W widoku głównym `lt_pow` jest opisane jako „Energia cyklu” w Wh, a `WWatt` jako „Limit mocy” (w Ustawieniach pole `working_watt` to „Limit mocy [W]”).
 
 ## 10. Definicja harmonogramu
 

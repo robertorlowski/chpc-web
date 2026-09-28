@@ -1,4 +1,4 @@
-import { getSelectedDevice } from '../context/DeviceContext';
+import { getSelectedDevice } from './context/DeviceContext';
 
 // Połączenie z serwerem: adresy API i WebSocket oraz zapytania z kontekstem
 // wybranego urządzenia (rootId, deviceId). API poszczególnych rodzajów

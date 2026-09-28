@@ -67,7 +67,7 @@ describe('Hydrofor (water-pressure)', () => {
 
     it('klient liczy podgląd tym samym wzorem co serwer', async () => {
       // ścieżka w zmiennej: tsc serwera nie włącza pliku klienta do kompilacji
-      const clientModule = '../client/src/utils/water.ts';
+      const clientModule = '../client/src/devices/water-pressure/utils/water.ts';
       const client = await import(clientModule);
       const cases = [
         { pressure_low: 2, pressure_high: 4, tanks: [

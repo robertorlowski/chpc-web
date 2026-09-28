@@ -242,7 +242,7 @@ Kontroler `water-pressure.controller.ts`, serwis `water-pressure.service.ts`.
 
 ### 5.5 Testy (vitest, `server/water-pressure.test.ts`, 30 testów)
 
-- wzór wody: przepona z `p0`, poduszka z `k`, zbiornik wyłączony, `p0` powyżej progu dolnego, złe progi; **ten sam wynik we wzorze klienta** (`client/src/utils/water.ts`) i kalkulator pojemności,
+- wzór wody: przepona z `p0`, poduszka z `k`, zbiornik wyłączony, `p0` powyżej progu dolnego, złe progi; **ten sam wynik we wzorze klienta** (`client/src/devices/water-pressure/utils/water.ts`) i kalkulator pojemności,
 - zgłoszenie: nowe urządzenie z ustawieniami domyślnymi, znane urządzenie (ten sam `rootId`, nazwa bez zmian), pompa ciepła bez ustawień hydroforu, nieznany typ,
 - uruchomienia: daty z czasów względnych, `pumpEnd` z ostatniej wiadomości, zachowanie początku kompresora, sam `deviceId`, kolejka i czas przybliżony, dosłanie z kolejki znanego uruchomienia, „w toku”, 404 i 409, złe dane,
 - woda liczona z ustawień w chwili utworzenia (bez zmiany historii),
@@ -258,7 +258,7 @@ Kontroler `water-pressure.controller.ts`, serwis `water-pressure.service.ts`.
   - kafelek hydroforu z ikoną kropli,
   - na każdym kafelku gwiazdka „domyślny”.
 - **Sterownik domyślny:** po otwarciu aplikacji (raz na sesję przeglądarki) aplikacja przechodzi od razu do domyślnego sterownika z bazy, także gdy wcześniej był wybrany inny. Zmiana sterownika w stopce obowiązuje do końca sesji. Gdy nie ma domyślnego, a sterownik jest tylko jeden, wybierany jest on.
-- **Menu zależy od typu wybranego sterownika.** Dla hydroforu: Hydrofor (ikona kropli), Dane, Wykres, Ustawienia, bez Harmonogramu (`/schedules` przekierowuje na główne okno). Widoki są w `client/src/pages/WaterPressure/`.
+- **Menu zależy od typu wybranego sterownika.** Dla hydroforu: Hydrofor (ikona kropli), Dane, Wykres, Ustawienia, bez Harmonogramu (`/schedules` przekierowuje na główne okno). Widoki są w `client/src/devices/water-pressure/pages/`, a menu w `client/src/devices/water-pressure/device-type.tsx` (rejestr rodzajów sterowników w `client/src/core/device-types.tsx`).
 
 **Główne okno (podgląd, odświeżanie co 10 s):**
 - czas pracy kompresora, progi presostatu i szacowana woda na uruchomienie,
@@ -337,7 +337,7 @@ Przy złych progach (górny nie większy od dolnego) szacunek wynosi 0.
 
 **Ten sam wzór jest w trzech miejscach** i trzeba go zmieniać razem:
 - serwer: `estimateWater` w `server/src/modules/water-pressure/services/water-pressure.service.ts` (wartość zapisywana w rekordach),
-- aplikacja WWW: `client/src/utils/water.ts` (podgląd w Ustawieniach i na głównym oknie),
+- aplikacja WWW: `client/src/devices/water-pressure/utils/water.ts` (podgląd w Ustawieniach i na głównym oknie),
 - sterownik: `src/settings.cpp` (podgląd na stronie sterownika).
 
 Zgodność serwera z aplikacją sprawdza test serwera, a zgodność sterownika — jego testy `native` z tymi samymi przykładami.

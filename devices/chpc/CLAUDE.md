@@ -143,7 +143,7 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
   - `ERRn`: event sequence number, which grows with every event, so a repeated code is still a new event;
   - `ERRc`: `error_count`; 5 means locked.
 
-  The codes are `ERRC_*` in the firmware and `client/src/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low, 13 Tbe (evaporating below −1 °C for over 60 s: the plate heat exchanger may freeze). Each event also shows `ERR: …` on the LCD.
+  The codes are `ERRC_*` in the firmware and `client/src/devices/heat-pump/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low, 13 Tbe (evaporating below −1 °C for over 60 s: the plate heat exchanger may freeze). Each event also shows `ERR: …` on the LCD.
 - **Cloud:** the whole object is forwarded as telemetry `HP`.
 
 **Known mismatches with the current firmware:**
@@ -200,7 +200,7 @@ A value rejected downstream still shows as "set" in the web UI. Compare it with 
 **Known mismatches** (as of 2026-09-24):
 - The server sends the WebSocket message `{type:"operation"}` only for one-shot actions (`/api/operation/action`), so they reach the pump within seconds. Ordinary settings from `/operation/set` still wait for the next periodic POST, 10–30 s later.
 - (fixed 2026-09-24) The main view showed `lt_pow` with a "W" unit; it is now labelled "Energia cyklu" in Wh.
-- (fixed 2026-09-24) The client's energy-cost code (`client/src/utils/energy-cost-g12w.ts`) parsed only `YYYY-MM-DD`, while `co` sends `YYYY.MM.DD`. Dotted timestamps fell back to `new Date()`, which depends on the browser: Chrome/Edge read browser-local time, stricter engines threw "Nieprawidłowy czas" and no cost was shown. The parser now accepts both separators and always uses Warsaw time.
+- (fixed 2026-09-24) The client's energy-cost code (`client/src/devices/heat-pump/utils/energy-cost-g12w.ts`) parsed only `YYYY-MM-DD`, while `co` sends `YYYY.MM.DD`. Dotted timestamps fell back to `new Date()`, which depends on the browser: Chrome/Edge read browser-local time, stricter engines threw "Nieprawidłowy czas" and no cost was shown. The parser now accepts both separators and always uses Warsaw time.
 - The time of an error is the time of the telemetry record that first carries the new `ERRn` (see **Errors** above), so it is accurate to 10–30 s. CHPC has no clock.
 - The server's API-key check (`verifyApiKey`) is disabled in `server/src/core/app.ts`. `POST /api/operation/set` is open and unvalidated.
 - `chpc-web` tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler, `EEVmin` storage, error-event detection and one-shot actions. They do not cover the WebSocket.
