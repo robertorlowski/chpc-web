@@ -1,3 +1,6 @@
+// Widok główny pompy (/ i /hp): bieżąca telemetria z GET /hp (HP z CHPC, przekaźniki co, PV,
+// temperatura zewnętrzna, COP zbiornika) i dzwonek błędu z GET /hp/last-error. Bez odpytywania
+// cyklicznego: dane odświeża komunikat WebSocket „update”, który serwer wysyła po zapisie telemetrii.
 import './style.css';
 import { HpRequests } from '../../api';
 import { wsAddressServer } from '../../../../core/http';
@@ -8,6 +11,7 @@ import swith_on from '../../../../assets/swith_on.svg';
 import swith_off from '../../../../assets/swith_off.svg';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
+// Stany _data, _hp i _pv to cała odpowiedź GET /hp oraz jej pola HP i PV; _lastError z /hp/last-error.
 const HP: React.FC = () => {
 
   const [_pv, setPV] = useState<PvMetrics | null >(null);
@@ -37,6 +41,10 @@ const HP: React.FC = () => {
     []
   );
 
+  // Połączenie na czas otwarcia widoku; bez ponawiania po zerwaniu (wtedy dane stoją do przeładowania).
+  // Serwer wysyła komunikaty tylko połączeniom z tym rootId; to samo połączenie dostaje też
+  // „operation” przeznaczone dla co, dlatego liczy się tylko „update” (po zapisie telemetrii z HP.Ttarget).
+  // Nowe połączenie po zmianie sterownika zapewnia key={rootId} w DeviceRoute (App.tsx).
   useEffect(() => {
     const device = getSelectedDevice();
     const wsUrl = new URL(wsAddressServer());
@@ -83,6 +91,10 @@ const HP: React.FC = () => {
     </svg>
   ) : null;
 
+  // Uwagi do układu niżej: duże „T:” to HP.Ttarget, czyli czujnik w środku zbiornika, nie temperatura
+  // zadana (niebieska i pogrubiona, gdy sprężarka pracuje). „Temp. CO min/max” to HP.Tmin/Tmax, czyli granice, na których pompa
+  // pracuje teraz (w trybie CWU to granice CWU). Tryb pracy pochodzi z telemetrii, czyli jest trybem
+  // zgłoszonym przez co. Temp. min/max i COP to estymacja COP zbiornika liczona w co.
   return (
     <div className="settings hp-page">
       <h2>CWU / CO</h2>

@@ -1,3 +1,6 @@
+// Telemetria pompy (/hp...): POST /hp/add od sterownika co (zapis + zwrot operacji)
+// oraz odczyty dla klienta: bieżący stan, dni z danymi, dane dnia, podsumowanie
+// energii i kosztów G12w, ostatni błąd. Dane w kolekcji hp (models/hp.model.ts).
 import { Request, Response } from 'express'
 import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../types'
@@ -13,6 +16,8 @@ interface THpClear {
 
 
 
+// POST /hp/clear {clear: true}: usuwa całą telemetrię urządzenia (bez pv).
+// Endpoint jest otwarty (kontrola klucza API wyłączona).
 export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
   try {
     console.log("Clear HP data");
@@ -30,6 +35,8 @@ export const clearHp = async (req: Request<{}, {}, {}>, res: Response) => {
 }
 
 
+// GET /hp: ostatnia telemetria z pamięci podręcznej (surowa, także z polami,
+// których schemat nie zapisuje, do restartu serwera) + bieżące PV i pv_power.
 export async function getHp(req: Request, res: Response) {
   try {
     console.log("Get HP last data: " + req.deviceRootId as string);
@@ -65,6 +72,8 @@ export async function getHpAvailableDates(req: Request, res: Response) {
   }
 }
 
+// GET /hp/4day?date= albo ?startDate=&endDate=: rekordy z dni czasu warszawskiego,
+// od najnowszego (zakładka Dane, koszty energii w kliencie).
 export async function getHp4Day(req: Request, res: Response) {
   try {
     const { date, startDate, endDate } = req.query;
@@ -91,6 +100,12 @@ export async function getHp4Day(req: Request, res: Response) {
   }
 }
 
+// GET /hp/monthly-summary?startDate=&endDate=[&group=day]: energia pompy, PV i sieci
+// w miesiącach (albo dniach) czasu warszawskiego oraz koszt zmienny w taryfie G12w.
+// Energia to całka trapezowa mocy między kolejnymi rekordami hp (HP.Watts, PV.total_power).
+// Nie łączyć tu kolekcji pv ($unionWith, $lookup): Atlas na planie współdzielonym sortuje
+// w pamięci najwyżej 32 MB bez allowDiskUse, a rok danych mieści się tylko dzięki
+// indeksowi createdAt na hp. Dlatego addHp wpisuje PV.total_power do rekordu hp.
 export async function getHpMonthlySummary(req: Request, res: Response) {
   try {
     const { startDate, endDate, group } = req.query;
@@ -126,11 +141,14 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
           localDayOfWeek: { $dayOfWeek: { date: "$createdAt", timezone: "Europe/Warsaw" } },
         },
       },
+      // odstęp dłuższy niż 15 min to przerwa w danych (sterownik offline): pomijany,
+      // żeby nie przypisać ostatniej mocy całej przerwie
       { $match: { intervalHours: { $gt: 0, $lte: 0.25 }, previousWatts: { $gte: 0 } } },
       {
         $set: {
           consumptionWh: { $multiply: [{ $avg: ["$previousWatts", { $ifNull: ["$HP.Watts", 0] }] }, "$intervalHours"] },
           pvWh: { $multiply: [{ $avg: ["$previousPv", { $ifNull: ["$PV.total_power", 0] }] }, "$intervalHours"] },
+          // pobór z sieci: nadwyżka poboru pompy nad produkcją PV (nadwyżka PV = 0)
           gridWh: {
             $multiply: [
               { $max: [0, { $avg: [
@@ -143,6 +161,8 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
         },
       },
       {
+        // G12w, strefa droga: pon.–pt. ($dayOfWeek 2–6) 6–13 i 15–22 czasu polskiego.
+        // Święta nie są tu uwzględniane (w G12w są w strefie taniej).
         $set: {
           peakGridWh: {
             $cond: [
@@ -182,6 +202,8 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
               { $subtract: ["$consumptionKWh", "$gridEnergyKWh"] },
             ],
           },
+          // stawki zmienne TAURON G12w [zł/kWh] na stałe: 1.2302 szczyt, 0.6305 poza szczytem;
+          // te same w kliencie (devices/heat-pump/utils/energy-cost-g12w.ts), zmieniać razem
           totalVariableCostPLN: {
             $max: [
               { $add: [
@@ -203,6 +225,11 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
   }
 }
 
+// POST /hp/add: główny punkt wymiany ze sterownikiem co (co 10 s przy pracy
+// sprężarki, co 30 s w spoczynku, od razu po komunikacie WebSocket "operation").
+// Kolejność ma znaczenie: pobranie operacji -> clearOperation -> consumeManualForceOnStart
+// (ustawia operację dla NASTĘPNEJ odpowiedzi) -> zapis telemetrii -> odpowiedź.
+// Odpowiedź zawsze niesie operację, także gdy HP jest puste (CHPC nie odpowiada).
 export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   const data :HpEntry = req.body;
   console.log("Add HP data");
@@ -211,6 +238,8 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     const rootId = req.deviceRootId as string;
     // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
     const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
+    // Bez ręcznych nadpisań operacja znika do następnego przebiegu schedulera (co 60 s),
+    // więc kolejne odpowiedzi niosą {} — co zostaje przy ostatnich wartościach.
     clearOperation(rootId);
     if (data?.HP) {
       // ręczne force jest jednorazowe: znika po starcie sprężarki (HPS > 0)
@@ -220,6 +249,8 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     console.log("Get HP operation");
     console.log(operation);
     
+    // Zapis tylko przy odczycie z CHPC (HP.Ttarget). Uwaga: Ttarget = 0 °C też
+    // jest traktowane jak brak odczytu i rekord nie powstaje.
     if (data && data.HP && data.HP.Ttarget) {
       // Sterownik wysyła PV osobno (pv/add). Do rekordu HP trafia tylko moc
       // potrzebna do bilansu energii, z odczytu nie starszego niż 3 min.
@@ -241,6 +272,8 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   }
 }
 
+// GET /hp/last-error: rekord z error_code z 24 h albo bez limitu przy blokadzie
+// (ERRc >= 5); {} gdy brak. Szczegóły w getHpLastError.
 export const getLastError = async (req: Request, res: Response) => {
   try {
     const doc = await getHpLastError(req.deviceRootId as string);

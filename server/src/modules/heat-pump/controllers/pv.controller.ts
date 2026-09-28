@@ -1,3 +1,5 @@
+// Odczyty PV z DTU Hoymiles (/pv...): zapis od sterownika co (/pv/add, co 60 s)
+// i odczyty dla klienta. Kolekcja pv (models/pv.model.ts), logika w services/pv.service.ts.
 import { Request, Response } from 'express'
 import { PvEntry } from '../types'
 import { addPvData, getPvLastData, getPvRange } from '../services/pv.service'
@@ -21,6 +23,7 @@ export const addPv = async (req: Request<{}, {}, PvEntry>, res: Response) => {
   }
 }
 
+// GET /pv: ostatni odczyt z panelami, bez limitu wieku ({} gdy brak).
 export async function getPv(req: Request, res: Response) {
   try {
     const result = await getPvLastData(req.deviceRootId as string);

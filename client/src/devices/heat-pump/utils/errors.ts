@@ -1,5 +1,6 @@
-// Kody błędów sterownika CHPC (HP.ERR, error_code). Źródło: ERRC_* w chpc/src/CHPC_firmware.ino.
-// Zmiana kodu wymaga zmiany w obu projektach.
+// Kody błędów sterownika CHPC (HP.ERR, error_code). Źródło: ERRC_* w devices/chpc/src/CHPC_firmware.ino.
+// Zmiana kodu wymaga zmiany w obu miejscach. Używane w widoku głównym (dzwonek), Danych (czerwony
+// wiersz) i Ustawieniach (błąd, licznik, Odblokuj). Blokada: HP.ERRc ≥ 5, zdejmuje ją akcja error_reset.
 export const ERROR_LOCKED = 11;
 export const ERROR_LOCK_LIMIT = 5;
 

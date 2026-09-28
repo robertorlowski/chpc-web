@@ -1,3 +1,6 @@
+// Harmonogramy pompy (/schedules...): CRUD na polu schedules urządzenia (zakładka
+// Harmonogramy) i harmonogram działający teraz. Zmiany działają od najbliższego
+// przebiegu schedulera (do 60 s).
 import { Request, Response } from 'express';
 import { ScheduleEntry } from '../types';
 import { deleteSchedule, getSchedules, saveSchedule, updateSchedule } from '../services/schedule.service';
@@ -12,6 +15,7 @@ export async function getScheduleEntries(req: Request, res: Response) {
   }
 }
 
+// GET /schedules/current: {scheduleId, work_mode}; scheduleId null = ustawienie domyślne.
 export async function getCurrentScheduleEntry(req: Request, res: Response) {
   try {
     const rootId = req.deviceRootId as string;

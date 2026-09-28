@@ -1,4 +1,6 @@
 
+// Starsze ustawienia czasowe (kolekcja settings): najnowszy dokument urządzenia,
+// zapis przez upsert. Scheduler z nich nie korzysta.
 import { SettingsEntry } from '../types';
 import { SettingsEntryModel } from '../models/settings.model';
 

@@ -1,3 +1,7 @@
+// Scheduler pompy ciepła: co minutę (startScheduler w server.ts) dla każdego urządzenia
+// heat_pump wylicza operację z harmonogramów i ustawień domyślnych i zapisuje ją w
+// operation.service. Niczego nie wysyła: sterownik co odbierze operację w odpowiedzi
+// na najbliższe /hp/add. Wszystkie porównania czasu w Europe/Warsaw.
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   HpEntry,
@@ -15,6 +19,8 @@ import { TIME_ZONE } from '../../../core/time';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 
+// Stan z poprzedniego przebiegu, tylko w pamięci: po restarcie serwera nie widać ani
+// zakończenia harmonogramu, ani zmiany dnia z pierwszego przebiegu.
 const previousScheduleState = new Map<string, boolean>();
 const previousSchedulerDay = new Map<string, string>();
 
@@ -32,6 +38,9 @@ function toMinutes(value: string): number {
   return hour * 60 + minute;
 }
 
+// Data jednorazowa ma pierwszeństwo przed dayOfWeek. Dzień jest sprawdzany dla
+// bieżącej chwili, także w zakresie przez północ: wpis „poniedziałek 22:00–06:00”
+// działa w pon. 00:00–06:00 i 22:00–24:00, a nie we wtorek 00:00–06:00.
 function isScheduleForToday(schedule: ScheduleEntry, now: Date): boolean {
   const localDate = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
 
@@ -53,6 +62,7 @@ function isScheduleForToday(schedule: ScheduleEntry, now: Date): boolean {
     || (schedule.dayOfWeek === WeekDay.DAYS_OFF && dayOff);
 }
 
+// Koniec zakresu wyłączny: o godzinie endTime wpis już nie działa.
 function isScheduleActive(schedule: ScheduleEntry, now: Date): boolean {
   if (!schedule.enabled || !isScheduleForToday(schedule, now)) return false;
 
@@ -73,6 +83,8 @@ function scheduleScore(schedule: ScheduleEntry): number {
   return (schedule.date ? 10 : 0) + (schedule.type === ScheduleType.OFF ? 1 : 0);
 }
 
+// Jeden wpis z nakładających się: data > cykliczny, przerwa OFF > CO/CWU,
+// potem późniejszy startTime, na końcu _id.
 function getActiveSchedule(
   schedules: ScheduleEntry[],
   types: ScheduleType[],
@@ -95,6 +107,8 @@ function stringValue(value: unknown): string | undefined {
   return value === undefined || value === null ? undefined : String(value);
 }
 
+// Operacja bez harmonogramu: temperatury z properties, a gdy ich brak — z ostatniej
+// telemetrii. Zawsze force "0" i nigdy co_pomp (stan pomp CO zostaje w sterowniku).
 function getDefaultOperation(
   device: DeviceDocument,
   lastData: HpEntry,
@@ -121,6 +135,8 @@ function withoutSchedule(defaultOperation: OperationEntry): OperationEntry {
     : defaultOperation;
 }
 
+// Harmonogram -> operacja: OFF wyłącza (force "0"), CO daje A, CWU daje CWU.
+// Brakujące temperatury wpisu biorą się z operacji domyślnej, każda osobno.
 function scheduleToOperation(
   schedule: ScheduleEntry,
   defaultOperation: OperationEntry,
@@ -188,6 +204,7 @@ export async function getCurrentSchedule(
   };
 }
 
+// Jeden przebieg dla wszystkich pomp; now jako parametr dla testów.
 export async function runSchedulerOnce(now = new Date()): Promise<void> {
   const devices = await DeviceModel
     .find({ deviceType: DeviceType.HP })
@@ -218,6 +235,9 @@ export async function runSchedulerOnce(now = new Date()): Promise<void> {
       now,
     );
 
+    // Koniec harmonogramu kasuje ręczne nadpisania: zmiana z Ustawień obowiązuje
+    // najwyżej do końca bieżącego wpisu. Bez harmonogramu nadpisania trwają do
+    // restartu serwera (albo wymiany przez kolejny zapis).
     const hasActiveSchedule = Boolean(activeSchedule);
     if (previousScheduleState.get(rootId) === true && !hasActiveSchedule) {
       clearManualOperation(rootId);
@@ -236,6 +256,8 @@ export async function runSchedulerOnce(now = new Date()): Promise<void> {
   }
 }
 
+// Pierwszy przebieg od razu, potem co SCHEDULER_INTERVAL_MS; przebieg nie startuje,
+// gdy poprzedni jeszcze trwa. Błąd przebiegu jest logowany, scheduler działa dalej.
 export function startScheduler(): NodeJS.Timeout {
   let running = false;
 

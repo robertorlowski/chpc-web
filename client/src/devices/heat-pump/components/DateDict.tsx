@@ -1,3 +1,6 @@
+// Lista wyboru dnia z danymi pompy (GET /hp/dates, daty YYYY.MM.DD w strefie Europe/Warsaw).
+// Używana w zakładkach Dane i Wykres (Dzień). Gdy initValue nie ma na liście (np. dziś brak danych),
+// wybiera najnowszy dzień i zgłasza go przez onDateChange.
 import './style.css';
 import React, { useEffect, useState } from 'react';
 import { HpRequests } from '../api';

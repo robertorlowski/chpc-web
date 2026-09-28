@@ -1,3 +1,5 @@
+// Starsze ustawienia czasowe (/settings, kolekcja settings): night_hour, settings,
+// cwu_settings. Scheduler z nich nie korzysta; pozostały dla zgodności.
 import { Request, Response } from 'express'
 
 import { getSettingsData, setSettingsData } from '../services/settings.service'

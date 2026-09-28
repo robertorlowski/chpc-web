@@ -1,8 +1,15 @@
 
+// Operacje dla sterownika co, tylko w pamięci procesu (restart serwera je kasuje).
+// Scheduler ustawia operację wyliczoną (replaceOperationData), użytkownik — ręczne
+// nadpisania (setManualOperationData), a /hp/add odbiera bieżącą i ją czyści.
+// Ręczne pola wygrywają: { ...scheduled, ...manual }.
 import { OperationEntry  } from '../types';
 
+// operacja do wysłania w najbliższej odpowiedzi /hp/add
 const operations = new Map<string, OperationEntry>();
+// ostatnia operacja wyliczona przez scheduler
 const scheduledOperations = new Map<string, OperationEntry>();
+// ręczne nadpisania z /operation/set (tylko przekazane pola)
 const manualOperations = new Map<string, OperationEntry>();
 // Ręczne force: czy od jego ustawienia telemetria pokazała sprężarkę w spoczynku.
 const manualForceSeenIdle = new Map<string, boolean>();
@@ -16,6 +23,8 @@ export const getOperationData = (rootId: string) => {
   return operations.get(rootId) ?? {};
 }
 
+// Po obsłużeniu /hp/add. Przy ręcznych nadpisaniach operacja od razu wraca (każda
+// odpowiedź niesie pełny stan z nadpisaniem); bez nich jest pusta do przebiegu schedulera.
 export const clearOperation = (rootId: string) => {
   operations.delete(rootId);
 
@@ -30,6 +39,7 @@ export const clearOperation = (rootId: string) => {
   return;
 }
 
+// Wołane przez scheduler co minutę: nowa operacja wyliczona, z nałożonymi ręcznymi polami.
 export const replaceOperationData = (rootId: string, data: OperationEntry) => {
   scheduledOperations.set(rootId, { ...data });
   const operation = mergeWithManualOperation(rootId, data);
@@ -37,6 +47,7 @@ export const replaceOperationData = (rootId: string, data: OperationEntry) => {
   return operation;
 };
 
+// Doklejenie pól do bieżącej operacji; obecnie nieużywane.
 export const setOperationData = (rootId: string, data :OperationEntry) => {
   const operation = { ...getOperationData(rootId), ...data };
   operations.set(rootId, operation);
@@ -58,6 +69,8 @@ export const setManualOperationData = (rootId: string, data: OperationEntry) => 
   };
 
   manualOperations.set(rootId, manualOperation);
+  // nowe force: zdjęcie po starcie wymaga najpierw odczytu w spoczynku
+  // (force ustawione w trakcie pracy czeka na postój i kolejny start)
   if (data.force !== undefined) manualForceSeenIdle.set(rootId, false);
   const operation = mergeWithManualOperation(
     rootId,
@@ -124,6 +137,8 @@ export const takeOperationActions = (rootId: string): OperationEntry => {
   return actions;
 };
 
+// Usuwa ręczne nadpisania; scheduler woła to przy przejściu z aktywnego harmonogramu
+// do braku harmonogramu. Klient nie ma przycisku do tego.
 export const clearManualOperation = (rootId: string) => {
   manualOperations.delete(rootId);
   manualForceSeenIdle.delete(rootId);

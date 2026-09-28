@@ -1,4 +1,6 @@
 
+// CRUD harmonogramów pompy osadzonych w urządzeniu (devices.schedules), dla
+// schedule.controller. O tym, który harmonogram działa, decyduje scheduler.service.ts.
 import { ScheduleEntry, WeekDay } from '../types';
 import { DeviceType } from '../../../core/types';
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
@@ -54,6 +56,8 @@ export async function getSchedules(
   return root?.schedules ?? [];
 }
 
+// Pełna podmiana wpisu: pominięte pola (np. temperatury, date) są czyszczone,
+// enabled bez wartości zostaje, forceStart bez wartości = false.
 export async function updateSchedule(
   rootId: string,
   scheduleId: string,
@@ -121,6 +125,9 @@ function getEndOfDay(date: Date): Date {
   return result;
 }
 
+// Harmonogramy obowiązujące w danym dniu. Obecnie nieużywane (brak endpointu).
+// Uwaga: dzień tygodnia i święta liczy w Warszawie, ale porównanie date używa doby
+// w strefie serwera (getStartOfDay/getEndOfDay) — inaczej niż scheduler.
 export async function getSchedulesForDate(
   rootId: string,
   selectedDate: Date,

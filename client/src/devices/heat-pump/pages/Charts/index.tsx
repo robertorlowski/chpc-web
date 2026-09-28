@@ -1,3 +1,7 @@
+// Zakładka Wykres pompy (/chart). Dzień: przebieg mocy, PV i temperatur z GET /hp/4day oraz zużycie
+// i koszt liczone w przeglądarce (energy-cost-g12w.ts). Miesiąc i Rok: słupki energii, PV i koszt
+// z bilansu serwera (GET /hp/monthly-summary, group day/month). Dane pobierane przy zmianie okresu,
+// daty lub filtra; oś czasu dnia bieżącego przesuwa się co minutę, ale nowe dane nie są dociągane.
 import './style.css';
 import { useEffect, useState } from 'react';
 import {
@@ -35,6 +39,9 @@ type ChartPoint = {
   Ttarget?: number;
 };
 
+// selectedDate bywa YYYY.MM.DD (DateDict, formatDateYMD) albo YYYY-MM-DD (wybór roku i miesiąca).
+// Format z kropkami trafia do new Date(value), który Chromium/Edge czytają jako datę lokalną;
+// inne przeglądarki mogą zwrócić Invalid Date.
 const parseSelectedDate = (value: string): Date => {
   const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
@@ -67,6 +74,7 @@ const toDateString = (date: Date): string => {
   ].join('-');
 };
 
+// Dzień rekordu jako YYYY-MM-DD z time "YYYY.MM.DD HH:MM:SS" (co) albo innych zapisów daty.
 const getRowDate = (time: string): string => {
   const date = time.split(/[ T]/)[0] || '';
   const parts = date.split(/[./-]/);
@@ -110,6 +118,7 @@ const getDates = (
   return dates;
 };
 
+// HPS może być boolean (rekord z bazy), liczbą albo napisem, dlatego sprawdzenie jest tolerancyjne.
 const isCompressorWorking = (row: THPL): boolean => {
   const value = (row as THPL & { HPS?: unknown }).HPS;
 
@@ -125,6 +134,7 @@ const getMonthName = (month: number): string => {
   return String(month + 1);
 };
 
+// Minuty od północy: oś X dnia jest liczbowa (0–1440), żeby odstępy odpowiadały czasowi, a luki były widoczne.
 const getTimeValue = (time: string): number => {
   const match = time.match(/[ T](\d{2}):(\d{2})/);
   if (!match) return 0;
@@ -152,6 +162,7 @@ const getDayTicks = (endMinutes: number): number[] => {
   return ticks;
 };
 
+// Watts w widoku Dzień to chwilowa moc [W], w Miesiącu i Roku energia [kWh]; etykieta jest wspólna.
 const formatTooltipLabel = (name: unknown): string => ({
   Watts: 'Energia pob.',
   pv: 'PV',
@@ -233,6 +244,7 @@ export const HeatPumpChart: React.FC = () => {
   );
   const [period, setPeriod] = useState<ChartPeriod>('day');
   const [allData, setAllData] = useState(true);
+  // kwh: całe zużycie pompy; kwhPV: energia z sieci (zużycie po odjęciu PV) — „Zużycie: sieć / całość”
   const [kwh, setKwh] = useState(0);
   const [kwhPV, setKwhPV] = useState(0);
   const [cTemp, setTemp] = useState(true);
@@ -250,6 +262,7 @@ export const HeatPumpChart: React.FC = () => {
   const dayEndMinutes = isCurrentDay ? Math.max(currentDayEnd, 1) : 24 * 60;
   const visibleDayTicks = getDayTicks(dayEndMinutes);
 
+  // dla dnia bieżącego oś X kończy się na „teraz”; zegar tylko przesuwa koniec osi
   useEffect(() => {
     const timer = window.setInterval(() => {
       setCurrentTime(new Date());
@@ -352,6 +365,8 @@ export const HeatPumpChart: React.FC = () => {
           return;
         }
 
+        // Dzień: wszystkie rekordy (także postój sprężarki), bo koszt liczy się z pełnego przebiegu mocy;
+        // przerwy dłuższe niż 15 min są pomijane (jak na serwerze)
         const data = await fetchData(
           true,
           dates[0],
@@ -397,6 +412,8 @@ export const HeatPumpChart: React.FC = () => {
         setCost(periodTotal.cost);
 
         if (period === 'day') {
+          // tylko co piąty rekord (po filtrze) trafia na wykres; „Cały dzień” wyłączony zostawia
+          // tylko pracę sprężarki na osi kategorii (bez luk czasowych)
           const points = data
             .filter((row) => row?.time)
             .filter((row) => allData || isCompressorWorking(row))
@@ -416,6 +433,7 @@ export const HeatPumpChart: React.FC = () => {
 
           setFilteredData(points);
         } else {
+          // gałąź nieosiągalna: Miesiąc i Rok kończą się wyżej (dane z monthly-summary)
           setFilteredData(dailyResults.map((item) => ({
             time: String(Number(item.date.slice(8, 10))),
             Watts: Number(item.energy.toFixed(2)),

@@ -1,6 +1,10 @@
+// Starszy model ustawień czasowych pompy (kolekcja settings, /api/settings).
+// Aktualny scheduler korzysta z harmonogramów (devices.schedules), nie z tego modelu.
 import { Schema, model, InferSchemaType } from 'mongoose';
 import { SettingsEntry, TimeSlot } from '../types';
 
+// Zapisywane są tylko godziny; work_mode, min_temp, max_temp i force z TimeSlot
+// schemat pomija.
 const TimeSlotSchema = new Schema<TimeSlot>(
   {
     slot_start_hour: { type: Number },

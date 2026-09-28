@@ -1,3 +1,5 @@
+// Blok z listą przedziałów czasu starszego modelu ustawień (TimeSlot, kolekcja settings).
+// Obecnie nieużywany przez żaden widok.
 import React from 'react';
 import { TimeSlot } from '../types';
 

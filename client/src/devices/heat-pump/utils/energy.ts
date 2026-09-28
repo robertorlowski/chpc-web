@@ -1,3 +1,6 @@
+// Energia [kWh] z próbek mocy (metoda trapezów), opcjonalnie po odjęciu PV. Obecnie nieużywana:
+// Wykres liczy energię i koszt w energy-cost-g12w.ts. Pełne daty parsuje Date.parse w strefie
+// przeglądarki (nie Europe/Warsaw), a format "YYYY.MM.DD" z co nie jest standardem ISO.
 import { THPL } from "../types";
 
 export function energyKWh(data: THPL[], subtractPv: boolean): number {

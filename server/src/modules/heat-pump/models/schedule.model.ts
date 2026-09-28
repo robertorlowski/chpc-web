@@ -1,7 +1,9 @@
 import { Schema } from 'mongoose';
 import { ScheduleEntry, ScheduleType, timePattern, WeekDay } from '../types';
 
-// Harmonogramy są osadzone w urządzeniu (pole schedules).
+// Schemat wpisu harmonogramu pompy ciepła, używany przez core/models/device.model.ts.
+// Harmonogramy są osadzone w urządzeniu (pole schedules). Opcja collection poniżej
+// nie ma znaczenia dla schematu osadzonego: osobnej kolekcji schedules nie ma.
 export const ScheduleEntrySchema = new Schema<ScheduleEntry>(
   {
     dayOfWeek: {

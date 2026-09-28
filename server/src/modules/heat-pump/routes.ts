@@ -9,6 +9,8 @@ import { addPv, getPv, getPvForRange } from './controllers/pv.controller'
 // Pompa ciepła (sterownik co): telemetria, PV, operacje, harmonogramy i starsze ustawienia.
 const router = express.Router()
 
+// /operation: wartości do formularza Ustawień (z telemetrii); /operation/get i
+// /getAndClear: bieżąca operacja z pamięci (getAndClear ją kasuje, więc co jej nie dostanie).
 router.get('/operation', prepareOperation);
 router.post('/operation/set', setOperation);
 router.get('/operation/get', getOperation);
@@ -28,6 +30,7 @@ router.get('/pv', getPv)
 router.get('/pv/range', getPvForRange)
 router.post('/pv/add', addPv)
 
+// starszy model ustawień czasowych (kolekcja settings); scheduler go nie używa
 router.get('/settings', getSettings)
 router.post('/settings/set', setSettings)
 

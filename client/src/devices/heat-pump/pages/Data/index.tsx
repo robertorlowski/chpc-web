@@ -1,3 +1,6 @@
+// Zakładka Dane pompy (/data): tabela telemetrii z jednego dnia (GET /hp/4day przez fetchData),
+// domyślnie tylko praca sprężarki i rekordy z błędem, czerwony wiersz pod rekordem z error_code
+// oraz eksport CSV całego bieżącego roku (GET /hp/all). Bez automatycznego odświeżania.
 import { HpRequests } from '../../api';
 import { THPL } from '../../types';
 import React, { useEffect, useState } from 'react';
@@ -13,6 +16,7 @@ import { fetchData, formatDateYMD } from '../../utils/utils';
 import { errorDescription } from '../../utils/errors';
 import { ClipLoader } from 'react-spinners';
 
+// A (harmonogram) i M (ręczny) to dla użytkownika to samo grzanie CO; CWU, OFF i PV bez zmian.
 const formatDataWorkMode = (workMode?: string): string => (
   workMode === 'A' || workMode === 'M' ? 'CO' : workMode || '---'
 );
@@ -44,6 +48,9 @@ export const HeatPumpTable: React.FC = () => {
 	const [allData, setAllData] = useState<boolean>(false);
 	const [downloading, setDownloading] = useState(false);
 
+	// CSV dla Excela z polskimi ustawieniami: separator ';', przecinek dziesiętny (w napisach zamieniana
+	// jest tylko pierwsza kropka), flagi jako 1/0, time bez zmian. Kolumny z kluczy pierwszego
+	// (najnowszego) rekordu; eksport nie filtruje po pracy sprężarki.
 	const handleDownloadCsv = async () => {
 		setDownloading(true);
 		try {
@@ -75,6 +82,9 @@ export const HeatPumpTable: React.FC = () => {
 		}
 	};
 		
+	// selectedDate w formacie YYYY.MM.DD (jak time z co), więc startsWith odcina rekordy spoza dnia,
+	// a w tabeli zostaje sama godzina. Start od dzisiejszej daty przeglądarki; DateDict przełącza na
+	// najnowszy dzień z danymi, jeśli dziś ich nie ma.
 	useEffect(() => {
 			if (!selectedDate) return;
 			let active = true; // guard przeciwko setState po unmount
@@ -248,7 +258,7 @@ export const HeatPumpTable: React.FC = () => {
 						style={{
 							padding: '6px 9px',
 							borderBottom: '1px solid #eee',
-							flex: '1 1 100%',  // tr ma globalnie display: flex (HP/style.css)
+							flex: '1 1 100%',  // tr tabeli danych ma display: flex (:where(.data-table) tr w style.css)
 							backgroundColor: '#fdecea',
 							color: '#b3261e',
 							fontSize: '13.5px',

@@ -3,8 +3,12 @@ import type { DeviceType } from '../../core/types';
 // Typy pompy ciepła: telemetria (hp), PV z DTU (pv), operacje dla sterownika co,
 // harmonogramy i starsze ustawienia czasowe (settings).
 
+// HH:mm dla startTime/endTime harmonogramu
 export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+// Tryb pracy pompy (properties.work_mode i operacja): M — ręczny CO (po północy
+// wraca na A), A — CO z harmonogramem, CWU — CWU z harmonogramem, OFF — wyłączona.
+// Sterownik co przyjmuje też PV, którego serwer nie wysyła.
 export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
 
 export enum ScheduleType {
@@ -13,6 +17,8 @@ export enum ScheduleType {
   OFF = 'off',
 }
 
+// Dni harmonogramu; ten sam kontrakt w kliencie (zmieniać razem). WORKDAYS pomija święta,
+// DAYS_OFF obejmuje weekendy i polskie święta (core/services/calendar.service.ts).
 export enum WeekDay {
   ANY_DAY = -1,
   WORKDAYS = -2,
@@ -54,16 +60,24 @@ export interface ScheduleEntry {
   endTime: string;
 
   /**
-   * Stan, który ma zostać ustawiony na urządzeniu.
+   * Wymuszenie startu sprężarki (force = "1") przez cały czas trwania wpisu.
+   * Dla przerwy OFF ignorowane.
    */
   forceStart: boolean;
 
-  /** Opcjonalna wartość historyczna; stan pompy CO ustala sterownik. */
+  /**
+   * Temperatury min/max dla CO albo CWU (zależnie od type). Brak = wartość
+   * domyślna urządzenia. Harmonogram nie ma co_pomp: stan pompy CO ustala sterownik.
+   */
 
   minTemperature?: number;
   maxTemperature?: number;
 }
 
+// Pole HP telemetrii: JSON z CHPC (StatsSerial) przekazany przez co bez zmian.
+// Tylko te klucze są zapisywane (schemat ścisły w models/hp.model.ts); np. FW,
+// EEV_pulse przepadają. ERR — kod ostatniego zdarzenia (nie wraca do 0), ERRn —
+// numer zdarzenia, ERRc — licznik błędów (5 = blokada). lt_pow w Wh, lt_hp_on w s.
 export interface HpMetrics {
     Tbe?: number,
     Tae?: number,
@@ -98,6 +112,7 @@ export interface HpMetrics {
     lt_hp_on?: number
   }
 
+// Podsumowanie PV: moc [W], produkcja [Wh], temperatura [°C] (najniższa z portów).
 export interface PvMetrics {
   total_power?: number,
   total_prod?: number,
@@ -135,6 +150,9 @@ export interface PvEntry extends PvMetrics {
   createdAt?: Date
 }
 
+// Telemetria z POST /hp/add (kolekcja hp). rootId, deviceType, deviceId, t_out
+// i error_code dopisuje serwer; PV to tylko total_power z ostatniego odczytu pv
+// (starsze rekordy mają pełne PV od sterownika). time: "YYYY.MM.DD HH:MM:SS" (czas polski).
 export interface HpEntry {
   rootId?: string;
   deviceType?: DeviceType;
@@ -158,6 +176,7 @@ export interface HpEntry {
   error_code?: number
 }
 
+// Starszy model ustawień czasowych (kolekcja settings), niezależny od harmonogramów.
 export interface TimeSlot {
     slot_start_hour?: Number,
     slot_start_minute?: Number,
@@ -176,6 +195,10 @@ export interface SettingsEntry {
   cwu_settings?: TimeSlot[]
 };
 
+// Operacja dla sterownika co (pole operation w odpowiedzi /hp/add). Wszystkie
+// wartości to napisy ("0"/"1", "45"). co zamienia zmienione wartości na komendy
+// RS-485 do CHPC i pamięta ostatnią przysłaną: brak klucza nie przywraca domyślnej.
+// error_reset i restart to akcje jednorazowe (takeOperationActions).
 export interface OperationEntry {
   force?: String,
   work_mode?: String,

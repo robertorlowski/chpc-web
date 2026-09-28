@@ -1,8 +1,12 @@
+// Model telemetrii pompy (kolekcja hp), zapisywanej przez addHpData z POST /hp/add.
+// Nowe pole telemetrii trzeba dodać tutaj, w types.ts (serwer i klient) i w widokach,
+// inaczej zostanie po cichu pominięte przy zapisie.
 import { Schema, model, InferSchemaType } from 'mongoose';
 import { DeviceType } from '../../../core/types';
 import { HpEntry, HpMetrics } from '../types';
 import { PvMetricsSchema } from './pv.model';
 
+// Klucze JSON z CHPC (pole HP). Nie zapisywane m.in.: EEV_pulse, FW.
 const HpMetricsSchema = new Schema<HpMetrics>(
   {
     Tbe: { type: Number },
@@ -40,7 +44,9 @@ const HpMetricsSchema = new Schema<HpMetrics>(
   { _id: false }
 );
 
-// Telemetria pompy (kolekcja hp). Schemat ścisły: klucz spoza listy nie jest zapisywany.
+// Telemetria pompy (kolekcja hp). Schemat ścisły: klucz spoza listy nie jest zapisywany
+// (np. cop_min, cop_max, controller_mode, liczniki diagnostyczne co).
+// Zapytania idą po rootId + createdAt (timestamps).
 const HpEntrySchema = new Schema<HpEntry>(
   {
     rootId: { type: String, required: true, index: true },

@@ -1,3 +1,6 @@
+// Telemetria pompy: zapis (addHpData z POST /hp/add), wykrywanie zdarzeń błędów CHPC,
+// ostatni błąd i odczyty kolekcji hp. Trzyma w pamięci ostatnią telemetrię i listę
+// dni z danymi per rootId (do restartu serwera); scheduler też czyta stąd ostatnie dane.
 import { HpEntry } from '../types';
 import { sendMessage } from '../../../core/websocket';
 import { HpEntryModel } from '../models/hp.model';
@@ -7,9 +10,14 @@ import { TIME_ZONE } from '../../../core/time';
 import { forgetDeviceInfo, getDeviceInfo } from '../../../core/services/device-info.service';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
+// Ostatnia telemetria w postaci, w jakiej przyszła (z polami spoza schematu, bez
+// createdAt); po restarcie odtwarzana z bazy przy pierwszym odczycie.
 const lastDataByRoot = new Map<string, HpEntry>();
+// Dni z danymi (YYYY.MM.DD, Warszawa); addHpData dopisuje dzień tylko do już wczytanego zbioru.
 const availableDatesByRoot = new Map<string, Set<string>>();
 
+// Migracja jednorazowa: przypisuje urządzeniu rekordy hp sprzed wprowadzenia rootId.
+// Obecnie nigdzie niewywoływana.
 export const assignLegacyHpData = async (rootId: string) => {
   const device = await getDeviceInfo(rootId);
 
@@ -25,6 +33,7 @@ export const assignLegacyHpData = async (rootId: string) => {
   );
 };
 
+// Usuwa telemetrię urządzenia (kolekcja pv zostaje) i czyści pamięć podręczną.
 export const clearData = async (rootId: string) => {
   await HpEntryModel.deleteMany({ rootId });
   lastDataByRoot.delete(rootId);
@@ -65,6 +74,8 @@ export const getHpAvailableDates = async (rootId: string): Promise<string[]> => 
   return Array.from(dates).sort().reverse();
 };
 
+// Ostatnia telemetria urządzenia albo {} gdy brak. Używana przez GET /hp, /operation,
+// scheduler (temperatury domyślne), wykrywanie błędów i getHpLastError.
 export const getHpLastData = async (rootId: string) => {
 
   const cached = lastDataByRoot.get(rootId);
@@ -81,6 +92,8 @@ export const getHpLastData = async (rootId: string) => {
   return lastData;
 }
 
+// GET /hp/all: rekordy od 1 stycznia bieżącego roku. Granica roku liczona w strefie
+// serwera (na Render UTC), nie w czasie warszawskim.
 export const getHpAllData = async (rootId: string) => {
   const currentYear = new Date().getFullYear();
   const startOfCurrentYear = new Date(currentYear, 0, 1);
@@ -92,6 +105,8 @@ export const getHpAllData = async (rootId: string) => {
   return doc;
 }
 
+// Nieużywane (hp.controller tylko importuje); doba w strefie serwera, nie Warszawy.
+// Endpoint /hp/4day liczy granice przez core/time.ts.
 export const getHpDataForDay = async (rootId: string, day: Date) => {
   // ustawiamy początek dnia (00:00:00.000)
   const startOfDay = new Date(day);
@@ -131,6 +146,7 @@ export const detectErrorEvent = (previous: HpEntry | undefined, current: HpEntry
 export const LAST_ERROR_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const ERROR_LOCK_LIMIT = 5;
 
+// Blokadę ocenia się z ostatniej telemetrii (pamięć podręczna), a sam błąd z bazy.
 export const getHpLastError = async (rootId: string, now = new Date()) => {
   const current = await getHpLastData(rootId) as HpEntry;
   const locked = Number(current?.HP?.ERRc ?? 0) >= ERROR_LOCK_LIMIT;
@@ -143,10 +159,14 @@ export const getHpLastError = async (rootId: string, now = new Date()) => {
   return doc ?? {};
 };
 
+// Zapis rekordu hp: dopisuje t_out (IMGW), rootId, rodzaj, deviceId i ewentualny
+// error_code, aktualizuje pamięć podręczną i wysyła WebSocket "update" do klienta.
 export const addHpData = async (rootId: string, data :HpEntry) => {
   data.t_out = getTemperature()!;
   const device = await getDeviceInfo(rootId);
 
+  // Porównanie z poprzednim zapisanym odczytem. Czas błędu = czas pierwszego rekordu
+  // z nowym ERRn (dokładność 10–30 s, CHPC nie ma zegara).
   const previous = await getHpLastData(rootId) as HpEntry;
   const errorCode = detectErrorEvent(previous, data);
 
@@ -157,8 +177,9 @@ export const addHpData = async (rootId: string, data :HpEntry) => {
     deviceId: device.deviceId,
     ...(errorCode ? { error_code: errorCode } : {}),
   };
+  // pamięć podręczna przed zapisem: surowe dane, także pola, które schemat pominie
   lastDataByRoot.set(rootId, dataWithRoot);
-  
+
   const doc = await HpEntryModel.create(dataWithRoot);
 
   const cachedDates = availableDatesByRoot.get(rootId);

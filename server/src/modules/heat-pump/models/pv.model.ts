@@ -1,3 +1,5 @@
+// Model odczytów PV z DTU Hoymiles (kolekcja pv, POST /pv/add) i schemat
+// podsumowania PV osadzany w rekordach hp.
 import { Schema, model, InferSchemaType } from 'mongoose';
 import { DeviceType } from '../../../core/types';
 import { PvEntry, PvMetrics, PvPanel } from '../types';
@@ -13,6 +15,8 @@ export const PvMetricsSchema = new Schema<PvMetrics>(
   { _id: false }
 );
 
+// Jeden port mikrofalownika. status, alarm_code, alarm_count i link zapisywane
+// surowo: kody DTU nie są udokumentowane.
 const PvPanelSchema = new Schema<PvPanel>(
   {
     serial: { type: String },

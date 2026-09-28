@@ -1,3 +1,9 @@
+// Koszt energii pompy w taryfie TAURON G12w liczony w przeglądarce z próbek mocy (Watts, pv).
+// Używany przez Wykres w widoku Dzień; Miesiąc i Rok biorą gotowy bilans z GET /hp/monthly-summary.
+// Czas bez strefy (także "YYYY.MM.DD HH:MM:SS" z co) jest zawsze czytany jako Europe/Warsaw,
+// niezależnie od strefy komputera. Te same stawki (sumy 1,2302 i 0,6305 zł/kWh) i godziny stref są
+// w agregacji monthly-summary (server/.../heat-pump/controllers/hp.controller.ts); zmieniać razem.
+// Serwer nie uwzględnia świąt, więc dzień świąteczny w widoku Dzień i Miesiąc może dać inny koszt.
 import type { THPL } from "../types";
 
 export type G12wZone = "peak" | "offPeak";

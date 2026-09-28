@@ -1,3 +1,7 @@
+// Zakładka Harmonogramy pompy (/schedules): ustawienia domyślne urządzenia (tryb pracy i temperatury,
+// GET/PUT /device/properties), lista i formularz harmonogramów (/schedules) oraz zaznaczenie pozycji,
+// która działa teraz (GET /schedules/current, odświeżane co minutę i po każdym zapisie).
+// Tryb pracy tutaj to properties.work_mode (wybór rodzaju harmonogramów), a nie operacja ręczna z Ustawień.
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { HpRequests } from '../../api';
@@ -35,6 +39,7 @@ const emptyForm = {
   maxTemperature: '',
 };
 
+// Opis dnia harmonogramu na liście; data jednorazowa ma pierwszeństwo przed dniem tygodnia (jak w schedulerze).
 const formatScheduleTarget = (schedule: ScheduleEntry): string => {
   if (schedule.date) return new Date(schedule.date).toLocaleDateString('pl-PL');
   if (schedule.dayOfWeek === WeekDay.ANY_DAY) return 'Dowolny dzień';
@@ -116,6 +121,8 @@ export const Schedules: React.FC = () => {
     setDefaultProperties((current) => ({ ...current, [field]: value }));
   };
 
+  // PUT zastępuje całe properties, więc wysyłany jest cały wczytany obiekt; scheduler użyje nowych
+  // wartości w najbliższym przebiegu (do minuty), a pompa dostanie je z kolejną odpowiedzią na /hp/add
   const handleSaveDefaultProperties = async () => {
     setDefaultSaving(true);
     setError('');
@@ -136,11 +143,14 @@ export const Schedules: React.FC = () => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  // puste pole = brak temperatury w harmonogramie; scheduler weźmie wtedy wartość domyślną urządzenia
   const parseOptionalTemperature = (value: string): number | undefined => {
     const trimmed = value.trim();
     return trimmed === '' ? undefined : Number(trimmed);
   };
 
+  // Uwaga: tworzenie idzie przez Requests.post, który nie rzuca wyjątku, więc błąd serwera przy
+  // nowym harmonogramie nie pokaże komunikatu (edycja przez put rzuca i komunikat się pojawi).
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -230,6 +240,7 @@ export const Schedules: React.FC = () => {
   const defaultTemperatures = defaultMode === 'CO'
     ? [savedProperties?.co_min, savedProperties?.co_max]
     : [savedProperties?.cwu_min, savedProperties?.cwu_max];
+  // czerwona kreska przy „Ustawieniu domyślnym”, gdy żaden harmonogram nie działa; w trybie OFF nic nie jest zaznaczone
   const isDefaultCurrent = Boolean(
     currentSchedule && !currentSchedule.scheduleId && currentSchedule.work_mode !== 'OFF',
   );

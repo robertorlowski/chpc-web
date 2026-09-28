@@ -1,3 +1,4 @@
+/* Ustawienia pompy. Uwaga: CSS stron trafia do jednego pakietu, więc reguły bez prefiksu (img, button, span.label, input.temperature) działają w całej aplikacji, także w widokach hydroforu. */
 img {
 	margin-bottom: 1.5rem;
 }

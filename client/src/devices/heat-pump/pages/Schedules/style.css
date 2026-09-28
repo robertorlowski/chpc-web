@@ -1,3 +1,4 @@
+/* Harmonogramy pompy: ustawienia domyślne, formularz i lista; czerwone podkreślenie działających grup i czerwona kreska pozycji działającej teraz. */
 .schedules-page {
   width: min(1100px, 96vw);
   padding: 0rem 0 2rem;

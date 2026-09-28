@@ -1,3 +1,7 @@
+// Zakładka Ustawienia pompy (/settings): operacja ręczna (POST /operation/set), błędy sterownika
+// z akcjami Odblokuj i Restart (POST /operation/action) oraz dane sterownika (popup DeviceEditModal).
+// Wartości początkowe (placeholdery i checkboxy) to rzeczywisty stan pompy z telemetrii (GET /operation),
+// a nie ostatnio wysłane ustawienie. Stan jest wczytywany tylko przy wejściu na stronę.
 import './style.css';
 import { HpRequests } from '../../api';
 import { HpEntry, OperationEntry } from '../../types';
@@ -10,6 +14,8 @@ import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 const RUNNING_LOCK_HINT = "Sprężarka pracuje: pompy działają automatycznie, a wymuszenie pompa przyjmuje tylko w spoczynku";
 
 export const Settings: React.FC = () => {
+	// defaultOperation: stan z serwera; valueOpration: tylko pola zmienione przez użytkownika,
+	// bo operacja ręczna nadpisuje harmonogram wyłącznie w przekazanych polach
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
 	const [saveNotice, setSaveNotice] = useState('');
@@ -34,6 +40,7 @@ export const Settings: React.FC = () => {
 			.catch((err) => console.log(err));
 	}, []);
 
+	// akcja jednorazowa: serwer budzi co przez WebSocket, więc dociera do pompy w kilka sekund
 	const runAction = (action: 'error_reset' | 'restart', notice: string) => {
 		HpRequests.runOperationAction(action).then(response => {
 			const ok = response?.status === 201;
@@ -57,6 +64,8 @@ export const Settings: React.FC = () => {
 	const selectedWorkMode = valueOpration.work_mode || defaultOperation.work_mode;
 	const coPompEditable = selectedWorkMode === 'M' || selectedWorkMode === 'A';
 	// w OFF co zawsze wysyła do pompy force 0; w czasie pracy CHPC ignoruje force
+	// running pochodzi z telemetrii przy wejściu na stronę i nie odświeża się; po starcie lub
+	// zatrzymaniu sprężarki blokady zmieniają się dopiero po ponownym otwarciu zakładki
 	const forceEditable = selectedWorkMode !== 'OFF' && !running;
 
 	const enableSave = useMemo(() => {
@@ -83,6 +92,9 @@ export const Settings: React.FC = () => {
 		window.setTimeout(() => setSaveNotice(''), 3000);
 	};
 
+	// Wysyła tylko zmienione pola. Brak walidacji zakresów: co i CHPC po cichu odrzucają wartości
+	// spoza swoich limitów, a faktycznie użyte wartości widać dopiero w telemetrii. Pole wpisane
+	// i wyczyszczone zostaje w zmianach jako "" (EEV temp. jako "0") i też jest wysyłane.
 	const handleSave = () => {
 		console.log(valueOpration);
 		if ( Object.entries(valueOpration).length == 0 ) {
@@ -104,6 +116,7 @@ export const Settings: React.FC = () => {
 				setDefaultOperation(saved);
 			}
 			setValueOperation({});
+			// tylko do konsoli (podgląd operacji czekającej na co)
 			HpRequests.getOperation()
 				.then((resp) => {
 					console.log(resp)

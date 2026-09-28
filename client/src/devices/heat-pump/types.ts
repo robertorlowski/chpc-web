@@ -1,5 +1,8 @@
 // Typy pompy ciepła: telemetria, PV, operacje, harmonogramy i starsze ustawienia czasowe.
+// Kontrakt z serwerem (server/src/modules/heat-pump/types.ts); nowe pole telemetrii trzeba dodać
+// tutaj, w typach i schemacie serwera oraz w widokach, inaczej nie zostanie zapisane ani pokazane.
 
+// TimeSlot i SettingsEntry: starszy model ustawień czasowych (kolekcja settings), nieużywany przez scheduler.
 export type TimeSlot = {
     slot_start_hour?: number,
     slot_start_minute?: number,
@@ -13,6 +16,8 @@ export type SettingsEntry  = {
   cwu_settings?: TimeSlot[]
 };
 
+// M — CO ręcznie (po północy scheduler zmienia na A), A — CO Harmonogram, CWU — CWU Harmonogram,
+// OFF — wyłączona. Telemetria może zawierać też 'PV' (tryb lokalny co), którego serwer nie wysyła.
 export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
 
 export enum ScheduleType {
@@ -21,6 +26,7 @@ export enum ScheduleType {
   OFF = 'off',
 }
 
+// Wartości ujemne to grupy dni; DAYS_OFF obejmuje weekendy i polskie święta (calendar.service na serwerze).
 export enum WeekDay {
   ANY_DAY = -1,
   WORKDAYS = -2,
@@ -34,6 +40,7 @@ export enum WeekDay {
   SATURDAY = 6,
 }
 
+// date ma pierwszeństwo przed dayOfWeek; brak temperatury = wartość domyślna urządzenia; bez co_pomp.
 export type ScheduleEntry = {
   _id?: string;
   type: ScheduleType;
@@ -53,6 +60,9 @@ export type CurrentSchedule = {
   work_mode: string;
 };
 
+// Pole HP telemetrii: JSON z CHPC (StatsSerial) przekazany przez co bez zmian. Flagi (HPS, F, CO,
+// HCS, CCS) CHPC wysyła jako 0/1: rekordy z bazy mają je jako boolean (schemat Mongo), a surowa
+// telemetria z GET /hp jako liczby, dlatego widoki sprawdzają je przez truthy albo Number().
 export type HpMetrics = {
     Tbe: number,
     Tae: number,
@@ -121,6 +131,9 @@ export type PvEntry = PvMetrics & {
   createdAt: string
 }
 
+// Rekord telemetrii (GET /hp, /hp/4day, /hp/all). time z co: "YYYY.MM.DD HH:MM:SS" (czas polski).
+// PV: w rekordach z bazy samo total_power wpisane przez serwer, w GET /hp pełne podsumowanie.
+// t_out: temperatura zewnętrzna z IMGW dopisana przez serwer.
 export type HpEntry = {
   HP: HpMetrics,
   PV: PvMetrics,
@@ -141,6 +154,8 @@ export type HpEntry = {
   error_code?: number
 }
 
+// Operacja dla sterownika co: wszystkie wartości są napisami ("0"/"1", "45"). error_reset i restart
+// to akcje jednorazowe (POST /operation/action), a nie pola operacji ręcznej.
 export type OperationEntry = {
   force?: string,
   work_mode?: string,
@@ -160,6 +175,7 @@ export type OperationEntry = {
   eev_setpoint?: string
 }
 
+// Wiersz tabeli Dane i próbka Wykresu: spłaszczone HP + czas, tryb, moc PV (pv = PV.total_power) i błąd.
 export type THPL = HpMetrics & {
   time :string,
   work_mode?: string,
