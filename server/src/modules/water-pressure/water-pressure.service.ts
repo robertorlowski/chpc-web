@@ -10,18 +10,6 @@ const ATMOSPHERE_BAR = 1.013;
 // Uruchomienie jest „w toku”, gdy ostatnia wiadomość sterownika (co 1 s) jest młodsza.
 export const RUN_IN_PROGRESS_MS = 5000;
 
-// Ustawienia nowego hydroforu: dwa zbiorniki po 300 l jak w instalacji użytkownika,
-// progi presostatu i p0 do poprawienia w Ustawieniach po odczycie z manometru.
-export const DEFAULT_WATER_PRESSURE_PROPERTIES: DeviceProperties = {
-  compressor_seconds: 30,
-  pressure_low: 2,
-  pressure_high: 4,
-  tanks: [
-    { name: 'Ocynkowany', kind: 'air', volumeLiters: 300, enabled: true, k: 1 },
-    { name: 'Przeponowy', kind: 'membrane', volumeLiters: 300, enabled: true, precharge: 1.8 },
-  ],
-};
-
 export const MAX_COMPRESSOR_SECONDS = 3600;
 
 export const isCompressorSeconds = (value: unknown): value is number =>

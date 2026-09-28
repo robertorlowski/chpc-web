@@ -44,7 +44,7 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 - `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`; własne `types.ts`, `models.ts`, `routes.ts`;
 - `modules/water-pressure/` — hydrofor: uruchomienia, wodomierz, czas kompresora; własne `types.ts`, `models.ts`, `routes.ts`.
 
-Moduły importują tylko z `core`, a nie z siebie nawzajem. Wyjątki to model urządzenia (`core/devices/device.model.ts`) i ustawienia domyślne hydroforu w `device.service.ts`: składają części modułów w jeden dokument `devices`. Adresy API i kolekcje nie zależą od tego podziału.
+Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/devices/device.model.ts` i `device.types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`) i ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor tak, pompa nie). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
 
 Główne elementy przepływu:
 

@@ -1,13 +1,12 @@
 
 import { DeviceProperties, DeviceType } from './device.types';
 import { DeviceDocument, DeviceModel } from './device.model';
-import { DEFAULT_WATER_PRESSURE_PROPERTIES } from '../../modules/water-pressure/water-pressure.service';
+import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
 export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault';
 
-const initialProperties = (deviceType: DeviceType) =>
-  deviceType === DeviceType.WATER_PRESSURE ? DEFAULT_WATER_PRESSURE_PROPERTIES : undefined;
+const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
 
 export async function createDevice(
   deviceType: DeviceType,

@@ -5,6 +5,7 @@ import {
   createDevice, getDeviceProperties, listDevices, registerDevice, setDefaultDevice,
   updateDeviceName, updateDeviceProperties,
 } from './device.service';
+import { getDeviceTypeModule } from '../device-types';
 
 const toPublicDevice = (device: DeviceDocument) => ({
   rootId: String(device._id),
@@ -14,17 +15,9 @@ const toPublicDevice = (device: DeviceDocument) => ({
   isDefault: device.isDefault ?? false,
 });
 
-// Ustawienia, które sterownik hydroforu pobiera raz na start (odpowiedź na zgłoszenie).
-const controllerSettings = (device: DeviceDocument) => {
-  if (device.deviceType !== DeviceType.WATER_PRESSURE) return undefined;
-  const properties = device.properties ?? {};
-  return {
-    compressor_seconds: properties.compressor_seconds,
-    pressure_low: properties.pressure_low,
-    pressure_high: properties.pressure_high,
-    tanks: properties.tanks ?? [],
-  };
-};
+// Ustawienia, które sterownik pobiera w odpowiedzi na zgłoszenie (tylko rodzaje, które je mają).
+const controllerSettings = (device: DeviceDocument) =>
+  getDeviceTypeModule(device.deviceType).controllerSettings?.(device.properties ?? {});
 
 export async function getProperties(req: Request, res: Response) {
   try {
