@@ -1,7 +1,8 @@
 import { Schema, model } from 'mongoose';
 import { WaterMeterReading } from '../types';
 
-// Ręczne odczyty wodomierza (kolekcja water_meter).
+// Ręczne odczyty wodomierza (kolekcja water_meter), wpisywane w kliencie hydroforu
+// (zakładka Dane → Wodomierz). Służą do porównania z szacunkiem i podpowiedzi k.
 const WaterMeterReadingSchema = new Schema<WaterMeterReading>(
   {
     rootId: { type: String, required: true },

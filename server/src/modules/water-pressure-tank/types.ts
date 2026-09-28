@@ -28,6 +28,7 @@ export interface WaterPressureTankRun {
   pumpEnd: Date;
   compressorStart?: Date;
   compressorEnd?: Date;
+  /** liczba ręcznych ponownych uruchomień kompresora w czasie tego uruchomienia */
   restarts?: number;
   /** szacunek wody z włączonych zbiorników w chwili utworzenia rekordu */
   waterLiters: number;
@@ -37,6 +38,7 @@ export interface WaterPressureTankRun {
   waterMembraneLiters: number;
   /** daty z czasu przyjęcia (uruchomienie wysłane z kolejki sterownika) */
   timeApproximate: boolean;
+  /** chwila ostatniej wiadomości; na jej podstawie „w toku” (RUN_IN_PROGRESS_MS) */
   lastSeenAt: Date;
   createdAt?: Date;
   updatedAt?: Date;

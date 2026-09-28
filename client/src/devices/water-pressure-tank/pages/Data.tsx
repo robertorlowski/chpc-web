@@ -1,3 +1,6 @@
+// Zakładka Dane hydroforu (/data): dwie karty — uruchomienia pompy z wybranego miesiąca z eksportem
+// CSV oraz ręczne odczyty wodomierza (dodawanie i usuwanie). Dane pobierane przy wejściu i zmianie
+// miesiąca, bez odświeżania cyklicznego.
 import { FormEvent, useEffect, useState } from 'react';
 import { WaterPressureTankRequests } from '../api';
 import { WaterMeterReading, WaterPressureTankRun } from '../types';
@@ -103,6 +106,7 @@ function RunsView() {
 // żeby w każdej strefie wypadał tego samego dnia.
 const readingDate = (date: string) => new Date(`${date}T12:00:00`).toISOString();
 
+// Odczyty wodomierza; „Zużycie” to różnica względem poprzedniego odczytu (lista od najnowszego).
 function MeterView() {
   const [readings, setReadings] = useState<WaterMeterReading[]>([]);
   const [readAt, setReadAt] = useState(todayWarsaw());

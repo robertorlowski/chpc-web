@@ -1,3 +1,5 @@
+// Obliczenia i formaty hydroforu: szacunek wody z prawa Boyle'a, kalkulator pojemności zbiornika,
+// daty w strefie Europe/Warsaw i eksport CSV. Używane przez wszystkie widoki hydroforu.
 import { DeviceProperties } from '../../../core/types';
 import { WaterPressureTankRun, WaterTank } from '../types';
 
@@ -5,8 +7,11 @@ const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';
 
 // Ten sam wzór co estimateWater w server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts
-// (zmieniać razem). Klient liczy tylko podgląd w Ustawieniach i na głównym
-// oknie; wartość zapisaną w uruchomieniu liczy serwer.
+// (zmieniać razem) i w firmware devices/water-pressure-tank/src/settings.cpp. Klient liczy tylko
+// podgląd w Ustawieniach i na głównym oknie; wartość zapisaną w uruchomieniu liczy serwer.
+// Progi presostatu są nadciśnieniem z manometru, więc wzór dodaje ciśnienie atmosferyczne.
+// Poduszka: k · V · p_atm · (1/p_d − 1/p_g); przepona: V · p0 · (1/max(p_d, p0) − 1/p_g),
+// a przy p0 ≥ p_g zbiornik przeponowy nie oddaje wody.
 export function tankWaterLiters(tank: WaterTank, pressureLow?: number, pressureHigh?: number): number {
   const low = Number(pressureLow);
   const high = Number(pressureHigh);
@@ -23,6 +28,7 @@ export function tankWaterLiters(tank: WaterTank, pressureLow?: number, pressureH
   return tank.volumeLiters * prechargeAbs * (1 / Math.max(lowAbs, prechargeAbs) - 1 / highAbs);
 }
 
+// suma z włączonych zbiorników (wyłączone dają 0 w tankWaterLiters)
 export function estimatedWaterPerRun(properties?: DeviceProperties): number {
   return (properties?.tanks ?? []).reduce(
     (sum, tank) => sum + tankWaterLiters(tank, properties?.pressure_low, properties?.pressure_high), 0);
@@ -57,6 +63,7 @@ export const compressorSeconds = (run: WaterPressureTankRun) => secondsBetween(r
 // Dzisiejsza data w Warszawie jako YYYY-MM-DD (format en-CA).
 export const todayWarsaw = () => new Date().toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
 
+// Pierwszy i ostatni dzień miesiąca "YYYY-MM" jako YYYY-MM-DD (parametry from/to dla GET /runs).
 export const monthBounds = (month: string) => {
   const [year, monthNumber] = month.split('-').map(Number);
   const lastDay = new Date(year, monthNumber, 0).getDate();
@@ -65,6 +72,7 @@ export const monthBounds = (month: string) => {
 
 export const sumWater = (runs: WaterPressureTankRun[]) => runs.reduce((sum, run) => sum + (run.waterLiters ?? 0), 0);
 
+// CSV dla Excela z polskimi ustawieniami: separator ';', przecinek dziesiętny w litrach.
 export const runsToCsv = (runs: WaterPressureTankRun[]) => {
   const header = ['Data', 'Start pompy', 'Pompa [s]', 'Kompresor [s]', 'Woda [l]', 'Czas przybliżony'];
   const rows = runs.map((run) => [

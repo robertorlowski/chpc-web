@@ -1,3 +1,8 @@
+// Logika hydroforu: zapis wiadomości sterownika jako uruchomień pompy (daty liczone
+// z zegara serwera), szacunek wody z prawa Boyle'a, podsumowania i wodomierz z
+// podpowiedzią k. Wzór estimateWater jest też w kliencie
+// (client/src/devices/water-pressure-tank/utils/water.ts) i w firmware
+// (devices/water-pressure-tank/src/settings.cpp) — zmieniać razem.
 import { DeviceProperties, DeviceType } from '../../../core/types';
 import { WaterMeterReading, WaterPressureTankRun, WaterTank } from '../types';
 import { DeviceModel } from '../../../core/models/device.model';
@@ -6,11 +11,13 @@ import { WaterPressureTankRunModel } from '../models/water-pressure-tank-run.mod
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { TIME_ZONE } from '../../../core/time';
 
+// ciśnienie atmosferyczne: manometr pokazuje nadciśnienie, prawo Boyle'a wymaga bezwzględnego
 const ATMOSPHERE_BAR = 1.013;
 
 // Uruchomienie jest „w toku”, gdy ostatnia wiadomość sterownika (co 1 s) jest młodsza.
 export const RUN_IN_PROGRESS_MS = 5000;
 
+// ten sam limit w schemacie properties (core/models/device.model.ts) i w firmware
 export const MAX_COMPRESSOR_SECONDS = 3600;
 
 export const isCompressorSeconds = (value: unknown): value is number =>
@@ -72,6 +79,9 @@ export function estimateWater(properties: DeviceProperties | undefined): WaterEs
   };
 }
 
+// Treść POST /water-pressure-tank/add: czasy w sekundach od startu sterownika
+// (= startu pompy, bo sterownik ma zasilanie tylko w czasie jej pracy). queued —
+// uruchomienie z kolejki NVS, z którego wcześniej nie doszła żadna wiadomość.
 export interface RunReport {
   runId: number;
   pumpRunS: number;
@@ -83,6 +93,7 @@ export interface RunReport {
 
 const isNonNegative = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
+// null dla danych bez sensu (kontroler odpowiada 400); pumpRunS najwyżej doba.
 export function validateRunReport(body: unknown): RunReport | null {
   const data = body as Partial<RunReport> | undefined;
   if (!data || !Number.isInteger(data.runId) || (data.runId as number) < 0) return null;
@@ -111,10 +122,13 @@ export async function addWaterPressureTankReport(rootId: string, report: RunRepo
   const device = await getDeviceInfo(rootId);
   const existing = await WaterPressureTankRunModel.findOne({ rootId, runId: report.runId }).lean<WaterPressureTankRun>();
 
+  // pumpStart ustala tylko pierwsza wiadomość; opóźnienie sieci przesuwa go o ułamek sekundy
   const pumpStart = existing?.pumpStart
     ?? new Date(receivedAt.getTime() - report.pumpRunS * 1000);
   // Z kolejki przychodzi uruchomienie zakończone dawno: koniec z czasu pracy,
-  // na żywo — chwila odebrania.
+  // na żywo — chwila odebrania. Dla nowego rekordu z kolejki obie daty wypadają więc
+  // tuż przed chwilą przyjęcia (timeApproximate). Istniejącego rekordu kolejka w praktyce
+  // nie dotyczy: firmware nie kolejkuje uruchomień, z których doszła choć jedna wiadomość.
   const pumpEnd = report.queued ? plusSeconds(pumpStart, report.pumpRunS)! : receivedAt;
 
   const update: Partial<WaterPressureTankRun> = {
@@ -130,6 +144,7 @@ export async function addWaterPressureTankReport(rootId: string, report: RunRepo
     return { ...existing, ...update };
   }
 
+  // szacunek z ustawień w chwili utworzenia rekordu; późniejsza zmiana ich nie przelicza
   const settings = await DeviceModel.findById(rootId).select('properties').lean();
   const estimate = estimateWater(settings?.properties);
   const created = await WaterPressureTankRunModel.create({
@@ -145,6 +160,7 @@ export async function addWaterPressureTankReport(rootId: string, report: RunRepo
   return created.toObject();
 }
 
+// Uruchomienia z pumpStart w [from, to), od najstarszego.
 export const getWaterPressureTankRuns = (rootId: string, from: Date, to: Date) =>
   WaterPressureTankRunModel
     .find({ rootId, pumpStart: { $gte: from, $lt: to } })
@@ -231,6 +247,9 @@ export interface MeterPeriod {
 // Zużycie między kolejnymi odczytami i w miesiącach roku. Stan wodomierza
 // między odczytami jest interpolowany liniowo, więc okres rozciągnięty na
 // dwa miesiące dzieli się proporcjonalnie do czasu.
+// Miesiące poza zakresem odczytów mają null; szacunek liczony tylko w części miesiąca
+// pokrytej odczytami. suggestedK z całego okresu od pierwszego do ostatniego odczytu
+// (nie tylko z danego roku).
 export async function getWaterMeterSummary(rootId: string, year: number, monthStarts: Date[]) {
   const readings = await listWaterMeterReadings(rootId);
   if (readings.length < 2) {

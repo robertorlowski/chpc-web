@@ -1,3 +1,6 @@
+// Endpointy hydroforu (/water-pressure-tank/...): wysyłka sterownika co 1 s, czas
+// kompresora ze strony sterownika, uruchomienia, podsumowania wody i wodomierz.
+// Zakresy dat liczone w czasie warszawskim; logika w services/water-pressure-tank.service.ts.
 import { Request, Response } from 'express';
 import { fromZonedTime } from 'date-fns-tz';
 import {
@@ -8,6 +11,7 @@ import {
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 
 const pad = (value: number) => String(value).padStart(2, '0');
+// Północ danego dnia w Warszawie jako chwila UTC (granice miesięcy i lat).
 const warsawMidnight = (year: number, month: number, day: number) =>
   fromZonedTime(`${year}-${pad(month)}-${pad(day)}T00:00:00`, TIME_ZONE);
 
@@ -27,6 +31,8 @@ export async function addWaterPressureTank(req: Request, res: Response) {
 }
 
 // Czas kompresora zmieniony na stronie sterownika {compressor_seconds}.
+// Sterownik trzyma lokalną zmianę, dopóki jej tu nie wyśle, i do tego czasu nie
+// nadpisuje jej wartością z odpowiedzi na zgłoszenie. 404, gdy urządzenie nie jest hydroforem.
 export async function updateWaterPressureTankSettings(
   req: Request<{}, {}, { compressor_seconds?: unknown }>,
   res: Response,
@@ -45,6 +51,7 @@ export async function updateWaterPressureTankSettings(
   }
 }
 
+// inProgress: sterownik wysłał wiadomość w ciągu RUN_IN_PROGRESS_MS (pompa pracuje).
 const withProgress =<T extends { lastSeenAt?: Date }>(run: T, now: number) => ({
   ...run,
   inProgress: run.lastSeenAt ? now - new Date(run.lastSeenAt).getTime() < RUN_IN_PROGRESS_MS : false,
@@ -52,6 +59,7 @@ const withProgress =<T extends { lastSeenAt?: Date }>(run: T, now: number) => ({
 
 // ?from=YYYY-MM-DD&to=YYYY-MM-DD (dni czasu warszawskiego, to włącznie)
 // albo ?fromTime=ISO&toTime=ISO (okres między odczytami wodomierza).
+// Uruchomienie należy do zakresu według pumpStart.
 export async function getWaterPressureTankRunList(req: Request, res: Response) {
   const { from, to, fromTime, toTime } = req.query;
   let start: Date;
@@ -79,7 +87,8 @@ export async function getWaterPressureTankRunList(req: Request, res: Response) {
   }
 }
 
-// ?period=day|month|year&date=YYYY-MM-DD
+// ?period=day|month|year&date=YYYY-MM-DD: woda w godzinach dnia (24 przedziały),
+// dniach miesiąca albo miesiącach roku, zawierających date.
 export async function getWaterPressureTankSummaryEntry(req: Request, res: Response) {
   const { period, date } = req.query;
   const match = typeof date === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) : null;
@@ -93,10 +102,12 @@ export async function getWaterPressureTankSummaryEntry(req: Request, res: Respon
   let buckets: number;
   if (period === 'day') {
     ({ startUTC: from, endUTC: to } = warsawDayBoundsUTC(date as string));
+    // doba zmiany czasu ma 23 lub 25 h; przedziały to godziny zegara (0–23)
     buckets = 24;
   } else if (period === 'month') {
     from = warsawMidnight(year, month, 1);
     to = month === 12 ? warsawMidnight(year + 1, 1, 1) : warsawMidnight(year, month + 1, 1);
+    // dzień 0 następnego miesiąca = liczba dni w miesiącu
     buckets = new Date(Date.UTC(year, month, 0)).getUTCDate();
   } else {
     from = warsawMidnight(year, 1, 1);
@@ -146,7 +157,8 @@ export async function deleteWaterMeter(req: Request<{ id: string }>, res: Respon
   }
 }
 
-// ?year=YYYY
+// ?year=YYYY: zużycie z wodomierza w okresach między odczytami i w miesiącach roku,
+// z szacunkiem z uruchomień i sugerowanym k. monthStarts: 13 granic (1.01 … 1.01 roku+1).
 export async function getWaterMeterSummaryEntry(req: Request, res: Response) {
   const year = Number(req.query.year);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {

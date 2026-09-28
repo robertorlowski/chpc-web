@@ -1,3 +1,5 @@
+// Opis rodzaju „water-pressure-tank” (hydrofor) dla rejestru core/device-types.tsx: ikona kropli
+// na kafelku, menu i widoki. Ścieżki spoza listy (np. /schedules) prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
 import { ChartIcon, DataIcon, SettingsIcon } from '../../core/components/icons';
 import { WaterPressureTankHome } from './pages/Home';

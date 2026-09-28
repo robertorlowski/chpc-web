@@ -1,14 +1,16 @@
 import { Requests } from '../../core/http';
 import { WaterMeterReading, WaterMeterSummary, WaterPressureTankRun, WaterSummary, WaterSummaryPeriod } from './types';
 
-// Hydrofor (sterownik water-pressure-tank).
+// Hydrofor (sterownik water-pressure-tank): uruchomienia pompy, podsumowania wody i wodomierz.
+// Endpointy /api/water-pressure-tank/* z server/src/modules/water-pressure-tank; rootId i deviceId
+// dopisuje core/http.ts. Ustawienia hydroforu idą przez core/api.ts (/device/properties).
 export class WaterPressureTankRequests {
   // dni czasu warszawskiego YYYY-MM-DD, "to" włącznie
   static getRuns(from: string, to: string): Promise<WaterPressureTankRun[] | null> {
     return Requests.get(`/water-pressure-tank/runs?from=${from}&to=${to}`);
   }
 
-  // okres między odczytami wodomierza (daty ISO)
+  // okres między odczytami wodomierza (daty ISO); obecnie nieużywane przez widoki
   static getRunsBetween(fromTime: string, toTime: string): Promise<WaterPressureTankRun[] | null> {
     return Requests.get(`/water-pressure-tank/runs?fromTime=${encodeURIComponent(fromTime)}&toTime=${encodeURIComponent(toTime)}`);
   }
@@ -21,6 +23,7 @@ export class WaterPressureTankRequests {
     return Requests.get('/water-pressure-tank/meter');
   }
 
+  // json = false: wynikiem jest Response (sprawdzane ok) albo undefined przy błędzie sieci
   static addMeterReading(reading: { readAt: string; valueM3: number; note?: string }) {
     return Requests.post('/water-pressure-tank/meter', reading, false) as Promise<Response | void>;
   }
@@ -29,6 +32,7 @@ export class WaterPressureTankRequests {
     return Requests.delete(`/water-pressure-tank/meter/${encodeURIComponent(id)}`);
   }
 
+  // zużycie z wodomierza (interpolacja między odczytami) obok szacunku i sugerowane k zbiornika z poduszką
   static getMeterSummary(year: number): Promise<WaterMeterSummary | null> {
     return Requests.get(`/water-pressure-tank/meter/summary?year=${year}`);
   }

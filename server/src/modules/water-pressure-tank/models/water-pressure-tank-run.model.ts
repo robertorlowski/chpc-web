@@ -3,7 +3,10 @@ import { DeviceType } from '../../../core/types';
 import { WaterPressureTankRun } from '../types';
 
 // Uruchomienia pompy hydroforu: jeden dokument na runId, aktualizowany co 1 s
-// przez sterownik (POST /water-pressure-tank/add).
+// przez sterownik (POST /water-pressure-tank/add). runId nadaje sterownik (licznik
+// w NVS, pierwszy numer losowy, żeby po wyczyszczeniu pamięci nie trafić w stare
+// rekordy), stąd indeks unikalny {rootId, runId}. Szacunek wody jest
+// zapisywany przy utworzeniu i nie zmienia się po zmianie ustawień.
 const WaterPressureTankRunSchema = new Schema<WaterPressureTankRun>(
   {
     rootId: { type: String, required: true },

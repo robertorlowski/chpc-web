@@ -1,4 +1,5 @@
 // Typy hydroforu: zbiorniki w ustawieniach, uruchomienia pompy, podsumowania i wodomierz.
+// Kontrakt z modułem server/src/modules/water-pressure-tank (kolekcje water_pressure_tank i water_meter).
 
 // Zbiornik hydroforu: 'air' — poduszka powietrzna (k), 'membrane' — przeponowy (precharge).
 export type WaterTankKind = 'air' | 'membrane';
@@ -12,7 +13,9 @@ export type WaterTank = {
   k?: number;
 };
 
-// Uruchomienie pompy hydroforu (GET /water-pressure-tank/runs).
+// Uruchomienie pompy hydroforu (GET /water-pressure-tank/runs). Daty liczy serwer ze swojego zegara;
+// timeApproximate = uruchomienie wysłane z kolejki po braku sieci, inProgress = ostatnia wiadomość
+// sterownika młodsza niż 5 s. waterLiters policzone przy utworzeniu rekordu (nie zmienia się po zmianie ustawień).
 export type WaterPressureTankRun = {
   _id: string;
   runId: number;
@@ -28,6 +31,7 @@ export type WaterPressureTankRun = {
 
 export type WaterSummaryPeriod = 'day' | 'month' | 'year';
 
+// key kubełka: godzina (day), dzień miesiąca (month) albo numer miesiąca 1–12 (year)
 export type WaterSummary = {
   period: WaterSummaryPeriod;
   date: string;

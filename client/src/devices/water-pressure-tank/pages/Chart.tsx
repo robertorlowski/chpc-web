@@ -1,3 +1,6 @@
+// Zakładka Wykres hydroforu (/chart): słupki wody z GET /water-pressure-tank/summary, a w widoku
+// Rok opcjonalnie porównanie z wodomierzem i sugerowane k (GET /water-pressure-tank/meter/summary).
+// Dane pobierane przy zmianie okresu lub daty, bez odświeżania cyklicznego.
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { WaterPressureTankRequests } from '../api';

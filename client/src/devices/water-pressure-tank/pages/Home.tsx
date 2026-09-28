@@ -1,3 +1,5 @@
+// Widok główny hydroforu (/): podgląd ustawień, szacunek wody na uruchomienie i dzisiejsze
+// uruchomienia pompy (GET /water-pressure-tank/runs).
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { WaterPressureTankRequests } from '../api';
@@ -9,9 +11,12 @@ import {
 } from '../utils/water';
 import './style.css';
 
+// Uruchomienia odświeżane co 10 s (sterownik wysyła stan co 1 s, bieżące uruchomienie ma
+// inProgress); ustawienia (GET /device/properties) tylko przy wejściu.
 const REFRESH_MS = 10_000;
 
 // Główne okno hydroforu (tylko podgląd): ustawienia, zbiorniki i dzisiejsze uruchomienia.
+// „Dziś” to dzień czasu warszawskiego; lista od najnowszego (serwer zwraca rosnąco).
 export const WaterPressureTankHome: React.FC = () => {
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [runs, setRuns] = useState<WaterPressureTankRun[] | null>(null);

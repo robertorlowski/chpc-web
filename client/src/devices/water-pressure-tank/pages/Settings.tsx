@@ -1,3 +1,5 @@
+// Zakładka Ustawienia hydroforu (/settings): czas kompresora, progi presostatu i zbiorniki
+// (PUT /device/properties), podgląd wody na uruchomienie, kalkulator k oraz dane sterownika.
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
@@ -8,6 +10,7 @@ import { useDevice } from '../../../core/context/DeviceContext';
 import { cylinderLiters, estimatedWaterPerRun, formatLiters, tankWaterLiters } from '../utils/water';
 import './style.css';
 
+// przecinek dziesiętny z polskiej klawiatury; pusty napis daje 0
 const toNumber = (value: string) => Number(value.replace(',', '.'));
 
 const icon = (path: React.ReactNode) => (
@@ -19,6 +22,8 @@ const TrashIcon = () => icon(<><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7
 const CalculatorIcon = () => icon(<><rect x="5" y="3" width="14" height="18" rx="2" />
   <path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" /></>);
 
+// Zbiornik w formularzu: liczby jako napisy, żeby dało się wpisywać przecinek i czyścić pole.
+// fromForm zapisuje tylko parametr właściwy dla rodzaju (precharge dla przepony, k dla poduszki).
 type TankForm = Omit<WaterTank, 'volumeLiters' | 'precharge' | 'k'> & {
   volumeLiters: string;
   precharge: string;
@@ -67,6 +72,7 @@ export const WaterPressureTankSettings: React.FC = () => {
     });
   }, []);
 
+  // podgląd szacunku z bieżących (jeszcze niezapisanych) wartości formularza
   const preview: DeviceProperties = {
     pressure_low: toNumber(low),
     pressure_high: toNumber(high),
@@ -76,10 +82,12 @@ export const WaterPressureTankSettings: React.FC = () => {
   const updateTank = (index: number, patch: Partial<TankForm>) =>
     setTanks((list) => list.map((tank, position) => position === index ? { ...tank, ...patch } : tank));
 
-  // Kalkulator zbiornika ocynkowanego: woda na cykl z obwodu i różnicy słupa
+  // Kalkulator zbiornika ocynkowanego (tylko rodzaj „poduszka”): woda na cykl z obwodu i różnicy słupa
   // wody między startem a zatrzymaniem pompy. „Wstaw” dobiera k tak, żeby
   // szacunek zbiornika (wzór w serwerze, kliencie i sterowniku) dał tę ilość.
   const measuredLiters = cylinderLiters(toNumber(circumference), toNumber(levelDrop));
+  // k = zmierzone litry / szacunek przy k = 1, zaokrąglone do 0,001; null, gdy nie ma z czego liczyć.
+  // Obwód i różnica słupa są wspólne dla wszystkich zbiorników (jeden otwarty kalkulator naraz).
   const kForMeasured = (tank: TankForm) => {
     const base = tankWaterLiters({ ...fromForm(tank), k: 1 }, preview.pressure_low, preview.pressure_high);
     return base > 0 && measuredLiters > 0 ? Math.round((measuredLiters / base) * 1000) / 1000 : null;
@@ -89,6 +97,8 @@ export const WaterPressureTankSettings: React.FC = () => {
     name: '', kind: 'air', volumeLiters: '300', enabled: true, precharge: '', k: '1',
   }]);
 
+  // Walidacja w kliencie; serwer sprawdza tylko zakresy pól (kompresor 1–3600 s, progi ≥ 0), a nie
+  // relację progów. Serwer zastępuje całe properties ($set), dlatego zapis rozszerza wczytany obiekt.
   const save = async (event: FormEvent) => {
     event.preventDefault();
     const seconds = toNumber(compressor);

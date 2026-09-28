@@ -7,6 +7,7 @@ import {
 // Hydrofor: wysyłka sterownika, czas kompresora, uruchomienia, podsumowania i wodomierz.
 const router = express.Router()
 
+// add i settings woła sterownik (wystarczy ?deviceId=, core/middleware/device-context.ts)
 router.post('/water-pressure-tank/add', addWaterPressureTank)
 router.put('/water-pressure-tank/settings', updateWaterPressureTankSettings)
 router.get('/water-pressure-tank/runs', getWaterPressureTankRunList)
