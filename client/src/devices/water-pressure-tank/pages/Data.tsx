@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { WaterRequests } from '../api';
-import { WaterMeterReading, WaterPressureRun } from '../types';
+import { WaterPressureTankRequests } from '../api';
+import { WaterMeterReading, WaterPressureTankRun } from '../types';
 import {
   compressorSeconds, downloadText, formatDate, formatLiters, formatTime, monthBounds,
   pumpSeconds, runsToCsv, sumWater, todayWarsaw,
@@ -16,7 +16,7 @@ const TABS: { value: View; label: string }[] = [
 
 // Zakładka Dane hydroforu: uruchomienia pompy z miesiąca i odczyty wodomierza.
 // Porównanie wodomierza z szacunkiem jest na Wykresie (Rok).
-export const WaterData: React.FC = () => {
+export const WaterPressureTankData: React.FC = () => {
   const [view, setView] = useState<View>('runs');
 
   return (
@@ -39,11 +39,11 @@ export const WaterData: React.FC = () => {
 
 function RunsView() {
   const [month, setMonth] = useState(todayWarsaw().slice(0, 7));
-  const [runs, setRuns] = useState<WaterPressureRun[] | null>(null);
+  const [runs, setRuns] = useState<WaterPressureTankRun[] | null>(null);
 
   useEffect(() => {
     setRuns(null);
-    WaterRequests.getRuns(monthBounds(month).from, monthBounds(month).to).then((result) => setRuns(result ?? []));
+    WaterPressureTankRequests.getRuns(monthBounds(month).from, monthBounds(month).to).then((result) => setRuns(result ?? []));
   }, [month]);
 
   return (
@@ -110,7 +110,7 @@ function MeterView() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
 
-  const loadReadings = () => WaterRequests.getMeterReadings().then((list) => list && setReadings(list));
+  const loadReadings = () => WaterPressureTankRequests.getMeterReadings().then((list) => list && setReadings(list));
   useEffect(() => { loadReadings(); }, []);
 
   const add = async (event: FormEvent) => {
@@ -125,7 +125,7 @@ function MeterView() {
       return;
     }
     setError('');
-    const response = await WaterRequests.addMeterReading({ readAt: readingDate(readAt), valueM3, note });
+    const response = await WaterPressureTankRequests.addMeterReading({ readAt: readingDate(readAt), valueM3, note });
     if (!response || !response.ok) {
       setError('Nie udało się zapisać odczytu.');
       return;
@@ -138,7 +138,7 @@ function MeterView() {
   const remove = async (reading: WaterMeterReading) => {
     if (!window.confirm(`Usunąć odczyt ${formatDate(reading.readAt)} (${reading.valueM3} m³)?`)) return;
     try {
-      await WaterRequests.deleteMeterReading(reading._id);
+      await WaterPressureTankRequests.deleteMeterReading(reading._id);
       loadReadings();
     } catch {
       setError('Nie udało się usunąć odczytu.');

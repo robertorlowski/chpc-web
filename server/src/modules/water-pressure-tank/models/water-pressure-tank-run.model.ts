@@ -1,10 +1,10 @@
 import { Schema, model } from 'mongoose';
 import { DeviceType } from '../../../core/types';
-import { WaterPressureRun } from '../types';
+import { WaterPressureTankRun } from '../types';
 
 // Uruchomienia pompy hydroforu: jeden dokument na runId, aktualizowany co 1 s
-// przez sterownik (POST /water-pressure/add).
-const WaterPressureRunSchema = new Schema<WaterPressureRun>(
+// przez sterownik (POST /water-pressure-tank/add).
+const WaterPressureTankRunSchema = new Schema<WaterPressureTankRun>(
   {
     rootId: { type: String, required: true },
     deviceType: { type: String, enum: Object.values(DeviceType), required: true },
@@ -21,9 +21,9 @@ const WaterPressureRunSchema = new Schema<WaterPressureRun>(
     timeApproximate: { type: Boolean, default: false },
     lastSeenAt: { type: Date, required: true },
   },
-  { timestamps: true, collection: 'water_pressure' }
+  { timestamps: true, collection: 'water_pressure_tank' }
 );
-WaterPressureRunSchema.index({ rootId: 1, runId: 1 }, { unique: true });
-WaterPressureRunSchema.index({ rootId: 1, pumpStart: 1 });
+WaterPressureTankRunSchema.index({ rootId: 1, runId: 1 }, { unique: true });
+WaterPressureTankRunSchema.index({ rootId: 1, pumpStart: 1 });
 
-export const WaterPressureRunModel = model<WaterPressureRun>('WaterPressureRun', WaterPressureRunSchema);
+export const WaterPressureTankRunModel = model<WaterPressureTankRun>('WaterPressureTankRun', WaterPressureTankRunSchema);

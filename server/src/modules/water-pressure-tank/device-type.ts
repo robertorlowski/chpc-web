@@ -2,7 +2,7 @@ import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types
 
 // Ustawienia nowego hydroforu: dwa zbiorniki po 300 l jak w instalacji użytkownika,
 // progi presostatu i p0 do poprawienia w Ustawieniach po odczycie z manometru.
-export const DEFAULT_WATER_PRESSURE_PROPERTIES: DeviceProperties = {
+export const DEFAULT_WATER_PRESSURE_TANK_PROPERTIES: DeviceProperties = {
   compressor_seconds: 30,
   pressure_low: 2,
   pressure_high: 4,
@@ -13,9 +13,9 @@ export const DEFAULT_WATER_PRESSURE_PROPERTIES: DeviceProperties = {
 };
 
 // Hydrofor pobiera ustawienia raz na start, z odpowiedzi na zgłoszenie.
-export const waterPressureDeviceType: DeviceTypeModule = {
-  type: DeviceType.WATER_PRESSURE,
-  initialProperties: DEFAULT_WATER_PRESSURE_PROPERTIES,
+export const waterPressureTankDeviceType: DeviceTypeModule = {
+  type: DeviceType.WATER_PRESSURE_TANK,
+  initialProperties: DEFAULT_WATER_PRESSURE_TANK_PROPERTIES,
   controllerSettings: (properties) => ({
     compressor_seconds: properties.compressor_seconds,
     pressure_low: properties.pressure_low,

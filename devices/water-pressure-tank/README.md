@@ -1,4 +1,4 @@
-# Hydrofor — sterownik `water-pressure`
+# Hydrofor — sterownik `water-pressure-tank`
 
 Sterownik ESP32-C3 SuperMini, który przy każdym uruchomieniu pompy hydroforu raz włącza kompresor dobijający powietrze do zbiornika, a dane uruchomienia wysyła do chpc-web.
 

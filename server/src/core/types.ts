@@ -5,7 +5,7 @@ import type { WaterTank } from '../modules/water-pressure-tank/types';
 
 export enum DeviceType {
   HP = 'heat_pump',
-  WATER_PRESSURE = 'water-pressure',
+  WATER_PRESSURE_TANK = 'water-pressure-tank',
 }
 
 // Ustawienia urządzenia (pole properties). Jedno pole w bazie dla wszystkich

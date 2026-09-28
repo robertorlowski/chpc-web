@@ -42,7 +42,7 @@ bool applyCloudSettings(JsonVariantConst json, Settings &settings, bool keepLoca
 
 // Czas wpisany na stronie /install: same cyfry, pełne sekundy 1–MAX_COMPRESSOR_SECONDS.
 bool parseCompressorSecondsText(const std::string &text, uint16_t &out);
-// Treść PUT /api/water-pressure/settings.
+// Treść PUT /api/water-pressure-tank/settings.
 std::string buildCompressorSecondsBody(uint16_t seconds);
 
 // Woda z jednego uruchomienia (prawo Boyle'a), ten sam wzór co estimateWater

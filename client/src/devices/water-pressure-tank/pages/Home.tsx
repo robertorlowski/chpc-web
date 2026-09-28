@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
-import { WaterRequests } from '../api';
+import { WaterPressureTankRequests } from '../api';
 import { DeviceProperties } from '../../../core/types';
-import { WaterPressureRun } from '../types';
+import { WaterPressureTankRun } from '../types';
 import {
   compressorSeconds, estimatedWaterPerRun, formatLiters, formatTime, pumpSeconds, sumWater,
   tankKindLabel, tankWaterLiters, todayWarsaw,
@@ -12,15 +12,15 @@ import './style.css';
 const REFRESH_MS = 10_000;
 
 // Główne okno hydroforu (tylko podgląd): ustawienia, zbiorniki i dzisiejsze uruchomienia.
-export const WaterHome: React.FC = () => {
+export const WaterPressureTankHome: React.FC = () => {
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
-  const [runs, setRuns] = useState<WaterPressureRun[] | null>(null);
+  const [runs, setRuns] = useState<WaterPressureTankRun[] | null>(null);
 
   useEffect(() => {
     DeviceRequests.getDeviceProperties().then((result) => setProperties(result ?? {}));
     const loadRuns = () => {
       const today = todayWarsaw();
-      WaterRequests.getRuns(today, today).then((result) => result && setRuns(result));
+      WaterPressureTankRequests.getRuns(today, today).then((result) => result && setRuns(result));
     };
     loadRuns();
     const timer = window.setInterval(loadRuns, REFRESH_MS);

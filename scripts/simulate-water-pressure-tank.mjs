@@ -1,10 +1,10 @@
-// Symulator sterownika hydroforu (water-pressure) dla środowiska lokalnego
+// Symulator sterownika hydroforu (water-pressure-tank) dla środowiska lokalnego
 // (npm run local): zgłoszenie w chmurze, jedno uruchomienie pompy na żywo
 // (wiadomość co 1 s, jak sterownik) i uruchomienie z kolejki.
 //
-//   node scripts/simulate-water-pressure.mjs              zgłoszenie + uruchomienie na żywo (ok. 45 s)
-//   node scripts/simulate-water-pressure.mjs --history    dodatkowo historia z 60 dni wprost do bazy lokalnej
-//   node scripts/simulate-water-pressure.mjs --fast       uruchomienie na żywo skrócone do kilku wiadomości
+//   node scripts/simulate-water-pressure-tank.mjs              zgłoszenie + uruchomienie na żywo (ok. 45 s)
+//   node scripts/simulate-water-pressure-tank.mjs --history    dodatkowo historia z 60 dni wprost do bazy lokalnej
+//   node scripts/simulate-water-pressure-tank.mjs --fast       uruchomienie na żywo skrócone do kilku wiadomości
 //
 // API: http://localhost:4001/api (zmienna API), SN: SIMULATED_SN albo C3000000E2E1.
 import mongoose from 'mongoose';
@@ -27,7 +27,7 @@ async function post(path, body) {
 }
 
 const registration = await post('/devices/register', {
-  deviceId: SERIAL, deviceType: 'water-pressure', name: 'Hydrofor',
+  deviceId: SERIAL, deviceType: 'water-pressure-tank', name: 'Hydrofor',
 });
 console.log(`Zgłoszenie: rootId ${registration.rootId}, kompresor ${registration.settings?.compressor_seconds} s`);
 const query = `?deviceId=${SERIAL}&rootId=${registration.rootId}`;
@@ -35,7 +35,7 @@ const query = `?deviceId=${SERIAL}&rootId=${registration.rootId}`;
 if (args.has('--history')) {
   // 2–5 uruchomień dziennie przez 60 dni; woda jak z ustawień domyślnych (≈ 152 l)
   await mongoose.connect(LOCAL_DB_URI);
-  const runs = mongoose.connection.collection('water_pressure');
+  const runs = mongoose.connection.collection('water_pressure_tank');
   const last = await runs.find({ rootId: registration.rootId }).sort({ runId: -1 }).limit(1).toArray();
   let runId = (last[0]?.runId ?? 1000) + 1;
   const documents = [];
@@ -46,7 +46,7 @@ if (args.has('--history')) {
       pumpStart.setHours(6 + index * 4, (day * 7 + index * 13) % 60, 0, 0);
       const pumpSeconds = 70 + ((day + index) % 5) * 15;
       documents.push({
-        rootId: registration.rootId, deviceType: 'water-pressure', deviceId: SERIAL, runId: runId++,
+        rootId: registration.rootId, deviceType: 'water-pressure-tank', deviceId: SERIAL, runId: runId++,
         pumpStart, pumpEnd: new Date(pumpStart.getTime() + pumpSeconds * 1000),
         compressorStart: new Date(pumpStart.getTime() + 1000), compressorEnd: new Date(pumpStart.getTime() + 31000),
         restarts: 0, waterLiters: 151.9, waterAirBaseLiters: 40.2, waterMembraneLiters: 111.7,
@@ -62,7 +62,7 @@ if (args.has('--history')) {
 
 // uruchomienie z kolejki (bez sieci przy poprzednim starcie)
 const queuedRunId = Math.floor(Date.now() / 1000);
-await post(`/water-pressure/add${query}`, {
+await post(`/water-pressure-tank/add${query}`, {
   runId: queuedRunId, pumpRunS: 95, compressorStartS: 1, compressorEndS: 31, restarts: 0, queued: true,
 });
 console.log('Wysłano uruchomienie z kolejki (czas przybliżony)');
@@ -73,7 +73,7 @@ const totalSeconds = args.has('--fast') ? 4 : 45;
 const compressorSeconds = args.has('--fast') ? 2 : 30;
 for (let second = 1; second <= totalSeconds; second++) {
   const compressorEnd = second >= 1 + compressorSeconds ? 1 + compressorSeconds : undefined;
-  await post(`/water-pressure/add${query}`, {
+  await post(`/water-pressure-tank/add${query}`, {
     runId: liveRunId, pumpRunS: second, compressorStartS: 1, compressorEndS: compressorEnd, restarts: 0,
   });
   process.stdout.write(`\rNa żywo: pompa ${second} s, kompresor ${compressorEnd ? 'wyłączony' : 'pracuje'}   `);

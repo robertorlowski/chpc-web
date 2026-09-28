@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { fromZonedTime } from 'date-fns-tz';
 import {
-  addWaterMeterReading, addWaterPressureReport, deleteWaterMeterReading, getWaterMeterSummary,
-  getWaterPressureRuns, getWaterPressureSummary, isCompressorSeconds, listWaterMeterReadings,
+  addWaterMeterReading, addWaterPressureTankReport, deleteWaterMeterReading, getWaterMeterSummary,
+  getWaterPressureTankRuns, getWaterPressureTankSummary, isCompressorSeconds, listWaterMeterReadings,
   RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
 } from '../services/water-pressure-tank.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
@@ -13,12 +13,12 @@ const warsawMidnight = (year: number, month: number, day: number) =>
 
 // Wiadomość sterownika co 1 s. Odpowiedź nie niesie ustawień: te sterownik
 // dostaje raz na start z POST /devices/register.
-export async function addWaterPressure(req: Request, res: Response) {
+export async function addWaterPressureTank(req: Request, res: Response) {
   const report = validateRunReport(req.body);
   if (!report) return res.status(400).json({ message: 'Nieprawidłowe dane uruchomienia.' });
 
   try {
-    await addWaterPressureReport(req.deviceRootId as string, report);
+    await addWaterPressureTankReport(req.deviceRootId as string, report);
     return res.status(201).json({});
   } catch (error) {
     console.error(error);
@@ -27,7 +27,7 @@ export async function addWaterPressure(req: Request, res: Response) {
 }
 
 // Czas kompresora zmieniony na stronie sterownika {compressor_seconds}.
-export async function updateWaterPressureSettings(
+export async function updateWaterPressureTankSettings(
   req: Request<{}, {}, { compressor_seconds?: unknown }>,
   res: Response,
 ) {
@@ -52,7 +52,7 @@ const withProgress =<T extends { lastSeenAt?: Date }>(run: T, now: number) => ({
 
 // ?from=YYYY-MM-DD&to=YYYY-MM-DD (dni czasu warszawskiego, to włącznie)
 // albo ?fromTime=ISO&toTime=ISO (okres między odczytami wodomierza).
-export async function getWaterPressureRunList(req: Request, res: Response) {
+export async function getWaterPressureTankRunList(req: Request, res: Response) {
   const { from, to, fromTime, toTime } = req.query;
   let start: Date;
   let end: Date;
@@ -71,7 +71,7 @@ export async function getWaterPressureRunList(req: Request, res: Response) {
 
   try {
     const now = Date.now();
-    const runs = await getWaterPressureRuns(req.deviceRootId as string, start, end);
+    const runs = await getWaterPressureTankRuns(req.deviceRootId as string, start, end);
     return res.status(200).json(runs.map((run) => withProgress(run, now)));
   } catch (error) {
     console.error(error);
@@ -80,7 +80,7 @@ export async function getWaterPressureRunList(req: Request, res: Response) {
 }
 
 // ?period=day|month|year&date=YYYY-MM-DD
-export async function getWaterPressureSummaryEntry(req: Request, res: Response) {
+export async function getWaterPressureTankSummaryEntry(req: Request, res: Response) {
   const { period, date } = req.query;
   const match = typeof date === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) : null;
   if (!match || (period !== 'day' && period !== 'month' && period !== 'year')) {
@@ -105,7 +105,7 @@ export async function getWaterPressureSummaryEntry(req: Request, res: Response) 
   }
 
   try {
-    const result = await getWaterPressureSummary(req.deviceRootId as string, period as SummaryPeriod, from, to, buckets);
+    const result = await getWaterPressureTankSummary(req.deviceRootId as string, period as SummaryPeriod, from, to, buckets);
     return res.status(200).json({ period, date, buckets: result });
   } catch (error) {
     console.error(error);

@@ -17,7 +17,7 @@ struct RunRecord {
   bool delivered = false;
 };
 
-// JSON dla POST /api/water-pressure/add.
+// JSON dla POST /api/water-pressure-tank/add.
 std::string buildRunReport(const RunRecord &run, bool queued);
 
 // Pamięć trwała (NVS w sterowniku, atrapa w testach).

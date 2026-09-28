@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { WaterRequests } from '../api';
+import { WaterPressureTankRequests } from '../api';
 import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../types';
 import { formatLiters, todayWarsaw } from '../utils/water';
 import './style.css';
@@ -29,7 +29,7 @@ const bucketLabel =(period: WaterSummaryPeriod, key: number) =>
 
 // Wykres wody hydroforu: dzień w godzinach, miesiąc w dniach, rok w miesiącach.
 // Rok może pokazać obok szacunku zużycie z odczytów wodomierza.
-export const WaterChart: React.FC = () => {
+export const WaterPressureTankChart: React.FC = () => {
   const [period, setPeriod] = useState<WaterSummaryPeriod>('day');
   const [date, setDate] = useState(todayWarsaw());
   const [summary, setSummary] = useState<WaterSummary | null>(null);
@@ -42,13 +42,13 @@ export const WaterChart: React.FC = () => {
     // serwer dostaje pełną datę; dla miesiąca i roku liczy się tylko jej początek
     const query = period === 'day' ? date : period === 'month' ? `${date.slice(0, 7)}-01` : `${date.slice(0, 4)}-01-01`;
     setSummary(null);
-    WaterRequests.getSummary(period, query).then(setSummary);
+    WaterPressureTankRequests.getSummary(period, query).then(setSummary);
   }, [period, date]);
 
   useEffect(() => {
     if (!meterWanted) return;
     setMeter(null);
-    WaterRequests.getMeterSummary(year).then((result) => setMeter(result ?? { year, periods: [], months: [], suggestedK: null }));
+    WaterPressureTankRequests.getMeterSummary(year).then((result) => setMeter(result ?? { year, periods: [], months: [], suggestedK: null }));
   }, [meterWanted, year]);
 
   const data = (summary?.buckets ?? []).map((bucket) => ({

@@ -1,7 +1,7 @@
 import type { DeviceType } from '../../core/types';
 
 // Typy hydroforu: zbiorniki w ustawieniach urządzenia, uruchomienia pompy
-// (kolekcja water_pressure) i odczyty wodomierza (water_meter).
+// (kolekcja water_pressure_tank) i odczyty wodomierza (water_meter).
 
 // Zbiornik hydroforu: 'air' — poduszka powietrzna (k koryguje nieznaną ilość powietrza),
 // 'membrane' — przeponowy (ilość powietrza wyznacza ciśnienie wstępne precharge).
@@ -18,8 +18,8 @@ export interface WaterTank {
   k?: number;
 }
 
-// Jedno uruchomienie pompy hydroforu (kolekcja water_pressure).
-export interface WaterPressureRun {
+// Jedno uruchomienie pompy hydroforu (kolekcja water_pressure_tank).
+export interface WaterPressureTankRun {
   rootId: string;
   deviceType?: DeviceType;
   deviceId?: string;

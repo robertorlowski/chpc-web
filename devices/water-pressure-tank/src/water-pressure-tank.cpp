@@ -1,4 +1,4 @@
-// Sterownik hydroforu (typ water-pressure), ESP32-C3 SuperMini.
+// Sterownik hydroforu (typ water-pressure-tank), ESP32-C3 SuperMini.
 // Sterownik ma zasilanie tylko w czasie pracy pompy: po starcie raz włącza
 // kompresor na ustawiony czas, a dopóki jest sieć, co 1 s wysyła stan
 // uruchomienia do chmury. Opis: docs/water-pressure-tank.md.
@@ -185,7 +185,7 @@ void registerDevice()
 void sendCompressorSeconds(uint32_t nowMs)
 {
   lastCompressorSendMs = nowMs;
-  const bool ok = send("PUT", requestUrl("water-pressure/settings"),
+  const bool ok = send("PUT", requestUrl("water-pressure-tank/settings"),
     buildCompressorSecondsBody(settings.compressorSeconds).c_str());
   forgetRootIdOnConflict();
   // 400: chmura nie przyjmie tej wartości, ponawianie nic nie da
@@ -197,7 +197,7 @@ void sendCompressorSeconds(uint32_t nowMs)
 
 bool sendRun(const RunRecord &run, bool queued)
 {
-  const bool ok = post(requestUrl("water-pressure/add"), buildRunReport(run, queued).c_str());
+  const bool ok = post(requestUrl("water-pressure-tank/add"), buildRunReport(run, queued).c_str());
   forgetRootIdOnConflict();
   return ok;
 }

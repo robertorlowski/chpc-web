@@ -12,8 +12,8 @@ export type WaterTank = {
   k?: number;
 };
 
-// Uruchomienie pompy hydroforu (GET /water-pressure/runs).
-export type WaterPressureRun = {
+// Uruchomienie pompy hydroforu (GET /water-pressure-tank/runs).
+export type WaterPressureTankRun = {
   _id: string;
   runId: number;
   pumpStart: string;

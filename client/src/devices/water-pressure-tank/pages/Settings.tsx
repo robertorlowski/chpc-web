@@ -42,7 +42,7 @@ const fromForm = (tank: TankForm): WaterTank => ({
 
 // Ustawienia hydroforu: czas kompresora, progi presostatu i zbiorniki. Sterownik
 // pobiera je przy swoim następnym starcie (zgłoszenie w chmurze).
-export const WaterSettings: React.FC = () => {
+export const WaterPressureTankSettings: React.FC = () => {
   const { device, selectDevice } = useDevice();
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [compressor, setCompressor] = useState('');

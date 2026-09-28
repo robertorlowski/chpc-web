@@ -6,7 +6,7 @@ import type { WaterTank } from '../devices/water-pressure-tank/types';
 
 export enum DeviceType {
   HP = 'heat_pump',
-  WATER_PRESSURE = 'water-pressure',
+  WATER_PRESSURE_TANK = 'water-pressure-tank',
 }
 
 // Ustawienia urządzenia (properties): jedno pole dla wszystkich rodzajów sterowników.

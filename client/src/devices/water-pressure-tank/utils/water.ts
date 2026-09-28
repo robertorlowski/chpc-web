@@ -1,5 +1,5 @@
 import { DeviceProperties } from '../../../core/types';
-import { WaterPressureRun, WaterTank } from '../types';
+import { WaterPressureTankRun, WaterTank } from '../types';
 
 const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';
@@ -51,8 +51,8 @@ export const formatDate = (iso?: string) =>
 const secondsBetween = (from?: string, to?: string) =>
   from && to ? Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000)) : undefined;
 
-export const pumpSeconds = (run: WaterPressureRun) => secondsBetween(run.pumpStart, run.pumpEnd);
-export const compressorSeconds = (run: WaterPressureRun) => secondsBetween(run.compressorStart, run.compressorEnd);
+export const pumpSeconds = (run: WaterPressureTankRun) => secondsBetween(run.pumpStart, run.pumpEnd);
+export const compressorSeconds = (run: WaterPressureTankRun) => secondsBetween(run.compressorStart, run.compressorEnd);
 
 // Dzisiejsza data w Warszawie jako YYYY-MM-DD (format en-CA).
 export const todayWarsaw = () => new Date().toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
@@ -63,9 +63,9 @@ export const monthBounds = (month: string) => {
   return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
 };
 
-export const sumWater = (runs: WaterPressureRun[]) => runs.reduce((sum, run) => sum + (run.waterLiters ?? 0), 0);
+export const sumWater = (runs: WaterPressureTankRun[]) => runs.reduce((sum, run) => sum + (run.waterLiters ?? 0), 0);
 
-export const runsToCsv = (runs: WaterPressureRun[]) => {
+export const runsToCsv = (runs: WaterPressureTankRun[]) => {
   const header = ['Data', 'Start pompy', 'Pompa [s]', 'Kompresor [s]', 'Woda [l]', 'Czas przybliżony'];
   const rows = runs.map((run) => [
     formatDate(run.pumpStart),

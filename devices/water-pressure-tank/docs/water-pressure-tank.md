@@ -1,4 +1,4 @@
-# Hydrofor — sterownik `water-pressure`
+# Hydrofor — sterownik `water-pressure-tank`
 
 Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2026-09-28, wersja 4 (zatwierdzona do implementacji).
 
@@ -6,10 +6,10 @@ Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2
 
 | Co | Nazwa |
 |---|---|
-| typ urządzenia (kod, definicja urządzenia w bazie) | `water-pressure` |
+| typ urządzenia (kod, definicja urządzenia w bazie) | `water-pressure-tank` |
 | katalog firmware | `devices/water-pressure-tank` |
 | główny plik firmware | `src/water-pressure-tank.cpp` |
-| kolekcja uruchomień | `water_pressure` |
+| kolekcja uruchomień | `water_pressure_tank` |
 | kolekcja odczytów wodomierza | `water_meter` |
 | nazwa wyświetlana | „Hydrofor” |
 
@@ -111,7 +111,7 @@ Kompresor startuje raz i nie jest przerywany. Zapobiega temu, co działo się w 
 
 Po połączeniu z internetem, raz na każdy start, sterownik wywołuje `POST /api/devices/register` z danymi:
 - `deviceId`: MAC, 12 znaków hex,
-- `deviceType: "water-pressure"`,
+- `deviceType: "water-pressure-tank"`,
 - `name: "Hydrofor"`.
 
 Serwer odpowiada tak:
@@ -127,14 +127,14 @@ Nieudane zgłoszenie sterownik ponawia co 10 s. Dopóki się nie zgłosi, nie wy
 Zmiana ustawień w aplikacji WWW dociera do sterownika przy jego następnym starcie. Nowy czas kompresora działa od następnego włączenia kompresora (także „Uruchom ponownie”); bieżąca praca kończy się po starym czasie.
 
 **Czas kompresora ustawiony na sterowniku** (sekcja „Kompresor” na `/install`, punkt 4.4) jest zapisywany w NVS od razu, razem ze znacznikiem „do wysłania” (`comp_pending`). Dopóki znacznik jest ustawiony:
-- sterownik wysyła `PUT /api/water-pressure/settings?deviceId=<SN>&rootId=<id>` z `{compressor_seconds}`, przed zgłoszeniem, żeby odpowiedź na zgłoszenie niosła już nowy czas. Nieudaną wysyłkę ponawia co 10 s, a po utracie zasilania przy następnym starcie. Znacznik znika po odpowiedzi 2xx albo 400 (chmura tej wartości nie przyjmie); 409 kasuje Root ID jak przy wysyłce danych,
+- sterownik wysyła `PUT /api/water-pressure-tank/settings?deviceId=<SN>&rootId=<id>` z `{compressor_seconds}`, przed zgłoszeniem, żeby odpowiedź na zgłoszenie niosła już nowy czas. Nieudaną wysyłkę ponawia co 10 s, a po utracie zasilania przy następnym starcie. Znacznik znika po odpowiedzi 2xx albo 400 (chmura tej wartości nie przyjmie); 409 kasuje Root ID jak przy wysyłce danych,
 - zgłoszenie nie nadpisuje czasu kompresora wartością z chmury (pozostałe ustawienia przyjmuje), żeby niewysłana zmiana nie zginęła.
 
 **Konflikt Root ID.** Gdy serwer odpowie 409 (zapisany `rootId` należy do innego urządzenia, np. po wyczyszczeniu bazy), sterownik kasuje swój Root ID i zgłasza się ponownie.
 
 ### 4.3 Wysyłka danych
 
-Dopóki jest sieć, sterownik **co 1 s** wysyła `POST /api/water-pressure/add?deviceId=<SN>&rootId=<id>` przez jedno stałe połączenie HTTPS (keep-alive, limit czasu 2 s). Nieudane zapytanie jest pomijane, bo następne przychodzi za sekundę. Adres `http://…` w `CLOUD_URL` (np. serwer lokalny, tylko w osobnej kompilacji) działa bez TLS. Certyfikat serwera nie jest sprawdzany, tak jak w `co`.
+Dopóki jest sieć, sterownik **co 1 s** wysyła `POST /api/water-pressure-tank/add?deviceId=<SN>&rootId=<id>` przez jedno stałe połączenie HTTPS (keep-alive, limit czasu 2 s). Nieudane zapytanie jest pomijane, bo następne przychodzi za sekundę. Adres `http://…` w `CLOUD_URL` (np. serwer lokalny, tylko w osobnej kompilacji) działa bez TLS. Certyfikat serwera nie jest sprawdzany, tak jak w `co`.
 
 | Pole | Znaczenie |
 |---|---|
@@ -189,14 +189,14 @@ Nie są testowane automatycznie: obsługa Wi-Fi, HTTP i stron, bo zależą od sp
 
 ### 5.1 Urządzenie (`devices`)
 
-- `deviceType: 'water-pressure'` (`DeviceType.WATER_PRESSURE`). Scheduler pompy ciepła pomija ten typ.
+- `deviceType: 'water-pressure-tank'` (`DeviceType.WATER_PRESSURE_TANK`). Scheduler pompy ciepła pomija ten typ.
 - `isDefault`: sterownik domyślny, najwyżej jeden. Zapis przez `PUT /api/devices/:rootId/default`.
 - `properties` hydroforu, edytowane w aplikacji WWW:
   - `compressor_seconds`: czas pracy kompresora,
   - `pressure_low`, `pressure_high`: progi presostatu [bar na manometrze],
   - `tanks[]`: `{name, kind: 'air' | 'membrane', volumeLiters, enabled, precharge, k}`.
 
-### 5.2 Uruchomienia (`water_pressure`)
+### 5.2 Uruchomienia (`water_pressure_tank`)
 
 Jeden dokument to jedno uruchomienie pompy:
 
@@ -231,14 +231,14 @@ Kontroler `water-pressure-tank.controller.ts`, serwis `water-pressure-tank.servi
 | `POST /api/devices/register` | zgłoszenie sterownika (wspólne dla wszystkich typów); zwraca `rootId` i `settings`; nieznany typ daje 400 |
 | `PUT /api/devices/:rootId/default` | sterownik domyślny, `{isDefault}` (bez pola: ustawia); 404 dla nieznanego |
 | `GET` / `PUT /api/device/properties` | ustawienia hydroforu; czas kompresora spoza 1–3600 s albo nieznany rodzaj zbiornika daje 400 |
-| `POST /api/water-pressure/add` | wysyłka ze sterownika, zapis albo aktualizacja po `runId`; sam `deviceId` wystarcza, 404 i 409 jak w `/hp/add`; odpowiedź `{}` |
-| `PUT /api/water-pressure/settings` | czas kompresora ustawiony na stronie sterownika, `{compressor_seconds}` (pełne sekundy 1–3600, inaczej 400). Zmienia tylko `properties.compressor_seconds`, progi i zbiorniki zostają. Sam `deviceId` wystarcza, 404 dla nieznanego urządzenia i dla pompy ciepła, 409 jak w `/hp/add`; odpowiedź `{compressor_seconds}` |
-| `GET /api/water-pressure/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | uruchomienia z dni czasu warszawskiego (`to` włącznie), z polem `inProgress` |
-| `GET /api/water-pressure/runs?fromTime=ISO&toTime=ISO` | uruchomienia z okresu między odczytami wodomierza |
-| `GET /api/water-pressure/summary?period=day\|month\|year&date=YYYY-MM-DD` | woda w godzinach dnia (24), dniach miesiąca albo miesiącach roku (12); puste przedziały z zerami |
-| `GET` / `POST /api/water-pressure/meter` | lista odczytów (od najstarszego) / nowy odczyt `{readAt, valueM3, note?}` |
-| `DELETE /api/water-pressure/meter/:id` | usunięcie odczytu; 404 dla nieznanego albo cudzego |
-| `GET /api/water-pressure/meter/summary?year=YYYY` | zużycie z wodomierza w okresach między odczytami i w miesiącach (interpolacja liniowa), porównanie z szacunkiem, sugerowane `k`; przy mniej niż dwóch odczytach puste |
+| `POST /api/water-pressure-tank/add` | wysyłka ze sterownika, zapis albo aktualizacja po `runId`; sam `deviceId` wystarcza, 404 i 409 jak w `/hp/add`; odpowiedź `{}` |
+| `PUT /api/water-pressure-tank/settings` | czas kompresora ustawiony na stronie sterownika, `{compressor_seconds}` (pełne sekundy 1–3600, inaczej 400). Zmienia tylko `properties.compressor_seconds`, progi i zbiorniki zostają. Sam `deviceId` wystarcza, 404 dla nieznanego urządzenia i dla pompy ciepła, 409 jak w `/hp/add`; odpowiedź `{compressor_seconds}` |
+| `GET /api/water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | uruchomienia z dni czasu warszawskiego (`to` włącznie), z polem `inProgress` |
+| `GET /api/water-pressure-tank/runs?fromTime=ISO&toTime=ISO` | uruchomienia z okresu między odczytami wodomierza |
+| `GET /api/water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | woda w godzinach dnia (24), dniach miesiąca albo miesiącach roku (12); puste przedziały z zerami |
+| `GET` / `POST /api/water-pressure-tank/meter` | lista odczytów (od najstarszego) / nowy odczyt `{readAt, valueM3, note?}` |
+| `DELETE /api/water-pressure-tank/meter/:id` | usunięcie odczytu; 404 dla nieznanego albo cudzego |
+| `GET /api/water-pressure-tank/meter/summary?year=YYYY` | zużycie z wodomierza w okresach między odczytami i w miesiącach (interpolacja liniowa), porównanie z szacunkiem, sugerowane `k`; przy mniej niż dwóch odczytach puste |
 
 ### 5.5 Testy (vitest, `server/water-pressure-tank.test.ts`, 30 testów)
 
@@ -288,7 +288,7 @@ Zapis sprawdza wartości przed wysłaniem i pokazuje komunikat, że sterownik po
 
 **Pompa ciepła** działa bez zmian.
 
-**Symulator** do sprawdzania bez płytki: przy uruchomionym `npm run local` polecenie `node scripts/simulate-water-pressure.mjs` zgłasza sterownik, wysyła uruchomienie z kolejki i jedno na żywo (co 1 s). `--fast` skraca uruchomienie na żywo do kilku wiadomości, a `--history` dopisuje do bazy lokalnej uruchomienia z 60 dni.
+**Symulator** do sprawdzania bez płytki: przy uruchomionym `npm run local` polecenie `node scripts/simulate-water-pressure-tank.mjs` zgłasza sterownik, wysyła uruchomienie z kolejki i jedno na żywo (co 1 s). `--fast` skraca uruchomienie na żywo do kilku wiadomości, a `--history` dopisuje do bazy lokalnej uruchomienia z 60 dni.
 
 ## 7. Szacowanie wody
 

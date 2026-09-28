@@ -1,8 +1,8 @@
 import { DeviceProperties, DeviceType } from '../../../core/types';
-import { WaterMeterReading, WaterPressureRun, WaterTank } from '../types';
+import { WaterMeterReading, WaterPressureTankRun, WaterTank } from '../types';
 import { DeviceModel } from '../../../core/models/device.model';
 import { WaterMeterReadingModel } from '../models/water-meter.model';
-import { WaterPressureRunModel } from '../models/water-pressure-run.model';
+import { WaterPressureTankRunModel } from '../models/water-pressure-tank-run.model';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { TIME_ZONE } from '../../../core/time';
 
@@ -20,7 +20,7 @@ export const isCompressorSeconds = (value: unknown): value is number =>
 // pole, bo sterownik nie zna pozostałych ustawień w pełni (np. nazw zbiorników).
 export async function setCompressorSeconds(rootId: string, seconds: number): Promise<number | null> {
   const device = await DeviceModel.findOneAndUpdate(
-    { _id: rootId, deviceType: DeviceType.WATER_PRESSURE },
+    { _id: rootId, deviceType: DeviceType.WATER_PRESSURE_TANK },
     { $set: { 'properties.compressor_seconds': seconds } },
     { new: true },
   ).select('properties.compressor_seconds').lean();
@@ -107,9 +107,9 @@ const plusSeconds = (base: Date, seconds: number | undefined) =>
 // (sekundy od startu), a daty wylicza serwer z chwili odebrania. Pierwsza
 // wiadomość uruchomienia ustala pumpStart; kolejne przesuwają pumpEnd, więc
 // ostatnia przed utratą zasilania wyznacza koniec pracy pompy.
-export async function addWaterPressureReport(rootId: string, report: RunReport, receivedAt = new Date()) {
+export async function addWaterPressureTankReport(rootId: string, report: RunReport, receivedAt = new Date()) {
   const device = await getDeviceInfo(rootId);
-  const existing = await WaterPressureRunModel.findOne({ rootId, runId: report.runId }).lean<WaterPressureRun>();
+  const existing = await WaterPressureTankRunModel.findOne({ rootId, runId: report.runId }).lean<WaterPressureTankRun>();
 
   const pumpStart = existing?.pumpStart
     ?? new Date(receivedAt.getTime() - report.pumpRunS * 1000);
@@ -117,7 +117,7 @@ export async function addWaterPressureReport(rootId: string, report: RunReport, 
   // na żywo — chwila odebrania.
   const pumpEnd = report.queued ? plusSeconds(pumpStart, report.pumpRunS)! : receivedAt;
 
-  const update: Partial<WaterPressureRun> = {
+  const update: Partial<WaterPressureTankRun> = {
     pumpEnd,
     lastSeenAt: receivedAt,
     compressorStart: plusSeconds(pumpStart, report.compressorStartS) ?? existing?.compressorStart,
@@ -126,15 +126,15 @@ export async function addWaterPressureReport(rootId: string, report: RunReport, 
   };
 
   if (existing) {
-    await WaterPressureRunModel.updateOne({ _id: (existing as { _id?: unknown })._id }, { $set: update });
+    await WaterPressureTankRunModel.updateOne({ _id: (existing as { _id?: unknown })._id }, { $set: update });
     return { ...existing, ...update };
   }
 
   const settings = await DeviceModel.findById(rootId).select('properties').lean();
   const estimate = estimateWater(settings?.properties);
-  const created = await WaterPressureRunModel.create({
+  const created = await WaterPressureTankRunModel.create({
     rootId,
-    deviceType: device.deviceType ?? DeviceType.WATER_PRESSURE,
+    deviceType: device.deviceType ?? DeviceType.WATER_PRESSURE_TANK,
     deviceId: device.deviceId,
     runId: report.runId,
     pumpStart,
@@ -145,11 +145,11 @@ export async function addWaterPressureReport(rootId: string, report: RunReport, 
   return created.toObject();
 }
 
-export const getWaterPressureRuns = (rootId: string, from: Date, to: Date) =>
-  WaterPressureRunModel
+export const getWaterPressureTankRuns = (rootId: string, from: Date, to: Date) =>
+  WaterPressureTankRunModel
     .find({ rootId, pumpStart: { $gte: from, $lt: to } })
     .sort({ pumpStart: 1 })
-    .lean<WaterPressureRun[]>();
+    .lean<WaterPressureTankRun[]>();
 
 export type SummaryPeriod = 'day' | 'month' | 'year';
 
@@ -162,7 +162,7 @@ export interface SummaryBucket {
 // Woda z uruchomień w przedziale [from, to), w godzinach (day), dniach
 // miesiąca (month) albo miesiącach (year) czasu warszawskiego. Puste
 // przedziały są uzupełniane zerami, więc klient rysuje oś bez dziur.
-export async function getWaterPressureSummary(
+export async function getWaterPressureTankSummary(
   rootId: string, period: SummaryPeriod, from: Date, to: Date, bucketCount: number,
 ): Promise<SummaryBucket[]> {
   const bucket = period === 'day'
@@ -171,7 +171,7 @@ export async function getWaterPressureSummary(
       ? { $dayOfMonth: { date: '$pumpStart', timezone: TIME_ZONE } }
       : { $month: { date: '$pumpStart', timezone: TIME_ZONE } };
 
-  const rows = await WaterPressureRunModel.aggregate<{ _id: number; waterLiters: number; runs: number }>([
+  const rows = await WaterPressureTankRunModel.aggregate<{ _id: number; waterLiters: number; runs: number }>([
     { $match: { rootId, pumpStart: { $gte: from, $lt: to } } },
     { $group: { _id: bucket, waterLiters: { $sum: '$waterLiters' }, runs: { $sum: 1 } } },
   ]);
@@ -205,7 +205,7 @@ interface EstimateTotals {
   membrane: number;
 }
 
-const sumEstimates = (runs: WaterPressureRun[], from: Date, to: Date): EstimateTotals =>
+const sumEstimates = (runs: WaterPressureTankRun[], from: Date, to: Date): EstimateTotals =>
   runs
     .filter((run) => run.pumpStart >= from && run.pumpStart < to)
     .reduce((acc, run) => ({
@@ -239,7 +239,7 @@ export async function getWaterMeterSummary(rootId: string, year: number, monthSt
 
   const first = readings[0].readAt;
   const last = readings[readings.length - 1].readAt;
-  const runs = await getWaterPressureRuns(rootId, first, last);
+  const runs = await getWaterPressureTankRuns(rootId, first, last);
 
   const meterAt = (time: Date) => {
     for (let index = 1; index < readings.length; index++) {

@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // Typ urządzenia w chmurze; tylko w kodzie i w definicji urządzenia.
-constexpr const char *DEVICE_TYPE = "water-pressure";
+constexpr const char *DEVICE_TYPE = "water-pressure-tank";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Hydrofor";
 
