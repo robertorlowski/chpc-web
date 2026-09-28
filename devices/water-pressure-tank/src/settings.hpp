@@ -46,6 +46,6 @@ bool parseCompressorSecondsText(const std::string &text, uint16_t &out);
 std::string buildCompressorSecondsBody(uint16_t seconds);
 
 // Woda z jednego uruchomienia (prawo Boyle'a), ten sam wzór co estimateWater
-// w server/src/modules/water-pressure/services/water-pressure.service.ts. Zmieniać razem.
+// w server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts. Zmieniać razem.
 float tankWaterLiters(const Tank &tank, float pressureLow, float pressureHigh);
 float estimatedWaterLiters(const Settings &settings);

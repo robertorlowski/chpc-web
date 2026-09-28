@@ -1,5 +1,5 @@
 import type { ScheduleEntry, SettingsEntry, WorkMode } from '../modules/heat-pump/types';
-import type { WaterTank } from '../modules/water-pressure/types';
+import type { WaterTank } from '../modules/water-pressure-tank/types';
 
 // Typy części wspólnej: urządzenie, jego ustawienia i opis rodzaju sterownika.
 

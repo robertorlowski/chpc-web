@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from './src/core/app'
 import { DeviceModel } from './src/core/models/device.model'
-import { WaterPressureRunModel } from './src/modules/water-pressure/models/water-pressure-run.model'
-import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure/services/water-pressure.service'
+import { WaterPressureRunModel } from './src/modules/water-pressure-tank/models/water-pressure-run.model'
+import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure-tank/services/water-pressure-tank.service'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({
@@ -67,7 +67,7 @@ describe('Hydrofor (water-pressure)', () => {
 
     it('klient liczy podgląd tym samym wzorem co serwer', async () => {
       // ścieżka w zmiennej: tsc serwera nie włącza pliku klienta do kompilacji
-      const clientModule = '../client/src/devices/water-pressure/utils/water.ts';
+      const clientModule = '../client/src/devices/water-pressure-tank/utils/water.ts';
       const client = await import(clientModule);
       const cases = [
         { pressure_low: 2, pressure_high: 4, tanks: [

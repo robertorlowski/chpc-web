@@ -1,6 +1,6 @@
 import { DeviceType, DeviceTypeView } from './types';
 import { heatPumpDeviceType } from '../devices/heat-pump/device-type';
-import { waterPressureDeviceType } from '../devices/water-pressure/device-type';
+import { waterPressureDeviceType } from '../devices/water-pressure-tank/device-type';
 
 // Rejestr rodzajów sterowników w kliencie: menu, trasy i ikona kafelka.
 // Nowy rodzaj: katalog devices/<rodzaj>/ z device-type.tsx, wpis tutaj i wartość w DeviceType.

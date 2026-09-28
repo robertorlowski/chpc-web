@@ -2,7 +2,7 @@ import mongoose, { Schema, Model, Document } from 'mongoose';
 import { Device, DeviceProperties, DeviceType } from '../types';
 import { ScheduleEntrySchema } from '../../modules/heat-pump/models/schedule.model';
 import { SettingsEntrySchema } from '../../modules/heat-pump/models/settings.model';
-import { WaterTankSchema } from '../../modules/water-pressure/models/water-tank.model';
+import { WaterTankSchema } from '../../modules/water-pressure-tank/models/water-tank.model';
 
 // Ustawienia wszystkich rodzajów sterowników w jednym polu properties.
 const DevicePropertiesSchema = new Schema<DeviceProperties>(

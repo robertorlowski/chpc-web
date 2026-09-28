@@ -4,7 +4,7 @@ import { WaterPressureRun, WaterTank } from '../types';
 const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';
 
-// Ten sam wzór co estimateWater w server/src/modules/water-pressure/services/water-pressure.service.ts
+// Ten sam wzór co estimateWater w server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts
 // (zmieniać razem). Klient liczy tylko podgląd w Ustawieniach i na głównym
 // oknie; wartość zapisaną w uruchomieniu liczy serwer.
 export function tankWaterLiters(tank: WaterTank, pressureLow?: number, pressureHigh?: number): number {

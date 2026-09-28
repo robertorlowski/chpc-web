@@ -7,8 +7,8 @@ Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2
 | Co | Nazwa |
 |---|---|
 | typ urządzenia (kod, definicja urządzenia w bazie) | `water-pressure` |
-| katalog firmware | `devices/water-pressure` |
-| główny plik firmware | `src/water-pressure.cpp` |
+| katalog firmware | `devices/water-pressure-tank` |
+| główny plik firmware | `src/water-pressure-tank.cpp` |
 | kolekcja uruchomień | `water_pressure` |
 | kolekcja odczytów wodomierza | `water_meter` |
 | nazwa wyświetlana | „Hydrofor” |
@@ -98,7 +98,7 @@ Kompresor startuje raz i nie jest przerywany. Zapobiega temu, co działo się w 
 
 **Stałe w `src/firmware.hpp`:** `RELAY_PIN = 10`, `RELAY_ACTIVE_HIGH` (obecnie `false`), `COMPRESSOR_START_DELAY_MS = 1000`, `DEFAULT_COMPRESSOR_SECONDS = 30`, `MAX_COMPRESSOR_SECONDS = 3600`, `CLOUD_URL = https://chpc-web.onrender.com/api/` (stały adres chmury, bez pola na stronie `/install`).
 
-**Pliki:** `src/water-pressure.cpp` (start, sieć, strony, wysyłka), `src/compressor.*` (czas pracy kompresora), `src/settings.*` (ustawienia i szacunek wody), `src/run_report.*` (JSON wysyłki i kolejka w NVS).
+**Pliki:** `src/water-pressure-tank.cpp` (start, sieć, strony, wysyłka), `src/compressor.*` (czas pracy kompresora), `src/settings.*` (ustawienia i szacunek wody), `src/run_report.*` (JSON wysyłki i kolejka w NVS).
 
 ### 4.1 Sieć i dostęp
 
@@ -224,7 +224,7 @@ Odczyty wpisywane ręcznie: `rootId`, `readAt` (data odczytu), `valueM3` (stan w
 
 ### 5.4 Endpointy
 
-Kontroler `water-pressure.controller.ts`, serwis `water-pressure.service.ts`.
+Kontroler `water-pressure-tank.controller.ts`, serwis `water-pressure-tank.service.ts`.
 
 | Endpoint | Znaczenie |
 |---|---|
@@ -240,9 +240,9 @@ Kontroler `water-pressure.controller.ts`, serwis `water-pressure.service.ts`.
 | `DELETE /api/water-pressure/meter/:id` | usunięcie odczytu; 404 dla nieznanego albo cudzego |
 | `GET /api/water-pressure/meter/summary?year=YYYY` | zużycie z wodomierza w okresach między odczytami i w miesiącach (interpolacja liniowa), porównanie z szacunkiem, sugerowane `k`; przy mniej niż dwóch odczytach puste |
 
-### 5.5 Testy (vitest, `server/water-pressure.test.ts`, 30 testów)
+### 5.5 Testy (vitest, `server/water-pressure-tank.test.ts`, 30 testów)
 
-- wzór wody: przepona z `p0`, poduszka z `k`, zbiornik wyłączony, `p0` powyżej progu dolnego, złe progi; **ten sam wynik we wzorze klienta** (`client/src/devices/water-pressure/utils/water.ts`) i kalkulator pojemności,
+- wzór wody: przepona z `p0`, poduszka z `k`, zbiornik wyłączony, `p0` powyżej progu dolnego, złe progi; **ten sam wynik we wzorze klienta** (`client/src/devices/water-pressure-tank/utils/water.ts`) i kalkulator pojemności,
 - zgłoszenie: nowe urządzenie z ustawieniami domyślnymi, znane urządzenie (ten sam `rootId`, nazwa bez zmian), pompa ciepła bez ustawień hydroforu, nieznany typ,
 - uruchomienia: daty z czasów względnych, `pumpEnd` z ostatniej wiadomości, zachowanie początku kompresora, sam `deviceId`, kolejka i czas przybliżony, dosłanie z kolejki znanego uruchomienia, „w toku”, 404 i 409, złe dane,
 - woda liczona z ustawień w chwili utworzenia (bez zmiany historii),
@@ -258,7 +258,7 @@ Kontroler `water-pressure.controller.ts`, serwis `water-pressure.service.ts`.
   - kafelek hydroforu z ikoną kropli,
   - na każdym kafelku gwiazdka „domyślny”.
 - **Sterownik domyślny:** po otwarciu aplikacji (raz na sesję przeglądarki) aplikacja przechodzi od razu do domyślnego sterownika z bazy, także gdy wcześniej był wybrany inny. Zmiana sterownika w stopce obowiązuje do końca sesji. Gdy nie ma domyślnego, a sterownik jest tylko jeden, wybierany jest on.
-- **Menu zależy od typu wybranego sterownika.** Dla hydroforu: Hydrofor (ikona kropli), Dane, Wykres, Ustawienia, bez Harmonogramu (`/schedules` przekierowuje na główne okno). Widoki są w `client/src/devices/water-pressure/pages/`, a menu w `client/src/devices/water-pressure/device-type.tsx` (rejestr rodzajów sterowników w `client/src/core/device-types.tsx`).
+- **Menu zależy od typu wybranego sterownika.** Dla hydroforu: Hydrofor (ikona kropli), Dane, Wykres, Ustawienia, bez Harmonogramu (`/schedules` przekierowuje na główne okno). Widoki są w `client/src/devices/water-pressure-tank/pages/`, a menu w `client/src/devices/water-pressure-tank/device-type.tsx` (rejestr rodzajów sterowników w `client/src/core/device-types.tsx`).
 
 **Główne okno (podgląd, odświeżanie co 10 s):**
 - czas pracy kompresora, progi presostatu i szacowana woda na uruchomienie,
@@ -336,8 +336,8 @@ Przy złych progach (górny nie większy od dolnego) szacunek wynosi 0.
 3. `k` dotyczy tylko zbiornika z poduszką, bo worek liczy się z `p0`. Wpisujesz je w Ustawieniach; działa dla nowych uruchomień.
 
 **Ten sam wzór jest w trzech miejscach** i trzeba go zmieniać razem:
-- serwer: `estimateWater` w `server/src/modules/water-pressure/services/water-pressure.service.ts` (wartość zapisywana w rekordach),
-- aplikacja WWW: `client/src/devices/water-pressure/utils/water.ts` (podgląd w Ustawieniach i na głównym oknie),
+- serwer: `estimateWater` w `server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts` (wartość zapisywana w rekordach),
+- aplikacja WWW: `client/src/devices/water-pressure-tank/utils/water.ts` (podgląd w Ustawieniach i na głównym oknie),
 - sterownik: `src/settings.cpp` (podgląd na stronie sterownika).
 
 Zgodność serwera z aplikacją sprawdza test serwera, a zgodność sterownika — jego testy `native` z tymi samymi przykładami.
@@ -345,4 +345,4 @@ Zgodność serwera z aplikacją sprawdza test serwera, a zgodność sterownika �
 ## 8. Historia
 
 - **Szkic `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino`** (do 2026-09): otwarty punkt dostępowy „Piwnica”, impuls kompresora po starcie, czas w EEPROM, strona z polem czasu. Miał usterkę startu opisaną w punkcie 2. Leży nadal w tamtym katalogu (poza gitem).
-- **Od 2026-09-28** sterownik to `src/water-pressure.cpp` z logiką w osobnych plikach (punkt 4). Kopia szkicu została usunięta z `devices/water-pressure`.
+- **Od 2026-09-28** sterownik to `src/water-pressure-tank.cpp` z logiką w osobnych plikach (punkt 4). Kopia szkicu została usunięta z `devices/water-pressure-tank`.

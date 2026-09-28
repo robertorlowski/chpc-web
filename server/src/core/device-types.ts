@@ -1,6 +1,6 @@
 import { DeviceType, DeviceTypeModule } from './types';
 import { heatPumpDeviceType } from '../modules/heat-pump/device-type';
-import { waterPressureDeviceType } from '../modules/water-pressure/device-type';
+import { waterPressureDeviceType } from '../modules/water-pressure-tank/device-type';
 
 // Rejestr rodzajów sterowników. Nowy rodzaj: moduł w modules/, jego
 // device-type.ts tutaj, trasy w core/routes.ts i wartość w DeviceType.

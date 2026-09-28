@@ -19,7 +19,7 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | `server/`, `client/` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
 | `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; licencja MIT |
 | `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
-| `devices/water-pressure/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure`), punkt 5b; pełny opis w `devices/water-pressure/docs/water-pressure.md` |
+| `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure`), punkt 5b; pełny opis w `devices/water-pressure-tank/docs/water-pressure-tank.md` |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
 | `scripts/` | środowisko lokalne (`npm run local`) |
 
@@ -42,7 +42,7 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 
 - `core/` — część wspólna: urządzenia (lista, zgłoszenie, nazwa, domyślny, `properties`), temperatura zewnętrzna, kalendarz, kontekst urządzenia, WebSocket;
 - `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
-- `modules/water-pressure/` — hydrofor: uruchomienia, wodomierz, czas kompresora.
+- `modules/water-pressure-tank/` — hydrofor: uruchomienia, wodomierz, czas kompresora.
 
 `core` i każdy moduł mają ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `device.model.ts`, `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-run.model.ts`), a w katalogu głównym `types.ts` (typy wspólne dla warstw) i `routes.ts`. Moduł ma też `device-type.ts` (wpis do rejestru rodzajów). W `core` są dodatkowo `middleware/` (`auth.ts`, `device-context.ts` — `rootId`/`deviceId`) oraz `app.ts`, `websocket.ts`, `time.ts` (strefa i granice dni w Warszawie) i `device-types.ts` (rejestr). Serwisy `core`: `device`, `device-info` (typ i `deviceId` w pamięci), `calendar`, `meteo`.
 
@@ -232,13 +232,13 @@ Dzięki temu `/hp/4day`, `/hp/all` i `monthly-summary` działają bez zmian na `
 
 ## 5b. Hydrofor (`water-pressure`)
 
-Pełny opis: [`devices/water-pressure/docs/water-pressure.md`](devices/water-pressure/docs/water-pressure.md). Sterownik (ESP32-C3) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
+Pełny opis: [`devices/water-pressure-tank/docs/water-pressure-tank.md`](devices/water-pressure-tank/docs/water-pressure-tank.md). Sterownik (ESP32-C3) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
 
 - **Zgłoszenie** raz na start (`POST /devices/register`, typ `water-pressure`, nazwa „Hydrofor”); odpowiedź niesie ustawienia, które sterownik zapisuje w NVS. Zmiana ustawień w aplikacji działa od następnego uruchomienia pompy.
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.
 - **Wysyłka co 1 s** (`POST /api/water-pressure/add?deviceId=…&rootId=…`, sam `deviceId` wystarcza; 404/409 jak w `/hp/add`): `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` — czasy względne od startu sterownika. Serwer liczy daty ze swojego zegara: pierwsza wiadomość ustala `pumpStart = teraz − pumpRunS`, każda kolejna ustawia `pumpEnd` na chwilę odebrania, więc ostatnia przed utratą zasilania wyznacza koniec pracy pompy (dokładność 1 s). Uruchomienie jest „w toku”, gdy ostatnia wiadomość ma mniej niż 5 s (`RUN_IN_PROGRESS_MS`).
 - **Kolejka.** Uruchomienie, z którego nie doszła żadna wiadomość (brak sieci), sterownik wysyła przy kolejnym starcie z `queued: true`; serwer zapisuje je z `timeApproximate: true` (daty z chwili przyjęcia).
-- **Woda** (`estimateWater` w [`water-pressure.service.ts`](server/src/modules/water-pressure/services/water-pressure.service.ts); ten sam wzór w `client/src/devices/water-pressure/utils/water.ts` i `devices/water-pressure/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
+- **Woda** (`estimateWater` w [`water-pressure-tank.service.ts`](server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts); ten sam wzór w `client/src/devices/water-pressure-tank/utils/water.ts` i `devices/water-pressure-tank/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
 - **Wodomierz.** Podsumowanie (`/water-pressure/meter/summary`) interpoluje stan liniowo między odczytami (miesiące) i podpowiada `k` zbiornika z poduszką: `(wodomierz − przepona) / poduszka przy k = 1`.
 
 ## 6. Scheduler
@@ -420,7 +420,7 @@ Wartość odrzucona dalej w łańcuchu nadal wygląda w interfejsie na „ustawi
 
 ## 8. Endpointy serwera
 
-Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządzenia i temperatura z `core`, reszta z plików `routes.ts` modułów (`modules/heat-pump`, `modules/water-pressure`).
+Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządzenia i temperatura z `core`, reszta z plików `routes.ts` modułów (`modules/heat-pump`, `modules/water-pressure-tank`).
 
 | Metoda i endpoint | Znaczenie |
 |---|---|
@@ -471,7 +471,7 @@ WebSocket ([`server/src/core/websocket.ts`](server/src/core/websocket.ts)) dzia�
 - `index.tsx` — punkt wejścia; `style.css` — style globalne; `assets/`;
 - `core/` — część wspólna: `App.tsx` (routing, `DeviceGuard`, stopka „Aktywne urządzenie”), `device-types.tsx` (rejestr rodzajów sterowników), `http.ts`, `api.ts`, `types.ts`, `context/DeviceContext.tsx`, `components/` (`Header`, `DeviceEditModal`, `Notification`, ikony menu), `pages/Devices` (wybór sterownika);
 - `devices/heat-pump/` — pompa ciepła: `pages/` (`Home`, `Data`, `Charts`, `Settings`, `Schedules`), `components/` (`DateDict`, `ResourceBlock`), `utils/` (energia, G12w, błędy), `api.ts`, `types.ts`, `device-type.tsx`;
-- `devices/water-pressure/` — hydrofor: `pages/` (`Home`, `Data`, `Chart`, `Settings`), `utils/water.ts`, `api.ts`, `types.ts`, `device-type.tsx`.
+- `devices/water-pressure-tank/` — hydrofor: `pages/` (`Home`, `Data`, `Chart`, `Settings`), `utils/water.ts`, `api.ts`, `types.ts`, `device-type.tsx`.
 
 **Menu i trasy powstają z rejestru** (`core/device-types.tsx`). Każdy rodzaj podaje w `device-type.tsx` ikonę kafelka i widoki w kolejności menu (`path`, `label`, `icon`, `element`; pompa ma też `/hp` poza menu). `Header` rysuje menu wybranego rodzaju. `App` tworzy trasy dla wszystkich ścieżek, a ścieżka, której wybrany rodzaj nie ma (np. `/schedules` hydroforu), prowadzi na `/`. Nowy rodzaj sterownika to katalog `devices/<rodzaj>/`, wpis w rejestrze i wartość w `DeviceType`, tak jak na serwerze.
 
@@ -484,7 +484,7 @@ Główne widoki pompy ciepła:
 - `/schedules` — wartości domyślne i harmonogramy;
 - `/devices` — wybór sterownika i zmiana jego nazwy.
 
-**Widoki zależą od typu wybranego sterownika** (rejestr wyżej). Dla hydroforu ([`devices/water-pressure/pages/`](client/src/devices/water-pressure/pages/)) te same ścieżki pokazują:
+**Widoki zależą od typu wybranego sterownika** (rejestr wyżej). Dla hydroforu ([`devices/water-pressure-tank/pages/`](client/src/devices/water-pressure-tank/pages/)) te same ścieżki pokazują:
 - `/` — podgląd: czas kompresora, progi, zbiorniki z szacunkiem wody i dzisiejsze uruchomienia (odświeżane co 10 s);
 - `/data` — zakładki *Uruchomienia pompy* (miesiąc, CSV) / *Odczyty wodomierza* (dodawanie z samą datą i usuwanie odczytów);
 - `/chart` — „Zużycie wody w okresie”: kropki dzień / miesiąc / rok; w roku znacznik „Pokaż odczyty z wodomierza” (wodomierz vs szacunek w miesiącach, sugerowane `k`);
@@ -505,7 +505,7 @@ Docelowy telefon to Samsung Galaxy S20 (360×800 CSS px); układ sprawdzany jest
 
 ### API klienta
 
-`client/src/core/http.ts` buduje adresy API i WebSocket oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Urządzenia (lista, nazwa, domyślny, `properties`) obsługuje `DeviceRequests` w `client/src/core/api.ts`, a ich typy są w `client/src/core/types.ts`. API i typy rodzajów sterowników: `client/src/devices/heat-pump/` (`HpRequests`: telemetria, operacje, harmonogramy) i `client/src/devices/water-pressure/` (`WaterRequests`), każdy z `api.ts` i `types.ts`.
+`client/src/core/http.ts` buduje adresy API i WebSocket oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Urządzenia (lista, nazwa, domyślny, `properties`) obsługuje `DeviceRequests` w `client/src/core/api.ts`, a ich typy są w `client/src/core/types.ts`. API i typy rodzajów sterowników: `client/src/devices/heat-pump/` (`HpRequests`: telemetria, operacje, harmonogramy) i `client/src/devices/water-pressure-tank/` (`WaterRequests`), każdy z `api.ts` i `types.ts`.
 
 ### Zakładka Dane
 
@@ -596,9 +596,9 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 - `co`: `pio test -e native` w `devices/co` (64 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP).
 - CHPC: `pio test -e native` w `devices/chpc` (symulacja firmware, 54 testy). Dodatkowo scenariusze Wokwi w `devices/chpc/test-wokwi/`.
-- hydrofor: `pio test -e native` w `devices/water-pressure` (23 testy: kompresor, szacunek wody, ustawienia, czas kompresora z `/install`, JSON wysyłki, kolejka w NVS).
+- hydrofor: `pio test -e native` w `devices/water-pressure-tank` (23 testy: kompresor, szacunek wody, ustawienia, czas kompresora z `/install`, JSON wysyłki, kolejka w NVS).
 
-Serwer ma też testy hydroforu w [`server/water-pressure.test.ts`](server/water-pressure.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
+Serwer ma też testy hydroforu w [`server/water-pressure-tank.test.ts`](server/water-pressure-tank.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
 
 Przebieg 2026-09-28 (hydrofor): serwer 71/71 + `tsc` OK, klient `vite build` OK, `co` 64/64 + build `esp32dev`, CHPC 54/54 + build Pro Mini, hydrofor 20/20 + build `esp32c3`; widoki hydroforu sprawdzone w Edge przy 360 i 1280 px (bez przewijania w poziomie i błędów konsoli). E2E łańcucha pompy nie był uruchamiany (nieaktualny, punkt 15).
 

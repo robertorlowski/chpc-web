@@ -4,7 +4,7 @@ import {
   addWaterMeterReading, addWaterPressureReport, deleteWaterMeterReading, getWaterMeterSummary,
   getWaterPressureRuns, getWaterPressureSummary, isCompressorSeconds, listWaterMeterReadings,
   RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
-} from '../services/water-pressure.service';
+} from '../services/water-pressure-tank.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 
 const pad = (value: number) => String(value).padStart(2, '0');

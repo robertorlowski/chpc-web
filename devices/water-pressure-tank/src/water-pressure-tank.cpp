@@ -1,7 +1,7 @@
 // Sterownik hydroforu (typ water-pressure), ESP32-C3 SuperMini.
 // Sterownik ma zasilanie tylko w czasie pracy pompy: po starcie raz włącza
 // kompresor na ustawiony czas, a dopóki jest sieć, co 1 s wysyła stan
-// uruchomienia do chmury. Opis: docs/water-pressure.md.
+// uruchomienia do chmury. Opis: docs/water-pressure-tank.md.
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <Preferences.h>

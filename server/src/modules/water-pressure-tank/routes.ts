@@ -2,7 +2,7 @@ import express from 'express'
 import {
   addWaterMeter, addWaterPressure, deleteWaterMeter, getWaterMeter, getWaterMeterSummaryEntry,
   getWaterPressureRunList, getWaterPressureSummaryEntry, updateWaterPressureSettings,
-} from './controllers/water-pressure.controller'
+} from './controllers/water-pressure-tank.controller'
 
 // Hydrofor: wysyłka sterownika, czas kompresora, uruchomienia, podsumowania i wodomierz.
 const router = express.Router()

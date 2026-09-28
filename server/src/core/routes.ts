@@ -3,7 +3,7 @@ import express from 'express'
 import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaultDevice, updateDevice, updateProperties } from './controllers/device.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
-import waterPressureRoutes from '../modules/water-pressure/routes'
+import waterPressureRoutes from '../modules/water-pressure-tank/routes'
 
 // Trasy /api: wspólne (urządzenia, temperatura zewnętrzna) i moduły rodzajów sterowników.
 const router = express.Router()
