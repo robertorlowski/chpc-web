@@ -1,6 +1,6 @@
 import { formatInTimeZone } from 'date-fns-tz';
 
-import { TIME_ZONE } from './time';
+import { TIME_ZONE } from '../time';
 
 function dateKey(date: Date): string {
   return date.toISOString().slice(0, 10);

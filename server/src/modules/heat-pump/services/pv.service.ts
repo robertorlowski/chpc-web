@@ -1,6 +1,6 @@
 import { HpEntry, PvEntry, PvMetrics } from '../types';
 import { PvEntryModel } from '../models/pv.model';
-import { getDeviceInfo } from '../../../core/device-info';
+import { getDeviceInfo } from '../../../core/services/device-info.service';
 
 // Odczyt PV starszy niż ten limit nie opisuje już chwili pomiaru HP: nie
 // trafia do rekordu hp (addHp) ani do bieżącej telemetrii (GET /hp).

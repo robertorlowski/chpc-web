@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { DeviceModel } from './devices/device.model';
+import { DeviceModel } from '../models/device.model';
 
 const publicPaths = new Set(['/devices', '/devices/register']);
 

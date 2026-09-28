@@ -1,4 +1,4 @@
-import type { DeviceType } from '../../core/devices/device.types';
+import type { DeviceType } from '../../core/types';
 
 // Typy hydroforu: zbiorniki w ustawieniach urządzenia, uruchomienia pompy
 // (kolekcja water_pressure) i odczyty wodomierza (water_meter).

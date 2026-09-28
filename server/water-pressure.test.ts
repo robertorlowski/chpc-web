@@ -4,7 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from './src/core/app'
-import { DeviceModel } from './src/core/devices/device.model'
+import { DeviceModel } from './src/core/models/device.model'
 import { WaterPressureRunModel } from './src/modules/water-pressure/models/water-pressure-run.model'
 import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure/services/water-pressure.service'
 

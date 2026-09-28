@@ -4,7 +4,7 @@ import { HpEntry, OperationEntry } from '../types'
 import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/hp.model'
 import { getFreshPvSummary } from '../services/pv.service'
-import { getTemperature } from '../../../core/meteo.service'
+import { getTemperature } from '../../../core/services/meteo.service'
 import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../../core/time'
 
 interface THpClear {

@@ -6,11 +6,11 @@ import {
   ScheduleType,
   WeekDay,
 } from '../types';
-import { DeviceType } from '../../../core/devices/device.types';
-import { DeviceDocument, DeviceModel } from '../../../core/devices/device.model';
+import { DeviceType } from '../../../core/types';
+import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
 import { getHpLastData } from './hp.service';
 import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
-import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/calendar.service';
+import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/services/calendar.service';
 import { TIME_ZONE } from '../../../core/time';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;

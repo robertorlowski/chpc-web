@@ -1,5 +1,5 @@
 import { Schema, model, InferSchemaType } from 'mongoose';
-import { DeviceType } from '../../../core/devices/device.types';
+import { DeviceType } from '../../../core/types';
 import { HpEntry, HpMetrics } from '../types';
 import { PvMetricsSchema } from './pv.model';
 

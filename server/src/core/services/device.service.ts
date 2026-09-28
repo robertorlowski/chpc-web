@@ -1,6 +1,6 @@
 
-import { DeviceProperties, DeviceType } from './device.types';
-import { DeviceDocument, DeviceModel } from './device.model';
+import { DeviceProperties, DeviceType } from '../types';
+import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).

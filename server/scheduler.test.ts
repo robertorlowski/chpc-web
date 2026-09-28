@@ -4,8 +4,8 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import app from './src/core/app';
-import { DeviceModel } from './src/core/devices/device.model';
-import { DeviceType } from './src/core/devices/device.types';
+import { DeviceModel } from './src/core/models/device.model';
+import { DeviceType } from './src/core/types';
 import { ScheduleType, WeekDay } from './src/modules/heat-pump/types';
 import { getCurrentSchedule, runSchedulerOnce } from './src/modules/heat-pump/services/scheduler.service';
 import {

@@ -1,4 +1,4 @@
-import type { DeviceType } from '../../core/devices/device.types';
+import type { DeviceType } from '../../core/types';
 
 // Typy pompy ciepła: telemetria (hp), PV z DTU (pv), operacje dla sterownika co,
 // harmonogramy i starsze ustawienia czasowe (settings).

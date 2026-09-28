@@ -1,5 +1,4 @@
-import { DeviceProperties, DeviceType } from '../../core/devices/device.types';
-import type { DeviceTypeModule } from '../../core/device-type-module';
+import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 
 // Ustawienia nowego hydroforu: dwa zbiorniki po 300 l jak w instalacji użytkownika,
 // progi presostatu i p0 do poprawienia w Ustawieniach po odczycie z manometru.

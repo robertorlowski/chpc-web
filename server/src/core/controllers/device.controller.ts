@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { DeviceProperties, DeviceType } from './device.types';
-import { DeviceDocument } from './device.model';
+import { DeviceProperties, DeviceType } from '../types';
+import { DeviceDocument } from '../models/device.model';
 import {
   createDevice, getDeviceProperties, listDevices, registerDevice, setDefaultDevice,
   updateDeviceName, updateDeviceProperties,
-} from './device.service';
+} from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
 
 const toPublicDevice = (device: DeviceDocument) => ({

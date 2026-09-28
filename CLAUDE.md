@@ -40,13 +40,13 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 
 **Serwer jest podzielony według rodzaju sterownika** (`server/src`):
 
-- `core/` — część wspólna: `app.ts`, `routes.ts` (składa trasy), `device-context.ts` (`rootId`/`deviceId`), `websocket.ts`, `auth.ts`, `time.ts` (strefa i granice dni w Warszawie), `device-info.ts`, `calendar.service.ts`, `meteo.*`; `core/devices/` — model, typy, trasy, serwis i kontroler urządzeń (lista, zgłoszenie, nazwa, domyślny, `properties`);
+- `core/` — część wspólna: urządzenia (lista, zgłoszenie, nazwa, domyślny, `properties`), temperatura zewnętrzna, kalendarz, kontekst urządzenia, WebSocket;
 - `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
 - `modules/water-pressure/` — hydrofor: uruchomienia, wodomierz, czas kompresora.
 
-Każdy moduł ma ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-run.model.ts`), a w katalogu modułu `types.ts` (typy wspólne dla warstw), `routes.ts` i `device-type.ts` (wpis do rejestru rodzajów).
+`core` i każdy moduł mają ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `device.model.ts`, `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-run.model.ts`), a w katalogu głównym `types.ts` (typy wspólne dla warstw) i `routes.ts`. Moduł ma też `device-type.ts` (wpis do rejestru rodzajów). W `core` są dodatkowo `middleware/` (`auth.ts`, `device-context.ts` — `rootId`/`deviceId`) oraz `app.ts`, `websocket.ts`, `time.ts` (strefa i granice dni w Warszawie) i `device-types.ts` (rejestr). Serwisy `core`: `device`, `device-info` (typ i `deviceId` w pamięci), `calendar`, `meteo`.
 
-Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/devices/device.model.ts` i `device.types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`) i ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor tak, pompa nie). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
+Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/models/device.model.ts` i `core/types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`) i ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor tak, pompa nie). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
 
 Główne elementy przepływu:
 
@@ -94,7 +94,7 @@ Middleware `verifyApiKey` jest obecnie zaimportowany, ale `app.use(verifyApiKey)
 
 ## 3. Kontekst urządzenia
 
-Za wybór pompy odpowiada [`server/src/core/device-context.ts`](server/src/core/device-context.ts).
+Za wybór pompy odpowiada [`server/src/core/middleware/device-context.ts`](server/src/core/middleware/device-context.ts).
 
 Większość żądań musi zawierać:
 
@@ -312,7 +312,7 @@ Typ `WeekDay` jest zdefiniowany w kontrakcie serwera i klienta:
 - `DAYS_OFF = -3` — soboty, niedziele i polskie święta ustawowo wolne;
 - `0–6` — konkretne dni tygodnia.
 
-Logika dni wolnych jest w [`server/src/core/calendar.service.ts`](server/src/core/calendar.service.ts). Zawiera święta stałe i ruchome, w tym Wigilię 24 grudnia. Scheduler i odczyt harmonogramów dla konkretnej daty korzystają z tej samej logiki.
+Logika dni wolnych jest w [`server/src/core/services/calendar.service.ts`](server/src/core/services/calendar.service.ts). Zawiera święta stałe i ruchome, w tym Wigilię 24 grudnia. Scheduler i odczyt harmonogramów dla konkretnej daty korzystają z tej samej logiki.
 
 Jeżeli harmonogram ma konkretną `date`, data ma pierwszeństwo przed `dayOfWeek` i jest porównywana w strefie Warszawy.
 

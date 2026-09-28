@@ -4,10 +4,10 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from './src/core/app'
-import { DeviceModel } from './src/core/devices/device.model'
+import { DeviceModel } from './src/core/models/device.model'
 import { HpEntryModel } from './src/modules/heat-pump/models/hp.model'
 import { PvEntryModel } from './src/modules/heat-pump/models/pv.model'
-import { DeviceType } from './src/core/devices/device.types'
+import { DeviceType } from './src/core/types'
 import { removeExpiredPanelDetails } from './src/modules/heat-pump/services/pv.service'
 
 const panel = {

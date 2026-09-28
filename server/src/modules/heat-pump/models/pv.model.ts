@@ -1,5 +1,5 @@
 import { Schema, model, InferSchemaType } from 'mongoose';
-import { DeviceType } from '../../../core/devices/device.types';
+import { DeviceType } from '../../../core/types';
 import { PvEntry, PvMetrics, PvPanel } from '../types';
 
 // Podsumowanie PV; osadzane też w rekordach hp (pole PV).

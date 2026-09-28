@@ -1,5 +1,4 @@
-import { DeviceType } from './devices/device.types';
-import type { DeviceTypeModule } from './device-type-module';
+import { DeviceType, DeviceTypeModule } from './types';
 import { heatPumpDeviceType } from '../modules/heat-pump/device-type';
 import { waterPressureDeviceType } from '../modules/water-pressure/device-type';
 

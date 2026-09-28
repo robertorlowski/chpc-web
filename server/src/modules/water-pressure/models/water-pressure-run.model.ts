@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { DeviceType } from '../../../core/devices/device.types';
+import { DeviceType } from '../../../core/types';
 import { WaterPressureRun } from '../types';
 
 // Uruchomienia pompy hydroforu: jeden dokument na runId, aktualizowany co 1 s
