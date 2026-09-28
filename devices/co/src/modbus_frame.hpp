@@ -5,6 +5,10 @@
 
 #include <domain_types.hpp>
 
+// Format ramek na magistrali: komendy CHPC [0x41][cmd][d1][d2][0xFF]
+// (5 bajtów) i zapytania Modbus RTU 0x03 do DTU (8 bajtów z CRC). Używa go
+// SerialBus, testy native i most E2E (test/e2e/build-bridge.sh).
+
 // Longest frame encodeCommand() can produce.
 constexpr size_t MODBUS_FRAME_CAPACITY = 8;
 

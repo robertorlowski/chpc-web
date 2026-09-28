@@ -2,6 +2,10 @@
 
 #include <cstdint>
 
+// Adresy na magistrali RS-485 i piny ESP32. Adres CHPC (0x41) jest
+// w modbus_frame.cpp.
+
+// Adres samego `co` (odpowiada na zapytania 0x01/0x02) i DTU Hoymiles (Modbus RTU).
 constexpr uint8_t CONTROLLER_DEVICE_ID = 0x10;
 constexpr uint8_t PV_DEVICE_ID = 0x69;
 
@@ -27,5 +31,7 @@ constexpr uint8_t TFT_CLOCK_PIN = 27;
 constexpr uint8_t TFT_RESET_PIN = 0;
 constexpr uint8_t RELAY_HP_CWU_PIN = 25;
 constexpr uint8_t RELAY_HP_CO_PIN = 26;
+// Zasilanie modułów, ustawiane na HIGH w setup().
 constexpr uint8_t POWER_PIN = 18;
+// Przycisk trybu, aktywny stanem wysokim, z zewnętrznym rezystorem.
 constexpr uint8_t CONTROL_BUTTON_PIN = 5;

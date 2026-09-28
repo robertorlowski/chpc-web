@@ -1,3 +1,5 @@
+// Odczyt i zapis konfiguracji połączenia w NVS (Preferences) oraz SN z eFuse.
+// Brak wartości w NVS oznacza wartość domyślną z secrets.h.
 #include <device_config.hpp>
 
 #include <Preferences.h>

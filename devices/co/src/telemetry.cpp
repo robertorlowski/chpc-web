@@ -1,3 +1,5 @@
+// Budowa dokumentu telemetrii pompy (POST /api/hp/add). Klucze są kontraktem
+// z chpc-web; liczniki diagnostyczne serwer odbiera, ale nie zapisuje w bazie.
 #include <telemetry.hpp>
 
 #include <cmath>

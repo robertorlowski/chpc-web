@@ -1,5 +1,9 @@
 #pragma once
 
+// Wywoływane w każdym obiegu loop() (main.cpp); wynik włącza lub wyłącza AP
+// przez setAccessPointEnabled() z device_io. Progi: wyłączenie po 3 min
+// stabilnej chmury, powrót po 1 min bez Wi-Fi albo po 5 min ciszy chmury.
+
 // Decides whether the open configuration network (CONFIG_AP_SSID) is needed.
 // It goes down only once the controller has proven it reaches the internet:
 // the station has an address and the cloud has been answering for

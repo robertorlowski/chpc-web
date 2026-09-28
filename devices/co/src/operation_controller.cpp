@@ -1,3 +1,6 @@
+// Zamiana stanu z chmury na komendy RS-485 do CHPC i stan przekaźników
+// CO/CWU. Kontrakt operacji: CLAUDE.md, punkt 7; semantyka trybów:
+// docs/server-driven-refactor-2026-09-20.md, punkt 6.
 #include <operation_controller.hpp>
 
 #include <cmath>
@@ -26,6 +29,8 @@ void OperationController::applyServerPatch(const ServerOperationState &patch)
 {
   // Maintenance actions run in every controller mode and are not kept: the
   // server sends each one once.
+  // Uwaga: main.cpp (applyServerOperation) przekazuje operację tylko w trybie
+  // CLOUD, więc w praktyce akcje działają wyłącznie w CLOUD.
   if (patch.errorReset.present && patch.errorReset.value)
     commands.enqueuePriority(SERIAL_OPERATION::HP_ERROR_RESET);
   if (patch.restart.present && patch.restart.value) {
@@ -135,6 +140,7 @@ void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
     resetScheduledState();
   } else {
     WORK_MODE mode = prefs.workMode;
+    // HP.CO (zgoda na start sprężarki, 0x0C) ma być 1 w każdym trybie poza OFF.
     if (report.coOn != (mode != WORK_MODE::OFF)) lastHpCo = {};
 
     // CHPC accepts force only while idle and clears it on every stop.
@@ -144,6 +150,10 @@ void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
 
     // A setpoint or delta frame lost on the shared bus would otherwise leave
     // CHPC on the limits of the previous mode for good.
+    // Ramki giną, bo CHPC czyta z magistrali do 49 bajtów naraz i odrzuca
+    // bufor, który nie zaczyna się od jego adresu (np. gdy komenda wpadnie
+    // razem z końcówką odpowiedzi DTU). Porównanie: Tmax z max, Tmax − Tmin
+    // z max − min, z tolerancją 0,11 °C.
     if (report.hasTemperatures && mode != WORK_MODE::OFF) {
       const bool coMode = isCoMode(mode);
       const double maximum = coMode ? prefs.coMax : prefs.cwuMax;
@@ -308,6 +318,9 @@ void OperationController::updateRelayState(WORK_MODE mode)
   setRelayState(enabled, enabled);
 }
 
+// Porównuje stan żądany z ostatnio wysłanym i kolejkuje różnice w stałej
+// kolejności: CO on/off, T zadana (0x04), delta (0x05), grzałka, pompy, force,
+// moc, EEV. W work_mode OFF komendy wyłączające idą kolejką priorytetową.
 void OperationController::reconcile()
 {
   if (localMode != ControllerMode::CLOUD || !cloudStateReady) return;

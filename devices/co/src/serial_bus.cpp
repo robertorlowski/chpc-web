@@ -1,3 +1,6 @@
+// Implementacja kolejki RS-485 z priorytetami, przerwą 500 ms między ramkami,
+// timeoutem odczytu 3 s i składaniem odpowiedzi po 5 ms ciszy. Liczniki
+// przepełnień i timeoutów trafiają do telemetrii.
 #include <serial_bus.hpp>
 
 #include <modbus_frame.hpp>
@@ -84,6 +87,8 @@ void SerialBus::removeAt(size_t index)
   queueCount--;
 }
 
+// Pary ON/OFF tego samego ustawienia mają wspólny klucz, żeby nowsza komenda
+// zastąpiła oczekującą starszą.
 int SerialBus::commandKey(SERIAL_OPERATION operation) const
 {
   switch (operation) {
@@ -111,6 +116,8 @@ void SerialBus::tick()
       receiveLength = 0;
       discardingReceiveFrame = false;
       readTimeouts++;
+      // Spóźniona odpowiedź może jeszcze nadejść; przerwa liczona od teraz
+      // oddziela ją od następnej ramki.
       lastWriteAt = now;
     }
     return;
@@ -138,6 +145,7 @@ size_t SerialBus::readFrame(uint8_t *buffer, size_t capacity)
     lastByteAt = millis();
     if (discardingReceiveFrame) continue;
 
+    // Za długa ramka jest odrzucana w całości, do najbliższej przerwy 5 ms.
     if (receiveLength >= RX_BUFFER_SIZE) {
       receiveLength = 0;
       discardingReceiveFrame = true;

@@ -4,6 +4,9 @@
 
 #include <hardware_config.hpp>
 
+// Typy domenowe wspólne dla firmware i testów: odczyt PV, komendy RS-485,
+// tryby pracy z chmury (WORK_MODE) i tryb sterownika z przycisku.
+
 // One entry per microinverter port, in the order the DTU reports them.
 struct PvPanel {
   char inverter_serial[13] = {};  // 12 BCD digits taken from the DTU record
@@ -24,6 +27,8 @@ struct PvPanel {
   uint8_t link = 0;
 };
 
+// Suma instalacji (pola jak w POST /api/pv/add); temperature to najniższa
+// z portów, pv_power = total_power >= 2000 W.
 struct PV {
   int64_t total_power = 0;
   uint64_t total_prod = 0;
@@ -34,6 +39,8 @@ struct PV {
   PvPanel panels[PV_MAX_PANELS]{};
 };
 
+// Operacje na magistrali; kody ramek przypisuje encodeCommand() w
+// modbus_frame.cpp (tabela komend CHPC: CLAUDE.md, punkt 13).
 enum SERIAL_OPERATION {
   GET_HP_DATA,
   GET_PV_DATA_1,
@@ -58,6 +65,7 @@ enum SERIAL_OPERATION {
   SET_EEV_SETPOINT,
 };
 
+// work_mode z chmury: M, A, PV, CWU, OFF (json_converters.hpp).
 enum WORK_MODE : int16_t {
   MANUAL,
   AUTO,
@@ -66,6 +74,8 @@ enum WORK_MODE : int16_t {
   OFF
 };
 
+// Lokalny tryb sterownika (przycisk GPIO5, NVS „mode”); tylko CLOUD stosuje
+// operacje z chmury. Wartości liczbowe są zapisane w NVS: nie zmieniać kolejności.
 enum class ControllerMode : uint8_t {
   OFF,
   CLOUD,
@@ -73,6 +83,8 @@ enum class ControllerMode : uint8_t {
   MANUAL_CWU,
 };
 
+// Ustawienia z chmury trzymane tylko w RAM; po restarcie obowiązują te
+// wartości domyślne do pierwszej operacji z serwera.
 struct DeviceSettings {
   WORK_MODE workMode = WORK_MODE::OFF;
   double coMin = 35.0;

@@ -2,6 +2,10 @@
 
 #include <Arduino.h>
 
+// Konfiguracja połączenia w NVS (przestrzeń "hp"): SSID, hasło Wi-Fi i Root ID
+// nadany przez chmurę, oraz SN z fabrycznego MAC. Używają jej cloud_client,
+// config_portal i device_io. secrets.h daje tylko wartości domyślne.
+
 // Runtime overrides for the compile-time defaults in secrets.h. A value stored
 // in NVS wins; an empty or missing one falls back to the built-in default, so
 // a freshly flashed controller works without visiting the configuration page.
@@ -13,10 +17,13 @@ struct DeviceConfig {
   String rootId;
 };
 
+// Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";
 
 // Network the controller opens when it cannot join the configured one, so a
 // wrong password never makes the configuration page unreachable.
+// Stan obecny: AP startuje zawsze razem ze sterownikiem, a wyłącza go
+// i przywraca AccessPointPolicy.
 constexpr const char *CONFIG_AP_SSID = "HP-CO-setup";
 
 // Basic-auth credentials guarding /install. The telemetry page on / is open.
@@ -25,8 +32,10 @@ constexpr const char *CONFIG_AP_SSID = "HP-CO-setup";
 constexpr const char *INSTALL_USER = "admin";
 constexpr const char *INSTALL_PASSWORD = "123!";
 
+// Wczytuje NVS raz w setup(); później obowiązuje kopia w RAM.
 void loadDeviceConfig();
 const DeviceConfig &deviceConfig();
+// True, gdy jest Root ID (z NVS albo CLOUD_ROOT_ID z secrets.h).
 bool deviceRegistered();
 
 // Factory MAC burnt into eFuse, as 12 upper-case hex digits in the order

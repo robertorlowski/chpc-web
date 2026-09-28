@@ -2,6 +2,11 @@
 
 #include <cstdint>
 
+// Szacunek COP zbiornika 300 l dla jednego cyklu pracy sprężarki (HPS 0→1→0):
+// ciepło z przyrostu średniej temperatury zbiornika (Tho = góra, Ttarget =
+// środek, dół szacowany) dzielone przez energię lt_pow. Wynik trafia do pól
+// telemetrii cop, cop_min, cop_max, cop_bottom_start. Bez zależności od Arduino.
+
 enum class CopCycleEvent : uint8_t {
   NONE,
   STARTED,
@@ -20,6 +25,8 @@ struct CopEstimate {
 
 class CopEstimator {
 public:
+  // Wołane przy każdym odczycie CHPC; electricalEnergyWh = lt_pow,
+  // cycleDurationSeconds = lt_hp_on. Wynik liczony dopiero po zatrzymaniu.
   CopCycleEvent update(bool heatPumpRunning, double topTemperature,
     double middleTemperature, double electricalEnergyWh,
     uint32_t cycleDurationSeconds);

@@ -1,3 +1,5 @@
+// Implementacja szacunku COP zbiornika (opis w cop_estimator.hpp i w
+// docs/server-driven-refactor-2026-09-20.md, „Estymacja COP zbiornika”).
 #include "cop_estimator.hpp"
 
 #include <algorithm>
@@ -32,6 +34,8 @@ CopCycleEvent CopEstimator::update(bool heatPumpRunning,
       endMiddleTemperature_ = middleTemperature;
       electricalEnergyWh_ = std::max(electricalEnergyWh_, electricalEnergyWh);
 
+      // Dół zbiornika nie ma czujnika: jego temperaturę przybliża najniższe
+      // Tho z pierwszych 60 s cyklu.
       if (cycleDurationSeconds <= BOTTOM_ESTIMATE_WINDOW_SECONDS) {
         startBottomTemperature_ = std::min(startBottomTemperature_, topTemperature);
       }

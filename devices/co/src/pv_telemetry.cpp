@@ -1,3 +1,5 @@
+// Dokument odczytu PV dla POST /api/pv/add: konwerter PV z json_converters.hpp
+// plus `time` z RTC.
 #include <pv_telemetry.hpp>
 
 #include <json_converters.hpp>

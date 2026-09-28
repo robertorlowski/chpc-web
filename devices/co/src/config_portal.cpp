@@ -1,3 +1,7 @@
+// Serwer WWW sterownika (WebServer, port 80). Strona / to statyczny HTML
+// (TELEMETRY_PAGE), który w przeglądarce co 5 s pobiera /telemetry.json
+// i /pv.json. Strona /install to szablon PAGE_TEMPLATE wypełniany w
+// renderPage(); /save zapisuje Wi-Fi w NVS i restartuje sterownik.
 #include <config_portal.hpp>
 
 #include <WebServer.h>
@@ -197,6 +201,8 @@ String escapeHtml(const String &value)
   return escaped;
 }
 
+// Wypełnia znaczniki %MESSAGE%, %SSID%, %SERIAL%, %ROOTID%, %REGISTRATION%
+// i %BUTTON% w PAGE_TEMPLATE. Hasło Wi-Fi nigdy nie trafia do strony.
 String renderPage(const String &message)
 {
   const DeviceConfig &config = deviceConfig();

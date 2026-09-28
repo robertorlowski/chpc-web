@@ -1,3 +1,8 @@
+// Pętla główna sterownika `co` (ESP32): łączy wszystkie moduły.
+// Odpytuje CHPC (0x41) i DTU Hoymiles (0x69) po RS-485, wysyła telemetrię
+// na POST /api/hp/add i odczyt PV na POST /api/pv/add, stosuje `operation`
+// z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
+// HP-CO-setup i odpowiada na zapytania innych urządzeń do adresu 0x10.
 #include <Arduino.h>
 #include <Preferences.h>
 #include <access_point_policy.hpp>
@@ -15,15 +20,22 @@
 #include <serial_bus.hpp>
 #include <telemetry.hpp>
 
+// Próg mocy PV [W]: od niego `pv_power` = true, a w work_mode PV kontroler
+// wymusza start sprężarki (force), żeby zużyć nadwyżkę z paneli.
 constexpr int64_t HP_FORCE_ON = 2000;
+// Odczyt CHPC i telemetria: co 10 s przy pracy sprężarki (HPS > 0), co 30 s
+// w spoczynku (CLAUDE.md, punkt 13).
 constexpr unsigned long MILLIS_REFRESH_ACTIVE = 10000;
 constexpr unsigned long MILLIS_REFRESH_IDLE = 30000;
 unsigned long refreshInterval = MILLIS_REFRESH_IDLE;
 constexpr unsigned long TIME_SYNC_INTERVAL = 6UL * 60UL * 60UL * 1000UL;
 constexpr unsigned long TIME_SYNC_RETRY_INTERVAL = 5UL * 60UL * 1000UL;
 constexpr unsigned long BUTTON_DEBOUNCE_MS = 50;
+// Tryb wybrany przyciskiem jest stosowany dopiero po 5 s bez naciśnięcia,
+// więc przejście przez kilka trybów nie wysyła po drodze komend do pompy.
 constexpr unsigned long MODE_CHANGE_DELAY_MS = 5000;
 constexpr unsigned long MODE_SCREEN_MS = 3000;
+// Klucz NVS (przestrzeń PREFERENCES_NAMESPACE) z trybem sterownika.
 constexpr const char *CONTROLLER_MODE_KEY = "mode";
 // PV has its own timer, independent of the heat pump refresh interval, and
 // the first reading is taken right after start.
@@ -149,6 +161,11 @@ void setup()
   cloudClient.begin();
 }
 
+// Pętla nie blokuje (poza żądaniami HTTP do chmury i NTP). Kolejność:
+// przycisk → magistrala → kontroler operacji → odbiór ramek → WebSocket →
+// strony WWW → polityka AP, potem zadania czasowe. Żądania HTTP, NTP
+// i rejestracja czekają na serialBus.isIdle(), bo blokują pętlę na kilka
+// sekund i nie mogą przerwać oczekiwania na odpowiedź pompy lub DTU.
 void loop()
 {
   processControlButton();
@@ -396,6 +413,9 @@ void processSerialInput()
   size_t length = serialBus.readFrame(inData, sizeof(inData));
   if (length == 0) return;
 
+  // Zapytanie innego urządzenia na magistrali do samego `co` (adres 0x10),
+  // ramka [0x10][op][..][0xFF]; pozostałe ramki to odpowiedzi CHPC lub DTU
+  // na odczyt, na który czeka SerialBus (pendingRead).
   if (length >= 4 && inData[0] == CONTROLLER_DEVICE_ID && inData[3] == 0xFF) {
     respondToSerialRequest(static_cast<char>(inData[1]));
     return;
@@ -449,6 +469,8 @@ void processSerialInput()
     return;
   }
 
+  // Odpowiedź CHPC to JSON ze StatsSerial(); klucze HP opisuje CLAUDE.md,
+  // punkt 5.
   if (pendingRead == PendingRead::HP) {
     serialBus.completeRead();
     hpReadOutstanding = false;
@@ -468,6 +490,8 @@ void processSerialInput()
   }
 }
 
+// Przekazuje kontrolerowi stan zgłoszony przez CHPC (CO, F, HPS, Tmax, Tmin).
+// CHPC nie potwierdza komend, więc tylko tak widać komendę, która nie doszła.
 void reportHeatPumpState(JsonObjectConst hp)
 {
   if (hp["CO"].isNull() || hp["F"].isNull() || hp["HPS"].isNull()) return;
@@ -486,6 +510,8 @@ void reportHeatPumpState(JsonObjectConst hp)
   applyControllerOutputs();
 }
 
+// Odpowiedź `co` jako urządzenia 0x10: 0x01 telemetria (z PV i pv_power),
+// 0x02 ustawienia i controller_mode, 0x03 nic, inne {"error":2}.
 void respondToSerialRequest(char operation)
 {
   String data = "";
@@ -524,6 +550,8 @@ void respondToSerialRequest(char operation)
 
 // TODO(server): Scheduler must perform the MANUAL -> AUTO transition.
 // This firmware applies only work_mode changes received from the server.
+// Uwaga: poza trybem CLOUD operacja jest pomijana w całości, także akcje
+// jednorazowe error_reset i restart (serwer wysyła je tylko raz).
 void applyServerOperation(JsonObjectConst operation)
 {
   if (operationController.controllerMode() != ControllerMode::CLOUD) return;
@@ -535,6 +563,8 @@ void applyServerOperation(JsonObjectConst operation)
   applyControllerOutputs();
 }
 
+// Po zmianie trybu lub przekaźników: ustawia GPIO25/26, pokazuje na 3 s
+// ekran trybu i odświeża pola sterownika w telemetrii.
 void applyControllerOutputs()
 {
   bool modeChanged = operationController.takeModeChanged();

@@ -1,3 +1,6 @@
+// Obsługa sprzętu ESP32: ekran ST7735 (ekran trybu i główny), RTC DS3231
+// z synchronizacją NTP, start Wi-Fi w trybie AP+STA, włączanie AP HP-CO-setup,
+// przekaźniki CO/CWU i zapis odpowiedzi na magistralę.
 #include <device_io.hpp>
 
 #include <Fonts/FreeSans9pt7b.h>
@@ -16,6 +19,8 @@ uint8_t lastSundayOfMonth(uint16_t year, uint8_t month)
   return lastDay.day() - lastDay.dayOfTheWeek();
 }
 
+// RTC trzyma czas lokalny (Europe/Warsaw), bo telemetria wysyła `time` bez
+// strefy. Zmiana czasu: ostatnia niedziela marca i października, 01:00 UTC.
 long warsawUtcOffset(unsigned long utcEpoch)
 {
   DateTime utc(utcEpoch);
@@ -57,6 +62,8 @@ String jsonValueToString(JsonVariantConst value)
 }
 }
 
+// flush() czeka na wysłanie całej odpowiedzi, zanim pętla zacznie kolejną
+// transmisję na półdupleksowej magistrali.
 void writeSerialResponse(const String &text)
 {
   Serial.println(text);
@@ -113,6 +120,7 @@ bool initializeDevice(RTC_DS3231 &rtc, Adafruit_ST7735 &display)
     return false;
   }
 
+  // Adres z DHCP zostaje, zmienia się tylko DNS na 8.8.8.8.
   WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(),
     IPAddress(8, 8, 8, 8));
   displayStatus(display, "Connected.", 0);
@@ -222,6 +230,9 @@ void renderDashboard(Adafruit_ST7735 &display,
   bool pvTemperatureCurrent, const DeviceSettings &settings,
   float outdoorTemperature, bool outdoorCurrent)
 {
+  // Nad niebieską linią (y = 23): data, godzina, tryb (L-/M-/C-…), moc PV
+  // i produkcja dziś, temperatura falowników. Między liniami: duże T (Ttarget),
+  // „F” przy wymuszeniu, T. zew. Pod linią y = 70: szczegóły pompy.
   display.fillScreen(ST77XX_BLACK);
   display.setTextSize(1);
   display.clearWriteError();

@@ -1,3 +1,6 @@
+// Parser operacji z chmury. Zakresy: co_* i cwu_* 1–50 (zaokrąglane do
+// stopni), working_watt 0–25599, eev_max/min_pulse_open 0–255, eev_setpoint
+// 0–255,99. Ostateczne limity stosuje dopiero CHPC.
 #include <operation_parser.hpp>
 
 #include <cctype>

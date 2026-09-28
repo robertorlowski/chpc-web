@@ -1,3 +1,6 @@
+// Testy modbus_frame: ramki komend CHPC (5 bajtów, kody 0x03–0x11), podział
+// nastaw na jednostki i setne, zapytania PV do DTU i CRC-16/MODBUS.
+// Uruchamianie: pio test -e native.
 #ifdef ARDUINO
 #include <Arduino.h>
 #endif

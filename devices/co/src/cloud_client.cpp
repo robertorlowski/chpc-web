@@ -1,3 +1,6 @@
+// Komunikacja z chpc-web: HTTPS (hp/add, pv/add, devices/register) i WebSocket.
+// Kontrakt: CLAUDE.md, punkty 3 (rejestracja, 404/409) i 8 (WebSocket).
+// Certyfikat serwera nie jest weryfikowany (brak CA w kliencie).
 #include <cloud_client.hpp>
 
 #include <WiFi.h>
@@ -90,6 +93,7 @@ void CloudClient::registerDevice()
   const String &serial = deviceSerial();
   if (serial.length() == 0) return;
 
+  // Zgłoszenie wysyła tylko typ i SN, bez nazwy i wersji oprogramowania.
   JsonDocument request;
   request["deviceType"] = "heat_pump";
   request["deviceId"] = serial;
@@ -206,6 +210,7 @@ void CloudClient::handleWebSocketEvent(
 
   switch (type) {
     case WStype_CONNECTED:
+      // Powitanie; serwer rozpoznaje urządzenie po rootId w ścieżce.
       instance->webSocket.sendTXT("ESP32");
       break;
     case WStype_TEXT:

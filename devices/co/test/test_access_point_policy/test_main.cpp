@@ -1,3 +1,6 @@
+// Testy AccessPointPolicy: kiedy AP HP-CO-setup wyłączyć (3 min stabilnej
+// chmury) i kiedy przywrócić (1 min bez Wi-Fi, 5 min ciszy chmury).
+// Uruchamianie: pio test -e native (plik .cpp włączany bezpośrednio).
 #ifdef ARDUINO
 #include <Arduino.h>
 #endif

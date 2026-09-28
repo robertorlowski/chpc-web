@@ -1,3 +1,5 @@
+// Kodowanie komend RS-485 (tabela cmd w CLAUDE.md, punkt 13) i CRC-16/MODBUS.
+// Nowa komenda CHPC wymaga wpisu tutaj, w SERIAL_OPERATION i w firmware CHPC.
 #include <modbus_frame.hpp>
 
 #include <cmath>
@@ -20,6 +22,7 @@ uint8_t low(uint16_t value)
 }
 
 // Pump setpoints travel as whole units in one byte and hundredths in the next.
+// Waty: scale = 1, więc d1 = W / 100, d2 = W % 100 (stąd limit 25599 W).
 void writeScaled(uint8_t *buffer, double value, double maximum, double scale)
 {
   const double bounded = value < 0 ? 0 : value > maximum ? maximum : value;
@@ -37,6 +40,8 @@ size_t encodeHpCommand(uint8_t function, uint8_t payload, uint8_t *buffer)
   return HP_FRAME_LENGTH;
 }
 
+// Odczyt 100 rejestrów (5 portów po 20): blok 1 od 0x1000, blok 2 od
+// 0x1000 + 5 · 0x28 = 0x10C8, bo DTU numeruje porty co 0x28 adresów.
 size_t encodePvRead(SERIAL_OPERATION operation, uint8_t *buffer)
 {
   constexpr uint16_t blockRegisters =

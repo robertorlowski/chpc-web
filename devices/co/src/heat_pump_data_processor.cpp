@@ -1,8 +1,11 @@
+// Odczyt JSON z CHPC i podanie do CopEstimator kluczy HPS, Tho, Ttarget,
+// lt_pow i lt_hp_on (nie wolno ich zmieniać w CHPC, CLAUDE.md, punkt 5).
 #include <heat_pump_data_processor.hpp>
 
 #include <Arduino.h>
 
 namespace {
+// CHPC wysyła liczby jako napisy, stąd konwersja z obu postaci.
 double jsonDouble(JsonVariantConst value)
 {
   if (value.isNull()) return 0.0;

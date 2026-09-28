@@ -5,6 +5,11 @@
 
 #include <domain_types.hpp>
 
+// Konwertery ArduinoJson dla typów domenowych: pola PV i panels[] dla
+// POST /api/pv/add, `time` w formacie "YYYY.MM.DD HH:MM:SS" (czas polski),
+// work_mode (M/A/PV/CWU/OFF) i controller_mode. Zmiana nazwy pola tutaj
+// to zmiana kontraktu z chpc-web (schemat Mongo i typy klienta).
+
 namespace ArduinoJson {
 template <>
 struct Converter<PV> {

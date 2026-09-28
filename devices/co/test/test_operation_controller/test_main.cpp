@@ -1,3 +1,7 @@
+// Testy OperationController, parsera operacji i CopEstimator: scalanie
+// operacji z chmury, brak powtórnych komend, tryby sterownika, sekwencja OFF,
+// force z PV, ponowne wysyłanie przy niezgodności raportu CHPC, szacunek COP.
+// Komendy zbiera RecordingSink zamiast SerialBus. pio test -e native.
 #ifdef ARDUINO
 #include <Arduino.h>
 #endif

@@ -6,10 +6,17 @@
 #include <domain_types.hpp>
 #include <hardware_config.hpp>
 
+// Składa odczyt PV z dwóch odpowiedzi Modbus DTU Hoymiles (po 5 portów):
+// sumy instalacji i dane każdego portu. Bez zależności od Arduino
+// (test_pv_data_processor).
 class PvDataProcessor {
 public:
+  // Na początku każdego odczytu (przed wysłaniem pierwszego zapytania).
   void reset();
+  // Dokłada jedną odpowiedź 0x03 (CRC sprawdzone wcześniej); false = ramka
+  // uszkodzona albo nadmiarowa.
   bool appendFrame(const uint8_t *data, size_t length);
+  // True dopiero po obu odpowiedziach; ustawia pv_power wg progu [W].
   bool complete(PV &result, int64_t forceThreshold) const;
 
 private:

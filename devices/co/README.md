@@ -1,5 +1,7 @@
 # co — sterownik pompy ciepła (ESP32)
 
+**Dokumentacja:** [opis biznesowy](docs/1-opis-biznesowy.md) · [zasada działania](docs/2-zasada-dzialania.md) · [dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) · [English](docs/en/1-business-description.md)
+
 Firmware sterownika, który łączy pompę ciepła CHPC z chmurą `chpc-web`.
 Sterownik odczytuje pompę i instalację fotowoltaiczną po RS-485, wysyła
 telemetrię do chmury i wykonuje ustawienia, które z niej otrzymuje.
@@ -60,7 +62,7 @@ Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/ro
   | `/` | otwarty | podgląd telemetrii, odświeżany co 5 s |
   | `/telemetry.json` | otwarty | telemetria pompy |
   | `/pv.json` | otwarty | ostatni odczyt PV z panelami |
-  | `/install` | hasło (`admin`) | Wi-Fi, SN i Root ID (tylko do odczytu), status rejestracji |
+  | `/install` | Basic Auth (login `admin`, hasło w `src/device_config.hpp`) | Wi-Fi, SN i Root ID (tylko do odczytu), status rejestracji |
   | `/save` | hasło | zapis Wi-Fi i restart |
 
 ## Sprzęt

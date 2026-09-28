@@ -1,3 +1,5 @@
+// Parser rekordów portów DTU Hoymiles (40 bajtów na port). Pola trafiają
+// do POST /api/pv/add (panels[]) i do sum instalacji.
 #include <pv_data_processor.hpp>
 
 namespace {

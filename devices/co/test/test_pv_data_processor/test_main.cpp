@@ -1,3 +1,7 @@
+// Testy PvDataProcessor: składanie dwóch odpowiedzi DTU w panele i sumy,
+// temperatura ze znakiem (najniższa z portów), odrzucanie uszkodzonych ramek,
+// próg pv_power. Ramki buduje test według założonego układu rekordu.
+// Uruchamianie: pio test -e native.
 #ifdef ARDUINO
 #include <Arduino.h>
 #endif

@@ -2,6 +2,10 @@
 
 #include <domain_types.hpp>
 
+// Struktury operacji z chmury (klucze obiektu `operation` z odpowiedzi
+// /api/hp/add, CLAUDE.md, punkt 7) i raport stanu CHPC. `present` odróżnia
+// brak pola w częściowej operacji od jawnego 0/false.
+
 template <typename T>
 struct ServerValue {
   bool present = false;
