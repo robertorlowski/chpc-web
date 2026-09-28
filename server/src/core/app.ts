@@ -1,8 +1,8 @@
 import express from 'express'
 import cors from 'cors'
-import apiRoute from './api.routes'
+import apiRoute from './routes'
 import { verifyApiKey } from './auth'
-import { resolveDeviceContext } from './deviceContext'
+import { resolveDeviceContext } from './device-context'
 
 const app = express()
 

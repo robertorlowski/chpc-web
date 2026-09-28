@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { DeviceModel } from '../models/model';
+import { DeviceModel } from './devices/device.model';
 
 const publicPaths = new Set(['/devices', '/devices/register']);
 
@@ -44,5 +44,13 @@ export async function resolveDeviceContext(
     return next();
   } catch {
     return res.status(400).json({ message: 'Nieprawidłowy rootId.' });
+  }
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      deviceRootId?: string;
+    }
   }
 }

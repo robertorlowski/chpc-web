@@ -3,10 +3,11 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import app from './src/middleware/app'
-import { DeviceModel, HpEntryModel, PvEntryModel } from './src/models/model'
-import { DeviceType } from './src/middleware/type'
-import { removeExpiredPanelDetails } from './src/services/pv.service'
+import app from './src/core/app'
+import { DeviceModel } from './src/core/devices/device.model'
+import { HpEntryModel, PvEntryModel } from './src/modules/heat-pump/models'
+import { DeviceType } from './src/core/devices/device.types'
+import { removeExpiredPanelDetails } from './src/modules/heat-pump/pv.service'
 
 const panel = {
   serial: '116491036767', port: 1, power: 325.2, prod_today: 740,

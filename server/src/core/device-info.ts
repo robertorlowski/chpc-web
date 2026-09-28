@@ -1,5 +1,5 @@
-import { DeviceType } from '../middleware/type';
-import { DeviceModel } from '../models/model';
+import { DeviceType } from './devices/device.types';
+import { DeviceModel } from './devices/device.model';
 
 export interface DeviceInfo {
   deviceType: DeviceType;

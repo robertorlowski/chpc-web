@@ -1,7 +1,7 @@
 
-import { DeviceProperties, DeviceType } from '../middleware/type';
-import { DeviceDocument, DeviceModel } from '../models/model';
-import { DEFAULT_WATER_PRESSURE_PROPERTIES } from './water-pressure.service';
+import { DeviceProperties, DeviceType } from './device.types';
+import { DeviceDocument, DeviceModel } from './device.model';
+import { DEFAULT_WATER_PRESSURE_PROPERTIES } from '../../modules/water-pressure/water-pressure.service';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
 export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault';

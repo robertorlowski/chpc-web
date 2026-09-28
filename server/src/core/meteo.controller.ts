@@ -1,4 +1,4 @@
-import { getTemperature as getTemperatureData } from "../services/meteo.service";
+import { getTemperature as getTemperatureData } from "./meteo.service";
 import { Request, Response } from 'express'
 
 export async function getTemperature(req: Request, res: Response) {

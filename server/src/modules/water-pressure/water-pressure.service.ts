@@ -1,7 +1,9 @@
-import { DeviceProperties, DeviceType, WaterMeterReading, WaterPressureRun, WaterTank } from '../middleware/type';
-import { DeviceModel, WaterMeterReadingModel, WaterPressureRunModel } from '../models/model';
-import { getDeviceInfo } from '../core/device-info';
-import { TIME_ZONE } from '../core/time';
+import { DeviceProperties, DeviceType } from '../../core/devices/device.types';
+import { WaterMeterReading, WaterPressureRun, WaterTank } from './types';
+import { DeviceModel } from '../../core/devices/device.model';
+import { WaterMeterReadingModel, WaterPressureRunModel } from './models';
+import { getDeviceInfo } from '../../core/device-info';
+import { TIME_ZONE } from '../../core/time';
 
 const ATMOSPHERE_BAR = 1.013;
 

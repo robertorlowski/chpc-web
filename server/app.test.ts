@@ -5,14 +5,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // temperatura z IMGW bez sieci; null = serwis meteo jeszcze nic nie pobrał
 const meteo = vi.hoisted(() => ({ temperature: null as number | null }));
-vi.mock('./src/services/meteo.service', () => ({
+vi.mock('./src/core/meteo.service', () => ({
   getTemperature: () => meteo.temperature,
   prepareMeteoData: async () => meteo.temperature,
 }));
 
-import app from './src/middleware/app'
-import { DeviceModel, HpEntryModel, SettingsEntryModel } from './src/models/model'
-import { DeviceType } from './src/middleware/type'
+import app from './src/core/app'
+import { DeviceModel } from './src/core/devices/device.model'
+import { HpEntryModel, SettingsEntryModel } from './src/modules/heat-pump/models'
+import { DeviceType } from './src/core/devices/device.types'
 
 describe('API with MongoDB', () => {
   let mongoServer: MongoMemoryServer;

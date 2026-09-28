@@ -1,10 +1,10 @@
-import { HpEntry } from '../middleware/type';
-import { sendMessage } from '../middleware/webSocet';
-import { HpEntryModel } from '../models/model';
-import { getTemperature } from './meteo.service';
+import { HpEntry } from './types';
+import { sendMessage } from '../../core/websocket';
+import { HpEntryModel } from './models';
+import { getTemperature } from '../../core/meteo.service';
 import { formatInTimeZone } from 'date-fns-tz';
-import { TIME_ZONE } from '../core/time';
-import { forgetDeviceInfo, getDeviceInfo } from '../core/device-info';
+import { TIME_ZONE } from '../../core/time';
+import { forgetDeviceInfo, getDeviceInfo } from '../../core/device-info';
 
 // const parseDate = (str: String | undefined ):string   => !str ? "" : str.replace(/\./g, "-").replace(" ", "T");
 const lastDataByRoot = new Map<string, HpEntry>();

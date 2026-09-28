@@ -1,17 +1,17 @@
 import { formatInTimeZone } from 'date-fns-tz';
 import {
-  DeviceType,
   HpEntry,
   OperationEntry,
   ScheduleEntry,
   ScheduleType,
   WeekDay,
-} from '../middleware/type';
-import { DeviceDocument, DeviceModel } from '../models/model';
+} from './types';
+import { DeviceType } from '../../core/devices/device.types';
+import { DeviceDocument, DeviceModel } from '../../core/devices/device.model';
 import { getHpLastData } from './hp.service';
 import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
-import { getLocalDayOfWeek, isPolishDayOff } from './calendar.service';
-import { TIME_ZONE } from '../core/time';
+import { getLocalDayOfWeek, isPolishDayOff } from '../../core/calendar.service';
+import { TIME_ZONE } from '../../core/time';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 

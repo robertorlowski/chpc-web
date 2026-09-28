@@ -3,7 +3,7 @@ import { DeviceProperties, WaterPressureRun, WaterTank } from '../api/type';
 const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';
 
-// Ten sam wzór co estimateWater w server/src/services/water-pressure.service.ts
+// Ten sam wzór co estimateWater w server/src/modules/water-pressure/water-pressure.service.ts
 // (zmieniać razem). Klient liczy tylko podgląd w Ustawieniach i na głównym
 // oknie; wartość zapisaną w uruchomieniu liczy serwer.
 export function tankWaterLiters(tank: WaterTank, pressureLow?: number, pressureHigh?: number): number {

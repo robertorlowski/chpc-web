@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import http from 'http';
-import app from './middleware/app'
-import { createWsServer } from './middleware/webSocet';
+import app from './core/app'
+import { createWsServer } from './core/websocket';
 import mongoose from 'mongoose';
-import { prepareMeteoData } from './services/meteo.service';
-import { startScheduler } from './services/scheduler.service';
-import { removeExpiredPanelDetails } from './services/pv.service';
+import { prepareMeteoData } from './core/meteo.service';
+import { startScheduler } from './modules/heat-pump/scheduler.service';
+import { removeExpiredPanelDetails } from './modules/heat-pump/pv.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 

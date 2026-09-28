@@ -1,5 +1,6 @@
-import mongoose, { Schema, model, InferSchemaType, Model, Document } from 'mongoose';
-import { Device, DeviceProperties, DeviceType, HpEntry, HpMetrics, PvEntry, PvMetrics, PvPanel, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WaterMeterReading, WaterPressureRun, WaterTank, WeekDay } from '../middleware/type';
+import { Schema, model, InferSchemaType } from 'mongoose';
+import { DeviceType } from '../../core/devices/device.types';
+import { HpEntry, HpMetrics, PvEntry, PvMetrics, PvPanel, ScheduleEntry, ScheduleType, SettingsEntry, timePattern, TimeSlot, WeekDay } from './types';
 
 
 const TimeSlotSchema = new Schema<TimeSlot>(
@@ -127,7 +128,8 @@ const HpEntrySchema = new Schema<HpEntry>(
   { timestamps: true, _id: true, collection: 'hp' }
 );
 
-const SettingsEntrySchema = new Schema<SettingsEntry>(
+// Starsze ustawienia czasowe: osobna kolekcja i pole settings urządzenia.
+export const SettingsEntrySchema = new Schema<SettingsEntry>(
   {
     rootId: { type: String, required: true, index: true },
     night_hour: { type: TimeSlotSchema },
@@ -137,40 +139,8 @@ const SettingsEntrySchema = new Schema<SettingsEntry>(
   { timestamps: true, _id: true, collection: 'settings' }
 );
 
-const WaterTankSchema = new Schema<WaterTank>(
-  {
-    name: { type: String, default: '', trim: true },
-    kind: { type: String, enum: ['air', 'membrane'], required: true },
-    volumeLiters: { type: Number, required: true, min: 0 },
-    enabled: { type: Boolean, default: true },
-    precharge: { type: Number, min: 0 },
-    k: { type: Number, min: 0 },
-  },
-  { _id: false }
-);
-
-const DevicePropertiesSchema = new Schema<DeviceProperties>(
-  {
-    co_min: { type: String },
-    co_max: { type: String },
-    cwu_min: { type: String },
-    cwu_max: { type: String },
-    work_mode: {
-      type: String,
-      enum: ['M', 'A', 'CWU', 'OFF'],
-      default: 'CWU',
-    },
-    // hydrofor
-    compressor_seconds: { type: Number, min: 1, max: 3600 },
-    pressure_low: { type: Number, min: 0 },
-    pressure_high: { type: Number, min: 0 },
-    tanks: { type: [WaterTankSchema], default: undefined },
-  },
-  { _id: false }
-);
-
-
-const ScheduleEntrySchema = new Schema<ScheduleEntry>(
+// Harmonogramy są osadzone w urządzeniu (pole schedules).
+export const ScheduleEntrySchema = new Schema<ScheduleEntry>(
   {
     dayOfWeek: {
       type: Number,
@@ -179,7 +149,7 @@ const ScheduleEntrySchema = new Schema<ScheduleEntry>(
       )
     },
 
-    date: { 
+    date: {
       type: Date,
       required: false,
     },
@@ -229,77 +199,6 @@ const ScheduleEntrySchema = new Schema<ScheduleEntry>(
   },
 );
 
-export interface DeviceDocument extends Device, Document {
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const DeviceSchema = new Schema<DeviceDocument>(
-  {
-    deviceType: {
-      type: String,
-      enum: Object.values(DeviceType),
-      required: true,
-    },
-    deviceId: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    // nazwa nadawana przez użytkownika; sterownik zarejestrowany automatycznie jej nie ma
-    name: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-    isDefault: { type: Boolean, default: false },
-    settings: { type: SettingsEntrySchema },
-    schedules: { type: [ScheduleEntrySchema] },
-    properties: { type: DevicePropertiesSchema },
-  },
-  { timestamps: true, collection: 'devices' }
-);
-
-
-
-// Uruchomienia pompy hydroforu: jeden dokument na runId, aktualizowany co 1 s
-// przez sterownik (POST /water-pressure/add).
-const WaterPressureRunSchema = new Schema<WaterPressureRun>(
-  {
-    rootId: { type: String, required: true },
-    deviceType: { type: String, enum: Object.values(DeviceType), required: true },
-    deviceId: { type: String, required: true },
-    runId: { type: Number, required: true },
-    pumpStart: { type: Date, required: true },
-    pumpEnd: { type: Date, required: true },
-    compressorStart: { type: Date },
-    compressorEnd: { type: Date },
-    restarts: { type: Number, default: 0 },
-    waterLiters: { type: Number, default: 0 },
-    waterAirBaseLiters: { type: Number, default: 0 },
-    waterMembraneLiters: { type: Number, default: 0 },
-    timeApproximate: { type: Boolean, default: false },
-    lastSeenAt: { type: Date, required: true },
-  },
-  { timestamps: true, collection: 'water_pressure' }
-);
-WaterPressureRunSchema.index({ rootId: 1, runId: 1 }, { unique: true });
-WaterPressureRunSchema.index({ rootId: 1, pumpStart: 1 });
-
-const WaterMeterReadingSchema = new Schema<WaterMeterReading>(
-  {
-    rootId: { type: String, required: true },
-    readAt: { type: Date, required: true },
-    valueM3: { type: Number, required: true, min: 0 },
-    note: { type: String, default: '', trim: true },
-  },
-  { timestamps: true, collection: 'water_meter' }
-);
-WaterMeterReadingSchema.index({ rootId: 1, readAt: 1 });
-
-export const WaterPressureRunModel = model<WaterPressureRun>('WaterPressureRun', WaterPressureRunSchema);
-export const WaterMeterReadingModel = model<WaterMeterReading>('WaterMeterReading', WaterMeterReadingSchema);
-
 export type HpEntryDoc = InferSchemaType<typeof HpEntrySchema>;
 export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);
 
@@ -312,7 +211,3 @@ export const SettingsEntryModel = model<SettingsEntryDoc>('SettingsEntry', Setti
 
 // export type ScheduleEntryDoc = InferSchemaType<typeof ScheduleEntrySchema>;
 // export const ScheduleEntryModel = model<ScheduleEntryDoc>('ScheduleEntry', ScheduleEntrySchema);
-
-export const DeviceModel: Model<DeviceDocument> =
-  mongoose.models.Root ||
-  mongoose.model<DeviceDocument>('Root', DeviceSchema);

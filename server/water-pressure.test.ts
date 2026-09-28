@@ -3,9 +3,10 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import app from './src/middleware/app'
-import { DeviceModel, WaterPressureRunModel } from './src/models/model'
-import { addWaterPressureReport, estimateWater } from './src/services/water-pressure.service'
+import app from './src/core/app'
+import { DeviceModel } from './src/core/devices/device.model'
+import { WaterPressureRunModel } from './src/modules/water-pressure/models'
+import { addWaterPressureReport, estimateWater } from './src/modules/water-pressure/water-pressure.service'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({

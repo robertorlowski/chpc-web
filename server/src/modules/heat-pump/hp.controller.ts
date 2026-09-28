@@ -1,11 +1,11 @@
 import { Request, Response } from 'express'
-import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
-import { HpEntry, OperationEntry } from '../middleware/type'
-import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
-import { HpEntryModel } from '../models/model'
-import { getFreshPvSummary } from '../services/pv.service'
-import { getTemperature } from '../services/meteo.service'
-import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../core/time'
+import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from './hp.service'
+import { HpEntry, OperationEntry } from './types'
+import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from './operation.service'
+import { HpEntryModel } from './models'
+import { getFreshPvSummary } from './pv.service'
+import { getTemperature } from '../../core/meteo.service'
+import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../core/time'
 
 interface THpClear {
   clear?: Boolean

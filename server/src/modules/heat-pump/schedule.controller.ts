@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { ScheduleEntry } from '../middleware/type';
-import { deleteSchedule, getSchedules, saveSchedule, updateSchedule } from '../services/schedule.service';
-import { getCurrentSchedule } from '../services/scheduler.service';
+import { ScheduleEntry } from './types';
+import { deleteSchedule, getSchedules, saveSchedule, updateSchedule } from './schedule.service';
+import { getCurrentSchedule } from './scheduler.service';
 
 export async function getScheduleEntries(req: Request, res: Response) {
   try {

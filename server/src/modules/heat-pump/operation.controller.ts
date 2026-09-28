@@ -1,8 +1,8 @@
 import { Request, Response } from 'express'
-import { addOperationAction, clearOperation, getOperationData, OPERATION_ACTIONS, OperationAction, setManualOperationData } from '../services/operation.service';
-import { OperationEntry } from '../middleware/type';
-import { getHpLastData } from '../services/hp.service';
-import { sendMessage } from '../middleware/webSocet';
+import { addOperationAction, clearOperation, getOperationData, OPERATION_ACTIONS, OperationAction, setManualOperationData } from './operation.service';
+import { OperationEntry } from './types';
+import { getHpLastData } from './hp.service';
+import { sendMessage } from '../../core/websocket';
 
 
 export async function prepareOperation(req: Request, res: Response) {
