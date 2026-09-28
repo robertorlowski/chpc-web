@@ -134,7 +134,7 @@ Scenariusze Wokwi: `test-wokwi/`. Wykres przykładowej pracy: `docs/m_t_graph_ex
 ## Znane problemy
 
 - **Ochrona przepływu żyje w bloku LCD** — działa tylko z `DISPLAY_1602` i co 5 s.
-- **Przy limicie mocy ≤ 3200 W ochrona przepływu jest wyłączona** (celowo, nie tylko dla dokładnie 3200 W).
+- **Przy limicie mocy ≤ 3200 W ochrona przepływu jest wyłączona** — celowo, ale dotyczy to każdego limitu 1001–3200 W, **także domyślnego (3200 W)**. Ustawienie niższego, „bezpieczniejszego” limitu wyłącza ochronę. Propozycja z audytu 2026-09-25 (lokalny raport `test/raport-testow/AUDYT-2026-09-25.md`, poza gitem): osobny bit w EEPROM i kontrola poza blokiem LCD.
 - **W blokadzie cykl kontrolny nie działa**: brak ochrony przed mrozem, brak odświeżania temperatur w JSON.
 - **Wymuszenie jest kasowane tylko przez zatrzymanie termostatem** (i restart); zatrzymanie przez zabezpieczenie je zostawia.
 - **Błąd przekaźnika zostawia ręczne wymuszenie pomp** do zmiany przez `0x09`/`0x0A`, menu albo restart.

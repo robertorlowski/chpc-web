@@ -54,7 +54,7 @@ Każde zdarzenie trafia do aplikacji jako kod błędu z datą. Pięć błędów 
 - **Brak zegara** — sterownik nie zna godziny; czas zdarzeń nadaje dopiero chmura (dokładność 10–30 s).
 - **Pamięć programu jest prawie pełna** (95%) — każdy nowy klucz w odpowiedzi JSON trzeba dodawać oszczędnie.
 - **Polecenia nie są potwierdzane** — sterownik `co` sprawdza ich skutek w kolejnym odczycie.
-- **Ustawienie limitu mocy do 3200 W wyłącza ochronę przepływu** (celowo, dla zasilania, przy którym czujnik przepływu działa niepewnie).
+- **Limit mocy do 3200 W wyłącza ochronę przepływu** (celowo, dla zasilania, przy którym czujnik przepływu działa niepewnie) — **także przy domyślnym limicie 3200 W**. Żeby ochrona działała, limit musi być wyższy niż 3200 W.
 
 ## Słownik
 

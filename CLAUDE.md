@@ -21,9 +21,9 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | `server/`, `client/` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
 | `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; licencja MIT |
 | `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
-| `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure-tank`), punkt 5b; pełny opis w `devices/water-pressure-tank/docs/water-pressure-tank.md` |
+| `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
-| `scripts/` | środowisko lokalne (`npm run local`) |
+| `scripts/` | środowisko lokalne (`npm run local`), dane demonstracyjne (`seed-local.mjs`), symulator hydroforu |
 
 Oba firmware przeniesiono 2026-09-27 z historią z osobnych repozytoriów [heatpomp](https://github.com/robertorlowski/heatpomp) (`main`) i [chpc](https://github.com/robertorlowski/chpc) (`master`); tamte repozytoria nie są już rozwijane. Dawne kopie robocze `D:\DevLocal\arduino_src\heatpump` i `…\chpc` są nieaktualne. Firmware otwiera się w VS Code przez `chpc.code-workspace` (PlatformIO wymaga `platformio.ini` w katalogu głównym folderu), a z terminala: `pio run -d devices/co`, `pio test -d devices/chpc -e native`. Lokalny `devices/co/src/secrets.h` jest poza gitem (wzór: `secrets.example.h`).
 
@@ -234,7 +234,7 @@ Dzięki temu `/hp/4day`, `/hp/all` i `monthly-summary` działają bez zmian na `
 
 ## 5b. Hydrofor (`water-pressure-tank`)
 
-Pełny opis: [`devices/water-pressure-tank/docs/water-pressure-tank.md`](devices/water-pressure-tank/docs/water-pressure-tank.md). Sterownik (ESP32-C3) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
+Pełny opis: [firmware](devices/water-pressure-tank/docs/1-opis-biznesowy.md) i [moduł serwera/klienta](docs/moduly/water-pressure-tank/1-opis-biznesowy.md); pierwotna specyfikacja w `devices/water-pressure-tank/docs/water-pressure-tank.md`. Sterownik (ESP32-C3) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
 
 - **Zgłoszenie** raz na start (`POST /devices/register`, typ `water-pressure-tank`, nazwa „Hydrofor”); odpowiedź niesie ustawienia, które sterownik zapisuje w NVS. Zmiana ustawień w aplikacji działa od następnego uruchomienia pompy.
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure-tank/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.
@@ -602,6 +602,8 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 Serwer ma też testy hydroforu w [`server/water-pressure-tank.test.ts`](server/water-pressure-tank.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
 
+Przebieg 2026-09-29 (dokumentacja i komentarze, zmiany tylko w komentarzach): serwer 73/73 + `tsc` OK, klient `vite build` OK, `co` 64/64, CHPC 54/54 + build Pro Mini (Flash 95,0%, 29 174 B), hydrofor 23/23 + build `esp32c3`. Zrzuty ekranów w dokumentacji powstały na lokalnej bazie z danymi z `node scripts/seed-local.mjs` (czyści bazę lokalną; 7 dni HP i PV z publicznego API produkcji z zanonimizowanymi identyfikatorami, uruchomienia hydroforu i odczyty wodomierza wygenerowane; po nim zrestartować serwer).
+
 Przebieg 2026-09-28 (hydrofor): serwer 71/71 + `tsc` OK, klient `vite build` OK, `co` 64/64 + build `esp32dev`, CHPC 54/54 + build Pro Mini, hydrofor 20/20 + build `esp32c3`; widoki hydroforu sprawdzone w Edge przy 360 i 1280 px (bez przewijania w poziomie i błędów konsoli). E2E łańcucha pompy nie był uruchamiany (nieaktualny, punkt 15).
 
 Wcześniejszy pełny przebieg (2026-09-24): serwer chpc-web 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
@@ -632,7 +634,7 @@ Wyniki trafiają do `test/raport-testow/` (tylko lokalnie, poza gitem): `e2e-wyn
 
 ## 13. Sterownik `co` (ESP32, `devices/co`)
 
-Firmware PlatformIO (`esp32dev`), kod w `devices/co/src/`. Szczegóły: `devices/co/README.md` i `devices/co/docs/server-driven-refactor-2026-09-20.md`.
+Firmware PlatformIO (`esp32dev`), kod w `devices/co/src/`. Dokumentacja: `devices/co/docs/` (trzy części, PL i EN); historia: `devices/co/docs/server-driven-refactor-2026-09-20.md`.
 
 - **Odczyty.** Co 10 s (sprężarka pracuje) lub 30 s (spoczynek) odpytuje CHPC. 3 s po ostatniej komendzie sterującej z serii czyta pompę od razu, sprawdza, czy komendy doszły, i wysyła świeży stan do `hp/add`; zwykły cykl liczy się wtedy od nowa. Taki szybki odczyt jest najwyżej co 10 s, żeby pompa odrzucająca komendę nie była czytana w kółko. Niezależnie od tego co 60 s i zaraz po starcie odpytuje DTU Hoymiles (Modbus, dwa zapytania po pięć portów: od 0x1000 i od 0x10C8, bo DTU numeruje porty co 0x28 adresów, choć rekord ma 20 rejestrów). Odczyt PV idzie osobno na `pv/add` (sekcja 5a). Szacuje COP zbiornika 300 l w każdym cyklu grzania.
 - **Strony lokalne:** `/telemetry.json` to telemetria HP, a `/pv.json` to odczyt PV z panelami. Odpowiedź RS-485 na zapytanie `0x01` do `co` (adres `0x10`) nadal zawiera `PV` i `pv_power` w jednym JSON-ie.
@@ -664,11 +666,11 @@ Na tej samej magistrali (9600 8N1, półdupleks) są: CHPC `0x41`, DTU `0x69` (M
 
 ## 14. Firmware CHPC (Pro Mini, `devices/chpc`)
 
-Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro Mini (ATmega328P). Cały firmware to jeden plik `devices/chpc/src/CHPC_firmware.ino`. Szczegóły: `devices/chpc/CLAUDE.md`.
+Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro Mini (ATmega328P). Cały firmware to jeden plik `devices/chpc/src/CHPC_firmware.ino`. Dokumentacja: `devices/chpc/docs/` (trzy części, PL i EN); szczegóły dla agenta: `devices/chpc/CLAUDE.md`. Firmware nie wysyła klucza z wersją (`FW`) i nigdy go nie miał w żadnym commicie.
 
 - Steruje sprężarką, pompami strony gorącej i zimnej, grzałką karteru i zaworem 4-drogowym; prowadzi silnik krokowy EEV, czyta czujniki DS18B20 i mierzy moc przekładnikiem prądowym. Ma wyświetlacz 1602 i przyciski.
 - Zabezpieczenia i ich kody błędów opisuje punkt 5 („Błędy sterownika”). Po 5 błędach sterownik się blokuje: odpowiada po RS-485, ale nie steruje, do czasu `0x10` albo `0x11`.
-- Limit mocy równy dokładnie 3200 W celowo wyłącza zabezpieczenie przepływu („Err CP”).
+- Limit mocy 3200 W lub niższy celowo wyłącza zabezpieczenie przepływu („Err CP”); ustawia się w tym celu 3200 W. Próg mocy minimalnej (kod 4) to stałe ≈ 914 W, niezależne od limitu.
 - Pamięć Flash jest zajęta w 95,0% (29 174 B z 30 720 B, stan na 2026-09-28), więc nowe klucze JSON trzeba dodawać oszczędnie.
 - Tryb produkcyjny RS-485 to `RS485_PYTHON`: magistrala niesie tylko odpowiedzi dla `co`. Build `wokwi` (`RS485_HUMAN`) nie może trafić na pompę podłączoną do `co`.
 

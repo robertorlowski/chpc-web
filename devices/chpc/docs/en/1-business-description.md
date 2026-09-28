@@ -54,7 +54,7 @@ Every event reaches the application as an error code with a time. Five "counted"
 - **No clock**: the controller does not know the time; the cloud timestamps events (accuracy 10–30 s).
 - **Program memory is almost full** (95%): every new key in the JSON reply must be added sparingly.
 - **Commands are not acknowledged**: the `co` controller checks their effect in the next reading.
-- **A power limit of 3200 W or less disables the flow protection** (on purpose, for a power source on which the flow sensor is unreliable).
+- **A power limit of 3200 W or less disables the flow protection** (on purpose, for a power source on which the flow sensor is unreliable) — **including the default limit of 3200 W**. For the protection to work, the limit must be above 3200 W.
 
 ## Glossary
 

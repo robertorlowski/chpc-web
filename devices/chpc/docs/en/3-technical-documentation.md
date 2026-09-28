@@ -134,7 +134,7 @@ Wokwi scenarios: `test-wokwi/`. Example run chart: `docs/m_t_graph_example.png`.
 ## Known issues
 
 - **Flow protection lives in the LCD block**: it works only with `DISPLAY_1602` and every 5 s.
-- **With a power limit ≤ 3200 W the flow protection is off** (on purpose; not only at exactly 3200 W).
+- **With a power limit ≤ 3200 W the flow protection is off**: on purpose, but it applies to every limit of 1001–3200 W, **including the default (3200 W)**. Setting a lower, "safer" limit disables the protection. Proposal from the 2026-09-25 audit (local report `test/raport-testow/AUDYT-2026-09-25.md`, outside git): a separate EEPROM bit and a check outside the LCD block.
 - **While locked the control cycle does not run**: no frost protection, temperatures in the JSON are not refreshed.
 - **Force start is cleared only by a thermostat stop** (and a restart); a stop by a protection keeps it.
 - **A relay fault leaves the manual pump overrides on** until `0x09`/`0x0A`, the menu or a restart.
