@@ -19,6 +19,9 @@
 | `core/models/device.model.ts` | model Mongoose `devices`: schemat urządzenia, `properties`, osadzone harmonogramy i starsze `settings` |
 | `core/controllers/device.controller.ts` | obsługa tras urządzeń; odpowiedź zgłoszenia z `settings` z rejestru |
 | `core/controllers/meteo.controller.ts` | `GET /temperature` |
+| `core/controllers/firmware.controller.ts` | `/firmware/:rodzaj...`: stan, wgranie pliku, oferta, pobranie; tylko rodzaje z `firmwareUpdates` |
+| `core/models/firmware.model.ts` | `firmware_images` (plik `.bin`, rozmiar, SHA-256) i `firmware_offers` (oferowana i poprzednia wersja, `enabled`) |
+| `core/services/firmware.service.ts` | zapis i walidacja obrazu (nagłówek ESP32, ≤ 1 310 720 B), oferta dla sterownika, przycinanie do bieżącej i jednej poprzedniej wersji |
 | `core/services/device.service.ts` | lista, utworzenie, zgłoszenie, nazwa, domyślny, odczyt i zapis `properties` |
 | `core/services/device-info.service.ts` | typ i `deviceId` urządzenia w pamięci (do rekordów danych modułów) |
 | `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie |
@@ -40,7 +43,8 @@
 | `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
 | `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
 | `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) |
-| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek |
+| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; odnośnik „Aktualizacje firmware” |
+| `core/pages/Firmware/` | `/firmware`: wgranie pliku `.bin`, włączenie oferty, lista sterowników z wersją, wersje w bazie (pobranie, przywrócenie); poza kontekstem urządzenia |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
 ## API
@@ -87,6 +91,7 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex); ten sam SN mogą mieć urządzenia różnych rodzajów (role jednego sterownika), bez indeksu unikalnego |
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
+| `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
 | `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
 | `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |

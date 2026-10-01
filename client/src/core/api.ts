@@ -1,8 +1,8 @@
 // API urządzeń wspólne dla wszystkich rodzajów sterowników: /api/devices (lista, nazwa, domyślny)
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
-import { Requests } from './http';
-import { Device, DeviceProperties } from './types';
+import { Requests, apiUrl } from './http';
+import { Device, DeviceProperties, DeviceType, FirmwareSummary } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -30,5 +30,28 @@ export class DeviceRequests {
 
   static updateDeviceProperties(properties: DeviceProperties) {
     return Requests.put('/device/properties', properties) as Promise<DeviceProperties>;
+  }
+}
+
+// Firmware sterowników przez sieć (OTA): bez rootId, bo dotyczy rodzaju sterownika, nie jednego
+// urządzenia. Używane przez stronę /firmware.
+export class FirmwareRequests {
+  // przy błędzie zwraca null (Requests.get nie rzuca wyjątku)
+  static get(type: DeviceType): Promise<FirmwareSummary | null> {
+    return Requests.get(`/firmware/${type}`, false) as Promise<FirmwareSummary | null>;
+  }
+
+  // zapisuje plik i ustawia go jako oferowany; serwer liczy SHA-256 i sprawdza obraz ESP32
+  static upload(type: DeviceType, version: string, file: Blob): Promise<FirmwareSummary> {
+    return Requests.putFile(`/firmware/${type}/${encodeURIComponent(version)}`, file);
+  }
+
+  // włączenie i wyłączenie oferty albo przywrócenie wersji, której plik jest jeszcze w bazie
+  static update(type: DeviceType, change: { enabled?: boolean; version?: string }): Promise<FirmwareSummary> {
+    return Requests.put(`/firmware/${type}`, change, false) as Promise<FirmwareSummary>;
+  }
+
+  static fileUrl(type: DeviceType, version: string) {
+    return apiUrl(`/firmware/${type}/${encodeURIComponent(version)}.bin`);
   }
 }

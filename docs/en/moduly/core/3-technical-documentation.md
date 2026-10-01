@@ -19,6 +19,9 @@
 | `core/models/device.model.ts` | Mongoose model `devices`: device schema, `properties`, embedded schedules and legacy `settings` |
 | `core/controllers/device.controller.ts` | device routes; the registration reply includes `settings` from the registry |
 | `core/controllers/meteo.controller.ts` | `GET /temperature` |
+| `core/controllers/firmware.controller.ts` | `/firmware/:kind...`: state, file upload, offer, download; only kinds with `firmwareUpdates` |
+| `core/models/firmware.model.ts` | `firmware_images` (`.bin` file, size, SHA-256) and `firmware_offers` (offered and previous version, `enabled`) |
+| `core/services/firmware.service.ts` | image validation and storage (ESP32 header, ≤ 1,310,720 B), offer for the controller, pruning to the current and one previous version |
 | `core/services/device.service.ts` | list, create, register, name, default, read and write `properties` |
 | `core/services/device-info.service.ts` | device kind and `deviceId` cached in memory (for module data records) |
 | `core/services/calendar.service.ts` | Polish holidays, day of the week in Warsaw |
@@ -41,6 +44,7 @@
 | `core/components/Notification.tsx` | short message at the top of the screen |
 | `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) |
 | `core/pages/Devices/` | controller choice screen: tiles, default star, pencil |
+| `core/pages/Firmware/` | `/firmware`: `.bin` upload, offer switch, controller list with version, versions in the database (download, restore); outside the device context |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API
@@ -87,6 +91,7 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `deviceId` | string | controller SN (ESP32 MAC, 12 hex characters); devices of different kinds may share an SN (roles of one controller), no unique index |
 | `name` | string | user-given name, empty by default |
 | `isDefault` | boolean | default controller, at most one |
+| `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
 | `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
 | `settings` | object | legacy heat pump time settings (not used by the scheduler) |

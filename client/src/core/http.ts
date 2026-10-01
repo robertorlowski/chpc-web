@@ -43,6 +43,9 @@ function prefixMocks(path: string) {
 
 }
 
+// Pełny adres endpointu API (np. odnośnik do pobrania pliku firmware).
+export const apiUrl = (path: string) => prefixMocks(path);
+
 // x-api-key jest wkompilowany w klienta, więc jawny dla każdego; kontrola klucza na serwerze
 // (verifyApiKey) jest obecnie wyłączona.
 export class Requests {
@@ -110,6 +113,22 @@ export class Requests {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+  }
+
+  // PUT z surową treścią (plik .bin); w odróżnieniu od put rzuca wyjątek z komunikatem serwera
+  // (pole message), bo walidacja pliku zwraca konkretną przyczynę odmowy.
+  static async putFile(path: string, file: Blob) {
+    const response = await fetch(prefixMocks(path), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+      },
+      body: file,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body?.message ?? `HTTP error! status: ${response.status}`);
+    return body;
   }
 
   static async put(path: string, data: unknown, includeDevice = true) {

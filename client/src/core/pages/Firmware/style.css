@@ -1,0 +1,161 @@
+/* Strona /firmware: karty jak w Ustawieniach (.resource), tabele w przewijanym kontenerze, na telefonie karty od krawędzi do krawędzi. */
+.firmware-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 0 1rem;
+}
+
+.firmware-page > p {
+  width: min(640px, calc(100vw - 2rem));
+  margin: 0 0 0.5rem;
+  box-sizing: border-box;
+}
+
+.firmware-lead {
+  color: #555;
+}
+
+.firmware-page .firmware-card,
+.firmware-page .firmware-card:hover {
+  width: min(640px, calc(100vw - 2rem));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.firmware-title {
+  width: 100%;
+  margin: 0.2rem 0 0.25rem;
+  padding-top: 0.2rem;
+  border-bottom: 1px solid #ccc;
+}
+
+.firmware-row,
+.firmware-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.firmware-row .label {
+  flex: 0 0 9.5rem;
+  font-weight: 600;
+}
+
+.firmware-row input[type="text"],
+.firmware-row input[type="file"] {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font: inherit;
+}
+
+.firmware-hint {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.firmware-error {
+  color: #b00020;
+}
+
+.firmware-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.firmware-page button {
+  min-height: 2.25rem;
+  margin: 0;
+  padding: 0 1rem;
+  font: inherit;
+  color: #fff;
+  background: #1481a5;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.firmware-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.firmware-scroll {
+  overflow-x: auto;
+}
+
+.firmware-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.firmware-table th,
+.firmware-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #ddd;
+}
+
+.firmware-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555;
+}
+
+.firmware-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.firmware-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.firmware-pill {
+  display: inline-block;
+  padding: 0.05rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.firmware-pill.ok {
+  background: #e3f2e6;
+  color: #2b7a3d;
+}
+
+.firmware-pill.warn {
+  background: #fdf0d5;
+  color: #9a5b00;
+}
+
+.firmware-pill.off {
+  background: #e8edef;
+  color: #5b6a72;
+}
+
+@media (max-width: 560px) {
+  body .firmware-page .firmware-card,
+  body .firmware-page .firmware-card:hover {
+    width: 100vw;
+    border-radius: 0;
+  }
+
+  .firmware-row .label {
+    flex-basis: 100%;
+  }
+}

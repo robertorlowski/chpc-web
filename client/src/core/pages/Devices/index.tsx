@@ -2,7 +2,7 @@
 // domyślnego (PUT /api/devices/:rootId/default) i ołówek otwierający popup „Dane sterownika”.
 // Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce.
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
 import { Device } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
@@ -109,6 +109,8 @@ export const Devices: React.FC = () => {
           <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
         )}
       </section>
+
+      <p className="device-selection-firmware"><Link to="/firmware">Aktualizacje firmware</Link></p>
 
       {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
     </main>

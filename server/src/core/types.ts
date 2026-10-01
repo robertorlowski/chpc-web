@@ -37,6 +37,9 @@ export interface Device {
   name?: string;
   /** sterownik otwierany po starcie aplikacji; najwyżej jeden */
   isDefault?: boolean;
+  /** wersja firmware zgłoszona przez sterownik przy ostatnim zgłoszeniu (pole version) i kiedy */
+  firmwareVersion?: string;
+  firmwareSeenAt?: Date;
   // pompa ciepła: starsze ustawienia czasowe i harmonogramy
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];

@@ -37,7 +37,28 @@ export type Device = {
   deviceId: string;
   name: string;
   isDefault?: boolean;
+  // wersja firmware zgłoszona przy ostatnim uruchomieniu sterownika i czas zgłoszenia (ISO);
+  // starsze sterowniki ich nie wysyłają
+  firmwareVersion?: string;
+  firmwareSeenAt?: string;
   properties?: DeviceProperties;
+};
+
+// Stan firmware rodzaju sterownika (GET /api/firmware/:rodzaj): oferta i pliki w bazie
+// (bieżący i jeden poprzedni).
+export type FirmwareImage = {
+  version: string;
+  size: number;
+  sha256: string;
+  createdAt: string;
+  active: boolean;
+};
+
+export type FirmwareSummary = {
+  enabled: boolean;
+  version: string | null;
+  previousVersion: string | null;
+  images: FirmwareImage[];
 };
 
 // Widok w menu: ścieżka, nazwa i ikona w nagłówku oraz strona.

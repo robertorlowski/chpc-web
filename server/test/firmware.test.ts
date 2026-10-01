@@ -160,4 +160,21 @@ describe('Firmware sterowników (OTA)', () => {
     const response = await register('AABBCCDDEE03', 'heat_pump');
     expect(response.body.settings?.firmware).toBeUndefined();
   });
+  it('zapisuje wersję firmware ze zgłoszenia i odświeża ją przy kolejnym', async () => {
+    const withVersion = (version?: string) =>
+      request(app).post('/api/devices/register').send({ deviceId: 'AABBCCDDEE10', deviceType: 'water-pressure-tank', version });
+    const listed = async () =>
+      (await request(app).get('/api/devices')).body.find((device: { deviceId: string }) => device.deviceId === 'AABBCCDDEE10');
+
+    expect((await withVersion('1.0.0')).body.firmwareVersion).toBe('1.0.0');
+    expect((await listed()).firmwareVersion).toBe('1.0.0');
+
+    await withVersion('1.0.1');
+    expect((await listed()).firmwareVersion).toBe('1.0.1');
+
+    // starszy firmware nie wysyła wersji: zostaje ostatnia znana
+    await withVersion();
+    expect((await listed()).firmwareVersion).toBe('1.0.1');
+    expect((await listed()).firmwareSeenAt).toBeTruthy();
+  });
 });

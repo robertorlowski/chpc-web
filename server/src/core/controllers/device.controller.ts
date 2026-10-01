@@ -19,6 +19,8 @@ const toPublicDevice = (device: DeviceDocument) => ({
   deviceId: device.deviceId,
   name: device.name,
   isDefault: device.isDefault ?? false,
+  firmwareVersion: device.firmwareVersion,
+  firmwareSeenAt: device.firmwareSeenAt,
 });
 
 // Ustawienia, które sterownik pobiera w odpowiedzi na zgłoszenie (tylko rodzaje, które je mają).
@@ -80,13 +82,12 @@ const optionalText = (value: unknown) =>
 // Zgłoszenie sterownika: rootId i (hydrofor) ustawienia do zapisania w sterowniku.
 // Sterownik woła je przy każdym starcie; 201 = nowe urządzenie, 200 = znane.
 // Brak deviceType oznacza pompę ciepła. Oferta firmware (OTA) dla rodzajów z firmwareUpdates.
-// Wersje oprogramowania (firmwareVersion,
-// components) nie są obsługiwane: ani sterowniki ich nie wysyłają, ani serwer nie zapisuje.
+// Pole version (wersja firmware, najwyżej 32 znaki) jest zapisywane w firmwareVersion.
 export async function registerDeviceEntry(
-  req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string }>,
+  req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string; version?: string }>,
   res: Response,
 ) {
-  const { deviceType = DeviceType.HP, deviceId, name } = req.body;
+  const { deviceType = DeviceType.HP, deviceId, name, version } = req.body;
 
   if (!deviceId?.trim()) {
     return res.status(400).json({ message: 'deviceId jest wymagane.' });
@@ -96,7 +97,9 @@ export async function registerDeviceEntry(
   }
 
   try {
-    const { device, created } = await registerDevice(deviceType, deviceId.trim(), optionalText(name));
+    const { device, created } = await registerDevice(
+      deviceType, deviceId.trim(), optionalText(name), optionalText(version)?.slice(0, 32),
+    );
     // oferta firmware (OTA) tylko dla rodzajów, które ją obsługują i gdy jest włączona
     const firmware = getDeviceTypeModule(device.deviceType).firmwareUpdates
       ? await getFirmwareOffer(device.deviceType, serverBaseUrl(req))

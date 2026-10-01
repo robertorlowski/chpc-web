@@ -59,6 +59,9 @@ const DeviceSchema = new Schema<DeviceDocument>(
       trim: true,
     },
     isDefault: { type: Boolean, default: false },
+    // wersja firmware ze zgłoszenia sterownika (strona /firmware); starsze sterowniki jej nie wysyłają
+    firmwareVersion: { type: String, trim: true },
+    firmwareSeenAt: { type: Date },
     // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },
