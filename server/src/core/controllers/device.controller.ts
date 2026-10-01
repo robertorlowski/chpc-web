@@ -9,6 +9,8 @@ import {
   updateDeviceName, updateDeviceProperties,
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
+import { getFirmwareOffer } from '../services/firmware.service';
+import { serverBaseUrl } from './firmware.controller';
 
 // Kształt urządzenia w API; rootId to _id dokumentu w kolekcji devices.
 const toPublicDevice = (device: DeviceDocument) => ({
@@ -77,7 +79,8 @@ const optionalText = (value: unknown) =>
 
 // Zgłoszenie sterownika: rootId i (hydrofor) ustawienia do zapisania w sterowniku.
 // Sterownik woła je przy każdym starcie; 201 = nowe urządzenie, 200 = znane.
-// Brak deviceType oznacza pompę ciepła. Wersje oprogramowania (firmwareVersion,
+// Brak deviceType oznacza pompę ciepła. Oferta firmware (OTA) dla rodzajów z firmwareUpdates.
+// Wersje oprogramowania (firmwareVersion,
 // components) nie są obsługiwane: ani sterowniki ich nie wysyłają, ani serwer nie zapisuje.
 export async function registerDeviceEntry(
   req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string }>,
@@ -94,9 +97,14 @@ export async function registerDeviceEntry(
 
   try {
     const { device, created } = await registerDevice(deviceType, deviceId.trim(), optionalText(name));
+    // oferta firmware (OTA) tylko dla rodzajów, które ją obsługują i gdy jest włączona
+    const firmware = getDeviceTypeModule(device.deviceType).firmwareUpdates
+      ? await getFirmwareOffer(device.deviceType, serverBaseUrl(req))
+      : undefined;
+    const settings = controllerSettings(device) as object | undefined;
     return res.status(created ? 201 : 200).json({
       ...toPublicDevice(device),
-      settings: controllerSettings(device),
+      settings: firmware ? { ...settings, firmware } : settings,
     });
   } catch (error) {
     return res.status(400).json({ message: String(error) });

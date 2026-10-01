@@ -7,6 +7,8 @@ import { verifyApiKey } from './middleware/auth'
 import { resolveDeviceContext } from './middleware/device-context'
 
 const app = express()
+// Za proxy Render: req.protocol ma być https (adres pliku firmware w ofercie dla sterowników).
+app.set('trust proxy', 1)
 
 // Kontrola klucza API wyłączona: /operation/set i /hp/clear są obecnie otwarte.
 // app.use(verifyApiKey);

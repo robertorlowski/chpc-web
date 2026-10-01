@@ -14,20 +14,6 @@ export const DEFAULT_WATER_PRESSURE_TANK_PROPERTIES: DeviceProperties = {
   ],
 };
 
-// Aktualizacja firmware przez sieć (OTA): wersja, adres binarki (asset wydania na
-// GitHubie) i SHA-256 ze zmiennych środowiskowych serwera. Bez wersji, adresu
-// albo sumy (sterownik i tak odrzuca ofertę bez niej)
-// pole `firmware` jest pomijane, więc sterownik niczego nie aktualizuje.
-// Nowe wydanie: wgrać firmware.bin do Release, ustawić te zmienne na Render
-// i zrestartować usługę.
-const firmwareOffer = () => {
-  const version = process.env.WPT_FIRMWARE_VERSION?.trim();
-  const url = process.env.WPT_FIRMWARE_URL?.trim();
-  const sha256 = process.env.WPT_FIRMWARE_SHA256?.trim().toLowerCase();
-  if (!version || !url || !sha256) return undefined;
-  return { version, url, sha256 };
-};
-
 // Hydrofor pobiera ustawienia raz na start, z odpowiedzi na zgłoszenie. Sterownik
 // ma zasilanie tylko w czasie pracy pompy, więc zmiana w aplikacji działa od
 // następnego uruchomienia. Format settings musi odpowiadać parseSettings w firmware
@@ -35,11 +21,12 @@ const firmwareOffer = () => {
 export const waterPressureTankDeviceType: DeviceTypeModule = {
   type: DeviceType.WATER_PRESSURE_TANK,
   initialProperties: DEFAULT_WATER_PRESSURE_TANK_PROPERTIES,
+  // oferta firmware (wersja, adres, SHA-256) jest dopisywana do settings przy zgłoszeniu
+  firmwareUpdates: true,
   controllerSettings: (properties) => ({
     compressor_seconds: properties.compressor_seconds,
     pressure_low: properties.pressure_low,
     pressure_high: properties.pressure_high,
     tanks: properties.tanks ?? [],
-    firmware: firmwareOffer(),
   }),
 };

@@ -30,7 +30,8 @@ export async function resolveDeviceContext(
   next: NextFunction,
 ) {
   // PUT /devices/:rootId niesie identyfikator w ścieżce, nie w query string
-  if (publicPaths.has(req.path) || req.path.startsWith('/devices/')) return next();
+  // /firmware/...: strona firmware i pobieranie pliku przez sterownik, bez urządzenia
+  if (publicPaths.has(req.path) || req.path.startsWith('/devices/') || req.path.startsWith('/firmware/')) return next();
 
   const rootId = queryText(req.query.rootId);
   const deviceId = queryText(req.query.deviceId);

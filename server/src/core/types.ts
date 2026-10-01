@@ -52,4 +52,6 @@ export interface DeviceTypeModule {
   initialProperties?: DeviceProperties;
   /** ustawienia odsyłane sterownikowi w odpowiedzi na zgłoszenie (pole settings) */
   controllerSettings?: (properties: DeviceProperties) => unknown;
+  /** sterownik aktualizuje firmware przez sieć: odpowiedź na zgłoszenie niesie settings.firmware (core/services/firmware.service.ts) */
+  firmwareUpdates?: boolean;
 }

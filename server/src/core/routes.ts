@@ -3,6 +3,7 @@
 import express from 'express'
 
 import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaultDevice, updateDevice, updateProperties } from './controllers/device.controller'
+import { downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
@@ -21,6 +22,13 @@ router.put('/devices/:rootId', updateDevice)
 router.put('/devices/:rootId/default', updateDefaultDevice)
 router.get('/device/properties', getProperties)
 router.put('/device/properties', updateProperties)
+
+// Firmware sterowników przez sieć (OTA): oferta, wgranie pliku, pobranie.
+// Plik .bin to surowa treść żądania (application/octet-stream), bez multipart.
+router.get('/firmware/:deviceType', getFirmware)
+router.put('/firmware/:deviceType', updateFirmwareOffer)
+router.put('/firmware/:deviceType/:version', express.raw({ type: 'application/octet-stream', limit: '2mb' }), uploadFirmware)
+router.get('/firmware/:deviceType/:version', downloadFirmware)
 
 router.get('/temperature', getTemperature)
 
