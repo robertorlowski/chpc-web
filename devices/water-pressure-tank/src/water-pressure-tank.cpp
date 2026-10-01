@@ -4,17 +4,22 @@
 // uruchomienia do chmury. Opis: docs/water-pressure-tank.md.
 // Kontrakt z chmurą: POST devices/register (zgłoszenie, rootId + settings),
 // POST water-pressure-tank/add (co 1 s), PUT water-pressure-tank/settings
-// (czas kompresora z /install). NVS: przestrzeń „wp”, klucze niżej i w run_report.hpp.
+// (czas kompresora z /install). Aktualizacja przez sieć (OTA): oferta w
+// settings.firmware odpowiedzi na zgłoszenie, ota.hpp i downloadFirmware().
+// NVS: przestrzeń „wp”, klucze niżej i w run_report.hpp.
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <Update.h>
 #include <esp_mac.h>
+#include <mbedtls/sha256.h>
 
 #include <compressor.hpp>
 #include <firmware.hpp>
+#include <ota.hpp>
 #include <run_report.hpp>
 #include <secrets.h>
 #include <settings.hpp>
@@ -33,10 +38,14 @@ constexpr const char *KEY_NEXT_RUN = "run_next";
 // czas kompresora zmieniony na /install, jeszcze niewysłany do chmury
 constexpr const char *KEY_COMPRESSOR_PENDING = "comp_pending";
 
+// wersja, po której pobraniu sterownik ostatnio się zrestartował (ochrona przed pętlą OTA)
+constexpr const char *KEY_OTA_TRIED = "ota_tried";
+
 constexpr uint32_t TICK_MS = 1000;
 constexpr uint32_t REGISTER_RETRY_MS = 10000;
 constexpr uint32_t COMPRESSOR_SEND_RETRY_MS = 10000;
 constexpr uint16_t HTTP_TIMEOUT_MS = 2000;
+constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 constexpr int HTTP_CONFLICT = 409;
 
 const IPAddress AP_ADDRESS(10, 11, 16, 1);
@@ -66,6 +75,14 @@ int lastHttpStatus = 0;
 uint32_t lastDeliveredMs = 0;
 bool compressorPending = false;
 uint32_t lastCompressorSendMs = 0;
+
+OtaOffer otaOffer;
+bool otaOfferReceived = false;
+// jedna próba na uruchomienie; nieudane pobranie ponowi się przy następnym
+bool otaAttempted = false;
+String otaStatus;
+bool uploadAccepted = false;
+bool uploadFinished = false;
 
 // Blob w NVS dla kolejki i bieżącego uruchomienia. Blob o innym rozmiarze
 // (np. po zmianie struktury w nowej wersji) jest traktowany jak brak klucza.
@@ -170,6 +187,7 @@ void registerDevice()
   request["deviceId"] = serial;
   request["deviceType"] = DEVICE_TYPE;
   request["name"] = DEVICE_NAME;
+  request["version"] = FW_VERSION;
   String body;
   serializeJson(request, body);
 
@@ -190,6 +208,7 @@ void registerDevice()
     preferences.putString(KEY_SETTINGS, serializeSettings(settings).c_str());
     compressor.setSeconds(settings.compressorSeconds);
   }
+  otaOfferReceived = parseOtaOffer(reply["settings"], otaOffer);
   registeredThisBoot = true;
 }
 
@@ -213,6 +232,94 @@ bool sendRun(const RunRecord &run, bool queued)
   const bool ok = post(requestUrl("water-pressure-tank/add"), buildRunReport(run, queued).c_str());
   forgetRootIdOnConflict();
   return ok;
+}
+
+// Pobiera obraz z oferty prosto do nieaktywnej partycji OTA, licząc SHA-256
+// w locie. Obraz jest aktywowany dopiero po zgodnej sumie, więc przerwanie
+// pobierania albo zasilania nie psuje działającego firmware. Blokuje pętlę
+// (kilkanaście sekund), dlatego wołane tylko przy wyłączonym kompresorze.
+bool downloadFirmware(const OtaOffer &offer)
+{
+  secureClient.stop();  // zwalnia pamięć połączenia keep-alive na czas drugiego TLS
+  WiFiClientSecure client;
+  client.setInsecure();  // integralność daje SHA-256 z odpowiedzi chmury
+  HTTPClient download;
+  // GitHub Releases przekierowuje na inną domenę
+  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  download.setConnectTimeout(OTA_TIMEOUT_MS);
+  download.setTimeout(OTA_TIMEOUT_MS);
+  if (!download.begin(client, offer.url.c_str())) return false;
+  const int status = download.GET();
+  const int total = download.getSize();
+  if (status != 200 || total <= 0 || !Update.begin(total)) {
+    otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    download.end();
+    return false;
+  }
+
+  mbedtls_sha256_context sha;
+  mbedtls_sha256_init(&sha);
+  mbedtls_sha256_starts(&sha, 0);
+  WiFiClient *stream = download.getStreamPtr();
+  uint8_t buffer[1024];
+  int remaining = total;
+  uint32_t lastDataMs = millis();
+  bool ok = true;
+  while (remaining > 0) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      if (!download.connected() || millis() - lastDataMs > OTA_TIMEOUT_MS) { ok = false; break; }
+      delay(1);
+      continue;
+    }
+    const size_t count = stream->readBytes(buffer, min(min(available, sizeof(buffer)), static_cast<size_t>(remaining)));
+    mbedtls_sha256_update(&sha, buffer, count);
+    if (Update.write(buffer, count) != count) { ok = false; break; }
+    remaining -= count;
+    lastDataMs = millis();
+  }
+  download.end();
+
+  uint8_t digest[32];
+  mbedtls_sha256_finish(&sha, digest);
+  mbedtls_sha256_free(&sha);
+  char hex[65];
+  for (int index = 0; index < 32; index++) snprintf(hex + index * 2, 3, "%02x", digest[index]);
+
+  if (!ok || remaining != 0) {
+    Update.abort();
+    otaStatus = "przerwane pobieranie";
+    return false;
+  }
+  if (offer.sha256 != hex) {
+    Update.abort();
+    otaStatus = "suma SHA-256 niezgodna";
+    return false;
+  }
+  if (!Update.end(true)) {
+    otaStatus = "obraz odrzucony";
+    return false;
+  }
+  return true;
+}
+
+// Aktualizacja przez sieć po udanym zgłoszeniu i wysłaniu uruchomienia, przy
+// wyłączonym kompresorze (pętla jest wtedy zablokowana i nie pilnowałaby
+// przekaźnika). Po zapisie obrazu restart; kompresor włączy się jak przy
+// każdym starcie. Wersję zapisujemy dopiero po zapisie obrazu: gdy po restarcie
+// FW_VERSION nadal nie zgadza się z ofertą, kolejna próba jest pomijana.
+void tryFirmwareUpdate()
+{
+  otaAttempted = true;
+  if (!otaOfferReceived) return;
+  const String tried = preferences.getString(KEY_OTA_TRIED, "");
+  if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
+  writeRelay(false);
+  otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
+  if (!downloadFirmware(otaOffer)) return;
+  preferences.putString(KEY_OTA_TRIED, otaOffer.version.c_str());
+  delay(100);
+  ESP.restart();
 }
 
 // Bieżące uruchomienie w NVS co 1 s: gdy zasilanie zniknie bez sieci, przy
@@ -261,6 +368,8 @@ void tick(uint32_t nowMs)
     queue.pop();
     queue.save(store);
   }
+
+  if (!otaAttempted && currentRun.delivered && queue.empty() && !compressor.running()) tryFirmwareUpdate();
 }
 
 // --- strony WWW ---
@@ -407,6 +516,13 @@ void handleInstall()
   page += "<div><small>Chmura: ";
   page += compressorPending ? "czeka na wysyłkę" : "aktualna";
   page += "</small></div><p><button type=\"submit\">Zapisz czas</button></p></form>";
+  // ręczne wgranie obrazu (awaryjnie, gdy OTA z chmury nie działa)
+  page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
+  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
+  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
+  page += "<div><small>Działa tylko przy wyłączonym kompresorze. Po wgraniu sterownik się restartuje.</small></div>";
+  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
   page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
@@ -442,6 +558,46 @@ void handleCompressorSeconds()
   server.send(303, "text/plain", "");
 }
 
+// Ręczne wgranie firmware.bin: UPLOAD_* wołane w trakcie odbioru pliku, potem
+// handleFirmwareDone. Przy pracującym kompresorze plik jest odrzucany, bo
+// odbiór blokuje pętlę i przekaźnik nie zostałby wyłączony w terminie.
+void handleFirmwareUpload()
+{
+  HTTPUpload &upload = server.upload();
+  switch (upload.status) {
+  case UPLOAD_FILE_START:
+    uploadFinished = false;
+    uploadAccepted = server.authenticate(INSTALL_USER, INSTALL_PASSWORD) && !compressor.running()
+      && Update.begin(UPDATE_SIZE_UNKNOWN);
+    break;
+  case UPLOAD_FILE_WRITE:
+    if (uploadAccepted && Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.abort();
+      uploadAccepted = false;
+    }
+    break;
+  case UPLOAD_FILE_END:
+    if (uploadAccepted) uploadFinished = Update.end(true);
+    uploadAccepted = false;
+    break;
+  default:
+    if (uploadAccepted) Update.abort();
+    uploadAccepted = false;
+    break;
+  }
+}
+
+void handleFirmwareDone()
+{
+  if (!authorized()) return;
+  server.send(uploadFinished ? 200 : 409, "text/plain; charset=utf-8",
+    uploadFinished ? "Firmware wgrany, sterownik się restartuje." : "Nie wgrano: kompresor pracuje albo plik jest niepoprawny.");
+  if (uploadFinished) {
+    delay(500);
+    ESP.restart();
+  }
+}
+
 // AP (10.11.16.1) działa przez cały czas pracy, równolegle z połączeniem do
 // sieci domowej (tryb AP+STA). Nieznane ścieżki pokazują stronę główną.
 void startNetwork()
@@ -459,6 +615,7 @@ void startNetwork()
   server.on("/restart", HTTP_POST, handleRestart);
   server.on("/install", handleInstall);
   server.on("/install/compressor", HTTP_POST, handleCompressorSeconds);
+  server.on("/install/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareUpload);
   server.onNotFound(handleRoot);
   server.begin();
 }

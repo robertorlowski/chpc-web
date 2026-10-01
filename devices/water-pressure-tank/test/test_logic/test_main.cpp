@@ -1,5 +1,5 @@
 // Testy native (pio test -e native) logiki hydroforu niezależnej od sprzętu:
-// kompresor, czas z /install, ustawienia, szacunek wody (te same przykłady co
+// kompresor, oferta OTA, czas z /install, ustawienia, szacunek wody (te same przykłady co
 // test serwera), JSON wysyłki i kolejka NVS na atrapie. Pliki .cpp z src są
 // dołączane bezpośrednio, bo środowisko native nie buduje src.
 #include <unity.h>
@@ -10,9 +10,11 @@
 #include <vector>
 
 #include <compressor.hpp>
+#include <ota.hpp>
 #include <run_report.hpp>
 #include <settings.hpp>
 #include "../../src/compressor.cpp"
+#include "../../src/ota.cpp"
 #include "../../src/run_report.cpp"
 #include "../../src/settings.cpp"
 
@@ -338,6 +340,55 @@ void test_first_start_has_no_previous_run()
   TEST_ASSERT_TRUE(queue.empty());
 }
 
+const char *SHA = "0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789abcdef";
+
+OtaOffer parseOffer(const char *json, bool &ok)
+{
+  JsonDocument settings;
+  deserializeJson(settings, json);
+  OtaOffer offer;
+  ok = parseOtaOffer(settings, offer);
+  return offer;
+}
+
+void test_ota_offer_is_parsed_and_sha_lowercased()
+{
+  bool ok = false;
+  const std::string json = std::string("{\"firmware\":{\"version\":\"1.0.1\",\"url\":\"https://github.com/x/firmware.bin\",\"sha256\":\"") + SHA + "\"}}";
+  OtaOffer offer = parseOffer(json.c_str(), ok);
+  TEST_ASSERT_TRUE(ok);
+  TEST_ASSERT_EQUAL_STRING("1.0.1", offer.version.c_str());
+  TEST_ASSERT_EQUAL_STRING("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", offer.sha256.c_str());
+}
+
+void test_incomplete_or_unsafe_ota_offer_is_ignored()
+{
+  bool ok = true;
+  parseOffer("{}", ok);
+  TEST_ASSERT_FALSE(ok);
+  parseOffer("{\"firmware\":{\"version\":\"1\",\"url\":\"http://x/f.bin\",\"sha256\":\"00\"}}", ok);
+  TEST_ASSERT_FALSE(ok);
+  const std::string plain = std::string("{\"firmware\":{\"version\":\"1\",\"url\":\"http://x/f.bin\",\"sha256\":\"") + SHA + "\"}}";
+  parseOffer(plain.c_str(), ok);
+  TEST_ASSERT_FALSE(ok);
+  const std::string noSha = "{\"firmware\":{\"version\":\"1\",\"url\":\"https://x/f.bin\"}}";
+  parseOffer(noSha.c_str(), ok);
+  TEST_ASSERT_FALSE(ok);
+}
+
+void test_update_only_for_a_different_version_not_tried_before()
+{
+  OtaOffer offer;
+  offer.version = "1.0.1";
+  TEST_ASSERT_TRUE(shouldUpdate(offer, "1.0.0", ""));
+  TEST_ASSERT_FALSE(shouldUpdate(offer, "1.0.1", ""));
+  // po restarcie obraz nadal ma starą wersję: bez drugiej próby (pętla)
+  TEST_ASSERT_FALSE(shouldUpdate(offer, "1.0.0", "1.0.1"));
+  // starsza wersja z chmury też jest przyjmowana (powrót do poprzedniego wydania)
+  offer.version = "0.9.0";
+  TEST_ASSERT_TRUE(shouldUpdate(offer, "1.0.0", "1.0.1"));
+}
+
 int main()
 {
   UNITY_BEGIN();
@@ -364,5 +415,8 @@ int main()
   RUN_TEST(test_local_compressor_time_applies_from_the_next_start_including_restart);
   RUN_TEST(test_cloud_settings_keep_unsent_local_compressor_time);
   RUN_TEST(test_compressor_time_from_the_install_form);
+  RUN_TEST(test_ota_offer_is_parsed_and_sha_lowercased);
+  RUN_TEST(test_incomplete_or_unsafe_ota_offer_is_ignored);
+  RUN_TEST(test_update_only_for_a_different_version_not_tried_before);
   return UNITY_END();
 }

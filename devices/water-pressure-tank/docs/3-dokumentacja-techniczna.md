@@ -80,16 +80,17 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 | `run_next` | następny `runId` (pierwszy losowy) |
 | `run_current` | bieżące uruchomienie (blob `RunRecord`, zapis co 1 s, z flagą `delivered`) |
 | `run_queue` | kolejka niedoręczonych uruchomień (blob; inny rozmiar = pusta) |
+| `ota_tried` | wersja, po której pobraniu sterownik ostatnio się zrestartował (ochrona przed pętlą aktualizacji) |
 
 ## Kontrakt z chmurą
 
 | Żądanie | Treść | Odpowiedź |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType, name}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[]}}` |
+| `POST devices/register` | `{deviceId: SN, deviceType, name, version}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
 | `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` | `{}`; 404 nieznany SN, 409 cudzy Root ID |
 | `PUT water-pressure-tank/settings?deviceId=&rootId=` | `{compressor_seconds}` | `{compressor_seconds}`; 400 zła wartość (znacznik i tak kasowany) |
 
-SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdzany (jak w `co`). Wersja firmware **nie jest** wysyłana (serwer jej nie obsługuje).
+SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdzany (jak w `co`). Wersja firmware (`FW_VERSION` w `firmware.hpp`) jest wysyłana w zgłoszeniu; serwer jej na razie nie zapisuje.
 
 ## Strony WWW (port 80)
 
@@ -100,12 +101,28 @@ SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdza
 | `POST /restart` | otwarty | ponowne uruchomienie kompresora na pełny czas |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, **bez restartu**, bo restart włączyłby kompresor), SN, Root ID, IP, stan chmury |
 | `POST /install/compressor` | Basic Auth | czas kompresora 1–3600 s (pełne sekundy) |
+| `POST /install/firmware` | Basic Auth | ręczne wgranie `firmware.bin` (multipart); odrzucane przy pracującym kompresorze; po wgraniu restart |
 
 Nieznany adres pokazuje stronę główną.
 
 | Strona główna | Instalacja |
 |---|---|
 | ![Strona główna](img/strona-glowna-telefon.png) | ![Instalacja](img/instalacja-telefon.png) |
+
+## Aktualizacja przez sieć (OTA)
+
+Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`app0`/`app1` po 1,28 MB; obraz zajmuje ok. 74%), więc nie wymaga zmian. Pierwsze wgranie firmware z OTA jest jeszcze po USB.
+
+1. Serwer dodaje do `settings` w odpowiedzi na zgłoszenie pole `firmware: {version, url, sha256}` ze zmiennych `WPT_FIRMWARE_VERSION`, `WPT_FIRMWARE_URL`, `WPT_FIRMWARE_SHA256` (bez wersji i adresu pola nie ma).
+2. Sterownik (`ota.cpp`) przyjmuje ofertę, gdy adres zaczyna się od `https://`, wersja jest niepusta, a `sha256` ma 64 znaki hex. Oferty bez sumy kontrolnej ignoruje.
+3. Pobranie startuje raz na uruchomienie, gdy: zgłoszenie się udało, bieżące uruchomienie zostało doręczone, kolejka jest pusta, **kompresor nie pracuje** (pobieranie blokuje pętlę na kilkanaście sekund i nie pilnowałaby przekaźnika) i wersja z oferty różni się od `FW_VERSION` (także starsza: powrót do poprzedniego wydania).
+4. `downloadFirmware()` pobiera obraz z GitHub Releases (śledzi przekierowania) prosto do nieaktywnej partycji, licząc SHA-256 w locie. Obraz jest aktywowany dopiero po zgodnej sumie (`Update.end`), więc przerwanie pobierania albo zasilania nie psuje działającego firmware. Potem restart; kompresor włącza się jak przy każdym starcie.
+5. Po zapisie obrazu wersja trafia do NVS (`ota_tried`). Gdy po restarcie `FW_VERSION` nadal nie zgadza się z ofertą (zapomniana zmiana wersji), kolejna próba jest pomijana. Nieudane pobranie ponawia się przy następnym uruchomieniu pompy.
+6. Awaryjnie plik `firmware.bin` można wgrać ręcznie na `/install` (sekcja „Firmware”).
+
+**Wydanie nowej wersji:** podnieść `FW_VERSION`, `pio run -d devices/water-pressure-tank`, `sha256sum .pio/build/esp32c3/firmware.bin`, wgrać `firmware.bin` do GitHub Release, ustawić na Render `WPT_FIRMWARE_VERSION`, `WPT_FIRMWARE_URL` (adres assetu) i `WPT_FIRMWARE_SHA256`, uruchomić build ręcznie. Sterownik pobierze obraz przy najbliższej pracy pompy dłuższej niż czas kompresora.
+
+**Uwagi:** pobieranie i serwer WWW nie mają testów na płytce (testy `native` obejmują `ota.cpp`); certyfikat nie jest sprawdzany, a integralność obrazu zapewnia SHA-256 z odpowiedzi chmury (ten sam kanał, więc nie chroni przed podszyciem się pod serwer). Restart po aktualizacji kończy bieżący zapis uruchomienia kilkanaście sekund przed faktycznym końcem pracy pompy i zaczyna nowy `runId`.
 
 ## Budowanie, testy, wgranie
 

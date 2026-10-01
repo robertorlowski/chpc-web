@@ -7,6 +7,10 @@
 
 // Typ urządzenia w chmurze; tylko w kodzie i w definicji urządzenia.
 constexpr const char *DEVICE_TYPE = "water-pressure-tank";
+// Wersja firmware: wysyłana w zgłoszeniu i porównywana z wersją oferowaną przez
+// chmurę (OTA). Podnieść przy każdym wydaniu, zanim obraz trafi do Release;
+// musi być taka sama jak WPT_FIRMWARE_VERSION na serwerze.
+constexpr const char *FW_VERSION = "1.0.0";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Hydrofor";
 

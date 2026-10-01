@@ -80,16 +80,17 @@ The server side (API, collections, water formula, water meter) is described in t
 | `run_next` | next `runId` (the first one random) |
 | `run_current` | current run (`RunRecord` blob, saved every 1 s, with a `delivered` flag) |
 | `run_queue` | queue of undelivered runs (blob; a different size = empty) |
+| `ota_tried` | version after downloading which the controller last restarted (guards against an update loop) |
 
 ## Cloud contract
 
 | Request | Body | Reply |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType, name}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[]}}` |
+| `POST devices/register` | `{deviceId: SN, deviceType, name, version}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
 | `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` | `{}`; 404 unknown SN, 409 foreign Root ID |
 | `PUT water-pressure-tank/settings?deviceId=&rootId=` | `{compressor_seconds}` | `{compressor_seconds}`; 400 invalid value (the flag is cleared anyway) |
 
-SN = factory MAC from eFuse, 12 hex characters. The server certificate is not checked (as in `co`). The firmware version is **not** sent (the server does not support it).
+SN = factory MAC from eFuse, 12 hex characters. The server certificate is not checked (as in `co`). The firmware version (`FW_VERSION` in `firmware.hpp`) is sent with the registration; the server does not store it yet.
 
 ## Web pages (port 80)
 
@@ -100,12 +101,28 @@ SN = factory MAC from eFuse, 12 hex characters. The server certificate is not ch
 | `POST /restart` | open | run the compressor again for the full time |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (empty password = unchanged; saving reconnects at once, **without a restart**, because a restart would start the compressor), SN, Root ID, IP, cloud state |
 | `POST /install/compressor` | Basic Auth | compressor time 1–3600 s (whole seconds) |
+| `POST /install/firmware` | Basic Auth | manual upload of `firmware.bin` (multipart); rejected while the compressor runs; restart afterwards |
 
 An unknown address shows the main page.
 
 | Main page | Installation |
 |---|---|
 | ![Main page](../img/strona-glowna-telefon.png) | ![Installation](../img/instalacja-telefon.png) |
+
+## Over-the-air update (OTA)
+
+The flash layout is the default Arduino-ESP32 table with two app partitions (`app0`/`app1`, 1.28 MB each; the image uses about 74%), so no change is needed. The first firmware with OTA still has to be flashed over USB.
+
+1. The server adds `firmware: {version, url, sha256}` to `settings` in the registration reply, from `WPT_FIRMWARE_VERSION`, `WPT_FIRMWARE_URL`, `WPT_FIRMWARE_SHA256` (no version or URL means no field).
+2. The controller (`ota.cpp`) accepts an offer when the URL starts with `https://`, the version is non-empty and `sha256` is 64 hex characters. Offers without a checksum are ignored.
+3. The download starts once per run when: registration succeeded, the current run was delivered, the queue is empty, **the compressor is not running** (the download blocks the loop for several seconds and would not watch the relay) and the offered version differs from `FW_VERSION` (an older one too: roll back to the previous release).
+4. `downloadFirmware()` fetches the image from GitHub Releases (following redirects) straight into the inactive partition, computing SHA-256 on the fly. The image is activated only after the checksum matches (`Update.end`), so an interrupted download or power loss does not break the running firmware. Then it restarts; the compressor starts as on any boot.
+5. After the image is written the version goes to NVS (`ota_tried`). If `FW_VERSION` still differs from the offer after the restart (forgotten version bump), the next attempt is skipped. A failed download is retried at the next pump run.
+6. As a fallback, `firmware.bin` can be uploaded by hand on `/install` (the "Firmware" section).
+
+**Releasing a new version:** bump `FW_VERSION`, `pio run -d devices/water-pressure-tank`, `sha256sum .pio/build/esp32c3/firmware.bin`, upload `firmware.bin` to a GitHub Release, set `WPT_FIRMWARE_VERSION`, `WPT_FIRMWARE_URL` (the asset URL) and `WPT_FIRMWARE_SHA256` on Render, trigger the build manually. The controller downloads the image on the next pump run longer than the compressor time.
+
+**Notes:** the download and the web server have no on-board tests (the `native` tests cover `ota.cpp`); the certificate is not checked and image integrity rests on the SHA-256 from the cloud reply (the same channel, so it does not protect against server impersonation). The restart after an update ends the current run record a few seconds before the pump actually stops and starts a new `runId`.
 
 ## Build, tests, flashing
 
