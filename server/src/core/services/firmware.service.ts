@@ -12,6 +12,7 @@ export const MAX_FIRMWARE_BYTES = 1310720;
 const ESP_IMAGE_MAGIC = 0xe9;
 // Wersja trafia do adresu pliku, więc tylko znaki bezpieczne w ścieżce.
 const VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z._-]{0,31}$/;
+export const MAX_DESCRIPTION_LENGTH = 500;
 
 export class FirmwareError extends Error {
   constructor(public status: number, message: string) {
@@ -23,9 +24,12 @@ export const isValidFirmwareVersion = (version: string) => VERSION_PATTERN.test(
 
 // Zapisuje obraz (ta sama wersja zostaje nadpisana) i od razu ustawia go jako
 // oferowany. Sumę SHA-256 liczy serwer, żeby nie trzeba było jej przepisywać.
-export async function saveFirmwareImage(deviceType: DeviceType, version: string, data: Buffer) {
+export async function saveFirmwareImage(deviceType: DeviceType, version: string, data: Buffer, description = '') {
   if (!isValidFirmwareVersion(version)) {
     throw new FirmwareError(400, 'Wersja: 1–32 znaki (litery, cyfry, kropka, myślnik, podkreślenie).');
+  }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    throw new FirmwareError(400, `Opis jest za długi: najwyżej ${MAX_DESCRIPTION_LENGTH} znaków.`);
   }
   if (data.length === 0 || data[0] !== ESP_IMAGE_MAGIC) {
     throw new FirmwareError(400, 'To nie jest obraz firmware ESP32 (oczekiwany plik .bin z pio run).');
@@ -37,7 +41,7 @@ export async function saveFirmwareImage(deviceType: DeviceType, version: string,
   const sha256 = createHash('sha256').update(data).digest('hex');
   await FirmwareImageModel.findOneAndUpdate(
     { deviceType, version },
-    { $set: { data, size: data.length, sha256 } },
+    { $set: { data, size: data.length, sha256, description } },
     { upsert: true },
   );
   await activateFirmware(deviceType, version);
@@ -62,6 +66,19 @@ export async function activateFirmware(deviceType: DeviceType, version: string) 
   });
 }
 
+// Usuwa plik wersji, która nie jest oferowana (oferowaną najpierw trzeba zastąpić inną).
+export async function deleteFirmwareImage(deviceType: DeviceType, version: string) {
+  const offer = await FirmwareOfferModel.findOne({ deviceType }).lean();
+  if (offer?.version === version) {
+    throw new FirmwareError(409, 'Nie można usunąć oferowanej wersji. Najpierw ustaw jako oferowaną inną.');
+  }
+  const result = await FirmwareImageModel.deleteOne({ deviceType, version });
+  if (result.deletedCount === 0) throw new FirmwareError(404, `Brak pliku firmware w wersji ${version}.`);
+  if (offer?.previousVersion === version) {
+    await FirmwareOfferModel.updateOne({ deviceType }, { $unset: { previousVersion: 1 } });
+  }
+}
+
 export async function setFirmwareEnabled(deviceType: DeviceType, enabled: boolean) {
   const result = await FirmwareOfferModel.updateOne({ deviceType }, { $set: { enabled } });
   if (result.matchedCount === 0) throw new FirmwareError(404, 'Nie wgrano jeszcze żadnego firmware.');
@@ -81,6 +98,7 @@ export async function getFirmwareSummary(deviceType: DeviceType) {
     images: images.map((image) => ({
       version: image.version,
       size: image.size,
+      description: image.description ?? '',
       sha256: image.sha256,
       createdAt: (image as unknown as { createdAt: Date }).createdAt,
       active: image.version === offer?.version,

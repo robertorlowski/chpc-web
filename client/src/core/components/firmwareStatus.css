@@ -1,0 +1,24 @@
+/* Plakietki stanu firmware (wspólne dla Ustawień sterownika i strony /firmware). */
+.firmware-pill {
+  display: inline-block;
+  padding: 0.05rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.firmware-pill.ok {
+  background: #e3f2e6;
+  color: #2b7a3d;
+}
+
+.firmware-pill.warn {
+  background: #fdf0d5;
+  color: #9a5b00;
+}
+
+.firmware-pill.off {
+  background: #e8edef;
+  color: #5b6a72;
+}

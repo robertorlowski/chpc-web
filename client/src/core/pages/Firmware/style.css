@@ -1,4 +1,4 @@
-/* Strona /firmware: karty jak w Ustawieniach (.resource), tabele w przewijanym kontenerze, na telefonie karty od krawędzi do krawędzi. */
+/* Strona /firmware/:deviceType: karty jak w Ustawieniach (.resource), na telefonie od krawędzi do krawędzi. Plakietki stanu: components/firmwareStatus.css. */
 .firmware-page {
   display: flex;
   flex-direction: column;
@@ -6,10 +6,32 @@
   padding: 0 0 1rem;
 }
 
-.firmware-page > p {
+.firmware-page > p,
+.firmware-card-width {
   width: min(640px, calc(100vw - 2rem));
   margin: 0 0 0.5rem;
   box-sizing: border-box;
+}
+
+/* nagłówek: przycisk powrotu po lewej, tytuł wyśrodkowany (pusty element po prawej równoważy przycisk) */
+.firmware-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(640px, calc(100vw - 2rem));
+  box-sizing: border-box;
+}
+
+.firmware-header h2 {
+  flex: 1 1 auto;
+  margin: 0;
+  padding-top: 0;
+}
+
+/* tyle co przycisk powrotu (ikona 1,6 em + odstępy), żeby tytuł był na środku */
+.firmware-header-spacer {
+  flex: none;
+  width: calc(1.6em + 0.2rem);
 }
 
 .firmware-lead {
@@ -34,6 +56,21 @@
   border-bottom: 1px solid #ccc;
 }
 
+/* belka kafelka: tytuł po lewej, ikona akcji po prawej, wspólna linia pod spodem */
+.firmware-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #ccc;
+}
+
+.firmware-bar .firmware-title {
+  flex: 1 1 auto;
+  width: auto;
+  border-bottom: 0;
+}
+
 .firmware-row,
 .firmware-switch {
   display: flex;
@@ -48,10 +85,22 @@
 }
 
 .firmware-row input[type="text"],
-.firmware-row input[type="file"] {
+.firmware-row input[type="file"],
+.firmware-row textarea {
   flex: 1 1 12rem;
   min-width: 0;
   font: inherit;
+}
+
+.firmware-row textarea {
+  resize: vertical;
+}
+
+.firmware-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .firmware-hint {
@@ -65,9 +114,10 @@
 
 .firmware-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .firmware-page button {
@@ -87,65 +137,39 @@
   cursor: not-allowed;
 }
 
-.firmware-scroll {
-  overflow-x: auto;
-}
-
-.firmware-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-.firmware-table th,
-.firmware-table td {
-  padding: 0.35rem 0.5rem;
-  text-align: left;
-  white-space: nowrap;
-  border-bottom: 1px solid #ddd;
-}
-
-.firmware-table th {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #555;
-}
-
-.firmware-row-actions {
+/* poprzednia wersja: tekst po lewej, ikony po prawej na środku wysokości bloczka; wersje oddzielone linią */
+.firmware-version {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #ddd;
 }
 
-.firmware-summary {
+.firmware-version-main {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+/* w kolumnie flex-basis z .firmware-text (12rem, dla wiersza) rozciągałby opis na wysokość */
+.firmware-version-main .firmware-text {
+  flex: none;
+}
+
+.firmware-version-actions {
+  flex: none;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.firmware-version-head {
+  display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.firmware-pill {
-  display: inline-block;
-  padding: 0.05rem 0.6rem;
-  border-radius: 99px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.firmware-pill.ok {
-  background: #e3f2e6;
-  color: #2b7a3d;
-}
-
-.firmware-pill.warn {
-  background: #fdf0d5;
-  color: #9a5b00;
-}
-
-.firmware-pill.off {
-  background: #e8edef;
-  color: #5b6a72;
+  gap: 0.25rem 0.75rem;
 }
 
 @media (max-width: 560px) {
@@ -158,4 +182,25 @@
   .firmware-row .label {
     flex-basis: 100%;
   }
+}
+
+/* popup „Dodaj wersję”: pola jak w popupie danych sterownika (components/deviceEditModal.css) */
+/* szerszy niż popup danych sterownika (420 px), bo ma pole opisu */
+.device-modal.firmware-modal {
+  width: min(600px, 100%);
+}
+
+.firmware-modal {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.firmware-modal textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem;
+  font: inherit;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  resize: vertical;
 }

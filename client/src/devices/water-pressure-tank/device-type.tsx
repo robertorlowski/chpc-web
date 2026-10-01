@@ -22,6 +22,8 @@ export const waterPressureTankDeviceType: DeviceTypeView = {
 			<path d="M9 15C9 16.7 10.3 18 12 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
 		</svg>
 	),
+	label: 'Hydrofor',
+	firmwareUpdates: true,
 	views: [
 		{ path: '/', label: 'Hydrofor', icon: <DropIcon />, element: <WaterPressureTankHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <WaterPressureTankData /> },

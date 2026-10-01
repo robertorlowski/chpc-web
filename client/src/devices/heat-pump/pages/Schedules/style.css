@@ -111,11 +111,6 @@
   margin-bottom: 0.75rem;
 }
 
-.schedule-list-header button {
-  margin: -0.75rem 0 0;
-  white-space: nowrap;
-}
-
 .schedule-card label {
   display: flex;
   flex-direction: column;
@@ -181,7 +176,7 @@
   position: relative;
   display: grid;
   gap: 0.1rem;
-  padding: 0.3rem 2rem 0.3rem 0.3rem;
+  padding: 0.3rem 4.8rem 0.3rem 0.3rem;
   background: white;
   border-left: 4px solid #1481a5;
 }
@@ -240,28 +235,16 @@
   transform: translateY(0.2rem);
 }
 
+/* edycja i usuwanie w prawym górnym rogu wiersza; wygląd z szablonu (components/iconButton.css) */
 .schedule-card .schedule-edit,
 .schedule-card .schedule-delete {
   position: absolute;
   top: 0.3rem;
   right: 0.3rem;
-  display: grid;
-  place-items: center;
-  width: 1.3rem;
-  height: 1.3rem;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  background: #b00020;
-  color: white;
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
 }
 
 .schedule-card .schedule-edit {
-  right: 1.9rem;
-  background: #1481a5;
+  right: 2.4rem;
 }
 
 .schedule-error {
@@ -316,17 +299,6 @@
 }
 
 .schedule-defaults-resource .settings-section-actions button {
-  margin: 0;
-}
-
-/* „Dodaj nowy harmonogram” przy prawej krawędzi karty, pod tytułem (jak „Zapisz” wyżej) */
-.schedule-list-header {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.schedule-list-header button {
-  align-self: flex-end;
   margin: 0;
 }
 

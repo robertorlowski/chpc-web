@@ -9,6 +9,8 @@ import { DeviceRequests } from '../../../../core/api';
 import { CurrentSchedule, ScheduleEntry, ScheduleType, WeekDay } from '../../types';
 import { DeviceProperties } from '../../../../core/types';
 import Notification from '../../../../core/components/Notification';
+import { IconButton } from '../../../../core/components/IconButton';
+import { EditIcon, PlusIcon, TrashIcon } from '../../../../core/components/icons';
 
 const weekDays = [
   ['Poniedziałek', WeekDay.MONDAY],
@@ -356,9 +358,7 @@ export const Schedules: React.FC = () => {
           <div className="schedule-list-header">
             <h3 className="settings-section-title">Lista harmonogramów</h3>
             {!showForm && (
-              <button type="button" onClick={() => setShowForm(true)}>
-                Dodaj nowy harmonogram
-              </button>
+              <IconButton label="Dodaj nowy harmonogram" icon={<PlusIcon />} onClick={() => setShowForm(true)} />
             )}
           </div>
           {loading ? <p>Ładowanie...</p> : (
@@ -388,25 +388,10 @@ export const Schedules: React.FC = () => {
                               Wymuś Start
                             </label>
                           </>}
-                          <button
-                            className="schedule-edit"
-                            type="button"
-                            onClick={() => startEditingSchedule(schedule)}
-                            aria-label="Edytuj harmonogram"
-                            title="Edytuj harmonogram"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            className="schedule-delete"
-                            type="button"
-                            disabled={!schedule._id || deleting === schedule._id}
-                            onClick={() => handleDelete(schedule)}
-                            aria-label="Usuń harmonogram"
-                            title="Usuń harmonogram"
-                          >
-                            X
-                          </button>
+                          <IconButton className="schedule-edit" label="Edytuj harmonogram" icon={<EditIcon />}
+                            onClick={() => startEditingSchedule(schedule)} />
+                          <IconButton className="schedule-delete" variant="danger" label="Usuń harmonogram" icon={<TrashIcon />}
+                            disabled={!schedule._id || deleting === schedule._id} onClick={() => handleDelete(schedule)} />
                         </div>
                       </article>
                     ))}

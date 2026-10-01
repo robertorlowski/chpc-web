@@ -42,9 +42,11 @@
 | `core/components/Header.tsx` | menu from the registry |
 | `core/components/DeviceEditModal.tsx` | "Dane sterownika" popup (rename) |
 | `core/components/Notification.tsx` | short message at the top of the screen |
-| `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) |
+| `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) and action icons (add, delete, restore, back, edit) |
+| `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only in the accent colour, a danger variant for deletion, label as tooltip and aria-label); used in the tank Settings, the pump Schedules and the firmware page |
 | `core/pages/Devices/` | controller choice screen: tiles, default star, pencil |
-| `core/pages/Firmware/` | `/firmware`: `.bin` upload, offer switch, controller list with version, versions in the database (download, restore); outside the device context |
+| `core/pages/Firmware/` | `/firmware/:deviceType`: current version with description, previous versions (restore, delete), adding a version with a description in a popup (plus icon on the bar), offer switch; outside the device context |
+| `core/components/FirmwareStatus.tsx` | controller firmware version, "waiting for update" state and report time in the controller Settings |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API

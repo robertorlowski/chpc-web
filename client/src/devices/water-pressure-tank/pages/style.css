@@ -276,27 +276,6 @@
   margin-left: 0;
 }
 
-/* przyciski-ikony (dodaj, usuń, kalkulator) wielkości wielkich liter */
-button.water-icon-button {
-  background: none;
-  border: 0;
-  padding: 0.1rem;
-  margin: 0;
-  color: #1481a5;
-  line-height: 0;
-  cursor: pointer;
-}
-
-button.water-icon-button svg {
-  width: 1.6em;
-  height: 1.6em;
-}
-
-button.water-icon-button:hover,
-button.water-icon-button.active {
-  color: #0c5c77;
-}
-
 /* „Dodaj” nad linią tytułu sekcji, przy prawej krawędzi */
 .water-section-title {
   display: flex;
@@ -312,11 +291,6 @@ button.water-tank-remove {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
-  color: #7a8c93;
-}
-
-button.water-tank-remove:hover {
-  color: #b00020;
 }
 
 /* szacunek zbiornika po lewej, za nim ikona kalkulatora */

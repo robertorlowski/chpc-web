@@ -3,7 +3,7 @@
 import express from 'express'
 
 import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaultDevice, updateDevice, updateProperties } from './controllers/device.controller'
-import { downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
+import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
@@ -29,6 +29,7 @@ router.get('/firmware/:deviceType', getFirmware)
 router.put('/firmware/:deviceType', updateFirmwareOffer)
 router.put('/firmware/:deviceType/:version', express.raw({ type: 'application/octet-stream', limit: '2mb' }), uploadFirmware)
 router.get('/firmware/:deviceType/:version', downloadFirmware)
+router.delete('/firmware/:deviceType/:version', deleteFirmware)
 
 router.get('/temperature', getTemperature)
 

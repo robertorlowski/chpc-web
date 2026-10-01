@@ -6,6 +6,9 @@ import { DeviceProperties } from '../../../core/types';
 import { WaterTank } from '../types';
 import Notification from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
+import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
+import { IconButton } from '../../../core/components/IconButton';
+import { PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { cylinderLiters, estimatedWaterPerRun, formatLiters, tankWaterLiters } from '../utils/water';
 import './style.css';
@@ -17,8 +20,6 @@ const icon = (path: React.ReactNode) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
     strokeLinejoin="round" aria-hidden="true">{path}</svg>
 );
-const PlusIcon = () => icon(<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>);
-const TrashIcon = () => icon(<><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13M9 7V4h6v3" /></>);
 const CalculatorIcon = () => icon(<><rect x="5" y="3" width="14" height="18" rx="2" />
   <path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" /></>);
 
@@ -157,16 +158,12 @@ export const WaterPressureTankSettings: React.FC = () => {
 
           <h3 className="settings-section-title water-section-title">
             Zbiorniki
-            <button type="button" className="water-icon-button" onClick={addTank}
-              title="Dodaj zbiornik" aria-label="Dodaj zbiornik"><PlusIcon /></button>
+            <IconButton label="Dodaj zbiornik" icon={<PlusIcon />} onClick={addTank} />
           </h3>
           {tanks.map((tank, index) => (
             <div key={index} className="water-tank-edit">
-              <button type="button" className="water-icon-button water-tank-remove"
-                title="Usuń zbiornik" aria-label="Usuń zbiornik"
-                onClick={() => window.confirm('Usunąć zbiornik z konfiguracji?') && setTanks((list) => list.filter((_, position) => position !== index))}>
-                <TrashIcon />
-              </button>
+              <IconButton className="water-tank-remove" variant="danger" label="Usuń zbiornik" icon={<TrashIcon />}
+                onClick={() => window.confirm('Usunąć zbiornik z konfiguracji?') && setTanks((list) => list.filter((_, position) => position !== index))} />
               <label>
                 <input type="checkbox" checked={tank.enabled}
                   onChange={(event) => updateTank(index, { enabled: event.currentTarget.checked })} />
@@ -208,11 +205,8 @@ export const WaterPressureTankSettings: React.FC = () => {
                   ≈ {formatLiters(tankWaterLiters(fromForm(tank), preview.pressure_low, preview.pressure_high))} l na uruchomienie
                 </span>
                 {tank.kind === 'air' && (
-                  <button type="button" className={`water-icon-button${calculator === index ? ' active' : ''}`}
-                    title="Kalkulator wody na cykl" aria-label="Kalkulator wody na cykl"
-                    onClick={() => setCalculator(calculator === index ? null : index)}>
-                    <CalculatorIcon />
-                  </button>
+                  <IconButton label="Kalkulator wody na cykl" icon={<CalculatorIcon />} active={calculator === index}
+                    onClick={() => setCalculator(calculator === index ? null : index)} />
                 )}
               </div>
               {tank.kind === 'air' && calculator === index && (
@@ -256,6 +250,7 @@ export const WaterPressureTankSettings: React.FC = () => {
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
+          <FirmwareStatus device={device} />
           <div className="water-actions">
             <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
           </div>

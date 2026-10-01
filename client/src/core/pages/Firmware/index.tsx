@@ -1,40 +1,43 @@
-// Strona /firmware: wersja i plik firmware, który sterownik pobiera przez sieć (OTA). Wgranie
-// pliku (PUT /api/firmware/:rodzaj/:wersja), włączenie i wyłączenie oferty, przywrócenie poprzedniej
-// wersji, lista sterowników z wersją zgłoszoną przy ostatnim uruchomieniu i pobranie pliku.
-// Poza kontekstem urządzenia (bez rootId): otwierana z listy sterowników (/devices).
+// Strona /firmware/:deviceType: firmware rodzaju sterownika (trybik na kafelku sterownika na liście
+// /devices). Aktualna (oferowana) wersja z opisem, poprzednie wersje z opisami (przywrócenie,
+// usunięcie) i dodanie nowej wersji w popupie (PUT /api/firmware/:rodzaj/:wersja). Oferta i pliki dotyczą
+// wszystkich sterowników danego rodzaju. Stan konkretnego sterownika (wersja, czeka na aktualizację)
+// jest w jego Ustawieniach (components/FirmwareStatus). Poza kontekstem urządzenia (bez rootId).
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { DeviceRequests, FirmwareRequests } from '../../api';
-import { Device, DeviceType, FirmwareSummary } from '../../types';
-import { deviceLabel } from '../../context/DeviceContext';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { FirmwareRequests } from '../../api';
+import { DeviceType, FirmwareImage, FirmwareSummary } from '../../types';
+import { getDeviceTypeView } from '../../device-types';
 import Notification from '../../components/Notification';
+import { IconButton } from '../../components/IconButton';
+import { BackIcon, PlusIcon, RestoreIcon, TrashIcon } from '../../components/icons';
+import '../../components/firmwareStatus.css';
+import '../../components/deviceEditModal.css';
 import './style.css';
 
-// Rodzaje sterowników z aktualizacją przez sieć (serwer: firmwareUpdates w device-type.ts).
-const FIRMWARE_TYPE = DeviceType.WATER_PRESSURE_TANK;
-const FIRMWARE_TYPE_LABEL = 'Hydrofor';
 // partycja aplikacji OTA ESP32; serwer odrzuca większy plik (core/services/firmware.service.ts)
 const MAX_FIRMWARE_BYTES = 1310720;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 const formatBytes = (bytes: number) => `${bytes.toLocaleString('pl-PL')} B`;
 const formatDateTime = (value?: string) =>
   value ? new Date(value).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '---';
 const shortSha = (sha: string) => `${sha.slice(0, 8)}…${sha.slice(-6)}`;
 
-// Stan sterownika względem oferty: bez wersji = starszy firmware (nie wysyła version).
-function deviceState(device: Device, summary: FirmwareSummary) {
-  if (!device.firmwareVersion) return { label: 'starszy firmware', tone: 'off' };
-  if (!summary.version || device.firmwareVersion === summary.version) return { label: 'aktualny', tone: 'ok' };
-  return { label: summary.enabled ? 'czeka na pompę' : 'oferta wyłączona', tone: summary.enabled ? 'warn' : 'off' };
-}
-
 export const Firmware: React.FC = () => {
+  const { deviceType } = useParams();
+  const navigate = useNavigate();
+  const type = Object.values(DeviceType).find((value) => value === deviceType);
+  const view = type ? getDeviceTypeView(type) : undefined;
+  const supported = view?.firmwareUpdates === true;
+
   const [summary, setSummary] = useState<FirmwareSummary | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
   const [version, setVersion] = useState('');
+  const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [sha, setSha] = useState('');
   const [fileKey, setFileKey] = useState(0);
+  const [sha, setSha] = useState('');
+  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -44,17 +47,52 @@ export const Firmware: React.FC = () => {
     setTimeout(() => setNotice(''), 4000);
   };
 
-  const load = () => {
-    FirmwareRequests.get(FIRMWARE_TYPE).then((result) => {
+  // Powrót do poprzedniej strony; po wejściu wprost z adresu (bez historii aplikacji) na listę sterowników.
+  // idx to licznik wpisów historii ustawiany przez React Router (BrowserRouter).
+  const goBack = () => {
+    if (window.history.state?.idx > 0) navigate(-1);
+    else navigate('/devices', { replace: true });
+  };
+
+  const closeAdd = () => {
+    setAdding(false);
+    setFile(null);
+    setSha('');
+    setVersion('');
+    setDescription('');
+    setError('');
+    setFileKey((key) => key + 1);
+  };
+
+  useEffect(() => {
+    if (!adding) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeAdd();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [adding]);
+
+  useEffect(() => {
+    if (!type || !supported) return;
+    FirmwareRequests.get(type).then((result) => {
       if (result) setSummary(result);
       else setError('Nie udało się pobrać stanu firmware.');
     });
-    DeviceRequests.getDevices().then((list) => {
-      if (list) setDevices(list.filter((device) => device.deviceType === FIRMWARE_TYPE));
-    });
-  };
+  }, [type, supported]);
 
-  useEffect(load, []);
+  if (!type || !supported) {
+    return (
+      <div className="firmware-page">
+        <h2>Firmware</h2>
+        <p>Ten rodzaj sterownika nie ma aktualizacji firmware przez sieć.</p>
+        <p><Link to="/devices">← Lista sterowników</Link></p>
+      </div>
+    );
+  }
+
+  const active = summary?.images.find((image) => image.active);
+  const previous = summary?.images.filter((image) => !image.active) ?? [];
 
   // Suma SHA-256 policzona w przeglądarce jest tylko podglądem; wiążąca jest ta z serwera.
   const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -67,7 +105,7 @@ export const Firmware: React.FC = () => {
       setError(`Plik jest za duży: ${formatBytes(chosen.size)}, limit ${formatBytes(MAX_FIRMWARE_BYTES)}.`);
       return;
     }
-    // zawiera wersję z nazwy pliku (water-pressure-tank-1.0.1.bin), gdy pole jest puste
+    // wersja z nazwy pliku (water-pressure-tank-1.0.1.bin), gdy pole jest puste
     const fromName = chosen.name.match(/(\d+(?:\.\d+)+)/)?.[1];
     if (fromName && !version.trim()) setVersion(fromName);
     try {
@@ -78,160 +116,124 @@ export const Firmware: React.FC = () => {
     }
   };
 
+  const run = async (action: () => Promise<FirmwareSummary>, done?: string) => {
+    setError('');
+    try {
+      setSummary(await action());
+      if (done) say(done);
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Operacja nie powiodła się.');
+      return false;
+    }
+  };
+
   const upload = async (event: FormEvent) => {
     event.preventDefault();
     if (!file || !version.trim()) return;
     setBusy(true);
-    setError('');
-    try {
-      setSummary(await FirmwareRequests.upload(FIRMWARE_TYPE, version.trim(), file));
-      setFile(null);
-      setSha('');
-      setVersion('');
-      setFileKey((key) => key + 1);
-      say('Plik zapisany. Sterowniki dostaną go przy następnym zgłoszeniu.');
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Nie udało się wgrać pliku.');
-    } finally {
-      setBusy(false);
-    }
+    const ok = await run(
+      () => FirmwareRequests.upload(type, version.trim(), file, description.trim()),
+      'Plik zapisany i ustawiony jako oferowany. Sterowniki dostaną go przy następnym zgłoszeniu.',
+    );
+    setBusy(false);
+    if (ok) closeAdd();
   };
 
-  const toggleEnabled = async (enabled: boolean) => {
-    try {
-      setSummary(await FirmwareRequests.update(FIRMWARE_TYPE, { enabled }));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Nie udało się zmienić ustawienia.');
-    }
+  const remove = (image: FirmwareImage) => {
+    if (!window.confirm(`Usunąć wersję ${image.version}? Pliku nie da się odzyskać.`)) return;
+    run(() => FirmwareRequests.remove(type, image.version), `Usunięto wersję ${image.version}.`);
   };
-
-  const restore = async (target: string) => {
-    try {
-      setSummary(await FirmwareRequests.update(FIRMWARE_TYPE, { version: target }));
-      say(`Oferowana wersja: ${target}.`);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Nie udało się przywrócić wersji.');
-    }
-  };
-
-  const counts = summary
-    ? devices.reduce<Record<string, number>>((acc, device) => {
-      const { tone } = deviceState(device, summary);
-      acc[tone] = (acc[tone] ?? 0) + 1;
-      return acc;
-    }, {})
-    : {};
 
   return (
     <div className="firmware-page">
       <Notification message={notice} />
-      <h2>Firmware: {FIRMWARE_TYPE_LABEL}</h2>
-      <p className="firmware-lead">
-        Plik, który sterownik pobierze przez sieć przy najbliższym uruchomieniu pompy. Plik jest przechowywany w bazie serwera,
-        a zmiana działa od razu.
-      </p>
-      <p><Link to="/devices">← Lista sterowników</Link></p>
-
-      <form className="resource firmware-card" onSubmit={upload}>
-        <h3 className="firmware-title">Wersja do pobrania</h3>
-        <label className="firmware-switch">
-          <input type="checkbox" checked={summary?.enabled ?? false} disabled={!summary?.version}
-            onChange={(event) => toggleEnabled(event.currentTarget.checked)} />
-          <span>{summary?.enabled ? 'Aktualizacje włączone' : 'Aktualizacje wyłączone: sterowniki niczego nie pobiorą'}</span>
-        </label>
-        <div className="firmware-row">
-          <span className="label">Oferowana wersja:</span>
-          <strong>{summary?.version ?? 'brak pliku'}</strong>
-        </div>
-
-        <h3 className="firmware-title">Nowa wersja</h3>
-        <label className="firmware-row">
-          <span className="label">Plik firmware:</span>
-          <input key={fileKey} type="file" accept=".bin" onChange={chooseFile} />
-        </label>
-        <label className="firmware-row">
-          <span className="label">Wersja:</span>
-          <input type="text" value={version} placeholder="np. 1.0.1" maxLength={32} autoComplete="off"
-            onChange={(event) => setVersion(event.currentTarget.value)} />
-        </label>
-        {file && (
-          <div className="firmware-hint">
-            {file.name} · {formatBytes(file.size)}{sha && <> · SHA-256 <code>{shortSha(sha)}</code></>}
-          </div>
-        )}
-        <div className="firmware-hint">
-          Wpisz tę samą wersję, co <code>FW_VERSION</code> w pliku: po aktualizacji sterownik zgłosi właśnie ją.
-          Serwer trzyma bieżącą i jedną poprzednią wersję, starsze pliki są usuwane.
-        </div>
-        {error && <div className="firmware-error" role="alert">{error}</div>}
-        <div className="firmware-actions">
-          <button type="submit" disabled={busy || !file || !version.trim() || file.size > MAX_FIRMWARE_BYTES}>
-            {busy ? 'Wgrywam…' : 'Wgraj i ustaw jako oferowaną'}
-          </button>
-        </div>
-      </form>
+      <div className="firmware-header">
+        <IconButton label="Wróć do poprzedniej strony" icon={<BackIcon />} onClick={goBack} />
+        <h2>Firmware: {view?.label ?? type}</h2>
+        <span className="firmware-header-spacer" aria-hidden="true" />
+      </div>
+      <p className="firmware-lead">Dotyczy wszystkich sterowników tego rodzaju.</p>
+      {error && !adding && <div className="firmware-error firmware-card-width" role="alert">{error}</div>}
 
       <section className="resource firmware-card">
-        <h3 className="firmware-title">Sterowniki</h3>
-        {summary && devices.length > 0 && (
-          <div className="firmware-summary">
-            {counts.ok && <span className="firmware-pill ok">{counts.ok} aktualny</span>}
-            {counts.warn && <span className="firmware-pill warn">{counts.warn} czeka na aktualizację</span>}
-            {counts.off && <span className="firmware-pill off">{counts.off} bez aktualizacji</span>}
-          </div>
+        <div className="firmware-bar">
+          <h3 className="firmware-title">Aktualna wersja</h3>
+          <IconButton label="Dodaj nową wersję" icon={<PlusIcon />} onClick={() => setAdding(true)} />
+        </div>
+        {active ? (
+          <>
+            <div className="firmware-row"><span className="label">Wersja:</span><strong>{active.version}</strong></div>
+            <div className="firmware-row"><span className="label">Dodana:</span><span>{formatDateTime(active.createdAt)}</span></div>
+            <div className="firmware-row"><span className="label">Rozmiar:</span><span>{formatBytes(active.size)}</span></div>
+            <div className="firmware-row"><span className="label">SHA-256:</span><code title={active.sha256}>{shortSha(active.sha256)}</code></div>
+            <div className="firmware-row"><span className="label">Opis:</span><span className="firmware-text">{active.description || '—'}</span></div>
+            <label className="firmware-switch">
+              <input type="checkbox" checked={summary?.enabled ?? false}
+                onChange={(event) => run(() => FirmwareRequests.update(type, { enabled: event.currentTarget.checked }))} />
+              <span>{summary?.enabled ? 'Aktualizacje włączone' : 'Aktualizacje wyłączone: sterowniki niczego nie pobiorą'}</span>
+            </label>
+          </>
+        ) : (
+          <div className="firmware-hint">{summary ? 'Nie wgrano jeszcze żadnego pliku.' : 'Ładowanie…'}</div>
         )}
-        <div className="firmware-scroll">
-          <table className="firmware-table">
-            <thead>
-              <tr><th>Nazwa</th><th>Wersja</th><th>Stan</th><th>Ostatnie zgłoszenie</th></tr>
-            </thead>
-            <tbody>
-              {summary && devices.map((device) => {
-                const state = deviceState(device, summary);
-                return (
-                  <tr key={device.rootId}>
-                    <td title={device.deviceId}>{deviceLabel(device)}</td>
-                    <td>{device.firmwareVersion ?? '—'}</td>
-                    <td><span className={`firmware-pill ${state.tone}`}>{state.label}</span></td>
-                    <td>{formatDateTime(device.firmwareSeenAt)}</td>
-                  </tr>
-                );
-              })}
-              {devices.length === 0 && <tr><td colSpan={4}>Brak sterowników tego rodzaju.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <div className="firmware-hint">
-          „Czeka na pompę”: sterownik jest zasilany tylko w czasie pracy pompy, więc pobierze plik przy jej następnym,
-          dłuższym uruchomieniu.
-        </div>
+        <h3 className="firmware-title">Poprzednie wersje</h3>
+        {previous.length === 0 && <div className="firmware-hint">Brak poprzednich wersji.</div>}
+        {previous.map((image) => (
+          <div key={image.version} className="firmware-version">
+            <div className="firmware-version-main">
+              <div className="firmware-version-head">
+                <strong>{image.version}</strong>
+                <span className="firmware-hint">{formatDateTime(image.createdAt)} · {formatBytes(image.size)} · <code>{shortSha(image.sha256)}</code></span>
+              </div>
+              <div className="firmware-text">{image.description || 'Bez opisu.'}</div>
+            </div>
+            <div className="firmware-version-actions">
+              <IconButton label={`Przywróć wersję ${image.version}`} icon={<RestoreIcon />}
+                onClick={() => run(() => FirmwareRequests.update(type, { version: image.version }), `Oferowana wersja: ${image.version}.`)} />
+              <IconButton variant="danger" label={`Usuń wersję ${image.version}`} icon={<TrashIcon />} onClick={() => remove(image)} />
+            </div>
+          </div>
+        ))}
       </section>
 
-      <section className="resource firmware-card">
-        <h3 className="firmware-title">Wersje w bazie</h3>
-        <div className="firmware-scroll">
-          <table className="firmware-table">
-            <thead>
-              <tr><th>Wersja</th><th>Dodana</th><th>Rozmiar</th><th>SHA-256</th><th></th></tr>
-            </thead>
-            <tbody>
-              {summary?.images.map((image) => (
-                <tr key={image.version}>
-                  <td>{image.version} {image.active && <span className="firmware-pill ok">oferowana</span>}</td>
-                  <td>{formatDateTime(image.createdAt)}</td>
-                  <td>{formatBytes(image.size)}</td>
-                  <td><code>{shortSha(image.sha256)}</code></td>
-                  <td className="firmware-row-actions">
-                    <a href={FirmwareRequests.fileUrl(FIRMWARE_TYPE, image.version)} download>Pobierz</a>
-                    {!image.active && <button type="button" onClick={() => restore(image.version)}>Przywróć</button>}
-                  </td>
-                </tr>
-              ))}
-              {summary && summary.images.length === 0 && <tr><td colSpan={5}>Nie wgrano jeszcze żadnego pliku.</td></tr>}
-            </tbody>
-          </table>
+      {adding && (
+        <div className="device-modal-backdrop" onClick={closeAdd}>
+          <form className="device-modal firmware-modal" role="dialog" aria-modal="true" aria-labelledby="firmware-modal-title"
+            onClick={(event) => event.stopPropagation()} onSubmit={upload}>
+            <h2 id="firmware-modal-title">Dodaj wersję</h2>
+            <label>
+              <span>Plik firmware</span>
+              <input key={fileKey} type="file" accept=".bin" onChange={chooseFile} />
+            </label>
+            <label>
+              <span>Wersja</span>
+              <input type="text" value={version} placeholder="np. 1.0.1" maxLength={32} autoComplete="off"
+                onChange={(event) => setVersion(event.currentTarget.value)} />
+            </label>
+            <label>
+              <span>Opis</span>
+              <textarea value={description} rows={3} maxLength={MAX_DESCRIPTION_LENGTH} placeholder="Co się zmieniło w tej wersji"
+                onChange={(event) => setDescription(event.currentTarget.value)} />
+            </label>
+            {file && (
+              <div className="firmware-hint">
+                {file.name} · {formatBytes(file.size)}{sha && <> · SHA-256 <code>{shortSha(sha)}</code></>}
+              </div>
+            )}
+            <div className="firmware-hint">
+              Wpisz wersję zgodną z ustawieniem wersji komponentu <code>FW_VERSION</code>.
+            </div>
+            {error && <p className="device-modal-error" role="alert">{error}</p>}
+            <div className="device-modal-actions">
+              <button type="button" className="device-modal-cancel" onClick={closeAdd}>Anuluj</button>
+              <button type="submit" disabled={busy || !file || !version.trim() || file.size > MAX_FIRMWARE_BYTES}>
+                {busy ? 'Wgrywam…' : 'Wgraj'}
+              </button>
+            </div>
+          </form>
         </div>
-      </section>
+      )}
     </div>
   );
 };

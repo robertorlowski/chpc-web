@@ -160,6 +160,36 @@ describe('Firmware sterowników (OTA)', () => {
     const response = await register('AABBCCDDEE03', 'heat_pump');
     expect(response.body.settings?.firmware).toBeUndefined();
   });
+  it('zapisuje opis wersji i odrzuca za długi', async () => {
+    const put = (version: string, description: string) =>
+      request(app).put(`/api/firmware/water-pressure-tank/${version}`).query({ description })
+        .set('Content-Type', 'application/octet-stream').send(image(1));
+
+    const ok = await put('1.0.0', '  Poprawka czasu kompresora  ');
+    expect(ok.status).toBe(200);
+    expect(ok.body.images[0].description).toBe('Poprawka czasu kompresora');
+
+    expect((await put('1.0.1', 'x'.repeat(501))).status).toBe(400);
+    expect((await upload('1.0.2', image(2))).body.images.find((item: { version: string }) => item.version === '1.0.2').description).toBe('');
+  });
+
+  it('usuwa poprzednią wersję, ale nie oferowaną', async () => {
+    await upload('1.0.0', image(1));
+    await upload('1.0.1', image(2));
+
+    const active = await request(app).delete('/api/firmware/water-pressure-tank/1.0.1');
+    expect(active.status).toBe(409);
+
+    const removed = await request(app).delete('/api/firmware/water-pressure-tank/1.0.0');
+    expect(removed.status).toBe(200);
+    expect(removed.body.images.map((item: { version: string }) => item.version)).toEqual(['1.0.1']);
+    expect(removed.body.previousVersion).toBeNull();
+
+    expect((await request(app).delete('/api/firmware/water-pressure-tank/1.0.0')).status).toBe(404);
+    expect((await request(app).get('/api/firmware/water-pressure-tank/1.0.0.bin')).status).toBe(404);
+    expect((await request(app).delete('/api/firmware/heat_pump/1.0.0')).status).toBe(404);
+  });
+
   it('zapisuje wersję firmware ze zgłoszenia i odświeża ją przy kolejnym', async () => {
     const withVersion = (version?: string) =>
       request(app).post('/api/devices/register').send({ deviceId: 'AABBCCDDEE10', deviceType: 'water-pressure-tank', version });

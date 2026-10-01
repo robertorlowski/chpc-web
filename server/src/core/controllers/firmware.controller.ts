@@ -5,7 +5,7 @@
 import { Request, Response } from 'express';
 import { getDeviceTypeModule } from '../device-types';
 import {
-  FirmwareError, activateFirmware, getFirmwareFile, getFirmwareSummary,
+  FirmwareError, activateFirmware, deleteFirmwareImage, getFirmwareFile, getFirmwareSummary,
   saveFirmwareImage, setFirmwareEnabled,
 } from '../services/firmware.service';
 import { DeviceType } from '../types';
@@ -39,8 +39,8 @@ export async function getFirmware(req: Request, res: Response) {
   }
 }
 
-// PUT /firmware/:deviceType/:version — treść pliku (application/octet-stream).
-// Zapisuje obraz i ustawia go jako oferowany.
+// PUT /firmware/:deviceType/:version?description= — treść pliku (application/octet-stream).
+// Zapisuje obraz z opisem wersji i ustawia go jako oferowany.
 export async function uploadFirmware(req: Request, res: Response) {
   const type = resolveType(req, res);
   if (!type) return;
@@ -48,7 +48,8 @@ export async function uploadFirmware(req: Request, res: Response) {
     return res.status(400).json({ message: 'Treść żądania to plik .bin (Content-Type: application/octet-stream).' });
   }
   try {
-    await saveFirmwareImage(type, req.params.version, req.body);
+    const description = typeof req.query.description === 'string' ? req.query.description.trim() : '';
+    await saveFirmwareImage(type, req.params.version, req.body, description);
     return res.status(200).json(await getFirmwareSummary(type));
   } catch (error) {
     return fail(res, error);
@@ -73,6 +74,18 @@ export async function updateFirmwareOffer(
   try {
     if (version !== undefined) await activateFirmware(type, version);
     if (enabled !== undefined) await setFirmwareEnabled(type, enabled);
+    return res.status(200).json(await getFirmwareSummary(type));
+  } catch (error) {
+    return fail(res, error);
+  }
+}
+
+// DELETE /firmware/:deviceType/:version — usuwa plik wersji, która nie jest oferowana.
+export async function deleteFirmware(req: Request, res: Response) {
+  const type = resolveType(req, res);
+  if (!type) return;
+  try {
+    await deleteFirmwareImage(type, req.params.version);
     return res.status(200).json(await getFirmwareSummary(type));
   } catch (error) {
     return fail(res, error);

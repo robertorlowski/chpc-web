@@ -1,7 +1,7 @@
 // API urządzeń wspólne dla wszystkich rodzajów sterowników: /api/devices (lista, nazwa, domyślny)
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
-import { Requests, apiUrl } from './http';
+import { Requests } from './http';
 import { Device, DeviceProperties, DeviceType, FirmwareSummary } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
@@ -42,16 +42,18 @@ export class FirmwareRequests {
   }
 
   // zapisuje plik i ustawia go jako oferowany; serwer liczy SHA-256 i sprawdza obraz ESP32
-  static upload(type: DeviceType, version: string, file: Blob): Promise<FirmwareSummary> {
-    return Requests.putFile(`/firmware/${type}/${encodeURIComponent(version)}`, file);
+  static upload(type: DeviceType, version: string, file: Blob, description = ''): Promise<FirmwareSummary> {
+    const query = description ? `?description=${encodeURIComponent(description)}` : '';
+    return Requests.putFile(`/firmware/${type}/${encodeURIComponent(version)}${query}`, file);
+  }
+
+  // usuwa plik wersji, która nie jest oferowana
+  static remove(type: DeviceType, version: string): Promise<FirmwareSummary> {
+    return Requests.deleteJson(`/firmware/${type}/${encodeURIComponent(version)}`);
   }
 
   // włączenie i wyłączenie oferty albo przywrócenie wersji, której plik jest jeszcze w bazie
   static update(type: DeviceType, change: { enabled?: boolean; version?: string }): Promise<FirmwareSummary> {
     return Requests.put(`/firmware/${type}`, change, false) as Promise<FirmwareSummary>;
-  }
-
-  static fileUrl(type: DeviceType, version: string) {
-    return apiUrl(`/firmware/${type}/${encodeURIComponent(version)}.bin`);
   }
 }

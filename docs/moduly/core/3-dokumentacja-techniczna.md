@@ -42,9 +42,11 @@
 | `core/components/Header.tsx` | menu z rejestru |
 | `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
 | `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
-| `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) |
-| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; odnośnik „Aktualizacje firmware” |
-| `core/pages/Firmware/` | `/firmware`: wgranie pliku `.bin`, włączenie oferty, lista sterowników z wersją, wersje w bazie (pobranie, przywrócenie); poza kontekstem urządzenia |
+| `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) i akcji (dodaj, usuń, przywróć, wróć, edytuj) |
+| `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Ustawieniach hydroforu, Harmonogramach pompy i na stronie firmware |
+| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; trybik firmware w rogu kafelków rodzajów z `firmwareUpdates` |
+| `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), włączenie oferty; poza kontekstem urządzenia |
+| `core/components/FirmwareStatus.tsx` | wersja firmware sterownika, stan „czeka na aktualizację” i czas zgłoszenia w Ustawieniach sterownika |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
 ## API

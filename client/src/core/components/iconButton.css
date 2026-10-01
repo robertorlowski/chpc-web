@@ -1,0 +1,47 @@
+/* Szablon przycisku-ikony (components/IconButton.tsx): format z Ustawień hydroforu.
+   Selektor z [type] wygrywa z regułami przycisków poszczególnych stron (np. .schedule-card button). */
+button.icon-button[type] {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.1rem;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: #1481a5;
+  line-height: 0;
+  cursor: pointer;
+}
+
+button.icon-button[type] svg {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+button.icon-button[type]:hover,
+button.icon-button[type].active {
+  color: #0c5c77;
+}
+
+button.icon-button[type]:focus-visible {
+  outline: 2px solid #1481a5;
+  outline-offset: 2px;
+}
+
+button.icon-button[type]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* usuwanie: szary, czerwony po najechaniu */
+button.icon-button.icon-button-danger[type] {
+  color: #7a8c93;
+}
+
+button.icon-button.icon-button-danger[type]:hover:not(:disabled) {
+  color: #b00020;
+}

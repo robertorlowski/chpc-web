@@ -2,11 +2,12 @@
 // domyślnego (PUT /api/devices/:rootId/default) i ołówek otwierający popup „Dane sterownika”.
 // Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce.
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
 import { Device } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
+import { SettingsIcon } from '../../components/icons';
 import { deviceLabel, useDevice } from '../../context/DeviceContext';
 import './style.css';
 
@@ -103,14 +104,23 @@ export const Devices: React.FC = () => {
                 <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
               </svg>
             </button>
+            {getDeviceTypeView(device.deviceType).firmwareUpdates && (
+              <button
+                type="button"
+                className="device-firmware"
+                title="Firmware tego rodzaju sterownika"
+                aria-label={`Firmware rodzaju sterownika ${deviceLabel(device)}`}
+                onClick={() => navigate(`/firmware/${encodeURIComponent(device.deviceType)}`)}
+              >
+                <SettingsIcon />
+              </button>
+            )}
           </div>
         ))}
         {devices.length === 0 && !error && (
           <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
         )}
       </section>
-
-      <p className="device-selection-firmware"><Link to="/firmware">Aktualizacje firmware</Link></p>
 
       {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
     </main>

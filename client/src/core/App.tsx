@@ -52,8 +52,8 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 		});
 	}, []);
 
-	// /firmware dotyczy rodzaju sterownika, nie wybranego urządzenia
-	if (!device && location.pathname !== '/devices' && location.pathname !== '/firmware') {
+	// /firmware/:deviceType wskazuje rodzaj w adresie, więc nie wymaga wyboru sterownika
+	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware')) {
 		return <Navigate to="/devices" replace state={{ auto: true }} />;
 	}
 
@@ -107,8 +107,8 @@ function DeviceRoute({ path }: { path: string }) {
 // Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
-	// bez menu: /devices (lista sterowników) i /firmware (nie zależy od wybranego sterownika)
-	const isDeviceSelection = location.pathname === '/devices' || location.pathname === '/firmware';
+	// bez menu: /devices (lista sterowników) i /firmware/:deviceType (firmware rodzaju sterownika)
+	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware');
 
 	return (
 		<DeviceGuard>
@@ -120,7 +120,7 @@ function AppContent() {
 				<main className="app-main">
 				<Routes>
 					<Route path="/devices" element={<Devices />} />
-					<Route path="/firmware" element={<Firmware />} />
+					<Route path="/firmware/:deviceType" element={<Firmware />} />
 					{allDevicePaths().map((path) => (
 						<Route key={path} path={path} element={<DeviceRoute path={path} />} />
 					))}

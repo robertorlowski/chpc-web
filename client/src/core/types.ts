@@ -49,6 +49,7 @@ export type Device = {
 export type FirmwareImage = {
   version: string;
   size: number;
+  description: string;
   sha256: string;
   createdAt: string;
   active: boolean;
@@ -75,6 +76,10 @@ export type DeviceView = {
 export type DeviceTypeView = {
   type: DeviceType;
   tileIcon: ReactNode;
+  /** nazwa rodzaju w nagłówkach (np. strona firmware) */
+  label?: string;
+  /** sterownik aktualizuje firmware przez sieć: kafelek ma trybik prowadzący do /firmware/:deviceType */
+  firmwareUpdates?: boolean;
   views: DeviceView[];
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];

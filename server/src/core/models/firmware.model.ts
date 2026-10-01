@@ -10,6 +10,8 @@ export interface FirmwareImage {
   version: string;
   data: Buffer;
   size: number;
+  /** opis wersji (co się zmieniło), wpisywany przy wgraniu; może być pusty */
+  description?: string;
   /** 64 znaki hex, małe litery; sterownik sprawdza nią pobrany obraz */
   sha256: string;
 }
@@ -29,6 +31,7 @@ const FirmwareImageSchema = new Schema<FirmwareImage>(
     version: { type: String, required: true },
     data: { type: Buffer, required: true },
     size: { type: Number, required: true },
+    description: { type: String, default: '' },
     sha256: { type: String, required: true },
   },
   { timestamps: true, collection: 'firmware_images' }
