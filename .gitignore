@@ -49,3 +49,6 @@ yarn-error.log*
 
 # lokalne ustawienia Claude Code
 .claude/settings.local.json
+
+# dokumentacja producenta pieca (cudze prawa autorskie, tylko lokalnie; źródła w README tego katalogu)
+devices/co/docs/pellux200-dokumentacja/*.pdf

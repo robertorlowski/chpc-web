@@ -3,6 +3,8 @@
 Materiały źródłowe do rodzaju sterownika `pellet-boiler-pelux200`. Pliki PDF są
 własnością producenta (Plum / Pellux) i pochodzą z publicznych stron dystrybutorów;
 pobrano je 2026-09-30.
+Pliki PDF **nie są w repozytorium** (`.gitignore`): po sklonowaniu trzeba je pobrać
+z adresów z kolumny „Źródło” i położyć w tym katalogu pod podanymi nazwami.
 
 | Plik | Co zawiera | Źródło |
 |---|---|---|
