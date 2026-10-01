@@ -16,15 +16,18 @@ flowchart TB
         REG["core/device-types.ts<br/>kind registry"]
         HPM["modules/heat-pump"]
         WPT["modules/water-pressure-tank"]
+        PBM["modules/pellet-boiler-pelux200"]
         WS["core/websocket.ts"]
         MET["core: weather (IMGW)<br/>holiday calendar"]
         APP --> CTX --> RT
         RT --> DEV
         RT --> HPM
         RT --> WPT
+        RT --> PBM
         DEV --> REG
         REG -.-> HPM
         REG -.-> WPT
+        REG -.-> PBM
         HPM --> WS
         HPM --> MET
     end
@@ -34,10 +37,12 @@ flowchart TB
         HDR["core/components/Header.tsx<br/>menu"]
         CHP["devices/heat-pump"]
         CWP["devices/water-pressure-tank"]
+        CPB["devices/pellet-boiler-pelux200"]
         CAPP --> CREG
         HDR --> CREG
         CREG -.-> CHP
         CREG -.-> CWP
+        CREG -.-> CPB
     end
     Client -- "REST /api, WebSocket /ws" --> Server
 ```
@@ -46,7 +51,7 @@ The controller-kind modules do not know about each other. Only core connects the
 
 ## Controller registration
 
-The tank controller registers at every start (it receives its settings in the reply); `co` registers only when it has no Root ID yet (also after a 409 reply). The server recognises the controller by its SN: a new one is created, a known one gets its record back.
+The tank controller registers at every start (it receives its settings in the reply); `co` registers only when it has no Root ID of the given role yet (also after a 409 reply); the pellet boiler role registers only after the first valid frame from the boiler. The server recognises a device by the pair (kind, SN): a new one is created, a known one gets its record back.
 
 ```mermaid
 sequenceDiagram
@@ -66,10 +71,22 @@ sequenceDiagram
     else known device
         R-->>S: 200 + device data (name unchanged)
     end
-    Note over R,S: the reply carries rootId and, for kinds with controllerSettings<br/>(the tank), a settings field — the controller stores it in memory
+    Note over R,S: the reply carries rootId and, for kinds with controllerSettings<br/>(the tank, the pellet boiler), a settings field — the controller stores it in memory
 ```
 
-The controller stores `rootId` in its memory (NVS). It may send telemetry before registering too, with the SN only — the server accepts it if a device with that SN already exists.
+The controller stores `rootId` in its memory (NVS; `co` separately for each role, the boiler under the key `pellet_root`). It may send data before registering too, with the SN only — the server accepts it if a device with that SN and the endpoint's kind already exists.
+
+## One controller, several roles
+
+A physical `co` controller may have several devices in the application: the heat pump (`heat_pump`) and the pellet boiler (`pellet-boiler-pelux200`). They share the `deviceId` (SN) but have a different `deviceType` and a different `rootId`; the `devices` model has no unique index on `deviceId`. So there is no "parent device": each role is an ordinary device with its own context, menu, data and settings.
+
+```mermaid
+flowchart LR
+    SN["co controller<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["device heat_pump<br/>rootId = A"]
+    SN -- "/pellet-boiler-pelux200/add" --> PB["device pellet-boiler-pelux200<br/>rootId = B"]
+```
+
+Since the SN alone does not identify a device, the server picks the role by the **endpoint path** (the `controllerPaths` map in `device-context.ts`, below) and looks up the pair `{deviceId, deviceType}`. Registration (`POST /devices/register`) uses that pair too, so the same SN registered with a different kind creates a second device.
 
 ## Device context of every request
 
@@ -80,19 +97,21 @@ flowchart TD
     A["request /api/..."] --> B{"public path?<br/>/devices, /devices/register,<br/>/devices/:rootId..."}
     B -- yes --> OK["continue without context"]
     B -- no --> C{"rootId given?"}
-    C -- no --> D{"controller path<br/>(/hp/add, /pv/add,<br/>/water-pressure-tank/add, /settings)<br/>and deviceId given?"}
+    C -- no --> D{"controller path from the controllerPaths map<br/>(/hp/add, /pv/add,<br/>/water-pressure-tank/add, /settings,<br/>/pellet-boiler-pelux200/add)<br/>and deviceId given?"}
     D -- no --> E400["400: rootId required"]
-    D -- yes --> F["find by deviceId"]
+    D -- yes --> F["find by {deviceId, kind from the map}"]
     C -- yes --> G["find by rootId"]
     F --> H{"found?"}
     G --> H
     H -- no --> E404["404"]
-    H -- yes --> I{"controller sent rootId and deviceId<br/>that do not match?"}
+    H -- yes --> I{"controller path, and the controller sent rootId<br/>and deviceId does not match or the device kind<br/>differs from the endpoint kind?"}
     I -- yes --> E409["409 — the controller drops its rootId<br/>and registers again"]
     I -- no --> J["req.deviceRootId = device → module"]
 ```
 
-The 409 reply protects against a controller holding a `rootId` from a different database (e.g. after switching the server from local to production).
+The 409 reply protects against a controller holding a `rootId` from a different database (e.g. after switching the server from local to production) or from another role (e.g. a pump `rootId` sent to the boiler endpoint).
+
+For ordinary endpoints (outside `controllerPaths`) the context is determined by `rootId` alone, with no device kind check.
 
 ## Choosing a controller in the application
 
@@ -132,7 +151,7 @@ Each controller kind lists its screens (path, label, icon, page) in its `device-
 
 After a controller change the screen is created from scratch, so no data of the previous controller is left in it.
 
-The server has a matching registry: each kind provides the settings of a new device and the settings returned on registration.
+The server has a matching registry: each kind provides the settings of a new device and the settings returned on registration (tank: compressor time, thresholds, tanks; pellet boiler: `poll_interval_seconds`).
 
 ## WebSocket
 

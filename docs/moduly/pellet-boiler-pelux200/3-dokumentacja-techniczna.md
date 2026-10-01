@@ -1,0 +1,110 @@
+# Moduł pellet-boiler-pelux200 — dokumentacja techniczna
+
+[← Dokumentacja systemu](../../README.md) · [1. Opis biznesowy](1-opis-biznesowy.md) · [2. Zasada działania](2-zasada-dzialania.md) · **3. Dokumentacja techniczna** · [English](../../en/moduly/pellet-boiler-pelux200/3-technical-documentation.md)
+
+## Pliki — serwer (`server/src/modules/pellet-boiler-pelux200`)
+
+| Plik | Rola |
+|---|---|
+| `routes.ts` | trasy `/pellet-boiler-pelux200/*` |
+| `device-type.ts` | wpis do rejestru: ustawienia domyślne nowego kotła (`poll_interval_seconds: 300`) i pole `settings` w odpowiedzi na zgłoszenie |
+| `types.ts` | `PelletBoilerPelux200Measurements` (pola pomiarowe), `PelletBoilerPelux200Entry` |
+| `controllers/pellet-boiler-pelux200.controller.ts` | `add` (odpowiedź z odstępem odpytywania), `last`, `list` (doba warszawska) |
+| `services/pellet-boiler-pelux200.service.ts` | `validateReading`, zapis, ostatni odczyt w pamięci (`lastByRoot`), zakres czasu, `getPollIntervalSeconds` |
+| `models/pellet-boiler-pelux200.model.ts` | kolekcja `pellet_boiler_pelux200` |
+
+Bez schedulera i bez serwisu operacji. Moduł importuje tylko z `core` (`device-info`, `DeviceModel`, `websocket`, `time`).
+
+## Pliki — klient (`client/src/devices/pellet-boiler-pelux200`)
+
+| Plik | Rola |
+|---|---|
+| `device-type.tsx` | wpis do rejestru: Kocioł, Dane, Ustawienia (ikona płomienia; bez wykresów i harmonogramów) |
+| `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`) |
+| `types.ts` | `PelletBoilerReading` |
+| `pages/Home.tsx` | bieżące dane: temperatury, wartości zadane, praca kotła, wyjścia; odświeżanie co 30 s; „Dane nieaktualne” |
+| `pages/Data.tsx` | odczyty z wybranego dnia, tabela 12 kolumn, CSV |
+| `pages/Settings.tsx` | „Odpytywanie pieca [min]” (0,5–60) i sekcja „Sterownik” (`DeviceEditModal`) |
+| `pages/style.css` | style widoków kotła |
+| `utils/boiler.ts` | nazwy stanów 0–11, formaty liczb i czasu (Warszawa), `isStale`, `readingsToCsv`, `downloadText` |
+
+Ustawienia idą przez wspólne `DeviceRequests` z `core/api.ts` (`/device/properties`), a nie przez `api.ts` modułu.
+
+## API
+
+| Metoda i ścieżka | Kto | Opis |
+|---|---|---|
+| `POST /pellet-boiler-pelux200/add` | sterownik | odczyt kotła (pola niżej); sam `deviceId` wystarcza; 404/409 jak w core; odpowiedź **201** `{poll_interval_seconds}`; 400 „Nieprawidłowy odczyt kotła.” dla złego body |
+| `GET /pellet-boiler-pelux200/last` | aplikacja | ostatni odczyt albo `{}`; wymaga `rootId` |
+| `GET /pellet-boiler-pelux200/list?date=YYYY-MM-DD` | aplikacja | odczyty z doby warszawskiej, malejąco po `createdAt`; bez `date` — dziś; zły format 400 (`date: YYYY-MM-DD.`) |
+
+Ustawienia kotła zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`, `deviceType: "pellet-boiler-pelux200"`) zwraca `settings: {poll_interval_seconds}`.
+
+### Pola odczytu
+
+Wszystkie opcjonalne; co najmniej jedno wymagane.
+
+| Grupa | Pola | Typ |
+|---|---|---|
+| stan | `state` — 0–11: OFF, STABILIZATION, KINDLING, WORKING, SUPERVISION, PAUSED, STANDBY, BURNING_OFF, ALERT, MANUAL, UNSEALING, OTHER | liczba |
+| temperatury [°C] | `heating_temp`, `feeder_temp`, `water_heater_temp`, `outside_temp`, `return_temp`, `exhaust_temp`, `optical_temp`, `upper_buffer_temp`, `lower_buffer_temp` | liczba |
+| zadane i statusy | `heating_target`, `water_heater_target` (°C), `heating_status`, `water_heater_status` (kod) | liczba |
+| praca | `fuel_level` [%], `fan_power` [%], `boiler_load` [%], `boiler_power` [kW], `fuel_consumption` [kg/h], `lambda_level` [%] | liczba |
+| wyjścia | `fan`, `feeder`, `heating_pump`, `water_heater_pump`, `circulation_pump`, `lighter`, `alarm` | boolean |
+
+Walidacja (`validateReading`): body musi być obiektem (nie tablicą); pole liczbowe musi być skończoną liczbą (nie napisem, `null`, `NaN`), pole logiczne typem `boolean` (nie `1`); pominięte pola są dozwolone; brak jakiegokolwiek pola pomiarowego (np. sam `time`) to 400. Zakresy wartości nie są sprawdzane. Nieznane klucze i `time` są ignorowane, a schemat Mongoose jest ścisły — **nowe pole trzeba dopisać w `types.ts`, w `validateReading` (listy pól), w modelu, w typach klienta i w widokach**.
+
+## Model danych
+
+**`pellet_boiler_pelux200`** — jeden odczyt kotła:
+
+| Pole | Opis |
+|---|---|
+| `rootId`, `deviceType`, `deviceId` | identyfikacja (dopisywane przez serwer z `device-info`) |
+| pola odczytu | jak w tabeli wyżej |
+| `createdAt`, `updatedAt` | znaczniki zapisu; `createdAt` to czas odebrania (serwer ignoruje `time` ze sterownika) |
+
+Indeks: `{rootId, createdAt: -1}`. Brak wygasania danych.
+
+**`devices.properties`** kotła: `poll_interval_seconds` — liczba całkowita 30–3600 (domyślnie 300). Schemat (`core/models/device.model.ts`) sprawdza zakres i całkowitość, więc `PUT /device/properties` z wartością poza zakresem albo ułamkową daje 400 i nie zmienia zapisanej.
+
+## Stałe
+
+| Stała | Wartość | Gdzie |
+|---|---|---|
+| `DEFAULT_POLL_INTERVAL_SECONDS` | 300 | serwis, `device-type.ts` |
+| zakres `poll_interval_seconds` | 30–3600 s | schemat `properties`; formularz klienta 0,5–60 min |
+| odświeżanie widoku Kocioł | 30 s | `Home.tsx` |
+| nieaktualny odczyt | `3 × poll_interval_seconds` | `utils/boiler.ts` (`isStale`), `DEFAULT_POLL_SECONDS` = 300 |
+| limit wieku odczytu po stronie sterownika | 60 s | firmware `co` (punkt 5c w CLAUDE.md) |
+
+## Kontrakt ze sterownikiem `co`
+
+- Zgłoszenie: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200"}`; odpowiedź 201/200 z `rootId` i `settings.poll_interval_seconds`; Root ID w NVS pod kluczem `pellet_root`, interwał pod `pellet_poll`.
+- Wysyłka: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` co `poll_interval_seconds`. Nieudane zgłoszenie jest ponawiane co 60 s; 404/409 kasują Root ID kotła.
+- Kontekst: `controllerPaths` w `core/middleware/device-context.ts` zawiera `/pellet-boiler-pelux200/add` → `pellet-boiler-pelux200`. Szczegóły w [module core](../core/3-dokumentacja-techniczna.md).
+- Kod po stronie firmware: `devices/co/src/ecomax_bus.*`, `ecomax_frame.*`, `pellet_telemetry.*`, `cloud_client.cpp`; opis: [devices/co/docs/piec-pellux200.md](../../../devices/co/docs/piec-pellux200.md).
+
+## Testy
+
+```bash
+npm test -w server -- --run       # pellet-boiler-pelux200.test.ts: 8 testów (serwer razem: 81)
+npx tsc -p server/tsconfig.tests.json --noEmit
+npm run build -w client
+```
+
+`server/test/pellet-boiler-pelux200.test.ts` sprawdza: zgłoszenie z ustawieniem 300 s w `settings`, dwie role tego samego SN (dwa `rootId`, routing po rodzaju endpointu, 409 dla `rootId` innej roli), zapis odczytu z pominięciem nieznanych pól i `time` oraz odpowiedź z interwałem, 400 (puste body, sam `time`, pola złego typu), 404 dla nieznanego `deviceId` i 409 dla `rootId` innego urządzenia, `last` (`{}`, potem najnowszy, 400 bez `rootId`), `list` (granice doby warszawskiej, malejąco, 400 dla złej daty), zapis i walidację `poll_interval_seconds` przez `PUT /device/properties` oraz jego zwrot w odpowiedzi na odczyt.
+
+Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build`.
+
+## Znane problemy
+
+- **Format ramek niezweryfikowany na kotle.** Dekoder `SensorData` i założenia (nadawca `0x45`, licznik alertów, odejmowanie 101 od poziomu paliwa) pochodzą z PyPlumIO; prędkość 115200 baud, punkt wpięcia (G2 modułu A) i piny GPIO16/GPIO4 nie były sprawdzone na kotle ani na płytce. Nasłuch trzeba zweryfikować przed jakimkolwiek nadawaniem.
+- **Etap 2 nie istnieje.** Brak nadawania na magistralę kotła, odpowiedzi na `CheckDevice` i sterowania; serwer nie ma operacji ani schedulera kotła.
+- **`lambda_level`** jest w kontrakcie, schemacie i typach, ale firmware `co` go nie wypełnia (widok pokazuje `---`).
+- **`heating_status` i `water_heater_status`** to surowe liczby o nieudokumentowanym znaczeniu.
+- **Wysyłka HTTP pieca blokuje pętlę `co`** do ok. 10 s (jak `pv/add`); bufor UART2 (2 KB) gubi nadmiar, a parser się resynchronizuje.
+- **`PUT /device/properties` podmienia całe `properties`** — klient musi wysłać komplet pól (Ustawienia kotła rozszerzają wczytany obiekt).
+- **Brak wykresów, agregatów i wygasania danych.** Historia rośnie bez limitu (odczyt co 5 minut to ok. 288 rekordów dziennie).
+- **Ostatni odczyt w pamięci serwera** (`lastByRoot`) jest odtwarzany z bazy po restarcie; nie ma innego stanu w pamięci.
+- **Zakresy wartości** (np. `state` 0–11, procenty 0–100) nie są sprawdzane na serwerze; widok pokazuje `Stan N` dla stanu spoza listy.

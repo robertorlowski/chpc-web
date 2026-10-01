@@ -19,7 +19,7 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | Katalog | Rola |
 |---|---|
 | `server/`, `client/` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
-| `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; licencja MIT |
+| `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; druga rola: pasywny odczyt kotła pelletowego ecoMAX (punkt 5c); licencja MIT |
 | `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
 | `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
@@ -44,7 +44,8 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 
 - `core/` — część wspólna: urządzenia (lista, zgłoszenie, nazwa, domyślny, `properties`), temperatura zewnętrzna, kalendarz, kontekst urządzenia, WebSocket;
 - `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
-- `modules/water-pressure-tank/` — hydrofor: uruchomienia, wodomierz, czas kompresora.
+- `modules/water-pressure-tank/` — hydrofor: uruchomienia, wodomierz, czas kompresora;
+- `modules/pellet-boiler-pelux200/` — kocioł pelletowy Pellux 200 (regulator ecoMAX): odczyty w kolekcji `pellet_boiler_pelux200`, interwał odpytywania (punkt 5c).
 
 `core` i każdy moduł mają ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `device.model.ts`, `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-tank-run.model.ts`), a w katalogu głównym `types.ts` (typy wspólne dla warstw) i `routes.ts`. Moduł ma też `device-type.ts` (wpis do rejestru rodzajów). W `core` są dodatkowo `middleware/` (`auth.ts`, `device-context.ts` — `rootId`/`deviceId`) oraz `app.ts`, `websocket.ts`, `time.ts` (strefa i granice dni w Warszawie) i `device-types.ts` (rejestr). Serwisy `core`: `device`, `device-info` (typ i `deviceId` w pamięci), `calendar`, `meteo`.
 
@@ -111,7 +112,9 @@ Middleware:
 3. zapisuje wynik w `req.deviceRootId`;
 4. przekazuje żądanie do kontrolera.
 
-**Endpointy sterownika (`POST /hp/add`, `POST /pv/add`)** przyjmują też sam `deviceId` (SN): bez `rootId` serwer znajduje urządzenie po `deviceId`. `co` wysyła `deviceId` zawsze, a `rootId` tylko wtedy, gdy ma go w NVS. Gdy przyszły oba, a `rootId` należy do innego `deviceId`, serwer odpowiada **409**; `co` kasuje wtedy swój Root ID i rejestruje się ponownie. Nieznany `deviceId` daje 404. Pozostałe endpointy wymagają `rootId`.
+**Jeden fizyczny sterownik może mieć kilka ról.** Ten sam `deviceId` (SN) może być zarejestrowany pod kilkoma `deviceType` (np. `co` jako `heat_pump` i `pellet-boiler-pelux200`): każda rola to osobny dokument w `devices` z własnym `rootId`. Rejestracja szuka po parze `{deviceType, deviceId}`, a każdy endpoint sterownika ma w `controllerPaths` ([`device-context.ts`](server/src/core/middleware/device-context.ts)) przypisany rodzaj, więc szukanie po samym `deviceId` jest zawężone do niego. Nowy endpoint sterownika trzeba tam dopisać.
+
+**Endpointy sterownika (`POST /hp/add`, `POST /pv/add`, `POST /pellet-boiler-pelux200/add`)** przyjmują też sam `deviceId` (SN): bez `rootId` serwer znajduje urządzenie po `deviceId`. `co` wysyła `deviceId` zawsze, a `rootId` tylko wtedy, gdy ma go w NVS. Gdy przyszły oba, a `rootId` należy do innego `deviceId`, serwer odpowiada **409**; `co` kasuje wtedy swój Root ID i rejestruje się ponownie. Nieznany `deviceId` daje 404. Pozostałe endpointy wymagają `rootId`.
 
 Urządzenia domyślnego nie ma: żądanie bez `rootId` (poza wyjątkiem powyżej) dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
 
@@ -239,9 +242,21 @@ Pełny opis: [firmware](devices/water-pressure-tank/docs/1-opis-biznesowy.md) i 
 - **Zgłoszenie** raz na start (`POST /devices/register`, typ `water-pressure-tank`, nazwa „Hydrofor”); odpowiedź niesie ustawienia, które sterownik zapisuje w NVS. Zmiana ustawień w aplikacji działa od następnego uruchomienia pompy.
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure-tank/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.
 - **Wysyłka co 1 s** (`POST /api/water-pressure-tank/add?deviceId=…&rootId=…`, sam `deviceId` wystarcza; 404/409 jak w `/hp/add`): `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` — czasy względne od startu sterownika. Serwer liczy daty ze swojego zegara: pierwsza wiadomość ustala `pumpStart = teraz − pumpRunS`, każda kolejna ustawia `pumpEnd` na chwilę odebrania, więc ostatnia przed utratą zasilania wyznacza koniec pracy pompy (dokładność 1 s). Uruchomienie jest „w toku”, gdy ostatnia wiadomość ma mniej niż 5 s (`RUN_IN_PROGRESS_MS`).
+- **Aktualizacja firmware przez sieć (OTA).** Odpowiedź na zgłoszenie niesie `settings.firmware {version, url, sha256}` ze zmiennych serwera `WPT_FIRMWARE_VERSION`, `WPT_FIRMWARE_URL` (asset GitHub Release) i `WPT_FIRMWARE_SHA256` (wymagane; bez niego sterownik ignoruje ofertę). Sterownik wysyła w zgłoszeniu `version` (`FW_VERSION`), a gdy wersja z oferty jest inna, pobiera obraz raz na uruchomienie, tylko przy wyłączonym kompresorze, sprawdza SHA-256 przed aktywacją i się restartuje. Opis i procedura wydania: [devices/water-pressure-tank/docs/3-dokumentacja-techniczna.md](devices/water-pressure-tank/docs/3-dokumentacja-techniczna.md).
 - **Kolejka.** Uruchomienie, z którego nie doszła żadna wiadomość (brak sieci), sterownik wysyła przy kolejnym starcie z `queued: true`; serwer zapisuje je z `timeApproximate: true` (daty z chwili przyjęcia).
 - **Woda** (`estimateWater` w [`water-pressure-tank.service.ts`](server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts); ten sam wzór w `client/src/devices/water-pressure-tank/utils/water.ts` i `devices/water-pressure-tank/src/settings.cpp` — zmieniać razem): prawo Boyle'a między progami presostatu, suma z włączonych zbiorników; poduszka `k · V · 1,013 · (1/p_d − 1/p_g)`, przepona `V · p0 · (1/max(p_d, p0) − 1/p_g)` (ciśnienia bezwzględne). Wartość jest liczona przy utworzeniu rekordu i nie zmienia się po zmianie ustawień.
 - **Wodomierz.** Podsumowanie (`/water-pressure-tank/meter/summary`) interpoluje stan liniowo między odczytami (miesiące) i podpowiada `k` zbiornika z poduszką: `(wodomierz − przepona) / poduszka przy k = 1`.
+
+## 5c. Piec pelletowy (`pellet-boiler-pelux200`)
+
+Kocioł Plum Pellux 200 Touch z regulatorem ecoMAX jest drugą rolą sterownika `co`: ten sam SN, `deviceType: 'pellet-boiler-pelux200'`, osobny `rootId` w NVS (klucz `pellet_root`). Podłączenie, protokół, pola i wygląd w aplikacji: [devices/co/docs/piec-pellux200.md](devices/co/docs/piec-pellux200.md); dokumentacja producenta: [pellux200-dokumentacja/](devices/co/docs/pellux200-dokumentacja/README.md). Moduł serwera i klienta: `modules/pellet-boiler-pelux200/` i `devices/pellet-boiler-pelux200/`; nie ma schedulera ani operacji.
+
+- **Odczyt w `co` (etap 1, tylko odbiór).** UART2 (RX = GPIO16, 115200 baud, DE/RE = GPIO4 na stałe LOW, TX nieużywany) nasłuchuje magistrali ecoMAX na zaciskach panelu (G2, D+/D−). Parser (`ecomax_frame.*`) składa ramki `0x68 … 0x16` (BCC = XOR) i dekoduje `SensorData` (typ `0x35`). Format pochodzi z biblioteki PyPlumIO i **nie był sprawdzony na kotle**. Do chmury idzie ostatni poprawny odczyt, tylko gdy młodszy niż 60 s, tylko przy wolnej magistrali CHPC/DTU.
+- **Rejestracja** dopiero po pierwszej poprawnej ramce (sterownik bez kotła nie tworzy urządzenia). `POST /devices/register` z `name: "Piec Pellux 200"`; odpowiedź niesie `settings.poll_interval_seconds`. 404/409 kasują Root ID pieca i rejestracja jest ponawiana co 60 s.
+- **Wysyłka** `POST /api/pellet-boiler-pelux200/add?deviceId=…&rootId=…` co `poll_interval_seconds` (domyślnie 300 s, 30–3600). Pola (wszystkie opcjonalne, liczby lub boole; niezgodny typ = 400, brak pól pomiarowych = 400): `state` (0–11: OFF, STABILIZATION, KINDLING, WORKING, SUPERVISION, PAUSED, STANDBY, BURNING_OFF, ALERT, MANUAL, UNSEALING, OTHER), temperatury `heating_temp`, `feeder_temp`, `water_heater_temp`, `outside_temp`, `return_temp`, `exhaust_temp`, `optical_temp`, `upper_buffer_temp`, `lower_buffer_temp`, `heating_target`, `water_heater_target`, `heating_status`, `water_heater_status`, `fuel_level` (%), `fan_power` (%), `boiler_load` (%), `boiler_power` (kW), `fuel_consumption` (kg/h), `lambda_level`, boole `fan`, `feeder`, `heating_pump`, `water_heater_pump`, `circulation_pump`, `lighter`, `alarm`. `time` jest ignorowany, czas bierze serwer. Odpowiedź 201: `{"poll_interval_seconds": N}`; sterownik zapisuje N w NVS (`pellet_poll`).
+- **Ustawienie** `properties.poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300) edytuje klient na `/settings` przez `PUT /api/device/properties`; sterownik pobiera nową wartość przy następnej wysyłce.
+- **Odczyt danych:** `GET /api/pellet-boiler-pelux200/last` (ostatni odczyt albo `{}`), `GET /api/pellet-boiler-pelux200/list?date=YYYY-MM-DD` (dzień w Warszawie, malejąco po czasie). Klient: `/` bieżące dane (odświeżane co 30 s, znacznik „Dane nieaktualne” po 3 × interwał), `/data` lista dnia z CSV, `/settings` interwał odpytywania i dane sterownika.
+- **Etap 2 (nadawanie na magistralę kotła, odpowiedź na `CheckDevice`) nie jest zaimplementowany.** Opis w schemacie podłączenia.
 
 ## 6. Scheduler
 
@@ -458,6 +473,9 @@ Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządze
 | `GET /api/temperature` | temperatura z serwisu meteo |
 | `PUT /api/devices/:rootId/default` | sterownik domyślny `{isDefault}` (najwyżej jeden) |
 | `POST /api/water-pressure-tank/add` | wysyłka hydroforu co 1 s (sterownik) |
+| `POST /api/pellet-boiler-pelux200/add` | odczyt kotła pelletowego (sterownik co 300 s); odpowiedź `{poll_interval_seconds}` |
+| `GET /api/pellet-boiler-pelux200/last` | ostatni odczyt kotła albo `{}` |
+| `GET /api/pellet-boiler-pelux200/list?date=` | odczyty kotła z dnia (Warszawa) |
 | `PUT /api/water-pressure-tank/settings` | czas kompresora ustawiony na stronie sterownika `{compressor_seconds}` (tylko to pole; sam `deviceId` wystarcza, 404/409 jak w `/hp/add`) |
 | `GET /api/water-pressure-tank/runs?from=&to=` lub `?fromTime=&toTime=` | uruchomienia z dni (Warszawa) albo okresu między odczytami |
 | `GET /api/water-pressure-tank/summary?period=day\|month\|year&date=` | woda w godzinach, dniach albo miesiącach |
@@ -558,9 +576,9 @@ Harmonogram nie zawiera `co_pomp`. To pole nie jest wymagane ani zapisywane dla 
 
 Testy serwera znajdują się w:
 
-- [`server/app.test.ts`](server/app.test.ts);
-- [`server/pv.test.ts`](server/pv.test.ts);
-- [`server/scheduler.test.ts`](server/scheduler.test.ts).
+- [`server/test/app.test.ts`](server/test/app.test.ts);
+- [`server/test/pv.test.ts`](server/test/pv.test.ts);
+- [`server/test/scheduler.test.ts`](server/test/scheduler.test.ts).
 
 Testy używają `mongodb-memory-server`, więc nie modyfikują produkcyjnej bazy. Sprawdzają między innymi:
 
@@ -596,11 +614,15 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 ### Firmware
 
-- `co`: `pio test -e native` w `devices/co` (64 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP).
+- `co`: `pio test -e native` w `devices/co` (74 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP, parser ramek ecoMAX i dekoder `SensorData`).
 - CHPC: `pio test -e native` w `devices/chpc` (symulacja firmware, 54 testy). Dodatkowo scenariusze Wokwi w `devices/chpc/test-wokwi/`.
 - hydrofor: `pio test -e native` w `devices/water-pressure-tank` (23 testy: kompresor, szacunek wody, ustawienia, czas kompresora z `/install`, JSON wysyłki, kolejka w NVS).
 
-Serwer ma też testy hydroforu w [`server/water-pressure-tank.test.ts`](server/water-pressure-tank.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
+Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (8: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`); razem z pozostałymi serwer ma 81 testów.
+
+Serwer ma też testy hydroforu w [`server/test/water-pressure-tank.test.ts`](server/test/water-pressure-tank.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
+
+Przebieg 2026-10-01 (rola `pellet-boiler-pelux200`): serwer 81/81 (testy w `server/test/`) + `tsc` + build OK, klient `vite build` OK, `co` 74/74 + build `esp32dev` (RAM 17,4 %, Flash 34,9 %). Test integracyjny na lokalnej chmurze (`npm run local`, baza lokalna): rejestracja drugiej roli tego samego SN (nowy `rootId`, ponowna rejestracja zwraca ten sam), `POST /pellet-boiler-pelux200/add` z JSON wygenerowanym przez kod firmware z ramki testowej (rootId+deviceId i sam deviceId), 409 dla `rootId` pompy, 400 dla pustego odczytu, `last`, `list`, zapis i walidacja `poll_interval_seconds`, `POST /hp/add` po samym `deviceId` nadal trafia do pompy. Widoki klienta sprawdzone w Edge (1280 i 360 px, bez przewijania strony w poziomie) z odpowiedziami API podstawionymi w przeglądarce. Nie sprawdzono: kotła ani ramek z magistrali, płytki `co` z UART2, eksportu CSV i zapisu ustawień w przeglądarce.
 
 Przebieg 2026-09-29 (dokumentacja i komentarze, zmiany tylko w komentarzach): serwer 73/73 + `tsc` OK, klient `vite build` OK, `co` 64/64, CHPC 54/54 + build Pro Mini (Flash 95,0%, 29 174 B), hydrofor 23/23 + build `esp32c3`. Zrzuty ekranów w dokumentacji powstały na lokalnej bazie z danymi z `node scripts/seed-local.mjs` (czyści bazę lokalną; 7 dni HP i PV z publicznego API produkcji z zanonimizowanymi identyfikatorami, uruchomienia hydroforu i odczyty wodomierza wygenerowane; po nim zrestartować serwer).
 
@@ -680,5 +702,6 @@ Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro 
 - Zwykłe ustawienia z `/operation/set` czekają na kolejny cykliczny POST `co` (10–30 s); natychmiast (WebSocket) docierają tylko akcje jednorazowe.
 - `0x04` powyżej `T_SETPOINT_MAX` i `0x05` powyżej `T_DELTA_MAX` CHPC po cichu ignoruje.
 - Liczniki diagnostyczne `co` i `controller_mode` nie są zapisywane w bazie (ścisły schemat); widać je tylko w `GET /api/hp` do restartu serwera i na stronie `/` sterownika.
+- Rola `pellet-boiler-pelux200` (punkt 5c): format ramek i `SensorData` (PyPlumIO), prędkość 115200 baud, punkt wpięcia (G2 modułu A) i piny GPIO16/GPIO4 nie były sprawdzone na kotle ani na płytce; nasłuch trzeba zweryfikować przed jakimkolwiek nadawaniem. Wysyłka HTTP pieca blokuje pętlę `co` do ok. 10 s jak `pv/add` (bufor UART2 2 KB gubi nadmiar, parser się resynchronizuje). Dokumentacja: `docs/moduly/pellet-boiler-pelux200/` (PL, EN w `docs/en/`) i `devices/co/docs/piec-pellux200.md` (tylko PL); wersji EN tego drugiego nie ma.
 - Test E2E łańcucha pompy (`test/e2e`) jest nieaktualny: czeka na formularz dodawania sterownika, którego klient już nie ma (audyt 2026-09-25).
 - Najstarszy sterownik ma Root ID wkompilowany w `secrets.h`, więc się nie zgłasza. Jego `deviceId` zmieniono w bazie z `hp-1` na SN. Serwer trzyma `deviceId` w pamięci (`deviceInfoByRoot`), więc po zmianie w bazie trzeba zrestartować serwer.

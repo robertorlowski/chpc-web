@@ -1,0 +1,274 @@
+// Testy parsera ramek ecoMAX, dekodera SensorData i JSON-a pieca Pellux 200.
+// Ramki budowane ręcznie według opisu z PyPlumIO (niezweryfikowane na sprzęcie).
+// Uruchamianie: pio test -e native.
+#ifdef ARDUINO
+#include <Arduino.h>
+#endif
+#include <unity.h>
+
+#include <cmath>
+#include <cstring>
+#include <vector>
+
+#include <ecomax_frame.hpp>
+#include <pellet_telemetry.hpp>
+#include "../../src/ecomax_frame.cpp"
+#include "../../src/pellet_telemetry.cpp"
+
+namespace {
+typedef std::vector<uint8_t> Bytes;
+
+void putF32(Bytes &b, float v)
+{
+  uint32_t raw;
+  std::memcpy(&raw, &v, 4);
+  for (int i = 0; i < 4; i++) b.push_back((raw >> (8 * i)) & 0xFF);
+}
+
+void putU32(Bytes &b, uint32_t v)
+{
+  for (int i = 0; i < 4; i++) b.push_back((v >> (8 * i)) & 0xFF);
+}
+
+// Dane SensorData: state, outputs, flags, temperatury, cele, alerty, reszta.
+Bytes sensorPayload(bool tail = true)
+{
+  Bytes d;
+  d.push_back(3);                       // state
+  putU32(d, ECOMAX_OUT_FAN | ECOMAX_OUT_HEATING_PUMP | ECOMAX_OUT_ALARM);
+  putU32(d, 0);                         // output_flags
+  d.push_back(4);                       // 4 temperatury
+  d.push_back(0); putF32(d, 61.5f);     // heating
+  d.push_back(3); putF32(d, NAN);       // outside: NaN
+  d.push_back(5); putF32(d, 140.0f);    // exhaust
+  d.push_back(200); putF32(d, 9.0f);    // indeks poza zakresem
+  d.push_back(65);                      // heating_target
+  d.push_back(1);                       // heating_status
+  d.push_back(0xFF);                    // water_heater_target: brak
+  d.push_back(0);                       // water_heater_status
+  d.push_back(2);                       // 2 alerty
+  d.push_back(0xAA); d.push_back(0xBB);
+  d.push_back(57);                      // fuel_level
+  if (!tail) return d;
+  d.push_back(0);                       // transmission
+  putF32(d, 35.0f);                     // fan_power
+  d.push_back(40);                      // boiler_load
+  putF32(d, 12.5f);                     // boiler_power
+  putF32(d, 1.25f);                     // fuel_consumption
+  return d;
+}
+
+Bytes frame(const Bytes &data, uint8_t sender = 0x45, uint8_t type = 0x35)
+{
+  Bytes f;
+  size_t length = data.size() + 10;
+  f.push_back(0x68);
+  f.push_back(length & 0xFF);
+  f.push_back(length >> 8);
+  f.push_back(0x00);      // odbiorca
+  f.push_back(sender);
+  f.push_back(0x45);      // typ nadawcy
+  f.push_back(0x05);      // wersja
+  f.push_back(type);
+  f.insert(f.end(), data.begin(), data.end());
+  uint8_t bcc = 0;
+  for (uint8_t b : f) bcc ^= b;
+  f.push_back(bcc);
+  f.push_back(0x16);
+  return f;
+}
+
+void feedAll(EcomaxFrameParser &p, const Bytes &b)
+{
+  for (uint8_t x : b) p.feed(x);
+}
+
+void testDecodesValidSensorData()
+{
+  Bytes data = sensorPayload();
+  EcomaxFrameParser parser;
+  feedAll(parser, frame(data));
+  EcomaxFrame f;
+  TEST_ASSERT_TRUE(parser.next(f));
+  TEST_ASSERT_TRUE(isSensorDataFrame(f));
+  TEST_ASSERT_EQUAL_UINT32(data.size(), f.dataLength);
+
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(decodeSensorData(f.data, f.dataLength, s));
+  TEST_ASSERT_EQUAL_UINT8(3, s.state);
+  TEST_ASSERT_TRUE(s.outputs & ECOMAX_OUT_FAN);
+  TEST_ASSERT_FALSE(s.outputs & ECOMAX_OUT_FEEDER);
+  TEST_ASSERT_TRUE(s.temperatures[0].present);
+  TEST_ASSERT_EQUAL_FLOAT(61.5f, s.temperatures[0].value);
+  TEST_ASSERT_FALSE(s.temperatures[3].present);  // NaN
+  TEST_ASSERT_TRUE(s.temperatures[5].present);
+  TEST_ASSERT_FALSE(s.temperatures[1].present);
+  TEST_ASSERT_TRUE(s.heatingTarget.present);
+  TEST_ASSERT_EQUAL_UINT8(65, s.heatingTarget.value);
+  TEST_ASSERT_FALSE(s.waterHeaterTarget.present);
+  TEST_ASSERT_TRUE(s.waterHeaterStatus.present);
+  TEST_ASSERT_EQUAL_UINT8(57, s.fuelLevel.value);
+  TEST_ASSERT_EQUAL_FLOAT(35.0f, s.fanPower.value);
+  TEST_ASSERT_EQUAL_UINT8(40, s.boilerLoad.value);
+  TEST_ASSERT_EQUAL_FLOAT(12.5f, s.boilerPower.value);
+  TEST_ASSERT_EQUAL_FLOAT(1.25f, s.fuelConsumption.value);
+}
+
+void testBadBccIsRejected()
+{
+  Bytes f = frame(sensorPayload());
+  f[f.size() - 2] ^= 0x01;
+  EcomaxFrameParser parser;
+  feedAll(parser, f);
+  EcomaxFrame out;
+  TEST_ASSERT_FALSE(parser.next(out));
+  TEST_ASSERT_TRUE(parser.rejectedCount() > 0);
+}
+
+void testTruncatedFrameWaitsAndThenCompletes()
+{
+  Bytes f = frame(sensorPayload());
+  EcomaxFrameParser parser;
+  EcomaxFrame out;
+  for (size_t i = 0; i + 1 < f.size(); i++) parser.feed(f[i]);
+  TEST_ASSERT_FALSE(parser.next(out));
+  parser.feed(f.back());
+  TEST_ASSERT_TRUE(parser.next(out));
+}
+
+void testResynchronizesAfterGarbage()
+{
+  Bytes stream = {0x00, 0x13, 0x68, 0x02, 0x00, 0x99, 0x16};  // fałszywy 0x68
+  Bytes f = frame(sensorPayload());
+  stream.insert(stream.end(), f.begin(), f.end());
+  EcomaxFrameParser parser;
+  feedAll(parser, stream);
+  EcomaxFrame out;
+  TEST_ASSERT_TRUE(parser.next(out));
+  TEST_ASSERT_EQUAL_HEX8(0x35, out.type);
+  TEST_ASSERT_FALSE(parser.next(out));
+}
+
+void testTwoFramesInARow()
+{
+  Bytes first = sensorPayload();
+  Bytes second = sensorPayload();
+  second[0] = 7;
+  Bytes stream = frame(first);
+  Bytes f2 = frame(second);
+  stream.insert(stream.end(), f2.begin(), f2.end());
+  EcomaxFrameParser parser;
+  feedAll(parser, stream);
+  EcomaxFrame out;
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(parser.next(out));
+  TEST_ASSERT_TRUE(decodeSensorData(out.data, out.dataLength, s));
+  TEST_ASSERT_EQUAL_UINT8(3, s.state);
+  TEST_ASSERT_TRUE(parser.next(out));
+  TEST_ASSERT_TRUE(decodeSensorData(out.data, out.dataLength, s));
+  TEST_ASSERT_EQUAL_UINT8(7, s.state);
+  TEST_ASSERT_FALSE(parser.next(out));
+}
+
+void testOversizedFrameIsRejected()
+{
+  Bytes f = frame(Bytes(600, 0x11));  // 610 B > 512
+  EcomaxFrameParser parser;
+  EcomaxFrame out;
+  // Jak w EcomaxBus: next() po każdym bajcie.
+  for (uint8_t x : f) {
+    parser.feed(x);
+    TEST_ASSERT_FALSE(parser.next(out));
+  }
+  TEST_ASSERT_TRUE(parser.rejectedCount() > 0);
+  // Po takim śmieciu parser nadal przyjmuje poprawną ramkę.
+  feedAll(parser, frame(sensorPayload()));
+  TEST_ASSERT_TRUE(parser.next(out));
+}
+
+void testFuelLevelAbove100()
+{
+  Bytes d = sensorPayload();
+  // fuel_level jest przed: transmission, fan_power, load, power, consumption.
+  size_t fuelIndex = d.size() - (1 + 4 + 1 + 4 + 4) - 1;
+  TEST_ASSERT_EQUAL_UINT8(57, d[fuelIndex]);
+  d[fuelIndex] = 101 + 42;
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size(), s));
+  TEST_ASSERT_TRUE(s.fuelLevel.present);
+  TEST_ASSERT_EQUAL_UINT8(42, s.fuelLevel.value);
+
+  d[fuelIndex] = 0xFF;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size(), s));
+  TEST_ASSERT_FALSE(s.fuelLevel.present);
+}
+
+void testShortPayloadReturnsWhatWasRead()
+{
+  Bytes d = sensorPayload(false);  // kończy się na fuel_level
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size(), s));
+  TEST_ASSERT_TRUE(s.fuelLevel.present);
+  TEST_ASSERT_FALSE(s.fanPower.present);
+  TEST_ASSERT_FALSE(s.boilerPower.present);
+
+  // Urwane po pierwszej temperaturze: zostają tylko poprawnie odczytane.
+  EcomaxSensorData t;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), 9 + 1 + 5 + 2, t));
+  TEST_ASSERT_TRUE(t.temperatures[0].present);
+  TEST_ASSERT_FALSE(t.temperatures[5].present);
+  TEST_ASSERT_FALSE(t.heatingTarget.present);
+
+  TEST_ASSERT_FALSE(decodeSensorData(d.data(), 3, t));
+  TEST_ASSERT_FALSE(t.valid);
+  TEST_ASSERT_FALSE(decodeSensorData(nullptr, 0, t));
+}
+
+void testOtherSenderOrTypeIsNotSensorData()
+{
+  EcomaxFrameParser parser;
+  feedAll(parser, frame(sensorPayload(), 0x51));
+  feedAll(parser, frame(sensorPayload(), 0x45, 0x30));
+  EcomaxFrame out;
+  TEST_ASSERT_TRUE(parser.next(out));
+  TEST_ASSERT_FALSE(isSensorDataFrame(out));
+  TEST_ASSERT_TRUE(parser.next(out));
+  TEST_ASSERT_FALSE(isSensorDataFrame(out));
+}
+
+void testJsonHasOnlyReadFields()
+{
+  Bytes d = sensorPayload();
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size(), s));
+  JsonDocument doc;
+  fillPelletJson(doc, s);
+  TEST_ASSERT_EQUAL_INT(3, doc["state"].as<int>());
+  TEST_ASSERT_TRUE(doc["heating_temp"].is<float>());
+  TEST_ASSERT_TRUE(doc["outside_temp"].isNull());
+  TEST_ASSERT_TRUE(doc["water_heater_target"].isNull());
+  TEST_ASSERT_EQUAL_INT(65, doc["heating_target"].as<int>());
+  TEST_ASSERT_TRUE(doc["fan"].as<bool>());
+  TEST_ASSERT_FALSE(doc["feeder"].as<bool>());
+  TEST_ASSERT_TRUE(doc["alarm"].as<bool>());
+}
+}
+
+void setUp() {}
+void tearDown() {}
+
+int main(int, char **)
+{
+  UNITY_BEGIN();
+  RUN_TEST(testDecodesValidSensorData);
+  RUN_TEST(testBadBccIsRejected);
+  RUN_TEST(testTruncatedFrameWaitsAndThenCompletes);
+  RUN_TEST(testResynchronizesAfterGarbage);
+  RUN_TEST(testTwoFramesInARow);
+  RUN_TEST(testOversizedFrameIsRejected);
+  RUN_TEST(testFuelLevelAbove100);
+  RUN_TEST(testShortPayloadReturnsWhatWasRead);
+  RUN_TEST(testOtherSenderOrTypeIsNotSensorData);
+  RUN_TEST(testJsonHasOnlyReadFields);
+  return UNITY_END();
+}

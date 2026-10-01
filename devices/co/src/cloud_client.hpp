@@ -24,6 +24,14 @@ public:
   // Blokujący POST; zwraca treść odpowiedzi 2xx, a w każdym innym przypadku "".
   // Odpowiedź 409 kasuje Root ID i uruchamia ponowną rejestrację.
   String post(const String &path, const JsonDocument &data);
+  // Druga rola (piec Pellux 200): własny Root ID w NVS, ten sam SN. Oba
+  // wywołania blokują jak każde żądanie HTTP, więc main.cpp woła je przy
+  // wolnej magistrali.
+  bool pelletRegistrationDue() const;
+  void registerPelletBoiler();
+  // True, gdy chmura przyjęła odczyt (2xx). 404/409 kasuje Root ID pieca
+  // (ponowna rejestracja), a `poll_interval_seconds` z odpowiedzi trafia do NVS.
+  bool postPelletBoiler(const JsonDocument &data);
   int lastHttpStatus() const;
   // Any HTTP status, errors included, proves the internet is reachable.
   bool lastRequestAnswered() const;
@@ -45,6 +53,8 @@ private:
   bool operationRequested = false;
   bool registrationAttempted = false;
   unsigned long lastRegistrationAt = 0;
+  bool pelletRegistrationAttempted = false;
+  unsigned long lastPelletRegistrationAt = 0;
   unsigned long lastWifiReconnectAt = 0;
   int httpStatus = 0;
   bool answered = false;

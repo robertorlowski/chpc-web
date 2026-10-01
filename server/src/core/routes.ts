@@ -6,6 +6,7 @@ import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaul
 import { getTemperature } from './controllers/meteo.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
+import pelletBoilerPelux200Routes from '../modules/pellet-boiler-pelux200/routes'
 
 // Trasy /api: wspólne (urządzenia, temperatura zewnętrzna) i moduły rodzajów sterowników.
 const router = express.Router()
@@ -27,5 +28,6 @@ router.get('/temperature', getTemperature)
 // zostanie przyjęte. Rozdział rodzajów jest po stronie sterowników i klienta.
 router.use(heatPumpRoutes)
 router.use(waterPressureTankRoutes)
+router.use(pelletBoilerPelux200Routes)
 
 export default router

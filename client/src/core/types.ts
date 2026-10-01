@@ -9,6 +9,7 @@ import type { WaterTank } from '../devices/water-pressure-tank/types';
 export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
+  PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
 }
 
 // Ustawienia urządzenia (properties): jedno pole dla wszystkich rodzajów sterowników.
@@ -24,6 +25,8 @@ export type DeviceProperties = {
   pressure_low?: number;
   pressure_high?: number;
   tanks?: WaterTank[];
+  // kocioł pelletowy: co ile sterownik odpytuje piec, 30–3600 s (domyślnie 300)
+  poll_interval_seconds?: number;
 };
 
 // rootId to _id dokumentu w MongoDB, deviceId to SN sterownika (MAC ESP32); pusta nazwa

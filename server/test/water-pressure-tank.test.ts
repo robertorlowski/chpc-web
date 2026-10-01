@@ -7,10 +7,10 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import app from './src/core/app'
-import { DeviceModel } from './src/core/models/device.model'
-import { WaterPressureTankRunModel } from './src/modules/water-pressure-tank/models/water-pressure-tank-run.model'
-import { addWaterPressureTankReport, estimateWater } from './src/modules/water-pressure-tank/services/water-pressure-tank.service'
+import app from '../src/core/app'
+import { DeviceModel } from '../src/core/models/device.model'
+import { WaterPressureTankRunModel } from '../src/modules/water-pressure-tank/models/water-pressure-tank-run.model'
+import { addWaterPressureTankReport, estimateWater } from '../src/modules/water-pressure-tank/services/water-pressure-tank.service'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({

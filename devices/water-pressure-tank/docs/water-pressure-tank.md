@@ -242,7 +242,7 @@ Kontroler `water-pressure-tank.controller.ts`, serwis `water-pressure-tank.servi
 | `DELETE /api/water-pressure-tank/meter/:id` | usunięcie odczytu; 404 dla nieznanego albo cudzego |
 | `GET /api/water-pressure-tank/meter/summary?year=YYYY` | zużycie z wodomierza w okresach między odczytami i w miesiącach (interpolacja liniowa), porównanie z szacunkiem, sugerowane `k`; przy mniej niż dwóch odczytach puste |
 
-### 5.5 Testy (vitest, `server/water-pressure-tank.test.ts`, 30 testów)
+### 5.5 Testy (vitest, `server/test/water-pressure-tank.test.ts`, 30 testów)
 
 - wzór wody: przepona z `p0`, poduszka z `k`, zbiornik wyłączony, `p0` powyżej progu dolnego, złe progi; **ten sam wynik we wzorze klienta** (`client/src/devices/water-pressure-tank/utils/water.ts`) i kalkulator pojemności,
 - zgłoszenie: nowe urządzenie z ustawieniami domyślnymi, znane urządzenie (ten sam `rootId`, nazwa bez zmian), pompa ciepła bez ustawień hydroforu, nieznany typ,

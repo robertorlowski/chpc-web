@@ -4,13 +4,23 @@
 // nieznanego urządzenia, 409 gdy rootId sterownika należy do innego deviceId.
 import { NextFunction, Request, Response } from 'express';
 import { DeviceModel } from '../models/device.model';
+import { DeviceType } from '../types';
 
 // ścieżki względem /api (req.path w routerze montowanym pod /api)
 const publicPaths = new Set(['/devices', '/devices/register']);
 
 // Endpointy sterownika: urządzenie wskazuje rootId albo sam deviceId (SN),
-// więc sterownik bez zapisanego rootId też może wysyłać dane.
-const controllerPaths = new Set(['/hp/add', '/pv/add', '/water-pressure-tank/add', '/water-pressure-tank/settings']);
+// więc sterownik bez zapisanego rootId też może wysyłać dane. Ten sam SN może
+// być zarejestrowany pod kilkoma rodzajami sterownika (różne role jednego
+// fizycznego urządzenia, różny rootId), więc każdy endpoint musi wiedzieć,
+// jakiego rodzaju szuka.
+const controllerPaths = new Map<string, DeviceType>([
+  ['/hp/add', DeviceType.HP],
+  ['/pv/add', DeviceType.HP],
+  ['/water-pressure-tank/add', DeviceType.WATER_PRESSURE_TANK],
+  ['/water-pressure-tank/settings', DeviceType.WATER_PRESSURE_TANK],
+  ['/pellet-boiler-pelux200/add', DeviceType.PELLET_BOILER_PELUX200],
+]);
 
 const queryText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 
@@ -24,7 +34,8 @@ export async function resolveDeviceContext(
 
   const rootId = queryText(req.query.rootId);
   const deviceId = queryText(req.query.deviceId);
-  const fromController = controllerPaths.has(req.path);
+  const expectedType = controllerPaths.get(req.path);
+  const fromController = expectedType !== undefined;
 
   // Nie ma urządzenia domyślnego: dawne "hp-1" tworzyło się samo przy żądaniu bez rootId.
   if (!rootId && !(fromController && deviceId)) {
@@ -32,18 +43,20 @@ export async function resolveDeviceContext(
   }
   try {
     const device = rootId
-      ? await DeviceModel.findById(rootId).select('_id deviceId').lean()
-      // szukanie po samym deviceId, bez rodzaju: SN (MAC) jest unikalny w praktyce,
-      // ale baza tego nie wymusza (registerDevice szuka po parze rodzaj + deviceId)
-      : await DeviceModel.findOne({ deviceId }).select('_id deviceId').lean();
+      ? await DeviceModel.findById(rootId).select('_id deviceId deviceType').lean()
+      // ten sam SN może mieć osobne dokumenty dla różnych rodzajów sterownika,
+      // więc szukanie po samym deviceId musi być zawężone do rodzaju endpointu
+      : await DeviceModel.findOne({ deviceId, deviceType: expectedType }).select('_id deviceId deviceType').lean();
 
     if (!device) {
       return res.status(404).json({ message: 'Nie znaleziono urządzenia.' });
     }
 
     // rootId zapisany w sterowniku należy do innego urządzenia (np. po
-    // wyczyszczeniu bazy); sterownik rejestruje się wtedy ponownie.
-    if (fromController && rootId && deviceId && device.deviceId !== deviceId) {
+    // wyczyszczeniu bazy albo pomyłce rodzaju) — sterownik rejestruje się wtedy ponownie.
+    if (fromController && rootId && (
+      (deviceId && device.deviceId !== deviceId) || device.deviceType !== expectedType
+    )) {
       return res.status(409).json({ message: 'rootId nie należy do tego deviceId.' });
     }
 

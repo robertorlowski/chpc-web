@@ -9,16 +9,16 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 // temperatura z IMGW bez sieci; null = serwis meteo jeszcze nic nie pobrał
 const meteo = vi.hoisted(() => ({ temperature: null as number | null }));
-vi.mock('./src/core/services/meteo.service', () => ({
+vi.mock('../src/core/services/meteo.service', () => ({
   getTemperature: () => meteo.temperature,
   prepareMeteoData: async () => meteo.temperature,
 }));
 
-import app from './src/core/app'
-import { DeviceModel } from './src/core/models/device.model'
-import { HpEntryModel } from './src/modules/heat-pump/models/hp.model'
-import { SettingsEntryModel } from './src/modules/heat-pump/models/settings.model'
-import { DeviceType } from './src/core/types'
+import app from '../src/core/app'
+import { DeviceModel } from '../src/core/models/device.model'
+import { HpEntryModel } from '../src/modules/heat-pump/models/hp.model'
+import { SettingsEntryModel } from '../src/modules/heat-pump/models/settings.model'
+import { DeviceType } from '../src/core/types'
 
 describe('API with MongoDB', () => {
   let mongoServer: MongoMemoryServer;

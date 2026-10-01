@@ -111,6 +111,68 @@ void CloudClient::registerDevice()
   if (rootId.length() == 0 || !saveRootId(rootId)) requestErrors++;
 }
 
+bool CloudClient::pelletRegistrationDue() const
+{
+  return !pelletRegistered() && WiFi.status() == WL_CONNECTED
+    && (!pelletRegistrationAttempted
+      || millis() - lastPelletRegistrationAt >= REGISTRATION_RETRY_MS);
+}
+
+// Ten sam SN co pompa, inny deviceType: serwer zwraca osobny rootId.
+void CloudClient::registerPelletBoiler()
+{
+  pelletRegistrationAttempted = true;
+  lastPelletRegistrationAt = millis();
+
+  const String &serial = deviceSerial();
+  if (serial.length() == 0) return;
+
+  JsonDocument request;
+  request["deviceType"] = "pellet-boiler-pelux200";
+  request["deviceId"] = serial;
+  request["name"] = "Piec Pellux 200";
+  String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
+  if (response.length() == 0) return;
+
+  JsonDocument reply;
+  if (deserializeJson(reply, response)) {
+    requestErrors++;
+    return;
+  }
+  String rootId = reply["rootId"] | "";
+  if (rootId.length() == 0 || !savePelletRootId(rootId)) {
+    requestErrors++;
+    return;
+  }
+  JsonVariantConst poll = reply["settings"]["poll_interval_seconds"];
+  if (poll.is<uint32_t>()) savePelletPollSeconds(poll.as<uint32_t>());
+}
+
+bool CloudClient::postPelletBoiler(const JsonDocument &data)
+{
+  if (!pelletRegistered() || deviceSerial().length() == 0) return false;
+
+  String url = String(CLOUD_BASE_URL) + "pellet-boiler-pelux200/add?deviceId="
+    + deviceSerial() + "&rootId=" + deviceConfig().pelletRootId;
+  String response = send(url, data);
+
+  if (httpStatus == HTTP_CONFLICT || httpStatus == 404) {
+    // Root ID pieca nie pasuje do SN albo serwer go nie zna: rejestracja od nowa.
+    clearPelletRootId();
+    pelletRegistrationAttempted = false;
+    return false;
+  }
+  if (httpStatus < 200 || httpStatus >= 300) return false;
+
+  JsonDocument reply;
+  if (response.length() > 0 && !deserializeJson(reply, response)) {
+    JsonVariantConst poll = reply["poll_interval_seconds"];
+    // Wartość spoza 30..3600 jest ignorowana przez savePelletPollSeconds.
+    if (poll.is<uint32_t>()) savePelletPollSeconds(poll.as<uint32_t>());
+  }
+  return true;
+}
+
 bool CloudClient::takeOperationRequest()
 {
   bool requested = operationRequested;

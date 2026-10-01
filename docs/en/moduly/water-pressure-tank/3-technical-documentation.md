@@ -81,12 +81,12 @@ Indexes: unique `{rootId, runId}` and `{rootId, pumpStart}`.
 ## Tests and tools
 
 ```bash
-npm test -w server -- --run       # water-pressure-tank.test.ts: 30 tests
+npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 30 tests (server in total: 81)
 node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # controller simulator (npm run local)
 node scripts/seed-local.mjs       # demo data: several months of runs and water meter readings
 ```
 
-`water-pressure-tank.test.ts` checks: the water formula and its agreement with the client formula, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", summaries, water meter and `k`, default controller.
+`server/test/water-pressure-tank.test.ts` checks: the water formula and its agreement with the client formula, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", summaries, water meter and `k`, default controller.
 
 ## Known issues
 

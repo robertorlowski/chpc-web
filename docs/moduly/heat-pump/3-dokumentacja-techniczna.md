@@ -116,7 +116,7 @@ Pusta operacja `{}` niczego nie zmienia; `co` nie wysyła ponownie wartości, kt
 ## Testy
 
 ```bash
-npm test -w server -- --run      # app.test.ts, pv.test.ts, scheduler.test.ts (+ hydrofor)
+npm test -w server -- --run      # server/test/: app.test.ts, pv.test.ts, scheduler.test.ts (+ hydrofor, kocioł); razem 81 testów
 ```
 
 - `app.test.ts` — zapis i odczyt telemetrii, `EEVmin`, zdarzenia błędów (także przy blokadzie), akcje, `co_pomp` przy zmianie trybu, force przy starcie.

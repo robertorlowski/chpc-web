@@ -16,15 +16,18 @@ flowchart TB
         REG["core/device-types.ts<br/>rejestr rodzajów"]
         HPM["modules/heat-pump"]
         WPT["modules/water-pressure-tank"]
+        PBM["modules/pellet-boiler-pelux200"]
         WS["core/websocket.ts"]
         MET["core: meteo (IMGW)<br/>kalendarz świąt"]
         APP --> CTX --> RT
         RT --> DEV
         RT --> HPM
         RT --> WPT
+        RT --> PBM
         DEV --> REG
         REG -.-> HPM
         REG -.-> WPT
+        REG -.-> PBM
         HPM --> WS
         HPM --> MET
     end
@@ -34,10 +37,12 @@ flowchart TB
         HDR["core/components/Header.tsx<br/>menu"]
         CHP["devices/heat-pump"]
         CWP["devices/water-pressure-tank"]
+        CPB["devices/pellet-boiler-pelux200"]
         CAPP --> CREG
         HDR --> CREG
         CREG -.-> CHP
         CREG -.-> CWP
+        CREG -.-> CPB
     end
     Klient -- "REST /api, WebSocket /ws" --> Serwer
 ```
@@ -46,7 +51,7 @@ Moduły rodzajów sterowników nie znają się nawzajem. Łączy je tylko core: 
 
 ## Zgłoszenie sterownika
 
-Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` tylko wtedy, gdy nie ma jeszcze Root ID (także po odpowiedzi 409). Serwer rozpoznaje sterownik po SN: nowy tworzy, znanemu oddaje jego rekord.
+Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` tylko wtedy, gdy nie ma jeszcze Root ID danej roli (także po odpowiedzi 409); rola kotła pelletowego zgłasza się dopiero po pierwszej poprawnej ramce z kotła. Serwer rozpoznaje urządzenie po parze (rodzaj, SN): nowe tworzy, znanemu oddaje jego rekord.
 
 ```mermaid
 sequenceDiagram
@@ -66,10 +71,22 @@ sequenceDiagram
     else znane urządzenie
         R-->>S: 200 + dane urządzenia (nazwa bez zmian)
     end
-    Note over R,S: odpowiedź ma rootId, a dla rodzajów z controllerSettings<br/>(hydrofor) także pole settings — sterownik zapisuje je w pamięci
+    Note over R,S: odpowiedź ma rootId, a dla rodzajów z controllerSettings<br/>(hydrofor, kocioł pelletowy) także pole settings — sterownik zapisuje je w pamięci
 ```
 
-Sterownik zapisuje `rootId` w swojej pamięci (NVS). Telemetrię może wysyłać także przed zgłoszeniem, z samym SN — serwer przyjmie ją, jeśli urządzenie o tym SN już istnieje.
+Sterownik zapisuje `rootId` w swojej pamięci (NVS; `co` osobno dla każdej roli, kocioł pod kluczem `pellet_root`). Dane może wysyłać także przed zgłoszeniem, z samym SN — serwer przyjmie je, jeśli urządzenie o tym SN i rodzaju endpointu już istnieje.
+
+## Jeden sterownik, kilka ról
+
+Fizyczny sterownik `co` może mieć w aplikacji kilka urządzeń: pompę ciepła (`heat_pump`) i kocioł pelletowy (`pellet-boiler-pelux200`). Mają ten sam `deviceId` (SN), ale inny `deviceType` i inny `rootId`; model `devices` nie ma unikalnego indeksu na `deviceId`. Nie ma więc pojęcia „urządzenia nadrzędnego”: każda rola jest zwykłym urządzeniem z własnym kontekstem, menu, danymi i ustawieniami.
+
+```mermaid
+flowchart LR
+    SN["sterownik co<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["urządzenie heat_pump<br/>rootId = A"]
+    SN -- "/pellet-boiler-pelux200/add" --> PB["urządzenie pellet-boiler-pelux200<br/>rootId = B"]
+```
+
+Skoro sam SN nie wskazuje jednoznacznie urządzenia, serwer wybiera rolę po **ścieżce endpointu** (mapa `controllerPaths` w `device-context.ts`, niżej) i szuka po parze `{deviceId, deviceType}`. Zgłoszenie (`POST /devices/register`) szuka też po tej parze, więc ten sam SN zgłoszony z innym rodzajem tworzy drugie urządzenie.
 
 ## Kontekst urządzenia w każdym zapytaniu
 
@@ -80,19 +97,21 @@ flowchart TD
     A["zapytanie /api/..."] --> B{"ścieżka publiczna?<br/>/devices, /devices/register,<br/>/devices/:rootId..."}
     B -- tak --> OK["dalej, bez kontekstu"]
     B -- nie --> C{"jest rootId?"}
-    C -- nie --> D{"ścieżka sterownika<br/>(/hp/add, /pv/add,<br/>/water-pressure-tank/add, /settings)<br/>i jest deviceId?"}
+    C -- nie --> D{"ścieżka sterownika z mapy controllerPaths<br/>(/hp/add, /pv/add,<br/>/water-pressure-tank/add, /settings,<br/>/pellet-boiler-pelux200/add)<br/>i jest deviceId?"}
     D -- nie --> E400["400: rootId jest wymagane"]
-    D -- tak --> F["szukaj po deviceId"]
+    D -- tak --> F["szukaj po {deviceId, rodzaj z mapy}"]
     C -- tak --> G["szukaj po rootId"]
     F --> H{"znalezione?"}
     G --> H
     H -- nie --> E404["404"]
-    H -- tak --> I{"sterownik podał rootId i deviceId,<br/>a nie pasują do siebie?"}
+    H -- tak --> I{"ścieżka sterownika, a sterownik podał rootId<br/>i deviceId nie pasuje albo rodzaj urządzenia<br/>jest inny niż rodzaj endpointu?"}
     I -- tak --> E409["409 — sterownik kasuje rootId<br/>i zgłasza się ponownie"]
     I -- nie --> J["req.deviceRootId = urządzenie → moduł"]
 ```
 
-Odpowiedź 409 chroni przed sytuacją, w której sterownik ma w pamięci `rootId` z innej bazy (np. po przełączeniu serwera z lokalnego na produkcyjny).
+Odpowiedź 409 chroni przed sytuacją, w której sterownik ma w pamięci `rootId` z innej bazy (np. po przełączeniu serwera z lokalnego na produkcyjny) albo z innej roli (np. `rootId` pompy wysłany na endpoint kotła).
+
+Dla zwykłych endpointów (spoza `controllerPaths`) kontekst wyznacza wyłącznie `rootId`, bez sprawdzania rodzaju urządzenia.
 
 ## Wybór sterownika w aplikacji
 
@@ -132,7 +151,7 @@ Każdy rodzaj sterownika podaje w swoim pliku `device-type` listę ekranów (śc
 
 Po zmianie sterownika ekran jest tworzony od nowa, więc nie zostają w nim dane poprzedniego sterownika.
 
-Serwer ma analogiczny rejestr: każdy rodzaj podaje ustawienia nowego urządzenia i ustawienia odsyłane przy zgłoszeniu.
+Serwer ma analogiczny rejestr: każdy rodzaj podaje ustawienia nowego urządzenia i ustawienia odsyłane przy zgłoszeniu (hydrofor: czas kompresora, progi, zbiorniki; kocioł pelletowy: `poll_interval_seconds`).
 
 ## WebSocket
 

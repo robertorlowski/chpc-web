@@ -81,12 +81,12 @@ Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`.
 ## Testy i narzędzia
 
 ```bash
-npm test -w server -- --run       # water-pressure-tank.test.ts: 30 testów
+npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 30 testów (serwer razem: 81)
 node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # symulator sterownika (npm run local)
 node scripts/seed-local.mjs       # dane demo: kilka miesięcy uruchomień i odczyty wodomierza
 ```
 
-`water-pressure-tank.test.ts` sprawdza: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, podsumowania, wodomierz i `k`, sterownik domyślny.
+`server/test/water-pressure-tank.test.ts` sprawdza: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, podsumowania, wodomierz i `k`, sterownik domyślny.
 
 ## Znane problemy
 

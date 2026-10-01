@@ -6,12 +6,12 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import app from './src/core/app'
-import { DeviceModel } from './src/core/models/device.model'
-import { HpEntryModel } from './src/modules/heat-pump/models/hp.model'
-import { PvEntryModel } from './src/modules/heat-pump/models/pv.model'
-import { DeviceType } from './src/core/types'
-import { removeExpiredPanelDetails } from './src/modules/heat-pump/services/pv.service'
+import app from '../src/core/app'
+import { DeviceModel } from '../src/core/models/device.model'
+import { HpEntryModel } from '../src/modules/heat-pump/models/hp.model'
+import { PvEntryModel } from '../src/modules/heat-pump/models/pv.model'
+import { DeviceType } from '../src/core/types'
+import { removeExpiredPanelDetails } from '../src/modules/heat-pump/services/pv.service'
 
 const panel = {
   serial: '116491036767', port: 1, power: 325.2, prod_today: 740,

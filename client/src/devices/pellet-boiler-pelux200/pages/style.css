@@ -1,0 +1,133 @@
+/* Kocioł pelletowy: karty jak w Ustawieniach pompy (.settings > section > .resource) */
+.settings.boiler-page > section > .resource,
+.settings.boiler-page > section > .resource:first-child {
+  width: min(560px, calc(100vw - 2rem));
+  box-sizing: border-box;
+}
+
+.boiler-page .settings-section-title {
+  margin-bottom: 0.5rem;
+}
+
+.boiler-stale,
+.boiler-alarm {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.boiler-on {
+  color: #1481a5;
+  font-weight: 600;
+}
+
+.boiler-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.boiler-table th,
+.boiler-table td {
+  padding: 0.25rem 0.4rem;
+  text-align: right;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
+}
+
+.boiler-table th:first-child,
+.boiler-table td:first-child,
+.boiler-table th:nth-child(2),
+.boiler-table td:nth-child(2) {
+  text-align: left;
+}
+
+/* tabela danych we własnym kontenerze: przewija się tylko ona, nie strona */
+.boiler-table-scroll {
+  overflow-x: auto;
+}
+
+.boiler-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.boiler-toolbar button {
+  margin-left: 0;
+}
+
+.boiler-toolbar .boiler-toolbar-end {
+  margin-left: auto;
+}
+
+.boiler-page input {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 32px;
+  padding: 0 0.4rem;
+  box-sizing: border-box;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.boiler-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.boiler-form label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.boiler-form span.label {
+  min-width: 13.5rem;
+}
+
+.boiler-form input[type='number'] {
+  width: 8rem;
+  text-align: right;
+}
+
+.boiler-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.boiler-actions button {
+  margin-left: 0;
+}
+
+.boiler-hint {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.boiler-error {
+  color: #b00020;
+}
+
+@media (max-width: 560px) {
+  body .settings.boiler-page > section > .resource,
+  body .settings.boiler-page > section > .resource:first-child {
+    width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .boiler-form span.label {
+    min-width: 9.5rem;
+  }
+
+  .boiler-table {
+    font-size: 0.8rem;
+  }
+}

@@ -22,6 +22,8 @@ namespace {
 constexpr const char *KEY_WIFI_SSID = "wifi_ssid";
 constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_ROOT_ID = "root_id";
+constexpr const char *KEY_PELLET_ROOT_ID = "pellet_root";
+constexpr const char *KEY_PELLET_POLL = "pellet_poll";
 
 DeviceConfig config;
 
@@ -52,6 +54,11 @@ void loadDeviceConfig()
   config.wifiPassword =
     storedOrDefault(preferences, KEY_WIFI_PASSWORD, WIFI_PASSWORD);
   config.rootId = storedOrDefault(preferences, KEY_ROOT_ID, CLOUD_ROOT_ID);
+  config.pelletRootId = preferences.getString(KEY_PELLET_ROOT_ID, "");
+  uint32_t poll = preferences.getUInt(KEY_PELLET_POLL, PELLET_POLL_DEFAULT_S);
+  config.pelletPollSeconds =
+    poll >= PELLET_POLL_MIN_S && poll <= PELLET_POLL_MAX_S
+      ? poll : PELLET_POLL_DEFAULT_S;
   preferences.end();
 }
 
@@ -114,4 +121,45 @@ void clearRootId()
   // Also drops a CLOUD_ROOT_ID default until the next restart; if that one
   // is wrong too, the server rejects it again and the cycle repeats once.
   config.rootId = "";
+}
+
+bool pelletRegistered()
+{
+  return config.pelletRootId.length() > 0;
+}
+
+bool savePelletRootId(const String &rootId)
+{
+  if (rootId.length() == 0) return false;
+
+  Preferences preferences;
+  if (!preferences.begin(PREFERENCES_NAMESPACE, false)) return false;
+  bool stored = preferences.putString(KEY_PELLET_ROOT_ID, rootId) > 0;
+  preferences.end();
+
+  if (stored) config.pelletRootId = rootId;
+  return stored;
+}
+
+void clearPelletRootId()
+{
+  Preferences preferences;
+  if (preferences.begin(PREFERENCES_NAMESPACE, false)) {
+    preferences.remove(KEY_PELLET_ROOT_ID);
+    preferences.end();
+  }
+  config.pelletRootId = "";
+}
+
+bool savePelletPollSeconds(uint32_t seconds)
+{
+  if (seconds < PELLET_POLL_MIN_S || seconds > PELLET_POLL_MAX_S) return false;
+
+  Preferences preferences;
+  if (!preferences.begin(PREFERENCES_NAMESPACE, false)) return false;
+  if (config.pelletPollSeconds != seconds)
+    preferences.putUInt(KEY_PELLET_POLL, seconds);
+  preferences.end();
+  config.pelletPollSeconds = seconds;
+  return true;
 }

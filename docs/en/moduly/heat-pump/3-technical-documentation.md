@@ -116,7 +116,7 @@ An empty operation `{}` changes nothing; `co` does not resend a value that has n
 ## Tests
 
 ```bash
-npm test -w server -- --run      # app.test.ts, pv.test.ts, scheduler.test.ts (+ tank)
+npm test -w server -- --run      # server/test/: app.test.ts, pv.test.ts, scheduler.test.ts (+ tank, boiler); 81 tests in total
 ```
 
 - `app.test.ts` — telemetry save and read, `EEVmin`, error events (also while locked), actions, `co_pomp` on mode change, force at start.

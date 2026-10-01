@@ -13,7 +13,7 @@
 | `core/device-types.ts` | controller kind registry: `DeviceType` → module description (`device-type.ts`) |
 | `core/time.ts` | `TIME_ZONE = Europe/Warsaw`, Warsaw day boundaries as a UTC range |
 | `core/websocket.ts` | WebSocket server (`/ws?rootId=`), `sendMessage(type, rootId)` with a 1 s delay |
-| `core/middleware/device-context.ts` | resolves the device from `rootId` or (for controller paths) from `deviceId`; 400/404/409 |
+| `core/middleware/device-context.ts` | resolves the device from `rootId` or (for controller paths in the `controllerPaths` map) from the pair `{deviceId, deviceType}`; 400/404/409 |
 | `core/middleware/auth.ts` | `verifyApiKey` — **unused** (disabled in `app.ts`) |
 | `core/middleware/mock-response.ts` | leftover, unused |
 | `core/models/device.model.ts` | Mongoose model `devices`: device schema, `properties`, embedded schedules and legacy `settings` |
@@ -45,7 +45,25 @@
 
 ## API
 
-All paths are prefixed with `/api`. Except for the public paths a request needs `?rootId=` (the client adds it automatically, together with `deviceId`).
+All paths are prefixed with `/api`. Except for the public paths a request needs `?rootId=` (the client adds it automatically, together with `deviceId`). Exception: the controller endpoints in the `controllerPaths` map (below) also accept `?deviceId=` alone.
+
+### The `controllerPaths` map (`core/middleware/device-context.ts`)
+
+The same SN may be registered under several controller kinds (roles of one physical controller), so a controller endpoint has to know which device kind it is looking for. The `controllerPaths` map assigns a kind to a path:
+
+| Path (relative to `/api`) | Kind |
+|---|---|
+| `/hp/add`, `/pv/add` | `heat_pump` |
+| `/water-pressure-tank/add`, `/water-pressure-tank/settings` | `water-pressure-tank` |
+| `/pellet-boiler-pelux200/add` | `pellet-boiler-pelux200` |
+
+Behaviour for a path in the map:
+
+- no `rootId`, `deviceId` alone: `DeviceModel.findOne({deviceId, deviceType})`; unknown — 404;
+- with `rootId` (and possibly `deviceId`): the device by `rootId`; **409** when its `deviceId` differs from the one given or its `deviceType` differs from the path kind (e.g. a pump `rootId` on `/pellet-boiler-pelux200/add`);
+- neither `rootId` nor `deviceId` — 400.
+
+Paths outside the map (application, `GET`s, `/device/properties`) require `rootId` and do not check the kind.
 
 | Method and path | Context | Description | Replies |
 |---|---|---|---|
@@ -65,11 +83,11 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | Field | Type | Description |
 |---|---|---|
 | `_id` | ObjectId | Root ID |
-| `deviceType` | `heat_pump` \| `water-pressure-tank` | controller kind |
-| `deviceId` | string | controller SN (ESP32 MAC, 12 hex characters) |
+| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` | controller kind (role) |
+| `deviceId` | string | controller SN (ESP32 MAC, 12 hex characters); devices of different kinds may share an SN (roles of one controller), no unique index |
 | `name` | string | user-given name, empty by default |
 | `isDefault` | boolean | default controller, at most one |
-| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]` |
+| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
 | `settings` | object | legacy heat pump time settings (not used by the scheduler) |
 | `createdAt`, `updatedAt` | Date | timestamps |
@@ -102,7 +120,7 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
 ### Adding a new controller kind
 
 1. A value in `DeviceType` — in `server/src/core/types.ts` and `client/src/core/types.ts` (the same one).
-2. Server: a `server/src/modules/<kind>/` folder with `controllers/`, `services/`, `models/`, `types.ts`, `routes.ts`, `device-type.ts`; an entry in `server/src/core/device-types.ts`; `routes.ts` added in `server/src/core/routes.ts`; paths the controller calls with the SN only — in `controllerPaths` in `device-context.ts`.
+2. Server: a `server/src/modules/<kind>/` folder with `controllers/`, `services/`, `models/`, `types.ts`, `routes.ts`, `device-type.ts`; an entry in `server/src/core/device-types.ts`; `routes.ts` added in `server/src/core/routes.ts`; paths the controller calls with the SN only — in `controllerPaths` in `device-context.ts`, together with the kind (without an entry the path requires `rootId` and the kind is not checked).
 3. Client: a `client/src/devices/<kind>/` folder with `pages/`, `api.ts`, `types.ts`, `device-type.tsx`; an entry in `client/src/core/device-types.tsx`.
 4. If the kind has its own settings in `properties`: fields in `DeviceProperties` (both `types.ts`) and in the schema in `device.model.ts`.
 5. Firmware: registration with the new `deviceType`.
@@ -131,8 +149,10 @@ node scripts/seed-local.mjs      # clears the local database and loads demo data
 
 ## Tests
 
-- `server/app.test.ts` — devices (registration, name, default, unknown rootId) and the heat pump API; `mongodb-memory-server` database.
-- `server/water-pressure-tank.test.ts` — among others tank registration with settings, default controller, context 404/409.
+- `server/test/app.test.ts` — devices (registration, name, default, unknown rootId) and the heat pump API; `mongodb-memory-server` database.
+- `server/test/water-pressure-tank.test.ts` — among others tank registration with settings, default controller, context 404/409.
+- `server/test/pellet-boiler-pelux200.test.ts` — among others two roles of the same SN (two `rootId`s, routing by endpoint kind, 409 for a `rootId` of the other role), boiler registration with `settings`, `poll_interval_seconds` validation in `PUT /device/properties`.
+- The heat pump's `pv.test.ts` and `scheduler.test.ts` live in the same `server/test/` folder; the server has 81 tests in total.
 - The client has no unit tests; the checks are `tsc` and `vite build`.
 
 ```bash
@@ -150,9 +170,9 @@ The server and the client are deployed together from the `main` branch to Render
 - **No API protection.** `app.use(verifyApiKey)` is commented out; the `x-api-key` key is compiled into the client (`core/http.ts`), so it would be public anyway. `verifyApiKey` checks `/api/operation/set` and `/hp/clear` — inconsistently (one with the prefix, one without).
 - **Data in server memory** (`device-info.service.ts`, latest telemetry, manual operations) is lost on restart; after changing `deviceId` in the database the server has to be restarted.
 - **The IMGW station** is hard-coded (`meteo.service.ts`, Zakopane).
-- **SN and kind.** Registration and `POST /devices` look a device up by the pair (kind, SN), while `device-context` for controller paths uses the SN only. Two devices of different kinds with the same SN would be ambiguous (in practice the SN is a MAC address, so it does not repeat).
+- **SN and kind.** Registration, `POST /devices` and `device-context` for paths in `controllerPaths` look a device up by the pair (kind, SN), so the same SN may have several devices of different kinds (`co` roles). A controller path missing from `controllerPaths` gets 400 for a `deviceId` alone and does not check the kind for a `rootId`; a new controller endpoint has to be added there.
 - **`PUT /device/properties` replaces the whole `properties`** — omitted keys disappear. The client always sends the full set of its kind's fields.
-- **Modules do not check the device kind** (e.g. `/hp/add` accepts a tank's `rootId`).
+- **The device kind is checked only on controller endpoints** (`controllerPaths`: a mismatched kind gives 409). The other module endpoints (e.g. `GET /hp` with a tank's `rootId`) do not check it.
 - **A new heat pump gets no `properties`** on registration (the pump's `initialProperties` is empty); the `CWU` mode comes from a fallback in the scheduler.
 - **The WebSocket** accepts a connection on any path and does not check that `rootId` exists; a message reaches every connection of that `rootId` (browsers also get `operation`, `co` gets `update`).
 - **Client error handling (`core/http.ts`)**: `get` returns `null`, `post` swallows the error (with `json = false` it returns the `Response`), `put` and `delete` throw — so screens show save errors differently.

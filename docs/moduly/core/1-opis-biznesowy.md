@@ -4,14 +4,14 @@
 
 ## Po co jest ten moduł
 
-Core to część wspólna aplikacji chpc-web, niezależna od rodzaju urządzenia. Dzięki niej w jednej aplikacji można mieć kilka sterowników różnych rodzajów (dziś pompę ciepła i hydrofor), przełączać się między nimi i dodawać nowe rodzaje bez przebudowy całości.
+Core to część wspólna aplikacji chpc-web, niezależna od rodzaju urządzenia. Dzięki niej w jednej aplikacji można mieć kilka sterowników różnych rodzajów (dziś pompę ciepła, hydrofor i kocioł pelletowy), przełączać się między nimi i dodawać nowe rodzaje bez przebudowy całości.
 
 Moduł odpowiada za:
 
 - **listę sterowników** i wybór tego, z którym użytkownik pracuje;
 - **samodzielne zgłaszanie się sterowników**: nowy sterownik po podłączeniu do internetu sam pojawia się w aplikacji, nie trzeba go nigdzie wpisywać;
 - **nazwy sterowników** i **sterownik domyślny**, otwierany po uruchomieniu aplikacji;
-- **menu i ekrany zależne od rodzaju sterownika** (pompa ma harmonogramy, hydrofor nie);
+- **menu i ekrany zależne od rodzaju sterownika** (pompa ma harmonogramy, hydrofor i kocioł nie);
 - **wspólne usługi**: temperaturę zewnętrzną (IMGW), kalendarz polskich świąt, szybkie powiadamianie sterownika i przeglądarki (WebSocket).
 
 ## Dla kogo
@@ -31,7 +31,7 @@ Moduł odpowiada za:
 
 ![Lista sterowników](img/lista-sterownikow.png)
 
-*Lista sterowników: kafelek z ikoną rodzaju (kropla — hydrofor, fale — pompa ciepła), nazwą i identyfikatorem; gwiazdka oznacza sterownik domyślny, ołówek otwiera dane sterownika.*
+*Lista sterowników: kafelek z ikoną rodzaju (kropla — hydrofor, fale — pompa ciepła, płomień — kocioł pelletowy), nazwą i identyfikatorem; gwiazdka oznacza sterownik domyślny, ołówek otwiera dane sterownika.*
 
 ![Dane sterownika](img/dane-sterownika.png)
 
@@ -41,7 +41,7 @@ Moduł odpowiada za:
 |---|---|
 | ![Menu pompy](img/menu-i-stopka-pompa-telefon.png) | ![Menu hydroforu](img/menu-i-stopka-hydrofor-telefon.png) |
 
-*Menu zależy od rodzaju sterownika: pompa ma pięć pozycji (z Harmonogramem), hydrofor cztery. Na telefonie menu pokazuje same ikony. Na dole stopka z aktywnym sterownikiem i przyciskiem przełączania.*
+*Menu zależy od rodzaju sterownika: pompa ma pięć pozycji (z Harmonogramem), hydrofor cztery, kocioł pelletowy trzy (Kocioł, Dane, Ustawienia). Na telefonie menu pokazuje same ikony. Na dole stopka z aktywnym sterownikiem i przyciskiem przełączania.*
 
 ## Typowe scenariusze
 
@@ -49,6 +49,7 @@ Moduł odpowiada za:
 2. **Codzienna praca.** Aplikacja po otwarciu od razu pokazuje sterownik domyślny. Jeśli sterownik jest tylko jeden, wybiera go sama.
 3. **Kilka sterowników.** Użytkownik przełącza się stopką. Wybór obowiązuje do zamknięcia przeglądarki; przy kolejnym otwarciu znów startuje sterownik domyślny.
 4. **Wymiana sterownika albo wyczyszczenie jego pamięci.** Sterownik zgłasza się ponownie z tym samym SN i dostaje ten sam rekord — historia danych zostaje.
+5. **Sterownik z kilkoma rolami.** Sterownik `co` obsługuje pompę ciepła i — gdy jest podłączony do kotła pelletowego — także kocioł. W aplikacji to dwa osobne urządzenia na liście (pompa i „Piec Pellux 200”), o tym samym identyfikatorze (SN), ale każde z własnym Root ID, menu i historią danych. Kocioł pojawia się dopiero, gdy sterownik odbierze z niego pierwszą poprawną ramkę.
 
 ## Ograniczenia i ryzyka
 
@@ -61,10 +62,11 @@ Moduł odpowiada za:
 
 | Pojęcie | Znaczenie |
 |---|---|
-| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła) albo sterownik hydroforu |
-| **Rodzaj sterownika** (`deviceType`) | `heat_pump` albo `water-pressure-tank`; decyduje o menu, ekranach i obsłudze danych |
-| **SN** (`deviceId`) | numer seryjny sterownika — fabryczny adres MAC układu ESP32, 12 znaków szesnastkowych |
-| **Root ID** (`rootId`) | identyfikator sterownika w bazie danych; aplikacja i sterownik podają go przy każdym zapytaniu |
+| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła, druga rola: kocioł pelletowy) albo sterownik hydroforu |
+| **Rodzaj sterownika** (`deviceType`) | `heat_pump`, `water-pressure-tank` albo `pellet-boiler-pelux200`; decyduje o menu, ekranach i obsłudze danych |
+| **Rola sterownika** | jedno zadanie fizycznego sterownika (np. `co` jako pompa ciepła albo jako kocioł); każda rola to osobne urządzenie w aplikacji |
+| **SN** (`deviceId`) | numer seryjny sterownika — fabryczny adres MAC układu ESP32, 12 znaków szesnastkowych; wspólny dla wszystkich ról tego samego sterownika |
+| **Root ID** (`rootId`) | identyfikator urządzenia (roli) w bazie danych; aplikacja i sterownik podają go przy każdym zapytaniu |
 | **Zgłoszenie sterownika** | zapytanie, które sterownik wysyła przy starcie; tworzy urządzenie albo zwraca istniejące |
 | **Sterownik domyślny** | sterownik otwierany po uruchomieniu aplikacji; najwyżej jeden |
 | **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, zbiorniki hydroforu) |

@@ -13,7 +13,7 @@
 | `core/device-types.ts` | rejestr rodzajów sterowników: `DeviceType` → opis modułu (`device-type.ts`) |
 | `core/time.ts` | `TIME_ZONE = Europe/Warsaw`, granice doby w Warszawie jako zakres UTC |
 | `core/websocket.ts` | serwer WebSocket (`/ws?rootId=`), `sendMessage(typ, rootId)` z opóźnieniem 1 s |
-| `core/middleware/device-context.ts` | ustala urządzenie z `rootId` albo (dla ścieżek sterownika) z `deviceId`; 400/404/409 |
+| `core/middleware/device-context.ts` | ustala urządzenie z `rootId` albo (dla ścieżek sterownika z mapy `controllerPaths`) z pary `{deviceId, deviceType}`; 400/404/409 |
 | `core/middleware/auth.ts` | `verifyApiKey` — **nieużywane** (wyłączone w `app.ts`) |
 | `core/middleware/mock-response.ts` | pozostałość, nieużywane |
 | `core/models/device.model.ts` | model Mongoose `devices`: schemat urządzenia, `properties`, osadzone harmonogramy i starsze `settings` |
@@ -45,7 +45,25 @@
 
 ## API
 
-Wszystkie adresy mają przedrostek `/api`. Poza ścieżkami publicznymi zapytanie musi mieć `?rootId=` (klient dodaje go sam, razem z `deviceId`).
+Wszystkie adresy mają przedrostek `/api`. Poza ścieżkami publicznymi zapytanie musi mieć `?rootId=` (klient dodaje go sam, razem z `deviceId`). Wyjątek: endpointy sterownika z mapy `controllerPaths` (niżej) przyjmują też sam `?deviceId=`.
+
+### Mapa `controllerPaths` (`core/middleware/device-context.ts`)
+
+Ten sam SN może być zarejestrowany pod kilkoma rodzajami sterownika (role jednego fizycznego sterownika), więc endpoint sterownika musi wiedzieć, jakiego rodzaju urządzenia szuka. Mapa `controllerPaths` przypisuje ścieżce rodzaj:
+
+| Ścieżka (względem `/api`) | Rodzaj |
+|---|---|
+| `/hp/add`, `/pv/add` | `heat_pump` |
+| `/water-pressure-tank/add`, `/water-pressure-tank/settings` | `water-pressure-tank` |
+| `/pellet-boiler-pelux200/add` | `pellet-boiler-pelux200` |
+
+Działanie dla ścieżki z mapy:
+
+- bez `rootId` z samym `deviceId`: `DeviceModel.findOne({deviceId, deviceType})`; nieznane — 404;
+- z `rootId` (i ewentualnie `deviceId`): urządzenie po `rootId`; **409**, gdy jego `deviceId` jest inny niż podany albo jego `deviceType` jest inny niż rodzaj ścieżki (np. `rootId` pompy na `/pellet-boiler-pelux200/add`);
+- bez `rootId` i bez `deviceId` — 400.
+
+Ścieżki spoza mapy (aplikacja, `GET`-y, `/device/properties`) wymagają `rootId` i nie sprawdzają rodzaju.
 
 | Metoda i ścieżka | Kontekst | Opis | Odpowiedzi |
 |---|---|---|---|
@@ -65,11 +83,11 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | Pole | Typ | Opis |
 |---|---|---|
 | `_id` | ObjectId | Root ID |
-| `deviceType` | `heat_pump` \| `water-pressure-tank` | rodzaj sterownika |
-| `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex) |
+| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` | rodzaj sterownika (rola) |
+| `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex); ten sam SN mogą mieć urządzenia różnych rodzajów (role jednego sterownika), bez indeksu unikalnego |
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
-| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]` |
+| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
 | `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |
 | `createdAt`, `updatedAt` | Date | znaczniki czasu |
@@ -102,7 +120,7 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
 ### Jak dodać nowy rodzaj sterownika
 
 1. Wartość w `DeviceType` — w `server/src/core/types.ts` i `client/src/core/types.ts` (ta sama).
-2. Serwer: katalog `server/src/modules/<rodzaj>/` z `controllers/`, `services/`, `models/`, `types.ts`, `routes.ts`, `device-type.ts`; wpis w `server/src/core/device-types.ts`; `routes.ts` dołączone w `server/src/core/routes.ts`; ścieżki wysyłane przez sterownik z samym SN — w `controllerPaths` w `device-context.ts`.
+2. Serwer: katalog `server/src/modules/<rodzaj>/` z `controllers/`, `services/`, `models/`, `types.ts`, `routes.ts`, `device-type.ts`; wpis w `server/src/core/device-types.ts`; `routes.ts` dołączone w `server/src/core/routes.ts`; ścieżki wysyłane przez sterownik z samym SN — w `controllerPaths` w `device-context.ts`, razem z rodzajem (bez wpisu ścieżka wymaga `rootId`, a rodzaj nie jest sprawdzany).
 3. Klient: katalog `client/src/devices/<rodzaj>/` z `pages/`, `api.ts`, `types.ts`, `device-type.tsx`; wpis w `client/src/core/device-types.tsx`.
 4. Jeśli rodzaj ma własne ustawienia w `properties`: pola w `DeviceProperties` (oba `types.ts`) i w schemacie w `device.model.ts`.
 5. Firmware: zgłoszenie z nowym `deviceType`.
@@ -131,8 +149,10 @@ node scripts/seed-local.mjs      # czyści bazę lokalną i wczytuje dane demo
 
 ## Testy
 
-- `server/app.test.ts` — urządzenia (zgłoszenie, nazwa, domyślny, nieznany rootId) i API pompy; baza `mongodb-memory-server`.
-- `server/water-pressure-tank.test.ts` — m.in. zgłoszenie hydroforu z ustawieniami, sterownik domyślny, 404/409 kontekstu.
+- `server/test/app.test.ts` — urządzenia (zgłoszenie, nazwa, domyślny, nieznany rootId) i API pompy; baza `mongodb-memory-server`.
+- `server/test/water-pressure-tank.test.ts` — m.in. zgłoszenie hydroforu z ustawieniami, sterownik domyślny, 404/409 kontekstu.
+- `server/test/pellet-boiler-pelux200.test.ts` — m.in. dwie role tego samego SN (dwa `rootId`, routing po rodzaju endpointu, 409 dla `rootId` innej roli), zgłoszenie kotła z `settings`, walidacja `poll_interval_seconds` w `PUT /device/properties`.
+- Pliki `pv.test.ts` i `scheduler.test.ts` (pompa) leżą w tym samym katalogu `server/test/`; razem serwer ma 81 testów.
 - Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build`.
 
 ```bash
@@ -150,9 +170,9 @@ Serwer i klient wdraża się razem z gałęzi `main` na Render (build uruchamian
 - **Brak ochrony API.** `app.use(verifyApiKey)` jest zakomentowane; klucz `x-api-key` jest wkompilowany w klienta (`core/http.ts`), więc i tak byłby jawny. `verifyApiKey` sprawdza ścieżki `/api/operation/set` i `/hp/clear` — niespójnie (jedna z przedrostkiem, druga bez).
 - **Dane w pamięci serwera** (`device-info.service.ts`, ostatnia telemetria, operacje ręczne) giną przy restarcie; po zmianie `deviceId` w bazie trzeba zrestartować serwer.
 - **Stacja IMGW** jest wpisana w kod (`meteo.service.ts`, Zakopane).
-- **SN a rodzaj.** Zgłoszenie i `POST /devices` szukają urządzenia po parze (rodzaj, SN), a `device-context` dla ścieżek sterownika — po samym SN. Dwa urządzenia różnych rodzajów z tym samym SN byłyby niejednoznaczne (w praktyce SN to MAC, więc się nie powtarza).
+- **SN a rodzaj.** Zgłoszenie, `POST /devices` i `device-context` dla ścieżek z `controllerPaths` szukają urządzenia po parze (rodzaj, SN), więc ten sam SN może mieć kilka urządzeń różnych rodzajów (role `co`). Ścieżka sterownika, której brakuje w `controllerPaths`, dla samego `deviceId` dostaje 400, a dla `rootId` nie sprawdza rodzaju; nowy endpoint sterownika trzeba tam dopisać.
 - **`PUT /device/properties` podmienia całe `properties`** — pominięte klucze znikają. Klient zawsze wysyła komplet pól swojego rodzaju.
-- **Moduły nie sprawdzają rodzaju urządzenia** (np. `/hp/add` przyjmie `rootId` hydroforu).
+- **Rodzaj urządzenia jest sprawdzany tylko na endpointach sterownika** (`controllerPaths`: niezgodny rodzaj daje 409). Pozostałe endpointy modułów (np. `GET /hp` z `rootId` hydroforu) go nie sprawdzają.
 - **Nowa pompa ciepła nie dostaje `properties`** przy zgłoszeniu (`initialProperties` pompy jest puste); tryb `CWU` wynika z wartości zastępczej w schedulerze.
 - **WebSocket** przyjmuje połączenie na dowolnej ścieżce i nie sprawdza, czy `rootId` istnieje; komunikat trafia do wszystkich połączeń danego `rootId` (przeglądarki dostają też `operation`, a `co` — `update`).
 - **Obsługa błędów w kliencie (`core/http.ts`)**: `get` zwraca `null`, `post` połyka błąd (z `json = false` zwraca `Response`), `put` i `delete` rzucają wyjątek — różne ekrany różnie więc pokazują błędy zapisu.

@@ -35,3 +35,10 @@ constexpr uint8_t RELAY_HP_CO_PIN = 26;
 constexpr uint8_t POWER_PIN = 18;
 // Przycisk trybu, aktywny stanem wysokim, z zewnętrznym rezystorem.
 constexpr uint8_t CONTROL_BUTTON_PIN = 5;
+
+// Magistrala ecoMAX (piec Pellux 200) na osobnym UART2, tylko odbiór (etap 1).
+// TX2 (GPIO17) nie jest konfigurowany; DE+RE transceivera na stałe LOW.
+constexpr uint8_t ECOMAX_RX_PIN = 16;
+constexpr uint8_t ECOMAX_TX_PIN = 17;
+constexpr uint8_t ECOMAX_DE_RE_PIN = 4;
+constexpr uint32_t ECOMAX_BAUD = 115200;

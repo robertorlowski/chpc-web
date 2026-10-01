@@ -8,6 +8,7 @@ import type { WaterTank } from '../modules/water-pressure-tank/types';
 export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
+  PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
 }
 
 // Ustawienia urządzenia (pole properties). Jedno pole w bazie dla wszystkich
@@ -26,6 +27,8 @@ export interface DeviceProperties {
   pressure_low?: number;
   pressure_high?: number;
   tanks?: WaterTank[];
+  // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600
+  poll_interval_seconds?: number;
 }
 
 export interface Device {

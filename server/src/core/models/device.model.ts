@@ -25,6 +25,11 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
     pressure_low: { type: Number, min: 0 },
     pressure_high: { type: Number, min: 0 },
     tanks: { type: [WaterTankSchema], default: undefined },
+    // kocioł pelletowy Pellux 200; pełne sekundy, sprawdzane też przy PUT /device/properties
+    poll_interval_seconds: {
+      type: Number, min: 30, max: 3600,
+      validate: { validator: Number.isInteger, message: 'poll_interval_seconds: pełne sekundy 30–3600.' },
+    },
   },
   { _id: false }
 );
