@@ -74,7 +74,11 @@ export const SwitchSettings: React.FC = () => {
             <label key={relay.relay}>
               <span className="label">Przekaźnik {relay.relay}:</span>
               <input type="text" maxLength={40} placeholder={`Przekaźnik ${relay.relay}`} value={names[relay.relay] ?? ''}
-                onChange={(event) => setNames((current) => ({ ...current, [relay.relay]: event.currentTarget.value }))} />
+                onChange={(event) => {
+                  // wartość odczytana od razu: w funkcji aktualizującej stan currentTarget jest już null
+                  const value = event.currentTarget.value;
+                  setNames((current) => ({ ...current, [relay.relay]: value }));
+                }} />
             </label>
           ))}
           <label>
