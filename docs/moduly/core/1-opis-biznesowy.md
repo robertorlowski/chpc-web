@@ -62,8 +62,8 @@ Moduł odpowiada za:
 
 | Pojęcie | Znaczenie |
 |---|---|
-| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła, druga rola: kocioł pelletowy) albo sterownik hydroforu |
-| **Rodzaj sterownika** (`deviceType`) | `heat_pump`, `water-pressure-tank` albo `pellet-boiler-pelux200`; decyduje o menu, ekranach i obsłudze danych |
+| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła, druga rola: kocioł pelletowy), sterownik hydroforu albo włącznik |
+| **Rodzaj sterownika** (`deviceType`) | `heat_pump`, `water-pressure-tank`, `pellet-boiler-pelux200` albo `switch`; decyduje o menu, ekranach i obsłudze danych |
 | **Rola sterownika** | jedno zadanie fizycznego sterownika (np. `co` jako pompa ciepła albo jako kocioł); każda rola to osobne urządzenie w aplikacji |
 | **SN** (`deviceId`) | numer seryjny sterownika — fabryczny adres MAC układu ESP32, 12 znaków szesnastkowych; wspólny dla wszystkich ról tego samego sterownika |
 | **Root ID** (`rootId`) | identyfikator urządzenia (roli) w bazie danych; aplikacja i sterownik podają go przy każdym zapytaniu |

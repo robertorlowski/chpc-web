@@ -2,13 +2,14 @@
 
 [English](en/README.md)
 
-System steruje domową pompą ciepła (CHPC) z chmury, zbiera dane z instalacji fotowoltaicznej, monitoruje hydrofor i pokazuje dane kotła pelletowego. Ten plik jest punktem wejścia: opisuje całość i prowadzi do dokumentacji poszczególnych modułów.
+System steruje domową pompą ciepła (CHPC) z chmury, zbiera dane z instalacji fotowoltaicznej, monitoruje hydrofor, pokazuje dane kotła pelletowego i steruje włącznikiem 230 V. Ten plik jest punktem wejścia: opisuje całość i prowadzi do dokumentacji poszczególnych modułów.
 
 ## Co robi system
 
 - **Pompa ciepła.** Użytkownik ustawia w aplikacji WWW tryb pracy (CO, CWU, wyłączona), temperatury i harmonogramy. Serwer co minutę wylicza, co pompa ma robić, a sterownik `co` przekazuje to do sterownika pompy CHPC. Aplikacja pokazuje bieżący stan, historię, wykresy, koszty energii i błędy pompy.
 - **Fotowoltaika.** Sterownik `co` co minutę czyta z mikrofalowników (DTU Hoymiles) moc i produkcję. Dane trafiają do osobnej kolekcji i do bilansu energii pompy.
 - **Hydrofor.** Sterownik hydroforu przy każdym uruchomieniu pompy wody włącza na chwilę kompresor, a do chmury wysyła czasy pracy. Aplikacja liczy z tego zużycie wody: czas pracy pompy × przepływ pompy wyliczony z ręcznych odczytów wodomierza.
+- **Włącznik.** Sterownik ESP32 z przekaźnikiem (pierwszy steruje grzałką bojlera) co 5 s zgłasza stan przekaźników i w odpowiedzi dostaje polecenie: włącz na czas, włącz bez limitu albo wyłącz. Polecenie wynika z trybu wybranego w aplikacji i z harmonogramu (dni jak w pompie ciepła, bez temperatur). Aplikacja pokazuje stan i historię włączeń.
 - **Kocioł pelletowy.** Sterownik `co` (jego druga rola) podsłuchuje osobnym łączem RS-485 regulator ecoMAX kotła Plum Pellux 200 i co kilka minut wysyła do chmury stan, temperatury, paliwo i wyjścia kotła. Aplikacja tylko to pokazuje; nadawania na magistralę kotła i sterowania nie ma (etap 2), a format ramek nie był jeszcze sprawdzony na kotle.
 
 ## Schemat systemu
@@ -20,6 +21,7 @@ flowchart LR
     CO["co<br/>sterownik (ESP32)"]
     ECO["Kocioł pelletowy Pellux 200<br/>regulator ecoMAX"]
     HYD["Hydrofor<br/>sterownik (ESP32)"]
+    SW["Włącznik<br/>sterownik (ESP32 + przekaźnik)"]
     SRV["chpc-web — serwer<br/>(Node.js, Render)"]
     DB[("MongoDB Atlas")]
     WEB["chpc-web — aplikacja WWW<br/>(przeglądarka, telefon)"]
@@ -30,6 +32,7 @@ flowchart LR
     ECO -- "osobny RS-485<br/>ramki SensorData, tylko odbiór" --> CO
     CO <-- "HTTPS: telemetria → operacja<br/>WebSocket: szybka akcja<br/>HTTPS: odczyt kotła co kilka minut" --> SRV
     HYD -- "HTTPS: uruchomienia co 1 s<br/>zgłoszenie → ustawienia" --> SRV
+    SW <-- "HTTPS: stan co 5 s → polecenia<br/>WebSocket: szybka zmiana" --> SRV
     IMGW -- "co 10 min" --> SRV
     SRV <--> DB
     WEB <-- "REST API, WebSocket" --> SRV
@@ -45,11 +48,13 @@ Najważniejsza zasada: **sterowniki inicjują połączenie, serwer tylko odpowia
 | **heat-pump** | pompa ciepła w aplikacji: telemetria, PV, operacje, scheduler, harmonogramy, widoki | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/moduly/heat-pump](moduly/heat-pump/1-opis-biznesowy.md) |
 | **water-pressure-tank** | hydrofor w aplikacji: uruchomienia, woda z czasu pompy i wodomierza, widoki | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/moduly/water-pressure-tank](moduly/water-pressure-tank/1-opis-biznesowy.md) |
 | **pellet-boiler-pelux200** | kocioł pelletowy w aplikacji: odczyty kotła, interwał odpytywania, widoki (tylko podgląd) | `server/src/modules/pellet-boiler-pelux200`, `client/src/devices/pellet-boiler-pelux200` | [docs/moduly/pellet-boiler-pelux200](moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) |
+| **switch** | włącznik w aplikacji: przekaźniki, tryby, harmonogramy, historia włączeń, widoki | `server/src/modules/switch`, `client/src/devices/switch` | [docs/moduly/switch](moduly/switch/1-opis-biznesowy.md) |
 | **firmware co** | sterownik ESP32 między pompą, PV, kotłem i chmurą | `devices/co` | [devices/co/docs](../devices/co/docs/1-opis-biznesowy.md) |
 | **firmware CHPC** | sterownik pompy ciepła (sprężarka, pompy obiegowe, EEV, zabezpieczenia) | `devices/chpc` | [devices/chpc/docs](../devices/chpc/docs/1-opis-biznesowy.md) |
 | **firmware hydroforu** | sterownik ESP32 kompresora hydroforu | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs](../devices/water-pressure-tank/docs/1-opis-biznesowy.md) |
+| **firmware włącznika** | sterownik ESP32 z przekaźnikiem 230 V (płytka „ESP32 Relay AC X1”) | `devices/switch` | [devices/switch/docs](../devices/switch/docs/1-opis-biznesowy.md) |
 
-Rodzaj sterownika (`deviceType`) decyduje, którego modułu używa aplikacja: `heat_pump` (sterownik `co` z pompą CHPC), `water-pressure-tank` (hydrofor) albo `pellet-boiler-pelux200` (kocioł pelletowy, druga rola sterownika `co`). Jeden fizyczny sterownik może mieć kilka ról: w aplikacji to osobne urządzenia o tym samym `deviceId`, ale innym rodzaju i `rootId` (opis w [module core](moduly/core/2-zasada-dzialania.md)).
+Rodzaj sterownika (`deviceType`) decyduje, którego modułu używa aplikacja: `heat_pump` (sterownik `co` z pompą CHPC), `water-pressure-tank` (hydrofor), `pellet-boiler-pelux200` (kocioł pelletowy, druga rola sterownika `co`) albo `switch` (włącznik). Jeden fizyczny sterownik może mieć kilka ról: w aplikacji to osobne urządzenia o tym samym `deviceId`, ale innym rodzaju i `rootId` (opis w [module core](moduly/core/2-zasada-dzialania.md)).
 
 ## Układ dokumentacji modułu
 
@@ -66,7 +71,7 @@ Kod ma komentarze na dwóch poziomach: **nagłówek pliku** (do czego służy, k
 ## Zasady pracy nad całym systemem
 
 - **Kontrakt** to pola telemetrii, klucze operacji, adresy API i komendy RS-485. Jego zmiana obejmuje wszystkie części, których dotyczy (serwer, klient, firmware), najlepiej w jednym commicie.
-- **Kolejność wdrożenia:** najpierw serwer (gałąź `main`, build na Render uruchamiany ręcznie), potem firmware `co` albo hydroforu, na końcu CHPC. Serwer musi znać nowe pole lub adres, zanim wyśle je sterownik.
+- **Kolejność wdrożenia:** najpierw serwer (gałąź `main`, build na Render uruchamiany ręcznie), potem firmware `co`, hydroforu albo włącznika, na końcu CHPC. Serwer musi znać nowe pole lub adres, zanim wyśle je sterownik.
 - **Gałęzie:** praca na `develop`; scalanie do `main` tylko na wyraźne polecenie.
 - **Nowy rodzaj sterownika:** katalog w `server/src/modules/` i `client/src/devices/`, wpis w obu rejestrach (`server/src/core/device-types.ts`, `client/src/core/device-types.tsx`) i wartość w `DeviceType`. Szczegóły w [module core](moduly/core/).
 
@@ -81,6 +86,7 @@ npm run build -w client
 pio test -d devices/co -e native
 pio test -d devices/chpc -e native
 pio test -d devices/water-pressure-tank -e native
+pio test -d devices/switch -e native
 ```
 
 Lokalna baza jest w `.local-db/` (poza gitem). Serwer produkcyjny: `https://chpc-web.onrender.com`. Zmienne środowiskowe serwera (`MONGODB_URI`, `PORT`, `API_KEY`) są opisane w [module core](moduly/core/).

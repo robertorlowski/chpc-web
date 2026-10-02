@@ -64,8 +64,8 @@ The user interface is in Polish; the screenshots below show it as is.
 
 | Term | Meaning |
 |---|---|
-| **Controller** (sterownik) | the device at the installation that talks to the cloud: `co` (heat pump, second role: pellet boiler) or the tank controller |
-| **Controller kind** (`deviceType`) | `heat_pump`, `water-pressure-tank` or `pellet-boiler-pelux200`; decides the menu, screens and data handling |
+| **Controller** (sterownik) | the device at the installation that talks to the cloud: `co` (heat pump, second role: pellet boiler), the tank controller or the switch |
+| **Controller kind** (`deviceType`) | `heat_pump`, `water-pressure-tank`, `pellet-boiler-pelux200` or `switch`; decides the menu, screens and data handling |
 | **Controller role** | one task of a physical controller (e.g. `co` as the heat pump or as the boiler); each role is a separate device in the application |
 | **SN** (`deviceId`) | the controller serial number — the factory MAC address of the ESP32, 12 hex characters; shared by all roles of the same controller |
 | **Root ID** (`rootId`) | the device (role) identifier in the database; the application and the controller send it with every request |

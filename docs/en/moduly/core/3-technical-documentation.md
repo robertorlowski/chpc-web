@@ -9,7 +9,7 @@
 | `server.ts` | entry point: MongoDB, heat pump scheduler, PV panel cleanup, weather, HTTP and WebSocket listening |
 | `core/app.ts` | Express application: CORS, JSON, `device-context` and routes under `/api` |
 | `core/routes.ts` | assembles the routes: devices and `/temperature` from core plus each module's `routes.ts` |
-| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties` (one settings field for all kinds), `DeviceTypeModule` |
+| `core/types.ts` | `DeviceType`, `WeekDay` (schedule days of the heat pump and the switch), `Device`, `DeviceProperties` (one settings field for all kinds), `DeviceTypeModule` |
 | `core/device-types.ts` | controller kind registry: `DeviceType` → module description (`device-type.ts`) |
 | `core/time.ts` | `TIME_ZONE = Europe/Warsaw`, Warsaw day boundaries as a UTC range |
 | `core/websocket.ts` | WebSocket server (`/ws?rootId=`), `sendMessage(type, rootId)` with a 1 s delay |
@@ -24,7 +24,7 @@
 | `core/services/firmware.service.ts` | image validation and storage (ESP32 header, ≤ 1,310,720 B), offer for the controller, pruning to the current and one previous version |
 | `core/services/device.service.ts` | list, create, register, name, default, read and write `properties` |
 | `core/services/device-info.service.ts` | device kind and `deviceId` cached in memory (for module data records) |
-| `core/services/calendar.service.ts` | Polish holidays, day of the week in Warsaw |
+| `core/services/calendar.service.ts` | Polish holidays, day of the week in Warsaw, `scheduleDayMatches` (whether a switch schedule entry applies to a given date) |
 | `core/services/meteo.service.ts` | temperature from the IMGW Zakopane station |
 
 ## Files — client (`client/src`)
@@ -35,7 +35,7 @@
 | `style.css` | global styles (layout, header, footer, phone rules `@media (max-width: 560px)`) |
 | `core/App.tsx` | routing, `DeviceGuard` (forces a controller choice, switches to the default one), `DeviceRoute`, footer |
 | `core/device-types.tsx` | registry: `DeviceType` → `DeviceTypeView` (tile icon, menu screens, extra routes) |
-| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
+| `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
 | `core/http.ts` | API and WebSocket addresses, requests with the selected controller's `rootId` and `deviceId` |
 | `core/api.ts` | `DeviceRequests`: list, name, default, `properties` |
 | `core/context/DeviceContext.tsx` | selected controller (state + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
@@ -62,6 +62,7 @@ The same SN may be registered under several controller kinds (roles of one physi
 | `/hp/add`, `/pv/add` | `heat_pump` |
 | `/water-pressure-tank/add`, `/water-pressure-tank/settings` | `water-pressure-tank` |
 | `/pellet-boiler-pelux200/add` | `pellet-boiler-pelux200` |
+| `/switch/state`, `/switch/mode` | `switch` (`/switch/mode` is also called by the application, with `rootId`) |
 
 Behaviour for a path in the map:
 
@@ -89,13 +90,13 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | Field | Type | Description |
 |---|---|---|
 | `_id` | ObjectId | Root ID |
-| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` | controller kind (role) |
+| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` \| `switch` | controller kind (role) |
 | `deviceId` | string | controller SN (ESP32 MAC, 12 hex characters); devices of different kinds may share an SN (roles of one controller), no unique index |
 | `name` | string | user-given name, empty by default |
 | `isDefault` | boolean | default controller, at most one |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
 | `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
-| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600); pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
+| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600); pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller); switch: `default_on_minutes` (whole minutes 0–10080, 0 = no limit, default 30) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
 | `settings` | object | legacy heat pump time settings (not used by the scheduler) |
 | `createdAt`, `updatedAt` | Date | timestamps |
@@ -111,6 +112,8 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
   type: DeviceType;
   initialProperties?: DeviceProperties;                       // settings of a new device
   controllerSettings?: (properties: DeviceProperties) => unknown; // settings field in the registration reply
+  firmwareUpdates?: boolean;                                  // OTA: settings.firmware in the registration reply
+  onRegister?: (rootId, deviceId, body) => Promise<void>;     // extra registration fields (switch: relays)
 }
 ```
 

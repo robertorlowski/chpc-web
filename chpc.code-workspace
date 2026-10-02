@@ -3,7 +3,8 @@
     { "name": "chpc-web", "path": "." },
     { "name": "firmware co (ESP32)", "path": "devices/co" },
     { "name": "firmware CHPC (Pro Mini)", "path": "devices/chpc" },
-    { "name": "firmware hydrofor (ESP32-C3)", "path": "devices/water-pressure-tank" }
+    { "name": "firmware hydrofor (ESP32 DevKit)", "path": "devices/water-pressure-tank" },
+    { "name": "firmware włącznik (ESP32 Relay)", "path": "devices/switch" }
   ],
   "settings": {
     "files.exclude": {

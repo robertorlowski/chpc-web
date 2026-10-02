@@ -9,7 +9,7 @@
 | `server.ts` | punkt startowy: MongoDB, scheduler pompy, czyszczenie paneli PV, meteo, nasłuch HTTP i WebSocket |
 | `core/app.ts` | aplikacja Express: CORS, JSON, `device-context` i trasy pod `/api` |
 | `core/routes.ts` | składa trasy: urządzenia i `/temperature` z core oraz `routes.ts` każdego modułu |
-| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties` (jedno pole ustawień dla wszystkich rodzajów), `DeviceTypeModule` |
+| `core/types.ts` | `DeviceType`, `WeekDay` (dni harmonogramu pompy i włącznika), `Device`, `DeviceProperties` (jedno pole ustawień dla wszystkich rodzajów), `DeviceTypeModule` |
 | `core/device-types.ts` | rejestr rodzajów sterowników: `DeviceType` → opis modułu (`device-type.ts`) |
 | `core/time.ts` | `TIME_ZONE = Europe/Warsaw`, granice doby w Warszawie jako zakres UTC |
 | `core/websocket.ts` | serwer WebSocket (`/ws?rootId=`), `sendMessage(typ, rootId)` z opóźnieniem 1 s |
@@ -24,7 +24,7 @@
 | `core/services/firmware.service.ts` | zapis i walidacja obrazu (nagłówek ESP32, ≤ 1 310 720 B), oferta dla sterownika, przycinanie do bieżącej i jednej poprzedniej wersji |
 | `core/services/device.service.ts` | lista, utworzenie, zgłoszenie, nazwa, domyślny, odczyt i zapis `properties` |
 | `core/services/device-info.service.ts` | typ i `deviceId` urządzenia w pamięci (do rekordów danych modułów) |
-| `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie |
+| `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie, `scheduleDayMatches` (czy wpis harmonogramu włącznika dotyczy danej daty) |
 | `core/services/meteo.service.ts` | temperatura ze stacji IMGW Zakopane |
 
 ## Pliki — klient (`client/src`)
@@ -35,7 +35,7 @@
 | `style.css` | style globalne (układ, nagłówek, stopka, reguły telefonu `@media (max-width: 560px)`) |
 | `core/App.tsx` | routing, `DeviceGuard` (wymusza wybór sterownika, przełącza na domyślny), `DeviceRoute`, stopka |
 | `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, ekrany menu, dodatkowe trasy) |
-| `core/types.ts` | `DeviceType`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
+| `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
 | `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika |
 | `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, `properties` |
 | `core/context/DeviceContext.tsx` | wybrany sterownik (stan + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
@@ -62,6 +62,7 @@ Ten sam SN może być zarejestrowany pod kilkoma rodzajami sterownika (role jedn
 | `/hp/add`, `/pv/add` | `heat_pump` |
 | `/water-pressure-tank/add`, `/water-pressure-tank/settings` | `water-pressure-tank` |
 | `/pellet-boiler-pelux200/add` | `pellet-boiler-pelux200` |
+| `/switch/state`, `/switch/mode` | `switch` (`/switch/mode` woła też aplikacja, z `rootId`) |
 
 Działanie dla ścieżki z mapy:
 
@@ -89,13 +90,13 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | Pole | Typ | Opis |
 |---|---|---|
 | `_id` | ObjectId | Root ID |
-| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` | rodzaj sterownika (rola) |
+| `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` \| `switch` | rodzaj sterownika (rola) |
 | `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex); ten sam SN mogą mieć urządzenia różnych rodzajów (role jednego sterownika), bez indeksu unikalnego |
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
 | `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
-| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600); kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
+| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600); kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła); włącznik: `default_on_minutes` (pełne minuty 0–10080, 0 = bez limitu, domyślnie 30) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
 | `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |
 | `createdAt`, `updatedAt` | Date | znaczniki czasu |
@@ -111,6 +112,8 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
   type: DeviceType;
   initialProperties?: DeviceProperties;                       // ustawienia nowego urządzenia
   controllerSettings?: (properties: DeviceProperties) => unknown; // pole settings w odpowiedzi na zgłoszenie
+  firmwareUpdates?: boolean;                                  // OTA: settings.firmware w odpowiedzi na zgłoszenie
+  onRegister?: (rootId, deviceId, body) => Promise<void>;     // dodatkowe pola zgłoszenia (włącznik: relays)
 }
 ```
 

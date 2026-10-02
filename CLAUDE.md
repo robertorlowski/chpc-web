@@ -22,8 +22,9 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; druga rola: pasywny odczyt kotła pelletowego ecoMAX (punkt 5c); licencja MIT |
 | `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
 | `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32 DevKit z WROOM-32, typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
+| `devices/switch/` | firmware włącznika „Włącznik” (płytka „ESP32 Relay AC X1” z ESP32-WROOM-32E i przekaźnikiem 30 A, typ `switch`), punkt 5d; dokumentacja w `devices/switch/docs/` |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
-| `scripts/` | środowisko lokalne (`npm run local`), dane demonstracyjne (`seed-local.mjs`), symulator hydroforu |
+| `scripts/` | środowisko lokalne (`npm run local`), dane demonstracyjne (`seed-local.mjs`), symulatory hydroforu i włącznika |
 
 Oba firmware przeniesiono 2026-09-27 z historią z osobnych repozytoriów [heatpomp](https://github.com/robertorlowski/heatpomp) (`main`) i [chpc](https://github.com/robertorlowski/chpc) (`master`); tamte repozytoria nie są już rozwijane. Dawne kopie robocze `D:\DevLocal\arduino_src\heatpump` i `…\chpc` są nieaktualne. Firmware otwiera się w VS Code przez `chpc.code-workspace` (PlatformIO wymaga `platformio.ini` w katalogu głównym folderu), a z terminala: `pio run -d devices/co`, `pio test -d devices/chpc -e native`. Lokalny `devices/co/src/secrets.h` jest poza gitem (wzór: `secrets.example.h`).
 
@@ -45,11 +46,12 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 - `core/` — część wspólna: urządzenia (lista, zgłoszenie, nazwa, domyślny, `properties`), temperatura zewnętrzna, kalendarz, kontekst urządzenia, WebSocket;
 - `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
 - `modules/water-pressure-tank/` — hydrofor: uruchomienia, wodomierz, czas kompresora;
-- `modules/pellet-boiler-pelux200/` — kocioł pelletowy Pellux 200 (regulator ecoMAX): odczyty w kolekcji `pellet_boiler_pelux200`, interwał odpytywania (punkt 5c).
+- `modules/pellet-boiler-pelux200/` — kocioł pelletowy Pellux 200 (regulator ecoMAX): odczyty w kolekcji `pellet_boiler_pelux200`, interwał odpytywania (punkt 5c);
+- `modules/switch/` — włącznik: przekaźniki i ich tryby (`switch_relays`), harmonogramy (`switch_schedules`), historia włączeń (`switch_activations`), polecenia liczone przy każdym zgłoszeniu stanu (punkt 5d).
 
-`core` i każdy moduł mają ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `device.model.ts`, `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-tank-run.model.ts`), a w katalogu głównym `types.ts` (typy wspólne dla warstw) i `routes.ts`. Moduł ma też `device-type.ts` (wpis do rejestru rodzajów). W `core` są dodatkowo `middleware/` (`auth.ts`, `device-context.ts` — `rootId`/`deviceId`) oraz `app.ts`, `websocket.ts`, `time.ts` (strefa i granice dni w Warszawie) i `device-types.ts` (rejestr). Serwisy `core`: `device`, `device-info` (typ i `deviceId` w pamięci), `calendar`, `meteo`.
+`core` i każdy moduł mają ten sam układ: `controllers/` (`*.controller.ts`), `services/` (`*.service.ts`), `models/` (jeden `*.model.ts` na kolekcję albo osadzony schemat, np. `device.model.ts`, `hp.model.ts`, `pv.model.ts`, `schedule.model.ts`, `water-pressure-tank-run.model.ts`), a w katalogu głównym `types.ts` (typy wspólne dla warstw) i `routes.ts`. Moduł ma też `device-type.ts` (wpis do rejestru rodzajów). W `core` są dodatkowo `middleware/` (`auth.ts`, `device-context.ts` — `rootId`/`deviceId`) oraz `app.ts`, `websocket.ts`, `time.ts` (strefa i granice dni w Warszawie) i `device-types.ts` (rejestr). Serwisy `core`: `device`, `device-info` (typ i `deviceId` w pamięci), `calendar` (święta, `scheduleDayMatches` dla harmonogramów włącznika), `meteo`. Typ `WeekDay` (dni harmonogramu) jest w `core/types.ts` serwera i klienta, bo używają go pompa i włącznik; `modules/heat-pump/types.ts` i `client/src/devices/heat-pump/types.ts` go re-eksportują.
 
-Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/models/device.model.ts` i `core/types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`) i ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor tak, pompa nie). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
+Moduły importują tylko z `core`, a nie z siebie nawzajem. `core` sięga do modułów tylko tam, gdzie je składa: trasy (`core/routes.ts`), dokument `devices` (`core/models/device.model.ts` i `core/types.ts`) i **rejestr rodzajów sterowników** (`core/device-types.ts`). W rejestrze każdy moduł podaje swój `device-type.ts`: ustawienia nowego urządzenia (`initialProperties`), ustawienia odsyłane przy zgłoszeniu (`controllerSettings`; hydrofor, kocioł i włącznik tak, pompa nie), aktualizacje przez sieć (`firmwareUpdates`; hydrofor i włącznik) i obsługę dodatkowych pól zgłoszenia (`onRegister`, wołane po zapisie urządzenia; włącznik tworzy przekaźniki z pola `relays`). Nowy rodzaj sterownika to moduł w `modules/`, wpis w rejestrze, trasy w `core/routes.ts` i wartość w `DeviceType`. Adresy API i kolekcje nie zależą od tego podziału.
 
 Główne elementy przepływu:
 
@@ -114,7 +116,7 @@ Middleware:
 
 **Jeden fizyczny sterownik może mieć kilka ról.** Ten sam `deviceId` (SN) może być zarejestrowany pod kilkoma `deviceType` (np. `co` jako `heat_pump` i `pellet-boiler-pelux200`): każda rola to osobny dokument w `devices` z własnym `rootId`. Rejestracja szuka po parze `{deviceType, deviceId}`, a każdy endpoint sterownika ma w `controllerPaths` ([`device-context.ts`](server/src/core/middleware/device-context.ts)) przypisany rodzaj, więc szukanie po samym `deviceId` jest zawężone do niego. Nowy endpoint sterownika trzeba tam dopisać.
 
-**Endpointy sterownika (`POST /hp/add`, `POST /pv/add`, `POST /pellet-boiler-pelux200/add`)** przyjmują też sam `deviceId` (SN): bez `rootId` serwer znajduje urządzenie po `deviceId`. `co` wysyła `deviceId` zawsze, a `rootId` tylko wtedy, gdy ma go w NVS. Gdy przyszły oba, a `rootId` należy do innego `deviceId`, serwer odpowiada **409**; `co` kasuje wtedy swój Root ID i rejestruje się ponownie. Nieznany `deviceId` daje 404. Pozostałe endpointy wymagają `rootId`.
+**Endpointy sterownika (`POST /hp/add`, `POST /pv/add`, `POST /pellet-boiler-pelux200/add`, `POST /water-pressure-tank/add`, `PUT /water-pressure-tank/settings`, `POST /switch/state`, `PUT /switch/mode`)** przyjmują też sam `deviceId` (SN): bez `rootId` serwer znajduje urządzenie po `deviceId`. `co` wysyła `deviceId` zawsze, a `rootId` tylko wtedy, gdy ma go w NVS. Gdy przyszły oba, a `rootId` należy do innego `deviceId`, serwer odpowiada **409**; `co` kasuje wtedy swój Root ID i rejestruje się ponownie. Nieznany `deviceId` daje 404. Pozostałe endpointy wymagają `rootId`.
 
 Urządzenia domyślnego nie ma: żądanie bez `rootId` (poza wyjątkiem powyżej) dostaje 400, a WebSocket bez `rootId` jest zamykany (dawniej takie żądanie trafiało do `hp-1`, które tworzyło się samo, jeśli go nie było). Ścieżki `/devices` i `/devices/register` są publiczne względem kontekstu urządzenia.
 
@@ -122,7 +124,7 @@ Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod k
 
 ### Rejestracja sterownika
 
-`POST /api/devices/register` z `{deviceId, deviceType?, name?, version?, ip?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. Nieznany `deviceType` daje 400. To jest **zgłoszenie sterownika**: hydrofor wywołuje je raz na każdy start, a `co` (każda rola) przy każdym starcie i po każdej zmianie adresu IP, także z zapisanym Root ID, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex). Gdy zwrócony `rootId` różni się od zapisanego, `co` go podmienia i otwiera WebSocket od nowa. Nazwa ze zgłoszenia trafia tylko do nowego urządzenia. `ip` (adres IPv4 sterownika w sieci lokalnej, wysyłany przez `co` i hydrofor) trafia do `ipAddress`; inny format i `0.0.0.0` są pomijane. Odpowiedź ma pola urządzenia (`rootId`, `deviceType`, `deviceId`, `name`, `isDefault`), a dla hydroforu także `settings` (`compressor_seconds` i ewentualnie oferta OTA `firmware`). Sterownik zapisuje `rootId` w NVS. Nieudane zgłoszenie `co` ponawia co 60 s, hydrofor co 10 s. Telemetrię wysyła także przed rejestracją, z samym `deviceId`; serwer przyjmuje ją, gdy urządzenie o tym SN już istnieje.
+`POST /api/devices/register` z `{deviceId, deviceType?, name?, version?, ip?}` zwraca urządzenie o danym `deviceId`: **201**, gdy zostało utworzone, i **200** z istniejącym `rootId`, gdy już było. Nieznany `deviceType` daje 400. To jest **zgłoszenie sterownika**: hydrofor i włącznik wywołują je raz na każdy start (włącznik z liczbą przekaźników `relays`), a `co` (każda rola) przy każdym starcie i po każdej zmianie adresu IP, także z zapisanym Root ID, z `deviceId` = SN (fabryczny MAC ESP32, 12 znaków hex). Gdy zwrócony `rootId` różni się od zapisanego, `co` go podmienia i otwiera WebSocket od nowa. Nazwa ze zgłoszenia trafia tylko do nowego urządzenia. `ip` (adres IPv4 sterownika w sieci lokalnej, wysyłany przez `co`, hydrofor i włącznik) trafia do `ipAddress`; inny format i `0.0.0.0` są pomijane. Odpowiedź ma pola urządzenia (`rootId`, `deviceType`, `deviceId`, `name`, `isDefault`), a dla hydroforu także `settings` (`compressor_seconds` i ewentualnie oferta OTA `firmware`), dla włącznika `settings` z `default_on_minutes` i ewentualnie `firmware`. Sterownik zapisuje `rootId` w NVS. Nieudane zgłoszenie `co` ponawia co 60 s, hydrofor co 10 s, włącznik co 30 s. Telemetrię wysyła także przed rejestracją, z samym `deviceId`; serwer przyjmuje ją, gdy urządzenie o tym SN już istnieje.
 
 **Sterowniki dodaje się tylko przez samodzielną rejestrację.** Klient nie ma funkcji dodawania sterownika. Nowy sterownik pojawia się na liście w `/devices` bez nazwy, a użytkownik nadaje ją przez `PUT /api/devices/:rootId` z `{name}` (zmienia tylko nazwę; `rootId` i `deviceId` nie podlegają edycji; pusta nazwa jest dozwolona).
 
@@ -134,14 +136,14 @@ Po stronie klienta wybrane urządzenie jest przechowywane w `localStorage` pod k
 
 Model główny to `DeviceModel` z kolekcją `devices`. Urządzenie zawiera między innymi:
 
-- `deviceType` — `heat_pump` albo `water-pressure-tank` (hydrofor); scheduler obsługuje tylko `heat_pump`;
+- `deviceType` — `heat_pump`, `water-pressure-tank` (hydrofor), `pellet-boiler-pelux200` (kocioł) albo `switch` (włącznik); scheduler obsługuje tylko `heat_pump`;
 - `deviceId` — identyfikator sterownika, SN (MAC ESP32); najstarszy sterownik miał `hp-1`, w produkcji zmienione na SN (także w rekordach `hp`, 2026-09-26);
 - `name` — opcjonalna nazwa nadana przez użytkownika (domyślnie pusta; rejestracja automatyczna jej nie ustawia). Klient pokazuje `name`, a gdy jest pusta — `deviceId` (`deviceLabel` w [`DeviceContext.tsx`](client/src/core/context/DeviceContext.tsx));
 - `isDefault` — sterownik domyślny, otwierany po starcie aplikacji; najwyżej jeden (`PUT /api/devices/:rootId/default`);
 - `firmwareVersion`, `firmwareSeenAt` — wersja firmware i czas ostatniego zgłoszenia, które ją niosło (pole `version`; starsze sterowniki go nie wysyłają, więc zostaje ostatnia znana);
 - `ipAddress`, `ipSeenAt` — adres IPv4 sterownika w sieci lokalnej i czas zgłoszenia, które go niosło (pole `ip`; bez niego zostaje ostatni znany); klient pokazuje go w karcie „Sterownik” w Ustawieniach (`DeviceAddress`) jako odnośnik do stron sterownika;
 - `properties` — ustawienia domyślne;
-- `schedules` — osadzone definicje harmonogramów.
+- `schedules` — osadzone definicje harmonogramów pompy (włącznik ma własną kolekcję `switch_schedules`).
 
 ### `properties`
 
@@ -154,6 +156,8 @@ Ustawienia domyślne pompy:
 Domyślny `work_mode` modelu to `CWU` (dopisywany też hydroforowi, który go nie używa).
 
 Ustawienia hydroforu (punkt 5b): tylko `compressor_seconds` (1–3600); nowy hydrofor dostaje przy zgłoszeniu 30 s. Dawne zbiorniki i progi presostatu (`tanks`, `pressure_low`, `pressure_high`) usunięto w wersji 1.3.0.
+
+Ustawienie włącznika (punkt 5d): `default_on_minutes` — domyślny czas „Włącz” w pełnych minutach 0–10080 (0 = bez limitu), nowy włącznik dostaje 30.
 
 ### `hp`
 
@@ -177,6 +181,10 @@ Kolekcja `pv` przechowuje odczyty DTU z `POST /api/pv/add`, jeden dokument na od
 ### `water_pressure_tank` i `water_meter`
 
 `water_pressure_tank` — uruchomienia pompy hydroforu, jeden dokument na `runId` sterownika: `pumpStart`, `pumpEnd`, `compressorStart`, `compressorEnd`, `restarts`, `manualSeconds` (czas ręcznego włączenia kompresora, odejmowany od czasu pompy), `timeApproximate`, `lastSeenAt`, `compressorRunning` (stan kompresora z ostatniej wiadomości; po „Uruchom na N s” `compressorEnd` zostaje z poprzedniego wyłączenia). Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`. Wody w rekordzie nie ma: liczy ją serwer przy odczycie (punkt 5b); dawne `waterLiters`, `waterAirBaseLiters` i `waterMembraneLiters` zostają w starszych dokumentach, ale nie są używane. `water_meter` — ręczne odczyty wodomierza: `readAt`, `valueM3`, `note`; indeks `{rootId, readAt}`.
+
+### `switch_relays`, `switch_schedules` i `switch_activations`
+
+Włącznik (punkt 5d). `switch_relays` — jeden dokument na przekaźnik (unikalny `{rootId, relay}`, `relay` od 1): `name` (≤ 40 znaków), `mode` (`schedule`, `on`, `timer`, `off`), `until` (koniec `timer`), `modeSource` (`app` albo `controller`), `modeChangedAt`, stan ze sterownika `on`, `changedAt`, `lastSeenAt`. Tryb jest trwały: restart serwera go nie kasuje. `switch_schedules` — wpisy harmonogramu: `relay`, `enabled`, `dayOfWeek` (`WeekDay`) albo `date`, `startTime`, `endTime`; indeks `{rootId, relay}`. `switch_activations` — włączenia: `relay`, `onAt`, `offAt` (`null` = trwa), `source` (`schedule`, `app`, `controller`), `approximate`; indeksy `{rootId, onAt}` i `{rootId, relay, offAt}`.
 
 ### `firmware_images` i `firmware_offers`
 
@@ -265,6 +273,22 @@ Kocioł Plum Pellux 200 Touch z regulatorem ecoMAX jest drugą rolą sterownika 
 - **Odczyt danych:** `GET /api/pellet-boiler-pelux200/last` (ostatni odczyt albo `{}`), `GET /api/pellet-boiler-pelux200/list?date=YYYY-MM-DD` (dzień w Warszawie, malejąco po czasie). Klient: `/` bieżące dane (odświeżane co 30 s, znacznik „Dane nieaktualne” po 3 × interwał), `/data` lista dnia z CSV, `/settings` interwał odpytywania i dane sterownika.
 - **Etap 2 (nadawanie na magistralę kotła, odpowiedź na `CheckDevice`) nie jest zaimplementowany.** Opis w schemacie podłączenia.
 
+## 5d. Włącznik (`switch`)
+
+Pełny opis: [firmware](devices/switch/docs/1-opis-biznesowy.md) i [moduł serwera/klienta](docs/moduly/switch/1-opis-biznesowy.md). Sterownik przekaźników z harmonogramem, jak pompa ciepła, ale bez temperatur. Płytka „ESP32 Relay AC X1” (ESP32-WROOM-32E N4, przekaźnik Songle 30 A z NO, zasilacz 230 V na płytce, złącze programowania P1: `GND, RX, TX, 3V3`, przycisk IO0 przy diodzie D6, bez RST). Przekaźnik na **GPIO2**, stan wysoki = włączony (`RELAY_PINS = {2}`, `RELAY_ACTIVE_HIGH = true`; na GPIO17 z testu pinów nie klikał). Produkcja od 2026-10-03: jeden włącznik, firmware 1.0.3, przekaźnik „Bojler”.
+
+- **Zgłoszenie** raz na start (i po 404/409; nieudane co 30 s): `POST /devices/register` z `deviceType: "switch"`, `name: "Włącznik"`, `version`, `ip`, `relays` (liczba przekaźników, 1–16). `onRegister` od razu tworzy przekaźniki w `switch_relays` (nadmiarowe usuwa z harmonogramami). Odpowiedź: `settings: {default_on_minutes, firmware?}`. Bez udanego zgłoszenia sterownik nie wysyła stanu.
+- **Wymiana co 5 s** `POST /api/switch/state?deviceId=…&rootId=…` (sam `deviceId` wystarcza; 404/409 kasują Root ID): `{uptimeS, relays: [{on, changedS}]}` → `{relays: [{on, offAfterS?, mode}]}`. Polecenie serwer liczy przy każdym zgłoszeniu z trybu i harmonogramu (`relayCommand`), **osobnego schedulera nie ma**. Sterownik sam odlicza `offAfterS`, więc bez sieci dokończy włączenie i wyłączy przekaźnik. WebSocket `/ws?rootId=`: `{"type":"operation"}` (zmiana trybu albo harmonogramu) → zgłoszenie od razu. Po starcie przekaźniki są wyłączone, stan przywraca chmura.
+- **Tryby** (`switch_relays.mode`, trwałe w bazie, inaczej niż operacje pompy): `schedule` (okna harmonogramu), `on` (bez limitu), `timer` (do `until`, potem wraca do `schedule`), `off` (wyłączony, blokuje harmonogram). Zmiana: `PUT /api/switch/mode {relay, mode, minutes?}` (`minutes` 1–10080 tylko dla `timer`); aplikacja z `rootId`, sterownik samym `deviceId` z `source: "controller"`. Zmiana trybu i harmonogramu budzi sterownik (`operation`).
+- **Zmiany ze strony sterownika** (`POST /relay` na `/`, bez logowania) działają od razu na przekaźnik i idą do chmury `PUT switch/mode`; do potwierdzenia (`pending`, numer `pendingSeq`) polecenia chmury dla tego przekaźnika są pomijane. „Harmonogram” bez chmury (brak udanej wymiany od 30 s) wyłącza przekaźnik.
+- **Harmonogram** (`switch_schedules`, wpis na przekaźnik): dni jak w pompie (`ANY_DAY`, `WORKDAYS` bez świąt, `DAYS_OFF` z polskimi świętami, dzień tygodnia, `date` z pierwszeństwem; `scheduleDayMatches` w `calendar.service`). **Okno przez północ należy do dnia startu** (inaczej niż scheduler pompy), koniec wyłączny, stykające się okna są łączone w jedno włączenie (`until` = koniec ostatniego), `nextStart` w ciągu 8 dni.
+- **Historia** (`switch_activations`) ze stanu zgłaszanego przez sterownik: `onAt`/`offAt` = teraz − `changedS`, `source` (`schedule`, `app`, `controller`; zapisywane, aplikacja go nie pokazuje). Po utracie zasilania (stan wyłączony od startu według `uptimeS`) koniec włączenia = ostatnie zgłoszenie przed restartem, `approximate: true`. Zmiana stanu przekaźnika → WebSocket `update` dla przeglądarek. Przekaźnik jest online, gdy zgłoszenie przyszło w ciągu 30 s.
+- **Ustawienie** `properties.default_on_minutes` (0–10080, 0 = bez limitu, domyślnie 30) przez `PUT /device/properties`; podpowiada czas „Włącz” w aplikacji i na stronie sterownika (tam dopiero po restarcie).
+- **OTA** jak w hydroforze (`firmwareUpdates: true`, strona firmware w aplikacji), ale pobieranie tylko przy wszystkich przekaźnikach wyłączonych, raz na start; oferta przychodzi w odpowiedzi na zgłoszenie, więc nowa wersja trafia na płytkę po restarcie sterownika. Ręcznie: `/install` albo `curl -u <login> -F "firmware=@.pio/build/esp32dev/firmware.bin" http://<IP>/install/firmware`.
+- **Firmware** `devices/switch/src/`: `firmware.hpp` (`FW_VERSION` 1.0.3, `SWITCH_CLOUD_URL`), `relays.*` (`RelayBank`), `protocol.*` (JSON), `ota.*`, `switch.cpp` (Wi-Fi, chmura, WebSocket, strony). Środowiska: `esp32dev` (produkcja), `esp32dev-local` (`http://192.168.55.9:4001/api/`, adres do zmiany w `platformio.ini`; zapora Windows w sieci publicznej blokuje port 4001), `native` (testy). NVS `sw`: `wifi_ssid`, `wifi_pass`, `root_id`, `def_min`, `ota_tried`. AP `Wlacznik-setup` (`10.11.17.1`, domyślnie otwarty) działa po starcie, gaśnie po 1 min z Wi-Fi, wraca po 1 min bez Wi-Fi.
+- **Pierwsze wgranie** tylko przez P1 i przejściówkę USB-TTL (FT232RL; CP210x blokowany przez HVCI): IO0 przytrzymany przy podaniu zasilania, `esptool` 115200 z `--before no_reset --after no_reset`. **Pin 3V3 to 3,3 V, nie 5 V; zasilanie z przejściówki nie wystarcza** — osobny zasilacz 3,3 V albo płytka z 230 V (tylko GND/TX/RX; łączy laptop z płytką z sieci). Szczegóły i schematy: [część 3 firmware](devices/switch/docs/3-dokumentacja-techniczna.md).
+- Klient `client/src/devices/switch/` (punkt 9), symulator `node scripts/simulate-switch.mjs [--relays N] [--history]`.
+
 ## 6. Scheduler
 
 Implementacja znajduje się w [`server/src/modules/heat-pump/services/scheduler.service.ts`](server/src/modules/heat-pump/services/scheduler.service.ts).
@@ -329,7 +353,7 @@ Koniec zakresu jest wyłączny: o godzinie równej `endTime` harmonogram nie jes
 
 ### Dni harmonogramu
 
-Typ `WeekDay` jest zdefiniowany w kontrakcie serwera i klienta:
+Typ `WeekDay` jest zdefiniowany w kontrakcie serwera i klienta (`core/types.ts` po obu stronach; wspólny z harmonogramami włącznika, punkt 5d):
 
 - `ANY_DAY = -1` — każdy dzień;
 - `WORKDAYS = -2` — poniedziałek–piątek, z wyłączeniem świąt;
@@ -444,7 +468,7 @@ Wartość odrzucona dalej w łańcuchu nadal wygląda w interfejsie na „ustawi
 
 ## 8. Endpointy serwera
 
-Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządzenia i temperatura z `core`, reszta z plików `routes.ts` modułów (`modules/heat-pump`, `modules/water-pressure-tank`).
+Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządzenia i temperatura z `core`, reszta z plików `routes.ts` modułów (`modules/heat-pump`, `modules/water-pressure-tank`, `modules/pellet-boiler-pelux200`, `modules/switch`).
 
 | Metoda i endpoint | Znaczenie |
 |---|---|
@@ -489,13 +513,19 @@ Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządze
 | `GET /api/water-pressure-tank/flow` | przepływ pompy z wodomierza `{litersPerMinute \| null, periods, meterLiters, pumpSeconds}` |
 | `GET` / `POST /api/water-pressure-tank/meter`, `DELETE /api/water-pressure-tank/meter/:id` | odczyty wodomierza |
 | `GET /api/water-pressure-tank/meter/summary?year=` | zużycie z wodomierza w okresach `{from, to, meterLiters, pumpSeconds, estimatedLiters \| null}` i miesiącach, woda z czasu pompy, `flow` |
-| `GET /api/firmware/:deviceType` | oferta firmware i lista plików w bazie (bez `rootId`; tylko rodzaje z OTA, dziś `water-pressure-tank`) |
+| `POST /api/switch/state` | zgłoszenie stanu przekaźników włącznika co 5 s (sterownik) `{uptimeS, relays: [{on, changedS}]}`; odpowiedź `{relays: [{on, offAfterS?, mode}]}` |
+| `PUT /api/switch/mode` | tryb przekaźnika `{relay, mode, minutes?}` (`schedule`, `on`, `timer` z `minutes` 1–10080, `off`); aplikacja z `rootId`, sterownik samym `deviceId` |
+| `GET /api/switch/relays` | przekaźniki: stan ze sterownika, tryb, `until`, `online`, `desiredOn`, wpis działający teraz (`scheduleId`), `nextStart` |
+| `PUT /api/switch/relays/:relay` | nazwa przekaźnika `{name}` (≤ 40 znaków) |
+| `GET` / `POST /api/switch/schedules`, `PUT` / `DELETE /api/switch/schedules/:id` | harmonogramy przekaźników `{relay, dayOfWeek \| date, startTime, endTime, enabled?}` |
+| `GET /api/switch/activations?date=YYYY-MM-DD[&relay=N]` | włączenia nachodzące na dzień (Warszawa) z `durationS` |
+| `GET /api/firmware/:deviceType` | oferta firmware i lista plików w bazie (bez `rootId`; tylko rodzaje z OTA, dziś `water-pressure-tank` i `switch`) |
 | `PUT /api/firmware/:deviceType/:version?description=` | wgranie pliku `.bin` (surowa treść) z opisem wersji i ustawienie go jako oferowanego |
 | `DELETE /api/firmware/:deviceType/:version` | usunięcie pliku wersji innej niż oferowana (oferowana: 409) |
 | `PUT /api/firmware/:deviceType` | `{enabled?, version?}`: włączenie/wyłączenie oferty, przywrócenie wersji z bazy |
 | `GET /api/firmware/:deviceType/:version.bin` | plik dla sterownika |
 
-WebSocket ([`server/src/core/websocket.ts`](server/src/core/websocket.ts)) działa na `/ws?rootId=…`. Sterownik `co` łączy się nim i po komunikacie `{type:"operation", rootId}` od razu wysyła `/hp/add`. Przeglądarki dostają `update` po zapisie telemetrii.
+WebSocket ([`server/src/core/websocket.ts`](server/src/core/websocket.ts)) działa na `/ws?rootId=…`. Sterownik `co` łączy się nim i po komunikacie `{type:"operation", rootId}` od razu wysyła `/hp/add`, a włącznik `/switch/state`. Przeglądarki dostają `update` po zapisie telemetrii i po zmianie stanu przekaźnika włącznika.
 
 ## 9. Klient React
 
@@ -504,7 +534,8 @@ WebSocket ([`server/src/core/websocket.ts`](server/src/core/websocket.ts)) dzia�
 - `index.tsx` — punkt wejścia; `style.css` — style globalne; `assets/`;
 - `core/` — część wspólna: `App.tsx` (routing, `DeviceGuard`, stopka „Aktywne urządzenie”), `device-types.tsx` (rejestr rodzajów sterowników), `http.ts`, `api.ts`, `types.ts`, `context/DeviceContext.tsx`, `components/` (`Header`, `DeviceEditModal`, `Notification`, `IconButton` (szablon przycisku-ikony: wszystkie przyciski-ikony stosują go zamiast własnych), ikony menu i akcji), `pages/Devices` (wybór sterownika), `pages/Firmware` (`/firmware/:deviceType`: firmware rodzaju sterownika: aktualna wersja z opisem, poprzednie wersje z opisami (przywrócenie, usunięcie) i dodanie wersji w popupie (ikona plusa na belce „Aktualna wersja”); otwierana trybikiem w rogu kafelka sterownika, tylko dla rodzajów z `firmwareUpdates` w rejestrze, bez wyboru sterownika), `components/FirmwareStatus` (wersja firmware sterownika i „czeka na aktualizację” w jego Ustawieniach);
 - `devices/heat-pump/` — pompa ciepła: `pages/` (`Home`, `Data`, `Charts`, `Settings`, `Schedules`), `components/` (`DateDict`, `ResourceBlock`), `utils/` (energia, G12w, błędy), `api.ts`, `types.ts`, `device-type.tsx`;
-- `devices/water-pressure-tank/` — hydrofor: `pages/` (`Home`, `Data`, `Chart`, `Settings`), `components/FlowDetails.tsx` (przepływ pompy), `utils/water.ts` (formaty, CSV), `api.ts`, `types.ts`, `device-type.tsx`.
+- `devices/water-pressure-tank/` — hydrofor: `pages/` (`Home`, `Data`, `Chart`, `Settings`), `components/FlowDetails.tsx` (przepływ pompy), `utils/water.ts` (formaty, CSV), `api.ts`, `types.ts`, `device-type.tsx`;
+- `devices/switch/` — włącznik: `pages/` (`Home`, `Data`, `Schedules`, `Settings`, `style.css`), `utils/format.ts` (czasy w Warszawie, opis trybu, odliczanie, CSV), `api.ts` (`SwitchRequests`), `types.ts`, `device-type.tsx`.
 
 **Menu i trasy powstają z rejestru** (`core/device-types.tsx`). Każdy rodzaj podaje w `device-type.tsx` ikonę kafelka i widoki w kolejności menu (`path`, `label`, `icon`, `element`; pompa ma też `/hp` poza menu). `Header` rysuje menu wybranego rodzaju. `App` tworzy trasy dla wszystkich ścieżek, a ścieżka, której wybrany rodzaj nie ma (np. `/schedules` hydroforu), prowadzi na `/`. Nowy rodzaj sterownika to katalog `devices/<rodzaj>/`, wpis w rejestrze i wartość w `DeviceType`, tak jak na serwerze.
 
@@ -525,20 +556,26 @@ Główne widoki pompy ciepła:
 
 Hydrofor nie ma harmonogramów (`/schedules` przekierowuje na `/`).
 
+Dla włącznika ([`devices/switch/pages/`](client/src/devices/switch/pages/); menu Włącznik, Dane, Harmonogram, Ustawienia, bez `/chart`):
+- `/` — karta na przekaźnik: przełącznik stanu ze sterownika (jak „CO pompa”), opis trybu (np. „Harmonogram · włączony do 23:30”, „Wyłączony · harmonogram zablokowany” na czerwono), duże odliczanie do wyłączenia, „Sterownik offline od …” (brak zgłoszenia od 30 s), „Czeka na sterownik…”, przyciski „Włącz” / „Wyłącz” / „Harmonogram” i pod nimi „Czas włączenia [h] [min]” (domyślnie `default_on_minutes`; „Włącz” na ten czas, 0 h 0 min = bez limitu); tabela „Dziś” z sumą; odświeżanie co 5 s i po WebSocket `update`;
+- `/data` — włączenia z dnia (filtr przekaźnika przy więcej niż jednym, „≈” przy czasie przybliżonym, „Razem w dniu”, CSV; bez kolumny źródła);
+- `/schedules` — wpisy po przekaźnikach, czerwona kreska = wpis działający teraz, „(+1 dzień)” przy oknie przez północ, formularz jak w pompie (bez temperatur), uwaga o przekaźnikach w trybie ręcznym;
+- `/settings` — nazwy przekaźników, „Czas włączenia [min]” (0 = bez limitu), karta „Sterownik” z liczbą przekaźników, IP i firmware.
+
 Docelowy telefon to Samsung Galaxy S20 (360×800 CSS px); układ sprawdzany jest też przy 368, 384 i 412 px, bo tyle zależnie od ustawień zgłaszają telefony z Androidem. Widok główny ma klasę `hp-page`: na telefonie karty mają pełną szerokość, a treść zawija się wewnątrz karty. Na telefonie szare karty i tabela danych sięgają od krawędzi do krawędzi ekranu, bez bocznych marginesów (reguły z prefiksem `body` w [`client/src/style.css`](client/src/style.css)). Reguły dla telefonu są w blokach `@media (max-width: 560px)`: menu pokazuje same ikony (`.nav-label` ukryte, nazwa w `title`), wiersze „etykieta + pola” w Ustawieniach i Harmonogramach są flexem z etykietą 9.5rem (pola min i max w jednej linii), wykres ma własną wysokość w `.chart-area`, a `.app-main` ma dolny odstęp na stałą stopkę. Strona nie może mieć przewijania w poziomie (wyjątek: tabela danych we własnym kontenerze).
 
 ### Urządzenia i Root ID
 
 - Po przekierowaniu z `DeviceGuard` (`state.auto`, brak wybranego sterownika) wybierany jest automatycznie sterownik domyślny z bazy, a bez niego jedyny sterownik; nie przy świadomym wejściu na `/devices`.
 - **Sterownik domyślny** ustawia gwiazdka w lewym górnym rogu kafelka (`isDefault` w bazie, najwyżej jeden). Po otwarciu aplikacji `DeviceGuard` raz na sesję przeglądarki (`sessionStorage` `chpc.defaultApplied`) przełącza na niego, także gdy w `localStorage` jest inny wybór; zmiana w stopce obowiązuje do końca sesji.
-- Ikona kafelka zależy od typu: fale (pompa ciepła) albo kropla (hydrofor).
+- Ikona kafelka zależy od typu: fale (pompa ciepła), kropla (hydrofor) albo przełącznik (włącznik).
 - Kafelki sterowników stoją obok siebie (zawijane do kolejnych wierszy), a na ekranach ≤ 560 px jeden pod drugim. Kafelek pokazuje nazwę, a pod nią małą czcionką `deviceId`; gdy nazwy nie ma, w tytule kafelka jest samo `deviceId`. Mała ikonka ołówka w rogu kafelka otwiera popup „Dane sterownika” ([`DeviceEditModal`](client/src/core/components/DeviceEditModal.tsx)): Root ID i Device ID są wyłączone z edycji, nazwę można wpisać lub poprawić (`PUT /api/devices/:rootId`). Popup zamyka „Anuluj”, Esc albo kliknięcie poza nim.
 - Nie ma formularza dodawania sterownika (sterowniki rejestrują się same, punkt 3).
 - Zakładka Ustawienia ma sekcję „Sterownik” z nazwą, `deviceId`, Root ID i adresem IP z ostatniego zgłoszenia (odnośnik do stron sterownika; `core/components/DeviceAddress`, dane z `GET /api/devices`) oraz przyciskiem „Zmień”, który otwiera ten sam popup. Po zapisie nowa nazwa trafia też do wybranego urządzenia (stopka, `localStorage`). Zmiana sterownika odbywa się przez ikonkę w stopce.
 
 ### API klienta
 
-`client/src/core/http.ts` buduje adresy API i WebSocket oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Urządzenia (lista, nazwa, domyślny, `properties`) obsługuje `DeviceRequests` w `client/src/core/api.ts`, a ich typy są w `client/src/core/types.ts`. API i typy rodzajów sterowników: `client/src/devices/heat-pump/` (`HpRequests`: telemetria, operacje, harmonogramy) i `client/src/devices/water-pressure-tank/` (`WaterPressureTankRequests`), każdy z `api.ts` i `types.ts`.
+`client/src/core/http.ts` buduje adresy API i WebSocket oraz automatycznie dodaje `rootId` i `deviceId` wybranego urządzenia. Urządzenia (lista, nazwa, domyślny, `properties`) obsługuje `DeviceRequests` w `client/src/core/api.ts`, a ich typy są w `client/src/core/types.ts`. API i typy rodzajów sterowników: `client/src/devices/heat-pump/` (`HpRequests`: telemetria, operacje, harmonogramy), `client/src/devices/water-pressure-tank/` (`WaterPressureTankRequests`) i `client/src/devices/switch/` (`SwitchRequests`: przekaźniki, tryby, harmonogramy, włączenia), każdy z `api.ts` i `types.ts`.
 
 ### Zakładka Dane
 
@@ -630,10 +667,15 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 - `co`: `pio test -e native` w `devices/co` (74 testy: kontroler operacji, parser PV, ramki Modbus, polityka AP, parser ramek ecoMAX i dekoder `SensorData`).
 - CHPC: `pio test -e native` w `devices/chpc` (symulacja firmware, 54 testy). Dodatkowo scenariusze Wokwi w `devices/chpc/test-wokwi/`.
 - hydrofor: `pio test -e native` w `devices/water-pressure-tank` (25 testów: kompresor z pracą ręczną „Włącz”/„Wyłącz”, ustawienia, czas kompresora z `/install`, JSON wysyłki z `manualCompressorS`, kolejka w NVS, OTA).
+- włącznik: `pio test -e native` w `devices/switch` (11 testów: odliczanie włączenia z chmury, włączenie bez limitu, zmiana lokalna wygrywa do potwierdzenia, timer lokalny i minuty do wysłania, „Harmonogram” bez chmury, JSON zgłoszenia, odpowiedzi i `PUT switch/mode`, `default_on_minutes`, oferta OTA).
 
-Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (8: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`); razem z pozostałymi serwer ma 96 testów.
+Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (8: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`).
+
+Testy włącznika są w [`server/test/switch.test.ts`](server/test/switch.test.ts) (13: łączenie stykających się okien, okno przez północ w dniu startu, dni robocze bez świąt i wyłączny koniec, `nextStart`, zgłoszenie tworzy przekaźniki, polecenie w każdym trybie i koniec timera, walidacja trybu, zmiana trybu samym `deviceId`, 404/409, historia z czasem ze sterownika, koniec włączenia po utracie zasilania, harmonogramy, nazwy). Razem z pozostałymi serwer ma 109 testów. Symulator sterownika włącznika: `node scripts/simulate-switch.mjs [--relays N] [--history]` (przy `npm run local`; `--history` dopisuje włączenia z 7 dni wprost do bazy lokalnej).
 
 Serwer ma też testy hydroforu w [`server/test/water-pressure-tank.test.ts`](server/test/water-pressure-tank.test.ts) (31: czas pompy bez ręcznej pracy kompresora, przepływ z wodomierza ważony czasem i woda uruchomień, brak wody przed dwoma odczytami, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, `manualCompressorS`, podsumowania, wodomierz, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
+
+Przebieg 2026-10-03 (włącznik): serwer 109/109 (w tym `switch.test.ts` 13), firmware włącznika 11/11 + build `esp32dev` (Flash ok. 77 %, RAM ok. 15 %). Wdrożenie na produkcji: sterownik zarejestrowany, firmware 1.0.3 na płytce, przekaźnik na GPIO2 klika, przekaźnik nazwany „Bojler”. Zrzuty widoków w `docs/moduly/switch/img/` z symulatora (2 przekaźniki).
 
 Przebieg 2026-10-01 (rola `pellet-boiler-pelux200`): serwer 81/81 (testy w `server/test/`) + `tsc` + build OK, klient `vite build` OK, `co` 74/74 + build `esp32dev` (RAM 17,4 %, Flash 34,9 %). Test integracyjny na lokalnej chmurze (`npm run local`, baza lokalna): rejestracja drugiej roli tego samego SN (nowy `rootId`, ponowna rejestracja zwraca ten sam), `POST /pellet-boiler-pelux200/add` z JSON wygenerowanym przez kod firmware z ramki testowej (rootId+deviceId i sam deviceId), 409 dla `rootId` pompy, 400 dla pustego odczytu, `last`, `list`, zapis i walidacja `poll_interval_seconds`, `POST /hp/add` po samym `deviceId` nadal trafia do pompy. Widoki klienta sprawdzone w Edge (1280 i 360 px, bez przewijania strony w poziomie) z odpowiedziami API podstawionymi w przeglądarce. Nie sprawdzono: kotła ani ramek z magistrali, płytki `co` z UART2, eksportu CSV i zapisu ustawień w przeglądarce.
 
@@ -716,5 +758,6 @@ Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro 
 - `0x04` powyżej `T_SETPOINT_MAX` i `0x05` powyżej `T_DELTA_MAX` CHPC po cichu ignoruje.
 - Liczniki diagnostyczne `co` i `controller_mode` nie są zapisywane w bazie (ścisły schemat); widać je tylko w `GET /api/hp` do restartu serwera i na stronie `/` sterownika.
 - Rola `pellet-boiler-pelux200` (punkt 5c): format ramek i `SensorData` (PyPlumIO), prędkość 115200 baud, punkt wpięcia (G2 modułu A) i piny GPIO16/GPIO4 nie były sprawdzone na kotle ani na płytce; nasłuch trzeba zweryfikować przed jakimkolwiek nadawaniem. Wysyłka HTTP pieca blokuje pętlę `co` do ok. 10 s jak `pv/add` (bufor UART2 2 KB gubi nadmiar, parser się resynchronizuje). Dokumentacja: `docs/moduly/pellet-boiler-pelux200/` (PL, EN w `docs/en/`) i `devices/co/docs/piec-pellux200.md` (tylko PL); wersji EN tego drugiego nie ma.
+- Włącznik (punkt 5d): strona `/` sterownika i `POST /relay` są bez logowania, a AP `Wlacznik-setup` po starcie domyślnie otwarty — w zasięgu AP i w sieci domowej każdy może przełączyć przekaźnik; `PUT /api/switch/mode` przyjmuje sam `deviceId` bez autoryzacji. Zgłoszenie jest tylko przy starcie (nie po zmianie IP jak w `co`), więc oferta OTA, `default_on_minutes` na stronie sterownika i adres IP odświeżają się dopiero po restarcie płytki (bez przycisku RST: odłączenie zasilania). Koniec trybu `timer` w trakcie okna harmonogramu daje krótką przerwę (sterownik wyłącza po odliczeniu, chmura zaraz włącza z harmonogramu; wynika z kodu, niesprawdzone). `switch_activations` nie ma retencji.
 - Test E2E łańcucha pompy (`test/e2e`) jest nieaktualny: czeka na formularz dodawania sterownika, którego klient już nie ma (audyt 2026-09-25).
 - Najstarszy sterownik ma Root ID wkompilowany w `secrets.h`. Do 2026-10-02 się nie zgłaszał; od wersji ze zgłoszeniem przy każdym starcie zgłasza się z SN, więc w bazie musi być urządzenie `heat_pump` z tym SN (inaczej serwer utworzy nowe i sterownik przejdzie na jego Root ID). Jego `deviceId` zmieniono w bazie z `hp-1` na SN. Serwer trzyma `deviceId` w pamięci (`deviceInfoByRoot`), więc po zmianie w bazie trzeba zrestartować serwer.
