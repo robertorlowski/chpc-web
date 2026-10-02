@@ -26,10 +26,10 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
       type: Number, min: 30, max: 3600,
       validate: { validator: Number.isInteger, message: 'poll_interval_seconds: pełne sekundy 30–3600.' },
     },
-    // włącznik: domyślny czas „Włącz na…” w pełnych minutach, najwyżej 7 dni
+    // włącznik: domyślny czas włączenia w pełnych minutach, 0 = bez limitu, najwyżej 7 dni
     default_on_minutes: {
-      type: Number, min: 1, max: 10080,
-      validate: { validator: Number.isInteger, message: 'default_on_minutes: pełne minuty 1–10080.' },
+      type: Number, min: 0, max: 10080,
+      validate: { validator: Number.isInteger, message: 'default_on_minutes: pełne minuty 0–10080.' },
     },
   },
   { _id: false }

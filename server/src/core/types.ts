@@ -41,7 +41,7 @@ export interface DeviceProperties {
   compressor_seconds?: number;
   // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600
   poll_interval_seconds?: number;
-  // włącznik: domyślny czas „Włącz na…” [min], podpowiadany w aplikacji i na stronie sterownika
+  // włącznik: domyślny czas „Włącz” [min] (0 = bez limitu), podpowiadany w aplikacji i na stronie sterownika
   default_on_minutes?: number;
 }
 

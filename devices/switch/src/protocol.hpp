@@ -22,6 +22,6 @@ bool applyStateResponse(const char *json, RelayBank &bank, uint32_t nowMs, uint3
 // Zmiana ze strony sterownika dla PUT switch/mode: {"relay":1,"mode":"timer","minutes":30,"source":"controller"}.
 std::string buildModeBody(uint8_t relayNumber, RelayMode mode, uint32_t minutes);
 
-// Domyślny czas „Włącz na…” z settings odpowiedzi na zgłoszenie (default_on_minutes, 1–10080).
+// Domyślny czas „Włącz” z settings odpowiedzi na zgłoszenie (default_on_minutes, 0 = bez limitu, do 10080).
 // Zwraca false, gdy brak albo poza zakresem (out bez zmian).
 bool parseDefaultMinutes(JsonVariantConst settings, uint16_t &out);

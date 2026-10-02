@@ -39,7 +39,7 @@ export type DeviceProperties = {
   compressor_seconds?: number;
   // kocioł pelletowy: co ile sterownik odpytuje piec, 30–3600 s (domyślnie 300)
   poll_interval_seconds?: number;
-  // włącznik: domyślny czas „Włącz na…” [min], 1–10080
+  // włącznik: domyślny czas „Włącz” [min], 0 (bez limitu) – 10080
   default_on_minutes?: number;
 };
 

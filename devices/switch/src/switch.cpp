@@ -3,7 +3,8 @@
 // Co 5 s zgłasza stan przekaźników (POST switch/state) i wykonuje polecenia z odpowiedzi:
 // włącz na N s (odlicza sam, więc bez sieci dokończy i się wyłączy), włącz bez limitu, wyłącz.
 // Komunikat WebSocket "operation" (zmiana w aplikacji) wywołuje zgłoszenie od razu.
-// Strona / sterownika pozwala włączyć, wyłączyć, włączyć na czas i wrócić do harmonogramu;
+// Strona / sterownika: „Włącz” na czas z pól pod przyciskami (0 h 0 min = bez limitu), „Wyłącz”
+// i powrót do harmonogramu;
 // zmiana trafia do chmury przez PUT switch/mode (relays.hpp: pending).
 // Kontrakt z chmurą: POST devices/register (rootId, settings.default_on_minutes, oferta OTA),
 // POST switch/state, PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
@@ -513,7 +514,7 @@ const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><me
 button{background:#1481a5;color:#fff;border:0;border-radius:6px;padding:.6rem 1rem;font-size:1rem}
 button.stop{background:#c62828}button.second{background:#7a8c93}button:disabled{opacity:.4}
 .buttons{display:flex;flex-wrap:wrap;gap:.5rem}.timer{display:flex;gap:.4rem;align-items:center;margin-top:.5rem}
-.timer input{width:5rem;padding:.3rem}label{display:block;margin:.4rem 0}label input{width:100%;box-sizing:border-box;padding:.3rem}
+.timer input{width:4rem;padding:.3rem}label{display:block;margin:.4rem 0}label input{width:100%;box-sizing:border-box;padding:.3rem}
 small{color:#555}h2{margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:2px solid #1481a5;color:#1481a5;font-size:1.25rem}
 </style></head><body>)html";
 
@@ -528,11 +529,14 @@ function card(r,d){return '<div class="card"><h2>Przekaźnik '+r.relay+'</h2>'
 +'<div class="state '+(r.on?'on':'off')+'">'+(r.on?'WŁĄCZONY':'WYŁĄCZONY')+'</div>'
 +'<div class="'+(r.mode=='off'?'bad':'')+'">'+(MODES[r.mode]||'tryb nieznany (brak chmury)')+(r.pending?' · <small>czeka na wysłanie do chmury</small>':'')+'</div>'
 +(r.remainingS?'<div class="count">'+hms(r.remainingS)+'</div>':'')
-+'<p class="buttons"><button onclick="cmd('+r.relay+',\'on\')">Włącz</button>'
++'<p class="buttons"><button onclick="on('+r.relay+')">Włącz</button>'
 +'<button class="stop" onclick="cmd('+r.relay+',\'off\')">Wyłącz</button>'
 +'<button class="second" onclick="cmd('+r.relay+',\'schedule\')"'+(r.mode=='schedule'?' disabled':'')+'>Harmonogram</button></p>'
-+'<div class="timer">Włącz na <input id="m'+r.relay+'" type="number" min="1" max="10080" value="'+(window['v'+r.relay]||d)+'" oninput="window[\'v'+r.relay+'\']=this.value"> min'
-+'<button onclick="cmd('+r.relay+',\'timer\',document.getElementById(\'m'+r.relay+'\').value)">Uruchom</button></div></div>'}
++'<div class="timer">Czas włączenia '+field(r.relay,'h',Math.floor(d/60),168)+' h '+field(r.relay,'m',d%60,59)+' min</div>'
++'<small>0 h 0 min = bez limitu czasu</small></div>'}
+function field(n,k,d,max){var id=k+n,v=window['v'+id];return '<input id="'+id+'" type="number" min="0" max="'+max+'" value="'+(v===undefined?d:v)+'" oninput="window[\'v'+id+'\']=this.value">'}
+function on(n){var t=(+document.getElementById('h'+n).value||0)*60+(+document.getElementById('m'+n).value||0);
+if(t>10080){alert('Najwyżej 7 dni (168 h).');return}if(t>0)cmd(n,'timer',t);else cmd(n,'on')}
 function load(){if(document.activeElement&&document.activeElement.tagName=='INPUT')return;
 fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
 relays.innerHTML=s.relays.map(function(r){return card(r,s.defaultMinutes)}).join('');

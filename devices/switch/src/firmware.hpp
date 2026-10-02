@@ -8,7 +8,7 @@
 constexpr const char *DEVICE_TYPE = "switch";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z ofertą chmury (OTA). Podnieść przy
 // każdym wydaniu, zanim zbudujesz obraz; tę samą wersję wpisuje się w aplikacji przy wgrywaniu.
-constexpr const char *FW_VERSION = "1.0.0";
+constexpr const char *FW_VERSION = "1.0.1";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 
@@ -19,7 +19,7 @@ constexpr uint8_t RELAY_PINS[] = {17};
 constexpr uint8_t RELAY_COUNT = sizeof(RELAY_PINS) / sizeof(RELAY_PINS[0]);
 constexpr bool RELAY_ACTIVE_HIGH = true;
 
-// Domyślny czas „Włącz na…” do pierwszego zgłoszenia (potem z chmury), 1–10080 min.
+// Domyślny czas „Włącz” do pierwszego zgłoszenia (potem z chmury), 0 (bez limitu) – 10080 min.
 constexpr uint16_t DEFAULT_ON_MINUTES = 30;
 constexpr uint16_t MAX_ON_MINUTES = 10080;
 

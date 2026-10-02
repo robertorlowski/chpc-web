@@ -42,8 +42,8 @@ export const SwitchSettings: React.FC = () => {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     const minutes = Number(defaultMinutes);
-    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 10080) {
-      return setError('Domyślny czas: pełne minuty od 1 do 10080 (7 dni).');
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
+      return setError('Domyślny czas: pełne minuty od 0 (bez limitu) do 10080 (7 dni).');
     }
     if (Object.values(names).some((name) => name.trim().length > 40)) {
       return setError('Nazwa przekaźnika: najwyżej 40 znaków.');
@@ -82,8 +82,8 @@ export const SwitchSettings: React.FC = () => {
             </label>
           ))}
           <label>
-            <span className="label">Domyślny czas „Włącz na…” [min]:</span>
-            <input type="number" min={1} max={10080} value={defaultMinutes}
+            <span className="label">Domyślny czas włączenia [min] <small>(0 = bez limitu)</small>:</span>
+            <input type="number" min={0} max={10080} value={defaultMinutes}
               onChange={(event) => setDefaultMinutes(event.currentTarget.value)} />
           </label>
           {error && <div className="switch-error">{error}</div>}

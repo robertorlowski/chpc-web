@@ -56,7 +56,7 @@ bool parseDefaultMinutes(JsonVariantConst settings, uint16_t &out)
   JsonVariantConst value = settings["default_on_minutes"];
   if (!value.is<unsigned>()) return false;
   const unsigned minutes = value.as<unsigned>();
-  if (minutes < 1 || minutes > MAX_ON_MINUTES) return false;
+  if (minutes > MAX_ON_MINUTES) return false;
   out = static_cast<uint16_t>(minutes);
   return true;
 }

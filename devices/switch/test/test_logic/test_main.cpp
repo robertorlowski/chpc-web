@@ -128,9 +128,13 @@ void test_default_minutes_from_settings()
   uint16_t minutes = 30;
   TEST_ASSERT_TRUE(parseDefaultMinutes(document.as<JsonVariantConst>(), minutes));
   TEST_ASSERT_EQUAL_UINT16(45, minutes);
+  // 0 = „Włącz” bez limitu
   deserializeJson(document, "{\"default_on_minutes\":0}");
+  TEST_ASSERT_TRUE(parseDefaultMinutes(document.as<JsonVariantConst>(), minutes));
+  TEST_ASSERT_EQUAL_UINT16(0, minutes);
+  deserializeJson(document, "{\"default_on_minutes\":20000}");
   TEST_ASSERT_FALSE(parseDefaultMinutes(document.as<JsonVariantConst>(), minutes));
-  TEST_ASSERT_EQUAL_UINT16(45, minutes);
+  TEST_ASSERT_EQUAL_UINT16(0, minutes);
 }
 
 void test_ota_offer()

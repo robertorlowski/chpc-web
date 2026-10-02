@@ -1,5 +1,6 @@
 // Widok główny włącznika (/): dla każdego przekaźnika stan (przełącznik jak „CO pompa”), tryb,
-// odliczanie do końca włączenia i przyciski Włącz / Wyłącz / Harmonogram / Włącz na… (PUT /switch/mode)
+// odliczanie do końca włączenia, przyciski Włącz / Wyłącz / Harmonogram i czas włączenia pod nimi
+// („Włącz” na ten czas, 0 h 0 min = bez limitu; PUT /switch/mode)
 // oraz dzisiejsze włączenia (GET /switch/activations). Dane odświeża WebSocket „update” (zmiana stanu
 // zgłoszona przez sterownik) i odpytywanie co 5 s (tryb timer i harmonogram zmieniają się z czasem).
 import { useEffect, useState } from 'react';
@@ -34,7 +35,10 @@ const RelayCard: React.FC<{
   }, [defaultMinutes]);
 
   const mode = describeMode(relay);
+  // „Włącz” na czas z pól pod przyciskami; 0 h 0 min = bez limitu
   const timerMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
+  const timeValid = timerMinutes >= 0 && timerMinutes <= 10080;
+  const turnOn = () => (timerMinutes > 0 ? onMode('timer', timerMinutes) : onMode('on'));
   const title = relay.on ? 'Przekaźnik włączony (stan ze sterownika)' : 'Przekaźnik wyłączony (stan ze sterownika)';
 
   return (
@@ -58,22 +62,24 @@ const RelayCard: React.FC<{
         </div>
       )}
       <div className="switch-actions">
-        <button type="button" disabled={busy} className={relay.mode === 'on' ? 'switch-active' : ''}
-          onClick={() => onMode('on')}>Włącz</button>
+        <button type="button" disabled={busy || !timeValid}
+          className={relay.mode === 'on' || relay.mode === 'timer' ? 'switch-active' : ''}
+          onClick={turnOn}>Włącz</button>
         <button type="button" disabled={busy} className={`switch-stop${relay.mode === 'off' ? ' switch-active' : ''}`}
           onClick={() => onMode('off')}>Wyłącz</button>
         <button type="button" disabled={busy || relay.mode === 'schedule'} className="switch-secondary"
           onClick={() => onMode('schedule')}>Harmonogram</button>
       </div>
-      <form className="switch-timer" onSubmit={(event) => { event.preventDefault(); onMode('timer', timerMinutes); }}>
-        <span>Włącz na</span>
+      <div className="switch-timer">
+        <span>Czas włączenia</span>
         <input type="number" min={0} max={168} value={hours} aria-label="Godziny"
           onChange={(event) => setHours(event.currentTarget.value)} /> h
         <input type="number" min={0} max={59} value={minutes} aria-label="Minuty"
           onChange={(event) => setMinutes(event.currentTarget.value)} /> min
-        <button type="submit" disabled={busy || timerMinutes < 1 || timerMinutes > 10080}
-          className={relay.mode === 'timer' ? 'switch-active' : ''}>Uruchom</button>
-      </form>
+      </div>
+      <div className="switch-hint">
+        {!timeValid ? 'Najwyżej 7 dni (168 h).' : timerMinutes === 0 ? '0 h 0 min: „Włącz” bez limitu czasu.' : '0 h 0 min = bez limitu czasu.'}
+      </div>
     </div>
   );
 };
@@ -93,7 +99,9 @@ export const SwitchHome: React.FC = () => {
 
   useEffect(() => {
     load();
-    DeviceRequests.getDeviceProperties().then((result) => result?.default_on_minutes && setDefaultMinutes(result.default_on_minutes));
+    DeviceRequests.getDeviceProperties().then((result) => {
+      if (typeof result?.default_on_minutes === 'number') setDefaultMinutes(result.default_on_minutes);
+    });
     const refresh = window.setInterval(load, REFRESH_MS);
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
 
