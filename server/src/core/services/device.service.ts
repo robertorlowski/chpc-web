@@ -6,7 +6,7 @@ import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt ipAddress ipSeenAt';
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
 
@@ -31,21 +31,25 @@ export async function createDevice(
 // Znany sterownik dostaje swój rekord z powrotem, nowy zostaje utworzony.
 // Nazwa ze zgłoszenia trafia tylko do nowego urządzenia; później nadaje ją użytkownik.
 // Znane urządzenie nie jest zmieniane (ani nazwa, ani properties); wyjątek to wersja
-// firmware (firmwareVersion), odświeżana przy każdym zgłoszeniu, które ją niesie.
-// Szuka po parze rodzaj + deviceId: ten sam SN zgłoszony z innym rodzajem
-// utworzyłby drugie urządzenie.
+// firmware (firmwareVersion) i adres IP (ipAddress), odświeżane przy każdym zgłoszeniu,
+// które je niesie. Szuka po parze rodzaj + deviceId: ten sam SN zgłoszony z innym
+// rodzajem utworzyłby drugie urządzenie.
 export async function registerDevice(
   deviceType: DeviceType,
   deviceId: string,
   name?: string,
   firmwareVersion?: string,
+  ipAddress?: string,
 ): Promise<{ device: DeviceDocument; created: boolean }> {
-  const seen = firmwareVersion ? { firmwareVersion, firmwareSeenAt: new Date() } : {};
+  const now = new Date();
+  const seen = {
+    ...(firmwareVersion ? { firmwareVersion, firmwareSeenAt: now } : {}),
+    ...(ipAddress ? { ipAddress, ipSeenAt: now } : {}),
+  };
   const existing = await DeviceModel.findOne({ deviceType, deviceId });
   if (existing) {
-    if (firmwareVersion) {
-      existing.firmwareVersion = firmwareVersion;
-      existing.firmwareSeenAt = new Date();
+    if (Object.keys(seen).length > 0) {
+      existing.set(seen);
       await existing.save();
     }
     return { device: existing, created: false };

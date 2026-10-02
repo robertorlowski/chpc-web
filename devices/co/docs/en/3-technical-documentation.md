@@ -75,9 +75,9 @@ DTU: two Modbus queries of five ports each — from `0x1000` and from `0x10C8` (
 | `co` → server | `POST /api/hp/add?deviceId=SN&rootId=…` | telemetry (described in the [heat-pump module](../../../../docs/en/moduly/heat-pump/3-technical-documentation.md)) |
 | server → `co` | reply | `{"operation": {...strings...}, "t_out": 12.3}` |
 | `co` → server | `POST /api/pv/add?...` | `time`, `total_power` (required), `total_prod`, `total_prod_today`, `temperature` (lowest of the ports), `pv_power` (≥ 2000 W), `panels[]` |
-| `co` → server | `POST /api/devices/register` | `{deviceType: "heat_pump", deviceId: SN}` — only without a Root ID |
+| `co` → server | `POST /api/devices/register` | `{deviceType: "heat_pump", deviceId: SN, ip}` — at every start, after an IP change and after a 409 (`registrationDue()`), also with a Root ID; a different `rootId` in the reply replaces the stored one and restarts the WebSocket |
 | server → `co` | WebSocket `/ws?rootId=` | `{"type":"operation"}` → immediate `hp/add` |
-| `co` → server | `POST /api/devices/register` | `{deviceType: "pellet-boiler-pelux200", deviceId: SN, name: "Piec Pellux 200"}` — only without `pellet_root` and only after the first valid ecoMAX frame; reply: `rootId` and `settings.poll_interval_seconds` |
+| `co` → server | `POST /api/devices/register` | `{deviceType: "pellet-boiler-pelux200", deviceId: SN, name: "Piec Pellux 200", ip}` — only after the first valid ecoMAX frame, then like the pump (start, IP change, 404/409); reply: `rootId` and `settings.poll_interval_seconds` |
 | `co` → server | `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=<boiler Root ID>` | `state`, temperatures, `*_target`/`*_status`, `fuel_level`, `fan_power`, `boiler_load`, `boiler_power`, `fuel_consumption`, output booleans, `time`; reply `{"poll_interval_seconds": N}` |
 
 A rejected PV reading is retried every 60 s until a newer one replaces it.

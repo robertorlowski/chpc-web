@@ -78,11 +78,34 @@ void CloudClient::tick()
   if (webSocketStarted) webSocket.loop();
 }
 
+void CloudClient::stopWebSocket()
+{
+  if (!webSocketStarted) return;
+  webSocket.disconnect();
+  webSocketStarted = false;
+}
+
+// Zgłoszenie jest potrzebne, gdy w tym uruchomieniu nie było udanego z bieżącym
+// adresem: po starcie (registeredIp = 0.0.0.0), po zmianie IP i po 409.
 bool CloudClient::registrationDue() const
 {
-  return !deviceRegistered() && WiFi.status() == WL_CONNECTED
+  return WiFi.status() == WL_CONNECTED && !(registeredIp == WiFi.localIP())
     && (!registrationAttempted
       || millis() - lastRegistrationAt >= REGISTRATION_RETRY_MS);
+}
+
+String CloudClient::sendRegistration(const char *deviceType, const char *name, IPAddress &sentIp)
+{
+  const String &serial = deviceSerial();
+  if (serial.length() == 0) return "";
+
+  sentIp = WiFi.localIP();
+  JsonDocument request;
+  request["deviceType"] = deviceType;
+  request["deviceId"] = serial;
+  if (name) request["name"] = name;
+  request["ip"] = sentIp.toString();
+  return send(String(CLOUD_BASE_URL) + "devices/register", request);
 }
 
 void CloudClient::registerDevice()
@@ -90,14 +113,9 @@ void CloudClient::registerDevice()
   registrationAttempted = true;
   lastRegistrationAt = millis();
 
-  const String &serial = deviceSerial();
-  if (serial.length() == 0) return;
-
-  // Zgłoszenie wysyła tylko typ i SN, bez nazwy i wersji oprogramowania.
-  JsonDocument request;
-  request["deviceType"] = "heat_pump";
-  request["deviceId"] = serial;
-  String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
+  // Pompa zgłasza się bez nazwy (nadaje ją użytkownik).
+  IPAddress sentIp;
+  String response = sendRegistration("heat_pump", nullptr, sentIp);
   if (response.length() == 0) return;
 
   JsonDocument reply;
@@ -106,14 +124,27 @@ void CloudClient::registerDevice()
     return;
   }
   // The same serial always gets the same rootId back, so a controller whose
-  // NVS was wiped reattaches to its existing cloud record.
+  // NVS was wiped reattaches to its existing cloud record. Inny rootId niż
+  // zapisany (np. stary z secrets.h) jest podmieniany, a WebSocket otwierany
+  // ponownie z nowym (tick()).
   String rootId = reply["rootId"] | "";
-  if (rootId.length() == 0 || !saveRootId(rootId)) requestErrors++;
+  if (rootId.length() == 0) {
+    requestErrors++;
+    return;
+  }
+  if (rootId != deviceConfig().rootId) {
+    if (!saveRootId(rootId)) {
+      requestErrors++;
+      return;
+    }
+    stopWebSocket();
+  }
+  registeredIp = sentIp;
 }
 
 bool CloudClient::pelletRegistrationDue() const
 {
-  return !pelletRegistered() && WiFi.status() == WL_CONNECTED
+  return WiFi.status() == WL_CONNECTED && !(pelletRegisteredIp == WiFi.localIP())
     && (!pelletRegistrationAttempted
       || millis() - lastPelletRegistrationAt >= REGISTRATION_RETRY_MS);
 }
@@ -124,14 +155,8 @@ void CloudClient::registerPelletBoiler()
   pelletRegistrationAttempted = true;
   lastPelletRegistrationAt = millis();
 
-  const String &serial = deviceSerial();
-  if (serial.length() == 0) return;
-
-  JsonDocument request;
-  request["deviceType"] = "pellet-boiler-pelux200";
-  request["deviceId"] = serial;
-  request["name"] = "Piec Pellux 200";
-  String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
+  IPAddress sentIp;
+  String response = sendRegistration("pellet-boiler-pelux200", "Piec Pellux 200", sentIp);
   if (response.length() == 0) return;
 
   JsonDocument reply;
@@ -140,12 +165,14 @@ void CloudClient::registerPelletBoiler()
     return;
   }
   String rootId = reply["rootId"] | "";
-  if (rootId.length() == 0 || !savePelletRootId(rootId)) {
+  if (rootId.length() == 0
+    || (rootId != deviceConfig().pelletRootId && !savePelletRootId(rootId))) {
     requestErrors++;
     return;
   }
   JsonVariantConst poll = reply["settings"]["poll_interval_seconds"];
   if (poll.is<uint32_t>()) savePelletPollSeconds(poll.as<uint32_t>());
+  pelletRegisteredIp = sentIp;
 }
 
 bool CloudClient::postPelletBoiler(const JsonDocument &data)
@@ -160,6 +187,7 @@ bool CloudClient::postPelletBoiler(const JsonDocument &data)
     // Root ID pieca nie pasuje do SN albo serwer go nie zna: rejestracja od nowa.
     clearPelletRootId();
     pelletRegistrationAttempted = false;
+    pelletRegisteredIp = IPAddress();
     return false;
   }
   if (httpStatus < 200 || httpStatus >= 300) return false;
@@ -195,10 +223,8 @@ String CloudClient::post(const String &path, const JsonDocument &data)
     // registration fetch the right one; the WebSocket reopens with it.
     clearRootId();
     registrationAttempted = false;
-    if (webSocketStarted) {
-      webSocket.disconnect();
-      webSocketStarted = false;
-    }
+    registeredIp = IPAddress();
+    stopWebSocket();
   }
   return response;
 }

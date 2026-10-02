@@ -40,6 +40,9 @@ export interface Device {
   /** wersja firmware zgłoszona przez sterownik przy ostatnim zgłoszeniu (pole version) i kiedy */
   firmwareVersion?: string;
   firmwareSeenAt?: Date;
+  /** adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia (pole ip) i kiedy */
+  ipAddress?: string;
+  ipSeenAt?: Date;
   // pompa ciepła: starsze ustawienia czasowe i harmonogramy
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];

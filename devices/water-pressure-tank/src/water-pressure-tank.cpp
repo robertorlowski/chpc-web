@@ -188,6 +188,8 @@ void registerDevice()
   request["deviceType"] = DEVICE_TYPE;
   request["name"] = DEVICE_NAME;
   request["version"] = FW_VERSION;
+  // adres w sieci domowej (strony sterownika), pokazywany w Ustawieniach aplikacji
+  request["ip"] = WiFi.localIP().toString();
   String body;
   serializeJson(request, body);
 

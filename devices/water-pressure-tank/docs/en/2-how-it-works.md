@@ -19,7 +19,7 @@ sequenceDiagram
     opt compressor time changed on /install
         E->>S: PUT /water-pressure-tank/settings {compressor_seconds}
     end
-    E->>S: POST /devices/register {deviceId, deviceType, name}
+    E->>S: POST /devices/register {deviceId, deviceType, name, version, ip}
     S-->>E: {rootId, settings}
     loop every 1 s while powered
         E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts}

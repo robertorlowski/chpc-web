@@ -51,7 +51,7 @@ The controller-kind modules do not know about each other. Only core connects the
 
 ## Controller registration
 
-The tank controller registers at every start (it receives its settings in the reply); `co` registers only when it has no Root ID of the given role yet (also after a 409 reply); the pellet boiler role registers only after the first valid frame from the boiler. The server recognises a device by the pair (kind, SN): a new one is created, a known one gets its record back.
+The tank controller registers at every start (it receives its settings in the reply); `co` registers at every start, after every IP address change and after a 409 reply, even when it already has the Root ID of the given role (a different `rootId` in the reply replaces the stored one); the pellet boiler role registers only after the first valid frame from the boiler. Both controllers send their IP address in the registration and the client shows it in Settings. The server recognises a device by the pair (kind, SN): a new one is created, a known one gets its record back.
 
 ```mermaid
 sequenceDiagram

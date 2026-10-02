@@ -10,7 +10,7 @@ The server side (API, collections, water formula, water meter) is described in t
 |---|---|
 | Board | ESP32-C3 SuperMini (PlatformIO `esp32-c3-devkitm-1`), USB CDC console 115200 |
 | Power | 230 V → 5 V supply (e.g. HLK-PM01) on the pump supply line (after the pressure switch relay) |
-| Compressor relay | 5 V single-channel module, `IN` on `GPIO10` |
+| Compressor relay | 5 V active-low module (installed: two-channel with optocouplers, one channel used), `IN` on `GPIO10` |
 | Tanks | 300 l galvanised with an air cushion + 300 l membrane, in parallel (Hydro-Vacuum) |
 
 ## Wiring
@@ -32,15 +32,15 @@ The server side (API, collections, water formula, water meter) is described in t
      └──────────────────────┼─────┼──┘       │               │
                      ┌──────┴─────┼──────┐   │   ┌───────────┴──┐
       10 kΩ          │ IN  relay module  │   │   │  COM contact │
-  IN ──/\/\/── GND   │ active-high       │   │   │  NO ──┐      │
-  ("H" module)       │ (jumper H)        │   │   └───────┼──────┘
+  IN ──/\/\/── 3V3   │ active-low        │   │   │  NO ──┐      │
+  (to the ESP 3V3)   │ (no H jumper)     │   │   └───────┼──────┘
                      │ VCC ── +5V        │   │      ┌────┴─────┐
                      │ GND ── GND        │   └──────┤compressor│
                      └───────────────────┘          └──────────┘
 ```
 
-- **Recommended:** active-high module + 10 kΩ from `IN` to `GND`, `RELAY_ACTIVE_HIGH = true`. The relay is then certainly off without power and while the ESP32 boots.
-- **Active-low module** (current setting `RELAY_ACTIVE_HIGH = false`): the module gets 5 V before the ESP32 has 3.3 V, so `IN` is briefly pulled low through the pin's protection diodes and the relay clicks on regardless of the program. Resistor 10 kΩ from `IN` to `3V3` (never to 5 V).
+- **Active-low module** (installed; `RELAY_ACTIVE_HIGH = false`): the relay switches on when `IN` is pulled to `GND`. The module gets 5 V before the ESP32 has 3.3 V, so `IN` is briefly pulled low through the pin's protection diodes and the relay clicks on regardless of the program. Hence **10 kΩ from `IN` to the ESP32 `3V3`** (simplest between the `GPIO10` and `3V3` pins of the board). Never to 5 V, and not to `GND`: that would keep the relay on permanently.
+- **Alternative:** active-high module (jumper H) + 10 kΩ from `IN` to `GND` and `RELAY_ACTIVE_HIGH = true`. The relay is then certainly off without power and while the ESP32 boots.
 - **Contacts** `COM`–`NO` in the compressor's live wire. Inrush current ≤ relay rating (usually 10 A / 250 V AC); motors above about 0.5 kW through a contactor.
 - Installation only by a person qualified for 230 V work, in an enclosure, with a fuse.
 
@@ -86,7 +86,7 @@ The server side (API, collections, water formula, water meter) is described in t
 
 | Request | Body | Reply |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType, name, version}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
+| `POST devices/register` | `{deviceId: SN, deviceType, name, version, ip}` (`ip` = address in the home network, shown in the app Settings) | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
 | `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` | `{}`; 404 unknown SN, 409 foreign Root ID |
 | `PUT water-pressure-tank/settings?deviceId=&rootId=` | `{compressor_seconds}` | `{compressor_seconds}`; 400 invalid value (the flag is cleared anyway) |
 
@@ -139,7 +139,7 @@ The `native` tests cover: the compressor (single start, stop after time, restart
 ## Known issues and notes
 
 - **Never flashed onto a board**: first start according to the checklist in [part 1](1-business-description.md#before-the-first-deployment-checklist).
-- **`RELAY_ACTIVE_HIGH = false`** matches the current module; with it the relay may click on briefly when power is applied (hardware, not the program).
+- **`RELAY_ACTIVE_HIGH = false`** matches the current module; without the 10 kΩ resistor from `IN` to `3V3` the relay may click on briefly when power is applied (hardware, not the program).
 - **The water formula lives in three places** (`src/settings.cpp`, server, client); change them together.
 - **Security:** the controller network is open by default, pages over HTTP, `POST /restart` without login.
 - The old sketch `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino` (outside git) had the double compressor start bug; do not use it.

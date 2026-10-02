@@ -27,7 +27,7 @@ pio test -e native                       # testy logiki na PC
 
 ## Stała konfiguracja w kodzie
 
-- Przekaźnik na `GPIO10`, obecnie sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`). Po przestawieniu modułu na sterowanie stanem wysokim (zalecane) zmień na `true`.
+- Przekaźnik na `GPIO10`, moduł sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`) z rezystorem 10 kΩ z `IN` do `3V3` ESP32. Przy module sterowanym stanem wysokim (zworka H) zmień na `true` i daj rezystor do masy.
 - Kompresor startuje 1 s po podaniu zasilania (`COMPRESSOR_START_DELAY_MS`).
 - Punkt dostępowy pod adresem `10.11.16.1`, jak w poprzednim szkicu.
 - Firmware nie był jeszcze wgrywany na płytkę (sprawdzony testami `native` i emulatorem stron).

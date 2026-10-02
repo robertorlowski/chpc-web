@@ -53,7 +53,7 @@ Firmware **nie był jeszcze wgrywany na płytkę** — sprawdzony testami na PC 
 
 1. **Serwer pierwszy:** wdrożyć `main` na Render (ręczny build). Stary serwer odrzuci zgłoszenie typu `water-pressure-tank` (400).
 2. **`src/secrets.h`** (lokalny, poza gitem, wzór `secrets.example.h`): nazwa i hasło punktu dostępowego (obecnie „Piwnica” bez hasła = sieć otwarta), domyślne Wi-Fi, login `/install`.
-3. **Moduł przekaźnika:** sprawdzić zworkę. Zalecane sterowanie stanem wysokim (zworka H) + rezystor 10 kΩ z `IN` do masy i `RELAY_ACTIVE_HIGH = true` w `src/firmware.hpp`. Przy module sterowanym stanem niskim kompresor może „kliknąć” w chwili podania zasilania.
+3. **Moduł przekaźnika:** zamontowany jest moduł sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`) z rezystorem 10 kΩ z `IN` do `3V3` ESP32; bez niego kompresor może „kliknąć” w chwili podania zasilania. Moduł ze zworką H (stan wysoki) wymaga rezystora do masy i `RELAY_ACTIVE_HIGH = true` w `src/firmware.hpp`.
 4. **Wgranie:** `pio run -d devices/water-pressure-tank -e esp32c3 -t upload` przez USB-C.
 5. **Po pierwszym uruchomieniu pompy**, w aplikacji → Ustawienia:
    - progi presostatu odczytane z manometru przy starcie i zatrzymaniu pompy;

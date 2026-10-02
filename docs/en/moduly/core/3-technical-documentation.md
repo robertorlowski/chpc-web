@@ -75,7 +75,7 @@ Paths outside the map (application, `GET`s, `/device/properties`) require `rootI
 |---|---|---|---|
 | `GET /devices` | public | device list: `rootId`, `deviceType`, `deviceId`, `name`, `isDefault` | 200 |
 | `POST /devices` | public | manual creation (not used by the client; used by the E2E test) | 201; 400 if the SN exists |
-| `POST /devices/register` | public | controller registration `{deviceId, deviceType?, name?}`; `deviceType` defaults to `heat_pump` | 201 new, 200 known (+ `settings` for kinds with `controllerSettings`); 400 missing SN / unknown kind |
+| `POST /devices/register` | public | controller registration `{deviceId, deviceType?, name?, version?, ip?}`; `deviceType` defaults to `heat_pump`; `ip` IPv4 only (others and `0.0.0.0` are ignored) | 201 new, 200 known (+ `settings` for kinds with `controllerSettings`); 400 missing SN / unknown kind |
 | `PUT /devices/:rootId` | public | rename `{name}` (empty allowed) | 200; 400; 404 |
 | `PUT /devices/:rootId/default` | public | default controller `{isDefault}` (no field: set); clears the flag on the others | 200; 404 |
 | `GET /device/properties` | `rootId` | device settings | 200; 404 |
@@ -94,6 +94,7 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `name` | string | user-given name, empty by default |
 | `isDefault` | boolean | default controller, at most one |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
+| `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
 | `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
 | `settings` | object | legacy heat pump time settings (not used by the scheduler) |

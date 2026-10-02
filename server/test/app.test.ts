@@ -195,6 +195,27 @@ describe('API with MongoDB', () => {
     expect(await DeviceModel.countDocuments({ deviceId })).toBe(1);
   });
 
+  it('stores the controller IP address from each registration', async () => {
+    const register = (ip?: string) =>
+      request(app).post('/api/devices/register').send({ deviceId: 'A4CF00000002', ip });
+    const listed = async () =>
+      (await request(app).get('/api/devices')).body.find((device: { deviceId: string }) => device.deviceId === 'A4CF00000002');
+
+    expect((await register('192.168.1.20')).body.ipAddress).toBe('192.168.1.20');
+    expect((await listed()).ipSeenAt).toBeTruthy();
+
+    // nowy adres po zmianie z DHCP
+    expect((await register('192.168.1.31')).status).toBe(200);
+    expect((await listed()).ipAddress).toBe('192.168.1.31');
+
+    // brak adresu, 0.0.0.0 albo zły format: zostaje ostatni znany
+    await register();
+    await register('0.0.0.0');
+    await register('192.168.1.300');
+    await register('abc');
+    expect((await listed()).ipAddress).toBe('192.168.1.31');
+  });
+
   it('leaves the name of a self-registered controller empty', async () => {
     const response = await request(app)
       .post('/api/devices/register')

@@ -41,6 +41,9 @@ export type Device = {
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
   firmwareSeenAt?: string;
+  // adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia i czas zgłoszenia (ISO)
+  ipAddress?: string;
+  ipSeenAt?: string;
   properties?: DeviceProperties;
 };
 

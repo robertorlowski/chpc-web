@@ -21,6 +21,8 @@ const toPublicDevice = (device: DeviceDocument) => ({
   isDefault: device.isDefault ?? false,
   firmwareVersion: device.firmwareVersion,
   firmwareSeenAt: device.firmwareSeenAt,
+  ipAddress: device.ipAddress,
+  ipSeenAt: device.ipSeenAt,
 });
 
 // Ustawienia, które sterownik pobiera w odpowiedzi na zgłoszenie (tylko rodzaje, które je mają).
@@ -79,15 +81,26 @@ export async function addDevice(
 const optionalText = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
+// Adres IPv4 w zapisie dziesiętnym (a.b.c.d, 0–255); 0.0.0.0 to brak adresu w ESP32.
+const ipv4 = (value: unknown) => {
+  const text = optionalText(value);
+  if (!text || text === '0.0.0.0') return undefined;
+  const parts = text.split('.');
+  return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+    ? text
+    : undefined;
+};
+
 // Zgłoszenie sterownika: rootId i (hydrofor) ustawienia do zapisania w sterowniku.
 // Sterownik woła je przy każdym starcie; 201 = nowe urządzenie, 200 = znane.
 // Brak deviceType oznacza pompę ciepła. Oferta firmware (OTA) dla rodzajów z firmwareUpdates.
-// Pole version (wersja firmware, najwyżej 32 znaki) jest zapisywane w firmwareVersion.
+// Pole version (wersja firmware, najwyżej 32 znaki) jest zapisywane w firmwareVersion,
+// a ip (adres IPv4 w sieci lokalnej) w ipAddress; ip w innym formacie jest pomijane.
 export async function registerDeviceEntry(
-  req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string; version?: string }>,
+  req: Request<{}, {}, { deviceType?: DeviceType; deviceId?: string; name?: string; version?: string; ip?: string }>,
   res: Response,
 ) {
-  const { deviceType = DeviceType.HP, deviceId, name, version } = req.body;
+  const { deviceType = DeviceType.HP, deviceId, name, version, ip } = req.body;
 
   if (!deviceId?.trim()) {
     return res.status(400).json({ message: 'deviceId jest wymagane.' });
@@ -98,7 +111,7 @@ export async function registerDeviceEntry(
 
   try {
     const { device, created } = await registerDevice(
-      deviceType, deviceId.trim(), optionalText(name), optionalText(version)?.slice(0, 32),
+      deviceType, deviceId.trim(), optionalText(name), optionalText(version)?.slice(0, 32), ipv4(ip),
     );
     // oferta firmware (OTA) tylko dla rodzajów, które ją obsługują i gdy jest włączona
     const firmware = getDeviceTypeModule(device.deviceType).firmwareUpdates

@@ -8,6 +8,7 @@ import { HpEntry, OperationEntry } from '../../types';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
+import { DeviceAddress } from '../../../../core/components/DeviceAddress';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
@@ -372,6 +373,7 @@ export const Settings: React.FC = () => {
 						<span className="label">Root ID:</span>
 						<code className="settings-root-id">{device?.rootId ?? '---'}</code>
 					</div>
+					<DeviceAddress device={device} />
 					<div className="settings-error-actions">
 						<button type="button" className="settings-change" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
 					</div>

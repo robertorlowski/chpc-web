@@ -62,6 +62,9 @@ const DeviceSchema = new Schema<DeviceDocument>(
     // wersja firmware ze zgłoszenia sterownika (strona /firmware); starsze sterowniki jej nie wysyłają
     firmwareVersion: { type: String, trim: true },
     firmwareSeenAt: { type: Date },
+    // adres IPv4 sterownika w sieci lokalnej ze zgłoszenia (pole ip) i czas tego zgłoszenia
+    ipAddress: { type: String, trim: true },
+    ipSeenAt: { type: Date },
     // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },

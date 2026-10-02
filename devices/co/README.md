@@ -43,10 +43,11 @@ Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/ro
   PV (podsumowanie i wszystkie porty: moc, napięcia, prąd, częstotliwość sieci,
   temperatura, alarmy) idzie osobno przez `POST /api/pv/add`.
 - **Rejestracja.** Każde żądanie niesie SN (`deviceId`), czyli fabryczny MAC
-  układu, a Root ID tylko wtedy, gdy jest zapisany. Sterownik bez Root ID po
-  połączeniu z internetem rejestruje się przez `POST /api/devices/register`
-  i zapisuje otrzymany Root ID w NVS. Znany SN dostaje z powrotem swój
-  dotychczasowy Root ID. Gdy serwer odpowie 409 (Root ID należy do innego SN),
+  układu, a Root ID tylko wtedy, gdy jest zapisany. Przy każdym starcie i po
+  każdej zmianie adresu IP sterownik zgłasza się przez
+  `POST /api/devices/register` (SN i adres IP, który aplikacja pokazuje w
+  Ustawieniach) i zapisuje otrzymany Root ID w NVS, gdy jest inny niż
+  zapisany. Znany SN dostaje z powrotem swój dotychczasowy Root ID. Gdy serwer odpowie 409 (Root ID należy do innego SN),
   sterownik kasuje Root ID i rejestruje się ponownie.
 - **Piec Pellux 200 (druga rola).** UART2 (RX GPIO16, TX nieużywany, DE/RE GPIO4
   na stałe LOW, 115200 baud) nasłuchuje magistrali ecoMAX i dekoduje ramki

@@ -10,7 +10,7 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 |---|---|
 | Płytka | ESP32-C3 SuperMini (PlatformIO `esp32-c3-devkitm-1`), konsola USB CDC 115200 |
 | Zasilanie | zasilacz 230 V → 5 V (np. HLK-PM01) na przewodzie zasilania pompy (za przekaźnikiem presostatu) |
-| Przekaźnik kompresora | moduł 5 V, 1 kanał, `IN` na `GPIO10` |
+| Przekaźnik kompresora | moduł 5 V sterowany stanem niskim (zamontowany: dwukanałowy z transoptorami, używany jeden kanał), `IN` na `GPIO10` |
 | Zbiorniki | 300 l ocynkowany z poduszką + 300 l przeponowy, równolegle (Hydro-Vacuum) |
 
 ## Podłączenie
@@ -32,15 +32,15 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
      └──────────────────────┼─────┼──┘       │               │
                      ┌──────┴─────┼──────┐   │   ┌───────────┴──┐
       10 kΩ          │ IN  moduł przekaź.│   │   │  COM   styk  │
-  IN ──/\/\/── GND   │ sterowany stanem  │   │   │  NO ──┐      │
-  (moduł „H”)        │ wysokim (zworka H)│   │   └───────┼──────┘
+  IN ──/\/\/── 3V3   │ sterowany stanem  │   │   │  NO ──┐      │
+  (do pinu 3V3 ESP)  │ niskim (bez zw. H)│   │   └───────┼──────┘
                      │ VCC ── +5V        │   │      ┌────┴─────┐
                      │ GND ── GND        │   └──────┤ kompresor│
                      └───────────────────┘          └──────────┘
 ```
 
-- **Zalecane:** moduł sterowany stanem wysokim + 10 kΩ z `IN` do `GND`, `RELAY_ACTIVE_HIGH = true`. Przekaźnik jest wtedy na pewno wyłączony przy braku napięcia i w czasie startu ESP32.
-- **Moduł sterowany stanem niskim** (obecne ustawienie `RELAY_ACTIVE_HIGH = false`): moduł ma 5 V wcześniej, niż ESP32 ma 3,3 V, więc `IN` jest przez chwilę ściągane do masy przez diody pinu — przekaźnik włącza się na moment niezależnie od programu. Rezystor 10 kΩ z `IN` do `3V3` (nigdy do 5 V).
+- **Moduł sterowany stanem niskim** (zamontowany; `RELAY_ACTIVE_HIGH = false`): przekaźnik włącza się, gdy `IN` jest ściągnięte do `GND`. Moduł ma 5 V wcześniej, niż ESP32 ma 3,3 V, więc `IN` jest przez chwilę ściągane do masy przez diody pinu i przekaźnik klika niezależnie od programu. Dlatego **10 kΩ z `IN` do `3V3` ESP32** (najprościej między pinami `GPIO10` i `3V3` płytki). Nigdy do 5 V, i nie do `GND`: to włączyłoby przekaźnik na stałe.
+- **Alternatywa:** moduł sterowany stanem wysokim (zworka H) + 10 kΩ z `IN` do `GND` i `RELAY_ACTIVE_HIGH = true`. Przekaźnik jest wtedy na pewno wyłączony bez napięcia i w czasie startu ESP32.
 - **Styki** `COM`–`NO` w przewodzie fazowym kompresora. Prąd rozruchowy ≤ obciążalność przekaźnika (zwykle 10 A / 250 V AC); silnik powyżej ok. 0,5 kW — przez stycznik.
 - Montaż tylko przez osobę uprawnioną do prac przy 230 V, w obudowie, z bezpiecznikiem.
 
@@ -86,7 +86,7 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 
 | Żądanie | Treść | Odpowiedź |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType, name, version}` | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
+| `POST devices/register` | `{deviceId: SN, deviceType, name, version, ip}` (`ip` = adres w sieci domowej, pokazywany w Ustawieniach aplikacji) | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
 | `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` | `{}`; 404 nieznany SN, 409 cudzy Root ID |
 | `PUT water-pressure-tank/settings?deviceId=&rootId=` | `{compressor_seconds}` | `{compressor_seconds}`; 400 zła wartość (znacznik i tak kasowany) |
 
@@ -139,7 +139,7 @@ Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruc
 ## Znane problemy i uwagi
 
 - **Nie był wgrywany na płytkę** — pierwsze uruchomienie według listy kontrolnej w [części 1](1-opis-biznesowy.md#przed-pierwszym-wdrożeniem-lista-kontrolna).
-- **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; przy nim możliwe krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
+- **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; bez rezystora 10 kΩ z `IN` do `3V3` możliwe jest krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
 - **Wzór wody w trzech miejscach** (`src/settings.cpp`, serwer, klient) — zmieniać razem.
 - **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart` bez logowania.
 - Dawny szkic `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino` (poza gitem) miał usterkę podwójnego startu kompresora; nie używać.

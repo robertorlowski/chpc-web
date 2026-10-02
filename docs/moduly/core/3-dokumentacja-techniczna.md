@@ -75,7 +75,7 @@ Działanie dla ścieżki z mapy:
 |---|---|---|---|
 | `GET /devices` | publiczna | lista urządzeń: `rootId`, `deviceType`, `deviceId`, `name`, `isDefault` | 200 |
 | `POST /devices` | publiczna | ręczne utworzenie (nieużywane przez klienta; używa go test E2E) | 201; 400 gdy SN istnieje |
-| `POST /devices/register` | publiczna | zgłoszenie sterownika `{deviceId, deviceType?, name?}`; `deviceType` domyślnie `heat_pump` | 201 nowe, 200 znane (+ `settings` dla rodzajów z `controllerSettings`); 400 brak SN / nieznany typ |
+| `POST /devices/register` | publiczna | zgłoszenie sterownika `{deviceId, deviceType?, name?, version?, ip?}`; `deviceType` domyślnie `heat_pump`; `ip` tylko IPv4 (inne i `0.0.0.0` pomijane) | 201 nowe, 200 znane (+ `settings` dla rodzajów z `controllerSettings`); 400 brak SN / nieznany typ |
 | `PUT /devices/:rootId` | publiczna | zmiana nazwy `{name}` (pusta dozwolona) | 200; 400; 404 |
 | `PUT /devices/:rootId/default` | publiczna | sterownik domyślny `{isDefault}` (bez pola: ustawia); zdejmuje znacznik z pozostałych | 200; 404 |
 | `GET /device/properties` | `rootId` | ustawienia urządzenia | 200; 404 |
@@ -94,6 +94,7 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
+| `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
 | `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
 | `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |

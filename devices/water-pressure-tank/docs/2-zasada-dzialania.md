@@ -19,7 +19,7 @@ sequenceDiagram
     opt czas kompresora zmieniony na /install
         E->>S: PUT /water-pressure-tank/settings {compressor_seconds}
     end
-    E->>S: POST /devices/register {deviceId, deviceType, name}
+    E->>S: POST /devices/register {deviceId, deviceType, name, version, ip}
     S-->>E: {rootId, settings}
     loop co 1 s, dopóki jest zasilanie
         E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts}

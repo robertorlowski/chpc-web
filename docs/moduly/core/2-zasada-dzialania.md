@@ -51,7 +51,7 @@ Moduły rodzajów sterowników nie znają się nawzajem. Łączy je tylko core: 
 
 ## Zgłoszenie sterownika
 
-Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` tylko wtedy, gdy nie ma jeszcze Root ID danej roli (także po odpowiedzi 409); rola kotła pelletowego zgłasza się dopiero po pierwszej poprawnej ramce z kotła. Serwer rozpoznaje urządzenie po parze (rodzaj, SN): nowe tworzy, znanemu oddaje jego rekord.
+Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` przy każdym starcie, po każdej zmianie adresu IP i po odpowiedzi 409, także gdy ma już Root ID danej roli (inny `rootId` z odpowiedzi zastępuje zapisany); rola kotła pelletowego zgłasza się dopiero po pierwszej poprawnej ramce z kotła. Oba sterowniki wysyłają w zgłoszeniu swój adres IP, który klient pokazuje w Ustawieniach. Serwer rozpoznaje urządzenie po parze (rodzaj, SN): nowe tworzy, znanemu oddaje jego rekord.
 
 ```mermaid
 sequenceDiagram

@@ -16,17 +16,21 @@ public:
   void tick();
   // True raz po komunikacie WebSocket "operation": wyślij /hp/add od razu.
   bool takeOperationRequest();
-  // True while the controller has no rootId and the retry delay has passed.
-  // registerDevice() blocks for a whole HTTP request, so the caller runs it
-  // only when the serial bus is idle.
+  // Zgłoszenie (devices/register) przy każdym starcie i po każdej zmianie
+  // adresu IP, także z zapisanym Root ID: serwer zwraca rootId dla SN (ten sam
+  // dla znanego sterownika), a sterownik podmienia zapisany, gdy jest inny.
+  // Pole ip trafia do Ustawień w aplikacji. True, gdy w tym uruchomieniu nie
+  // było udanego zgłoszenia z bieżącym IP i minęło opóźnienie ponowienia.
+  // registerDevice() blokuje na całe żądanie HTTP, więc main.cpp woła je
+  // tylko przy wolnej magistrali.
   bool registrationDue() const;
   void registerDevice();
   // Blokujący POST; zwraca treść odpowiedzi 2xx, a w każdym innym przypadku "".
   // Odpowiedź 409 kasuje Root ID i uruchamia ponowną rejestrację.
   String post(const String &path, const JsonDocument &data);
-  // Druga rola (piec Pellux 200): własny Root ID w NVS, ten sam SN. Oba
-  // wywołania blokują jak każde żądanie HTTP, więc main.cpp woła je przy
-  // wolnej magistrali.
+  // Druga rola (piec Pellux 200): własny Root ID w NVS, ten sam SN; zgłoszenie
+  // na tych samych zasadach co pompa (start, zmiana IP). Oba wywołania blokują
+  // jak każde żądanie HTTP, więc main.cpp woła je przy wolnej magistrali.
   bool pelletRegistrationDue() const;
   void registerPelletBoiler();
   // True, gdy chmura przyjęła odczyt (2xx). 404/409 kasuje Root ID pieca
@@ -45,7 +49,11 @@ private:
     WStype_t type, uint8_t *payload, size_t length);
 
   void startWebSocket();
+  void stopWebSocket();
   String send(const String &url, const JsonDocument &data);
+  // Wspólna część zgłoszenia obu ról: POST devices/register z SN i adresem IP,
+  // zwraca odpowiedź 2xx albo "" (wtedy sentIp jest bez znaczenia).
+  String sendRegistration(const char *deviceType, const char *name, IPAddress &sentIp);
 
   HTTPClient http;
   WebSocketsClient webSocket;
@@ -53,8 +61,11 @@ private:
   bool operationRequested = false;
   bool registrationAttempted = false;
   unsigned long lastRegistrationAt = 0;
+  // adres z ostatniego udanego zgłoszenia w tym uruchomieniu (brak = 0.0.0.0)
+  IPAddress registeredIp;
   bool pelletRegistrationAttempted = false;
   unsigned long lastPelletRegistrationAt = 0;
+  IPAddress pelletRegisteredIp;
   unsigned long lastWifiReconnectAt = 0;
   int httpStatus = 0;
   bool answered = false;

@@ -37,7 +37,7 @@ Then the timed tasks. Those that block (HTTP, NTP) wait until the bus is idle:
 flowchart TD
     A["bus idle?"] -- no --> Z["next pass"]
     A -- yes --> NTP{"NTP every 6 h<br/>(after an error every 5 min)"}
-    NTP --> REG{"no Root ID?<br/>register every 60 s"}
+    NTP --> REG{"start, IP change or 409?<br/>register (retry every 60 s)"}
     REG --> HP{"time to read CHPC?<br/>10 s (HPS>0) / 30 s"}
     HP -- yes --> R1["0x01 → pump JSON → POST /api/hp/add"]
     HP -- no --> FAST{"3 s after the last command<br/>(at most every 10 s)?"}
@@ -117,7 +117,7 @@ flowchart TD
     P --> F{"SensorData 0x35<br/>from sender 0x45?"}
     F -- no --> P
     F -- yes --> D["decodeSensorData → latest reading<br/>+ receive time"]
-    D --> R{"first valid frame<br/>and no pellet_root?"}
+    D --> R{"valid frame received and<br/>start, IP change or 404/409?"}
     R -- yes --> REG["POST /api/devices/register<br/>deviceType pellet-boiler-pelux200<br/>(every 60 s until it works)"]
     REG --> S["pellet_root in NVS<br/>+ pellet_poll from the reply"]
     D --> T{"registered, reading younger than 60 s,<br/>CHPC/DTU bus idle, Wi-Fi,<br/>interval elapsed?"}
@@ -139,10 +139,10 @@ sequenceDiagram
     participant C as co
     participant S as chpc-web
     C->>S: every request ?deviceId=SN (&rootId= if stored)
-    alt no Root ID in NVS
-        C->>S: POST /api/devices/register {deviceType: heat_pump, deviceId: SN} (every 60 s)
+    alt start, IP address change or after a 409
+        C->>S: POST /api/devices/register {deviceType: heat_pump, deviceId: SN, ip} (retry every 60 s)
         S-->>C: {rootId, ...}
-        C->>C: store the Root ID in NVS, start WebSocket /ws?rootId=
+        C->>C: rootId different from the stored one? store it in NVS, (re)start WebSocket /ws?rootId=
     end
     S-->>C: 409 (the Root ID belongs to another SN)
     C->>C: drop the Root ID, disconnect the WebSocket, register again

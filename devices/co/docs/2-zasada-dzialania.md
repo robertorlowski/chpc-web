@@ -37,7 +37,7 @@ Potem zadania czasowe. Te, które blokują (HTTP, NTP), czekają, aż magistrala
 flowchart TD
     A["magistrala wolna?"] -- nie --> Z["następny obieg"]
     A -- tak --> NTP{"NTP co 6 h<br/>(po błędzie co 5 min)"}
-    NTP --> REG{"brak Root ID?<br/>rejestracja co 60 s"}
+    NTP --> REG{"start, zmiana IP albo 409?<br/>zgłoszenie (ponowienie co 60 s)"}
     REG --> HP{"czas na odczyt CHPC?<br/>10 s (HPS>0) / 30 s"}
     HP -- tak --> R1["0x01 → JSON pompy → POST /api/hp/add"]
     HP -- nie --> FAST{"3 s po ostatniej komendzie<br/>(najwyżej co 10 s)?"}
@@ -117,7 +117,7 @@ flowchart TD
     P --> F{"SensorData 0x35<br/>od nadawcy 0x45?"}
     F -- nie --> P
     F -- tak --> D["decodeSensorData → ostatni odczyt<br/>+ czas odbioru"]
-    D --> R{"pierwsza poprawna ramka<br/>i brak pellet_root?"}
+    D --> R{"jest poprawna ramka i<br/>start, zmiana IP albo 404/409?"}
     R -- tak --> REG["POST /api/devices/register<br/>deviceType pellet-boiler-pelux200<br/>(co 60 s do skutku)"]
     REG --> S["pellet_root w NVS<br/>+ pellet_poll z odpowiedzi"]
     D --> T{"zarejestrowany, odczyt młodszy niż 60 s,<br/>magistrala CHPC/DTU wolna, Wi-Fi,<br/>minął interwał?"}
@@ -139,10 +139,10 @@ sequenceDiagram
     participant C as co
     participant S as chpc-web
     C->>S: każde żądanie ?deviceId=SN (&rootId= jeśli zapisany)
-    alt brak Root ID w NVS
-        C->>S: POST /api/devices/register {deviceType: heat_pump, deviceId: SN} (co 60 s)
+    alt start, zmiana adresu IP albo po 409
+        C->>S: POST /api/devices/register {deviceType: heat_pump, deviceId: SN, ip} (ponowienie co 60 s)
         S-->>C: {rootId, ...}
-        C->>C: zapis Root ID w NVS, start WebSocket /ws?rootId=
+        C->>C: inny rootId niż zapisany? zapis w NVS, (ponowny) start WebSocket /ws?rootId=
     end
     S-->>C: 409 (Root ID należy do innego SN)
     C->>C: skasuj Root ID, rozłącz WebSocket, zarejestruj się ponownie

@@ -53,7 +53,7 @@ The firmware **has not been flashed onto a board yet**; it was checked with PC t
 
 1. **Server first:** deploy `main` on Render (manual build). The old server rejects registration of type `water-pressure-tank` (400).
 2. **`src/secrets.h`** (local, outside git, template `secrets.example.h`): access point name and password (currently "Piwnica" without a password = open network), default Wi-Fi, `/install` login.
-3. **Relay module:** check the jumper. Recommended: active-high control (jumper H) + a 10 kΩ resistor from `IN` to ground, and `RELAY_ACTIVE_HIGH = true` in `src/firmware.hpp`. With an active-low module the compressor may "click" when power is applied.
+3. **Relay module:** the installed module is active-low (`RELAY_ACTIVE_HIGH = false`) with a 10 kΩ resistor from `IN` to the ESP32 `3V3`; without it the compressor may "click" when power is applied. A module with jumper H (active-high) needs a resistor to ground and `RELAY_ACTIVE_HIGH = true` in `src/firmware.hpp`.
 4. **Flash:** `pio run -d devices/water-pressure-tank -e esp32c3 -t upload` over USB-C.
 5. **After the first pump start**, in the application → Settings:
    - pressure switch thresholds read from the gauge when the pump starts and stops;

@@ -7,6 +7,7 @@ import { WaterTank } from '../types';
 import Notification from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
+import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { IconButton } from '../../../core/components/IconButton';
 import { PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { useDevice } from '../../../core/context/DeviceContext';
@@ -250,6 +251,7 @@ export const WaterPressureTankSettings: React.FC = () => {
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
+          <DeviceAddress device={device} />
           <FirmwareStatus device={device} />
           <div className="water-actions">
             <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
