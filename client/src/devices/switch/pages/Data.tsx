@@ -1,10 +1,10 @@
 // Zakładka Dane włącznika (/data): włączenia przekaźników w wybranym dniu (GET /switch/activations)
-// z czasem włączenia i wyłączenia, czasem trwania, źródłem, łącznym czasem w dniu i eksportem CSV.
+// z czasem włączenia i wyłączenia, czasem trwania, łącznym czasem w dniu i eksportem CSV.
 import { useEffect, useState } from 'react';
 import { SwitchRequests } from '../api';
 import { SwitchActivation, SwitchRelay } from '../types';
 import {
-  activationSourceLabel, activationsToCsv, downloadText, formatDuration, formatTimeSeconds, relayLabel,
+  activationsToCsv, downloadText, formatDuration, formatTimeSeconds, relayLabel,
   secondsInDay, todayWarsaw, warsawDayBounds,
 } from '../utils/format';
 import './style.css';
@@ -74,7 +74,6 @@ export const SwitchData: React.FC = () => {
                       <th>Włączenie</th>
                       <th>Wyłączenie</th>
                       <th className="switch-num">Czas</th>
-                      <th>Źródło</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -86,7 +85,6 @@ export const SwitchData: React.FC = () => {
                           {activation.offAt ? `${activation.approximate ? '≈ ' : ''}${momentIn(activation.offAt, date)}` : '—'}
                         </td>
                         <td className="switch-num">{activation.offAt ? formatDuration(activation.durationS) : 'w toku'}</td>
-                        <td>{activationSourceLabel(activation.source)}</td>
                       </tr>
                     ))}
                   </tbody>

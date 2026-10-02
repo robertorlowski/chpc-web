@@ -10,7 +10,7 @@ import { getSelectedDevice } from '../../../core/context/DeviceContext';
 import { SwitchRequests } from '../api';
 import { RelayMode, SwitchActivation, SwitchRelay } from '../types';
 import {
-  activationSourceLabel, describeMode, formatCountdown, formatDuration, formatMoment, formatTime,
+  describeMode, formatCountdown, formatDuration, formatMoment, formatTime,
   relayLabel, secondsInDay, todayWarsaw, warsawDayBounds,
 } from '../utils/format';
 import swith_on from '../../../assets/swith_on.svg';
@@ -166,7 +166,6 @@ export const SwitchHome: React.FC = () => {
                       {(relays?.length ?? 0) > 1 && <td>{names.get(activation.relay)}</td>}
                       <td className="switch-nowrap">{formatMoment(activation.onAt)} – {activation.offAt ? formatMoment(activation.offAt) : '…'}</td>
                       <td className="switch-num switch-nowrap">{activation.offAt ? formatDuration(activation.durationS) : 'w toku'}</td>
-                      <td>{activationSourceLabel(activation.source)}</td>
                     </tr>
                   ))}
                 </tbody>

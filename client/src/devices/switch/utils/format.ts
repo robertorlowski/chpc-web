@@ -63,9 +63,6 @@ export const describeMode = (relay: SwitchRelay): { text: string; danger?: boole
 
 export const relayLabel = (relay: Pick<SwitchRelay, 'relay' | 'name'>) => relay.name?.trim() || `Przekaźnik ${relay.relay}`;
 
-export const activationSourceLabel = (source: SwitchActivation['source']) =>
-  source === 'schedule' ? 'harmonogram' : source === 'controller' ? 'ręcznie (sterownik)' : 'ręcznie (aplikacja)';
-
 // przesunięcie Warszawy względem UTC w chwili date [ms]
 const warsawOffset = (date: Date) => {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
@@ -96,13 +93,12 @@ export const secondsInDay = (activation: SwitchActivation, dayStart: number, day
 
 // CSV dla Excela z polskimi ustawieniami (separator ';').
 export const activationsToCsv = (activations: SwitchActivation[], names: Map<number, string>) => {
-  const header = ['Przekaźnik', 'Włączenie', 'Wyłączenie', 'Czas [s]', 'Źródło', 'Czas przybliżony'];
+  const header = ['Przekaźnik', 'Włączenie', 'Wyłączenie', 'Czas [s]', 'Czas przybliżony'];
   const rows = activations.map((activation) => [
     names.get(activation.relay) ?? `Przekaźnik ${activation.relay}`,
     new Date(activation.onAt).toLocaleString('pl-PL', { timeZone: TIME_ZONE }),
     activation.offAt ? new Date(activation.offAt).toLocaleString('pl-PL', { timeZone: TIME_ZONE }) : '',
     activation.durationS,
-    activationSourceLabel(activation.source),
     activation.approximate ? 'tak' : '',
   ].join(';'));
   return [header.join(';'), ...rows].join('\n');
