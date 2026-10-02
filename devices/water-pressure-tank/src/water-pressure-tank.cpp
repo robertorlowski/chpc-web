@@ -48,6 +48,7 @@ constexpr uint32_t TICK_MS = 1000;
 constexpr uint32_t REGISTER_RETRY_MS = 10000;
 constexpr uint32_t COMPRESSOR_SEND_RETRY_MS = 10000;
 constexpr uint16_t HTTP_TIMEOUT_MS = 2000;
+constexpr uint16_t REGISTER_TIMEOUT_MS = 8000;
 constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 constexpr int HTTP_CONFLICT = 409;
 
@@ -94,14 +95,25 @@ int loggedRunStatus = 0;
 bool loggedRunStatusKnown = false;
 volatile int lastDisconnectReason = 0;
 uint32_t lastStatusLogMs = 0;
-// skanowanie sieci do dziennika, gdy brak połączenia (pierwsze po 15 s, potem co 60 s)
+// Skanowanie sieci, gdy brak połączenia (pierwsze po 15 s, potem co 30 s): do dziennika
+// i na stronę / (karta Wi-Fi), żeby przy przestawianiu płytki albo anteny widać było sygnał.
 constexpr uint32_t SCAN_FIRST_MS = 15000;
-constexpr uint32_t SCAN_INTERVAL_MS = 60000;
+constexpr uint32_t SCAN_INTERVAL_MS = 30000;
+constexpr uint8_t SCAN_MAX = 8;
 uint32_t lastScanMs = 0;
 bool scanRunning = false;
+struct ScanEntry {
+  String ssid;
+  int8_t rssi;
+  uint8_t channel;
+};
+ScanEntry scanResults[SCAN_MAX];
+uint8_t scanCount = 0;
+// chwila zakończenia ostatniego skanowania (0 = jeszcze nie było)
+uint32_t scanDoneMs = 0;
 
 // Dziennik na USB (konsola CDC, 115200). Bez podłączonego komputera zapis jest
-// porzucany od razu (setTxTimeoutMs(0) w setup()), więc nie opóźnia pętli, która
+// porzucany od razu (setTxTimeoutMs(0) w setup(); na UART0 DevKit bufor 2 KB), więc nie opóźnia pętli, która
 // pilnuje przekaźnika kompresora. Czas w ms od startu sterownika.
 void logf(const char *format, ...)
 {
@@ -171,9 +183,10 @@ String requestUrl(const char *path)
   return url;
 }
 
-// Jedno zapytanie HTTP(S) z limitem 2 s. Nie ponawia: wysyłka co 1 s i tak
-// przychodzi za sekundę. lastHttpStatus < 0 oznacza błąd połączenia.
-bool send(const char *method, const String &url, const String &body, String *response = nullptr)
+// Jedno zapytanie HTTP(S), domyślnie z limitem 2 s. Nie ponawia: wysyłka co 1 s i tak
+// przychodzi za sekundę. lastHttpStatus < 0 oznacza błąd połączenia (-11: brak odpowiedzi w czasie).
+bool send(const char *method, const String &url, const String &body, String *response = nullptr,
+  uint16_t timeoutMs = HTTP_TIMEOUT_MS)
 {
   if (WiFi.status() != WL_CONNECTED) return false;
   const bool secure = url.startsWith("https://");
@@ -181,8 +194,8 @@ bool send(const char *method, const String &url, const String &body, String *res
   if (secure) secureClient.setInsecure();
   // keep-alive: kolejne zapytania co 1 s idą tym samym połączeniem TLS
   http.setReuse(true);
-  http.setConnectTimeout(HTTP_TIMEOUT_MS);
-  http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setConnectTimeout(timeoutMs);
+  http.setTimeout(timeoutMs);
   if (!(secure ? http.begin(secureClient, url) : http.begin(plainClient, url))) return false;
   http.addHeader("Content-Type", "application/json");
   lastHttpStatus = http.sendRequest(method, body);
@@ -192,9 +205,9 @@ bool send(const char *method, const String &url, const String &body, String *res
   return ok;
 }
 
-bool post(const String &url, const String &body, String *response = nullptr)
+bool post(const String &url, const String &body, String *response = nullptr, uint16_t timeoutMs = HTTP_TIMEOUT_MS)
 {
-  return send("POST", url, body, response);
+  return send("POST", url, body, response, timeoutMs);
 }
 
 void forgetRootIdOnConflict()
@@ -225,7 +238,9 @@ void registerDevice()
 
   logf("zgłoszenie: POST devices/register, wersja %s, ip %s", FW_VERSION, WiFi.localIP().toString().c_str());
   String response;
-  if (!post(cloudUrl + "devices/register", body, &response)) {
+  // dłuższy limit: pierwsze połączenie TLS z Render po przerwie trwa 2–5 s (2 s dawało -11 i
+  // zgłoszenie dopiero przy 4. próbie, 46 s po starcie); dalsze zapytania idą tym połączeniem
+  if (!post(cloudUrl + "devices/register", body, &response, REGISTER_TIMEOUT_MS)) {
     logf("zgłoszenie: błąd, HTTP %d (ponowię za %lu s)", lastHttpStatus, static_cast<unsigned long>(REGISTER_RETRY_MS / 1000));
     return;
   }
@@ -441,13 +456,19 @@ void logNetwork(uint32_t nowMs)
       return;
     }
     bool home = false;
+    // wyniki są posortowane od najsilniejszej; sieć domowa zawsze trafia na stronę
+    scanCount = 0;
     for (int index = 0; index < found; index++) {
-      if (WiFi.SSID(index) == wifiSsid) home = true;
-      if (index < 8 || WiFi.SSID(index) == wifiSsid) {
+      const bool isHome = WiFi.SSID(index) == wifiSsid;
+      if (isHome) home = true;
+      if (index < SCAN_MAX || isHome) {
         logf("skanowanie: \"%s\" RSSI %d dBm, kanał %d", WiFi.SSID(index).c_str(), static_cast<int>(WiFi.RSSI(index)),
           static_cast<int>(WiFi.channel(index)));
+        const uint8_t slot = scanCount < SCAN_MAX ? scanCount++ : SCAN_MAX - 1;
+        scanResults[slot] = {WiFi.SSID(index), static_cast<int8_t>(WiFi.RSSI(index)), static_cast<uint8_t>(WiFi.channel(index))};
       }
     }
+    scanDoneMs = millis();
     logf("skanowanie: %d sieci, \"%s\" %s", found, wifiSsid.c_str(), home ? "WIDOCZNA" : "NIEWIDOCZNA");
     WiFi.scanDelete();
     return;
@@ -518,7 +539,7 @@ const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><me
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Hydrofor</title>
 <style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}
 .card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem}
-.state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}
+.state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
 button{background:#1481a5;color:#fff;border:0;border-radius:6px;padding:.6rem 1rem;font-size:1rem}
 label{display:block;margin:.4rem 0}input{width:100%;box-sizing:border-box;padding:.3rem}
 small{color:#555}ul{margin:.3rem 0;padding-left:1.2rem}li span{float:right}
@@ -533,16 +554,31 @@ const char MAIN_PAGE[] PROGMEM = R"html(<h1>Hydrofor</h1>
 <p><button onclick="restart()">Uruchom kompresor ponownie</button></p></div>
 <div class="card"><h2>Zbiorniki</h2><ul id="tanks"></ul>
 <div>Ilość wody: <b id="water">---</b> l</div></div>
+<div class="card"><h2>Wi-Fi</h2>
+<div>Sieć: <b id="ssid">---</b></div>
+<div>Stan: <b id="wstate">---</b></div>
+<div>Sygnał: <b id="rssi">---</b></div>
+<div id="scanbox"><small id="scanhead"></small><ul id="scan"></ul></div></div>
 <div class="card"><small id="cloud">---</small></div>
 <p><a href="/install">Instalacja</a></p>
 <script>
+var REASONS={2:'uwierzytelnianie wygasło',8:'rozłączono',15:'złe hasło (uścisk dłoni)',39:'brak odpowiedzi routera (słaby sygnał)',200:'utrata sygnału',201:'sieć niewidoczna',202:'odrzucone uwierzytelnienie (hasło?)',203:'odrzucone przyłączenie',204:'złe hasło (uścisk dłoni)',205:'połączenie nieudane'};
+function quality(r){return r>=-67?'dobry':r>=-75?'średni':r>=-85?'słaby':'za słaby'}
+function cls(r){return r>=-75?'on':'bad'}
+function net(n){ssid.textContent=n.ssid||'(nie ustawiona)';
+var ok=n.status==3;wstate.textContent=ok?'połączone ('+n.ip+')':'brak połączenia'+(n.reason?' — '+(REASONS[n.reason]||'kod '+n.reason):'');
+wstate.className=ok?'on':'bad';
+rssi.textContent=n.rssi!==undefined?n.rssi+' dBm, '+quality(n.rssi):'---';rssi.className=n.rssi!==undefined?cls(n.rssi):'';
+if(n.scan&&!ok){scanbox.style.display='';scanhead.textContent='Widoczne sieci (skanowanie co 30 s, ostatnie '+n.scanAgeS+' s temu):';
+scan.innerHTML=n.scan.map(function(s){var b=s.ssid==n.ssid;return '<li'+(b?' class="'+cls(s.rssi)+'"':'')+'>'+(b?'<b>':'')+(s.ssid||'(ukryta)')+(b?'</b>':'')+' (kanał '+s.channel+')<span>'+s.rssi+' dBm, '+quality(s.rssi)+'</span></li>'}).join('')
++(n.scan.some(function(s){return s.ssid==n.ssid})?'':'<li class="bad"><b>'+n.ssid+'</b> — niewidoczna</li>')}else scanbox.style.display='none'}
 function tank(t){return '<li>'+(t.name||'Zbiornik')+' ('+t.volumeLiters+' l'+(t.enabled?'':', wyłączony')+')<span>'+t.liters.toFixed(1)+' l</span></li>'}
 function load(){fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
 var e=document.getElementById('state');e.textContent=s.running?'WŁĄCZONY':'WYŁĄCZONY';e.className='state '+(s.running?'on':'off');
 remaining.textContent=s.remainingS;seconds.textContent=s.compressorSeconds;pump.textContent=s.pumpRunS;
 water.textContent=s.waterLiters.toFixed(1);tanks.innerHTML=s.tanks.map(tank).join('');
 cloud.textContent='Wi-Fi: '+(s.wifi?'połączone':'brak')+', chmura: '+(s.registered?'zgłoszony':'niezgłoszony')
-+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')+', w kolejce: '+s.queued})}
++(s.lastStatus?' (HTTP '+s.lastStatus+')':'')+', w kolejce: '+s.queued;if(s.network)net(s.network)})}
 function restart(){fetch('/restart',{method:'POST'}).then(load)}
 load();setInterval(load,1000);
 </script></body></html>)html";
@@ -579,6 +615,25 @@ void handleState()
   state["registered"] = registeredThisBoot;
   state["lastStatus"] = lastHttpStatus;
   state["queued"] = queue.size();
+  // karta Wi-Fi: sieć domowa, sygnał przy połączeniu, przyczyna rozłączenia, ostatnie skanowanie
+  JsonObject network = state["network"].to<JsonObject>();
+  network["ssid"] = wifiSsid;
+  network["status"] = static_cast<int>(WiFi.status());
+  if (WiFi.status() == WL_CONNECTED) {
+    network["rssi"] = WiFi.RSSI();
+    network["ip"] = WiFi.localIP().toString();
+  }
+  network["reason"] = static_cast<int>(lastDisconnectReason);
+  if (scanDoneMs > 0) {
+    network["scanAgeS"] = (now - scanDoneMs) / 1000;
+    JsonArray scan = network["scan"].to<JsonArray>();
+    for (uint8_t index = 0; index < scanCount; index++) {
+      JsonObject item = scan.add<JsonObject>();
+      item["ssid"] = scanResults[index].ssid;
+      item["rssi"] = scanResults[index].rssi;
+      item["channel"] = scanResults[index].channel;
+    }
+  }
   String body;
   serializeJson(state, body);
   server.sendHeader("Cache-Control", "no-store");
@@ -729,10 +784,12 @@ void handleFirmwareDone()
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
+#ifndef BOARD_ESP32_DEVKIT
   // Płytka SuperMini ma źle dopasowaną antenę: przy pełnej mocy nadawania słyszała
   // sieć domową na −82 dBm i nie łączyła się (przyczyna 39, timeout). Niższa moc
-  // to znana poprawka dla tych płytek.
+  // to znana poprawka dla tych płytek. Moduł WROOM-32 (DevKit) zostaje na pełnej mocy.
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
+#endif
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
   // hasło krótsze niż 8 znaków daje sieć otwartą (WPA2 wymaga co najmniej 8)
   const char *apPassword = strlen(AP_PASSWORD) >= 8 ? AP_PASSWORD : nullptr;
@@ -762,8 +819,14 @@ void startNetwork()
 
 void setup()
 {
+#if ARDUINO_USB_CDC_ON_BOOT
   Serial.begin(115200);
   Serial.setTxTimeoutMs(0);
+#else
+  // UART0 (DevKit): bufor nadawania, żeby linie dziennika nie blokowały pętli
+  Serial.setTxBufferSize(2048);
+  Serial.begin(115200);
+#endif
   // Stan „wyłączony” przed przełączeniem pinu na wyjście: pin ani przez chwilę
   // nie ma stanu włączającego przekaźnik (dawny szkic włączał go przy starcie).
   writeRelay(false);

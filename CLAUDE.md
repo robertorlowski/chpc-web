@@ -21,7 +21,7 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | `server/`, `client/` | serwer Express + klient React; harmonogramy, historia, ustawienia; produkcja: `https://chpc-web.onrender.com` (Render) |
 | `devices/co/` | firmware `co` (ESP32, PlatformIO): odpytuje pompę i PV po RS-485, wysyła telemetrię, wykonuje operacje z chmury; druga rola: pasywny odczyt kotła pelletowego ecoMAX (punkt 5c); licencja MIT |
 | `devices/chpc/` | firmware pompy CHPC (Arduino Pro Mini, fork gonzho000/chpc); licencja GPLv3 (`devices/chpc/docs/LICENSE`) |
-| `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32-C3 SuperMini, typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
+| `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32 DevKit z WROOM-32 od 1.2.0, dawniej ESP32-C3 SuperMini; typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
 | `scripts/` | środowisko lokalne (`npm run local`), dane demonstracyjne (`seed-local.mjs`), symulator hydroforu |
 
@@ -243,7 +243,7 @@ Dzięki temu `/hp/4day`, `/hp/all` i `monthly-summary` działają bez zmian na `
 
 ## 5b. Hydrofor (`water-pressure-tank`)
 
-Pełny opis: [firmware](devices/water-pressure-tank/docs/1-opis-biznesowy.md) i [moduł serwera/klienta](docs/moduly/water-pressure-tank/1-opis-biznesowy.md); pierwotna specyfikacja w `devices/water-pressure-tank/docs/water-pressure-tank.md`. Sterownik (ESP32-C3) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
+Pełny opis: [firmware](devices/water-pressure-tank/docs/1-opis-biznesowy.md) i [moduł serwera/klienta](docs/moduly/water-pressure-tank/1-opis-biznesowy.md); pierwotna specyfikacja w `devices/water-pressure-tank/docs/water-pressure-tank.md`. Sterownik (ESP32 DevKit WROOM-32, przekaźnik na GPIO26; SuperMini ESP32-C3 wycofany 2026-10-02 przez słabą antenę) ma zasilanie tylko w czasie pracy pompy: po 1 s od startu raz włącza kompresor na `compressor_seconds`, potem łączy się z Wi-Fi. Punkt dostępowy działa przez cały czas pracy.
 
 - **Zgłoszenie** raz na start (`POST /devices/register`, typ `water-pressure-tank`, nazwa „Hydrofor”, `version`, `ip`); odpowiedź niesie ustawienia, które sterownik zapisuje w NVS. Zmiana ustawień w aplikacji działa od następnego uruchomienia pompy.
 - **Czas kompresora na sterowniku:** sekcja „Kompresor” na `/install` (Basic Auth) zapisuje czas w NVS od razu (działa od następnego włączenia kompresora, także „Uruchom ponownie”) i wysyła go `PUT /api/water-pressure-tank/settings`, który zmienia tylko `properties.compressor_seconds`. Niewysłaną zmianę sterownik ponawia co 10 s i po restarcie, a zgłoszenie nie nadpisuje jej wartością z chmury.

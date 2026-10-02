@@ -10,14 +10,19 @@ constexpr const char *DEVICE_TYPE = "water-pressure-tank";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z wersją oferowaną przez
 // chmurę (OTA). Podnieść przy każdym wydaniu, zanim zbudujesz obraz; tę samą wersję
 // wpisuje się na stronie firmware w aplikacji przy wgrywaniu pliku.
-constexpr const char *FW_VERSION = "1.1.4";
+constexpr const char *FW_VERSION = "1.2.1";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Hydrofor";
 
 // Przekaźnik kompresora. Zamontowany moduł jest sterowany stanem niskim (false), z
 // rezystorem 10 kΩ z IN do 3V3. Dla modułu ze zworką H (stan wysoki) ustaw true
 // i daj rezystor do masy (docs, punkt „Podłączenie”).
+// ESP32 DevKit: GPIO26 (nie jest pinem trybu startu ani UART0); SuperMini: GPIO10.
+#ifdef BOARD_ESP32_DEVKIT
+constexpr uint8_t RELAY_PIN = 26;
+#else
 constexpr uint8_t RELAY_PIN = 10;
+#endif
 constexpr bool RELAY_ACTIVE_HIGH = false;
 
 // Opóźnienie startu kompresora po podaniu zasilania (ustabilizowanie zasilania).

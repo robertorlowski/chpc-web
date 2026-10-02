@@ -8,9 +8,9 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 
 | Element | Szczegóły |
 |---|---|
-| Płytka | ESP32-C3 SuperMini (PlatformIO `esp32-c3-devkitm-1`), konsola USB CDC 115200 |
+| Płytka | **ESP32 DevKit z modułem ESP32-WROOM-32** (PlatformIO `esp32dev`, od 1.2.0), konsola UART0 115200 przez mostek USB płytki albo przejściówkę USB-TTL; dawniej ESP32-C3 SuperMini (`esp32c3`, konsola USB CDC, słaba antena) |
 | Zasilanie | zasilacz 230 V → 5 V (np. HLK-PM01) na przewodzie zasilania pompy (za przekaźnikiem presostatu) |
-| Przekaźnik kompresora | moduł 5 V sterowany stanem niskim (zamontowany: dwukanałowy z transoptorami, używany jeden kanał), `IN` na `GPIO10` |
+| Przekaźnik kompresora | moduł 5 V sterowany stanem niskim (zamontowany: dwukanałowy z transoptorami, używany jeden kanał), `IN` na `GPIO26` (DevKit, pin „P26”; SuperMini: `GPIO10`) |
 | Zbiorniki | 300 l ocynkowany z poduszką + 300 l przeponowy, równolegle (Hydro-Vacuum) |
 
 ## Podłączenie
@@ -25,10 +25,10 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
                         └──┬──────┬──┘       │               │
                          +5V     GND         │               │
      ┌─────────────────────┼──────┼──┐       │               │
-     │ ESP32-C3 SuperMini  │      │  │       │               │
+     │ ESP32 DevKit WROOM  │      │  │       │               │
      │                 5V ─┘      │  │       │               │
      │                GND ────────┤  │       │               │
-     │             GPIO10 ──┐     │  │       │               │
+     │             GPIO26 ──┐     │  │       │               │
      └──────────────────────┼─────┼──┘       │               │
                      ┌──────┴─────┼──────┐   │   ┌───────────┴──┐
       10 kΩ          │ IN  moduł przekaź.│   │   │  COM   styk  │
@@ -40,6 +40,7 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 ```
 
 - **Moduł sterowany stanem niskim** (zamontowany; `RELAY_ACTIVE_HIGH = false`): przekaźnik włącza się, gdy `IN` jest ściągnięte do `GND`. Moduł ma 5 V wcześniej, niż ESP32 ma 3,3 V, więc `IN` jest przez chwilę ściągane do masy przez diody pinu i przekaźnik klika niezależnie od programu. Dlatego **10 kΩ z `IN` do `3V3` ESP32** (najprościej między pinami `GPIO10` i `3V3` płytki). Nigdy do 5 V, i nie do `GND`: to włączyłoby przekaźnik na stałe.
+- **Piny ESP32 DevKit:** zasilanie `+5 V` na pin **5V** (albo VIN), masa na **GND**; nigdy na `3V3`. Nie podłączać niczego do **SD0–SD3, CMD, CLK** (linie pamięci Flash; masa na `CMD` dawała `invalid header: 0xffffffff` i restart w kółko, 2026-10-02) ani do **GPIO12** (stan wysoki przy starcie przełącza Flash na 1,8 V, ten sam objaw). Na płytce 38-pinowej `5V` i `CMD` są obok siebie na końcu rzędu: dwużyłowa wtyczka zasilacza łatwo trafia na złą parę.
 - **Alternatywa:** moduł sterowany stanem wysokim (zworka H) + 10 kΩ z `IN` do `GND` i `RELAY_ACTIVE_HIGH = true`. Przekaźnik jest wtedy na pewno wyłączony bez napięcia i w czasie startu ESP32.
 - **Styki** `COM`–`NO` w przewodzie fazowym kompresora. Prąd rozruchowy ≤ obciążalność przekaźnika (zwykle 10 A / 250 V AC); silnik powyżej ok. 0,5 kW — przez stycznik.
 - Montaż tylko przez osobę uprawnioną do prac przy 230 V, w obudowie, z bezpiecznikiem.
@@ -96,8 +97,8 @@ SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdza
 
 | Adres | Dostęp | Zawartość |
 |---|---|---|
-| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json` |
-| `GET /state.json` | otwarty | `running`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `waterLiters`, `tanks[]` (`name`, `volumeLiters`, `enabled`, `liters`), `wifi`, `registered`, `lastStatus`, `queued` |
+| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json`; karta „Wi-Fi” (od 1.1.5): sieć, stan z przyczyną rozłączenia opisaną słowami, sygnał w dBm z oceną (dobry ≥ −67, średni ≥ −75, słaby ≥ −85), bez połączenia lista sieci ze skanowania co 30 s |
+| `GET /state.json` | otwarty | `running`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `waterLiters`, `tanks[]` (`name`, `volumeLiters`, `enabled`, `liters`), `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
 | `POST /restart` | otwarty | ponowne uruchomienie kompresora na pełny czas |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, **bez restartu**, bo restart włączyłby kompresor), SN, Root ID, IP, stan chmury |
 | `POST /install/compressor` | Basic Auth | czas kompresora 1–3600 s (pełne sekundy) |
@@ -129,20 +130,24 @@ Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`
 ```bash
 cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank/src/secrets.h   # raz, uzupełnić
 pio test -d devices/water-pressure-tank -e native            # 23 testy
-pio run  -d devices/water-pressure-tank -e esp32c3           # build
-pio run  -d devices/water-pressure-tank -e esp32c3 -t upload # wgranie przez USB-C
-pio device monitor                                          # konsola 115200 (otwarcie portu resetuje płytkę)
+pio run  -d devices/water-pressure-tank -e esp32dev          # build ESP32 DevKit (domyślne)
+pio run  -d devices/water-pressure-tank -e esp32dev -t upload # wgranie przez mostek USB płytki
+pio run  -d devices/water-pressure-tank -e esp32c3           # build SuperMini
+pio device monitor                                          # konsola 115200 (na SuperMini otwarcie portu resetuje płytkę)
 ```
 
-Gdy `-t upload` kończy się „No serial data received” przy zmianie prędkości na 460800, wgrać sam obraz aplikacji esptoolem bez stuba: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+**ESP32 DevKit przez przejściówkę USB-TTL.** Na komputerze z polityką integralności kodu (HVCI/WDAC) sterownik mostka CP210x płytki jest blokowany (błąd 10, status `0xC000036C` STATUS_DRIVER_BLOCKED). Przejściówka FT232RL (sterownik FTDI z Windows) działa: zworka 3,3 V, `TX`→`RX0` (GPIO3), `RX`←`TX0` (GPIO1), `GND`–`GND`; płytkę zasilić jej kablem USB albo z pinu 5V. Tryb wgrywania ręcznie: przytrzymać BOOT, nacisnąć RST, puścić BOOT (rozpoznać po `boot:0x3 (DOWNLOAD_BOOT…) waiting for download` na konsoli). Wgranie całości przy 115200 bodów (460800 na luźnych przewodach się przerywało): `esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_reset write_flash --erase-all -z 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin` (pliki z `.pio/build/esp32dev/`, `boot_app0.bin` z `framework-arduinoespressif32/tools/partitions/`). Po `--erase-all` sieć Wi-Fi trzeba ustawić na `/install` przez AP „Piwnica”. Kolejne wersje idą już przez sieć (OTA).
 
-**Dziennik na USB (od 1.1.1).** Linie `[ms od startu] treść` na konsoli USB CDC 115200: start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 60 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI. Zapis bez podłączonego komputera jest porzucany od razu (`Serial.setTxTimeoutMs(0)`), więc nie opóźnia pętli pilnującej przekaźnika. Natywne USB ESP32-C3 resetuje układ przy zmianie linii DTR/RTS: do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem.
+Gdy na SuperMini `-t upload` kończy się „No serial data received” przy zmianie prędkości na 460800, wgrać sam obraz aplikacji esptoolem bez stuba: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+
+**Dziennik na konsoli (od 1.1.1).** Linie `[ms od startu] treść` na konsoli 115200 (SuperMini: USB CDC, DevKit: UART0): start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 60 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI. Zapis bez podłączonego komputera jest porzucany od razu (`Serial.setTxTimeoutMs(0)`), więc nie opóźnia pętli pilnującej przekaźnika. Natywne USB ESP32-C3 resetuje układ przy zmianie linii DTR/RTS: do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem.
 
 Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), szacunek wody (oba rodzaje, wyłączony zbiornik, `k`, `p0` między progami i powyżej, złe progi), ustawienia (odrzucenie złych danych, NVS, domyślne `k`/`p0`, obcięcie do 4 zbiorników), JSON wysyłki i kolejkę (na atrapie NVS). **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
-- **Słaba antena płytki SuperMini.** Przy pełnej mocy nadawania płytka słyszała sieć domową na −82 dBm (laptop w tym samym miejscu ok. −50 dBm), nie łączyła się (przyczyna 39, timeout), a jej AP był niewidoczny. Od 1.1.3 moc nadawania jest obniżona do 8,5 dBm (`WiFi.setTxPower` w `startNetwork()`) i płytka łączy się w 1 s (2026-10-02, RSSI ok. −91 dBm przy biurku). Jeśli połączenie przy pompie się rwie, potrzebna jest płytka z zewnętrzną anteną.
+- **Zgłoszenie z limitem 8 s (od 1.2.1).** Pierwsze połączenie TLS z Render po przerwie trwa 2–5 s; przy limicie 2 s zgłoszenie dochodziło dopiero przy 4. próbie (46 s po starcie). Wysyłka co 1 s ma nadal 2 s i bywa `-11` (następna przechodzi).
+- **Słaba antena płytki SuperMini.** Przy pełnej mocy nadawania płytka słyszała sieć domową na −82 dBm (laptop w tym samym miejscu ok. −50 dBm), nie łączyła się (przyczyna 39, timeout), a jej AP był niewidoczny. Od 1.1.3 moc nadawania jest obniżona do 8,5 dBm (`WiFi.setTxPower` w `startNetwork()`) i płytka łączy się w 1 s (2026-10-02, RSSI ok. −91 dBm przy biurku). Od 1.2.0 sterownik to ESP32 DevKit (WROOM-32): w tym samym miejscu −66 dBm na pełnej mocy, ok. 20 dB lepiej.
 - **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; bez rezystora 10 kΩ z `IN` do `3V3` możliwe jest krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
 - **Wzór wody w trzech miejscach** (`src/settings.cpp`, serwer, klient) — zmieniać razem.
 - **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart` bez logowania.

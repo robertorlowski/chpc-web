@@ -8,9 +8,9 @@ The server side (API, collections, water formula, water meter) is described in t
 
 | Part | Details |
 |---|---|
-| Board | ESP32-C3 SuperMini (PlatformIO `esp32-c3-devkitm-1`), USB CDC console 115200 |
+| Board | **ESP32 DevKit with the ESP32-WROOM-32 module** (PlatformIO `esp32dev`, since 1.2.0), UART0 console 115200 through the board USB bridge or a USB-TTL adapter; formerly ESP32-C3 SuperMini (`esp32c3`, USB CDC console, weak antenna) |
 | Power | 230 V → 5 V supply (e.g. HLK-PM01) on the pump supply line (after the pressure switch relay) |
-| Compressor relay | 5 V active-low module (installed: two-channel with optocouplers, one channel used), `IN` on `GPIO10` |
+| Compressor relay | 5 V active-low module (installed: two-channel with optocouplers, one channel used), `IN` on `GPIO26` (DevKit, pin "P26"; SuperMini: `GPIO10`) |
 | Tanks | 300 l galvanised with an air cushion + 300 l membrane, in parallel (Hydro-Vacuum) |
 
 ## Wiring
@@ -25,10 +25,10 @@ The server side (API, collections, water formula, water meter) is described in t
                         └──┬──────┬──┘       │               │
                          +5V     GND         │               │
      ┌─────────────────────┼──────┼──┐       │               │
-     │ ESP32-C3 SuperMini  │      │  │       │               │
+     │ ESP32 DevKit WROOM  │      │  │       │               │
      │                 5V ─┘      │  │       │               │
      │                GND ────────┤  │       │               │
-     │             GPIO10 ──┐     │  │       │               │
+     │             GPIO26 ──┐     │  │       │               │
      └──────────────────────┼─────┼──┘       │               │
                      ┌──────┴─────┼──────┐   │   ┌───────────┴──┐
       10 kΩ          │ IN  relay module  │   │   │  COM contact │
@@ -40,6 +40,7 @@ The server side (API, collections, water formula, water meter) is described in t
 ```
 
 - **Active-low module** (installed; `RELAY_ACTIVE_HIGH = false`): the relay switches on when `IN` is pulled to `GND`. The module gets 5 V before the ESP32 has 3.3 V, so `IN` is briefly pulled low through the pin's protection diodes and the relay clicks on regardless of the program. Hence **10 kΩ from `IN` to the ESP32 `3V3`** (simplest between the `GPIO10` and `3V3` pins of the board). Never to 5 V, and not to `GND`: that would keep the relay on permanently.
+- **ESP32 DevKit pins:** `+5 V` to the **5V** pin (or VIN), ground to **GND**; never to `3V3`. Connect nothing to **SD0–SD3, CMD, CLK** (flash memory lines; ground on `CMD` gave `invalid header: 0xffffffff` and a boot loop, 2026-10-02) or to **GPIO12** (high at boot switches the flash to 1.8 V, same symptom). On the 38-pin board `5V` and `CMD` sit next to each other at the end of the row: a two-wire supply plug easily lands on the wrong pair.
 - **Alternative:** active-high module (jumper H) + 10 kΩ from `IN` to `GND` and `RELAY_ACTIVE_HIGH = true`. The relay is then certainly off without power and while the ESP32 boots.
 - **Contacts** `COM`–`NO` in the compressor's live wire. Inrush current ≤ relay rating (usually 10 A / 250 V AC); motors above about 0.5 kW through a contactor.
 - Installation only by a person qualified for 230 V work, in an enclosure, with a fuse.
@@ -96,8 +97,8 @@ SN = factory MAC from eFuse, 12 hex characters. The server certificate is not ch
 
 | Address | Access | Content |
 |---|---|---|
-| `GET /` | open | main page; JS fetches `/state.json` every 1 s |
-| `GET /state.json` | open | `running`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `waterLiters`, `tanks[]` (`name`, `volumeLiters`, `enabled`, `liters`), `wifi`, `registered`, `lastStatus`, `queued` |
+| `GET /` | open | main page; JS fetches `/state.json` every 1 s; "Wi-Fi" card (since 1.1.5): network, state with the disconnect reason in words, signal in dBm with a rating (good ≥ −67, fair ≥ −75, weak ≥ −85), without a connection the networks from a scan every 30 s |
+| `GET /state.json` | open | `running`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `waterLiters`, `tanks[]` (`name`, `volumeLiters`, `enabled`, `liters`), `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
 | `POST /restart` | open | run the compressor again for the full time |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (empty password = unchanged; saving reconnects at once, **without a restart**, because a restart would start the compressor), SN, Root ID, IP, cloud state |
 | `POST /install/compressor` | Basic Auth | compressor time 1–3600 s (whole seconds) |
@@ -129,20 +130,24 @@ The flash layout is the default Arduino-ESP32 table with two app partitions (`ap
 ```bash
 cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank/src/secrets.h   # once, fill in
 pio test -d devices/water-pressure-tank -e native            # 23 tests
-pio run  -d devices/water-pressure-tank -e esp32c3           # build
-pio run  -d devices/water-pressure-tank -e esp32c3 -t upload # flash over USB-C
-pio device monitor                                          # console 115200 (opening the port resets the board)
+pio run  -d devices/water-pressure-tank -e esp32dev          # build ESP32 DevKit (default)
+pio run  -d devices/water-pressure-tank -e esp32dev -t upload # flash through the board USB bridge
+pio run  -d devices/water-pressure-tank -e esp32c3           # build SuperMini
+pio device monitor                                          # console 115200 (on the SuperMini opening the port resets the board)
 ```
 
-When `-t upload` fails with "No serial data received" while switching to 460800 baud, flash only the application image with esptool without the stub: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+**ESP32 DevKit through a USB-TTL adapter.** On a computer with a code integrity policy (HVCI/WDAC) the CP210x bridge driver of the board is blocked (error 10, status `0xC000036C` STATUS_DRIVER_BLOCKED). An FT232RL adapter (FTDI driver from Windows) works: jumper 3.3 V, `TX`→`RX0` (GPIO3), `RX`←`TX0` (GPIO1), `GND`–`GND`; power the board from its USB cable or the 5V pin. Download mode by hand: hold BOOT, press RST, release BOOT (recognised by `boot:0x3 (DOWNLOAD_BOOT…) waiting for download` on the console). Full flash at 115200 baud (460800 broke off on loose wires): `esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_reset write_flash --erase-all -z 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin` (files from `.pio/build/esp32dev/`, `boot_app0.bin` from `framework-arduinoespressif32/tools/partitions/`). After `--erase-all` set the Wi-Fi on `/install` through the "Piwnica" AP. Later versions go over the network (OTA).
 
-**USB log (since 1.1.1).** Lines `[ms since start] text` on the USB CDC console at 115200: start (version, SN, rootId, compressor time), AP, Wi-Fi (connection with IP and RSSI, or the status with the disconnect reason), registration with the cloud reply and the OTA offer, changes of the HTTP status of the report, the queue, the compressor and every OTA step. Every 10 s two status lines (`stan:` and `sieć:` with the network name, password length, last disconnect reason, channel and AP state), so a computer connected later still sees what is going on. Without a home network connection a background scan lists the visible networks with RSSI every 60 s (first after 15 s). Output with no computer attached is dropped at once (`Serial.setTxTimeoutMs(0)`), so it does not delay the loop that guards the relay. The ESP32-C3 native USB resets the chip when DTR/RTS change: to watch without a reset, open the port with DTR and RTS set to 0 before opening.
+When on the SuperMini `-t upload` fails with "No serial data received" while switching to 460800 baud, flash only the application image with esptool without the stub: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+
+**Console log (since 1.1.1).** Lines `[ms since start] text` on the console at 115200 (SuperMini: USB CDC, DevKit: UART0): start (version, SN, rootId, compressor time), AP, Wi-Fi (connection with IP and RSSI, or the status with the disconnect reason), registration with the cloud reply and the OTA offer, changes of the HTTP status of the report, the queue, the compressor and every OTA step. Every 10 s two status lines (`stan:` and `sieć:` with the network name, password length, last disconnect reason, channel and AP state), so a computer connected later still sees what is going on. Without a home network connection a background scan lists the visible networks with RSSI every 60 s (first after 15 s). Output with no computer attached is dropped at once (`Serial.setTxTimeoutMs(0)`), so it does not delay the loop that guards the relay. The ESP32-C3 native USB resets the chip when DTR/RTS change: to watch without a reset, open the port with DTR and RTS set to 0 before opening.
 
 The `native` tests cover: the compressor (single start, stop after time, restart, time 0, a time change applies from the next start), the time from `/install` (valid and invalid inputs, `PUT` body, an unsent time is not overwritten by the cloud), the water estimate (both kinds, a disabled tank, `k`, `p0` between and above the thresholds, invalid thresholds), settings (rejecting invalid data, NVS, default `k`/`p0`, truncation to 4 tanks), the report JSON and the queue (on a mock NVS). **Wi-Fi, HTTP and the pages have no automated tests**; without a board use the server-side simulator: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` with `npm run local`.
 
 ## Known issues and notes
 
-- **Weak antenna on the SuperMini board.** At full transmit power the board heard the home network at −82 dBm (a laptop in the same spot about −50 dBm), did not connect (reason 39, timeout) and its AP was invisible. Since 1.1.3 the transmit power is lowered to 8.5 dBm (`WiFi.setTxPower` in `startNetwork()`) and the board connects within 1 s (2026-10-02, RSSI about −91 dBm at the desk). If the connection at the pump drops, a board with an external antenna is needed.
+- **Registration with an 8 s limit (since 1.2.1).** The first TLS connection to Render after a pause takes 2–5 s; with a 2 s limit the registration got through only on the 4th attempt (46 s after start). The 1 s report keeps 2 s and sometimes gets `-11` (the next one succeeds).
+- **Weak antenna on the SuperMini board.** At full transmit power the board heard the home network at −82 dBm (a laptop in the same spot about −50 dBm), did not connect (reason 39, timeout) and its AP was invisible. Since 1.1.3 the transmit power is lowered to 8.5 dBm (`WiFi.setTxPower` in `startNetwork()`) and the board connects within 1 s (2026-10-02, RSSI about −91 dBm at the desk). Since 1.2.0 the controller is an ESP32 DevKit (WROOM-32): −66 dBm in the same spot at full power, about 20 dB better.
 - **`RELAY_ACTIVE_HIGH = false`** matches the current module; without the 10 kΩ resistor from `IN` to `3V3` the relay may click on briefly when power is applied (hardware, not the program).
 - **The water formula lives in three places** (`src/settings.cpp`, server, client); change them together.
 - **Security:** the controller network is open by default, pages over HTTP, `POST /restart` without login.
