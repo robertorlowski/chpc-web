@@ -17,12 +17,8 @@ constexpr const char *DEVICE_NAME = "Hydrofor";
 // Przekaźnik kompresora. Zamontowany moduł jest sterowany stanem niskim (false), z
 // rezystorem 10 kΩ z IN do 3V3. Dla modułu ze zworką H (stan wysoki) ustaw true
 // i daj rezystor do masy (docs, punkt „Podłączenie”).
-// ESP32 DevKit: GPIO26 (nie jest pinem trybu startu ani UART0); SuperMini: GPIO10.
-#ifdef BOARD_ESP32_DEVKIT
+// GPIO26 (pin „P26”/„D26” płytki DevKit): nie jest pinem trybu startu, Flash ani UART0.
 constexpr uint8_t RELAY_PIN = 26;
-#else
-constexpr uint8_t RELAY_PIN = 10;
-#endif
 constexpr bool RELAY_ACTIVE_HIGH = false;
 
 // Opóźnienie startu kompresora po podaniu zasilania (ustabilizowanie zasilania).

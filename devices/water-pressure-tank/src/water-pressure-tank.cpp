@@ -1,14 +1,14 @@
-// Sterownik hydroforu (typ water-pressure-tank), ESP32-C3 SuperMini.
+// Sterownik hydroforu (typ water-pressure-tank), ESP32 DevKit z modułem ESP32-WROOM-32.
 // Sterownik ma zasilanie tylko w czasie pracy pompy: po starcie raz włącza
 // kompresor na ustawiony czas, a dopóki jest sieć, co 1 s wysyła stan
-// uruchomienia do chmury. Opis: docs/water-pressure-tank.md.
+// uruchomienia do chmury. Opis: docs/ (część 3: podłączenie i piny).
 // Kontrakt z chmurą: POST devices/register (zgłoszenie, rootId + settings),
 // POST water-pressure-tank/add (co 1 s), PUT water-pressure-tank/settings
 // (czas kompresora z /install). Aktualizacja przez sieć (OTA): oferta w
 // settings.firmware odpowiedzi na zgłoszenie, ota.hpp i downloadFirmware().
 // NVS: przestrzeń „wp”, klucze niżej i w run_report.hpp.
-// Dziennik diagnostyczny na konsoli USB (logf(), logNetwork()); opis w docs,
-// punkt „Dziennik na USB”.
+// Dziennik diagnostyczny na konsoli UART0 (logf(), logNetwork()); opis w docs,
+// punkt „Dziennik na konsoli”.
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
@@ -112,9 +112,9 @@ uint8_t scanCount = 0;
 // chwila zakończenia ostatniego skanowania (0 = jeszcze nie było)
 uint32_t scanDoneMs = 0;
 
-// Dziennik na USB (konsola CDC, 115200). Bez podłączonego komputera zapis jest
-// porzucany od razu (setTxTimeoutMs(0) w setup(); na UART0 DevKit bufor 2 KB), więc nie opóźnia pętli, która
-// pilnuje przekaźnika kompresora. Czas w ms od startu sterownika.
+// Dziennik na konsoli UART0 (115200, piny TX/RX i mostek USB płytki). Linie trafiają do
+// bufora nadawania 2 KB (setup()), więc nie opóźniają pętli, która pilnuje przekaźnika
+// kompresora. Czas w ms od startu sterownika.
 void logf(const char *format, ...)
 {
   char line[200];
@@ -784,12 +784,6 @@ void handleFirmwareDone()
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
-#ifndef BOARD_ESP32_DEVKIT
-  // Płytka SuperMini ma źle dopasowaną antenę: przy pełnej mocy nadawania słyszała
-  // sieć domową na −82 dBm i nie łączyła się (przyczyna 39, timeout). Niższa moc
-  // to znana poprawka dla tych płytek. Moduł WROOM-32 (DevKit) zostaje na pełnej mocy.
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
-#endif
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
   // hasło krótsze niż 8 znaków daje sieć otwartą (WPA2 wymaga co najmniej 8)
   const char *apPassword = strlen(AP_PASSWORD) >= 8 ? AP_PASSWORD : nullptr;
@@ -819,14 +813,9 @@ void startNetwork()
 
 void setup()
 {
-#if ARDUINO_USB_CDC_ON_BOOT
-  Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);
-#else
-  // UART0 (DevKit): bufor nadawania, żeby linie dziennika nie blokowały pętli
+  // bufor nadawania, żeby linie dziennika nie blokowały pętli
   Serial.setTxBufferSize(2048);
   Serial.begin(115200);
-#endif
   // Stan „wyłączony” przed przełączeniem pinu na wyjście: pin ani przez chwilę
   // nie ma stanu włączającego przekaźnik (dawny szkic włączał go przy starcie).
   writeRelay(false);

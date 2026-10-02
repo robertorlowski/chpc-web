@@ -7,7 +7,7 @@
 ```mermaid
 sequenceDiagram
     participant Z as zasilanie (presostat)
-    participant E as ESP32-C3
+    participant E as ESP32 DevKit
     participant K as kompresor
     participant S as chpc-web
     Z->>E: 5 V (razem z pompą)

@@ -6,7 +6,7 @@
 
 Hydrofor ma dwa zbiorniki po 300 l połączone równolegle: **ocynkowany z poduszką powietrzną** i **przeponowy** (worek). Powietrze w zbiorniku ocynkowanym z czasem rozpuszcza się w wodzie, więc trzeba je dobijać kompresorem — przy okazji woda jest natleniana.
 
-Sterownik (ESP32-C3 SuperMini, nazwa w aplikacji „Hydrofor”):
+Sterownik (ESP32 DevKit z modułem WROOM-32, nazwa w aplikacji „Hydrofor”):
 
 - przy **każdym uruchomieniu pompy** raz włącza **kompresor** na ustawiony czas (domyślnie 30 s);
 - zapisuje, **kiedy i jak długo** pracowały pompa i kompresor, i wysyła to do chmury;
@@ -20,7 +20,7 @@ Chmura z tych danych **szacuje zużytą wodę** i porównuje ją z odczytami wod
 flowchart LR
     P["presostat<br/>(niskie ciśnienie)"] --> R["przekaźnik 230 V"]
     R --> W["pompa wody"]
-    R --> Z["zasilacz 5 V"] --> E["ESP32-C3"] --> K["przekaźnik kompresora"] --> C["kompresor"]
+    R --> Z["zasilacz 5 V"] --> E["ESP32 DevKit"] --> K["przekaźnik kompresora"] --> C["kompresor"]
 ```
 
 1. Ciśnienie spada do progu dolnego — presostat włącza pompę i **jednocześnie zasila sterownik**.
@@ -54,7 +54,7 @@ Firmware **nie był jeszcze wgrywany na płytkę** — sprawdzony testami na PC 
 1. **Serwer pierwszy:** wdrożyć `main` na Render (ręczny build). Stary serwer odrzuci zgłoszenie typu `water-pressure-tank` (400).
 2. **`src/secrets.h`** (lokalny, poza gitem, wzór `secrets.example.h`): nazwa i hasło punktu dostępowego (obecnie „Piwnica” bez hasła = sieć otwarta), domyślne Wi-Fi, login `/install`.
 3. **Moduł przekaźnika:** zamontowany jest moduł sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`) z rezystorem 10 kΩ z `IN` do `3V3` ESP32; bez niego kompresor może „kliknąć” w chwili podania zasilania. Moduł ze zworką H (stan wysoki) wymaga rezystora do masy i `RELAY_ACTIVE_HIGH = true` w `src/firmware.hpp`.
-4. **Wgranie:** `pio run -d devices/water-pressure-tank -e esp32c3 -t upload` przez USB-C.
+4. **Wgranie:** `pio run -d devices/water-pressure-tank -t upload` przez USB płytki albo przejściówkę USB-TTL ([część 3](3-dokumentacja-techniczna.md#budowanie-testy-wgranie)); kolejne wersje przez sieć.
 5. **Po pierwszym uruchomieniu pompy**, w aplikacji → Ustawienia:
    - progi presostatu odczytane z manometru przy starcie i zatrzymaniu pompy;
    - ciśnienie wstępne `p0` zbiornika przeponowego (manometr przy spuszczonej wodzie);

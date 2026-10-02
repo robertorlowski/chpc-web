@@ -7,7 +7,7 @@
 ```mermaid
 sequenceDiagram
     participant Z as power (pressure switch)
-    participant E as ESP32-C3
+    participant E as ESP32 DevKit
     participant K as compressor
     participant S as chpc-web
     Z->>E: 5 V (together with the pump)

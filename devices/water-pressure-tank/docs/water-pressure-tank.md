@@ -18,7 +18,7 @@ Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2
 ## 1. Instalacja
 
 ```text
-presostat (niskie ciśnienie) ──► przekaźnik ──► 230 V: pompa wody + zasilacz 5 V sterownika (ESP32-C3)
+presostat (niskie ciśnienie) ──► przekaźnik ──► 230 V: pompa wody + zasilacz 5 V sterownika (ESP32 DevKit)
                                                                             │
                                                                             └─► przekaźnik kompresora (30 s)
 ```
@@ -70,10 +70,10 @@ Kompresor startuje raz i nie jest przerywany. Zapobiega temu, co działo się w 
                          +5V     GND         │               │
                            │      │          │               │
      ┌─────────────────────┼──────┼──┐       │               │
-     │ ESP32-C3 SuperMini  │      │  │       │               │
+     │ ESP32 DevKit WROOM  │      │  │       │               │
      │                 5V ─┘      │  │       │               │
      │                GND ────────┤  │       │               │
-     │             GPIO10 ──┐     │  │       │               │
+     │             GPIO26 ──┐     │  │       │               │
      └──────────────────────┼─────┼──┘       │               │
                             │     │          │               │
                      ┌──────┴─────┼──────┐   │               │
@@ -88,15 +88,15 @@ Kompresor startuje raz i nie jest przerywany. Zapobiega temu, co działo się w 
                                                     └──────────┘
 ```
 
-- **ESP32-C3:** zasilanie przez pin `5V` (albo USB-C) z zasilacza 5 V. Masa jest wspólna z modułem przekaźnika.
-- **Moduł przekaźnika:** `VCC` do +5 V, `GND` do masy, `IN` do `GPIO10`.
+- **ESP32 DevKit:** zasilanie przez pin `5V` (albo USB-C) z zasilacza 5 V; dokładny układ pinów w [części 3](3-dokumentacja-techniczna.md#podłączenie). Masa jest wspólna z modułem przekaźnika.
+- **Moduł przekaźnika:** `VCC` do +5 V, `GND` do masy, `IN` do `GPIO26` (pin „P26”).
 - **Rezystor 10 kΩ:** przy module sterowanym stanem wysokim z `IN` do `GND`. Przy module sterowanym stanem niskim z `IN` do `3V3` płytki, nigdy do 5 V, bo ESP32 nie toleruje 5 V na pinie.
 - **Styki:** `COM` i `NO` w przewodzie fazowym kompresora. Prąd rozruchowy kompresora nie może przekraczać obciążalności przekaźnika (zwykle 10 A / 250 V AC). Przy silniku powyżej ok. 0,5 kW przekaźnik powinien sterować stycznikiem.
 - **Montaż:** tylko osoba uprawniona do prac przy 230 V, w obudowie, z bezpiecznikiem.
 
 ## 4. Sterownik
 
-**Płytka:** ESP32-C3 SuperMini, środowisko PlatformIO `esp32-c3-devkitm-1`, konsola przez USB CDC. Przekaźnik na `GPIO10`. Pin i poziom to stałe w kodzie.
+**Płytka:** ESP32 DevKit z modułem WROOM-32, środowisko PlatformIO `esp32dev`, konsola UART0. Przekaźnik na `GPIO26`. (Pierwotnie ESP32-C3 SuperMini na `GPIO10`, wycofana 2026-10-02 przez słabą antenę.) Pin i poziom to stałe w kodzie.
 
 **Stałe w `src/firmware.hpp`:** `RELAY_PIN = 10`, `RELAY_ACTIVE_HIGH` (obecnie `false`), `COMPRESSOR_START_DELAY_MS = 1000`, `DEFAULT_COMPRESSOR_SECONDS = 30`, `MAX_COMPRESSOR_SECONDS = 3600`, `CLOUD_URL = https://chpc-web.onrender.com/api/` (stały adres chmury, bez pola na stronie `/install`).
 

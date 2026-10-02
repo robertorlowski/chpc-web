@@ -8,39 +8,57 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 
 | Element | Szczegóły |
 |---|---|
-| Płytka | **ESP32 DevKit z modułem ESP32-WROOM-32** (PlatformIO `esp32dev`, od 1.2.0), konsola UART0 115200 przez mostek USB płytki albo przejściówkę USB-TTL; dawniej ESP32-C3 SuperMini (`esp32c3`, konsola USB CDC, słaba antena) |
-| Zasilanie | zasilacz 230 V → 5 V (np. HLK-PM01) na przewodzie zasilania pompy (za przekaźnikiem presostatu) |
-| Przekaźnik kompresora | moduł 5 V sterowany stanem niskim (zamontowany: dwukanałowy z transoptorami, używany jeden kanał), `IN` na `GPIO26` (DevKit, pin „P26”; SuperMini: `GPIO10`) |
+| Płytka | **ESP32 DevKit z modułem ESP32-WROOM-32** (38 pinów, USB-C, mostek USB-UART CP2102, przyciski RST i BOOT), PlatformIO `esp32dev`; konsola UART0 115200 |
+| Zasilanie | zasilacz 230 V → 5 V (np. HLK-PM01) na przewodzie zasilania pompy (za przekaźnikiem presostatu), na pin **5V** płytki |
+| Przekaźnik kompresora | moduł 5 V sterowany stanem niskim (zamontowany: dwukanałowy z transoptorami, używany jeden kanał), `IN` na **GPIO26** (pin „P26”) |
 | Zbiorniki | 300 l ocynkowany z poduszką + 300 l przeponowy, równolegle (Hydro-Vacuum) |
 
 ## Podłączenie
 
+**Obwód 230 V** (sterownik ma zasilanie tylko wtedy, gdy presostat włącza pompę):
+
 ```text
-                        230 V z przekaźnika presostatu (razem z pompą)
-                          L ──┬──────────────────────────────┐
-                          N ──┼──────────────┐               │
-                        ┌─────┴──────┐       │               │
-                        │ zasilacz   │       │               │
-                        │ 230V→5V    │       │               │
-                        └──┬──────┬──┘       │               │
-                         +5V     GND         │               │
-     ┌─────────────────────┼──────┼──┐       │               │
-     │ ESP32 DevKit WROOM  │      │  │       │               │
-     │                 5V ─┘      │  │       │               │
-     │                GND ────────┤  │       │               │
-     │             GPIO26 ──┐     │  │       │               │
-     └──────────────────────┼─────┼──┘       │               │
-                     ┌──────┴─────┼──────┐   │   ┌───────────┴──┐
-      10 kΩ          │ IN  moduł przekaź.│   │   │  COM   styk  │
-  IN ──/\/\/── 3V3   │ sterowany stanem  │   │   │  NO ──┐      │
-  (do pinu 3V3 ESP)  │ niskim (bez zw. H)│   │   └───────┼──────┘
-                     │ VCC ── +5V        │   │      ┌────┴─────┐
-                     │ GND ── GND        │   └──────┤ kompresor│
-                     └───────────────────┘          └──────────┘
+            230 V z przekaźnika presostatu (razem z pompą wody)
+              L ──┬─────────────────────────────────────┐
+              N ──┼────────────────┐                    │
+            ┌─────┴──────┐         │            ┌───────┴───────┐
+            │ zasilacz   │         │            │ COM           │
+            │ 230V → 5V  │         │            │  przekaźnik   │
+            └──┬──────┬──┘         │            │ NO ──┐        │
+             +5V     GND           │            └──────┼────────┘
+              │       │            │              ┌────┴─────┐
+              ▼       ▼            └──────────────┤ kompresor│
+         do płytki ESP32 (niżej)                  └──────────┘
 ```
 
-- **Moduł sterowany stanem niskim** (zamontowany; `RELAY_ACTIVE_HIGH = false`): przekaźnik włącza się, gdy `IN` jest ściągnięte do `GND`. Moduł ma 5 V wcześniej, niż ESP32 ma 3,3 V, więc `IN` jest przez chwilę ściągane do masy przez diody pinu i przekaźnik klika niezależnie od programu. Dlatego **10 kΩ z `IN` do `3V3` ESP32** (najprościej między pinami `GPIO10` i `3V3` płytki). Nigdy do 5 V, i nie do `GND`: to włączyłoby przekaźnik na stałe.
-- **Piny ESP32 DevKit:** zasilanie `+5 V` na pin **5V** (albo VIN), masa na **GND**; nigdy na `3V3`. Nie podłączać niczego do **SD0–SD3, CMD, CLK** (linie pamięci Flash; masa na `CMD` dawała `invalid header: 0xffffffff` i restart w kółko, 2026-10-02) ani do **GPIO12** (stan wysoki przy starcie przełącza Flash na 1,8 V, ten sam objaw). Na płytce 38-pinowej `5V` i `CMD` są obok siebie na końcu rzędu: dwużyłowa wtyczka zasilacza łatwo trafia na złą parę.
+**Płytka ESP32 DevKit** — rząd pinów z `3V3` i `5V` (podpisy na spodzie płytki; numery od końca z `3V3`):
+
+```text
+  1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19
+ 3V3  EN SVP SVN P34 P35 P32 P33 P25 P26 P27 P14 P12 GND P13 SD2 SD3 CMD 5V
+  │                                   │               │                   │
+  │                                   │               │                   ├── +5 V z zasilacza
+  │                                   │               │                   └── VCC modułu przekaźnika
+  │                                   │               ├── GND (−) z zasilacza
+  │                                   │               └── GND modułu przekaźnika
+  │                                   └── IN modułu przekaźnika
+  └──[ 10 kΩ ]──── IN modułu przekaźnika (rezystor przy module)
+
+  ✗ nie podłączać: P12 (GPIO12), SD2, SD3, CMD (oraz SD0, SD1, CLK w drugim rzędzie)
+```
+
+| Połączenie | Pin ESP32 DevKit | Uwagi |
+|---|---|---|
+| `+5 V` zasilacza | **5V** (19.) | nigdy na `3V3` |
+| `GND` zasilacza | **GND** (14.) | nie na `CMD` (sąsiaduje z `5V`) |
+| `VCC` modułu przekaźnika | **5V** | razem z zasilaczem |
+| `GND` modułu przekaźnika | **GND** | |
+| `IN` modułu przekaźnika | **P26** (10.) | `RELAY_PIN` w `firmware.hpp` |
+| rezystor 10 kΩ | między `IN` a **3V3** (1.) | blokuje kliknięcie przy starcie |
+| serwis: przejściówka USB-TTL | `TX`→**RX** (GPIO3), `RX`←**TX** (GPIO1), `GND` | drugi rząd pinów; tylko do wgrywania i podglądu |
+
+- **Moduł sterowany stanem niskim** (zamontowany; `RELAY_ACTIVE_HIGH = false`): przekaźnik włącza się, gdy `IN` jest ściągnięte do `GND`. Moduł ma 5 V wcześniej, niż ESP32 ma 3,3 V, więc `IN` jest przez chwilę ściągane do masy przez diody pinu i przekaźnik klika niezależnie od programu. Dlatego **10 kΩ z `IN` do `3V3` ESP32**. Nigdy do 5 V, i nie do `GND`: to włączyłoby przekaźnik na stałe.
+- **Piny, których nie używać:** **SD0–SD3, CMD, CLK** to linie wewnętrznej pamięci Flash (masa na `CMD` dawała `invalid header: 0xffffffff` i restart w kółko, 2026-10-02), a **GPIO12** w stanie wysokim przy starcie przełącza Flash na 1,8 V (ten sam objaw). `5V` i `CMD` są obok siebie na końcu rzędu: dwużyłowa wtyczka zasilacza łatwo trafia na złą parę.
 - **Alternatywa:** moduł sterowany stanem wysokim (zworka H) + 10 kΩ z `IN` do `GND` i `RELAY_ACTIVE_HIGH = true`. Przekaźnik jest wtedy na pewno wyłączony bez napięcia i w czasie startu ESP32.
 - **Styki** `COM`–`NO` w przewodzie fazowym kompresora. Prąd rozruchowy ≤ obciążalność przekaźnika (zwykle 10 A / 250 V AC); silnik powyżej ok. 0,5 kW — przez stycznik.
 - Montaż tylko przez osobę uprawnioną do prac przy 230 V, w obudowie, z bezpiecznikiem.
@@ -62,7 +80,7 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 | Stała | Wartość | Miejsce |
 |---|---|---|
 | `DEVICE_TYPE` / `DEVICE_NAME` | `water-pressure-tank` / „Hydrofor” | `firmware.hpp` |
-| `RELAY_PIN` / `RELAY_ACTIVE_HIGH` | 10 / `false` | `firmware.hpp` |
+| `RELAY_PIN` / `RELAY_ACTIVE_HIGH` | 26 / `false` | `firmware.hpp` |
 | `COMPRESSOR_START_DELAY_MS` | 1000 | `firmware.hpp` |
 | `DEFAULT_COMPRESSOR_SECONDS` / `MAX_COMPRESSOR_SECONDS` | 30 / 3600 | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (adres `http://` działa bez TLS) | `firmware.hpp` |
@@ -112,7 +130,7 @@ Nieznany adres pokazuje stronę główną.
 
 ## Aktualizacja przez sieć (OTA)
 
-Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`app0`/`app1` po 1,28 MB; obraz zajmuje ok. 74%), więc nie wymaga zmian. Pierwsze wgranie firmware z OTA jest jeszcze po USB.
+Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`app0`/`app1` po 1,28 MB; obraz zajmuje ok. 77%), więc nie wymaga zmian. Pierwsze wgranie jest przez UART (niżej), kolejne idą przez sieć.
 
 1. Plik `.bin` jest w bazie serwera (kolekcje `firmware_images`, `firmware_offers`; oferowana wersja i jedna poprzednia). Serwer dodaje do `settings` w odpowiedzi na zgłoszenie pole `firmware: {version, url, sha256}`, gdzie `url` to `<serwer>/api/firmware/water-pressure-tank/<wersja>.bin`, a `sha256` liczy serwer przy wgraniu. Przy wyłączonej ofercie albo bez pliku pola nie ma.
 2. Sterownik (`ota.cpp`) przyjmuje ofertę, gdy adres zaczyna się od `https://`, wersja jest niepusta, a `sha256` ma 64 znaki hex. Oferty bez sumy kontrolnej ignoruje.
@@ -121,7 +139,7 @@ Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`
 5. Po zapisie obrazu wersja trafia do NVS (`ota_tried`). Gdy po restarcie `FW_VERSION` nadal nie zgadza się z ofertą (zapomniana zmiana wersji), kolejna próba jest pomijana. Nieudane pobranie ponawia się przy następnym uruchomieniu pompy.
 6. Awaryjnie plik `firmware.bin` można wgrać ręcznie na `/install` (sekcja „Firmware”).
 
-**Wydanie nowej wersji:** podnieść `FW_VERSION` w `firmware.hpp`, `pio run -d devices/water-pressure-tank`, wgrać `.pio/build/esp32c3/firmware.bin` na stronie firmware w aplikacji (lista sterowników → trybik na kafelku hydroforu, ikona plusa na belce „Aktualna wersja” otwiera popup „Dodaj wersję”: wersja taka jak `FW_VERSION` i opis zmian) albo z konsoli: `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin https://chpc-web.onrender.com/api/firmware/water-pressure-tank/1.0.1`. Serwer ustawia plik jako oferowany, a poprzednia wersja zostaje w bazie (przywrócenie: `PUT /api/firmware/water-pressure-tank` z `{"version": "1.0.0"}`). Tag w repozytorium (`water-pressure-tank-v<wersja>`) jest tylko znacznikiem źródeł. Sterownik pobierze obraz przy najbliższej pracy pompy dłuższej niż czas kompresora.
+**Wydanie nowej wersji:** podnieść `FW_VERSION` w `firmware.hpp`, `pio run -d devices/water-pressure-tank`, wgrać `.pio/build/esp32dev/firmware.bin` na stronie firmware w aplikacji (lista sterowników → trybik na kafelku hydroforu, ikona plusa na belce „Aktualna wersja” otwiera popup „Dodaj wersję”: wersja taka jak `FW_VERSION` i opis zmian) albo z konsoli: `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin https://chpc-web.onrender.com/api/firmware/water-pressure-tank/1.0.1`. Serwer ustawia plik jako oferowany, a poprzednia wersja zostaje w bazie (przywrócenie: `PUT /api/firmware/water-pressure-tank` z `{"version": "1.0.0"}`). Tag w repozytorium (`water-pressure-tank-v<wersja>`) jest tylko znacznikiem źródeł. Sterownik pobierze obraz przy najbliższej pracy pompy dłuższej niż czas kompresora.
 
 **Uwagi:** pobieranie i serwer WWW nie mają testów na płytce (testy `native` obejmują `ota.cpp`, serwer ma testy w `server/test/firmware.test.ts`); certyfikat nie jest sprawdzany, a integralność obrazu zapewnia SHA-256 z odpowiedzi chmury (ten sam kanał, więc nie chroni przed podszyciem się pod serwer). Endpointy `/api/firmware/...` nie mają jeszcze autoryzacji: każdy, kto zna adres serwera, może podmienić ofertę. Restart po aktualizacji kończy bieżący zapis uruchomienia kilkanaście sekund przed faktycznym końcem pracy pompy i zaczyna nowy `runId`.
 
@@ -130,24 +148,21 @@ Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`
 ```bash
 cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank/src/secrets.h   # raz, uzupełnić
 pio test -d devices/water-pressure-tank -e native            # 23 testy
-pio run  -d devices/water-pressure-tank -e esp32dev          # build ESP32 DevKit (domyślne)
-pio run  -d devices/water-pressure-tank -e esp32dev -t upload # wgranie przez mostek USB płytki
-pio run  -d devices/water-pressure-tank -e esp32c3           # build SuperMini
-pio device monitor                                          # konsola 115200 (na SuperMini otwarcie portu resetuje płytkę)
+pio run  -d devices/water-pressure-tank                     # build (esp32dev)
+pio run  -d devices/water-pressure-tank -t upload           # wgranie przez mostek USB płytki
+pio device monitor                                         # konsola 115200 (przez mostek płytki otwarcie portu może ją zresetować)
 ```
 
-**ESP32 DevKit przez przejściówkę USB-TTL.** Na komputerze z polityką integralności kodu (HVCI/WDAC) sterownik mostka CP210x płytki jest blokowany (błąd 10, status `0xC000036C` STATUS_DRIVER_BLOCKED). Przejściówka FT232RL (sterownik FTDI z Windows) działa: zworka 3,3 V, `TX`→`RX0` (GPIO3), `RX`←`TX0` (GPIO1), `GND`–`GND`; płytkę zasilić jej kablem USB albo z pinu 5V. Tryb wgrywania ręcznie: przytrzymać BOOT, nacisnąć RST, puścić BOOT (rozpoznać po `boot:0x3 (DOWNLOAD_BOOT…) waiting for download` na konsoli). Wgranie całości przy 115200 bodów (460800 na luźnych przewodach się przerywało): `esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_reset write_flash --erase-all -z 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin` (pliki z `.pio/build/esp32dev/`, `boot_app0.bin` z `framework-arduinoespressif32/tools/partitions/`). Po `--erase-all` sieć Wi-Fi trzeba ustawić na `/install` przez AP „Piwnica”. Kolejne wersje idą już przez sieć (OTA).
+**Wgranie przez przejściówkę USB-TTL.** Na komputerze z polityką integralności kodu (HVCI/WDAC) sterownik mostka CP210x płytki jest blokowany (błąd 10, status `0xC000036C` STATUS_DRIVER_BLOCKED). Przejściówka FT232RL (sterownik FTDI z Windows) działa: zworka 3,3 V, `TX`→`RX0` (GPIO3), `RX`←`TX0` (GPIO1), `GND`–`GND`; płytkę zasilić jej kablem USB albo z pinu 5V. Tryb wgrywania ręcznie: przytrzymać BOOT, nacisnąć RST, puścić BOOT (rozpoznać po `boot:0x3 (DOWNLOAD_BOOT…) waiting for download` na konsoli). Wgranie całości przy 115200 bodów (460800 na luźnych przewodach się przerywało): `esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_reset write_flash --erase-all -z 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin` (pliki z `.pio/build/esp32dev/`, `boot_app0.bin` z `framework-arduinoespressif32/tools/partitions/`). Po `--erase-all` sieć Wi-Fi trzeba ustawić na `/install` przez AP „Piwnica”. Kolejne wersje idą już przez sieć (OTA).
 
-Gdy na SuperMini `-t upload` kończy się „No serial data received” przy zmianie prędkości na 460800, wgrać sam obraz aplikacji esptoolem bez stuba: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
-
-**Dziennik na konsoli (od 1.1.1).** Linie `[ms od startu] treść` na konsoli 115200 (SuperMini: USB CDC, DevKit: UART0): start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 60 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI. Zapis bez podłączonego komputera jest porzucany od razu (`Serial.setTxTimeoutMs(0)`), więc nie opóźnia pętli pilnującej przekaźnika. Natywne USB ESP32-C3 resetuje układ przy zmianie linii DTR/RTS: do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem.
+**Dziennik na konsoli (od 1.1.1).** Linie `[ms od startu] treść` na konsoli UART0 115200 (piny TX/RX, mostek USB płytki albo przejściówka): start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 30 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI (także na stronie `/`, karta „Wi-Fi”). Linie idą przez bufor nadawania 2 KB, więc nie opóźniają pętli pilnującej przekaźnika. Do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem (przez przejściówkę bez podłączonych DTR/RTS reset nie grozi).
 
 Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), szacunek wody (oba rodzaje, wyłączony zbiornik, `k`, `p0` między progami i powyżej, złe progi), ustawienia (odrzucenie złych danych, NVS, domyślne `k`/`p0`, obcięcie do 4 zbiorników), JSON wysyłki i kolejkę (na atrapie NVS). **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
 - **Zgłoszenie z limitem 8 s (od 1.2.1).** Pierwsze połączenie TLS z Render po przerwie trwa 2–5 s; przy limicie 2 s zgłoszenie dochodziło dopiero przy 4. próbie (46 s po starcie). Wysyłka co 1 s ma nadal 2 s i bywa `-11` (następna przechodzi).
-- **Słaba antena płytki SuperMini.** Przy pełnej mocy nadawania płytka słyszała sieć domową na −82 dBm (laptop w tym samym miejscu ok. −50 dBm), nie łączyła się (przyczyna 39, timeout), a jej AP był niewidoczny. Od 1.1.3 moc nadawania jest obniżona do 8,5 dBm (`WiFi.setTxPower` w `startNetwork()`) i płytka łączy się w 1 s (2026-10-02, RSSI ok. −91 dBm przy biurku). Od 1.2.0 sterownik to ESP32 DevKit (WROOM-32): w tym samym miejscu −66 dBm na pełnej mocy, ok. 20 dB lepiej.
+- **Pierwsza płytka (ESP32-C3 SuperMini, do 1.1.5) wycofana 2026-10-02:** słaba antena (−83…−91 dBm w miejscu, gdzie WROOM-32 ma −66 dBm), w piwnicy nie łączyła się z chmurą.
 - **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; bez rezystora 10 kΩ z `IN` do `3V3` możliwe jest krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
 - **Wzór wody w trzech miejscach** (`src/settings.cpp`, serwer, klient) — zmieniać razem.
 - **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart` bez logowania.
