@@ -82,10 +82,12 @@ export const SwitchSettings: React.FC = () => {
             </label>
           ))}
           <label>
-            <span className="label">Domyślny czas włączenia [min] <small>(0 = bez limitu)</small>:</span>
+            <span className="label">Czas włączenia:</span>
             <input type="number" min={0} max={10080} value={defaultMinutes}
               onChange={(event) => setDefaultMinutes(event.currentTarget.value)} />
+            <span className="switch-unit">min</span>
           </label>
+          <div className="switch-hint switch-form-hint">Domyślny dla „Włącz”; 0 = bez limitu czasu.</div>
           {error && <div className="switch-error">{error}</div>}
           <div className="switch-form-actions">
             <button type="submit" disabled={relays === null || properties === null}>Zapisz</button>

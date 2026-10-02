@@ -168,25 +168,42 @@ button.switch-active {
   color: #b00020;
 }
 
+/* minmax(0, 1fr): wiersz nie rozpycha karty szerokością pola (telefon) */
 .switch-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.4rem;
 }
 
+/* etykiety w tej samej kolumnie co w karcie „Sterownik” (span.label 11rem, na telefonie 9.5rem) */
 .switch-form label {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-wrap: nowrap;
   align-items: center;
 }
 
 .switch-form span.label {
-  min-width: 13rem;
+  flex: 0 0 11rem;
+  min-width: 0;
 }
 
 .switch-form input[type='text'] {
-  width: 14rem;
-  max-width: 100%;
+  flex: 0 1 14rem;
+  min-width: 0;
+}
+
+.switch-form input[type='number'] {
+  width: 5rem;
+}
+
+.switch-unit {
+  margin-left: 0.4rem;
+}
+
+/* pod polem: szerokość etykiety + jej globalny margines 15px (.label w Charts/style.css) */
+.switch-page .switch-form .switch-form-hint {
+  margin-left: calc(11rem + 15px);
+  text-align: left;
 }
 
 .switch-form-actions {
@@ -226,7 +243,15 @@ button.switch-active {
   }
 
   .switch-form span.label {
-    min-width: 0;
-    width: 100%;
+    flex-basis: 9.5rem;
+  }
+
+  .switch-form input[type='text'] {
+    flex: 1 1 0;
+    width: 0;
+  }
+
+  .switch-page .switch-form .switch-form-hint {
+    margin-left: calc(9.5rem + 15px);
   }
 }
