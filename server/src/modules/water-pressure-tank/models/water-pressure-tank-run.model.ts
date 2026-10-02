@@ -17,6 +17,8 @@ const WaterPressureTankRunSchema = new Schema<WaterPressureTankRun>(
     pumpEnd: { type: Date, required: true },
     compressorStart: { type: Date },
     compressorEnd: { type: Date },
+    // stan z ostatniej wiadomości: kompresor włączony (jest start, nie ma końca)
+    compressorRunning: { type: Boolean, default: false },
     restarts: { type: Number, default: 0 },
     waterLiters: { type: Number, default: 0 },
     waterAirBaseLiters: { type: Number, default: 0 },

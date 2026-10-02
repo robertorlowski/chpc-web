@@ -23,7 +23,7 @@ The user interface is in Polish; the screenshots show it as is.
 
 ![Main view](../../../moduly/water-pressure-tank/img/glowny.png)
 
-*Hydrofor: settings (compressor time, pressure switch thresholds, water per run), tanks with the water estimate and today's runs. A run in progress is highlighted ("pracuje", "…"); the view refreshes every 10 s.*
+*Hydrofor: settings (compressor time, pressure switch thresholds, water per run), tanks with the water estimate and today's runs. A run in progress is highlighted ("pracuje", "…"); the view refreshes every 5 s. Below the heading, switch icons (like "CO pompa" of the heat pump) show whether the water pump and the air compressor are running.*
 
 | Data — pump runs | Data — water meter readings |
 |---|---|

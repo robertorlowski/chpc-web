@@ -136,6 +136,8 @@ export async function addWaterPressureTankReport(rootId: string, report: RunRepo
     lastSeenAt: receivedAt,
     compressorStart: plusSeconds(pumpStart, report.compressorStartS) ?? existing?.compressorStart,
     compressorEnd: plusSeconds(pumpStart, report.compressorEndS) ?? existing?.compressorEnd,
+    // sterownik wysyła compressorEndS dopiero po wyłączeniu (także po ponownym uruchomieniu)
+    compressorRunning: !report.queued && report.compressorStartS !== undefined && report.compressorEndS === undefined,
     restarts: report.restarts ?? existing?.restarts ?? 0,
   };
 

@@ -213,6 +213,33 @@ describe('Hydrofor (water-pressure-tank)', () => {
       const runs = await request(app).get(`/api/water-pressure-tank/runs?rootId=${body.rootId}&from=${today}&to=${today}`);
       expect(runs.body).toHaveLength(1);
       expect(runs.body[0].inProgress).toBe(true);
+      expect(runs.body[0].compressorRunning).toBe(true);
+    });
+
+    it('śledzi pracę kompresora także po ponownym uruchomieniu', async () => {
+      const { body } = await register('C3A1B2C3D41C');
+      const rootId = body.rootId;
+      const t0 = new Date('2026-09-28T13:00:00.000Z');
+      const at = (seconds: number) => new Date(t0.getTime() + seconds * 1000);
+      const running = async () => (await WaterPressureTankRunModel.findOne({ rootId, runId: 1 }).lean())?.compressorRunning;
+
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 2, compressorStartS: 1 }, at(0));
+      expect(await running()).toBe(true);
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 32, compressorStartS: 1, compressorEndS: 31 }, at(30));
+      expect(await running()).toBe(false);
+      // „Uruchom ponownie”: sterownik przestaje wysyłać compressorEndS, w bazie zostaje poprzedni koniec
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 40, compressorStartS: 1, restarts: 1 }, at(38));
+      const restarted = await WaterPressureTankRunModel.findOne({ rootId, runId: 1 }).lean();
+      expect(restarted?.compressorRunning).toBe(true);
+      expect(restarted?.compressorEnd).toBeDefined();
+    });
+
+    it('nie pokazuje pracy kompresora, gdy uruchomienie nie jest w toku', async () => {
+      const { body } = await register('C3A1B2C3D41D');
+      await addWaterPressureTankReport(body.rootId, { runId: 1, pumpRunS: 2, compressorStartS: 1 }, new Date('2026-09-28T04:31:00Z'));
+      const runs = await request(app).get(`/api/water-pressure-tank/runs?rootId=${body.rootId}&from=2026-09-28&to=2026-09-28`);
+      expect(runs.body[0].inProgress).toBe(false);
+      expect(runs.body[0].compressorRunning).toBe(false);
     });
 
     it('zwraca uruchomienia z okresu podanego czasami ISO i odrzuca złe zakresy', async () => {

@@ -176,7 +176,7 @@ Kolekcja `pv` przechowuje odczyty DTU z `POST /api/pv/add`, jeden dokument na od
 
 ### `water_pressure_tank` i `water_meter`
 
-`water_pressure_tank` — uruchomienia pompy hydroforu, jeden dokument na `runId` sterownika: `pumpStart`, `pumpEnd`, `compressorStart`, `compressorEnd`, `restarts`, `waterLiters` (z ustawień w chwili utworzenia) oraz części `waterAirBaseLiters` (poduszka przy `k` = 1) i `waterMembraneLiters` (do podpowiedzi `k`), `timeApproximate`, `lastSeenAt`. Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`. `water_meter` — ręczne odczyty wodomierza: `readAt`, `valueM3`, `note`; indeks `{rootId, readAt}`.
+`water_pressure_tank` — uruchomienia pompy hydroforu, jeden dokument na `runId` sterownika: `pumpStart`, `pumpEnd`, `compressorStart`, `compressorEnd`, `restarts`, `waterLiters` (z ustawień w chwili utworzenia) oraz części `waterAirBaseLiters` (poduszka przy `k` = 1) i `waterMembraneLiters` (do podpowiedzi `k`), `timeApproximate`, `lastSeenAt`, `compressorRunning` (stan kompresora z ostatniej wiadomości; po „Uruchom ponownie” `compressorEnd` zostaje z poprzedniego wyłączenia). Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`. `water_meter` — ręczne odczyty wodomierza: `readAt`, `valueM3`, `note`; indeks `{rootId, readAt}`.
 
 ### `firmware_images` i `firmware_offers`
 
@@ -516,7 +516,7 @@ Główne widoki pompy ciepła:
 - `/devices` — wybór sterownika i zmiana jego nazwy.
 
 **Widoki zależą od typu wybranego sterownika** (rejestr wyżej). Dla hydroforu ([`devices/water-pressure-tank/pages/`](client/src/devices/water-pressure-tank/pages/)) te same ścieżki pokazują:
-- `/` — podgląd: czas kompresora, progi, zbiorniki z szacunkiem wody i dzisiejsze uruchomienia (odświeżane co 10 s);
+- `/` — podgląd: pod nagłówkiem przełączniki „Pompa wody” i „Kompresor powietrza” (jak „CO pompa” pompy ciepła; z bieżącego uruchomienia w toku i `compressorRunning`), czas kompresora, progi, zbiorniki z szacunkiem wody i dzisiejsze uruchomienia (odświeżane co 5 s);
 - `/data` — zakładki *Uruchomienia pompy* (miesiąc, CSV) / *Odczyty wodomierza* (dodawanie z samą datą i usuwanie odczytów);
 - `/chart` — „Zużycie wody w okresie”: kropki dzień / miesiąc / rok; w roku znacznik „Pokaż odczyty z wodomierza” (wodomierz vs szacunek w miesiącach, sugerowane `k`);
 - `/settings` — czas kompresora, progi presostatu, zbiorniki (włączony/wyłączony; kalkulator wody na cykl z obwodu i różnicy słupa wody przy zbiorniku z poduszką, „Wstaw” dobiera `k`), dane sterownika z wersją firmware i stanem aktualizacji (aktualny albo „czeka na aktualizację” do oferowanej wersji).
@@ -629,9 +629,9 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 - CHPC: `pio test -e native` w `devices/chpc` (symulacja firmware, 54 testy). Dodatkowo scenariusze Wokwi w `devices/chpc/test-wokwi/`.
 - hydrofor: `pio test -e native` w `devices/water-pressure-tank` (23 testy: kompresor, szacunek wody, ustawienia, czas kompresora z `/install`, JSON wysyłki, kolejka w NVS).
 
-Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (8: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`); razem z pozostałymi serwer ma 81 testów.
+Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (8: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`); razem z pozostałymi serwer ma 97 testów.
 
-Serwer ma też testy hydroforu w [`server/test/water-pressure-tank.test.ts`](server/test/water-pressure-tank.test.ts) (30: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
+Serwer ma też testy hydroforu w [`server/test/water-pressure-tank.test.ts`](server/test/water-pressure-tank.test.ts) (32: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidacja, czas kompresora ze sterownika, daty z czasów względnych, kolejka, 404/409, podsumowania, wodomierz i `k`, sterownik domyślny). Symulator sterownika hydroforu dla środowiska lokalnego: `node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]` (przy `npm run local`; `--history` dopisuje 60 dni uruchomień wprost do bazy lokalnej).
 
 Przebieg 2026-10-01 (rola `pellet-boiler-pelux200`): serwer 81/81 (testy w `server/test/`) + `tsc` + build OK, klient `vite build` OK, `co` 74/74 + build `esp32dev` (RAM 17,4 %, Flash 34,9 %). Test integracyjny na lokalnej chmurze (`npm run local`, baza lokalna): rejestracja drugiej roli tego samego SN (nowy `rootId`, ponowna rejestracja zwraca ten sam), `POST /pellet-boiler-pelux200/add` z JSON wygenerowanym przez kod firmware z ramki testowej (rootId+deviceId i sam deviceId), 409 dla `rootId` pompy, 400 dla pustego odczytu, `last`, `list`, zapis i walidacja `poll_interval_seconds`, `POST /hp/add` po samym `deviceId` nadal trafia do pompy. Widoki klienta sprawdzone w Edge (1280 i 360 px, bez przewijania strony w poziomie) z odpowiedziami API podstawionymi w przeglądarce. Nie sprawdzono: kotła ani ramek z magistrali, płytki `co` z UART2, eksportu CSV i zapisu ustawień w przeglądarce.
 

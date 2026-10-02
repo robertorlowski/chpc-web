@@ -1,5 +1,5 @@
-// Widok główny hydroforu (/): podgląd ustawień, szacunek wody na uruchomienie i dzisiejsze
-// uruchomienia pompy (GET /water-pressure-tank/runs).
+// Widok główny hydroforu (/): przełączniki pracy pompy i kompresora, podgląd ustawień, szacunek
+// wody na uruchomienie i dzisiejsze uruchomienia pompy (GET /water-pressure-tank/runs).
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { WaterPressureTankRequests } from '../api';
@@ -9,11 +9,19 @@ import {
   compressorSeconds, estimatedWaterPerRun, formatLiters, formatTime, pumpSeconds, sumWater,
   tankKindLabel, tankWaterLiters, todayWarsaw,
 } from '../utils/water';
+import swith_on from '../../../assets/swith_on.svg';
+import swith_off from '../../../assets/swith_off.svg';
 import './style.css';
 
-// Uruchomienia odświeżane co 10 s (sterownik wysyła stan co 1 s, bieżące uruchomienie ma
-// inProgress); ustawienia (GET /device/properties) tylko przy wejściu.
-const REFRESH_MS = 10_000;
+// Uruchomienia odświeżane co 5 s (sterownik wysyła stan co 1 s, bieżące uruchomienie ma
+// inProgress i compressorRunning; kompresor pracuje zwykle 30 s, więc wskaźnik musi nadążać);
+// ustawienia (GET /device/properties) tylko przy wejściu.
+const REFRESH_MS = 5_000;
+
+// Wskaźnik pracy jak „CO pompa” na widoku pompy ciepła: sam przełącznik, bez napisu.
+const Switch: React.FC<{ on: boolean; title: string }> = ({ on, title }) => (
+  <img className="water-switch" title={title} alt={title} src={on ? swith_on : swith_off} />
+);
 
 // Główne okno hydroforu (tylko podgląd): ustawienia, zbiorniki i dzisiejsze uruchomienia.
 // „Dziś” to dzień czasu warszawskiego; lista od najnowszego (serwer zwraca rosnąco).
@@ -34,10 +42,22 @@ export const WaterPressureTankHome: React.FC = () => {
 
   const tanks = properties?.tanks ?? [];
   const sortedRuns = [...(runs ?? [])].reverse();
+  // stan teraz z najnowszego uruchomienia (sterownik ma zasilanie tylko w czasie pracy pompy)
+  const current = sortedRuns.find((run) => run.inProgress);
 
   return (
     <div className="settings water-page">
       <h2>Hydrofor</h2>
+      <div className="water-switches">
+        <span>
+          Pompa wody:
+          <Switch on={!!current} title="Pompa wody (presostat) — sterownik ma zasilanie tylko w czasie jej pracy" />
+        </span>
+        <span>
+          Kompresor powietrza:
+          <Switch on={!!current?.compressorRunning} title="Kompresor uzupełniający poduszkę powietrzną w zbiorniku" />
+        </span>
+      </div>
       <section>
         <div className="resource">
           <h3 className="settings-section-title">Ustawienia</h3>
@@ -96,7 +116,7 @@ export const WaterPressureTankHome: React.FC = () => {
                       <td title={run.timeApproximate ? 'Czas przybliżony: uruchomienie bez sieci' : undefined}>
                         {run.timeApproximate ? '≈ ' : ''}{formatTime(run.pumpStart)}
                       </td>
-                      <td>{compressorSeconds(run) ?? (run.inProgress ? 'pracuje' : '---')}</td>
+                      <td>{run.compressorRunning ? 'pracuje' : compressorSeconds(run) ?? (run.inProgress ? 'pracuje' : '---')}</td>
                       <td>{pumpSeconds(run)}{run.inProgress ? ' …' : ''}</td>
                       <td>{formatLiters(run.waterLiters)}</td>
                     </tr>

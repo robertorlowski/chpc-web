@@ -27,6 +27,8 @@ export type WaterPressureTankRun = {
   waterLiters: number;
   timeApproximate: boolean;
   inProgress: boolean;
+  // kompresor włączony teraz (tylko przy inProgress; liczy serwer z ostatniej wiadomości)
+  compressorRunning?: boolean;
 };
 
 export type WaterSummaryPeriod = 'day' | 'month' | 'year';

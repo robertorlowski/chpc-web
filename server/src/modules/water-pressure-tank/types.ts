@@ -28,6 +28,11 @@ export interface WaterPressureTankRun {
   pumpEnd: Date;
   compressorStart?: Date;
   compressorEnd?: Date;
+  /**
+   * kompresor włączony według ostatniej wiadomości (start bez końca); po „Uruchom ponownie”
+   * compressorEnd zostaje z poprzedniego wyłączenia, więc stanu nie da się wyliczyć z dat
+   */
+  compressorRunning?: boolean;
   /** liczba ręcznych ponownych uruchomień kompresora w czasie tego uruchomienia */
   restarts?: number;
   /** szacunek wody z włączonych zbiorników w chwili utworzenia rekordu */

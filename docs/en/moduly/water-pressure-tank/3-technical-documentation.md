@@ -35,7 +35,7 @@
 |---|---|---|
 | `POST /water-pressure-tank/add` | controller | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}`; `deviceId` alone is enough; 404/409 as in core; reply `{}` (201); bad data 400 |
 | `PUT /water-pressure-tank/settings` | controller | `{compressor_seconds}` (whole seconds 1–3600, otherwise 400); changes only that field; 404 for another device kind |
-| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | application | runs of the days (Warsaw, `to` inclusive), with an `inProgress` field |
+| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | application | runs of the days (Warsaw, `to` inclusive), with `inProgress` and `compressorRunning` fields |
 | `GET /water-pressure-tank/runs?fromTime=ISO&toTime=ISO` | — | runs of a period (currently unused by the application) |
 | `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | application | water per hour (24), per day of the month or per month (12); empty buckets are zero |
 | `GET /water-pressure-tank/meter` | application | readings, oldest first |
@@ -61,6 +61,7 @@ Message validation: `runId` — integer ≥ 0; `pumpRunS` — 0 to 24 h; other t
 | `waterAirBaseLiters`, `waterMembraneLiters` | parts of the estimate: cushion at `k` = 1 and membrane (for the suggested `k`) |
 | `timeApproximate` | dates from the time received (queued run) |
 | `lastSeenAt` | last message (run "in progress" < 5 s) |
+| `compressorRunning` | compressor on according to the last message (`compressorStartS` without `compressorEndS`); needed after "Restart", because `compressorEnd` keeps the previous stop. `GET …/runs` returns it only with `inProgress` |
 | `createdAt`, `updatedAt` | timestamps |
 
 Indexes: unique `{rootId, runId}` and `{rootId, pumpStart}`.
@@ -86,7 +87,7 @@ node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # controlle
 node scripts/seed-local.mjs       # demo data: several months of runs and water meter readings
 ```
 
-`server/test/water-pressure-tank.test.ts` checks: the water formula and its agreement with the client formula, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", summaries, water meter and `k`, default controller.
+`server/test/water-pressure-tank.test.ts` checks: the water formula and its agreement with the client formula, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", compressor running (also after a restart), summaries, water meter and `k`, default controller.
 
 ## Known issues
 

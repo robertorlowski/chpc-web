@@ -56,6 +56,31 @@
   font-weight: 600;
 }
 
+/* przełączniki pracy (pompa, kompresor) pod nagłówkiem, jak na widoku pompy ciepła;
+   na wąskim ekranie zawijane do drugiego wiersza */
+.water-switches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 1.5rem;
+  margin: 0 1rem 1rem;
+}
+
+.water-switches > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+/* globalna reguła img daje display: block i margines dolny 1.5rem (zerowane też w .hp-page) */
+.water-switch {
+  display: inline-block;
+  height: 26px;
+  margin: 0;
+  vertical-align: middle;
+}
+
 .water-total {
   margin-top: 0.5rem;
   text-align: right;

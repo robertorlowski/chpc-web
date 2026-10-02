@@ -21,7 +21,7 @@ Moduł pozwala:
 
 ![Widok główny](img/glowny.png)
 
-*Hydrofor: ustawienia (czas kompresora, progi presostatu, woda na jedno uruchomienie), zbiorniki z szacunkiem wody i dzisiejsze uruchomienia. Uruchomienie w toku jest wyróżnione kolorem („pracuje”, „…”); widok odświeża się co 10 s.*
+*Hydrofor: ustawienia (czas kompresora, progi presostatu, woda na jedno uruchomienie), zbiorniki z szacunkiem wody i dzisiejsze uruchomienia. Uruchomienie w toku jest wyróżnione kolorem („pracuje”, „…”); widok odświeża się co 5 s. Pod nagłówkiem przełączniki (jak „CO pompa” pompy ciepła) pokazują, czy pracuje pompa wody i kompresor powietrza.*
 
 | Dane — uruchomienia pompy | Dane — odczyty wodomierza |
 |---|---|

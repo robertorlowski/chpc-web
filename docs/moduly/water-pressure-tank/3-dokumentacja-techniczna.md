@@ -35,7 +35,7 @@
 |---|---|---|
 | `POST /water-pressure-tank/add` | sterownik | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}`; sam `deviceId` wystarcza; 404/409 jak w core; odpowiedź `{}` (201); złe dane 400 |
 | `PUT /water-pressure-tank/settings` | sterownik | `{compressor_seconds}` (pełne sekundy 1–3600, inaczej 400); zmienia tylko to pole; 404 dla innego rodzaju urządzenia |
-| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | aplikacja | uruchomienia z dni (Warszawa, `to` włącznie), z polem `inProgress` |
+| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | aplikacja | uruchomienia z dni (Warszawa, `to` włącznie), z polami `inProgress` i `compressorRunning` |
 | `GET /water-pressure-tank/runs?fromTime=ISO&toTime=ISO` | — | uruchomienia z okresu (obecnie nieużywane przez aplikację) |
 | `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | aplikacja | woda w godzinach (24), dniach miesiąca albo miesiącach (12); puste przedziały z zerami |
 | `GET /water-pressure-tank/meter` | aplikacja | odczyty od najstarszego |
@@ -61,6 +61,7 @@ Walidacja wiadomości: `runId` — liczba całkowita ≥ 0; `pumpRunS` — 0 do 
 | `waterAirBaseLiters`, `waterMembraneLiters` | części szacunku: poduszka przy `k` = 1 i przepona (do sugerowanego `k`) |
 | `timeApproximate` | daty z chwili przyjęcia (uruchomienie z kolejki) |
 | `lastSeenAt` | ostatnia wiadomość (uruchomienie „w toku” < 5 s) |
+| `compressorRunning` | kompresor włączony według ostatniej wiadomości (`compressorStartS` bez `compressorEndS`); potrzebne po „Uruchom ponownie”, bo `compressorEnd` zostaje z poprzedniego wyłączenia. `GET …/runs` zwraca je tylko przy `inProgress` |
 | `createdAt`, `updatedAt` | znaczniki zapisu |
 
 Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`.
@@ -86,7 +87,7 @@ node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # symulator
 node scripts/seed-local.mjs       # dane demo: kilka miesięcy uruchomień i odczyty wodomierza
 ```
 
-`server/test/water-pressure-tank.test.ts` sprawdza: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, podsumowania, wodomierz i `k`, sterownik domyślny.
+`server/test/water-pressure-tank.test.ts` sprawdza: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, pracę kompresora (także po ponownym uruchomieniu), podsumowania, wodomierz i `k`, sterownik domyślny.
 
 ## Znane problemy
 

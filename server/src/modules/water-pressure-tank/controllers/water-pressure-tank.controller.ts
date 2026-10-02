@@ -52,10 +52,11 @@ export async function updateWaterPressureTankSettings(
 }
 
 // inProgress: sterownik wysłał wiadomość w ciągu RUN_IN_PROGRESS_MS (pompa pracuje).
-const withProgress =<T extends { lastSeenAt?: Date }>(run: T, now: number) => ({
-  ...run,
-  inProgress: run.lastSeenAt ? now - new Date(run.lastSeenAt).getTime() < RUN_IN_PROGRESS_MS : false,
-});
+// compressorRunning tylko w toku: po utracie zasilania ostatni zapisany stan jest nieaktualny.
+const withProgress =<T extends { lastSeenAt?: Date; compressorRunning?: boolean }>(run: T, now: number) => {
+  const inProgress = run.lastSeenAt ? now - new Date(run.lastSeenAt).getTime() < RUN_IN_PROGRESS_MS : false;
+  return { ...run, inProgress, compressorRunning: inProgress && run.compressorRunning === true };
+};
 
 // ?from=YYYY-MM-DD&to=YYYY-MM-DD (dni czasu warszawskiego, to włącznie)
 // albo ?fromTime=ISO&toTime=ISO (okres między odczytami wodomierza).
