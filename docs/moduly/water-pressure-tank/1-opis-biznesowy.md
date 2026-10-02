@@ -8,56 +8,57 @@ Moduł obsługuje w aplikacji **hydrofor**: domową instalację wody ze studni, 
 
 Moduł pozwala:
 
-- **ustawić czas pracy kompresora** i opisać instalację (progi presostatu, zbiorniki);
-- **widzieć każde uruchomienie pompy**: kiedy, jak długo pracowała pompa i kompresor;
-- **szacować zużycie wody** bez wodomierza elektronicznego — z praw fizyki (prawo Boyle'a), na podstawie ciśnień i objętości zbiorników;
-- **porównać szacunek z wodomierzem** — użytkownik wpisuje odczyty, a aplikacja podpowiada, jak skorygować szacunek.
+- **ustawić czas pracy kompresora**;
+- **widzieć każde uruchomienie pompy**: kiedy i jak długo pracowała pompa i kompresor;
+- **liczyć zużycie wody** bez wodomierza elektronicznego: z czasu pracy pompy i jej przepływu, który aplikacja wylicza z ręcznych odczytów wodomierza;
+- **porównać wodę z czasu pompy z wodomierzem** w kolejnych miesiącach.
 
 ## Dla kogo
 
-**Właściciel domu** z hydroforem i sterownikiem hydroforu (ESP32-C3). Sterownik ma zasilanie tylko wtedy, gdy pracuje pompa — nie trzeba go obsługiwać.
+**Właściciel domu** z hydroforem i sterownikiem hydroforu (ESP32). Sterownik ma zasilanie tylko wtedy, gdy pracuje pompa, więc nie trzeba go obsługiwać.
 
 ## Ekrany
 
+Zrzuty ekranu pochodzą sprzed wersji 1.3.0, gdy wodę szacowano z objętości zbiorników. Układ widoków jest ten sam, a różnice opisują podpisy.
+
 ![Widok główny](img/glowny.png)
 
-*Hydrofor: ustawienia (czas kompresora, progi presostatu, woda na jedno uruchomienie), zbiorniki z szacunkiem wody i dzisiejsze uruchomienia. Uruchomienie w toku jest wyróżnione kolorem („pracuje”, „…”); widok odświeża się co 5 s. Pod nagłówkiem przełączniki (jak „CO pompa” pompy ciepła) pokazują, czy pracuje pompa wody i kompresor powietrza.*
+*Hydrofor (zrzut sprzed wersji 1.3.0): karta „Ustawienia” z czasem kompresora i przepływem pompy (z czego go policzono albo, bez dwóch odczytów wodomierza, co zrobić) oraz dzisiejsze uruchomienia z kolumnami Kompresor, Pompa (np. „4 min 10 s”; podpowiedź pokazuje odjętą ręczną pracę kompresora) i Woda. Uruchomienie w toku jest wyróżnione kolorem („pracuje”, „…”); widok odświeża się co 5 s. Pod nagłówkiem przełączniki (jak „CO pompa” pompy ciepła) pokazują, czy pracuje pompa wody i kompresor powietrza. Na zrzucie jest jeszcze dawna karta „Zbiorniki”.*
 
 | Dane — uruchomienia pompy | Dane — odczyty wodomierza |
 |---|---|
 | ![Uruchomienia](img/dane-uruchomienia.png) | ![Odczyty wodomierza](img/dane-odczyty-wodomierza.png) |
 
-*Dane: zakładka „Uruchomienia pompy” (tabela z wybranego miesiąca i eksport CSV; „≈” oznacza czas przybliżony — uruchomienie wysłane później, bo zabrakło sieci) i zakładka „Odczyty wodomierza” (dodawanie i usuwanie odczytów, zużycie między odczytami).*
+*Dane: zakładka „Uruchomienia pompy” (tabela z wybranego miesiąca, czas pompy w minutach i sekundach, woda, „Razem: X l, pompa Y”, eksport CSV; „≈” oznacza czas przybliżony, czyli uruchomienie wysłane później, bo zabrakło sieci) i zakładka „Odczyty wodomierza” (dodawanie i usuwanie odczytów, zużycie między odczytami).*
 
 | Wykres — dzień | Wykres — miesiąc |
 |---|---|
 | ![Dzień](img/wykres-dzien.png) | ![Miesiąc](img/wykres-miesiac.png) |
 
+*Wykres: słupki wody w godzinach, dniach albo miesiącach. Dopóki nie ma przepływu, słupki pokazują czas pracy pompy w minutach, a pod wykresem jest podpowiedź o dwóch odczytach wodomierza.*
+
 ![Rok z wodomierzem](img/wykres-rok-wodomierz.png)
 
-*Wykres roku z włączonym „Pokaż odczyty z wodomierza”: w każdym miesiącu zużycie z wodomierza i szacunek; pod wykresem sugerowany współczynnik `k` zbiornika z poduszką (tu 0,81 — szacunek jest o ok. 5% za wysoki).*
+*Wykres roku z włączonym „Pokaż odczyty z wodomierza” (zrzut sprzed wersji 1.3.0): w każdym miesiącu zużycie z wodomierza i woda „z czasu pompy”, a pod wykresem przepływ, którym ją policzono. Dawny sugerowany współczynnik `k` nie istnieje.*
 
-![Ustawienia z kalkulatorem](img/ustawienia-kalkulator.png)
-
-*Ustawienia: czas kompresora, progi presostatu, zbiorniki (dodawanie ⊕, usuwanie koszem, włączony/wyłączony) i kalkulator wody na cykl przy zbiorniku z poduszką: z obwodu zbiornika i różnicy słupa wody „Wstaw” dobiera `k`.*
+**Ustawienia** mają kartę „Kompresor” (czas pracy kompresora), kartę „Przepływ pompy” (wartość w l/min i z ilu okresów między odczytami wodomierza ją policzono albo instrukcja, jak ją uzyskać) i kartę „Sterownik”.
 
 ## Pierwsze uruchomienie
 
-1. Sterownik po pierwszym starcie sam zgłasza się do chmury i dostaje ustawienia domyślne (30 s, 2–4 bar, zbiornik z poduszką 300 l i przeponowy 300 l).
-2. W Ustawieniach wpisać **rzeczywiste progi presostatu** — odczytane z manometru przy starcie i przy zatrzymaniu pompy.
-3. Wpisać **ciśnienie wstępne `p0` zbiornika przeponowego** — manometrem na zaworze powietrza, przy spuszczonej wodzie.
-4. Dodać **odczyty wodomierza** (co najmniej dwa, najlepiej co kilka tygodni) — wtedy aplikacja podpowie `k`. Alternatywnie zmierzyć spadek poziomu wody w zbiorniku z poduszką i użyć kalkulatora.
-5. Opcjonalnie oznaczyć hydrofor gwiazdką jako sterownik domyślny.
+1. Sterownik po pierwszym starcie sam zgłasza się do chmury i dostaje ustawienie domyślne: kompresor 30 s.
+2. Dodać **odczyty wodomierza** (Dane → Odczyty wodomierza): co najmniej dwa, między którymi pracowała pompa, najlepiej co kilka tygodni. Od drugiego odczytu aplikacja zna przepływ pompy i pokazuje wodę także w uruchomieniach z przeszłości.
+3. Opcjonalnie oznaczyć hydrofor gwiazdką jako sterownik domyślny.
 
-Zmiana ustawień w aplikacji dociera do sterownika **przy następnym uruchomieniu pompy** (sterownik ma zasilanie tylko w czasie pracy pompy). Czas kompresora można też zmienić na stronie sterownika `/install` — trafi wtedy do chmury.
+Zmiana czasu kompresora w aplikacji dociera do sterownika **przy następnym uruchomieniu pompy** (sterownik ma zasilanie tylko w czasie pracy pompy). Czas kompresora można też zmienić na stronie sterownika `/install`; trafi wtedy do chmury.
 
 ## Ograniczenia
 
-- **Szacunek wody jest przybliżony.** Zakłada pełne napełnienie między progami presostatu i znane ilości powietrza; dlatego jest korekta `k` z wodomierza.
-- **Szacunek jest zapisywany w chwili uruchomienia** — późniejsza zmiana zbiorników nie zmienia historii.
+- **Woda jest przybliżona.** Zakłada stały przepływ pompy. Przepływ to średnia ze wszystkich okresów między odczytami wodomierza, ważona czasem pracy pompy.
+- **Przed dwoma odczytami wodomierza wody nie ma** (w aplikacji „---”). Czas pracy pompy jest widoczny od początku.
+- **Każdy nowy odczyt wodomierza zmienia przepływ**, a więc i wodę w całej historii, bo woda nie jest zapisywana, tylko liczona przy odczycie.
+- **Ręczna praca kompresora** („Włącz” na stronie sterownika) jest odejmowana od czasu pracy pompy, bo w tym czasie pompa nie tłoczy wody do odbioru.
 - **Bez sieci** uruchomienie trafia do chmury przy następnym starcie, z czasem przybliżonym.
 - **Czas uruchomienia** jest dokładny do ok. 1 s (sterownik nie ma zegara; czas liczy serwer).
-- Sterownik obsługuje najwyżej 4 zbiorniki.
 
 ## Słownik
 
@@ -66,7 +67,7 @@ Zmiana ustawień w aplikacji dociera do sterownika **przy następnym uruchomieni
 | **Hydrofor** | pompa + zbiorniki ciśnieniowe + presostat |
 | **Presostat** | włącznik ciśnieniowy: włącza pompę przy progu dolnym, wyłącza przy górnym |
 | **Zbiornik z poduszką powietrzną** | zbiornik (np. ocynkowany), w którym woda styka się z powietrzem; powietrza ubywa, stąd kompresor |
-| **Zbiornik przeponowy** | zbiornik z workiem; ilość powietrza wyznacza ciśnienie wstępne `p0` |
 | **Uruchomienie** | jeden cykl pompy od włączenia do wyłączenia przez presostat |
-| **`k`** | współczynnik korekty zbiornika z poduszką: ile z teoretycznej poduszki naprawdę pracuje |
+| **Czas pompy** | czas pracy pompy w uruchomieniu bez ręcznej pracy kompresora |
+| **Przepływ pompy** | litry na minutę: suma wody z wodomierza podzielona przez sumę czasu pompy z okresów między odczytami |
 | **Wodomierz** | licznik wody; odczyty wpisuje użytkownik |

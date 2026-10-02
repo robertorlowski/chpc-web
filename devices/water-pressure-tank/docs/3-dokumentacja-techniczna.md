@@ -2,7 +2,7 @@
 
 [← Dokumentacja systemu](../../../docs/README.md) · [1. Opis biznesowy](1-opis-biznesowy.md) · [2. Zasada działania](2-zasada-dzialania.md) · **3. Dokumentacja techniczna** · [English](en/3-technical-documentation.md)
 
-Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-pressure-tank](../../../docs/moduly/water-pressure-tank/3-dokumentacja-techniczna.md). Pierwotna specyfikacja z historią decyzji: [water-pressure-tank.md](water-pressure-tank.md).
+Stronę serwerową (API, kolekcje, woda z czasu pompy, wodomierz) opisuje [moduł water-pressure-tank](../../../docs/moduly/water-pressure-tank/3-dokumentacja-techniczna.md). Pierwotna specyfikacja z historią decyzji: [water-pressure-tank.md](water-pressure-tank.md).
 
 ## Sprzęt
 
@@ -68,12 +68,12 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 | Plik | Rola |
 |---|---|
 | `src/water-pressure-tank.cpp` | `setup()` (przekaźnik, NVS, kompresor przed Wi-Fi, kolejka, `runId`), `loop()`/`tick()`, zgłoszenie, wysyłka, strony WWW |
-| `src/firmware.hpp` | typ i nazwa urządzenia, pin i poziom przekaźnika, opóźnienie startu, czasy kompresora, `CLOUD_URL` |
-| `src/compressor.*` | automat kompresora: start, ponowne uruchomienie, wyłączenie po czasie, `firstStartS`/`lastEndS`/`restarts` |
-| `src/settings.*` | ustawienia z chmury (JSON ↔ struktura, walidacja, max 4 zbiorniki), szacunek wody, czas z `/install` |
-| `src/run_report.*` | `RunRecord`, JSON wysyłki, kolejka 40 uruchomień w NVS (`BlobStore`), `queuePreviousRun` |
+| `src/firmware.hpp` | typ i nazwa urządzenia, wersja (`FW_VERSION` 1.3.0), pin i poziom przekaźnika, opóźnienie startu, czasy kompresora (także limit pracy ręcznej), `CLOUD_URL` |
+| `src/compressor.*` | automat kompresora: start, ponowne uruchomienie, praca ręczna (`startManual`, `stop`, `manual()`, `manualSeconds()`), wyłączenie po czasie, `firstStartS`/`lastEndS`/`restarts` |
+| `src/settings.*` | ustawienia z chmury (JSON ↔ struktura, walidacja; tylko `compressorSeconds`), czas z `/install` |
+| `src/run_report.*` | `RunRecord` (z `manualCompressorS`), JSON wysyłki, kolejka 40 uruchomień w NVS (`BlobStore`, blob w wersji 2), `queuePreviousRun` |
 | `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_SSID`, `AP_PASSWORD`, `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
-| `test/test_logic/test_main.cpp` | 23 testy `native` |
+| `test/test_logic/test_main.cpp` | 25 testów `native` |
 
 ## Stałe
 
@@ -83,6 +83,7 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 | `RELAY_PIN` / `RELAY_ACTIVE_HIGH` | 26 / `false` | `firmware.hpp` |
 | `COMPRESSOR_START_DELAY_MS` | 1000 | `firmware.hpp` |
 | `DEFAULT_COMPRESSOR_SECONDS` / `MAX_COMPRESSOR_SECONDS` | 30 / 3600 | `firmware.hpp` |
+| `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (praca po „Włącz” najdłużej 30 min) | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (adres `http://` działa bez TLS) | `firmware.hpp` |
 | `REGISTER_RETRY_MS`, `COMPRESSOR_SEND_RETRY_MS` | 10 s | `water-pressure-tank.cpp` |
 | `AP_ADDRESS` | `10.11.16.1` | `water-pressure-tank.cpp` |
@@ -94,19 +95,19 @@ Stronę serwerową (API, kolekcje, wzór wody, wodomierz) opisuje [moduł water-
 |---|---|
 | `wifi_ssid`, `wifi_pass` | Wi-Fi z `/install` (puste = wartości z `secrets.h`) |
 | `root_id` | Root ID z odpowiedzi na zgłoszenie (kasowany przy 409) |
-| `settings` | ustawienia z chmury (JSON) |
+| `settings` | ustawienia z chmury (JSON `{compressor_seconds}`; dawne pola zbiorników i progów są przy odczycie pomijane) |
 | `comp_pending` | czas kompresora z `/install` czeka na wysłanie |
 | `run_next` | następny `runId` (pierwszy losowy) |
 | `run_current` | bieżące uruchomienie (blob `RunRecord`, zapis co 1 s, z flagą `delivered`) |
-| `run_queue` | kolejka niedoręczonych uruchomień (blob; inny rozmiar = pusta) |
+| `run_queue` | kolejka niedoręczonych uruchomień (blob w wersji 2; inna wersja albo rozmiar = pusta, więc kolejka sprzed 1.3.0 po aktualizacji przepada) |
 | `ota_tried` | wersja, po której pobraniu sterownik ostatnio się zrestartował (ochrona przed pętlą aktualizacji) |
 
 ## Kontrakt z chmurą
 
 | Żądanie | Treść | Odpowiedź |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType, name, version, ip}` (`ip` = adres w sieci domowej, pokazywany w Ustawieniach aplikacji) | `{rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks[], firmware?: {version, url, sha256}}}` |
-| `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}` | `{}`; 404 nieznany SN, 409 cudzy Root ID |
+| `POST devices/register` | `{deviceId: SN, deviceType, name, version, ip}` (`ip` = adres w sieci domowej, pokazywany w Ustawieniach aplikacji) | `{rootId, settings: {compressor_seconds, firmware?: {version, url, sha256}}}` |
+| `POST water-pressure-tank/add?deviceId=&rootId=` | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, manualCompressorS?, queued?}` (`manualCompressorS` tylko, gdy > 0) | `{}`; 404 nieznany SN, 409 cudzy Root ID |
 | `PUT water-pressure-tank/settings?deviceId=&rootId=` | `{compressor_seconds}` | `{compressor_seconds}`; 400 zła wartość (znacznik i tak kasowany) |
 
 SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdzany (jak w `co`). Wersja firmware (`FW_VERSION` w `firmware.hpp`) jest wysyłana w zgłoszeniu; serwer jej na razie nie zapisuje.
@@ -115,14 +116,18 @@ SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdza
 
 | Adres | Dostęp | Zawartość |
 |---|---|---|
-| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json`; karta „Wi-Fi” (od 1.1.5): sieć, stan z przyczyną rozłączenia opisaną słowami, sygnał w dBm z oceną (dobry ≥ −67, średni ≥ −75, słaby ≥ −85), bez połączenia lista sieci ze skanowania co 30 s |
-| `GET /state.json` | otwarty | `running`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `waterLiters`, `tanks[]` (`name`, `volumeLiters`, `enabled`, `liters`), `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
-| `POST /restart` | otwarty | ponowne uruchomienie kompresora na pełny czas |
+| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json`; karta „Kompresor”: stan („WŁĄCZONY RĘCZNIE” z dużym odliczaniem `mm:ss` przy pracy ręcznej), przyciski „Włącz” (nieaktywny w pracy ręcznej), „Wyłącz” (czerwony, nieaktywny przy wyłączonym) i „Uruchom na N s”; karta „Wi-Fi” (od 1.1.5): sieć, stan z przyczyną rozłączenia opisaną słowami, sygnał w dBm z oceną (dobry ≥ −67, średni ≥ −75, słaby ≥ −85), bez połączenia lista sieci ze skanowania co 30 s |
+| `GET /state.json` | otwarty | `running`, `manual`, `manualMaxS`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `manualCompressorS`, `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
+| `POST /restart` | otwarty | „Uruchom na N s”: kompresor na pełny czas z ustawień |
+| `POST /compressor/on` | otwarty | „Włącz”: praca ręczna do `/compressor/off`, najdłużej 1800 s |
+| `POST /compressor/off` | otwarty | „Wyłącz”: kończy pracę ręczną albo zwykłą od razu |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, **bez restartu**, bo restart włączyłby kompresor), SN, Root ID, IP, stan chmury |
 | `POST /install/compressor` | Basic Auth | czas kompresora 1–3600 s (pełne sekundy) |
 | `POST /install/firmware` | Basic Auth | ręczne wgranie `firmware.bin` (multipart); odrzucane przy pracującym kompresorze; po wgraniu restart |
 
 Nieznany adres pokazuje stronę główną.
+
+Zrzut strony głównej pochodzi sprzed wersji 1.3.0 (karta „Zbiorniki”, jeden przycisk „Uruchom kompresor ponownie”).
 
 | Strona główna | Instalacja |
 |---|---|
@@ -147,7 +152,7 @@ Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`
 
 ```bash
 cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank/src/secrets.h   # raz, uzupełnić
-pio test -d devices/water-pressure-tank -e native            # 23 testy
+pio test -d devices/water-pressure-tank -e native            # 25 testów
 pio run  -d devices/water-pressure-tank                     # build (esp32dev)
 pio run  -d devices/water-pressure-tank -t upload           # wgranie przez mostek USB płytki
 pio device monitor                                         # konsola 115200 (przez mostek płytki otwarcie portu może ją zresetować)
@@ -157,13 +162,13 @@ pio device monitor                                         # konsola 115200 (prz
 
 **Dziennik na konsoli (od 1.1.1).** Linie `[ms od startu] treść` na konsoli UART0 115200 (piny TX/RX, mostek USB płytki albo przejściówka): start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 30 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI (także na stronie `/`, karta „Wi-Fi”). Linie idą przez bufor nadawania 2 KB, więc nie opóźniają pętli pilnującej przekaźnika. Do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem (przez przejściówkę bez podłączonych DTR/RTS reset nie grozi).
 
-Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), szacunek wody (oba rodzaje, wyłączony zbiornik, `k`, `p0` między progami i powyżej, złe progi), ustawienia (odrzucenie złych danych, NVS, domyślne `k`/`p0`, obcięcie do 4 zbiorników), JSON wysyłki i kolejkę (na atrapie NVS). **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
+Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia, praca ręczna do wyłączenia i do limitu, „Wyłącz” w zwykłej pracy, czas pracy ręcznej), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), ustawienia (odrzucenie złych danych, NVS), JSON wysyłki (także `manualCompressorS`), kolejkę (na atrapie NVS) i ofertę OTA. **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
 - **Zgłoszenie z limitem 8 s (od 1.2.1).** Pierwsze połączenie TLS z Render po przerwie trwa 2–5 s; przy limicie 2 s zgłoszenie dochodziło dopiero przy 4. próbie (46 s po starcie). Wysyłka co 1 s ma nadal 2 s i bywa `-11` (następna przechodzi).
 - **Pierwsza płytka (ESP32-C3 SuperMini, do 1.1.5) wycofana 2026-10-02:** słaba antena (−83…−91 dBm w miejscu, gdzie WROOM-32 ma −66 dBm), w piwnicy nie łączyła się z chmurą.
 - **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; bez rezystora 10 kΩ z `IN` do `3V3` możliwe jest krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
-- **Wzór wody w trzech miejscach** (`src/settings.cpp`, serwer, klient) — zmieniać razem.
-- **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart` bez logowania.
+- **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart`, `/compressor/on` i `/compressor/off` bez logowania.
+- **Aktualizacja do 1.3.0 kasuje kolejkę** (blob w wersji 2): uruchomienia niedoręczone przed aktualizacją nie trafią do chmury.
 - Dawny szkic `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino` (poza gitem) miał usterkę podwójnego startu kompresora; nie używać.

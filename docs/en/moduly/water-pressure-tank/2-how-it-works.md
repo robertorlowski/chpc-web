@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-    PS["pressure switch"] -- "power only<br/>while the pump runs" --> ESP["tank controller<br/>ESP32-C3"]
+    PS["pressure switch"] -- "power only<br/>while the pump runs" --> ESP["tank controller<br/>ESP32"]
     PS --> PUMP["pump"]
     ESP --> COMP["compressor<br/>(relay)"]
     ESP -- "POST /devices/register<br/>(once per start)" --> SRV["chpc-web"]
@@ -28,10 +28,10 @@ sequenceDiagram
     participant A as POST /water-pressure-tank/add
     participant M as MongoDB (water_pressure_tank)
     S->>A: {runId, pumpRunS: 1, compressorStartS: 1}
-    A->>M: new run: pumpStart = now − pumpRunS,<br/>water = estimate from the current settings
+    A->>M: new run: pumpStart = now − pumpRunS
     loop every 1 s
-        S->>A: {runId, pumpRunS, compressorStartS, compressorEndS?, restarts}
-        A->>M: pumpEnd = time received, lastSeenAt, compressor times
+        S->>A: {runId, pumpRunS, compressorStartS, compressorEndS?, restarts, manualCompressorS?}
+        A->>M: pumpEnd = time received, lastSeenAt, compressor times,<br/>manualSeconds
     end
     Note over S: the pressure switch stops the pump → the controller loses power
     Note over M: the last message sets the pump end (±1 s);<br/>"in progress" while the last message is younger than 5 s
@@ -40,33 +40,49 @@ sequenceDiagram
 - There is one record per `runId` (unique index `{rootId, runId}`); later messages update it.
 - **A queued run** (`queued: true`) — one from which no message arrived at the previous start — gets dates from the time it is received and the `timeApproximate` flag. If the server already knows it, only the pump end (`pumpStart + pumpRunS`) is filled in.
 - The compressor start is kept when a later message lacks it.
+- `manualCompressorS` is the total time the compressor was switched on manually ("Włącz" on the controller page) during this run; the server stores it as `manualSeconds`.
 
-## Water estimate (Boyle's law)
+## Water from pump run time and the water meter
 
-The tanks work at the same pressure, so the water of one run is the sum over the enabled tanks. Pressures are absolute (manometer + 1.013 bar); `p_d` — lower threshold, `p_g` — upper.
+Water is **not stored** in run records. The server computes it on every read from two quantities:
 
 ```text
-air cushion:        ΔV = k · V · 1.013 · (1/p_d − 1/p_g)
-membrane (bladder): ΔV = V · p0 · (1/max(p_d, p0) − 1/p_g)     (0 when p0 ≥ p_g)
+pump time  = (pumpEnd − pumpStart) − manualSeconds          [s]
+flow       = Σ litres from the meter / Σ pump time          [l/s]
+             (over all periods between consecutive readings)
+water      = pump time · flow                               [l]
 ```
 
-Example for the default settings (2–4 bar, 300 l air cushion at `k` = 1, 300 l membrane at `p0` = 1.8 bar): 40.2 l + 111.7 l ≈ 152 l per run.
+```mermaid
+flowchart LR
+    R["water meter readings<br/>(date, m³)"] --> P["periods between<br/>consecutive readings"]
+    RUNS["runs:<br/>pumpStart, pumpEnd,<br/>manualSeconds"] --> T["pump time<br/>in each period"]
+    P --> F["flow = Σ litres / Σ pump time"]
+    T --> F
+    F --> W["water of a run,<br/>hour, day, month"]
+    T --> W
+```
 
-The same formula lives in three places — the **server** (value stored in the record), the **application** (preview in Settings and on the main screen) and the **controller** (its `/` page). Change them together; a test checks that the server and the application agree.
+- **Pump time** leaves out manual compressor operation, because the pump does not deliver water to consumers during it.
+- **The flow** is the average over all periods weighted by pump time, not the mean of the periods. A period with no pump run (only a meter change) or with a negative increase (a reading mistake) is skipped.
+- **Without a flow** (fewer than two readings or no pump run between them) water is `null` and the application shows only the pump time.
+- **A new water meter reading changes the flow**, so it also changes the water in the whole history.
+- A run belongs to a period by its `pumpStart`.
 
-## Water meter and the k factor
+Example: two periods, 1000 l in 1000 s of pump time and 3000 l in 2000 s → flow 4000 l / 3000 s ≈ 1.33 l/s (80 l/min); a run with 4 min 10 s of pump time gives about 333 l.
+
+## Water meter per month
 
 ```mermaid
 flowchart LR
     R["water meter readings<br/>(date, m³)"] --> I["linear interpolation<br/>of the state between readings"]
     I --> MON["consumption per month<br/>and per period"]
-    RUNS["runs:<br/>waterLiters, waterAirBaseLiters,<br/>waterMembraneLiters"] --> MON
-    MON --> K["k = (meter − membrane) / cushion at k = 1"]
+    RUNS["pump time × flow"] --> MON
 ```
 
-- Every run stores the membrane part and the cushion part at `k` = 1 separately — so `k` can be computed whatever `k` was in force.
-- The suggested `k` is computed from the whole period covered by readings (not only the selected year); at least two readings are needed.
-- Months outside the reading range have no water meter value.
+- Water meter consumption in a month comes from linear interpolation of the state between readings, so a period spanning two months is split in proportion to time.
+- Next to it is the water "from pump time" in the same part of the month. There is one flow for the whole history, so differences between months show when the pump worked differently from the average.
+- Months outside the reading range have no values.
 
 ## Settings: cloud ↔ controller
 
@@ -78,7 +94,7 @@ sequenceDiagram
     U->>S: PUT /device/properties (the whole properties)
     Note over C: next pump run
     C->>S: POST /devices/register
-    S-->>C: {rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks}}
+    S-->>C: {rootId, settings: {compressor_seconds, firmware?}}
     C->>C: save in NVS (compressor time skipped while a change from /install is pending)
     Note over C: time changed on the controller's /install page
     C->>S: PUT /water-pressure-tank/settings {compressor_seconds} (every 10 s until it succeeds)
@@ -89,8 +105,8 @@ sequenceDiagram
 
 | Screen | Data | Refresh |
 |---|---|---|
-| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/runs?from=&to=` (today) | runs every 10 s |
+| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (today) | runs every 5 s, the rest on entry |
 | **Data → pump runs** | `GET /water-pressure-tank/runs?from=&to=` (month), CSV built in the browser | on month change |
 | **Data → water meter readings** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | after a change |
-| **Chart** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=`; year with meter: `GET /water-pressure-tank/meter/summary?year=` | on period change |
-| **Settings** | `GET/PUT /device/properties`; validation in the browser | on entry |
+| **Chart** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (water bars, pump time without a flow); year with meter: `GET /water-pressure-tank/meter/summary?year=` | on period change |
+| **Settings** | `GET/PUT /device/properties` (compressor time, validation in the browser), `GET /water-pressure-tank/flow` | on entry |

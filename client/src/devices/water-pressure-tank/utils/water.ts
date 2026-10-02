@@ -1,49 +1,11 @@
-// Obliczenia i formaty hydroforu: szacunek wody z prawa Boyle'a, kalkulator pojemności zbiornika,
-// daty w strefie Europe/Warsaw i eksport CSV. Używane przez wszystkie widoki hydroforu.
-import { DeviceProperties } from '../../../core/types';
-import { WaterPressureTankRun, WaterTank } from '../types';
+// Formaty hydroforu: litry, czasy i daty w strefie Europe/Warsaw, eksport CSV. Wodę i efektywny
+// czas pompy liczy serwer (pola waterLiters i pumpSeconds uruchomień).
+import { WaterPressureTankRun } from '../types';
 
-const ATMOSPHERE_BAR = 1.013;
 const TIME_ZONE = 'Europe/Warsaw';
-
-// Ten sam wzór co estimateWater w server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts
-// (zmieniać razem) i w firmware devices/water-pressure-tank/src/settings.cpp. Klient liczy tylko
-// podgląd w Ustawieniach i na głównym oknie; wartość zapisaną w uruchomieniu liczy serwer.
-// Progi presostatu są nadciśnieniem z manometru, więc wzór dodaje ciśnienie atmosferyczne.
-// Poduszka: k · V · p_atm · (1/p_d − 1/p_g); przepona: V · p0 · (1/max(p_d, p0) − 1/p_g),
-// a przy p0 ≥ p_g zbiornik przeponowy nie oddaje wody.
-export function tankWaterLiters(tank: WaterTank, pressureLow?: number, pressureHigh?: number): number {
-  const low = Number(pressureLow);
-  const high = Number(pressureHigh);
-  if (!tank.enabled || !(tank.volumeLiters > 0)) return 0;
-  if (!Number.isFinite(low) || !Number.isFinite(high) || high <= low || low < 0) return 0;
-
-  const lowAbs = low + ATMOSPHERE_BAR;
-  const highAbs = high + ATMOSPHERE_BAR;
-  if (tank.kind === 'air') {
-    return (tank.k ?? 1) * tank.volumeLiters * ATMOSPHERE_BAR * (1 / lowAbs - 1 / highAbs);
-  }
-  const prechargeAbs = (tank.precharge ?? 0) + ATMOSPHERE_BAR;
-  if (prechargeAbs >= highAbs) return 0;
-  return tank.volumeLiters * prechargeAbs * (1 / Math.max(lowAbs, prechargeAbs) - 1 / highAbs);
-}
-
-// suma z włączonych zbiorników (wyłączone dają 0 w tankWaterLiters)
-export function estimatedWaterPerRun(properties?: DeviceProperties): number {
-  return (properties?.tanks ?? []).reduce(
-    (sum, tank) => sum + tankWaterLiters(tank, properties?.pressure_low, properties?.pressure_high), 0);
-}
-
-// Pojemność walca z obwodu i wysokości [cm] w litrach: V = C² · h / (4π).
-export function cylinderLiters(circumferenceCm: number, heightCm: number): number {
-  if (!(circumferenceCm > 0) || !(heightCm > 0)) return 0;
-  return (circumferenceCm ** 2 * heightCm) / (4 * Math.PI) / 1000;
-}
 
 export const formatLiters = (value: number | null | undefined) =>
   value === null || value === undefined ? '---' : value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
-
-export const tankKindLabel = (kind: WaterTank['kind']) => kind === 'air' ? 'poduszka powietrzna' : 'przeponowy';
 
 export const formatTime = (iso?: string) =>
   iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE }) : '---';
@@ -57,7 +19,18 @@ export const formatDate = (iso?: string) =>
 const secondsBetween = (from?: string, to?: string) =>
   from && to ? Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000)) : undefined;
 
-export const pumpSeconds = (run: WaterPressureTankRun) => secondsBetween(run.pumpStart, run.pumpEnd);
+// czas pracy pompy jako „1 h 05 min”, „4 min 10 s” albo „35 s”
+export const formatDuration = (seconds: number | null | undefined) => {
+  if (seconds === null || seconds === undefined) return '---';
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = total % 60;
+  if (hours > 0) return `${hours} h ${String(minutes).padStart(2, '0')} min`;
+  if (minutes > 0) return `${minutes} min ${String(rest).padStart(2, '0')} s`;
+  return `${rest} s`;
+};
+
 export const compressorSeconds = (run: WaterPressureTankRun) => secondsBetween(run.compressorStart, run.compressorEnd);
 
 // Dzisiejsza data w Warszawie jako YYYY-MM-DD (format en-CA).
@@ -70,7 +43,12 @@ export const monthBounds = (month: string) => {
   return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
 };
 
-export const sumWater = (runs: WaterPressureTankRun[]) => runs.reduce((sum, run) => sum + (run.waterLiters ?? 0), 0);
+// suma wody; null, gdy żadne uruchomienie nie ma wody (brak przepływu)
+export const sumWater = (runs: WaterPressureTankRun[]) =>
+  runs.some((run) => run.waterLiters !== null)
+    ? runs.reduce((sum, run) => sum + (run.waterLiters ?? 0), 0)
+    : null;
+export const sumPumpSeconds = (runs: WaterPressureTankRun[]) => runs.reduce((sum, run) => sum + (run.pumpSeconds ?? 0), 0);
 
 // CSV dla Excela z polskimi ustawieniami: separator ';', przecinek dziesiętny w litrach.
 export const runsToCsv = (runs: WaterPressureTankRun[]) => {
@@ -78,9 +56,9 @@ export const runsToCsv = (runs: WaterPressureTankRun[]) => {
   const rows = runs.map((run) => [
     formatDate(run.pumpStart),
     formatTime(run.pumpStart),
-    pumpSeconds(run) ?? '',
+    run.pumpSeconds ?? '',
     compressorSeconds(run) ?? '',
-    String(run.waterLiters ?? 0).replace('.', ','),
+    run.waterLiters === null ? '' : String(run.waterLiters).replace('.', ','),
     run.timeApproximate ? 'tak' : '',
   ].join(';'));
   return [header.join(';'), ...rows].join('\n');

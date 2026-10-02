@@ -10,7 +10,7 @@ constexpr const char *DEVICE_TYPE = "water-pressure-tank";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z wersją oferowaną przez
 // chmurę (OTA). Podnieść przy każdym wydaniu, zanim zbudujesz obraz; tę samą wersję
 // wpisuje się na stronie firmware w aplikacji przy wgrywaniu pliku.
-constexpr const char *FW_VERSION = "1.2.1";
+constexpr const char *FW_VERSION = "1.3.0";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Hydrofor";
 
@@ -27,6 +27,8 @@ constexpr uint32_t COMPRESSOR_START_DELAY_MS = 1000;
 // serwera (PUT /api/device/properties i /water-pressure-tank/settings).
 constexpr uint16_t DEFAULT_COMPRESSOR_SECONDS = 30;
 constexpr uint16_t MAX_COMPRESSOR_SECONDS = 3600;
+// „Włącz” na stronie sterownika: praca do „Wyłącz”, najdłużej 30 min.
+constexpr uint16_t MANUAL_COMPRESSOR_MAX_SECONDS = 1800;
 
 // Stały adres chmury (nie ma go na stronie /install).
 constexpr const char *CLOUD_URL = "https://chpc-web.onrender.com/api/";

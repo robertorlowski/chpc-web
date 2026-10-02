@@ -69,5 +69,5 @@ Moduł odpowiada za:
 | **Root ID** (`rootId`) | identyfikator urządzenia (roli) w bazie danych; aplikacja i sterownik podają go przy każdym zapytaniu |
 | **Zgłoszenie sterownika** | zapytanie, które sterownik wysyła przy starcie; tworzy urządzenie albo zwraca istniejące |
 | **Sterownik domyślny** | sterownik otwierany po uruchomieniu aplikacji; najwyżej jeden |
-| **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, zbiorniki hydroforu) |
+| **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, czas kompresora hydroforu) |
 | **Rejestr rodzajów sterowników** | miejsce w kodzie, gdzie każdy rodzaj opisuje swoje menu, ekrany i ustawienia domyślne |

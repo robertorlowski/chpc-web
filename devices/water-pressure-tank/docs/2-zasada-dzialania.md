@@ -22,7 +22,7 @@ sequenceDiagram
     E->>S: POST /devices/register {deviceId, deviceType, name, version, ip}
     S-->>E: {rootId, settings}
     loop co 1 s, dopóki jest zasilanie
-        E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts}
+        E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts, manualCompressorS?}
     end
     Z--xE: presostat wyłącza pompę — sterownik gaśnie
 ```
@@ -37,11 +37,18 @@ stateDiagram-v2
     [*] --> Czeka: start
     Czeka --> Pracuje: 1 s po zasilaniu
     Pracuje --> Wyłączony: minął compressor_seconds
-    Wyłączony --> Pracuje: „Uruchom ponownie” (POST /restart)
-    Pracuje --> Pracuje: „Uruchom ponownie” — czas liczony od nowa
+    Wyłączony --> Pracuje: „Uruchom na N s” (POST /restart)
+    Pracuje --> Pracuje: „Uruchom na N s” — czas liczony od nowa
+    Wyłączony --> Ręcznie: „Włącz” (POST /compressor/on)
+    Pracuje --> Ręcznie: „Włącz”
+    Ręcznie --> Wyłączony: „Wyłącz” (POST /compressor/off) albo 30 min
+    Pracuje --> Wyłączony: „Wyłącz”
+    Ręcznie --> Pracuje: „Uruchom na N s”
 ```
 
-- W raporcie zostaje **pierwsze włączenie** i **ostatnie wyłączenie** oraz liczba ponownych uruchomień (`restarts`).
+- W raporcie zostaje **pierwsze włączenie** i **ostatnie wyłączenie** oraz liczba ponownych uruchomień (`restarts`; „Włącz” też się liczy).
+- **Praca ręczna** („Włącz”) trwa do „Wyłącz”, najdłużej `MANUAL_COMPRESSOR_MAX_SECONDS` = 1800 s (zabezpieczenie, gdyby nikt nie wyłączył). Jej łączny czas w uruchomieniu (`manualCompressorS`) idzie w raporcie, a chmura odejmuje go od czasu pracy pompy, bo wtedy pompa nie tłoczy wody do odbioru.
+- **„Wyłącz”** kończy od razu także zwykłą pracę po starcie.
 - Nowy czas (z chmury albo z `/install`) działa od **następnego** włączenia; bieżąca praca kończy się po starym czasie.
 - Czas 0 s = kompresor się nie włącza.
 
@@ -80,13 +87,13 @@ flowchart TD
 
 | Źródło | Kiedy | Co |
 |---|---|---|
-| chmura (odpowiedź na zgłoszenie) | każdy start | czas kompresora, progi, zbiorniki → NVS |
+| chmura (odpowiedź na zgłoszenie) | każdy start | czas kompresora → NVS |
 | `/install` → „Zapisz czas” | od razu | czas kompresora → NVS + znacznik `comp_pending`; wysyłany do chmury **przed** zgłoszeniem, a do czasu wysłania zgłoszenie nie nadpisuje go wartością z chmury |
 
-Złe ustawienia z chmury (np. czas spoza 1–3600 s) są odrzucane i zostają poprzednie. Najwyżej 4 zbiorniki.
+Złe ustawienia z chmury (np. czas spoza 1–3600 s) są odrzucane i zostają poprzednie. Nieznane pola są pomijane, więc zapis NVS sprzed wersji 1.3.0 (ze zbiornikami i progami) daje sam czas kompresora.
 
 **Konflikt 409** (zapisany Root ID należy do innego urządzenia, np. po wyczyszczeniu bazy): sterownik kasuje Root ID i zgłasza się ponownie.
 
-## Szacunek wody na stronie
+## Woda
 
-Strona główna pokazuje szacunek wody na uruchomienie liczony **tym samym wzorem** co serwer i aplikacja (`src/settings.cpp`), z ustawień zapisanych w NVS. Wzór: [moduł water-pressure-tank, zasada działania](../../../docs/moduly/water-pressure-tank/2-zasada-dzialania.md).
+Sterownik nie liczy wody (do wersji 1.3.0 strona główna pokazywała szacunek ze zbiorników). Wodę liczy chmura z czasu pracy pompy i przepływu z wodomierza: [moduł water-pressure-tank, zasada działania](../../../docs/moduly/water-pressure-tank/2-zasada-dzialania.md).

@@ -1,5 +1,4 @@
 import type { ScheduleEntry, SettingsEntry, WorkMode } from '../modules/heat-pump/types';
-import type { WaterTank } from '../modules/water-pressure-tank/types';
 
 // Typy części wspólnej: urządzenie, jego ustawienia i opis rodzaju sterownika.
 
@@ -23,10 +22,6 @@ export interface DeviceProperties {
   work_mode?: WorkMode;
   // hydrofor
   compressor_seconds?: number;
-  /** progi presostatu [bar na manometrze] */
-  pressure_low?: number;
-  pressure_high?: number;
-  tanks?: WaterTank[];
   // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600
   poll_interval_seconds?: number;
 }

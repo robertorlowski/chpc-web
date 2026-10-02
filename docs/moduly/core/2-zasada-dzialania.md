@@ -151,7 +151,7 @@ Każdy rodzaj sterownika podaje w swoim pliku `device-type` listę ekranów (śc
 
 Po zmianie sterownika ekran jest tworzony od nowa, więc nie zostają w nim dane poprzedniego sterownika.
 
-Serwer ma analogiczny rejestr: każdy rodzaj podaje ustawienia nowego urządzenia i ustawienia odsyłane przy zgłoszeniu (hydrofor: czas kompresora, progi, zbiorniki; kocioł pelletowy: `poll_interval_seconds`).
+Serwer ma analogiczny rejestr: każdy rodzaj podaje ustawienia nowego urządzenia i ustawienia odsyłane przy zgłoszeniu (hydrofor: czas kompresora; kocioł pelletowy: `poll_interval_seconds`).
 
 ## WebSocket
 

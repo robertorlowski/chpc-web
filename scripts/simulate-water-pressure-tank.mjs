@@ -33,7 +33,7 @@ console.log(`Zgłoszenie: rootId ${registration.rootId}, kompresor ${registratio
 const query = `?deviceId=${SERIAL}&rootId=${registration.rootId}`;
 
 if (args.has('--history')) {
-  // 2–5 uruchomień dziennie przez 60 dni; woda jak z ustawień domyślnych (≈ 152 l)
+  // 2–5 uruchomień dziennie przez 60 dni; wodę policzy serwer z czasu pompy i wodomierza
   await mongoose.connect(LOCAL_DB_URI);
   const runs = mongoose.connection.collection('water_pressure_tank');
   const last = await runs.find({ rootId: registration.rootId }).sort({ runId: -1 }).limit(1).toArray();
@@ -49,7 +49,7 @@ if (args.has('--history')) {
         rootId: registration.rootId, deviceType: 'water-pressure-tank', deviceId: SERIAL, runId: runId++,
         pumpStart, pumpEnd: new Date(pumpStart.getTime() + pumpSeconds * 1000),
         compressorStart: new Date(pumpStart.getTime() + 1000), compressorEnd: new Date(pumpStart.getTime() + 31000),
-        restarts: 0, waterLiters: 151.9, waterAirBaseLiters: 40.2, waterMembraneLiters: 111.7,
+        restarts: 0, manualSeconds: 0,
         timeApproximate: day % 17 === 0, lastSeenAt: new Date(pumpStart.getTime() + pumpSeconds * 1000),
         createdAt: pumpStart, updatedAt: pumpStart,
       });

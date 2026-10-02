@@ -8,12 +8,11 @@
 |---|---|
 | `routes.ts` | trasy `/water-pressure-tank/*` |
 | `device-type.ts` | wpis do rejestru: ustawienia domyślne nowego hydroforu i pole `settings` w odpowiedzi na zgłoszenie |
-| `types.ts` | `WaterTank`, `WaterTankKind`, `WaterPressureTankRun`, `WaterMeterReading` |
-| `controllers/water-pressure-tank.controller.ts` | `add`, `settings`, `runs`, `summary`, wodomierz i jego podsumowanie; granice okresów w czasie warszawskim |
-| `services/water-pressure-tank.service.ts` | walidacja i zapis wiadomości (daty z czasów względnych), `estimateWater`, podsumowania, wodomierz, sugerowane `k`, czas kompresora |
+| `types.ts` | `WaterPressureTankRun`, `WaterMeterReading` |
+| `controllers/water-pressure-tank.controller.ts` | `add`, `settings`, `runs`, `summary`, `flow`, wodomierz i jego podsumowanie; granice okresów w czasie warszawskim |
+| `services/water-pressure-tank.service.ts` | walidacja i zapis wiadomości (daty z czasów względnych), `pumpSeconds` (czas pompy bez ręcznej pracy kompresora), przepływ z wodomierza (`loadFlow`, `getFlowRate`), woda (`litersFor`), podsumowania, wodomierz, czas kompresora |
 | `models/water-pressure-tank-run.model.ts` | kolekcja `water_pressure_tank` |
 | `models/water-meter.model.ts` | kolekcja `water_meter` |
-| `models/water-tank.model.ts` | schemat zbiornika w `devices.properties.tanks` |
 
 ## Pliki — klient (`client/src/devices/water-pressure-tank`)
 
@@ -21,31 +20,35 @@
 |---|---|
 | `device-type.tsx` | wpis do rejestru: Hydrofor, Dane, Wykres, Ustawienia (bez harmonogramów) |
 | `api.ts` | `WaterPressureTankRequests` |
-| `types.ts` | zbiorniki, uruchomienia, podsumowania, wodomierz |
-| `pages/Home.tsx` | ustawienia, zbiorniki, dzisiejsze uruchomienia (co 10 s) |
+| `types.ts` | uruchomienia, przepływ (`WaterFlow`), podsumowania, wodomierz |
+| `pages/Home.tsx` | przełączniki pompy i kompresora, czas kompresora i przepływ, dzisiejsze uruchomienia (co 5 s) |
 | `pages/Data.tsx` | zakładki: uruchomienia z miesiąca (CSV) i odczyty wodomierza |
-| `pages/Chart.tsx` | wykres dnia / miesiąca / roku, rok z wodomierzem i sugerowanym `k` |
-| `pages/Settings.tsx` | kompresor, progi, zbiorniki, kalkulator wody na cykl, dane sterownika |
+| `pages/Chart.tsx` | wykres dnia / miesiąca / roku (bez przepływu słupki czasu pompy), rok z wodomierzem i przepływem |
+| `pages/Settings.tsx` | czas kompresora, przepływ pompy, dane sterownika |
+| `components/FlowDetails.tsx` | przepływ w l/min i z czego go policzono albo instrukcja (dwa odczyty wodomierza); na widoku głównym i w Ustawieniach |
 | `pages/style.css` | style widoków hydroforu |
-| `utils/water.ts` | wzór wody (jak na serwerze i w firmware), objętość walca, daty w Warszawie, CSV |
+| `utils/water.ts` | formaty (litry, czas pompy jako „4 min 10 s”), daty w Warszawie, sumy, CSV |
 
 ## API
 
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
-| `POST /water-pressure-tank/add` | sterownik | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}`; sam `deviceId` wystarcza; 404/409 jak w core; odpowiedź `{}` (201); złe dane 400 |
+| `POST /water-pressure-tank/add` | sterownik | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, manualCompressorS?, queued?}`; sam `deviceId` wystarcza; 404/409 jak w core; odpowiedź `{}` (201); złe dane 400 |
 | `PUT /water-pressure-tank/settings` | sterownik | `{compressor_seconds}` (pełne sekundy 1–3600, inaczej 400); zmienia tylko to pole; 404 dla innego rodzaju urządzenia |
-| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | aplikacja | uruchomienia z dni (Warszawa, `to` włącznie), z polami `inProgress` i `compressorRunning` |
+| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | aplikacja | uruchomienia z dni (Warszawa, `to` włącznie), z polami `inProgress`, `compressorRunning`, `pumpSeconds` (czas pompy bez ręcznej pracy kompresora) i `waterLiters` (`null` bez przepływu) |
 | `GET /water-pressure-tank/runs?fromTime=ISO&toTime=ISO` | — | uruchomienia z okresu (obecnie nieużywane przez aplikację) |
-| `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | aplikacja | woda w godzinach (24), dniach miesiąca albo miesiącach (12); puste przedziały z zerami |
+| `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | aplikacja | `{period, date, buckets, flow}`; kubełki `{key, pumpSeconds, waterLiters \| null, runs}` w godzinach (24), dniach miesiąca albo miesiącach (12); puste przedziały z zerami |
+| `GET /water-pressure-tank/flow` | aplikacja | przepływ pompy `{litersPerMinute \| null, periods, meterLiters, pumpSeconds}`: liczba użytych okresów, suma litrów z wodomierza i czasu pompy |
 | `GET /water-pressure-tank/meter` | aplikacja | odczyty od najstarszego |
 | `POST /water-pressure-tank/meter` | aplikacja | `{readAt, valueM3, note?}` |
 | `DELETE /water-pressure-tank/meter/:id` | aplikacja | usunięcie; 404 dla nieznanego albo cudzego |
-| `GET /water-pressure-tank/meter/summary?year=YYYY` | aplikacja | zużycie w okresach i miesiącach, porównanie z szacunkiem, `suggestedK`; < 2 odczytów → puste |
+| `GET /water-pressure-tank/meter/summary?year=YYYY` | aplikacja | `{year, periods, months, flow}`; okresy `{from, to, meterLiters, pumpSeconds, estimatedLiters \| null}`, miesiące `{month, meterLiters, estimatedLiters}` (`null` poza zakresem odczytów); < 2 odczytów → puste listy |
 
-Ustawienia hydroforu zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`) zwraca `settings`: `compressor_seconds`, `pressure_low`, `pressure_high`, `tanks`.
+Ustawienia hydroforu zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`) zwraca `settings`: `{compressor_seconds}` i, gdy jest oferta OTA, `firmware`.
 
-Walidacja wiadomości: `runId` — liczba całkowita ≥ 0; `pumpRunS` — 0 do 24 h; pozostałe czasy ≥ 0.
+Walidacja wiadomości: `runId` — liczba całkowita ≥ 0; `pumpRunS` — 0 do 24 h; pozostałe czasy (także `manualCompressorS`) ≥ 0.
+
+**Przepływ i woda** (`loadFlow`): odczyty wodomierza od najstarszego wyznaczają okresy; w każdym suma `pumpSeconds` uruchomień z `pumpStart` w okresie. Do przepływu wchodzą okresy z czasem pompy > 0 i przyrostem wodomierza ≥ 0: `l/s = Σ litrów / Σ sekund`. Woda uruchomienia, kubełka albo miesiąca = `pumpSeconds × l/s`, zaokrąglona do 0,1 l. Podsumowania liczą czas pompy w agregacji MongoDB tym samym wyrażeniem (`PUMP_SECONDS_EXPR`).
 
 ## Model danych
 
@@ -56,19 +59,18 @@ Walidacja wiadomości: `runId` — liczba całkowita ≥ 0; `pumpRunS` — 0 do 
 | `rootId`, `deviceType`, `deviceId`, `runId` | identyfikacja (`runId` nadaje sterownik: licznik w NVS, losowy start) |
 | `pumpStart`, `pumpEnd` | start i koniec pracy pompy |
 | `compressorStart`, `compressorEnd` | włączenie i ostatnie wyłączenie kompresora |
-| `restarts` | liczba ręcznych ponownych uruchomień kompresora |
-| `waterLiters` | szacunek wody z ustawień w chwili utworzenia rekordu |
-| `waterAirBaseLiters`, `waterMembraneLiters` | części szacunku: poduszka przy `k` = 1 i przepona (do sugerowanego `k`) |
+| `restarts` | liczba ręcznych włączeń kompresora („Uruchom na N s” i „Włącz”) |
+| `manualSeconds` | łączny czas ręcznego włączenia kompresora („Włącz”) [s]; odejmowany od czasu pompy |
 | `timeApproximate` | daty z chwili przyjęcia (uruchomienie z kolejki) |
 | `lastSeenAt` | ostatnia wiadomość (uruchomienie „w toku” < 5 s) |
-| `compressorRunning` | kompresor włączony według ostatniej wiadomości (`compressorStartS` bez `compressorEndS`); potrzebne po „Uruchom ponownie”, bo `compressorEnd` zostaje z poprzedniego wyłączenia. `GET …/runs` zwraca je tylko przy `inProgress` |
+| `compressorRunning` | kompresor włączony według ostatniej wiadomości (`compressorStartS` bez `compressorEndS`); potrzebne po „Uruchom na N s”, bo `compressorEnd` zostaje z poprzedniego wyłączenia. `GET …/runs` zwraca je tylko przy `inProgress` |
 | `createdAt`, `updatedAt` | znaczniki zapisu |
 
-Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`.
+Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`. Wody w rekordzie nie ma (do wersji 1.3.0 były tu `waterLiters`, `waterAirBaseLiters` i `waterMembraneLiters`; w starszych dokumentach zostają, ale nie są używane, a `waterLiters` w odpowiedzi `GET …/runs` jest zawsze liczone od nowa).
 
 **`water_meter`** — odczyty wodomierza: `rootId`, `readAt` (aplikacja zapisuje datę jako południe czasu lokalnego), `valueM3`, `note`; indeks `{rootId, readAt}`.
 
-**`devices.properties`** hydroforu: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high` [bar na manometrze], `tanks[]`: `{name, kind: 'air' | 'membrane', volumeLiters, enabled, precharge, k}`.
+**`devices.properties`** hydroforu: `compressor_seconds` (1–3600). Dawne pola `pressure_low`, `pressure_high` i `tanks[]` (do wersji 1.3.0) nie są już w schemacie.
 
 ## Stałe
 
@@ -76,18 +78,17 @@ Indeksy: unikalny `{rootId, runId}` i `{rootId, pumpStart}`.
 |---|---|---|
 | `RUN_IN_PROGRESS_MS` | 5 s | serwis |
 | `MAX_COMPRESSOR_SECONDS` | 3600 | serwis, schemat `properties`, firmware |
-| ciśnienie atmosferyczne | 1,013 bar | serwis, `utils/water.ts`, firmware `settings.cpp` |
-| ustawienia domyślne | 30 s; 2–4 bar; „Ocynkowany” 300 l `k` = 1; „Przeponowy” 300 l `p0` = 1,8 | `device-type.ts` |
+| ustawienia domyślne | `compressor_seconds` = 30 | `device-type.ts` |
 
 ## Testy i narzędzia
 
 ```bash
-npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 30 testów (serwer razem: 81)
+npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 31 testów (serwer razem: 96)
 node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # symulator sterownika (npm run local)
-node scripts/seed-local.mjs       # dane demo: kilka miesięcy uruchomień i odczyty wodomierza
+node scripts/seed-local.mjs       # dane demo: kilka miesięcy uruchomień i odczyty wodomierza („rzeczywisty” przepływ 1 l/s)
 ```
 
-`server/test/water-pressure-tank.test.ts` sprawdza: wzór wody i zgodność ze wzorem klienta, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, pracę kompresora (także po ponownym uruchomieniu), podsumowania, wodomierz i `k`, sterownik domyślny.
+`server/test/water-pressure-tank.test.ts` sprawdza: czas pompy bez ręcznej pracy kompresora, przepływ z wodomierza i wodę każdego uruchomienia, średnią ważoną czasem z pominięciem okresów bez pompy, brak wody przed dwoma odczytami, zgłoszenie z ustawieniami, ustawienia i ich walidację, czas kompresora ze sterownika (zmiana jednego pola, 404, 409), daty z czasów względnych, kolejkę i czas przybliżony, „w toku”, pracę kompresora (także po ponownym uruchomieniu), zapis `manualCompressorS`, podsumowania, wodomierz, sterownik domyślny.
 
 ## Znane problemy
 
@@ -95,5 +96,6 @@ node scripts/seed-local.mjs       # dane demo: kilka miesięcy uruchomień i odc
 - **`GET /runs?fromTime=&toTime=`** i `getRunsBetween` w kliencie są nieużywane (po usunięciu filtra „między odczytami”).
 - **Hydrofor dostaje w `properties` `work_mode: CWU`** z wartości domyślnej schematu — pole jest nieużywane.
 - **`PUT /device/properties` podmienia całe `properties`** — aplikacja wysyła komplet pól hydroforu; inny klient API musi zrobić to samo.
-- **Kalkulator wody** ma wspólne pola dla wszystkich zbiorników (otwarty jest jeden naraz).
+- **Woda zależy od stałego przepływu pompy.** Przepływ jest jeden dla całej historii; zmiana pompy albo zatkany filtr zmieniają go dopiero w średniej z kolejnych odczytów.
+- **Każde zapytanie o wodę czyta wszystkie odczyty wodomierza i uruchomienia między pierwszym a ostatnim** (`loadFlow`), bez pamięci podręcznej.
 - **Firmware i strony sterownika nie mają testów na sprzęcie** — sprawdzane są w emulatorze i testach `native`.

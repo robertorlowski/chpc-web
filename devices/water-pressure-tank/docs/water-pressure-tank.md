@@ -1,6 +1,8 @@
 # Hydrofor — sterownik `water-pressure-tank`
 
 > **Specyfikacja (historia decyzji).** Aktualna dokumentacja: [1. Opis biznesowy](1-opis-biznesowy.md) · [2. Zasada działania](2-zasada-dzialania.md) · [3. Dokumentacja techniczna](3-dokumentacja-techniczna.md), a strona serwerowa w [module water-pressure-tank](../../../docs/moduly/water-pressure-tank/1-opis-biznesowy.md). Gdy się różnią, obowiązują tamte dokumenty.
+>
+> **Zmiana w wersji 1.3.0 (2026-10-02).** Opisane niżej zbiorniki w ustawieniach (`tanks`, rodzaje `air`/`membrane`, `k`, `precharge`/`p0`), progi presostatu (`pressure_low`, `pressure_high`), szacunek wody z prawa Boyle'a, sugerowane `k` i kalkulator w Ustawieniach zostały usunięte. Woda jest teraz liczona przy odczycie jako czas pracy pompy (bez ręcznej pracy kompresora) × przepływ pompy wyliczony z odczytów wodomierza: [moduł water-pressure-tank, zasada działania](../../../docs/moduly/water-pressure-tank/2-zasada-dzialania.md#woda-z-czasu-pracy-pompy-i-wodomierza). Ustawienia hydroforu to tylko `compressor_seconds`. Strona sterownika ma przyciski „Włącz”, „Wyłącz” i „Uruchom na N s”. Treść poniżej zostaje jako historia decyzji.
 
 Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2026-09-28, wersja 4 (zatwierdzona do implementacji).
 

@@ -112,20 +112,9 @@ if (WITH_PRODUCTION) {
 let seed = 20260601;
 const random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 
-const TANK_PROPERTIES = {
-  compressor_seconds: 30,
-  pressure_low: 2,
-  pressure_high: 4,
-  tanks: [
-    { name: 'Ocynkowany', kind: 'air', volumeLiters: 300, enabled: true, k: 1 },
-    { name: 'Przeponowy', kind: 'membrane', volumeLiters: 300, enabled: true, precharge: 1.8 },
-  ],
-  work_mode: 'CWU',
-};
-// szacunek dla tych ustawień (estimateWater): poduszka 40,2 l przy k = 1, przepona 111,7 l
-const ESTIMATE = { waterLiters: 152, waterAirBaseLiters: 40.2, waterMembraneLiters: 111.7 };
-// „rzeczywista” poduszka ma mniej powietrza (k ≈ 0,82), więc wodomierz pokaże mniej niż szacunek
-const REAL_K = 0.82;
+const TANK_PROPERTIES = { compressor_seconds: 30, work_mode: 'CWU' };
+// „rzeczywisty” przepływ pompy [l/s]; serwer wyliczy go z odczytów wodomierza (ok. 60 l/min)
+const REAL_FLOW = 1.0;
 
 const tankRootId = new mongoose.Types.ObjectId();
 await db.collection('devices').insertOne({
@@ -161,12 +150,12 @@ for (const date = new Date(start); date <= now; date.setDate(date.getDate() + 1)
       pumpStart, pumpEnd: new Date(pumpStart.getTime() + pumpSeconds * 1000),
       compressorStart: new Date(pumpStart.getTime() + 1000),
       compressorEnd: new Date(pumpStart.getTime() + Math.min(compressorEnd, pumpSeconds) * 1000),
-      restarts, ...ESTIMATE, timeApproximate: approximate,
+      restarts, manualSeconds: 0, timeApproximate: approximate,
       lastSeenAt: new Date(pumpStart.getTime() + pumpSeconds * 1000),
       createdAt: pumpStart, updatedAt: new Date(pumpStart.getTime() + pumpSeconds * 1000),
     });
     const key = pumpStart.toISOString().slice(0, 10);
-    const real = (ESTIMATE.waterMembraneLiters + REAL_K * ESTIMATE.waterAirBaseLiters) * (0.95 + random() * 0.1);
+    const real = pumpSeconds * REAL_FLOW * (0.95 + random() * 0.1);
     realWaterByDay.set(key, (realWaterByDay.get(key) ?? 0) + real);
   }
 }

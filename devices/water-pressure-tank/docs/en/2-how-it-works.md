@@ -22,7 +22,7 @@ sequenceDiagram
     E->>S: POST /devices/register {deviceId, deviceType, name, version, ip}
     S-->>E: {rootId, settings}
     loop every 1 s while powered
-        E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts}
+        E->>S: POST /water-pressure-tank/add {runId, pumpRunS, compressorStartS, compressorEndS, restarts, manualCompressorS?}
     end
     Z--xE: pressure switch stops the pump — controller goes dark
 ```
@@ -37,11 +37,18 @@ stateDiagram-v2
     [*] --> Waiting: start
     Waiting --> Running: 1 s after power-on
     Running --> Off: compressor_seconds elapsed
-    Off --> Running: "run again" (POST /restart)
-    Running --> Running: "run again" — time counted anew
+    Off --> Running: "Uruchom na N s" (POST /restart)
+    Running --> Running: "Uruchom na N s" — time counted anew
+    Off --> Manual: "Włącz" (POST /compressor/on)
+    Running --> Manual: "Włącz"
+    Manual --> Off: "Wyłącz" (POST /compressor/off) or 30 min
+    Running --> Off: "Wyłącz"
+    Manual --> Running: "Uruchom na N s"
 ```
 
-- The report keeps the **first start** and the **last stop**, plus the number of restarts (`restarts`).
+- The report keeps the **first start** and the **last stop**, plus the number of restarts (`restarts`; "Włącz" counts too).
+- **Manual operation** ("Włącz", on) lasts until "Wyłącz" (off), at most `MANUAL_COMPRESSOR_MAX_SECONDS` = 1800 s (a safeguard in case nobody switches it off). Its total time in the run (`manualCompressorS`) goes into the report, and the cloud subtracts it from the pump run time, because the pump does not deliver water to consumers during it.
+- **"Wyłącz"** also ends the normal run after start at once.
 - A new time (from the cloud or `/install`) applies from the **next** start; the current run ends after the old time.
 - Time 0 s = the compressor does not start.
 
@@ -80,13 +87,13 @@ flowchart TD
 
 | Source | When | What |
 |---|---|---|
-| cloud (registration reply) | every start | compressor time, thresholds, tanks → NVS |
+| cloud (registration reply) | every start | compressor time → NVS |
 | `/install` → "save time" | immediately | compressor time → NVS + `comp_pending` flag; sent to the cloud **before** registration, and until then registration does not overwrite it with the cloud value |
 
-Invalid settings from the cloud (e.g. a time outside 1–3600 s) are rejected and the previous ones stay. At most 4 tanks.
+Invalid settings from the cloud (e.g. a time outside 1–3600 s) are rejected and the previous ones stay. Unknown fields are skipped, so an NVS record from before version 1.3.0 (with tanks and thresholds) yields just the compressor time.
 
 **409 conflict** (the stored Root ID belongs to another device, e.g. after the database was cleared): the controller drops its Root ID and registers again.
 
-## Water estimate on the page
+## Water
 
-The main page shows the water estimate per run using **the same formula** as the server and the application (`src/settings.cpp`), from the settings stored in NVS. Formula: [water-pressure-tank module, how it works](../../../../docs/en/moduly/water-pressure-tank/2-how-it-works.md).
+The controller does not calculate water (until version 1.3.0 the main page showed an estimate from the tanks). The cloud calculates water from the pump run time and the flow from the water meter: [water-pressure-tank module, how it works](../../../../docs/en/moduly/water-pressure-tank/2-how-it-works.md).

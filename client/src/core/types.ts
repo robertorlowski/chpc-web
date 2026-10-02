@@ -1,6 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
 import type { WorkMode } from '../devices/heat-pump/types';
-import type { WaterTank } from '../devices/water-pressure-tank/types';
 
 // Typy części wspólnej: urządzenie i jego ustawienia oraz opis rodzaju sterownika dla rejestru
 // (device-types.tsx). Odpowiadają dokumentom kolekcji devices (GET /api/devices, /api/device/properties).
@@ -22,9 +21,6 @@ export type DeviceProperties = {
   work_mode?: WorkMode;
   // hydrofor
   compressor_seconds?: number;
-  pressure_low?: number;
-  pressure_high?: number;
-  tanks?: WaterTank[];
   // kocioł pelletowy: co ile sterownik odpytuje piec, 30–3600 s (domyślnie 300)
   poll_interval_seconds?: number;
 };

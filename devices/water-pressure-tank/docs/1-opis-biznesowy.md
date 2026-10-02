@@ -10,9 +10,9 @@ Sterownik (ESP32 DevKit z modułem WROOM-32, nazwa w aplikacji „Hydrofor”):
 
 - przy **każdym uruchomieniu pompy** raz włącza **kompresor** na ustawiony czas (domyślnie 30 s);
 - zapisuje, **kiedy i jak długo** pracowały pompa i kompresor, i wysyła to do chmury;
-- pozwala z telefonu (Wi-Fi sterownika) **zobaczyć stan** i **uruchomić kompresor ponownie**.
+- pozwala z telefonu (Wi-Fi sterownika) **zobaczyć stan** i **sterować kompresorem**: włączyć go do wyłączenia (najdłużej 30 min), wyłączyć albo uruchomić na ustawiony czas.
 
-Chmura z tych danych **szacuje zużytą wodę** i porównuje ją z odczytami wodomierza — opis w [module water-pressure-tank](../../../docs/moduly/water-pressure-tank/1-opis-biznesowy.md).
+Chmura z czasu pracy pompy i odczytów wodomierza **liczy zużytą wodę**: opis w [module water-pressure-tank](../../../docs/moduly/water-pressure-tank/1-opis-biznesowy.md). Ręczna praca kompresora jest odejmowana od czasu pompy.
 
 ## Najważniejsza cecha: sterownik żyje tylko w czasie pracy pompy
 
@@ -37,15 +37,18 @@ W zasięgu sterownika działa jego sieć Wi-Fi (adres `10.11.16.1`), a w sieci d
 |---|---|
 | ![Strona główna](img/strona-glowna-telefon.png) | ![Instalacja](img/instalacja-telefon.png) |
 
-*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne).*
+*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne); strona główna sprzed wersji 1.3.0, jeszcze z kartą „Zbiorniki” i jednym przyciskiem.*
 
-- **Strona główna:** kompresor włączony/wyłączony, czas do wyłączenia, czas pracy pompy, zbiorniki z szacunkiem wody, przycisk „Uruchom kompresor ponownie”.
+- **Strona główna:** stan kompresora („WŁĄCZONY”, „WŁĄCZONY RĘCZNIE” albo „WYŁĄCZONY”), czas do wyłączenia, czas pracy kompresora i pompy oraz przyciski:
+  - **„Włącz”**: kompresor pracuje do „Wyłącz”, najdłużej 30 min; w tym czasie pod stanem jest duże odliczanie `mm:ss`;
+  - **„Wyłącz”** (czerwony): wyłącza kompresor od razu, także w zwykłej pracy po starcie;
+  - **„Uruchom na N s”** (N = czas kompresora z ustawień): włącza kompresor na ustawiony czas (dawne „Uruchom kompresor ponownie”).
 - **Instalacja** (login i hasło): Wi-Fi, czas pracy kompresora, SN, Root ID, stan połączenia z chmurą.
 
 ## Dla kogo
 
 - **Właściciel** — patrzy na zużycie wody w aplikacji; na stronę sterownika zagląda, gdy chce dobić powietrze.
-- **Instalator** — podłącza sterownik, wpisuje Wi-Fi, ustawia zworkę przekaźnika, wpisuje progi i zbiorniki w aplikacji.
+- **Instalator** — podłącza sterownik, wpisuje Wi-Fi, ustawia zworkę przekaźnika, w razie potrzeby zmienia czas kompresora.
 
 ## Przed pierwszym wdrożeniem (lista kontrolna)
 
@@ -55,10 +58,8 @@ Firmware **nie był jeszcze wgrywany na płytkę** — sprawdzony testami na PC 
 2. **`src/secrets.h`** (lokalny, poza gitem, wzór `secrets.example.h`): nazwa i hasło punktu dostępowego (obecnie „Piwnica” bez hasła = sieć otwarta), domyślne Wi-Fi, login `/install`.
 3. **Moduł przekaźnika:** zamontowany jest moduł sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`) z rezystorem 10 kΩ z `IN` do `3V3` ESP32; bez niego kompresor może „kliknąć” w chwili podania zasilania. Moduł ze zworką H (stan wysoki) wymaga rezystora do masy i `RELAY_ACTIVE_HIGH = true` w `src/firmware.hpp`.
 4. **Wgranie:** `pio run -d devices/water-pressure-tank -t upload` przez USB płytki albo przejściówkę USB-TTL ([część 3](3-dokumentacja-techniczna.md#budowanie-testy-wgranie)); kolejne wersje przez sieć.
-5. **Po pierwszym uruchomieniu pompy**, w aplikacji → Ustawienia:
-   - progi presostatu odczytane z manometru przy starcie i zatrzymaniu pompy;
-   - ciśnienie wstępne `p0` zbiornika przeponowego (manometr przy spuszczonej wodzie);
-   - pierwsze odczyty wodomierza (Dane → Odczyty wodomierza), żeby dostać podpowiedź `k`;
+5. **Po pierwszym uruchomieniu pompy**, w aplikacji:
+   - pierwsze odczyty wodomierza (Dane → Odczyty wodomierza): od drugiego aplikacja zna przepływ pompy i liczy wodę;
    - opcjonalnie gwiazdka „domyślny” na liście sterowników.
 
 ## Ograniczenia
@@ -74,7 +75,7 @@ Firmware **nie był jeszcze wgrywany na płytkę** — sprawdzony testami na PC 
 |---|---|
 | **Uruchomienie** (`runId`) | jedno włączenie pompy przez presostat = jeden start sterownika |
 | **Presostat** | wyłącznik ciśnieniowy; progi dolny i górny w barach na manometrze |
-| **Poduszka powietrzna** | powietrze w zbiorniku ocynkowanym, dobijane kompresorem; współczynnik `k` |
-| **Przepona, `p0`** | worek w zbiorniku przeponowym; ciśnienie wstępne powietrza |
+| **Poduszka powietrzna** | powietrze w zbiorniku ocynkowanym, dobijane kompresorem |
 | **Kolejka** | uruchomienia bez sieci, wysyłane przy kolejnych startach |
-| **Ponowne uruchomienie** | ręczne włączenie kompresora ze strony sterownika (`restarts`) |
+| **Ponowne uruchomienie** | ręczne włączenie kompresora ze strony sterownika („Uruchom na N s” albo „Włącz”; `restarts`) |
+| **Ręczna praca kompresora** | czas po „Włącz” do wyłączenia (`manualCompressorS`); chmura odejmuje go od czasu pompy |

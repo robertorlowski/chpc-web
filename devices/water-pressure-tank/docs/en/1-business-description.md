@@ -10,9 +10,9 @@ The controller (ESP32 DevKit with the WROOM-32 module, named "Hydrofor" in the a
 
 - at **every pump start** switches the **compressor** on once for the configured time (30 s by default);
 - records **when and how long** the pump and the compressor ran, and sends it to the cloud;
-- lets you **see the state** and **run the compressor again** from a phone (over the controller's Wi-Fi).
+- lets you **see the state** and **control the compressor** from a phone (over the controller's Wi-Fi): switch it on until switched off (30 min at most), switch it off, or run it for the configured time.
 
-From this data the cloud **estimates the water used** and compares it with water meter readings; see the [water-pressure-tank module](../../../../docs/en/moduly/water-pressure-tank/1-business-description.md).
+From the pump run time and water meter readings the cloud **calculates the water used**; see the [water-pressure-tank module](../../../../docs/en/moduly/water-pressure-tank/1-business-description.md). Manual compressor operation is subtracted from the pump time.
 
 ## Key property: the controller lives only while the pump runs
 
@@ -37,15 +37,18 @@ Near the controller its own Wi-Fi network is available (address `10.11.16.1`); o
 |---|---|
 | ![Main page](../img/strona-glowna-telefon.png) | ![Installation](../img/instalacja-telefon.png) |
 
-*Screenshots from the controller page emulator (the real HTML from the firmware, demo data).*
+*Screenshots from the controller page emulator (the real HTML from the firmware, demo data); the main page is from before version 1.3.0, still with the "Zbiorniki" (tanks) card and a single button.*
 
-- **Main page:** compressor on/off, time left, pump run time, tanks with the water estimate, "run the compressor again" button.
+- **Main page:** compressor state ("WŁĄCZONY", "WŁĄCZONY RĘCZNIE" or "WYŁĄCZONY"), time left, compressor and pump run time, and buttons:
+  - **"Włącz"** (on): the compressor runs until "Wyłącz", 30 min at most; meanwhile a large `mm:ss` countdown is shown below the state;
+  - **"Wyłącz"** (off, red): switches the compressor off at once, also during the normal run after start;
+  - **"Uruchom na N s"** (run for N s, N = compressor time from the settings): runs the compressor for the configured time (formerly "Uruchom kompresor ponownie").
 - **Installation** (login and password): Wi-Fi, compressor run time, SN, Root ID, cloud connection state.
 
 ## Who it is for
 
 - **The owner** — looks at water use in the application; opens the controller page to top up air.
-- **The installer** — wires the controller, enters Wi-Fi, sets the relay jumper, enters thresholds and tanks in the application.
+- **The installer** — wires the controller, enters Wi-Fi, sets the relay jumper, changes the compressor time if needed.
 
 ## Before the first deployment (checklist)
 
@@ -55,10 +58,8 @@ The firmware **has not been flashed onto a board yet**; it was checked with PC t
 2. **`src/secrets.h`** (local, outside git, template `secrets.example.h`): access point name and password (currently "Piwnica" without a password = open network), default Wi-Fi, `/install` login.
 3. **Relay module:** the installed module is active-low (`RELAY_ACTIVE_HIGH = false`) with a 10 kΩ resistor from `IN` to the ESP32 `3V3`; without it the compressor may "click" when power is applied. A module with jumper H (active-high) needs a resistor to ground and `RELAY_ACTIVE_HIGH = true` in `src/firmware.hpp`.
 4. **Flash:** `pio run -d devices/water-pressure-tank -t upload` through the board USB or a USB-TTL adapter ([part 3](3-technical-documentation.md#build-tests-flashing)); later versions over the network.
-5. **After the first pump start**, in the application → Settings:
-   - pressure switch thresholds read from the gauge when the pump starts and stops;
-   - pre-charge `p0` of the membrane tank (gauge with the water drained);
-   - first water meter readings (Data → Water meter readings) to get the suggested `k`;
+5. **After the first pump start**, in the application:
+   - first water meter readings (Data → Water meter readings): from the second one on the application knows the pump flow and calculates water;
    - optionally the "default" star on the controller list.
 
 ## Limitations
@@ -74,7 +75,7 @@ The firmware **has not been flashed onto a board yet**; it was checked with PC t
 |---|---|
 | **Run** (`runId`) | one pump start by the pressure switch = one controller start |
 | **Pressure switch** | switches on pressure; lower and upper thresholds in gauge bar |
-| **Air cushion** | air in the galvanised tank, topped up by the compressor; factor `k` |
-| **Membrane, `p0`** | bladder in the membrane tank; air pre-charge pressure |
+| **Air cushion** | air in the galvanised tank, topped up by the compressor |
 | **Queue** | runs without a network, sent at later starts |
-| **Restart** | manual compressor run from the controller page (`restarts`) |
+| **Restart** | manual compressor start from the controller page ("Uruchom na N s" or "Włącz"; `restarts`) |
+| **Manual compressor time** | time from "Włącz" until switched off (`manualCompressorS`); the cloud subtracts it from the pump time |

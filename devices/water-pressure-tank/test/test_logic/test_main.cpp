@@ -1,6 +1,6 @@
 // Testy native (pio test -e native) logiki hydroforu niezależnej od sprzętu:
-// kompresor, oferta OTA, czas z /install, ustawienia, szacunek wody (te same przykłady co
-// test serwera), JSON wysyłki i kolejka NVS na atrapie. Pliki .cpp z src są
+// kompresor (także włączenie ręczne i jego czas), oferta OTA, czas z /install, ustawienia,
+// JSON wysyłki i kolejka NVS na atrapie. Pliki .cpp z src są
 // dołączane bezpośrednio, bo środowisko native nie buduje src.
 #include <unity.h>
 
@@ -41,14 +41,10 @@ public:
   }
 };
 
-Settings twoTanks()
+Settings defaultSettings()
 {
   Settings settings;
-  parseSettingsText(
-    R"({"compressor_seconds":30,"pressure_low":2,"pressure_high":4,"tanks":[
-      {"name":"Ocynkowany","kind":"air","volumeLiters":300,"enabled":true,"k":1},
-      {"name":"Przeponowy","kind":"membrane","volumeLiters":300,"enabled":true,"precharge":1.8}]})",
-    settings);
+  parseSettingsText(R"({"compressor_seconds":30})", settings);
   return settings;
 }
 
@@ -89,7 +85,7 @@ void test_compressor_restart_counts_from_now_and_keeps_first_start()
 
 void test_new_compressor_time_applies_from_the_next_run()
 {
-  Settings settings = twoTanks();
+  Settings settings = defaultSettings();
   Compressor compressor;
   compressor.start(1000, settings.compressorSeconds);
   // ustawienia z chmury przychodzą w trakcie pracy
@@ -113,21 +109,62 @@ void test_local_compressor_time_applies_from_the_next_start_including_restart()
   TEST_ASSERT_TRUE(compressor.update(50000));
 }
 
+void test_manual_compressor_runs_until_stopped()
+{
+  Compressor compressor;
+  compressor.start(1000, 30);
+  compressor.update(31000);
+  compressor.startManual(40000, 1800);
+  TEST_ASSERT_TRUE(compressor.manual());
+  TEST_ASSERT_EQUAL_INT32(-1, compressor.lastEndS());
+  // dłużej niż zwykły czas kompresora
+  TEST_ASSERT_FALSE(compressor.update(400000));
+  TEST_ASSERT_TRUE(compressor.stop(500000));
+  TEST_ASSERT_FALSE(compressor.running());
+  TEST_ASSERT_FALSE(compressor.manual());
+  TEST_ASSERT_EQUAL_INT32(500, compressor.lastEndS());
+  TEST_ASSERT_EQUAL_INT32(1, compressor.firstStartS());
+  TEST_ASSERT_EQUAL_UINT16(1, compressor.restarts());
+  // wyłączony już nie „wyłącza się” drugi raz
+  TEST_ASSERT_FALSE(compressor.stop(510000));
+}
+
+void test_manual_compressor_stops_after_the_limit()
+{
+  Compressor compressor;
+  compressor.start(1000, 30);
+  compressor.startManual(5000, 1800);
+  TEST_ASSERT_FALSE(compressor.update(5000 + 1800 * 1000UL - 1));
+  TEST_ASSERT_TRUE(compressor.update(5000 + 1800 * 1000UL));
+  TEST_ASSERT_FALSE(compressor.manual());
+  // następne ponowne uruchomienie znów na zwykły czas
+  compressor.restart(2000000);
+  TEST_ASSERT_FALSE(compressor.manual());
+  TEST_ASSERT_EQUAL_UINT16(30, compressor.seconds());
+}
+
+void test_stop_ends_automatic_run_early()
+{
+  Compressor compressor;
+  compressor.start(1000, 30);
+  TEST_ASSERT_TRUE(compressor.stop(11000));
+  TEST_ASSERT_EQUAL_INT32(11, compressor.lastEndS());
+  TEST_ASSERT_FALSE(compressor.update(31000));
+}
+
 // --- ustawienia i woda ---
 
 void test_cloud_settings_keep_unsent_local_compressor_time()
 {
-  Settings settings = twoTanks();
+  Settings settings = defaultSettings();
   settings.compressorSeconds = 50;
+  // dawne pola (progi, zbiorniki) w odpowiedzi chmury są pomijane
   const char *cloud = R"({"compressor_seconds":30,"pressure_low":1.5,"pressure_high":3.5,"tanks":[]})";
   JsonDocument json;
   deserializeJson(json, cloud);
 
   TEST_ASSERT_TRUE(applyCloudSettings(json.as<JsonVariantConst>(), settings, true));
   TEST_ASSERT_EQUAL_UINT16(50, settings.compressorSeconds);
-  // pozostałe ustawienia z chmury są przyjmowane
-  TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.5f, settings.pressureLow);
-  TEST_ASSERT_EQUAL_UINT8(0, settings.tankCount);
 
   TEST_ASSERT_TRUE(applyCloudSettings(json.as<JsonVariantConst>(), settings, false));
   TEST_ASSERT_EQUAL_UINT16(30, settings.compressorSeconds);
@@ -146,42 +183,25 @@ void test_compressor_time_from_the_install_form()
   TEST_ASSERT_EQUAL_STRING(R"({"compressor_seconds":45})", buildCompressorSecondsBody(45).c_str());
 }
 
-void test_estimate_for_both_tank_kinds()
-{
-  Settings settings = twoTanks();
-  TEST_ASSERT_EQUAL_UINT8(2, settings.tankCount);
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 40.2f, tankWaterLiters(settings.tanks[0], 2, 4));
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 111.7f, tankWaterLiters(settings.tanks[1], 2, 4));
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 151.9f, estimatedWaterLiters(settings));
-}
-
-void test_disabled_tank_is_not_counted()
-{
-  Settings settings = twoTanks();
-  settings.tanks[1].enabled = false;
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 40.2f, estimatedWaterLiters(settings));
-  settings.tanks[0].k = 0.5f;
-  TEST_ASSERT_FLOAT_WITHIN(0.5f, 20.1f, estimatedWaterLiters(settings));
-}
-
 void test_invalid_settings_are_rejected_and_old_ones_kept()
 {
-  Settings settings = twoTanks();
+  Settings settings = defaultSettings();
   TEST_ASSERT_FALSE(parseSettingsText(R"({"compressor_seconds":0})", settings));
   TEST_ASSERT_FALSE(parseSettingsText("nie json", settings));
   TEST_ASSERT_EQUAL_UINT16(30, settings.compressorSeconds);
-  TEST_ASSERT_EQUAL_UINT8(2, settings.tankCount);
 }
 
 void test_settings_round_trip_through_nvs_text()
 {
-  Settings settings = twoTanks();
+  Settings settings = defaultSettings();
+  settings.compressorSeconds = 75;
+  TEST_ASSERT_EQUAL_STRING(R"({"compressor_seconds":75})", serializeSettings(settings).c_str());
   Settings restored;
   TEST_ASSERT_TRUE(parseSettingsText(serializeSettings(settings), restored));
-  TEST_ASSERT_EQUAL_UINT8(2, restored.tankCount);
-  TEST_ASSERT_TRUE(restored.tanks[1].membrane);
-  TEST_ASSERT_EQUAL_STRING("Przeponowy", restored.tanks[1].name);
-  TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.8f, restored.tanks[1].precharge);
+  TEST_ASSERT_EQUAL_UINT16(75, restored.compressorSeconds);
+  // dawny zapis NVS ze zbiornikami nadal daje czas kompresora
+  TEST_ASSERT_TRUE(parseSettingsText(R"({"compressor_seconds":40,"pressure_low":2,"tanks":[{"kind":"air"}]})", restored));
+  TEST_ASSERT_EQUAL_UINT16(40, restored.compressorSeconds);
 }
 
 // --- raport i kolejka ---
@@ -270,47 +290,37 @@ void test_restart_while_running_extends_the_run()
   TEST_ASSERT_EQUAL_INT32(50, compressor.lastEndS());
 }
 
-void test_membrane_precharge_above_low_threshold()
+void test_manual_compressor_time_is_counted_for_the_report()
 {
-  Tank tank;
-  tank.membrane = true;
-  tank.volumeLiters = 100;
-  tank.precharge = 3;
-  // V · (1 − p0_abs / p_g_abs) = 100 · (1 − 4,013 / 5,013)
-  TEST_ASSERT_FLOAT_WITHIN(0.2f, 19.9f, tankWaterLiters(tank, 2, 4));
-  tank.precharge = 4;
-  TEST_ASSERT_EQUAL_FLOAT(0, tankWaterLiters(tank, 2, 4));
+  Compressor compressor;
+  compressor.start(1000, 30);
+  TEST_ASSERT_TRUE(compressor.update(31000));
+  TEST_ASSERT_EQUAL_UINT32(0, compressor.manualSeconds(40000));
+  compressor.startManual(40000, 1800);
+  // bieżąca praca ręczna liczy się na bieżąco
+  TEST_ASSERT_EQUAL_UINT32(60, compressor.manualSeconds(100000));
+  compressor.stop(160000);
+  TEST_ASSERT_EQUAL_UINT32(120, compressor.manualSeconds(500000));
+  // praca automatyczna („Uruchom na 30 s”) nie jest ręczna
+  compressor.restart(200000);
+  compressor.update(230000);
+  TEST_ASSERT_EQUAL_UINT32(120, compressor.manualSeconds(300000));
+  // drugie włączenie ręczne kończy się limitem, a „Uruchom” w trakcie zamyka pracę ręczną
+  compressor.startManual(300000, 10);
+  compressor.update(310000);
+  compressor.startManual(400000, 1800);
+  compressor.restart(405000);
+  TEST_ASSERT_EQUAL_UINT32(135, compressor.manualSeconds(500000));
 }
 
-void test_wrong_pressure_thresholds_give_no_water()
+void test_report_carries_manual_compressor_time()
 {
-  Settings settings = twoTanks();
-  settings.pressureLow = 4;
-  settings.pressureHigh = 2;
-  TEST_ASSERT_EQUAL_FLOAT(0, estimatedWaterLiters(settings));
-}
-
-void test_settings_without_tanks_keep_the_old_tanks_and_defaults()
-{
-  Settings settings = twoTanks();
-  TEST_ASSERT_TRUE(parseSettingsText(R"({"compressor_seconds":20})", settings));
-  TEST_ASSERT_EQUAL_UINT8(2, settings.tankCount);
-
-  // brak k i precharge: k = 1, p0 = 0
-  TEST_ASSERT_TRUE(parseSettingsText(R"({"tanks":[{"kind":"air","volumeLiters":100},{"kind":"membrane","volumeLiters":50}]})", settings));
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, settings.tanks[0].k);
-  TEST_ASSERT_TRUE(settings.tanks[0].enabled);
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, settings.tanks[1].precharge);
-}
-
-void test_more_tanks_than_supported_are_cut()
-{
-  Settings settings;
-  TEST_ASSERT_TRUE(parseSettingsText(R"({"tanks":[
-    {"kind":"air","volumeLiters":1},{"kind":"air","volumeLiters":2},{"kind":"air","volumeLiters":3},
-    {"kind":"air","volumeLiters":4},{"kind":"air","volumeLiters":5}]})", settings));
-  TEST_ASSERT_EQUAL_UINT8(MAX_TANKS, settings.tankCount);
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f, settings.tanks[MAX_TANKS - 1].volumeLiters);
+  RunRecord run;
+  run.runId = 4;
+  run.pumpRunS = 600;
+  run.manualCompressorS = 300;
+  TEST_ASSERT_EQUAL_STRING(R"({"runId":4,"pumpRunS":600,"restarts":0,"manualCompressorS":300})",
+    buildRunReport(run, false).c_str());
 }
 
 void test_report_counts_restarts()
@@ -394,9 +404,10 @@ int main()
   UNITY_BEGIN();
   RUN_TEST(test_compressor_runs_once_for_the_set_time);
   RUN_TEST(test_compressor_restart_counts_from_now_and_keeps_first_start);
+  RUN_TEST(test_manual_compressor_runs_until_stopped);
+  RUN_TEST(test_manual_compressor_stops_after_the_limit);
+  RUN_TEST(test_stop_ends_automatic_run_early);
   RUN_TEST(test_new_compressor_time_applies_from_the_next_run);
-  RUN_TEST(test_estimate_for_both_tank_kinds);
-  RUN_TEST(test_disabled_tank_is_not_counted);
   RUN_TEST(test_invalid_settings_are_rejected_and_old_ones_kept);
   RUN_TEST(test_settings_round_trip_through_nvs_text);
   RUN_TEST(test_report_json_leaves_out_unknown_compressor_end);
@@ -405,10 +416,8 @@ int main()
   RUN_TEST(test_queue_survives_restart_and_drops_the_oldest_when_full);
   RUN_TEST(test_compressor_with_zero_seconds_never_runs);
   RUN_TEST(test_restart_while_running_extends_the_run);
-  RUN_TEST(test_membrane_precharge_above_low_threshold);
-  RUN_TEST(test_wrong_pressure_thresholds_give_no_water);
-  RUN_TEST(test_settings_without_tanks_keep_the_old_tanks_and_defaults);
-  RUN_TEST(test_more_tanks_than_supported_are_cut);
+  RUN_TEST(test_manual_compressor_time_is_counted_for_the_report);
+  RUN_TEST(test_report_carries_manual_compressor_time);
   RUN_TEST(test_report_counts_restarts);
   RUN_TEST(test_damaged_queue_blob_gives_an_empty_queue);
   RUN_TEST(test_first_start_has_no_previous_run);

@@ -1,12 +1,12 @@
 // Endpointy hydroforu (/water-pressure-tank/...): wysyłka sterownika co 1 s, czas
-// kompresora ze strony sterownika, uruchomienia, podsumowania wody i wodomierz.
+// kompresora ze strony sterownika, uruchomienia, podsumowania wody, przepływ i wodomierz.
 // Zakresy dat liczone w czasie warszawskim; logika w services/water-pressure-tank.service.ts.
 import { Request, Response } from 'express';
 import { fromZonedTime } from 'date-fns-tz';
 import {
-  addWaterMeterReading, addWaterPressureTankReport, deleteWaterMeterReading, getWaterMeterSummary,
-  getWaterPressureTankRuns, getWaterPressureTankSummary, isCompressorSeconds, listWaterMeterReadings,
-  RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
+  addWaterMeterReading, addWaterPressureTankReport, deleteWaterMeterReading, getFlowRate, getWaterMeterSummary,
+  getWaterPressureTankRuns, getWaterPressureTankSummary, isCompressorSeconds, listWaterMeterReadings, litersFor,
+  pumpSeconds, RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
 } from '../services/water-pressure-tank.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 
@@ -60,7 +60,8 @@ const withProgress =<T extends { lastSeenAt?: Date; compressorRunning?: boolean 
 
 // ?from=YYYY-MM-DD&to=YYYY-MM-DD (dni czasu warszawskiego, to włącznie)
 // albo ?fromTime=ISO&toTime=ISO (okres między odczytami wodomierza).
-// Uruchomienie należy do zakresu według pumpStart.
+// Uruchomienie należy do zakresu według pumpStart. Każde ma pumpSeconds (efektywny czas
+// pompy, bez ręcznej pracy kompresora) i waterLiters (null, dopóki nie ma przepływu).
 export async function getWaterPressureTankRunList(req: Request, res: Response) {
   const { from, to, fromTime, toTime } = req.query;
   let start: Date;
@@ -80,16 +81,22 @@ export async function getWaterPressureTankRunList(req: Request, res: Response) {
 
   try {
     const now = Date.now();
-    const runs = await getWaterPressureTankRuns(req.deviceRootId as string, start, end);
-    return res.status(200).json(runs.map((run) => withProgress(run, now)));
+    const [runs, { litersPerSecond }] = await Promise.all([
+      getWaterPressureTankRuns(req.deviceRootId as string, start, end),
+      getFlowRate(req.deviceRootId as string),
+    ]);
+    return res.status(200).json(runs.map((run) => {
+      const seconds = Math.round(pumpSeconds(run));
+      return { ...withProgress(run, now), pumpSeconds: seconds, waterLiters: litersFor(seconds, litersPerSecond) };
+    }));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });
   }
 }
 
-// ?period=day|month|year&date=YYYY-MM-DD: woda w godzinach dnia (24 przedziały),
-// dniach miesiąca albo miesiącach roku, zawierających date.
+// ?period=day|month|year&date=YYYY-MM-DD: czas pompy i woda w godzinach dnia (24 przedziały),
+// dniach miesiąca albo miesiącach roku, zawierających date; flow — przepływ użyty do wody.
 export async function getWaterPressureTankSummaryEntry(req: Request, res: Response) {
   const { period, date } = req.query;
   const match = typeof date === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) : null;
@@ -118,7 +125,17 @@ export async function getWaterPressureTankSummaryEntry(req: Request, res: Respon
 
   try {
     const result = await getWaterPressureTankSummary(req.deviceRootId as string, period as SummaryPeriod, from, to, buckets);
-    return res.status(200).json({ period, date, buckets: result });
+    return res.status(200).json({ period, date, ...result });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// Przepływ pompy [l/min] z odczytów wodomierza i czasu pracy pompy (średnia ważona czasem).
+export async function getWaterFlow(req: Request, res: Response) {
+  try {
+    return res.status(200).json((await getFlowRate(req.deviceRootId as string)).flow);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });
@@ -159,7 +176,7 @@ export async function deleteWaterMeter(req: Request<{ id: string }>, res: Respon
 }
 
 // ?year=YYYY: zużycie z wodomierza w okresach między odczytami i w miesiącach roku,
-// z szacunkiem z uruchomień i sugerowanym k. monthStarts: 13 granic (1.01 … 1.01 roku+1).
+// z czasem pompy, wodą z przepływu i przepływem. monthStarts: 13 granic (1.01 … 1.01 roku+1).
 export async function getWaterMeterSummaryEntry(req: Request, res: Response) {
   const year = Number(req.query.year);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {

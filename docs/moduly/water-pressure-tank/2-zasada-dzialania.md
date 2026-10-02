@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-    PS["presostat"] -- "zasilanie tylko<br/>w czasie pracy pompy" --> ESP["sterownik hydroforu<br/>ESP32-C3"]
+    PS["presostat"] -- "zasilanie tylko<br/>w czasie pracy pompy" --> ESP["sterownik hydroforu<br/>ESP32"]
     PS --> PUMP["pompa"]
     ESP --> COMP["kompresor<br/>(przekaźnik)"]
     ESP -- "POST /devices/register<br/>(raz na start)" --> SRV["chpc-web"]
@@ -28,10 +28,10 @@ sequenceDiagram
     participant A as POST /water-pressure-tank/add
     participant M as MongoDB (water_pressure_tank)
     S->>A: {runId, pumpRunS: 1, compressorStartS: 1}
-    A->>M: nowe uruchomienie: pumpStart = teraz − pumpRunS,<br/>woda = szacunek z bieżących ustawień
+    A->>M: nowe uruchomienie: pumpStart = teraz − pumpRunS
     loop co 1 s
-        S->>A: {runId, pumpRunS, compressorStartS, compressorEndS?, restarts}
-        A->>M: pumpEnd = chwila odebrania, lastSeenAt, czasy kompresora
+        S->>A: {runId, pumpRunS, compressorStartS, compressorEndS?, restarts, manualCompressorS?}
+        A->>M: pumpEnd = chwila odebrania, lastSeenAt, czasy kompresora,<br/>manualSeconds
     end
     Note over S: presostat wyłącza pompę → sterownik traci zasilanie
     Note over M: ostatnia wiadomość wyznacza koniec pracy pompy (±1 s);<br/>„w toku”, gdy ostatnia wiadomość ma mniej niż 5 s
@@ -40,33 +40,49 @@ sequenceDiagram
 - Rekord jest jeden na `runId` (unikalny indeks `{rootId, runId}`); kolejne wiadomości go aktualizują.
 - **Uruchomienie z kolejki** (`queued: true`) — z którego przy poprzednim starcie nie doszła żadna wiadomość — dostaje daty z chwili przyjęcia i znacznik `timeApproximate`. Jeśli serwer już je zna, uzupełnia tylko koniec pracy pompy (`pumpStart + pumpRunS`).
 - Początek kompresora zostaje zachowany, gdy kolejna wiadomość go nie ma.
+- `manualCompressorS` to łączny czas ręcznego włączenia kompresora („Włącz” na stronie sterownika) w tym uruchomieniu; serwer zapisuje go jako `manualSeconds`.
 
-## Szacunek wody (prawo Boyle'a)
+## Woda z czasu pracy pompy i wodomierza
 
-Zbiorniki pracują przy tym samym ciśnieniu, więc woda z jednego uruchomienia to suma z włączonych zbiorników. Ciśnienia są bezwzględne (manometr + 1,013 bar); `p_d` — próg dolny, `p_g` — górny.
+Woda **nie jest zapisywana** w rekordach uruchomień. Serwer liczy ją przy każdym odczycie z dwóch wielkości:
 
 ```text
-poduszka powietrzna:  ΔV = k · V · 1,013 · (1/p_d − 1/p_g)
-przepona (worek):     ΔV = V · p0 · (1/max(p_d, p0) − 1/p_g)     (0, gdy p0 ≥ p_g)
+czas pompy  = (pumpEnd − pumpStart) − manualSeconds          [s]
+przepływ    = Σ litrów z wodomierza / Σ czasu pompy           [l/s]
+              (ze wszystkich okresów między kolejnymi odczytami)
+woda        = czas pompy · przepływ                           [l]
 ```
 
-Przykład dla ustawień domyślnych (2–4 bar, 300 l z poduszką przy `k` = 1, 300 l z przeponą przy `p0` = 1,8 bar): 40,2 l + 111,7 l ≈ 152 l na uruchomienie.
+```mermaid
+flowchart LR
+    R["odczyty wodomierza<br/>(data, m³)"] --> P["okresy między<br/>kolejnymi odczytami"]
+    RUNS["uruchomienia:<br/>pumpStart, pumpEnd,<br/>manualSeconds"] --> T["czas pompy<br/>w każdym okresie"]
+    P --> F["przepływ = Σ litrów / Σ czasu pompy"]
+    T --> F
+    F --> W["woda uruchomienia,<br/>godziny, dnia, miesiąca"]
+    T --> W
+```
 
-Ten sam wzór jest w trzech miejscach — **serwer** (wartość zapisywana w rekordzie), **aplikacja** (podgląd w Ustawieniach i na głównym ekranie) i **sterownik** (strona `/`). Zmieniać razem; zgodność serwera z aplikacją sprawdza test.
+- **Czas pompy** pomija ręczną pracę kompresora, bo wtedy pompa nie tłoczy wody do odbioru.
+- **Przepływ** jest średnią ze wszystkich okresów ważoną czasem pompy, a nie średnią z okresów. Okres bez pracy pompy (sama zmiana wodomierza) albo z ujemnym przyrostem (pomyłka w odczycie) jest pomijany.
+- **Bez przepływu** (mniej niż dwa odczyty albo brak pracy pompy między nimi) woda jest `null`, a aplikacja pokazuje sam czas pompy.
+- **Nowy odczyt wodomierza zmienia przepływ**, więc zmienia też wodę w całej historii.
+- Uruchomienie należy do okresu według `pumpStart`.
 
-## Wodomierz i współczynnik k
+Przykład: dwa okresy, 1000 l w 1000 s pompy i 3000 l w 2000 s pompy → przepływ 4000 l / 3000 s ≈ 1,33 l/s (80 l/min); uruchomienie z 4 min 10 s pracy pompy daje ok. 333 l.
+
+## Wodomierz w miesiącach
 
 ```mermaid
 flowchart LR
     R["odczyty wodomierza<br/>(data, m³)"] --> I["interpolacja liniowa<br/>stanu między odczytami"]
     I --> MON["zużycie w miesiącach<br/>i w okresach"]
-    RUNS["uruchomienia:<br/>waterLiters, waterAirBaseLiters,<br/>waterMembraneLiters"] --> MON
-    MON --> K["k = (wodomierz − przepona) / poduszka przy k = 1"]
+    RUNS["czas pompy × przepływ"] --> MON
 ```
 
-- Każde uruchomienie zapisuje osobno część z przepony i część z poduszki przy `k` = 1 — dzięki temu `k` da się wyliczyć niezależnie od tego, jakie `k` obowiązywało.
-- Sugerowane `k` jest liczone z całego okresu objętego odczytami (nie tylko z wybranego roku); potrzebne są co najmniej dwa odczyty.
-- Miesiące poza zakresem odczytów nie mają wartości wodomierza.
+- Zużycie z wodomierza w miesiącu wynika z interpolacji liniowej stanu między odczytami, więc okres rozciągnięty na dwa miesiące dzieli się proporcjonalnie do czasu.
+- Obok jest woda „z czasu pompy” w tej samej części miesiąca. Przepływ jest jeden dla całej historii, więc różnice między miesiącami pokazują, kiedy pompa pracowała inaczej niż średnio.
+- Miesiące poza zakresem odczytów nie mają wartości.
 
 ## Ustawienia: chmura ↔ sterownik
 
@@ -78,7 +94,7 @@ sequenceDiagram
     U->>S: PUT /device/properties (całe properties)
     Note over C: następne uruchomienie pompy
     C->>S: POST /devices/register
-    S-->>C: {rootId, settings: {compressor_seconds, pressure_low, pressure_high, tanks}}
+    S-->>C: {rootId, settings: {compressor_seconds, firmware?}}
     C->>C: zapis w NVS (czas kompresora pominięty, gdy czeka zmiana z /install)
     Note over C: zmiana czasu na /install sterownika
     C->>S: PUT /water-pressure-tank/settings {compressor_seconds} (co 10 s do skutku)
@@ -89,8 +105,8 @@ sequenceDiagram
 
 | Ekran | Dane | Odświeżanie |
 |---|---|---|
-| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/runs?from=&to=` (dziś) | uruchomienia co 10 s |
+| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (dziś) | uruchomienia co 5 s, reszta przy wejściu |
 | **Dane → Uruchomienia pompy** | `GET /water-pressure-tank/runs?from=&to=` (miesiąc), CSV w przeglądarce | przy zmianie miesiąca |
 | **Dane → Odczyty wodomierza** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | po zmianie |
-| **Wykres** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=`; rok z wodomierzem: `GET /water-pressure-tank/meter/summary?year=` | przy zmianie okresu |
-| **Ustawienia** | `GET/PUT /device/properties`; walidacja w przeglądarce | przy wejściu |
+| **Wykres** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (słupki wody, bez przepływu czasu pompy); rok z wodomierzem: `GET /water-pressure-tank/meter/summary?year=` | przy zmianie okresu |
+| **Ustawienia** | `GET/PUT /device/properties` (czas kompresora, walidacja w przeglądarce), `GET /water-pressure-tank/flow` | przy wejściu |

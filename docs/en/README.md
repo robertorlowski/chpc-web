@@ -8,7 +8,7 @@ The system controls a domestic heat pump (CHPC) from the cloud, collects data fr
 
 - **Heat pump.** In the web application the user sets the operating mode (central heating CO, domestic hot water CWU, off), temperatures and schedules. Every minute the server works out what the pump should do, and the `co` controller passes it to the CHPC pump controller. The application shows the current state, history, charts, energy costs and pump errors.
 - **Photovoltaics.** Every minute the `co` controller reads power and production from the microinverters (Hoymiles DTU). The data goes to a separate collection and into the heat pump energy balance.
-- **Water pressure tank.** At every start of the water pump the tank controller runs the air compressor for a while and sends the run times to the cloud. From that the application estimates water consumption and compares it with the water meter readings.
+- **Water pressure tank.** At every start of the water pump the tank controller runs the air compressor for a while and sends the run times to the cloud. From that the application calculates water consumption: pump run time × pump flow derived from manual water meter readings.
 - **Pellet boiler.** The `co` controller (in its second role) listens over a separate RS-485 link to the ecoMAX controller of a Plum Pellux 200 boiler and sends the state, temperatures, fuel and outputs of the boiler to the cloud every few minutes. The application only displays it; there is no transmitting onto the boiler bus and no control (stage 2), and the frame format has not been verified on a boiler yet.
 
 ## System diagram
@@ -19,7 +19,7 @@ flowchart LR
     DTU["Hoymiles DTU<br/>photovoltaics"]
     CO["co<br/>controller (ESP32)"]
     ECO["Pellux 200 pellet boiler<br/>ecoMAX controller"]
-    HYD["Water pressure tank<br/>controller (ESP32-C3)"]
+    HYD["Water pressure tank<br/>controller (ESP32)"]
     SRV["chpc-web — server<br/>(Node.js, Render)"]
     DB[("MongoDB Atlas")]
     WEB["chpc-web — web application<br/>(browser, phone)"]
@@ -43,11 +43,11 @@ The key rule: **controllers start the connection, the server only replies.** The
 |---|---|---|---|
 | **core** | shared application part: devices, controller registration, controller choice, menu, WebSocket, temperature, calendar | `server/src/core`, `client/src/core` | [docs/en/moduly/core](moduly/core/1-business-description.md) |
 | **heat-pump** | heat pump in the application: telemetry, PV, operations, scheduler, schedules, screens | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/en/moduly/heat-pump](moduly/heat-pump/1-business-description.md) |
-| **water-pressure-tank** | water pressure tank in the application: runs, water estimate, water meter, screens | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/en/moduly/water-pressure-tank](moduly/water-pressure-tank/1-business-description.md) |
+| **water-pressure-tank** | water pressure tank in the application: runs, water from pump time and the water meter, screens | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/en/moduly/water-pressure-tank](moduly/water-pressure-tank/1-business-description.md) |
 | **pellet-boiler-pelux200** | pellet boiler in the application: boiler readings, polling interval, screens (view only) | `server/src/modules/pellet-boiler-pelux200`, `client/src/devices/pellet-boiler-pelux200` | [docs/en/moduly/pellet-boiler-pelux200](moduly/pellet-boiler-pelux200/1-business-description.md) |
 | **co firmware** | ESP32 controller between the pump, PV, the boiler and the cloud | `devices/co` | [devices/co/docs/en](../../devices/co/docs/en/1-business-description.md) |
 | **CHPC firmware** | heat pump controller (compressor, circulation pumps, EEV, protections) | `devices/chpc` | [devices/chpc/docs/en](../../devices/chpc/docs/en/1-business-description.md) |
-| **tank firmware** | ESP32-C3 controller of the tank compressor | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs/en](../../devices/water-pressure-tank/docs/en/1-business-description.md) |
+| **tank firmware** | ESP32 controller of the tank compressor | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs/en](../../devices/water-pressure-tank/docs/en/1-business-description.md) |
 
 The controller kind (`deviceType`) decides which module the application uses: `heat_pump` (the `co` controller with the CHPC pump), `water-pressure-tank` or `pellet-boiler-pelux200` (a pellet boiler, the second role of the `co` controller). One physical controller may have several roles: in the application they are separate devices with the same `deviceId` but a different kind and `rootId` (described in the [core module](moduly/core/2-how-it-works.md)).
 

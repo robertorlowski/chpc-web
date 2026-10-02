@@ -43,7 +43,7 @@
 | `core/components/DeviceEditModal.tsx` | "Dane sterownika" popup (rename) |
 | `core/components/Notification.tsx` | short message at the top of the screen |
 | `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) and action icons (add, delete, restore, back, edit) |
-| `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only in the accent colour, a danger variant for deletion, label as tooltip and aria-label); used in the tank Settings, the pump Schedules and the firmware page |
+| `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only in the accent colour, a danger variant for deletion, label as tooltip and aria-label); used in the pump Schedules and the firmware page |
 | `core/pages/Devices/` | controller choice screen: tiles, default star, pencil |
 | `core/pages/Firmware/` | `/firmware/:deviceType`: current version with description, previous versions (restore, delete), adding a version with a description in a popup (plus icon on the bar), offer switch; outside the device context |
 | `core/components/FirmwareStatus.tsx` | controller firmware version, "waiting for update" state and report time in the controller Settings |
@@ -95,12 +95,12 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `isDefault` | boolean | default controller, at most one |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
 | `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
-| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
+| `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600); pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
 | `settings` | object | legacy heat pump time settings (not used by the scheduler) |
 | `createdAt`, `updatedAt` | Date | timestamps |
 
-The device document is shared by all kinds, so `core/models/device.model.ts` imports part schemas from the modules (schedule, tank).
+The device document is shared by all kinds, so `core/models/device.model.ts` imports part schemas from the modules (schedule, legacy pump settings).
 
 ## Controller kind registry
 

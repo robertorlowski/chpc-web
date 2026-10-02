@@ -169,7 +169,7 @@ void loadConfig()
   if (preferences.isKey(KEY_OLD_CLOUD_URL)) preferences.remove(KEY_OLD_CLOUD_URL);
   rootId = preferences.getString(KEY_ROOT_ID, "");
   // Przed pierwszym zgłoszeniem brak zapisu: zostają wartości domyślne z
-  // settings.hpp (30 s, 2/4 bar, bez zbiorników, więc szacunek wody 0).
+  // settings.hpp (czas kompresora 30 s).
   parseSettingsText(preferences.getString(KEY_SETTINGS, "").c_str(), settings);
   compressorPending = preferences.getBool(KEY_COMPRESSOR_PENDING, false);
 }
@@ -415,6 +415,7 @@ void updateCurrentRun(uint32_t nowMs)
   currentRun.compressorStartS = compressor.firstStartS();
   currentRun.compressorEndS = compressor.lastEndS();
   currentRun.restarts = compressor.restarts();
+  currentRun.manualCompressorS = compressor.manualSeconds(nowMs);
   store.write(KEY_CURRENT_RUN, &currentRun, sizeof(currentRun));
 }
 
@@ -541,6 +542,8 @@ const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><me
 .card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem}
 .state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
 button{background:#1481a5;color:#fff;border:0;border-radius:6px;padding:.6rem 1rem;font-size:1rem}
+button.stop{background:#c62828}button.second{background:#fff;color:#1481a5;border:1px solid #1481a5}
+button:disabled{opacity:.4}.buttons{display:flex;gap:.5rem;justify-content:flex-end}
 label{display:block;margin:.4rem 0}input{width:100%;box-sizing:border-box;padding:.3rem}
 small{color:#555}ul{margin:.3rem 0;padding-left:1.2rem}li span{float:right}
 h2{margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:2px solid #1481a5;color:#1481a5;font-size:1.25rem}
@@ -548,12 +551,12 @@ h2{margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:2px solid #1481a5;color:#
 
 const char MAIN_PAGE[] PROGMEM = R"html(<h1>Hydrofor</h1>
 <div class="card"><h2>Kompresor</h2><div id="state" class="state">---</div>
-<div>Do wyłączenia: <b id="remaining">---</b> s</div>
+<div id="countdown" class="state on"></div>
+<div>Do wyłączenia: <b id="remaining">---</b></div>
 <div>Czas pracy kompresora: <b id="seconds">---</b> s</div>
 <div>Pompa pracuje: <b id="pump">---</b> s</div>
-<p><button onclick="restart()">Uruchom kompresor ponownie</button></p></div>
-<div class="card"><h2>Zbiorniki</h2><ul id="tanks"></ul>
-<div>Ilość wody: <b id="water">---</b> l</div></div>
+<p class="buttons"><button id="bon" onclick="cmd('/compressor/on')">Włącz</button>
+<button id="boff" class="stop" onclick="cmd('/compressor/off')">Wyłącz</button></p><p><button id="brun" class="second" onclick="cmd('/restart')">Uruchom na czas kompresora</button></p></div>
 <div class="card"><h2>Wi-Fi</h2>
 <div>Sieć: <b id="ssid">---</b></div>
 <div>Stan: <b id="wstate">---</b></div>
@@ -572,14 +575,15 @@ rssi.textContent=n.rssi!==undefined?n.rssi+' dBm, '+quality(n.rssi):'---';rssi.c
 if(n.scan&&!ok){scanbox.style.display='';scanhead.textContent='Widoczne sieci (skanowanie co 30 s, ostatnie '+n.scanAgeS+' s temu):';
 scan.innerHTML=n.scan.map(function(s){var b=s.ssid==n.ssid;return '<li'+(b?' class="'+cls(s.rssi)+'"':'')+'>'+(b?'<b>':'')+(s.ssid||'(ukryta)')+(b?'</b>':'')+' (kanał '+s.channel+')<span>'+s.rssi+' dBm, '+quality(s.rssi)+'</span></li>'}).join('')
 +(n.scan.some(function(s){return s.ssid==n.ssid})?'':'<li class="bad"><b>'+n.ssid+'</b> — niewidoczna</li>')}else scanbox.style.display='none'}
-function tank(t){return '<li>'+(t.name||'Zbiornik')+' ('+t.volumeLiters+' l'+(t.enabled?'':', wyłączony')+')<span>'+t.liters.toFixed(1)+' l</span></li>'}
 function load(){fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
-var e=document.getElementById('state');e.textContent=s.running?'WŁĄCZONY':'WYŁĄCZONY';e.className='state '+(s.running?'on':'off');
-remaining.textContent=s.remainingS;seconds.textContent=s.compressorSeconds;pump.textContent=s.pumpRunS;
-water.textContent=s.waterLiters.toFixed(1);tanks.innerHTML=s.tanks.map(tank).join('');
+var e=document.getElementById('state');e.textContent=s.running?(s.manual?'WŁĄCZONY RĘCZNIE':'WŁĄCZONY'):'WYŁĄCZONY';e.className='state '+(s.running?'on':'off');
+remaining.textContent=s.running?mmss(s.remainingS):'---';seconds.textContent=s.compressorSeconds;pump.textContent=s.pumpRunS;
+countdown.textContent=s.manual?mm(s.remainingS):'';countdown.style.display=s.manual?'':'none';brun.textContent='Uruchom na '+s.compressorSeconds+' s';bon.disabled=!!s.manual;boff.disabled=!s.running;
 cloud.textContent='Wi-Fi: '+(s.wifi?'połączone':'brak')+', chmura: '+(s.registered?'zgłoszony':'niezgłoszony')
 +(s.lastStatus?' (HTTP '+s.lastStatus+')':'')+', w kolejce: '+s.queued;if(s.network)net(s.network)})}
-function restart(){fetch('/restart',{method:'POST'}).then(load)}
+function mm(t){return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
+function mmss(t){return t<60?t+' s':mm(t)+' min'}
+function cmd(p){fetch(p,{method:'POST'}).then(load)}
 load();setInterval(load,1000);
 </script></body></html>)html";
 
@@ -597,20 +601,13 @@ void handleState()
   const uint32_t now = millis();
   JsonDocument state;
   state["running"] = compressor.running();
+  state["manual"] = compressor.manual();
+  state["manualMaxS"] = MANUAL_COMPRESSOR_MAX_SECONDS;
   state["remainingS"] = (compressor.remainingMs(now) + 999) / 1000;
   state["compressorSeconds"] = settings.compressorSeconds;
   state["pumpRunS"] = now / 1000;
   state["restarts"] = compressor.restarts();
-  state["waterLiters"] = estimatedWaterLiters(settings);
-  JsonArray tanks = state["tanks"].to<JsonArray>();
-  for (uint8_t index = 0; index < settings.tankCount; index++) {
-    const Tank &tank = settings.tanks[index];
-    JsonObject item = tanks.add<JsonObject>();
-    item["name"] = tank.name;
-    item["volumeLiters"] = tank.volumeLiters;
-    item["enabled"] = tank.enabled;
-    item["liters"] = tankWaterLiters(tank, settings.pressureLow, settings.pressureHigh);
-  }
+  state["manualCompressorS"] = compressor.manualSeconds(now);
   state["wifi"] = WiFi.status() == WL_CONNECTED;
   state["registered"] = registeredThisBoot;
   state["lastStatus"] = lastHttpStatus;
@@ -646,6 +643,27 @@ void handleRestart()
 {
   compressor.restart(millis());
   writeRelay(compressor.running());
+  logf("kompresor: ponownie na %u s (strona)", static_cast<unsigned>(compressor.seconds()));
+  server.send(200, "application/json", "{}");
+}
+
+// „Włącz”: kompresor pracuje do „Wyłącz”, najdłużej MANUAL_COMPRESSOR_MAX_SECONDS
+// (gdyby nikt nie wyłączył). Bez logowania jak /restart: strona działa w sieci sterownika.
+void handleCompressorOn()
+{
+  compressor.startManual(millis(), MANUAL_COMPRESSOR_MAX_SECONDS);
+  writeRelay(compressor.running());
+  logf("kompresor: włączony ręcznie (limit %u min)", static_cast<unsigned>(MANUAL_COMPRESSOR_MAX_SECONDS / 60));
+  server.send(200, "application/json", "{}");
+}
+
+// „Wyłącz”: kończy pracę ręczną albo automatyczną od razu.
+void handleCompressorOff()
+{
+  if (compressor.stop(millis())) {
+    writeRelay(false);
+    logf("kompresor: wyłączony ręcznie");
+  }
   server.send(200, "application/json", "{}");
 }
 
@@ -802,6 +820,8 @@ void startNetwork()
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state.json", HTTP_GET, handleState);
   server.on("/restart", HTTP_POST, handleRestart);
+  server.on("/compressor/on", HTTP_POST, handleCompressorOn);
+  server.on("/compressor/off", HTTP_POST, handleCompressorOff);
   server.on("/install", handleInstall);
   server.on("/install/compressor", HTTP_POST, handleCompressorSeconds);
   server.on("/install/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareUpload);
@@ -857,7 +877,7 @@ void loop()
   const uint32_t now = millis();
   if (compressor.update(now)) {
     writeRelay(false);
-    logf("kompresor: wyłączony po %u s", static_cast<unsigned>(settings.compressorSeconds));
+    logf("kompresor: wyłączony po %u s", static_cast<unsigned>(compressor.seconds()));
   }
 
   if (now - lastTickMs >= TICK_MS) {

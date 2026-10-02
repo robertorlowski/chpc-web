@@ -1,6 +1,7 @@
 // Logika czasu pracy kompresora bez zależności od Arduino (testowana w
 // test/test_logic). Używa jej water-pressure-tank.cpp: start w setup(),
-// update() w loop(), restart() z przycisku na stronie / (POST /restart).
+// update() w loop(), restart() z przycisku na stronie / (POST /restart),
+// startManual()/stop() z przycisków „Włącz”/„Wyłącz” (POST /compressor/on|off).
 #pragma once
 
 #include <cstdint>
@@ -13,6 +14,11 @@ class Compressor {
 public:
   void start(uint32_t nowMs, uint16_t seconds);
   void restart(uint32_t nowMs);
+  // Włączenie ręczne do wyłączenia przyciskiem, najdłużej maxSeconds (zabezpieczenie,
+  // gdyby nikt nie wyłączył); liczy się jak ponowne uruchomienie (restarts).
+  void startManual(uint32_t nowMs, uint16_t maxSeconds);
+  // Wyłączenie przyciskiem (także pracy automatycznej); true, gdy pracował.
+  bool stop(uint32_t nowMs);
   // Nowy czas działa od następnego włączenia (także ponownego); bieżąca
   // praca kończy się po starym czasie.
   void setSeconds(uint16_t seconds) { nextSeconds = seconds; }
@@ -20,6 +26,10 @@ public:
   bool update(uint32_t nowMs);
 
   bool running() const { return isRunning; }
+  // pracuje po włączeniu ręcznym (do wyłączenia, z limitem)
+  bool manual() const { return isRunning && isManual; }
+  // łączny czas pracy po włączeniu ręcznym [s], także bieżącej; nie wlicza się do czasu pompy
+  uint32_t manualSeconds(uint32_t nowMs) const;
   bool started() const { return hasStarted; }
   uint16_t seconds() const { return runSeconds; }
   uint16_t restarts() const { return restartCount; }
@@ -31,10 +41,15 @@ public:
 private:
   bool hasStarted = false;
   bool isRunning = false;
+  bool isManual = false;
   uint16_t runSeconds = 0;
   uint16_t nextSeconds = 0;
   uint16_t restartCount = 0;
   uint32_t firstStartMs = 0;
   uint32_t currentStartMs = 0;
   uint32_t endMs = 0;
+  uint32_t manualDoneMs = 0;
+
+  // dolicza zakończoną właśnie pracę ręczną do manualDoneMs
+  void closeManual(uint32_t nowMs);
 };

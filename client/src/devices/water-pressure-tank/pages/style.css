@@ -10,23 +10,6 @@
   margin-bottom: 0.5rem;
 }
 
-.water-tanks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.water-tanks li {
-  display: grid;
-  gap: 0.1rem;
-}
-
-.water-tank-off {
-  color: #888;
-}
-
 .water-table {
   width: 100%;
   border-collapse: collapse;
@@ -271,23 +254,6 @@
   width: 6rem;
 }
 
-.water-tank-edit {
-  border: 1px solid #ccc;
-  border-radius: 0.4rem;
-  padding: 0.5rem;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.water-tank-edit .water-calc {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.9rem;
-  background: #fff;
-  padding: 0.4rem;
-  border-radius: 0.3rem;
-}
-
 .water-actions {
   display: flex;
   gap: 0.5rem;
@@ -295,41 +261,8 @@
   justify-content: flex-end;
 }
 
-.water-actions button,
-.water-tank-edit button,
-.water-calc button {
+.water-actions button {
   margin-left: 0;
-}
-
-/* „Dodaj” nad linią tytułu sekcji, przy prawej krawędzi */
-.water-section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.water-tank-edit {
-  position: relative;
-}
-
-button.water-tank-remove {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-}
-
-/* szacunek zbiornika po lewej, za nim ikona kalkulatora */
-.water-tank-estimate {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.water-calc-result {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 button.water-secondary {

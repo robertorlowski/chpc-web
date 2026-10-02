@@ -2,16 +2,10 @@
 // ustawienia nowego urządzenia i ustawienia odsyłane sterownikowi przy zgłoszeniu.
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 
-// Ustawienia nowego hydroforu: dwa zbiorniki po 300 l jak w instalacji użytkownika,
-// progi presostatu i p0 do poprawienia w Ustawieniach po odczycie z manometru.
+// Ustawienia nowego hydroforu: tylko czas pracy kompresora (wodę liczy serwer
+// z czasu pracy pompy i odczytów wodomierza).
 export const DEFAULT_WATER_PRESSURE_TANK_PROPERTIES: DeviceProperties = {
   compressor_seconds: 30,
-  pressure_low: 2,
-  pressure_high: 4,
-  tanks: [
-    { name: 'Ocynkowany', kind: 'air', volumeLiters: 300, enabled: true, k: 1 },
-    { name: 'Przeponowy', kind: 'membrane', volumeLiters: 300, enabled: true, precharge: 1.8 },
-  ],
 };
 
 // Hydrofor pobiera ustawienia raz na start, z odpowiedzi na zgłoszenie. Sterownik
@@ -25,8 +19,5 @@ export const waterPressureTankDeviceType: DeviceTypeModule = {
   firmwareUpdates: true,
   controllerSettings: (properties) => ({
     compressor_seconds: properties.compressor_seconds,
-    pressure_low: properties.pressure_low,
-    pressure_high: properties.pressure_high,
-    tanks: properties.tanks ?? [],
   }),
 };

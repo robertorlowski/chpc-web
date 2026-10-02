@@ -17,6 +17,8 @@ struct RunRecord {
   int32_t compressorStartS = -1;
   int32_t compressorEndS = -1;
   uint16_t restarts = 0;
+  // łączny czas ręcznego włączenia kompresora [s]; serwer odejmuje go od czasu pracy pompy
+  uint32_t manualCompressorS = 0;
   // Co najmniej jedna wiadomość na żywo doszła do chmury: serwer ma
   // uruchomienie i sam wyznacza koniec pracy pompy, więc nie trafia do kolejki.
   bool delivered = false;

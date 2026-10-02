@@ -8,58 +8,57 @@ The module handles the **water pressure tank system** (*hydrofor*) in the applic
 
 The module lets the user:
 
-- **set the compressor run time** and describe the installation (pressure switch thresholds, tanks);
+- **set the compressor run time**;
 - **see every pump run**: when it happened and how long the pump and the compressor ran;
-- **estimate water consumption** without an electronic water meter — from physics (Boyle's law), based on pressures and tank volumes;
-- **compare the estimate with the water meter** — the user enters readings and the application suggests how to correct the estimate.
+- **calculate water consumption** without an electronic water meter: from the pump run time and the pump flow, which the application derives from manual water meter readings;
+- **compare the water from pump time with the water meter** month by month.
 
 ## Who uses it
 
-**The home owner** with a water pressure tank system and the tank controller (ESP32-C3). The controller is powered only while the pump runs — it needs no attention.
+**The home owner** with a water pressure tank system and the tank controller (ESP32). The controller is powered only while the pump runs, so it needs no attention.
 
 ## Screens
 
-The user interface is in Polish; the screenshots show it as is.
+The user interface is in Polish; the screenshots show it as is. They were taken before version 1.3.0, when water was estimated from tank volumes. The layout of the views is the same; the captions describe the differences.
 
 ![Main view](../../../moduly/water-pressure-tank/img/glowny.png)
 
-*Hydrofor: settings (compressor time, pressure switch thresholds, water per run), tanks with the water estimate and today's runs. A run in progress is highlighted ("pracuje", "…"); the view refreshes every 5 s. Below the heading, switch icons (like "CO pompa" of the heat pump) show whether the water pump and the air compressor are running.*
+*Hydrofor (screenshot from before 1.3.0): the "Ustawienia" card with the compressor time and the pump flow (what it was computed from or, without two water meter readings, what to do) and today's runs with the columns Kompresor, Pompa (e.g. "4 min 10 s"; the tooltip shows the subtracted manual compressor time) and Woda. A run in progress is highlighted ("pracuje", "…"); the view refreshes every 5 s. Below the heading, switch icons (like "CO pompa" of the heat pump) show whether the water pump and the air compressor are running. The screenshot still shows the former "Zbiorniki" card.*
 
 | Data — pump runs | Data — water meter readings |
 |---|---|
 | ![Runs](../../../moduly/water-pressure-tank/img/dane-uruchomienia.png) | ![Meter readings](../../../moduly/water-pressure-tank/img/dane-odczyty-wodomierza.png) |
 
-*Data: the "Uruchomienia pompy" tab (runs of the selected month and CSV export; "≈" marks an approximate time — a run sent later because the network was missing) and the "Odczyty wodomierza" tab (adding and deleting readings, consumption between readings).*
+*Data: the "Uruchomienia pompy" tab (runs of the selected month, pump time in minutes and seconds, water, "Razem: X l, pompa Y", CSV export; "≈" marks an approximate time, i.e. a run sent later because the network was missing) and the "Odczyty wodomierza" tab (adding and deleting readings, consumption between readings).*
 
 | Chart — day | Chart — month |
 |---|---|
 | ![Day](../../../moduly/water-pressure-tank/img/wykres-dzien.png) | ![Month](../../../moduly/water-pressure-tank/img/wykres-miesiac.png) |
 
+*Chart: water bars per hour, day or month. Until the flow is known, the bars show the pump run time in minutes, with a hint about two water meter readings below the chart.*
+
 ![Year with the water meter](../../../moduly/water-pressure-tank/img/wykres-rok-wodomierz.png)
 
-*The year chart with "Pokaż odczyty z wodomierza" on: water meter consumption and the estimate for each month; below, the suggested `k` factor of the air-cushion tank (here 0.81 — the estimate is about 5% too high).*
+*The year chart with "Pokaż odczyty z wodomierza" on (screenshot from before 1.3.0): water meter consumption and water "z czasu pompy" (from pump time) for each month, and below the chart the flow used to compute it. The former suggested `k` factor no longer exists.*
 
-![Settings with the calculator](../../../moduly/water-pressure-tank/img/ustawienia-kalkulator.png)
-
-*Settings: compressor time, pressure switch thresholds, tanks (add ⊕, delete with the bin, enabled/disabled) and the water-per-cycle calculator of the air-cushion tank: from the tank circumference and the drop of the water column, "Wstaw" picks `k`.*
+**Settings** has the "Kompresor" card (compressor run time), the "Przepływ pompy" card (the flow in l/min and how many periods between water meter readings it was computed from, or instructions on how to get it) and the "Sterownik" card.
 
 ## First start
 
-1. After its first start the controller registers with the cloud by itself and receives default settings (30 s, 2–4 bar, a 300 l air-cushion tank and a 300 l membrane tank).
-2. In Settings enter the **real pressure switch thresholds** — read from the manometer when the pump starts and stops.
-3. Enter the **membrane tank pre-charge `p0`** — measured at the air valve with the water drained.
-4. Add **water meter readings** (at least two, ideally every few weeks) — the application will then suggest `k`. Alternatively measure the water level drop in the air-cushion tank and use the calculator.
-5. Optionally mark the tank with the star as the default controller.
+1. After its first start the controller registers with the cloud by itself and receives the default setting: compressor 30 s.
+2. Add **water meter readings** (Dane → Odczyty wodomierza): at least two with pump runs between them, ideally every few weeks. From the second reading on the application knows the pump flow and shows water also for past runs.
+3. Optionally mark the tank with the star as the default controller.
 
-A settings change in the application reaches the controller **at the next pump run** (the controller is powered only while the pump runs). The compressor time can also be changed on the controller's `/install` page — it is then sent to the cloud.
+A compressor time change in the application reaches the controller **at the next pump run** (the controller is powered only while the pump runs). The compressor time can also be changed on the controller's `/install` page; it is then sent to the cloud.
 
 ## Limitations
 
-- **The water estimate is approximate.** It assumes full filling between the thresholds and known amounts of air; that is why the `k` correction from the water meter exists.
-- **The estimate is stored when the run happens** — a later tank change does not alter history.
+- **Water is approximate.** It assumes a constant pump flow. The flow is the average over all periods between water meter readings, weighted by pump run time.
+- **There is no water before two water meter readings** ("---" in the application). The pump run time is shown from the start.
+- **Every new water meter reading changes the flow**, and therefore the water in the whole history, because water is not stored but computed on read.
+- **Manual compressor operation** ("Włącz" on the controller page) is subtracted from the pump run time, because the pump does not deliver water to consumers during it.
 - **Without a network** a run reaches the cloud at the next start, with an approximate time.
 - **Run times** are accurate to about 1 s (the controller has no clock; the server computes the times).
-- The controller supports at most 4 tanks.
 
 ## Glossary
 
@@ -68,7 +67,7 @@ A settings change in the application reaches the controller **at the next pump r
 | **Hydrofor** (water pressure tank system) | pump + pressure tanks + pressure switch |
 | **Pressure switch** (presostat) | starts the pump at the lower threshold, stops it at the upper one |
 | **Air-cushion tank** | a tank (e.g. galvanised) in which water touches air; air is lost, hence the compressor |
-| **Membrane tank** | a tank with a bladder; the amount of air is set by the pre-charge `p0` |
 | **Run** (uruchomienie) | one pump cycle from start to stop by the pressure switch |
-| **`k`** | correction factor of the air-cushion tank: how much of the theoretical cushion really works |
+| **Pump time** | the pump run time of a run without manual compressor operation |
+| **Pump flow** (przepływ pompy) | litres per minute: total water from the meter divided by total pump time over the periods between readings |
 | **Water meter** (wodomierz) | water counter; readings are entered by the user |

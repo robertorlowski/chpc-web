@@ -1,7 +1,7 @@
 import { Requests } from '../../core/http';
-import { WaterMeterReading, WaterMeterSummary, WaterPressureTankRun, WaterSummary, WaterSummaryPeriod } from './types';
+import { WaterFlow, WaterMeterReading, WaterMeterSummary, WaterPressureTankRun, WaterSummary, WaterSummaryPeriod } from './types';
 
-// Hydrofor (sterownik water-pressure-tank): uruchomienia pompy, podsumowania wody i wodomierz.
+// Hydrofor (sterownik water-pressure-tank): uruchomienia pompy, przepływ, podsumowania wody i wodomierz.
 // Endpointy /api/water-pressure-tank/* z server/src/modules/water-pressure-tank; rootId i deviceId
 // dopisuje core/http.ts. Ustawienia hydroforu idą przez core/api.ts (/device/properties).
 export class WaterPressureTankRequests {
@@ -19,6 +19,11 @@ export class WaterPressureTankRequests {
     return Requests.get(`/water-pressure-tank/summary?period=${period}&date=${date}`);
   }
 
+  // przepływ pompy [l/min] z wodomierza i czasu pracy pompy
+  static getFlow(): Promise<WaterFlow | null> {
+    return Requests.get('/water-pressure-tank/flow');
+  }
+
   static getMeterReadings(): Promise<WaterMeterReading[] | null> {
     return Requests.get('/water-pressure-tank/meter');
   }
@@ -32,7 +37,7 @@ export class WaterPressureTankRequests {
     return Requests.delete(`/water-pressure-tank/meter/${encodeURIComponent(id)}`);
   }
 
-  // zużycie z wodomierza (interpolacja między odczytami) obok szacunku i sugerowane k zbiornika z poduszką
+  // zużycie z wodomierza (interpolacja między odczytami) obok wody z czasu pompy i przepływ
   static getMeterSummary(year: number): Promise<WaterMeterSummary | null> {
     return Requests.get(`/water-pressure-tank/meter/summary?year=${year}`);
   }

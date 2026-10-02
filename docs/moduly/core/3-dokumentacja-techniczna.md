@@ -43,7 +43,7 @@
 | `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
 | `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
 | `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) i akcji (dodaj, usuń, przywróć, wróć, edytuj) |
-| `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Ustawieniach hydroforu, Harmonogramach pompy i na stronie firmware |
+| `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Harmonogramach pompy i na stronie firmware |
 | `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; trybik firmware w rogu kafelków rodzajów z `firmwareUpdates` |
 | `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), włączenie oferty; poza kontekstem urządzenia |
 | `core/components/FirmwareStatus.tsx` | wersja firmware sterownika, stan „czeka na aktualizację” i czas zgłoszenia w Ustawieniach sterownika |
@@ -95,12 +95,12 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
 | `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
-| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high`, `tanks[]`; kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
+| `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600); kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
 | `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |
 | `createdAt`, `updatedAt` | Date | znaczniki czasu |
 
-Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/models/device.model.ts` importuje schematy części z modułów (harmonogram, zbiornik).
+Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/models/device.model.ts` importuje schematy części z modułów (harmonogram, starsze ustawienia pompy).
 
 ## Rejestr rodzajów sterowników
 

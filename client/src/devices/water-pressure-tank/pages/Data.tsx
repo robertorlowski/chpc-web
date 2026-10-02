@@ -6,7 +6,7 @@ import { WaterPressureTankRequests } from '../api';
 import { WaterMeterReading, WaterPressureTankRun } from '../types';
 import {
   compressorSeconds, downloadText, formatDate, formatLiters, formatTime, monthBounds,
-  pumpSeconds, runsToCsv, sumWater, todayWarsaw,
+  formatDuration, runsToCsv, sumPumpSeconds, sumWater, todayWarsaw,
 } from '../utils/water';
 import './style.css';
 
@@ -75,7 +75,7 @@ function RunsView() {
                 <th>Data</th>
                 <th>Start</th>
                 <th>Kompresor [s]</th>
-                <th>Pompa [s]</th>
+                <th>Pompa</th>
                 <th>Woda [l]</th>
               </tr>
             </thead>
@@ -87,14 +87,17 @@ function RunsView() {
                     {run.timeApproximate ? '≈ ' : ''}{formatTime(run.pumpStart)}
                   </td>
                   <td>{compressorSeconds(run) ?? '---'}</td>
-                  <td>{pumpSeconds(run)}</td>
+                  <td title={run.manualSeconds ? `Bez ${run.manualSeconds} s ręcznej pracy kompresora` : undefined}>
+                    {formatDuration(run.pumpSeconds)}
+                  </td>
                   <td>{formatLiters(run.waterLiters)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="water-total">
-            Razem: <strong>{formatLiters(sumWater(runs))} l</strong> w {runs.length} uruchomieniach
+            Razem: <strong>{formatLiters(sumWater(runs))} l</strong>, pompa {formatDuration(sumPumpSeconds(runs))}
+            {' '}w {runs.length} uruchomieniach
           </div>
         </>
       )}

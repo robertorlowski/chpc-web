@@ -12,6 +12,7 @@ std::string buildRunReport(const RunRecord &run, bool queued)
   if (run.compressorStartS >= 0) document["compressorStartS"] = run.compressorStartS;
   if (run.compressorEndS >= 0) document["compressorEndS"] = run.compressorEndS;
   document["restarts"] = run.restarts;
+  if (run.manualCompressorS > 0) document["manualCompressorS"] = run.manualCompressorS;
   if (queued) document["queued"] = true;
 
   std::string text;
@@ -21,8 +22,9 @@ std::string buildRunReport(const RunRecord &run, bool queued)
 
 namespace {
 // Nagłówek zapisu: bez niego (np. inny układ po aktualizacji) kolejka jest pusta.
+// Wersja 2: RunRecord z manualCompressorS (1.3.0).
 struct QueueBlob {
-  uint16_t version = 1;
+  uint16_t version = 2;
   uint16_t count = 0;
   RunRecord runs[RunQueue::CAPACITY];
 };
@@ -34,7 +36,7 @@ void RunQueue::load(BlobStore &store)
   count = 0;
   if (store.read(KEY_RUN_QUEUE, &blob, sizeof(blob)) != sizeof(blob)) return;
   // count spoza zakresu = uszkodzony zapis; kolejka zostaje pusta
-  if (blob.version != 1 || blob.count > CAPACITY) return;
+  if (blob.version != 2 || blob.count > CAPACITY) return;
   count = blob.count;
   for (size_t index = 0; index < count; index++) runs[index] = blob.runs[index];
 }

@@ -151,7 +151,7 @@ Each controller kind lists its screens (path, label, icon, page) in its `device-
 
 After a controller change the screen is created from scratch, so no data of the previous controller is left in it.
 
-The server has a matching registry: each kind provides the settings of a new device and the settings returned on registration (tank: compressor time, thresholds, tanks; pellet boiler: `poll_interval_seconds`).
+The server has a matching registry: each kind provides the settings of a new device and the settings returned on registration (tank: compressor time; pellet boiler: `poll_interval_seconds`).
 
 ## WebSocket
 

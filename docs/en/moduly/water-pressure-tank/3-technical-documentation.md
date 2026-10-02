@@ -8,12 +8,11 @@
 |---|---|
 | `routes.ts` | `/water-pressure-tank/*` routes |
 | `device-type.ts` | registry entry: default settings of a new tank and the `settings` field in the registration reply |
-| `types.ts` | `WaterTank`, `WaterTankKind`, `WaterPressureTankRun`, `WaterMeterReading` |
-| `controllers/water-pressure-tank.controller.ts` | `add`, `settings`, `runs`, `summary`, water meter and its summary; period boundaries in Warsaw time |
-| `services/water-pressure-tank.service.ts` | message validation and save (dates from relative times), `estimateWater`, summaries, water meter, suggested `k`, compressor time |
+| `types.ts` | `WaterPressureTankRun`, `WaterMeterReading` |
+| `controllers/water-pressure-tank.controller.ts` | `add`, `settings`, `runs`, `summary`, `flow`, water meter and its summary; period boundaries in Warsaw time |
+| `services/water-pressure-tank.service.ts` | message validation and save (dates from relative times), `pumpSeconds` (pump time without manual compressor operation), flow from the water meter (`loadFlow`, `getFlowRate`), water (`litersFor`), summaries, water meter, compressor time |
 | `models/water-pressure-tank-run.model.ts` | `water_pressure_tank` collection |
 | `models/water-meter.model.ts` | `water_meter` collection |
-| `models/water-tank.model.ts` | tank schema in `devices.properties.tanks` |
 
 ## Files — client (`client/src/devices/water-pressure-tank`)
 
@@ -21,31 +20,35 @@
 |---|---|
 | `device-type.tsx` | registry entry: Hydrofor, Data, Chart, Settings (no schedules) |
 | `api.ts` | `WaterPressureTankRequests` |
-| `types.ts` | tanks, runs, summaries, water meter |
-| `pages/Home.tsx` | settings, tanks, today's runs (every 10 s) |
+| `types.ts` | runs, flow (`WaterFlow`), summaries, water meter |
+| `pages/Home.tsx` | pump and compressor switches, compressor time and flow, today's runs (every 5 s) |
 | `pages/Data.tsx` | tabs: runs of a month (CSV) and water meter readings |
-| `pages/Chart.tsx` | day / month / year chart, year with the water meter and suggested `k` |
-| `pages/Settings.tsx` | compressor, thresholds, tanks, water-per-cycle calculator, controller data |
+| `pages/Chart.tsx` | day / month / year chart (pump time bars without a flow), year with the water meter and the flow |
+| `pages/Settings.tsx` | compressor time, pump flow, controller data |
+| `components/FlowDetails.tsx` | the flow in l/min and what it was computed from, or instructions (two water meter readings); on the main view and in Settings |
 | `pages/style.css` | tank screen styles |
-| `utils/water.ts` | water formula (as on the server and in the firmware), cylinder volume, Warsaw dates, CSV |
+| `utils/water.ts` | formats (litres, pump time as "4 min 10 s"), Warsaw dates, totals, CSV |
 
 ## API
 
 | Method and path | Caller | Description |
 |---|---|---|
-| `POST /water-pressure-tank/add` | controller | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, queued?}`; `deviceId` alone is enough; 404/409 as in core; reply `{}` (201); bad data 400 |
+| `POST /water-pressure-tank/add` | controller | `{runId, pumpRunS, compressorStartS?, compressorEndS?, restarts, manualCompressorS?, queued?}`; `deviceId` alone is enough; 404/409 as in core; reply `{}` (201); bad data 400 |
 | `PUT /water-pressure-tank/settings` | controller | `{compressor_seconds}` (whole seconds 1–3600, otherwise 400); changes only that field; 404 for another device kind |
-| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | application | runs of the days (Warsaw, `to` inclusive), with `inProgress` and `compressorRunning` fields |
+| `GET /water-pressure-tank/runs?from=YYYY-MM-DD&to=YYYY-MM-DD` | application | runs of the days (Warsaw, `to` inclusive), with `inProgress`, `compressorRunning`, `pumpSeconds` (pump time without manual compressor operation) and `waterLiters` (`null` without a flow) |
 | `GET /water-pressure-tank/runs?fromTime=ISO&toTime=ISO` | — | runs of a period (currently unused by the application) |
-| `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | application | water per hour (24), per day of the month or per month (12); empty buckets are zero |
+| `GET /water-pressure-tank/summary?period=day\|month\|year&date=YYYY-MM-DD` | application | `{period, date, buckets, flow}`; buckets `{key, pumpSeconds, waterLiters \| null, runs}` per hour (24), per day of the month or per month (12); empty buckets are zero |
+| `GET /water-pressure-tank/flow` | application | pump flow `{litersPerMinute \| null, periods, meterLiters, pumpSeconds}`: number of periods used, total litres from the meter and total pump time |
 | `GET /water-pressure-tank/meter` | application | readings, oldest first |
 | `POST /water-pressure-tank/meter` | application | `{readAt, valueM3, note?}` |
 | `DELETE /water-pressure-tank/meter/:id` | application | delete; 404 for an unknown or foreign reading |
-| `GET /water-pressure-tank/meter/summary?year=YYYY` | application | consumption per period and month, comparison with the estimate, `suggestedK`; < 2 readings → empty |
+| `GET /water-pressure-tank/meter/summary?year=YYYY` | application | `{year, periods, months, flow}`; periods `{from, to, meterLiters, pumpSeconds, estimatedLiters \| null}`, months `{month, meterLiters, estimatedLiters}` (`null` outside the reading range); < 2 readings → empty lists |
 
-Tank settings are saved with the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`) returns `settings`: `compressor_seconds`, `pressure_low`, `pressure_high`, `tanks`.
+Tank settings are saved with the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`) returns `settings`: `{compressor_seconds}` and, when there is an OTA offer, `firmware`.
 
-Message validation: `runId` — integer ≥ 0; `pumpRunS` — 0 to 24 h; other times ≥ 0.
+Message validation: `runId` — integer ≥ 0; `pumpRunS` — 0 to 24 h; other times (including `manualCompressorS`) ≥ 0.
+
+**Flow and water** (`loadFlow`): water meter readings, oldest first, define the periods; in each, the `pumpSeconds` of runs with `pumpStart` in the period are summed. Periods with pump time > 0 and a meter increase ≥ 0 enter the flow: `l/s = Σ litres / Σ seconds`. The water of a run, bucket or month = `pumpSeconds × l/s`, rounded to 0.1 l. Summaries compute pump time in the MongoDB aggregation with the same expression (`PUMP_SECONDS_EXPR`).
 
 ## Data model
 
@@ -56,19 +59,18 @@ Message validation: `runId` — integer ≥ 0; `pumpRunS` — 0 to 24 h; other t
 | `rootId`, `deviceType`, `deviceId`, `runId` | identification (`runId` is assigned by the controller: a counter in NVS with a random start) |
 | `pumpStart`, `pumpEnd` | pump start and end |
 | `compressorStart`, `compressorEnd` | compressor on and last off |
-| `restarts` | number of manual compressor restarts |
-| `waterLiters` | water estimate from the settings when the record was created |
-| `waterAirBaseLiters`, `waterMembraneLiters` | parts of the estimate: cushion at `k` = 1 and membrane (for the suggested `k`) |
+| `restarts` | number of manual compressor starts ("Uruchom na N s" and "Włącz") |
+| `manualSeconds` | total manual compressor time ("Włącz") [s]; subtracted from the pump time |
 | `timeApproximate` | dates from the time received (queued run) |
 | `lastSeenAt` | last message (run "in progress" < 5 s) |
-| `compressorRunning` | compressor on according to the last message (`compressorStartS` without `compressorEndS`); needed after "Restart", because `compressorEnd` keeps the previous stop. `GET …/runs` returns it only with `inProgress` |
+| `compressorRunning` | compressor on according to the last message (`compressorStartS` without `compressorEndS`); needed after "Uruchom na N s", because `compressorEnd` keeps the previous stop. `GET …/runs` returns it only with `inProgress` |
 | `createdAt`, `updatedAt` | timestamps |
 
-Indexes: unique `{rootId, runId}` and `{rootId, pumpStart}`.
+Indexes: unique `{rootId, runId}` and `{rootId, pumpStart}`. The record holds no water (until version 1.3.0 it had `waterLiters`, `waterAirBaseLiters` and `waterMembraneLiters`; they remain in older documents but are not used, and `waterLiters` in the `GET …/runs` reply is always computed afresh).
 
 **`water_meter`** — water meter readings: `rootId`, `readAt` (the application stores the date as local noon), `valueM3`, `note`; index `{rootId, readAt}`.
 
-**`devices.properties`** of a tank: `compressor_seconds` (1–3600), `pressure_low`, `pressure_high` [bar on the manometer], `tanks[]`: `{name, kind: 'air' | 'membrane', volumeLiters, enabled, precharge, k}`.
+**`devices.properties`** of a tank: `compressor_seconds` (1–3600). The former fields `pressure_low`, `pressure_high` and `tanks[]` (until version 1.3.0) are no longer in the schema.
 
 ## Constants
 
@@ -76,18 +78,17 @@ Indexes: unique `{rootId, runId}` and `{rootId, pumpStart}`.
 |---|---|---|
 | `RUN_IN_PROGRESS_MS` | 5 s | service |
 | `MAX_COMPRESSOR_SECONDS` | 3600 | service, `properties` schema, firmware |
-| atmospheric pressure | 1.013 bar | service, `utils/water.ts`, firmware `settings.cpp` |
-| default settings | 30 s; 2–4 bar; "Ocynkowany" 300 l `k` = 1; "Przeponowy" 300 l `p0` = 1.8 | `device-type.ts` |
+| default settings | `compressor_seconds` = 30 | `device-type.ts` |
 
 ## Tests and tools
 
 ```bash
-npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 30 tests (server in total: 81)
+npm test -w server -- --run       # server/test/water-pressure-tank.test.ts: 31 tests (server in total: 96)
 node scripts/simulate-water-pressure-tank.mjs [--history] [--fast]   # controller simulator (npm run local)
-node scripts/seed-local.mjs       # demo data: several months of runs and water meter readings
+node scripts/seed-local.mjs       # demo data: several months of runs and water meter readings ("real" flow 1 l/s)
 ```
 
-`server/test/water-pressure-tank.test.ts` checks: the water formula and its agreement with the client formula, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", compressor running (also after a restart), summaries, water meter and `k`, default controller.
+`server/test/water-pressure-tank.test.ts` checks: pump time without manual compressor operation, the flow from the water meter and the water of each run, the time-weighted average skipping periods without pump runs, no water before two readings, registration with settings, settings and their validation, compressor time from the controller (one field changed, 404, 409), dates from relative times, the queue and approximate time, "in progress", compressor running (also after a restart), saving `manualCompressorS`, summaries, water meter, default controller.
 
 ## Known issues
 
@@ -95,5 +96,6 @@ node scripts/seed-local.mjs       # demo data: several months of runs and water 
 - **`GET /runs?fromTime=&toTime=`** and `getRunsBetween` in the client are unused (since the "between readings" filter was removed).
 - **A tank gets `work_mode: CWU` in `properties`** from the schema default — the field is unused.
 - **`PUT /device/properties` replaces the whole `properties`** — the application sends the full set of tank fields; any other API client must do the same.
-- **The water calculator** shares its fields between all tanks (one is open at a time).
+- **Water depends on a constant pump flow.** There is one flow for the whole history; a pump change or a clogged filter changes it only through the average of later readings.
+- **Every water query reads all water meter readings and the runs between the first and the last one** (`loadFlow`), without a cache.
 - **The firmware and the controller pages have no hardware tests** — they are checked in an emulator and in `native` tests.

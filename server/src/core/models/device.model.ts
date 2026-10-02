@@ -5,7 +5,6 @@ import mongoose, { Schema, Model, Document } from 'mongoose';
 import { Device, DeviceProperties, DeviceType } from '../types';
 import { ScheduleEntrySchema } from '../../modules/heat-pump/models/schedule.model';
 import { SettingsEntrySchema } from '../../modules/heat-pump/models/settings.model';
-import { WaterTankSchema } from '../../modules/water-pressure-tank/models/water-tank.model';
 
 // Ustawienia wszystkich rodzajów sterowników w jednym polu properties.
 const DevicePropertiesSchema = new Schema<DeviceProperties>(
@@ -22,9 +21,6 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
     },
     // hydrofor
     compressor_seconds: { type: Number, min: 1, max: 3600 },
-    pressure_low: { type: Number, min: 0 },
-    pressure_high: { type: Number, min: 0 },
-    tanks: { type: [WaterTankSchema], default: undefined },
     // kocioł pelletowy Pellux 200; pełne sekundy, sprawdzane też przy PUT /device/properties
     poll_interval_seconds: {
       type: Number, min: 30, max: 3600,

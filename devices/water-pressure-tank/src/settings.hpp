@@ -1,35 +1,19 @@
 // Ustawienia hydroforu (odpowiedź na POST /api/devices/register, pole
-// settings), ich zapis w NVS (klucz settings, JSON) oraz szacunek wody na
-// stronę / sterownika. Bez zależności od Arduino (testowane w test_logic).
+// settings) i ich zapis w NVS (klucz settings, JSON). Wodę liczy serwer z czasu
+// pracy pompy i odczytów wodomierza, więc sterownik zna tylko czas kompresora.
+// Bez zależności od Arduino (testowane w test_logic).
 #pragma once
 
 #include <ArduinoJson.h>
-#include <cstddef>
 #include <cstdint>
 #include <string>
 
 #include <firmware.hpp>
 
-// Ustawienia z chmury (odpowiedź na zgłoszenie) w pamięci sterownika. Format
-// JSON jak w chmurze: {compressor_seconds, pressure_low, pressure_high,
-// tanks: [{name, kind: "air"|"membrane", volumeLiters, enabled, precharge, k}]}.
-constexpr size_t MAX_TANKS = 4;
-
-struct Tank {
-  char name[24] = "";
-  bool membrane = false;
-  float volumeLiters = 0;
-  bool enabled = true;
-  float precharge = 0;
-  float k = 1;
-};
-
+// Ustawienia z chmury w pamięci sterownika. Format JSON jak w chmurze:
+// {compressor_seconds}; nieznane pola (np. dawne zbiorniki) są pomijane.
 struct Settings {
   uint16_t compressorSeconds = DEFAULT_COMPRESSOR_SECONDS;
-  float pressureLow = 2;
-  float pressureHigh = 4;
-  uint8_t tankCount = 0;
-  Tank tanks[MAX_TANKS];
 };
 
 // Zwraca false dla danych bez sensu (brak obiektu, zły czas kompresora);
@@ -47,8 +31,3 @@ bool applyCloudSettings(JsonVariantConst json, Settings &settings, bool keepLoca
 bool parseCompressorSecondsText(const std::string &text, uint16_t &out);
 // Treść PUT /api/water-pressure-tank/settings.
 std::string buildCompressorSecondsBody(uint16_t seconds);
-
-// Woda z jednego uruchomienia (prawo Boyle'a), ten sam wzór co estimateWater
-// w server/src/modules/water-pressure-tank/services/water-pressure-tank.service.ts. Zmieniać razem.
-float tankWaterLiters(const Tank &tank, float pressureLow, float pressureHigh);
-float estimatedWaterLiters(const Settings &settings);

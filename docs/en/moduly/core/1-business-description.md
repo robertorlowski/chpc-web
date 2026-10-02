@@ -71,5 +71,5 @@ The user interface is in Polish; the screenshots below show it as is.
 | **Root ID** (`rootId`) | the device (role) identifier in the database; the application and the controller send it with every request |
 | **Controller registration** (zgłoszenie) | the request a controller sends at start; creates the device or returns the existing one |
 | **Default controller** | the controller opened when the application starts; at most one |
-| **Settings** (`properties`) | controller settings stored in the cloud (e.g. heat pump temperatures, tank definitions) |
+| **Settings** (`properties`) | controller settings stored in the cloud (e.g. heat pump temperatures, the tank compressor time) |
 | **Controller kind registry** | the place in the code where each kind describes its menu, screens and default settings |

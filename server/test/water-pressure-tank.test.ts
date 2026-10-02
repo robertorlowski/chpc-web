@@ -1,7 +1,7 @@
-// Testy hydroforu (baza w mongodb-memory-server): wzór wody i zgodność z klientem,
-// zgłoszenie z ustawieniami, uruchomienia (daty z czasów względnych, kolejka, 404/409,
-// w toku), podsumowania, wodomierz i sugerowane k, ustawienia i czas kompresora ze
-// sterownika, sterownik domyślny.
+// Testy hydroforu (baza w mongodb-memory-server): przepływ z wodomierza i woda z czasu
+// pracy pompy (bez ręcznej pracy kompresora), zgłoszenie z ustawieniami, uruchomienia
+// (daty z czasów względnych, kolejka, 404/409, w toku), podsumowania, wodomierz,
+// czas kompresora ze sterownika, sterownik domyślny.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import app from '../src/core/app'
 import { DeviceModel } from '../src/core/models/device.model'
 import { WaterPressureTankRunModel } from '../src/modules/water-pressure-tank/models/water-pressure-tank-run.model'
-import { addWaterPressureTankReport, estimateWater } from '../src/modules/water-pressure-tank/services/water-pressure-tank.service'
+import { addWaterPressureTankReport, pumpSeconds } from '../src/modules/water-pressure-tank/services/water-pressure-tank.service'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({
@@ -31,72 +31,72 @@ describe('Hydrofor (water-pressure-tank)', () => {
     await mongoServer.stop();
   });
 
-  describe('estimateWater', () => {
-    const base = { pressure_low: 2, pressure_high: 4 };
+  describe('przepływ i woda', () => {
+    const meter = (rootId: string, readAt: string, valueM3: number) =>
+      request(app).post(`/api/water-pressure-tank/meter?rootId=${rootId}`).send({ readAt, valueM3 }).expect(201);
 
-    it('liczy zbiornik przeponowy z ciśnienia wstępnego i poduszkę z k', () => {
-      const result = estimateWater({
-        ...base,
-        tanks: [
-          { kind: 'membrane', volumeLiters: 300, enabled: true, precharge: 1.8 },
-          { kind: 'air', volumeLiters: 300, enabled: true, k: 1 },
-        ],
-      });
-      expect(result.waterMembraneLiters).toBeCloseTo(111.7, 0);
-      expect(result.waterAirBaseLiters).toBeCloseTo(40.2, 0);
-      expect(result.waterLiters).toBeCloseTo(151.9, 0);
+    it('czas pracy pompy nie obejmuje ręcznej pracy kompresora', () => {
+      const run = { pumpStart: new Date('2026-09-28T08:00:00Z'), pumpEnd: new Date('2026-09-28T08:10:00Z') };
+      expect(pumpSeconds({ ...run, manualSeconds: 0 })).toBe(600);
+      expect(pumpSeconds({ ...run, manualSeconds: 240 })).toBe(360);
+      // ręczna praca dłuższa niż zapis (np. zaokrąglenia) nie daje ujemnego czasu
+      expect(pumpSeconds({ ...run, manualSeconds: 900 })).toBe(0);
     });
 
-    it('pomija wyłączony zbiornik i skaluje poduszkę przez k', () => {
-      const result = estimateWater({
-        ...base,
-        tanks: [
-          { kind: 'membrane', volumeLiters: 300, enabled: false, precharge: 1.8 },
-          { kind: 'air', volumeLiters: 300, enabled: true, k: 0.5 },
-        ],
-      });
-      expect(result.waterMembraneLiters).toBe(0);
-      expect(result.waterLiters).toBeCloseTo(20.1, 0);
-      expect(result.waterAirBaseLiters).toBeCloseTo(40.2, 0);
+    it('liczy przepływ z wodomierza i wodę każdego uruchomienia', async () => {
+      const { body } = await register('C3A1B2C3D450');
+      const rootId = body.rootId;
+      await meter(rootId, '2026-09-01T00:00:00Z', 100);
+      // 3 uruchomienia po 200 s, w jednym 100 s ręcznej pracy kompresora: pompa 500 s
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 200 }, new Date('2026-09-02T10:00:00Z'));
+      await addWaterPressureTankReport(rootId, { runId: 2, pumpRunS: 200 }, new Date('2026-09-03T10:00:00Z'));
+      await addWaterPressureTankReport(rootId, { runId: 3, pumpRunS: 200, manualCompressorS: 100 }, new Date('2026-09-04T10:00:00Z'));
+      // 0,5 m³ = 500 l w 500 s pompy → 1 l/s = 60 l/min
+      await meter(rootId, '2026-09-05T00:00:00Z', 100.5);
+
+      const flow = await request(app).get(`/api/water-pressure-tank/flow?rootId=${rootId}`);
+      expect(flow.body).toMatchObject({ litersPerMinute: 60, periods: 1, meterLiters: 500, pumpSeconds: 500 });
+
+      const runs = await request(app).get(`/api/water-pressure-tank/runs?rootId=${rootId}&from=2026-09-02&to=2026-09-04`);
+      expect(runs.body.map((run: { pumpSeconds: number }) => run.pumpSeconds)).toEqual([200, 200, 100]);
+      expect(runs.body.map((run: { waterLiters: number }) => run.waterLiters)).toEqual([200, 200, 100]);
+
+      const month = await request(app).get(`/api/water-pressure-tank/summary?rootId=${rootId}&period=month&date=2026-09-01`);
+      expect(month.body.buckets[3]).toMatchObject({ pumpSeconds: 100, waterLiters: 100, runs: 1 });
+      expect(month.body.flow.litersPerMinute).toBe(60);
     });
 
-    it('przy p0 powyżej progu dolnego worek oddaje wodę dopiero od p0', () => {
-      const result = estimateWater({
-        ...base,
-        tanks: [{ kind: 'membrane', volumeLiters: 100, enabled: true, precharge: 3 }],
-      });
-      // V · (1 − p0_abs / p_g_abs) = 100 · (1 − 4,013 / 5,013)
-      expect(result.waterLiters).toBeCloseTo(19.9, 0);
+    it('uśrednia przepływ ze wszystkich okresów ważąc czasem i pomija okresy bez pompy', async () => {
+      const { body } = await register('C3A1B2C3D451');
+      const rootId = body.rootId;
+      await meter(rootId, '2026-08-01T00:00:00Z', 10);
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 100 }, new Date('2026-08-02T10:00:00Z'));
+      await meter(rootId, '2026-08-03T00:00:00Z', 10.1); // 100 l / 100 s
+      await addWaterPressureTankReport(rootId, { runId: 2, pumpRunS: 300 }, new Date('2026-08-04T10:00:00Z'));
+      await meter(rootId, '2026-08-05T00:00:00Z', 10.7); // 600 l / 300 s
+      await meter(rootId, '2026-08-06T00:00:00Z', 10.75); // 50 l bez pracy pompy: pomijany
+
+      const flow = await request(app).get(`/api/water-pressure-tank/flow?rootId=${rootId}`);
+      // (100 + 600) l / (100 + 300) s = 1,75 l/s = 105 l/min
+      expect(flow.body).toMatchObject({ litersPerMinute: 105, periods: 2, meterLiters: 700, pumpSeconds: 400 });
+
+      const summary = await request(app).get(`/api/water-pressure-tank/meter/summary?rootId=${rootId}&year=2026`);
+      expect(summary.body.periods).toHaveLength(3);
+      expect(summary.body.periods[0]).toMatchObject({ meterLiters: 100, pumpSeconds: 100, estimatedLiters: 175 });
+      expect(summary.body.periods[2]).toMatchObject({ meterLiters: 50, pumpSeconds: 0, estimatedLiters: 0 });
+      expect(summary.body.flow.litersPerMinute).toBe(105);
     });
 
-    it('klient liczy podgląd tym samym wzorem co serwer', async () => {
-      // ścieżka w zmiennej: tsc serwera nie włącza pliku klienta do kompilacji
-      const clientModule = '../client/src/devices/water-pressure-tank/utils/water.ts';
-      const client = await import(clientModule);
-      const cases = [
-        { pressure_low: 2, pressure_high: 4, tanks: [
-          { kind: 'membrane', volumeLiters: 300, enabled: true, precharge: 1.8 },
-          { kind: 'air', volumeLiters: 300, enabled: true, k: 0.8 },
-        ] },
-        { pressure_low: 1.5, pressure_high: 3.5, tanks: [
-          { kind: 'membrane', volumeLiters: 80, enabled: true, precharge: 2.5 },
-          { kind: 'air', volumeLiters: 200, enabled: false, k: 1 },
-        ] },
-        { pressure_low: 3, pressure_high: 2, tanks: [{ kind: 'air', volumeLiters: 300, enabled: true }] },
-      ] as const;
-      for (const properties of cases) {
-        const tanks = properties.tanks.map((tank) => ({ ...tank }));
-        expect(client.estimatedWaterPerRun({ ...properties, tanks }))
-          .toBeCloseTo(estimateWater({ ...properties, tanks }).waterLiters, 0);
-      }
-      // kalkulator pojemności: obwód 160 cm, wysokość 150 cm ≈ 306 l
-      expect(client.cylinderLiters(160, 150)).toBeCloseTo(305.6, 0);
-    });
+    it('bez dwóch odczytów wodomierza woda jest nieznana, czas pompy jest', async () => {
+      const { body } = await register('C3A1B2C3D452');
+      const rootId = body.rootId;
+      await meter(rootId, '2026-09-01T00:00:00Z', 5);
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 90 }, new Date('2026-09-02T10:00:00Z'));
 
-    it('zwraca zero bez poprawnych progów presostatu', () => {
-      expect(estimateWater({ pressure_low: 4, pressure_high: 2, tanks: [
-        { kind: 'air', volumeLiters: 300, enabled: true },
-      ] }).waterLiters).toBe(0);
+      const flow = await request(app).get(`/api/water-pressure-tank/flow?rootId=${rootId}`);
+      expect(flow.body.litersPerMinute).toBeNull();
+      const runs = await request(app).get(`/api/water-pressure-tank/runs?rootId=${rootId}&from=2026-09-02&to=2026-09-02`);
+      expect(runs.body[0]).toMatchObject({ pumpSeconds: 90, waterLiters: null });
     });
   });
 
@@ -106,8 +106,7 @@ describe('Hydrofor (water-pressure-tank)', () => {
       expect(response.status).toBe(201);
       expect(response.body.deviceType).toBe('water-pressure-tank');
       expect(response.body.name).toBe('Hydrofor');
-      expect(response.body.settings.compressor_seconds).toBe(30);
-      expect(response.body.settings.tanks).toHaveLength(2);
+      expect(response.body.settings).toEqual({ compressor_seconds: 30 });
     });
 
     it('przy kolejnym zgłoszeniu zwraca ten sam rootId bez zmiany nazwy', async () => {
@@ -149,7 +148,7 @@ describe('Hydrofor (water-pressure-tank)', () => {
       expect(run?.compressorEnd?.toISOString()).toBe('2026-09-28T08:00:29.000Z');
       expect(run?.pumpEnd.toISOString()).toBe('2026-09-28T08:00:38.000Z');
       expect(run?.timeApproximate).toBe(false);
-      expect(run?.waterLiters).toBeCloseTo(151.9, 0);
+      expect(run?.manualSeconds).toBe(0);
     });
 
     it('przyjmuje dane z samym deviceId, a uruchomienie z kolejki oznacza jako przybliżone', async () => {
@@ -277,18 +276,20 @@ describe('Hydrofor (water-pressure-tank)', () => {
       expect(response.status).toBe(400);
     });
 
-    it('liczy wodę z ustawień w chwili utworzenia, bez zmiany historii', async () => {
+    it('zapisuje czas ręcznej pracy kompresora i odrzuca ujemny', async () => {
       const { body } = await register('C3A1B2C3D415');
       const rootId = body.rootId;
-      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 1 }, new Date('2026-09-28T09:00:00Z'));
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 5 }, new Date('2026-09-28T09:00:00Z'));
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 400, manualCompressorS: 300 }, new Date('2026-09-28T09:06:35Z'));
+      const run = await WaterPressureTankRunModel.findOne({ rootId, runId: 1 }).lean();
+      expect(run?.manualSeconds).toBe(300);
+      // następna wiadomość bez pola nie kasuje zapisanej wartości
+      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 401 }, new Date('2026-09-28T09:06:36Z'));
+      expect((await WaterPressureTankRunModel.findOne({ rootId, runId: 1 }).lean())?.manualSeconds).toBe(300);
 
-      await DeviceModel.updateOne({ _id: rootId }, { $set: { 'properties.tanks.1.enabled': false } });
-      await addWaterPressureTankReport(rootId, { runId: 1, pumpRunS: 5 }, new Date('2026-09-28T09:00:04Z'));
-      await addWaterPressureTankReport(rootId, { runId: 2, pumpRunS: 1 }, new Date('2026-09-28T10:00:00Z'));
-
-      const runs = await WaterPressureTankRunModel.find({ rootId }).sort({ runId: 1 }).lean();
-      expect(runs[0].waterLiters).toBeCloseTo(151.9, 0);
-      expect(runs[1].waterLiters).toBeCloseTo(40.2, 0);
+      const bad = await request(app).post('/api/water-pressure-tank/add?deviceId=C3A1B2C3D415')
+        .send({ runId: 2, pumpRunS: 5, manualCompressorS: -1 });
+      expect(bad.status).toBe(400);
     });
 
     it('zwraca uruchomienia z zakresu i podsumowania dnia, miesiąca i roku', async () => {
@@ -307,7 +308,9 @@ describe('Hydrofor (water-pressure-tank)', () => {
       const day = await request(app).get(`/api/water-pressure-tank/summary?rootId=${rootId}&period=day&date=2026-09-28`);
       expect(day.body.buckets).toHaveLength(24);
       expect(day.body.buckets[6].runs).toBe(2);
-      expect(day.body.buckets[6].waterLiters).toBeCloseTo(303.8, 0);
+      expect(day.body.buckets[6].pumpSeconds).toBe(120);
+      // bez odczytów wodomierza nie ma przepływu, więc ani wody
+      expect(day.body.buckets[6].waterLiters).toBeNull();
 
       const month = await request(app).get(`/api/water-pressure-tank/summary?rootId=${rootId}&period=month&date=2026-09-01`);
       expect(month.body.buckets).toHaveLength(30);
@@ -321,18 +324,16 @@ describe('Hydrofor (water-pressure-tank)', () => {
   });
 
   describe('wodomierz', () => {
-    it('zapisuje odczyty, liczy zużycie okresów i podpowiada k', async () => {
+    it('zapisuje odczyty, liczy zużycie okresów i miesięcy, usuwa odczyt', async () => {
       const { body } = await register('C3A1B2C3D420');
       const rootId = body.rootId;
-      // 10 uruchomień: przepona 111,7 l, poduszka (k = 1) 40,2 l
       for (let runId = 1; runId <= 10; runId++) {
         await addWaterPressureTankReport(rootId, { runId, pumpRunS: 60 }, new Date(`2026-09-${10 + runId}T10:00:00Z`));
       }
       await request(app).post(`/api/water-pressure-tank/meter?rootId=${rootId}`)
         .send({ readAt: '2026-09-10T12:00:00Z', valueM3: 100 }).expect(201);
-      // wodomierz: 1,317 m³ = 1317 l = 10 · (111,7 + 0,5 · 40,2)
       const second = await request(app).post(`/api/water-pressure-tank/meter?rootId=${rootId}`)
-        .send({ readAt: '2026-09-21T12:00:00Z', valueM3: 101.318 });
+        .send({ readAt: '2026-09-21T12:00:00Z', valueM3: 101.2 });
       expect(second.status).toBe(201);
 
       const list = await request(app).get(`/api/water-pressure-tank/meter?rootId=${rootId}`);
@@ -340,24 +341,24 @@ describe('Hydrofor (water-pressure-tank)', () => {
 
       const summary = await request(app).get(`/api/water-pressure-tank/meter/summary?rootId=${rootId}&year=2026`);
       expect(summary.body.periods).toHaveLength(1);
-      expect(summary.body.periods[0].meterLiters).toBeCloseTo(1318, 0);
-      expect(summary.body.periods[0].estimatedLiters).toBeCloseTo(1519, -1);
-      expect(summary.body.suggestedK).toBeCloseTo(0.5, 1);
-      expect(summary.body.months[8].meterLiters).toBeCloseTo(1318, 0);
+      // 1200 l w 600 s pompy → 2 l/s = 120 l/min; szacunek z czasu zgadza się z wodomierzem
+      expect(summary.body.periods[0]).toMatchObject({ meterLiters: 1200, pumpSeconds: 600, estimatedLiters: 1200 });
+      expect(summary.body.flow.litersPerMinute).toBe(120);
+      expect(summary.body.months[8]).toMatchObject({ meterLiters: 1200, estimatedLiters: 1200 });
       expect(summary.body.months[0].meterLiters).toBeNull();
 
       const removed = await request(app).delete(`/api/water-pressure-tank/meter/${list.body[0]._id}?rootId=${rootId}`);
       expect(removed.status).toBe(200);
     });
 
-    it('bez dwóch odczytów nie liczy zużycia ani k; zły rok i nieznany odczyt', async () => {
+    it('bez dwóch odczytów nie liczy zużycia ani przepływu; zły rok i nieznany odczyt', async () => {
       const { body } = await register('C3A1B2C3D422');
       const rootId = body.rootId;
       await request(app).post(`/api/water-pressure-tank/meter?rootId=${rootId}`)
         .send({ readAt: '2026-09-01T08:00:00Z', valueM3: 10 }).expect(201);
       const summary = await request(app).get(`/api/water-pressure-tank/meter/summary?rootId=${rootId}&year=2026`);
       expect(summary.body.periods).toEqual([]);
-      expect(summary.body.suggestedK).toBeNull();
+      expect(summary.body.flow.litersPerMinute).toBeNull();
 
       expect((await request(app).get(`/api/water-pressure-tank/meter/summary?rootId=${rootId}&year=26`)).status).toBe(400);
       const missing = await request(app).delete(`/api/water-pressure-tank/meter/${new mongoose.Types.ObjectId()}?rootId=${rootId}`);
@@ -382,28 +383,23 @@ describe('Hydrofor (water-pressure-tank)', () => {
   });
 
   describe('ustawienia hydroforu', () => {
-    it('zapisuje ustawienia i zwraca je sterownikowi przy zgłoszeniu', async () => {
+    it('zapisuje czas kompresora i zwraca go sterownikowi przy zgłoszeniu', async () => {
       const { body } = await register('C3A1B2C3D440');
-      const saved = await request(app).put(`/api/device/properties?rootId=${body.rootId}`).send({
-        compressor_seconds: 45, pressure_low: 1.8, pressure_high: 3.6,
-        tanks: [{ name: 'Ocynkowany', kind: 'air', volumeLiters: 300, enabled: true, k: 0.9 }],
-      });
+      const saved = await request(app).put(`/api/device/properties?rootId=${body.rootId}`).send({ compressor_seconds: 45 });
       expect(saved.status).toBe(200);
       const again = await register('C3A1B2C3D440');
-      expect(again.body.settings).toMatchObject({ compressor_seconds: 45, pressure_low: 1.8, pressure_high: 3.6 });
-      expect(again.body.settings.tanks).toHaveLength(1);
-      expect(again.body.settings.tanks[0].k).toBe(0.9);
+      expect(again.body.settings).toEqual({ compressor_seconds: 45 });
     });
 
-    it('odrzuca czas kompresora poza 1–3600 s i nieznany rodzaj zbiornika', async () => {
+    it('odrzuca czas kompresora poza 1–3600 s', async () => {
       const { body } = await register('C3A1B2C3D441');
       const put = (properties: Record<string, unknown>) =>
         request(app).put(`/api/device/properties?rootId=${body.rootId}`).send(properties);
       expect((await put({ compressor_seconds: 5000 })).status).toBe(400);
-      expect((await put({ compressor_seconds: 30, tanks: [{ kind: 'balon', volumeLiters: 10, enabled: true }] })).status).toBe(400);
+      expect((await put({ compressor_seconds: 0 })).status).toBe(400);
     });
 
-    it('sterownik zmienia sam czas kompresora, bez naruszania progów i zbiorników', async () => {
+    it('sterownik zmienia czas kompresora', async () => {
       const { body } = await register('C3A1B2C3D442');
       const response = await request(app)
         .put('/api/water-pressure-tank/settings?deviceId=C3A1B2C3D442').send({ compressor_seconds: 55 });
@@ -412,8 +408,7 @@ describe('Hydrofor (water-pressure-tank)', () => {
 
       const again = await register('C3A1B2C3D442');
       expect(again.body.rootId).toBe(body.rootId);
-      expect(again.body.settings).toMatchObject({ compressor_seconds: 55, pressure_low: 2, pressure_high: 4 });
-      expect(again.body.settings.tanks).toHaveLength(2);
+      expect(again.body.settings).toEqual({ compressor_seconds: 55 });
     });
 
     it('czas kompresora ze sterownika: walidacja, 404, 409 i odmowa dla pompy ciepła', async () => {

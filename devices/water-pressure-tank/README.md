@@ -18,10 +18,10 @@ pio test -e native                       # testy logiki na PC
 
 | Plik | Zawartość |
 |---|---|
-| `src/water-pressure-tank.cpp` | start kompresora przed Wi-Fi, punkt dostępowy, strony `/`, `/state.json`, `/restart`, `/install`, zgłoszenie w chmurze, wysyłka co 1 s |
-| `src/firmware.hpp` | typ, pin i poziom przekaźnika (`RELAY_ACTIVE_HIGH`), adres chmury |
-| `src/compressor.*` | czas pracy kompresora (start, ponowne uruchomienie, wyłączenie po czasie) |
-| `src/settings.*` | ustawienia z chmury (JSON), szacunek wody — ten sam wzór co w serwerze |
+| `src/water-pressure-tank.cpp` | start kompresora przed Wi-Fi, punkt dostępowy, strony `/`, `/state.json`, `/restart`, `/compressor/on`, `/compressor/off`, `/install`, zgłoszenie w chmurze, wysyłka co 1 s |
+| `src/firmware.hpp` | typ, wersja, pin i poziom przekaźnika (`RELAY_ACTIVE_HIGH`), czasy kompresora, adres chmury |
+| `src/compressor.*` | czas pracy kompresora (start, ponowne uruchomienie, praca ręczna „Włącz”/„Wyłącz” z limitem 30 min, wyłączenie po czasie) |
+| `src/settings.*` | ustawienia z chmury (JSON, tylko czas kompresora); wodę liczy chmura z czasu pompy i wodomierza |
 | `src/run_report.*` | JSON wysyłki, kolejka uruchomień bez sieci w NVS |
 | `test/test_logic` | testy `native` powyższej logiki |
 
