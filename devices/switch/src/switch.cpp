@@ -97,6 +97,8 @@ String otaStatus;
 bool uploadAccepted = false;
 bool uploadFinished = false;
 
+// Dziennik na konsoli UART0 (115200, złącze P1): czas w ms od startu i linia tekstu. Bufor
+// nadawania 2 KB (setup()) sprawia, że pisanie nie opóźnia pętli.
 void logf(const char *format, ...)
 {
   char line[200];
@@ -107,11 +109,10 @@ void logf(const char *format, ...)
   Serial.printf("[%7lu] %s\n", static_cast<unsigned long>(millis()), line);
 }
 
+// Stan przekaźnika z bank na jego pin (RELAY_ACTIVE_HIGH: stan wysoki = włączony).
 void writeRelay(uint8_t index)
 {
-  const uint8_t level = bank.relay(index).on == RELAY_ACTIVE_HIGH ? HIGH : LOW;
-  digitalWrite(RELAY_PINS[index], level);
-  if (RELAY_MIRROR_PINS[index] != 0xFF) digitalWrite(RELAY_MIRROR_PINS[index], level);
+  digitalWrite(RELAY_PINS[index], bank.relay(index).on == RELAY_ACTIVE_HIGH ? HIGH : LOW);
 }
 
 // Zapisuje na piny przekaźniki z maski i loguje zmianę.
@@ -126,11 +127,14 @@ void writeChanged(uint32_t mask, const char *reason)
   if (mask) exchangeDue = true;
 }
 
+// Chmura „dostępna”: ostatnia wymiana stanu udała się w ciągu CLOUD_ONLINE_MS. Od tego zależy
+// „Harmonogram” ze strony sterownika (bez chmury wyłącza przekaźnik) i próba OTA.
 bool cloudOnline(uint32_t nowMs)
 {
   return lastExchangeOkMs != 0 && nowMs - lastExchangeOkMs < CLOUD_ONLINE_MS;
 }
 
+// SN = fabryczny MAC z eFuse (12 znaków hex), deviceId w chmurze.
 String readSerial()
 {
   uint8_t mac[6] = {};
@@ -140,12 +144,14 @@ String readSerial()
   return text;
 }
 
+// Wartość z NVS, a gdy jej nie ma (pierwszy start) — wkompilowana z secrets.h.
 String storedOrDefault(const char *key, const char *fallback)
 {
   String value = preferences.getString(key, "");
   return value.length() > 0 ? value : String(fallback);
 }
 
+// Wi-Fi, Root ID i domyślny czas „Włącz” z NVS (przestrzeń „sw”).
 void loadConfig()
 {
   wifiSsid = storedOrDefault(KEY_WIFI_SSID, WIFI_SSID);
@@ -169,6 +175,8 @@ void parseCloudUrl()
   cloudPort = colon < 0 ? (cloudTls ? 443 : 80) : static_cast<uint16_t>(hostPort.substring(colon + 1).toInt());
 }
 
+// Adres endpointu sterownika: zawsze z deviceId (SN), z rootId, gdy jest zapisany
+// (serwer znajduje urządzenie po samym SN, core/middleware/device-context.ts).
 String requestUrl(const char *path)
 {
   String url = cloudUrl + path + "?deviceId=" + serial;
@@ -197,6 +205,7 @@ bool send(const char *method, const String &url, const String &body, String *res
   return ok;
 }
 
+// Rozłącza WebSocket (zmiana Root ID, 404/409, pobieranie OTA); startWebSocket połączy go znowu.
 void stopWebSocket()
 {
   if (!webSocketStarted) return;
@@ -217,6 +226,8 @@ void forgetRootIdOnError()
   stopWebSocket();
 }
 
+// Komunikaty WebSocket serwera: {"type":"operation"} po zmianie trybu albo harmonogramu
+// w aplikacji. Pozostałe ("update" dla przeglądarek) są pomijane.
 void handleWebSocketEvent(WStype_t type, uint8_t *payload, size_t length)
 {
   if (type == WStype_CONNECTED) {
@@ -233,6 +244,8 @@ void handleWebSocketEvent(WStype_t type, uint8_t *payload, size_t length)
   }
 }
 
+// WebSocket /ws?rootId= do tego samego serwera co HTTP (TLS dla https://); biblioteka sama
+// łączy ponownie co 10 s po zerwaniu.
 void startWebSocket()
 {
   const String path = "/ws?rootId=" + rootId;
@@ -402,6 +415,7 @@ bool downloadFirmware(const OtaOffer &offer)
   return true;
 }
 
+// OTA tylko przy wszystkich przekaźnikach wyłączonych (tryFirmwareUpdate).
 bool allRelaysOff()
 {
   for (uint8_t index = 0; index < bank.count(); index++) {
@@ -460,6 +474,7 @@ void updateAccessPoint(uint32_t nowMs)
   }
 }
 
+// Co 30 s jedna linia stanu na konsoli (komputer podłączony później też zobaczy, co się dzieje).
 void logStatus(uint32_t nowMs)
 {
   if (nowMs - lastStatusLogMs < STATUS_LOG_MS) return;
@@ -492,6 +507,7 @@ void tick(uint32_t nowMs)
 
 // --- strony WWW ---
 
+// Wartość z NVS (np. SSID) bezpiecznie wstawiona do HTML strony /install.
 String htmlEscape(const String &text)
 {
   String out;
@@ -548,6 +564,7 @@ function cmd(n,m,min){fetch('/relay?n='+n+'&mode='+m+(min?'&minutes='+min:''),{m
 load();setInterval(load,1000);
 </script></body></html>)html";
 
+// GET / (i każda nieznana ścieżka): strona sterowania, dane bierze z /state.json.
 void handleRoot()
 {
   String page = FPSTR(PAGE_HEAD);
@@ -556,6 +573,8 @@ void handleRoot()
   server.send(200, "text/html; charset=utf-8", page);
 }
 
+// GET /state.json dla strony / (co 1 s): przekaźniki (stan, tryb, odliczanie, niewysłana
+// zmiana), domyślny czas, Wi-Fi i chmura. Tylko lokalnie, nie trafia do chmury.
 void handleState()
 {
   const uint32_t now = millis();
@@ -608,6 +627,7 @@ void handleRelay()
   server.send(200, "application/json", "{}");
 }
 
+// Basic Auth stron /install (login z secrets.h); bez niego przeglądarka dostaje prośbę o hasło.
 bool authorized()
 {
   if (server.authenticate(INSTALL_USER, INSTALL_PASSWORD)) return true;
@@ -660,6 +680,8 @@ void handleInstall()
   server.send(200, "text/html; charset=utf-8", page);
 }
 
+// Ręczne wgranie firmware.bin z /install (także przez curl): części pliku trafiają prosto do
+// nieaktywnej partycji OTA; bez logowania albo przy błędzie zapisu obraz jest odrzucany.
 void handleFirmwareUpload()
 {
   HTTPUpload &upload = server.upload();
@@ -685,6 +707,8 @@ void handleFirmwareUpload()
   }
 }
 
+// Koniec wgrywania: odpowiedź i restart do nowego obrazu (przekaźniki wyłączą się na chwilę,
+// stan po starcie przywróci chmura).
 void handleFirmwareDone()
 {
   if (!authorized()) return;
@@ -696,6 +720,7 @@ void handleFirmwareDone()
   }
 }
 
+// AP do konfiguracji (10.11.17.1) razem z połączeniem do sieci domowej (AP+STA) i strony WWW.
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
@@ -721,6 +746,7 @@ void startNetwork()
 
 }  // namespace
 
+// Start: przekaźniki wyłączone, konfiguracja z NVS, sieć. Zgłoszenie i stan z chmury w tick().
 void setup()
 {
   Serial.setTxBufferSize(2048);
@@ -729,7 +755,6 @@ void setup()
   for (uint8_t index = 0; index < RELAY_COUNT; index++) {
     writeRelay(index);
     pinMode(RELAY_PINS[index], OUTPUT);
-    if (RELAY_MIRROR_PINS[index] != 0xFF) pinMode(RELAY_MIRROR_PINS[index], OUTPUT);
     writeRelay(index);
   }
 
@@ -742,6 +767,8 @@ void setup()
   startNetwork();
 }
 
+// Strony WWW i WebSocket w każdym obiegu, odliczanie przekaźników w każdym obiegu, reszta
+// (sieć, chmura, OTA) w tick() co 1 s albo od razu po zmianie.
 void loop()
 {
   server.handleClient();

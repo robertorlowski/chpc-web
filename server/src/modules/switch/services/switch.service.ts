@@ -24,6 +24,7 @@ const BOOT_MARGIN_S = 5;
 type RelayDoc = SwitchRelay & { _id?: unknown };
 type ScheduleDoc = SwitchSchedule & { _id?: unknown };
 
+// Liczba przekaźników ze zgłoszenia albo zgłoszenia stanu: całkowita 1–MAX_RELAYS.
 export const isRelayCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_RELAYS;
 
@@ -189,10 +190,12 @@ export async function setRelayMode(
   return updated ?? 'Nie ma takiego przekaźnika.';
 }
 
+// Nazwa przekaźnika z Ustawień (pusta = „Przekaźnik N” w aplikacji); null, gdy nie ma przekaźnika.
 export async function renameRelay(rootId: string, relay: number, name: string) {
   return SwitchRelayModel.findOneAndUpdate({ rootId, relay }, { $set: { name } }, { new: true, runValidators: true }).lean();
 }
 
+// Liczba przekaźników sterownika (dokumenty switch_relays): górna granica numeru w harmonogramie.
 export async function relayCount(rootId: string): Promise<number> {
   return SwitchRelayModel.countDocuments({ rootId });
 }

@@ -8,20 +8,18 @@
 constexpr const char *DEVICE_TYPE = "switch";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z ofertą chmury (OTA). Podnieść przy
 // każdym wydaniu, zanim zbudujesz obraz; tę samą wersję wpisuje się w aplikacji przy wgrywaniu.
-constexpr const char *FW_VERSION = "1.0.2";
+constexpr const char *FW_VERSION = "1.0.3";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 
 // Przekaźniki płytki, w kolejności numerów w chmurze (1, 2, …). Płytka „ESP32 Relay AC X1”
-// ma jeden przekaźnik Songle 30 A włączany stanem wysokim. Test pinów (2026-10-02) wskazał
-// GPIO17 albo GPIO2; przekaźnik zadziałał dopiero z GPIO2 (wersja 1.0.2, 2026-10-03), więc
-// przekaźnik 1 steruje obydwoma pinami. Liczbę przekaźników sterownik wysyła w zgłoszeniu.
-constexpr uint8_t RELAY_PINS[] = {17};
+// ma jeden przekaźnik Songle 30 A na GPIO2, włączany stanem wysokim (test pinów 2026-10-02
+// wskazał GPIO17 albo GPIO2; na GPIO17 przekaźnik nie klikał, na GPIO2 działa, 2026-10-03).
+// GPIO2 to pin trybu startu: wyjściem staje się dopiero w setup(), po starcie układu.
+// Liczbę przekaźników sterownik wysyła w zgłoszeniu.
+constexpr uint8_t RELAY_PINS[] = {2};
 constexpr uint8_t RELAY_COUNT = sizeof(RELAY_PINS) / sizeof(RELAY_PINS[0]);
 constexpr bool RELAY_ACTIVE_HIGH = true;
-// Drugi pin ustawiany razem z przekaźnikiem o tym samym numerze (0xFF = brak). Na samym GPIO17
-// przekaźnik nie klikał; z GPIO2 działa. GPIO2 (pin trybu startu) jest wyjściem dopiero po starcie.
-constexpr uint8_t RELAY_MIRROR_PINS[RELAY_COUNT] = {2};
 
 // Domyślny czas „Włącz” do pierwszego zgłoszenia (potem z chmury), 0 (bez limitu) – 10080 min.
 constexpr uint16_t DEFAULT_ON_MINUTES = 30;

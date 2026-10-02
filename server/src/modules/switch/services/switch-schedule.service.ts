@@ -118,10 +118,12 @@ export function parseSchedule(body: unknown, relayCount: number): Omit<SwitchSch
   };
 }
 
+// Wszystkie wpisy sterownika, po przekaźniku i godzinie startu (także wyłączone).
 export async function listSchedules(rootId: string) {
   return SwitchScheduleModel.find({ rootId }).sort({ relay: 1, startTime: 1 }).lean();
 }
 
+// Nowy wpis po walidacji parseSchedule.
 export async function createSchedule(rootId: string, schedule: Omit<SwitchSchedule, 'rootId'>) {
   return SwitchScheduleModel.create({ ...schedule, rootId });
 }
@@ -131,6 +133,7 @@ export async function replaceSchedule(rootId: string, id: string, schedule: Omit
   return SwitchScheduleModel.findOneAndReplace({ _id: id, rootId }, { ...schedule, rootId }, { new: true }).lean();
 }
 
+// Usuwa wpis tylko tego sterownika (rootId w filtrze); false, gdy go nie było.
 export async function removeSchedule(rootId: string, id: string) {
   const result = await SwitchScheduleModel.deleteOne({ _id: id, rootId });
   return result.deletedCount > 0;

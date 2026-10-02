@@ -51,6 +51,8 @@ export async function putSwitchMode(req: Request, res: Response) {
   }
 }
 
+// GET /switch/relays — przekaźniki dla aplikacji: stan ze sterownika, tryb, koniec włączenia,
+// wpis harmonogramu działający teraz, najbliższe włączenie i online (zgłoszenie w ciągu 30 s).
 export async function getSwitchRelays(req: Request, res: Response) {
   try {
     return res.status(200).json(await listRelays(req.deviceRootId as string));
@@ -73,6 +75,8 @@ export async function putSwitchRelayName(req: Request<{ relay: string }>, res: R
   }
 }
 
+// Harmonogramy wszystkich przekaźników sterownika. Zapis, zmiana i usunięcie budzą sterownik
+// (WebSocket "operation"), żeby nowe okno zadziałało od razu, a nie po 5 s.
 export async function getSwitchSchedules(req: Request, res: Response) {
   try {
     return res.status(200).json(await listSchedules(req.deviceRootId as string));
@@ -81,6 +85,7 @@ export async function getSwitchSchedules(req: Request, res: Response) {
   }
 }
 
+// POST /switch/schedules {relay, dayOfWeek | date, startTime, endTime, enabled?}
 export async function postSwitchSchedule(req: Request, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
@@ -94,6 +99,7 @@ export async function postSwitchSchedule(req: Request, res: Response) {
   }
 }
 
+// PUT /switch/schedules/:id — pełna podmiana wpisu (pola jak przy tworzeniu).
 export async function putSwitchSchedule(req: Request<{ id: string }>, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
@@ -108,6 +114,7 @@ export async function putSwitchSchedule(req: Request<{ id: string }>, res: Respo
   }
 }
 
+// DELETE /switch/schedules/:id
 export async function deleteSwitchSchedule(req: Request<{ id: string }>, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
