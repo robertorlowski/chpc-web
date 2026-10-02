@@ -131,14 +131,18 @@ cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank
 pio test -d devices/water-pressure-tank -e native            # 23 tests
 pio run  -d devices/water-pressure-tank -e esp32c3           # build
 pio run  -d devices/water-pressure-tank -e esp32c3 -t upload # flash over USB-C
-pio device monitor                                          # console 115200
+pio device monitor                                          # console 115200 (opening the port resets the board)
 ```
+
+When `-t upload` fails with "No serial data received" while switching to 460800 baud, flash only the application image with esptool without the stub: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+
+**USB log (since 1.1.1).** Lines `[ms since start] text` on the USB CDC console at 115200: start (version, SN, rootId, compressor time), AP, Wi-Fi (connection with IP and RSSI, or the status with the disconnect reason), registration with the cloud reply and the OTA offer, changes of the HTTP status of the report, the queue, the compressor and every OTA step. Every 10 s two status lines (`stan:` and `sieć:` with the network name, password length, last disconnect reason, channel and AP state), so a computer connected later still sees what is going on. Without a home network connection a background scan lists the visible networks with RSSI every 60 s (first after 15 s). Output with no computer attached is dropped at once (`Serial.setTxTimeoutMs(0)`), so it does not delay the loop that guards the relay. The ESP32-C3 native USB resets the chip when DTR/RTS change: to watch without a reset, open the port with DTR and RTS set to 0 before opening.
 
 The `native` tests cover: the compressor (single start, stop after time, restart, time 0, a time change applies from the next start), the time from `/install` (valid and invalid inputs, `PUT` body, an unsent time is not overwritten by the cloud), the water estimate (both kinds, a disabled tank, `k`, `p0` between and above the thresholds, invalid thresholds), settings (rejecting invalid data, NVS, default `k`/`p0`, truncation to 4 tanks), the report JSON and the queue (on a mock NVS). **Wi-Fi, HTTP and the pages have no automated tests**; without a board use the server-side simulator: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` with `npm run local`.
 
 ## Known issues and notes
 
-- **Never flashed onto a board**: first start according to the checklist in [part 1](1-business-description.md#before-the-first-deployment-checklist).
+- **Weak antenna on the SuperMini board.** At full transmit power the board heard the home network at −82 dBm (a laptop in the same spot about −50 dBm), did not connect (reason 39, timeout) and its AP was invisible. Since 1.1.3 the transmit power is lowered to 8.5 dBm (`WiFi.setTxPower` in `startNetwork()`) and the board connects within 1 s (2026-10-02, RSSI about −91 dBm at the desk). If the connection at the pump drops, a board with an external antenna is needed.
 - **`RELAY_ACTIVE_HIGH = false`** matches the current module; without the 10 kΩ resistor from `IN` to `3V3` the relay may click on briefly when power is applied (hardware, not the program).
 - **The water formula lives in three places** (`src/settings.cpp`, server, client); change them together.
 - **Security:** the controller network is open by default, pages over HTTP, `POST /restart` without login.

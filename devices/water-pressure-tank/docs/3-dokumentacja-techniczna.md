@@ -131,14 +131,18 @@ cp devices/water-pressure-tank/src/secrets.example.h devices/water-pressure-tank
 pio test -d devices/water-pressure-tank -e native            # 23 testy
 pio run  -d devices/water-pressure-tank -e esp32c3           # build
 pio run  -d devices/water-pressure-tank -e esp32c3 -t upload # wgranie przez USB-C
-pio device monitor                                          # konsola 115200
+pio device monitor                                          # konsola 115200 (otwarcie portu resetuje płytkę)
 ```
+
+Gdy `-t upload` kończy się „No serial data received” przy zmianie prędkości na 460800, wgrać sam obraz aplikacji esptoolem bez stuba: `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub write_flash 0x10000 .pio/build/esp32c3/firmware.bin`.
+
+**Dziennik na USB (od 1.1.1).** Linie `[ms od startu] treść` na konsoli USB CDC 115200: start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 60 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI. Zapis bez podłączonego komputera jest porzucany od razu (`Serial.setTxTimeoutMs(0)`), więc nie opóźnia pętli pilnującej przekaźnika. Natywne USB ESP32-C3 resetuje układ przy zmianie linii DTR/RTS: do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem.
 
 Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), szacunek wody (oba rodzaje, wyłączony zbiornik, `k`, `p0` między progami i powyżej, złe progi), ustawienia (odrzucenie złych danych, NVS, domyślne `k`/`p0`, obcięcie do 4 zbiorników), JSON wysyłki i kolejkę (na atrapie NVS). **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
-- **Nie był wgrywany na płytkę** — pierwsze uruchomienie według listy kontrolnej w [części 1](1-opis-biznesowy.md#przed-pierwszym-wdrożeniem-lista-kontrolna).
+- **Słaba antena płytki SuperMini.** Przy pełnej mocy nadawania płytka słyszała sieć domową na −82 dBm (laptop w tym samym miejscu ok. −50 dBm), nie łączyła się (przyczyna 39, timeout), a jej AP był niewidoczny. Od 1.1.3 moc nadawania jest obniżona do 8,5 dBm (`WiFi.setTxPower` w `startNetwork()`) i płytka łączy się w 1 s (2026-10-02, RSSI ok. −91 dBm przy biurku). Jeśli połączenie przy pompie się rwie, potrzebna jest płytka z zewnętrzną anteną.
 - **`RELAY_ACTIVE_HIGH = false`** odpowiada obecnemu modułowi; bez rezystora 10 kΩ z `IN` do `3V3` możliwe jest krótkie włączenie przekaźnika w chwili podania zasilania (sprzęt, nie program).
 - **Wzór wody w trzech miejscach** (`src/settings.cpp`, serwer, klient) — zmieniać razem.
 - **Bezpieczeństwo:** sieć sterownika domyślnie otwarta, strony po HTTP, `POST /restart` bez logowania.

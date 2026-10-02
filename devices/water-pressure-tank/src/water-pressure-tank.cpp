@@ -7,7 +7,10 @@
 // (czas kompresora z /install). Aktualizacja przez sieć (OTA): oferta w
 // settings.firmware odpowiedzi na zgłoszenie, ota.hpp i downloadFirmware().
 // NVS: przestrzeń „wp”, klucze niżej i w run_report.hpp.
+// Dziennik diagnostyczny na konsoli USB (logf(), logNetwork()); opis w docs,
+// punkt „Dziennik na USB”.
 #include <Arduino.h>
+#include <cstdarg>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <WebServer.h>
@@ -49,6 +52,7 @@ constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 constexpr int HTTP_CONFLICT = 409;
 
 const IPAddress AP_ADDRESS(10, 11, 16, 1);
+constexpr uint32_t STATUS_LOG_MS = 10000;
 
 Preferences preferences;
 WebServer server(80);
@@ -83,6 +87,31 @@ bool otaAttempted = false;
 String otaStatus;
 bool uploadAccepted = false;
 bool uploadFinished = false;
+
+// stan do dziennika: ostatnio zalogowany stan Wi-Fi, status wysyłki i przyczyna rozłączenia
+wl_status_t loggedWifiStatus = WL_NO_SHIELD;
+int loggedRunStatus = 0;
+bool loggedRunStatusKnown = false;
+volatile int lastDisconnectReason = 0;
+uint32_t lastStatusLogMs = 0;
+// skanowanie sieci do dziennika, gdy brak połączenia (pierwsze po 15 s, potem co 60 s)
+constexpr uint32_t SCAN_FIRST_MS = 15000;
+constexpr uint32_t SCAN_INTERVAL_MS = 60000;
+uint32_t lastScanMs = 0;
+bool scanRunning = false;
+
+// Dziennik na USB (konsola CDC, 115200). Bez podłączonego komputera zapis jest
+// porzucany od razu (setTxTimeoutMs(0) w setup()), więc nie opóźnia pętli, która
+// pilnuje przekaźnika kompresora. Czas w ms od startu sterownika.
+void logf(const char *format, ...)
+{
+  char line[200];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(line, sizeof(line), format, args);
+  va_end(args);
+  Serial.printf("[%7lu] %s\n", static_cast<unsigned long>(millis()), line);
+}
 
 // Blob w NVS dla kolejki i bieżącego uruchomienia. Blob o innym rozmiarze
 // (np. po zmianie struktury w nowej wersji) jest traktowany jak brak klucza.
@@ -172,6 +201,7 @@ void forgetRootIdOnConflict()
 {
   if (lastHttpStatus != HTTP_CONFLICT) return;
   // rootId należy do innego urządzenia (np. po wyczyszczeniu bazy)
+  logf("chmura: 409, Root ID należy do innego urządzenia, zgłoszę się ponownie");
   // następny tick() zgłosi sterownik ponownie i dostanie właściwy rootId
   rootId = "";
   preferences.remove(KEY_ROOT_ID);
@@ -193,13 +223,23 @@ void registerDevice()
   String body;
   serializeJson(request, body);
 
+  logf("zgłoszenie: POST devices/register, wersja %s, ip %s", FW_VERSION, WiFi.localIP().toString().c_str());
   String response;
-  if (!post(cloudUrl + "devices/register", body, &response)) return;
+  if (!post(cloudUrl + "devices/register", body, &response)) {
+    logf("zgłoszenie: błąd, HTTP %d (ponowię za %lu s)", lastHttpStatus, static_cast<unsigned long>(REGISTER_RETRY_MS / 1000));
+    return;
+  }
 
   JsonDocument reply;
-  if (deserializeJson(reply, response)) return;
+  if (deserializeJson(reply, response)) {
+    logf("zgłoszenie: odpowiedź nie jest poprawnym JSON-em");
+    return;
+  }
   String id = reply["rootId"] | "";
-  if (id.length() == 0) return;
+  if (id.length() == 0) {
+    logf("zgłoszenie: odpowiedź bez rootId");
+    return;
+  }
   if (id != rootId) {
     rootId = id;
     preferences.putString(KEY_ROOT_ID, rootId);
@@ -212,6 +252,10 @@ void registerDevice()
   }
   otaOfferReceived = parseOtaOffer(reply["settings"], otaOffer);
   registeredThisBoot = true;
+  logf("zgłoszenie: OK (HTTP %d), rootId %s, kompresor %u s", lastHttpStatus, rootId.c_str(),
+    static_cast<unsigned>(settings.compressorSeconds));
+  if (otaOfferReceived) logf("OTA: oferta %s (mam %s)", otaOffer.version.c_str(), FW_VERSION);
+  else logf("OTA: brak oferty w odpowiedzi");
 }
 
 // Czas kompresora ustawiony na /install trafia do chmury; po błędzie
@@ -222,6 +266,7 @@ void sendCompressorSeconds(uint32_t nowMs)
   const bool ok = send("PUT", requestUrl("water-pressure-tank/settings"),
     buildCompressorSecondsBody(settings.compressorSeconds).c_str());
   forgetRootIdOnConflict();
+  logf("czas kompresora do chmury: %s (HTTP %d)", ok ? "OK" : "błąd", lastHttpStatus);
   // 400: chmura nie przyjmie tej wartości, ponawianie nic nie da
   if (ok || lastHttpStatus == 400) {
     compressorPending = false;
@@ -232,6 +277,12 @@ void sendCompressorSeconds(uint32_t nowMs)
 bool sendRun(const RunRecord &run, bool queued)
 {
   const bool ok = post(requestUrl("water-pressure-tank/add"), buildRunReport(run, queued).c_str());
+  // do dziennika tylko zmiana statusu (wysyłka idzie co 1 s)
+  if (!queued && (!loggedRunStatusKnown || loggedRunStatus != lastHttpStatus)) {
+    logf("wysyłka uruchomienia: HTTP %d%s", lastHttpStatus, ok ? "" : " (błąd)");
+    loggedRunStatus = lastHttpStatus;
+    loggedRunStatusKnown = true;
+  }
   forgetRootIdOnConflict();
   return ok;
 }
@@ -242,6 +293,7 @@ bool sendRun(const RunRecord &run, bool queued)
 // (kilkanaście sekund), dlatego wołane tylko przy wyłączonym kompresorze.
 bool downloadFirmware(const OtaOffer &offer)
 {
+  logf("OTA: pobieram %s", offer.url.c_str());
   secureClient.stop();  // zwalnia pamięć połączenia keep-alive na czas drugiego TLS
   WiFiClientSecure client;
   client.setInsecure();  // integralność daje SHA-256 z odpowiedzi chmury
@@ -250,11 +302,15 @@ bool downloadFirmware(const OtaOffer &offer)
   download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   download.setConnectTimeout(OTA_TIMEOUT_MS);
   download.setTimeout(OTA_TIMEOUT_MS);
-  if (!download.begin(client, offer.url.c_str())) return false;
+  if (!download.begin(client, offer.url.c_str())) {
+    logf("OTA: nie udało się zacząć połączenia");
+    return false;
+  }
   const int status = download.GET();
   const int total = download.getSize();
   if (status != 200 || total <= 0 || !Update.begin(total)) {
     otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    logf("OTA: HTTP %d, rozmiar %d", status, total);
     download.end();
     return false;
   }
@@ -291,17 +347,21 @@ bool downloadFirmware(const OtaOffer &offer)
   if (!ok || remaining != 0) {
     Update.abort();
     otaStatus = "przerwane pobieranie";
+    logf("OTA: przerwane pobieranie, brakuje %d z %d B", remaining, total);
     return false;
   }
   if (offer.sha256 != hex) {
     Update.abort();
     otaStatus = "suma SHA-256 niezgodna";
+    logf("OTA: SHA-256 niezgodna (jest %s, oferta %s)", hex, offer.sha256.c_str());
     return false;
   }
   if (!Update.end(true)) {
     otaStatus = "obraz odrzucony";
+    logf("OTA: obraz odrzucony przez Update.end()");
     return false;
   }
+  logf("OTA: obraz %d B zapisany, SHA-256 zgodna", total);
   return true;
 }
 
@@ -313,13 +373,20 @@ bool downloadFirmware(const OtaOffer &offer)
 void tryFirmwareUpdate()
 {
   otaAttempted = true;
-  if (!otaOfferReceived) return;
+  if (!otaOfferReceived) {
+    logf("OTA: pomijam, brak oferty");
+    return;
+  }
   const String tried = preferences.getString(KEY_OTA_TRIED, "");
-  if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
+  if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) {
+    logf("OTA: pomijam, oferta %s, mam %s, ostatnia próba %s", otaOffer.version.c_str(), FW_VERSION, tried.c_str());
+    return;
+  }
   writeRelay(false);
   otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
   if (!downloadFirmware(otaOffer)) return;
   preferences.putString(KEY_OTA_TRIED, otaOffer.version.c_str());
+  logf("OTA: restart do wersji %s", otaOffer.version.c_str());
   delay(100);
   ESP.restart();
 }
@@ -336,12 +403,68 @@ void updateCurrentRun(uint32_t nowMs)
   store.write(KEY_CURRENT_RUN, &currentRun, sizeof(currentRun));
 }
 
+// Zmiany stanu Wi-Fi od razu, a co 10 s jedna linia ze stanem (komputer
+// podłączony później też zobaczy, co się dzieje).
+void logNetwork(uint32_t nowMs)
+{
+  const wl_status_t status = WiFi.status();
+  if (status != loggedWifiStatus) {
+    if (status == WL_CONNECTED) {
+      logf("Wi-Fi: połączono z %s, ip %s, RSSI %d dBm", wifiSsid.c_str(), WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    } else {
+      logf("Wi-Fi: status %d (%s), ostatnia przyczyna rozłączenia %d", static_cast<int>(status),
+        status == WL_NO_SSID_AVAIL ? "brak sieci" : status == WL_CONNECT_FAILED ? "błąd połączenia" : "niepołączony",
+        static_cast<int>(lastDisconnectReason));
+    }
+    loggedWifiStatus = status;
+  }
+  if (nowMs - lastStatusLogMs >= STATUS_LOG_MS) {
+    lastStatusLogMs = nowMs;
+    logf("stan: Wi-Fi %d, zgłoszony %d, rootId %s, kompresor %s, uruchomienie %lu s, kolejka %u, ostatni HTTP %d",
+      static_cast<int>(status), registeredThisBoot, rootId.length() > 0 ? rootId.c_str() : "brak",
+      compressor.running() ? "pracuje" : "wyłączony", static_cast<unsigned long>(currentRun.pumpRunS),
+      static_cast<unsigned>(queue.size()), lastHttpStatus);
+    logf("sieć: \"%s\" (hasło %u znaków), przyczyna rozłączenia %d, kanał %d, AP %s %s (klientów %d)",
+      wifiSsid.c_str(), static_cast<unsigned>(wifiPassword.length()), static_cast<int>(lastDisconnectReason),
+      static_cast<int>(WiFi.channel()), AP_SSID, accessPointOn ? "włączony" : "WYŁĄCZONY",
+      static_cast<int>(WiFi.softAPgetStationNum()));
+  }
+
+  // Skanowanie w tle (nie blokuje pętli): czy sieć domowa jest widoczna i z jakim sygnałem.
+  if (status == WL_CONNECTED) return;
+  if (scanRunning) {
+    const int found = WiFi.scanComplete();
+    if (found == WIFI_SCAN_RUNNING) return;
+    scanRunning = false;
+    if (found < 0) {
+      logf("skanowanie: błąd %d", found);
+      return;
+    }
+    bool home = false;
+    for (int index = 0; index < found; index++) {
+      if (WiFi.SSID(index) == wifiSsid) home = true;
+      if (index < 8 || WiFi.SSID(index) == wifiSsid) {
+        logf("skanowanie: \"%s\" RSSI %d dBm, kanał %d", WiFi.SSID(index).c_str(), static_cast<int>(WiFi.RSSI(index)),
+          static_cast<int>(WiFi.channel(index)));
+      }
+    }
+    logf("skanowanie: %d sieci, \"%s\" %s", found, wifiSsid.c_str(), home ? "WIDOCZNA" : "NIEWIDOCZNA");
+    WiFi.scanDelete();
+    return;
+  }
+  if (nowMs >= SCAN_FIRST_MS && (lastScanMs == 0 || nowMs - lastScanMs >= SCAN_INTERVAL_MS)) {
+    lastScanMs = nowMs;
+    scanRunning = WiFi.scanNetworks(true) == WIFI_SCAN_RUNNING;
+  }
+}
+
 // Wywoływane co 1 s z loop(). Kolejność: zapis w NVS, czas kompresora do
 // chmury, zgłoszenie (ponawiane co 10 s), wysyłka bieżącego uruchomienia,
 // jedno uruchomienie z kolejki. Bez zgłoszenia nic nie jest wysyłane.
 void tick(uint32_t nowMs)
 {
   updateCurrentRun(nowMs);
+  logNetwork(nowMs);
   if (WiFi.status() != WL_CONNECTED) return;
 
   // przed zgłoszeniem, żeby odpowiedź na nie niosła już nowy czas
@@ -369,6 +492,7 @@ void tick(uint32_t nowMs)
   if (!queue.empty() && sendRun(queue.front(), true)) {
     queue.pop();
     queue.save(store);
+    logf("kolejka: wysłano zaległe uruchomienie, zostało %u", static_cast<unsigned>(queue.size()));
   }
 
   if (!otaAttempted && currentRun.delivered && queue.empty() && !compressor.running()) tryFirmwareUpdate();
@@ -605,12 +729,24 @@ void handleFirmwareDone()
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
+  // Płytka SuperMini ma źle dopasowaną antenę: przy pełnej mocy nadawania słyszała
+  // sieć domową na −82 dBm i nie łączyła się (przyczyna 39, timeout). Niższa moc
+  // to znana poprawka dla tych płytek.
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
   // hasło krótsze niż 8 znaków daje sieć otwartą (WPA2 wymaga co najmniej 8)
   const char *apPassword = strlen(AP_PASSWORD) >= 8 ? AP_PASSWORD : nullptr;
   accessPointOn = WiFi.softAP(AP_SSID, apPassword);
-  if (!accessPointOn) Serial.println("Nie udało się uruchomić punktu dostępowego");
-  if (wifiSsid.length() > 0) WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  logf("AP %s: %s", AP_SSID, accessPointOn ? "uruchomiony" : "NIE uruchomiony");
+  // przyczyna każdego rozłączenia (kody esp_wifi: 2 = uwierzytelnienie, 15 = uścisk dłoni, 201 = brak sieci)
+  WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t info) { lastDisconnectReason = info.wifi_sta_disconnected.reason; },
+    ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  if (wifiSsid.length() > 0) {
+    logf("Wi-Fi: łączę z %s", wifiSsid.c_str());
+    WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  } else {
+    logf("Wi-Fi: brak zapisanej sieci (ustaw na /install w AP)");
+  }
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state.json", HTTP_GET, handleState);
@@ -626,6 +762,8 @@ void startNetwork()
 
 void setup()
 {
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);
   // Stan „wyłączony” przed przełączeniem pinu na wyjście: pin ani przez chwilę
   // nie ma stanu włączającego przekaźnik (dawny szkic włączał go przy starcie).
   writeRelay(false);
@@ -640,8 +778,9 @@ void setup()
   compressor.start(millis(), settings.compressorSeconds);
   writeRelay(compressor.running());
 
-  Serial.begin(115200);
   serial = readSerial();
+  logf("start: firmware %s, SN %s, rootId %s, kompresor %u s", FW_VERSION, serial.c_str(),
+    rootId.length() > 0 ? rootId.c_str() : "brak", static_cast<unsigned>(settings.compressorSeconds));
 
   // Uruchomienie z poprzedniego startu, z którego nic nie doszło do chmury,
   // trafia do kolejki, zanim bieżące nadpisze klucz run_current.
@@ -664,7 +803,10 @@ void loop()
 
   // wyłączenie kompresora sprawdzane w każdym obiegu, nie co 1 s
   const uint32_t now = millis();
-  if (compressor.update(now)) writeRelay(false);
+  if (compressor.update(now)) {
+    writeRelay(false);
+    logf("kompresor: wyłączony po %u s", static_cast<unsigned>(settings.compressorSeconds));
+  }
 
   if (now - lastTickMs >= TICK_MS) {
     lastTickMs = now;
