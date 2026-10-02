@@ -26,19 +26,9 @@ export enum ScheduleType {
   OFF = 'off',
 }
 
-// Wartości ujemne to grupy dni; DAYS_OFF obejmuje weekendy i polskie święta (calendar.service na serwerze).
-export enum WeekDay {
-  ANY_DAY = -1,
-  WORKDAYS = -2,
-  DAYS_OFF = -3,
-  SUNDAY = 0,
-  MONDAY = 1,
-  TUESDAY = 2,
-  WEDNESDAY = 3,
-  THURSDAY = 4,
-  FRIDAY = 5,
-  SATURDAY = 6,
-}
+// Dni harmonogramu: wspólne z włącznikiem, więc zdefiniowane w core.
+import { WeekDay } from '../../core/types';
+export { WeekDay };
 
 // date ma pierwszeństwo przed dayOfWeek; brak temperatury = wartość domyślna urządzenia; bez co_pomp.
 export type ScheduleEntry = {

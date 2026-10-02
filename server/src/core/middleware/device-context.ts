@@ -20,6 +20,9 @@ const controllerPaths = new Map<string, DeviceType>([
   ['/water-pressure-tank/add', DeviceType.WATER_PRESSURE_TANK],
   ['/water-pressure-tank/settings', DeviceType.WATER_PRESSURE_TANK],
   ['/pellet-boiler-pelux200/add', DeviceType.PELLET_BOILER_PELUX200],
+  ['/switch/state', DeviceType.SWITCH],
+  // tryb przekaźnika zmienia też aplikacja (z rootId); ze sterownika wystarczy deviceId
+  ['/switch/mode', DeviceType.SWITCH],
 ]);
 
 const queryText = (value: unknown) => typeof value === 'string' ? value.trim() : '';

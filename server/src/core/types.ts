@@ -8,6 +8,23 @@ export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
   PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
+  SWITCH = 'switch',
+}
+
+// Dni harmonogramu (pompa ciepła i włącznik); ten sam kontrakt w kliencie (zmieniać razem).
+// WORKDAYS pomija święta, DAYS_OFF obejmuje weekendy i polskie święta
+// (core/services/calendar.service.ts).
+export enum WeekDay {
+  ANY_DAY = -1,
+  WORKDAYS = -2,
+  DAYS_OFF = -3,
+  SUNDAY = 0,
+  MONDAY = 1,
+  TUESDAY = 2,
+  WEDNESDAY = 3,
+  THURSDAY = 4,
+  FRIDAY = 5,
+  SATURDAY = 6,
 }
 
 // Ustawienia urządzenia (pole properties). Jedno pole w bazie dla wszystkich
@@ -24,6 +41,8 @@ export interface DeviceProperties {
   compressor_seconds?: number;
   // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600
   poll_interval_seconds?: number;
+  // włącznik: domyślny czas „Włącz na…” [min], podpowiadany w aplikacji i na stronie sterownika
+  default_on_minutes?: number;
 }
 
 export interface Device {
@@ -55,4 +74,6 @@ export interface DeviceTypeModule {
   controllerSettings?: (properties: DeviceProperties) => unknown;
   /** sterownik aktualizuje firmware przez sieć: odpowiedź na zgłoszenie niesie settings.firmware (core/services/firmware.service.ts) */
   firmwareUpdates?: boolean;
+  /** dodatkowe pola zgłoszenia (np. liczba przekaźników włącznika); wołane przy każdym zgłoszeniu */
+  onRegister?: (rootId: string, deviceId: string, body: Record<string, unknown>) => Promise<void>;
 }

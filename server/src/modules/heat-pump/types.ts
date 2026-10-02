@@ -17,20 +17,9 @@ export enum ScheduleType {
   OFF = 'off',
 }
 
-// Dni harmonogramu; ten sam kontrakt w kliencie (zmieniać razem). WORKDAYS pomija święta,
-// DAYS_OFF obejmuje weekendy i polskie święta (core/services/calendar.service.ts).
-export enum WeekDay {
-  ANY_DAY = -1,
-  WORKDAYS = -2,
-  DAYS_OFF = -3,
-  SUNDAY = 0,
-  MONDAY = 1,
-  TUESDAY = 2,
-  WEDNESDAY = 3,
-  THURSDAY = 4,
-  FRIDAY = 5,
-  SATURDAY = 6,
-}
+// Dni harmonogramu: wspólne z włącznikiem, więc zdefiniowane w core.
+import { WeekDay } from '../../core/types';
+export { WeekDay };
 
 export interface ScheduleEntry {
   /** Jednoznaczny identyfikator slotu harmonogramu. */

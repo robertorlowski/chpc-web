@@ -113,8 +113,10 @@ export async function registerDeviceEntry(
     const { device, created } = await registerDevice(
       deviceType, deviceId.trim(), optionalText(name), optionalText(version)?.slice(0, 32), ipv4(ip),
     );
+    const typeModule = getDeviceTypeModule(device.deviceType);
+    await typeModule.onRegister?.(String(device._id), device.deviceId, req.body as Record<string, unknown>);
     // oferta firmware (OTA) tylko dla rodzajów, które ją obsługują i gdy jest włączona
-    const firmware = getDeviceTypeModule(device.deviceType).firmwareUpdates
+    const firmware = typeModule.firmwareUpdates
       ? await getFirmwareOffer(device.deviceType, serverBaseUrl(req))
       : undefined;
     const settings = controllerSettings(device) as object | undefined;

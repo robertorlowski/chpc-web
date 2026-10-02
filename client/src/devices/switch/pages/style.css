@@ -1,0 +1,232 @@
+/* Włącznik: karty jak w Ustawieniach pompy (.settings > section > .resource) i hydroforu */
+.settings.switch-page > section > .resource,
+.settings.switch-page > section > .resource:first-child {
+  width: min(560px, calc(100vw - 2rem));
+  box-sizing: border-box;
+}
+
+.switch-page .settings-section-title {
+  margin-bottom: 0.5rem;
+}
+
+/* nagłówek karty przekaźnika: nazwa po lewej, przełącznik stanu po prawej */
+.switch-relay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.switch-relay-header h3 {
+  margin: 0;
+}
+
+/* globalna reguła img daje display: block i margines dolny (jak .water-switch) */
+.switch-indicator {
+  display: inline-block;
+  height: 28px;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.switch-mode {
+  margin: 0.4rem 0;
+}
+
+.switch-mode-danger {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.switch-countdown {
+  font-size: 2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #1481a5;
+  text-align: center;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.switch-offline {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  background: #fdecea;
+  color: #b00020;
+  font-size: 0.85rem;
+}
+
+.switch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.switch-actions button {
+  margin-left: 0;
+}
+
+button.switch-stop {
+  background-color: #b00020;
+}
+
+button.switch-secondary {
+  background-color: #7a8c93;
+}
+
+button.switch-active {
+  outline: 3px solid #f2b705;
+  outline-offset: 1px;
+}
+
+/* „Włącz na [h] [min] Uruchom” w jednej linii, zawijane na telefonie */
+.switch-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.switch-timer button {
+  margin-left: 0;
+}
+
+.switch-page input,
+.switch-page select {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 32px;
+  padding: 0 0.4rem;
+  box-sizing: border-box;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.switch-page input[type='number'] {
+  width: 4.5rem;
+  text-align: right;
+}
+
+.switch-page input[type='checkbox'] {
+  min-height: 0;
+}
+
+.switch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.switch-table th,
+.switch-table td {
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
+}
+
+.switch-table td.switch-num,
+.switch-table th.switch-num {
+  text-align: right;
+}
+
+.switch-row-active td {
+  color: #1481a5;
+  font-weight: 600;
+}
+
+.switch-total {
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
+.switch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.switch-toolbar button {
+  margin-left: 0;
+}
+
+.switch-toolbar .switch-toolbar-end {
+  margin-left: auto;
+}
+
+.switch-hint {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.switch-error {
+  color: #b00020;
+}
+
+.switch-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.switch-form label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.switch-form span.label {
+  min-width: 13rem;
+}
+
+.switch-form input[type='text'] {
+  width: 14rem;
+  max-width: 100%;
+}
+
+.switch-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.switch-form-actions button {
+  margin-left: 0;
+}
+
+.switch-table-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 560px) {
+  body .settings.switch-page > section > .resource,
+  body .settings.switch-page > section > .resource:first-child {
+    width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .switch-table {
+    font-size: 0.85rem;
+  }
+
+  /* „Dziś” na głównej: bez przewijania strony, nazwa i źródło mogą się zawinąć */
+  .switch-table-wrap td {
+    white-space: normal;
+  }
+
+  .switch-table-wrap td.switch-nowrap {
+    white-space: nowrap;
+  }
+
+  .switch-form span.label {
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -9,6 +9,22 @@ export enum DeviceType {
   HP = 'heat_pump',
   WATER_PRESSURE_TANK = 'water-pressure-tank',
   PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
+  SWITCH = 'switch',
+}
+
+// Dni harmonogramu (pompa ciepła i włącznik); wartości ujemne to grupy dni, DAYS_OFF obejmuje
+// weekendy i polskie święta (calendar.service na serwerze). Ten sam kontrakt na serwerze.
+export enum WeekDay {
+  ANY_DAY = -1,
+  WORKDAYS = -2,
+  DAYS_OFF = -3,
+  SUNDAY = 0,
+  MONDAY = 1,
+  TUESDAY = 2,
+  WEDNESDAY = 3,
+  THURSDAY = 4,
+  FRIDAY = 5,
+  SATURDAY = 6,
 }
 
 // Ustawienia urządzenia (properties): jedno pole dla wszystkich rodzajów sterowników.
@@ -23,6 +39,8 @@ export type DeviceProperties = {
   compressor_seconds?: number;
   // kocioł pelletowy: co ile sterownik odpytuje piec, 30–3600 s (domyślnie 300)
   poll_interval_seconds?: number;
+  // włącznik: domyślny czas „Włącz na…” [min], 1–10080
+  default_on_minutes?: number;
 };
 
 // rootId to _id dokumentu w MongoDB, deviceId to SN sterownika (MAC ESP32); pusta nazwa

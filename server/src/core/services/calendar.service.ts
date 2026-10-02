@@ -1,6 +1,7 @@
-// Kalendarz polski dla harmonogramów pompy: dzień tygodnia w czasie warszawskim
-// i dni wolne (weekendy + święta ustawowe). Używa go scheduler (WORKDAYS, DAYS_OFF)
-// i schedule.service. Wewnątrz daty świąt liczone są w UTC jako klucze YYYY-MM-DD.
+// Kalendarz polski dla harmonogramów pompy i włącznika: dzień tygodnia w czasie
+// warszawskim i dni wolne (weekendy + święta ustawowe). Używa go scheduler pompy
+// (WORKDAYS, DAYS_OFF), schedule.service i harmonogramy włącznika (scheduleDayMatches).
+// Wewnątrz daty świąt liczone są w UTC jako klucze YYYY-MM-DD.
 import { formatInTimeZone } from 'date-fns-tz';
 
 import { TIME_ZONE } from '../time';
@@ -65,6 +66,28 @@ function getPolishPublicHolidays(year: number): Set<string> {
 export function getLocalDayOfWeek(date: Date): number {
   const isoDay = Number(formatInTimeZone(date, TIME_ZONE, 'i'));
   return isoDay === 7 ? 0 : isoDay;
+}
+
+// Czy wpis harmonogramu dotyczy dnia localDate (YYYY-MM-DD w Warszawie): data
+// jednorazowa ma pierwszeństwo przed dayOfWeek (WeekDay z core/types.ts). Używa go
+// włącznik; scheduler pompy ma własną, starszą wersję (dzień chwili bieżącej).
+export function scheduleDayMatches(
+  schedule: { dayOfWeek?: number; date?: Date | string },
+  localDate: string,
+): boolean {
+  if (schedule.date) {
+    return formatInTimeZone(new Date(schedule.date), TIME_ZONE, 'yyyy-MM-dd') === localDate;
+  }
+  // południe zamiast północy: ta sama data w Warszawie także w dniu zmiany czasu
+  const noon = new Date(`${localDate}T10:00:00Z`);
+  const dayOfWeek = getLocalDayOfWeek(noon);
+  const dayOff = isPolishDayOff(noon);
+  switch (schedule.dayOfWeek) {
+    case -1: return true; // ANY_DAY
+    case -2: return dayOfWeek >= 1 && dayOfWeek <= 5 && !dayOff; // WORKDAYS
+    case -3: return dayOff; // DAYS_OFF
+    default: return schedule.dayOfWeek === dayOfWeek;
+  }
 }
 
 // Sobota, niedziela albo święto ustawowo wolne (data liczona w Warszawie).

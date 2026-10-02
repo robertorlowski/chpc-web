@@ -1,0 +1,198 @@
+// Testy włącznika (baza w mongodb-memory-server): zgłoszenie z liczbą przekaźników,
+// okna harmonogramu (łączenie, przez północ, dni robocze), polecenia dla sterownika
+// w każdym trybie, powrót z timera do harmonogramu, historia włączeń (także po utracie
+// zasilania), identyfikacja sterownika (404/409), harmonogramy i nazwy przez API.
+import request from 'supertest'
+import mongoose from 'mongoose'
+import { MongoMemoryServer } from 'mongodb-memory-server'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import app from '../src/core/app'
+import { SwitchRelayModel } from '../src/modules/switch/models/switch-relay.model'
+import { activeSchedule, nextScheduleStart } from '../src/modules/switch/services/switch-schedule.service'
+import { reportState, setRelayMode } from '../src/modules/switch/services/switch.service'
+
+const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
+  request(app).post('/api/devices/register').send({ deviceId, deviceType: 'switch', relays: 1, ...extra });
+
+// 2026-10-05 to poniedziałek; w październiku (do 25.10) Warszawa = UTC+2
+const at = (warsaw: string) => new Date(`${warsaw}:00+02:00`);
+const entry = (startTime: string, endTime: string, extra: Record<string, unknown> = {}) =>
+  ({ enabled: true, dayOfWeek: -1, startTime, endTime, ...extra });
+
+describe('Włącznik (switch)', () => {
+  let mongoServer: MongoMemoryServer;
+
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri());
+    await SwitchRelayModel.syncIndexes();
+  });
+
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
+
+  describe('okna harmonogramu', () => {
+    it('łączy stykające się okna w jedno włączenie', () => {
+      const active = activeSchedule([entry('06:00', '07:00'), entry('07:00', '08:00')], at('2026-10-05T06:30'));
+      expect(active?.until).toEqual(at('2026-10-05T08:00'));
+    });
+
+    it('okno przez północ należy do dnia, w którym się zaczyna', () => {
+      // poniedziałek 22:00–06:00: działa we wtorek o 03:00, ale nie w poniedziałek o 03:00
+      const monday = [entry('22:00', '06:00', { dayOfWeek: 1 })];
+      expect(activeSchedule(monday, at('2026-10-06T03:00'))?.until).toEqual(at('2026-10-06T06:00'));
+      expect(activeSchedule(monday, at('2026-10-05T03:00'))).toBeNull();
+    });
+
+    it('dni robocze pomijają święta, koniec okna jest wyłączny', () => {
+      const workdays = [entry('08:00', '09:00', { dayOfWeek: -2 })];
+      // 11.11.2026 (środa) to święto; w listopadzie Warszawa = UTC+1
+      const winter = (warsaw: string) => new Date(`${warsaw}:00+01:00`);
+      expect(activeSchedule(workdays, winter('2026-11-11T08:30'))).toBeNull();
+      expect(activeSchedule(workdays, winter('2026-11-12T08:30'))).not.toBeNull();
+      expect(activeSchedule(workdays, winter('2026-11-12T09:00'))).toBeNull();
+    });
+
+    it('podaje najbliższe włączenie', () => {
+      const next = nextScheduleStart([entry('06:00', '07:00', { dayOfWeek: 3 })], at('2026-10-05T12:00'));
+      expect(next).toEqual(at('2026-10-07T06:00'));
+    });
+  });
+
+  describe('zgłoszenie i polecenia', () => {
+    it('zgłoszenie tworzy przekaźniki i odsyła domyślny czas', async () => {
+      const response = await register('4CC382C520F0', { relays: 2 }).expect(201);
+      expect(response.body.settings).toMatchObject({ default_on_minutes: 30 });
+      const relays = await request(app).get(`/api/switch/relays?rootId=${response.body.rootId}`).expect(200);
+      expect(relays.body.map((relay: { relay: number; mode: string }) => [relay.relay, relay.mode]))
+        .toEqual([[1, 'schedule'], [2, 'schedule']]);
+    });
+
+    it('w każdym trybie odsyła właściwe polecenie', async () => {
+      const { body } = await register('4CC382C520F1');
+      const rootId = body.rootId;
+      await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 1, dayOfWeek: -1, startTime: '17:00', endTime: '18:00' }).expect(201);
+      const off = { relays: [{ on: false, changedS: 10 }] };
+
+      // harmonogram: o 17:40 włącz na 20 min, o 18:10 wyłącz
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T17:40'))).relays)
+        .toEqual([{ on: true, offAfterS: 1200, mode: 'schedule' }]);
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T18:10'))).relays).toEqual([{ on: false, mode: 'schedule' }]);
+
+      // wyłączony: harmonogram go nie włącza
+      await setRelayMode(rootId, { relay: 1, mode: 'off' }, 'app');
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T17:40'))).relays).toEqual([{ on: false, mode: 'off' }]);
+
+      // włączony bez limitu
+      await setRelayMode(rootId, { relay: 1, mode: 'on' }, 'app');
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T12:00'))).relays).toEqual([{ on: true, mode: 'on' }]);
+
+      // na czas: po końcu wraca do harmonogramu
+      await setRelayMode(rootId, { relay: 1, mode: 'timer', minutes: 90 }, 'app', at('2026-10-05T12:00'));
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T13:00'))).relays)
+        .toEqual([{ on: true, offAfterS: 1800, mode: 'timer' }]);
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T17:30'))).relays)
+        .toEqual([{ on: true, offAfterS: 1800, mode: 'schedule' }]);
+      expect((await SwitchRelayModel.findOne({ rootId, relay: 1 }).lean())?.mode).toBe('schedule');
+    });
+
+    it('sprawdza tryb i czas', async () => {
+      const { body } = await register('4CC382C520F2');
+      await request(app).put(`/api/switch/mode?rootId=${body.rootId}`).send({ relay: 1, mode: 'boost' }).expect(400);
+      await request(app).put(`/api/switch/mode?rootId=${body.rootId}`).send({ relay: 1, mode: 'timer', minutes: 0 }).expect(400);
+      await request(app).put(`/api/switch/mode?rootId=${body.rootId}`).send({ relay: 3, mode: 'on' }).expect(400);
+      const ok = await request(app).put(`/api/switch/mode?rootId=${body.rootId}`)
+        .send({ relay: 1, mode: 'timer', minutes: 240 }).expect(200);
+      expect(ok.body).toMatchObject({ relay: 1, mode: 'timer', modeSource: 'app', desiredOn: true });
+    });
+
+    it('strona sterownika zmienia tryb samym deviceId', async () => {
+      await register('4CC382C520F3');
+      const response = await request(app).put('/api/switch/mode?deviceId=4CC382C520F3')
+        .send({ relay: 1, mode: 'off' }).expect(200);
+      expect(response.body).toMatchObject({ mode: 'off', modeSource: 'controller' });
+    });
+
+    it('identyfikuje sterownik jak hydrofor: deviceId, 404, 409', async () => {
+      const { body } = await register('4CC382C520F4');
+      const state = { uptimeS: 100, relays: [{ on: false, changedS: 100 }] };
+      await request(app).post('/api/switch/state?deviceId=4CC382C520F4').send(state).expect(200);
+      await request(app).post('/api/switch/state?deviceId=FFFFFFFFFFFF').send(state).expect(404);
+      await request(app).post(`/api/switch/state?deviceId=4CC382C520F0&rootId=${body.rootId}`).send(state).expect(409);
+      await request(app).post('/api/switch/state?deviceId=4CC382C520F4').send({ relays: [{ on: 'tak' }] }).expect(400);
+    });
+  });
+
+  describe('historia włączeń', () => {
+    it('zapisuje włączenie i wyłączenie z czasem ze sterownika', async () => {
+      const { body } = await register('4CC382C520F5');
+      const rootId = body.rootId;
+      await setRelayMode(rootId, { relay: 1, mode: 'on' }, 'controller');
+      // włączony 5 s przed zgłoszeniem, wyłączony 20 s przed kolejnym
+      await reportState(rootId, 'SN', { uptimeS: 600, relays: [{ on: true, changedS: 5 }] }, at('2026-10-05T10:00'));
+      await reportState(rootId, 'SN', { uptimeS: 660, relays: [{ on: true, changedS: 65 }] }, at('2026-10-05T10:01'));
+      await reportState(rootId, 'SN', { uptimeS: 1800, relays: [{ on: false, changedS: 20 }] }, at('2026-10-05T10:20'));
+
+      const day = await request(app).get(`/api/switch/activations?rootId=${rootId}&date=2026-10-05`).expect(200);
+      expect(day.body).toHaveLength(1);
+      expect(day.body[0]).toMatchObject({
+        relay: 1, source: 'controller', approximate: false,
+        onAt: new Date(at('2026-10-05T10:00').getTime() - 5000).toISOString(),
+        offAt: new Date(at('2026-10-05T10:20').getTime() - 20000).toISOString(),
+      });
+      expect(day.body[0].durationS).toBe(19 * 60 + 45);
+    });
+
+    it('po utracie zasilania kończy włączenie na ostatnim zgłoszeniu', async () => {
+      const { body } = await register('4CC382C520F6');
+      const rootId = body.rootId;
+      await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 1, dayOfWeek: -1, startTime: '06:00', endTime: '08:00' }).expect(201);
+      await reportState(rootId, 'SN', { uptimeS: 900, relays: [{ on: true, changedS: 600 }] }, at('2026-10-05T06:10'));
+      await reportState(rootId, 'SN', { uptimeS: 960, relays: [{ on: true, changedS: 660 }] }, at('2026-10-05T06:11'));
+      // sterownik bez zasilania do 07:00, po starcie przekaźnik wyłączony od 30 s
+      await reportState(rootId, 'SN', { uptimeS: 30, relays: [{ on: false, changedS: 30 }] }, at('2026-10-05T07:00'));
+
+      const day = await request(app).get(`/api/switch/activations?rootId=${rootId}&date=2026-10-05`).expect(200);
+      expect(day.body[0]).toMatchObject({
+        source: 'schedule', approximate: true,
+        offAt: at('2026-10-05T06:11').toISOString(),
+      });
+    });
+  });
+
+  describe('harmonogramy i nazwy', () => {
+    it('sprawdza wpis i pozwala go zmienić i usunąć', async () => {
+      const { body } = await register('4CC382C520F7');
+      const rootId = body.rootId;
+      await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 2, dayOfWeek: -1, startTime: '06:00', endTime: '07:00' }).expect(400);
+      await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 1, startTime: '06:00', endTime: '07:00' }).expect(400);
+      const created = await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 1, dayOfWeek: -2, startTime: '06:00', endTime: '07:00' }).expect(201);
+
+      await request(app).put(`/api/switch/schedules/${created.body._id}?rootId=${rootId}`)
+        .send({ relay: 1, date: '2026-10-10', startTime: '10:00', endTime: '12:00', enabled: false }).expect(200);
+      const list = await request(app).get(`/api/switch/schedules?rootId=${rootId}`).expect(200);
+      expect(list.body).toHaveLength(1);
+      expect(list.body[0]).toMatchObject({ startTime: '10:00', enabled: false });
+      expect(list.body[0].dayOfWeek).toBeUndefined();
+
+      await request(app).delete(`/api/switch/schedules/${created.body._id}?rootId=${rootId}`).expect(200);
+      await request(app).delete(`/api/switch/schedules/${created.body._id}?rootId=${rootId}`).expect(404);
+    });
+
+    it('zmienia nazwę przekaźnika', async () => {
+      const { body } = await register('4CC382C520F8');
+      await request(app).put(`/api/switch/relays/1?rootId=${body.rootId}`).send({ name: 'Pompa ogrodowa' }).expect(200);
+      await request(app).put(`/api/switch/relays/5?rootId=${body.rootId}`).send({ name: 'X' }).expect(404);
+      const relays = await request(app).get(`/api/switch/relays?rootId=${body.rootId}`);
+      expect(relays.body[0].name).toBe('Pompa ogrodowa');
+    });
+  });
+});
