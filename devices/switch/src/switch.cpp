@@ -109,8 +109,9 @@ void logf(const char *format, ...)
 
 void writeRelay(uint8_t index)
 {
-  const bool on = bank.relay(index).on;
-  digitalWrite(RELAY_PINS[index], on == RELAY_ACTIVE_HIGH ? HIGH : LOW);
+  const uint8_t level = bank.relay(index).on == RELAY_ACTIVE_HIGH ? HIGH : LOW;
+  digitalWrite(RELAY_PINS[index], level);
+  if (RELAY_MIRROR_PINS[index] != 0xFF) digitalWrite(RELAY_MIRROR_PINS[index], level);
 }
 
 // Zapisuje na piny przekaźniki z maski i loguje zmianę.
@@ -728,6 +729,7 @@ void setup()
   for (uint8_t index = 0; index < RELAY_COUNT; index++) {
     writeRelay(index);
     pinMode(RELAY_PINS[index], OUTPUT);
+    if (RELAY_MIRROR_PINS[index] != 0xFF) pinMode(RELAY_MIRROR_PINS[index], OUTPUT);
     writeRelay(index);
   }
 
