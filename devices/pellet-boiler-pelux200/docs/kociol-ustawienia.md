@@ -84,7 +84,7 @@ zapytaniem `0x55`), więc mapa dotyczy tego regulatora i tej wersji oprogramowan
 | Zachowanie | Parametr (menu) | Wartość fabryczna | U nas (obserwacja) |
 |---|---|---|---|
 | Rozpalenie, gdy temperatura kotła < **temperatura zadana − histereza** | Temperatura zadana kotła (`Menu → Ustawienia kotła`) | — | **67 °C** (panel i bajt 175 RegulatorData) |
-| | Histereza kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **5 °C** (źródło 1, str. 26) | do odczytu w menu serwisowym; rozpala przy ok. 55 °C, więc prawdopodobnie ok. **12 °C** |
+| | Histereza kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **5 °C** (źródło 1, str. 26) | **10 °C** (panel, 2026-10-03) → rozpala przy **57 °C** (67 − 10) |
 | Pompa CWU włącza się, gdy CWU < **zadana CWU − histereza zasobnika CWU** | Temperatura zadana CWU, Histereza zasobnika CWU (`Menu → Ustawienia CWU`) | — | zadana CWU **55 °C**, histereza CWU **15 °C** (panel, 2026-10-03) → ładowanie CWU poniżej 40 °C |
 | Pompa CO pracuje dopiero powyżej progu (ochrona kotła przed wychłodzeniem i roszeniem) | Temperatura załączenia pompy CO (`Ustawienia serwisowe → Ustawienia CO i CWU`) | nie podana w dokumentacji Pellux | pompy stoją poniżej 50 °C |
 | Obniżenie temperatury zadanej przy rozwartym styku termostatu | Termostat pokojowy kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **0 °C**, maks. 30 °C (źródło 1, str. 26) | — |
@@ -109,10 +109,10 @@ Na czas pracy pompy ciepła:
 2. **Próg rozpalenia poniżej tego, co daje pompa ciepła (np. ok. 40 °C)** — kocioł zostaje
    rezerwą. Dwie drogi:
    - **ręcznie, bez menu serwisowego:** obniżyć temperaturę zadaną kotła z 67 °C do ok.
-     **52 °C** (przy histerezie ok. 12 °C start przy ok. 40 °C); Minimalna temperatura kotła
-     (serwis) musi na to pozwalać. Albo w menu serwisowym histereza kotła ok. 12 → 27 °C przy
+     **50 °C** (przy histerezie 10 °C start przy 40 °C); Minimalna temperatura kotła
+     (serwis) musi na to pozwalać. Albo w menu serwisowym histereza kotła 10 → 27 °C przy
      zadanej 67 °C. Po zakończeniu pracy pompy ciepła z powrotem 67 °C (i ewentualnie
-     histereza) oraz pompa CO 50 °C;
+     histereza 10 °C) oraz pompa CO 50 °C;
    - **automatycznie, przez wejście termostatu:** Wybór termostatu = Uniwersalny, Termostat
      pokojowy kotła = 20 °C (rozwarty styk obniża zadaną 60 → 40 °C, start przy 35 °C),
      **Minimalna temperatura kotła ≤ 40 °C** (inaczej obniżenie się nie zmieści). Styk
