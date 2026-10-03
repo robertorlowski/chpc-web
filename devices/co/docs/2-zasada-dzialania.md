@@ -8,7 +8,6 @@
 flowchart LR
     CHPC["CHPC 0x41<br/>pompa ciepła"] <-- "RS-485 9600 8N1<br/>półdupleks" --> CO
     DTU["DTU Hoymiles 0x69<br/>Modbus RTU"] <-- "RS-485" --> CO
-    ECO["ecoMAX Pellux 200<br/>regulator kotła"] -- "RS-485 115200 8N1<br/>UART2, tylko odbiór" --> CO
     CO["co (ESP32) 0x10"]
     CO --> REL["przekaźniki CO / CWU"]
     CO --> LCD["ekran ST7735 128×160"]
@@ -18,7 +17,9 @@ flowchart LR
     CO -- "AP HP-CO-setup, strony WWW :80" --> USR["telefon / laptop"]
 ```
 
-Na magistrali transmisję zaczyna tylko `co`. Między ramkami jest co najmniej 500 ms; koniec ramki to 5 ms ciszy; brak odpowiedzi po 3 s to timeout. Magistrala kotła (ecoMAX) jest osobna: własny UART2 i konwerter, a `co` tylko z niej czyta (punkt „Piec Pellux 200” niżej).
+Na magistrali transmisję zaczyna tylko `co`. Między ramkami jest co najmniej 500 ms; koniec ramki to 5 ms ciszy; brak odpowiedzi po 3 s to timeout.
+
+Od 2026-10-03 `co` nie odczytuje pieca Pellux 200 (magistrala ecoMAX); robi to osobna płytka — [devices/pellet-boiler-pelux200](../../pellet-boiler-pelux200/README.md).
 
 ## Pętla główna
 
@@ -29,7 +30,7 @@ Każdy obieg `loop()`:
 3. `operationController.tick()` — ponowienie komend, których kolejka nie przyjęła;
 4. przekaźniki CO/CWU;
 5. odebrane ramki: CHPC → telemetria, DTU → PV, zapytania do `co` (0x10) → odpowiedź;
-6. WebSocket, odbiór ramek ecoMAX z UART2 (`ecomaxBus.tick()`), strony WWW, polityka punktu dostępowego.
+6. WebSocket, strony WWW, polityka punktu dostępowego.
 
 Potem zadania czasowe. Te, które blokują (HTTP, NTP), czekają, aż magistrala będzie wolna:
 
@@ -53,7 +54,6 @@ flowchart TD
 - **Komunikat WebSocket `operation`** wymusza wcześniejszy `POST /api/hp/add`.
 - **Brak odpowiedzi pompy** oznacza `heatPumpLost()`: pierwszy odczyt po powrocie wysyła do pompy cały stan od nowa.
 - Telemetria idzie także przy odłączonej pompie (z pustym `HP`), żeby serwer odesłał tryb pracy.
-- Rejestracja i wysyłka pieca (niżej) są w tym samym miejscu pętli co rejestracja pompy, przed wysyłką telemetrii, i też czekają na wolną magistralę.
 
 ## Od operacji z chmury do komend RS-485
 
@@ -105,32 +105,6 @@ stateDiagram-v2
 W `MANUAL_CO` przekaźniki są włączone, w `MANUAL_CWU` wyłączone; w obu `co` nie wysyła komend do pompy i nie sprawdza jej stanu. Operacja z chmury (także akcje odblokowania i restartu) jest stosowana **tylko w `CLOUD`**.
 
 Przekaźniki CO i CWU są przełączane razem: włączone w `M`, `A`, `PV` (chyba że `co_pomp` = 0), wyłączone w `CWU` i `OFF`.
-
-## Piec Pellux 200 (druga rola)
-
-Regulator ecoMAX sam, cyklicznie wysyła ramki `SensorData` (typ `0x35`) do swojego panelu. `co` jest tylko słuchaczem: osobny UART2 (RX GPIO16, 115200 8N1, TX nieprzypisany, DE/RE na GPIO4 na stałe LOW), bufor sterownika 2 KB. Pełny opis podłączenia i protokołu: [piec-pellux200.md](piec-pellux200.md).
-
-```mermaid
-flowchart TD
-    U["UART2: bajty z magistrali ecoMAX"] --> P["EcomaxFrameParser<br/>0x68 … 0x16, BCC = XOR"]
-    P -- "ramka odrzucona:<br/>resynchronizacja na kolejnym 0x68" --> P
-    P --> F{"SensorData 0x35<br/>od nadawcy 0x45?"}
-    F -- nie --> P
-    F -- tak --> D["decodeSensorData → ostatni odczyt<br/>+ czas odbioru"]
-    D --> R{"jest poprawna ramka i<br/>start, zmiana IP albo 404/409?"}
-    R -- tak --> REG["POST /api/devices/register<br/>deviceType pellet-boiler-pelux200<br/>(co 60 s do skutku)"]
-    REG --> S["pellet_root w NVS<br/>+ pellet_poll z odpowiedzi"]
-    D --> T{"zarejestrowany, odczyt młodszy niż 60 s,<br/>magistrala CHPC/DTU wolna, Wi-Fi,<br/>minął interwał?"}
-    T -- tak --> POST["POST /api/pellet-boiler-pelux200/add"]
-    POST -- "2xx: następna wysyłka za pellet_poll" --> D
-    POST -- "błąd: ponowienie najwyżej co 60 s" --> D
-    POST -- "404 / 409" --> CL["skasuj pellet_root,<br/>zarejestruj od nowa"]
-```
-
-- **Odbiór** nie przerywa reszty pętli: jedno wywołanie `tick()` przetwarza najwyżej 512 bajtów. Wysyłka do chmury blokuje pętlę do ok. 10 s (HTTP), a bufor UART2 (2 KB) przy 115200 baud mieści tylko ułamek sekundy ruchu; nadmiar jest gubiony, a parser po śmieciach szuka kolejnego `0x68`. Do chmury idzie zawsze ostatni poprawny odczyt, więc pojedyncze zgubione ramki nie szkodzą.
-- **Rejestracja** dopiero po pierwszej poprawnej ramce `SensorData`: sterownik bez kotła nie tworzy urządzenia. Żądanie ma `deviceType: "pellet-boiler-pelux200"`, ten sam SN co pompa i nazwę „Piec Pellux 200”; Root ID (inny niż pompy) trafia do NVS (`pellet_root`), a `settings.poll_interval_seconds` z odpowiedzi do `pellet_poll`. Nieudane zgłoszenie jest ponawiane co 60 s.
-- **Wysyłka** `POST /api/pellet-boiler-pelux200/add?deviceId=<SN>&rootId=<Root ID pieca>`: pierwsza zaraz po rejestracji i odebraniu ramki, potem co `pellet_poll` (domyślnie 300 s, dozwolone 30–3600 s). Odpowiedź `{"poll_interval_seconds": N}` aktualizuje `pellet_poll`. Po nieudanej wysyłce następna próba za mniej z dwóch: interwał albo 60 s. Wysyłane są tylko pola odczytane z ramki, plus `time`.
-- Wysyłka nie zależy od trybu sterownika (przycisk) i nie dotyka kolejki RS-485 pompy.
 
 ## Rejestracja i punkt dostępowy
 

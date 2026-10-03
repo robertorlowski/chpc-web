@@ -49,7 +49,7 @@ Moduł odpowiada za:
 2. **Codzienna praca.** Aplikacja po otwarciu od razu pokazuje sterownik domyślny. Jeśli sterownik jest tylko jeden, wybiera go sama.
 3. **Kilka sterowników.** Użytkownik przełącza się stopką. Wybór obowiązuje do zamknięcia przeglądarki; przy kolejnym otwarciu znów startuje sterownik domyślny.
 4. **Wymiana sterownika albo wyczyszczenie jego pamięci.** Sterownik zgłasza się ponownie z tym samym SN i dostaje ten sam rekord — historia danych zostaje.
-5. **Sterownik z kilkoma rolami.** Sterownik `co` obsługuje pompę ciepła i — gdy jest podłączony do kotła pelletowego — także kocioł. W aplikacji to dwa osobne urządzenia na liście (pompa i „Piec Pellux 200”), o tym samym identyfikatorze (SN), ale każde z własnym Root ID, menu i historią danych. Kocioł pojawia się dopiero, gdy sterownik odbierze z niego pierwszą poprawną ramkę.
+5. **Sterownik z kilkoma rolami.** Jeden fizyczny sterownik może występować w aplikacji jako kilka urządzeń o tym samym identyfikatorze (SN), każde z własnym Root ID, menu i historią danych. Tak było 2026-10-01–02, gdy `co` obsługiwał pompę ciepła i kocioł pelletowy; od 2026-10-03 kocioł ma osobny sterownik pieca, a mechanizm ról został w aplikacji.
 
 ## Ograniczenia i ryzyka
 
@@ -62,7 +62,7 @@ Moduł odpowiada za:
 
 | Pojęcie | Znaczenie |
 |---|---|
-| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła, druga rola: kocioł pelletowy), sterownik hydroforu albo włącznik |
+| **Sterownik** | urządzenie przy instalacji, które łączy się z chmurą: `co` (pompa ciepła), sterownik hydroforu, sterownik pieca (kocioł pelletowy) albo włącznik |
 | **Rodzaj sterownika** (`deviceType`) | `heat_pump`, `water-pressure-tank`, `pellet-boiler-pelux200` albo `switch`; decyduje o menu, ekranach i obsłudze danych |
 | **Rola sterownika** | jedno zadanie fizycznego sterownika (np. `co` jako pompa ciepła albo jako kocioł); każda rola to osobne urządzenie w aplikacji |
 | **SN** (`deviceId`) | numer seryjny sterownika — fabryczny adres MAC układu ESP32, 12 znaków szesnastkowych; wspólny dla wszystkich ról tego samego sterownika |

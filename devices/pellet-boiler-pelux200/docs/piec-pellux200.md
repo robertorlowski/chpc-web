@@ -1,15 +1,22 @@
 # Piec Pellux 200 (ecoMAX): podłączenie, protokół i dane
 
-Jeden dokument dla drugiej roli sterownika `co`: odczyt kotła pelletowego Plum Pellux 200
-Touch z regulatorem ecoMAX (rodzaj `pellet-boiler-pelux200`). Opisuje, jak fizycznie
-podłączyć `co`, jak wygląda protokół na magistrali, co odczytujemy i jak to wygląda
-w chmurze i aplikacji. Opis po stronie serwera i klienta: CLAUDE.md, punkt 5c.
+Jeden dokument dla sterownika pieca: odczyt kotła pelletowego Plum Pellux 200 Touch
+z regulatorem ecoMAX (rodzaj `pellet-boiler-pelux200`) na osobnej płytce **ESP32-C3
+SuperMini z modułem RS-485 HW-519** (firmware w tym katalogu, instrukcja:
+[README.md](../README.md)). Opisuje, jak fizycznie podłączyć sterownik, jak wygląda
+protokół na magistrali, co odczytujemy i jak to wygląda w chmurze i aplikacji. Opis po
+stronie serwera i klienta: CLAUDE.md, punkt 5c.
+
+Do 2026-10-02 tę rolę pełnił sterownik `co` (drugi UART, osobny konwerter z pinem
+DE/RE); od 2026-10-03 działa na osobnej płytce, a `co` obsługuje tylko pompę ciepła i PV.
 
 **Stan:** etap 1, tylko odbiór. Format ramek pochodzi z biblioteki PyPlumIO
 (reverse-engineering, nie dokumentacja producenta) i **nie był sprawdzony na kotle**.
-Piny ESP32 i punkt wpięcia wynikają z dokumentacji producenta i nie były sprawdzone
-na płytce ani przy kotle. Przykładowa ramka jest zbudowana według tego opisu i
-sprawdzona tylko parserem z firmware, nie nagrana z kotła.
+Punkt wpięcia wynika z dokumentacji producenta i nie był sprawdzony przy kotle. Płytkę
+(odbiór na GPIO21, automatyczna polaryzacja, wysyłka do chmury) sprawdzono 2026-10-03 na
+biurku, z komputerem udającym kocioł ([README](../README.md#test-na-biurku)). Przykładowa
+ramka jest zbudowana według tego opisu i sprawdzona parserem z firmware, nie nagrana
+z kotła.
 
 ## 1. Kocioł i sterownik
 
@@ -26,38 +33,32 @@ sprawdzona tylko parserem z firmware, nie nagrana z kotła.
 
 ```mermaid
 flowchart LR
-  A["ecoMAX<br/>(moduł A)"] -- "RS-485, ramka SensorData 0x35<br/>ciągle, do panelu" --> B["co: UART2<br/>nasłuch pasywny"]
-  B -- "ostatni poprawny odczyt" --> C["co: POST co 300 s<br/>/api/pellet-boiler-pelux200/add"]
+  A["ecoMAX<br/>(moduł A)"] -- "RS-485, ramka SensorData 0x35<br/>ciągle, do panelu" --> B["sterownik pieca (ESP32-C3):<br/>GPIO21, nasłuch pasywny"]
+  B -- "ostatni poprawny odczyt" --> C["sterownik: POST co 300 s<br/>/api/pellet-boiler-pelux200/add"]
   C --> D["serwer: kolekcja<br/>pellet_boiler_pelux200"]
   D -- "GET /last, /list" --> E["aplikacja:<br/>Kocioł · Dane · Ustawienia"]
 ```
 
-`co` niczego nie pyta kotła: ecoMAX sam wysyła `SensorData` do panelu, a `co` podsłuchuje
-wspólną magistralę. Do chmury idzie **ostatni** poprawny odczyt raz na
+Sterownik niczego nie pyta kotła: ecoMAX sam wysyła `SensorData` do panelu, a sterownik
+podsłuchuje wspólną magistralę. Do chmury idzie **ostatni** poprawny odczyt raz na
 `poll_interval_seconds` (domyślnie 300 s, ustawiane w aplikacji), tylko gdy jest młodszy
-niż 60 s i magistrala CHPC/DTU jest wolna.
+niż 60 s.
 
 ## 3. Podłączenie
 
-### Płytka `co`
+### Płytka sterownika
 
-`co` pracuje na płytce **ESP32_Relay X4** (ESP32-WROOM, 4 przekaźniki, zasilanie
-7–30 V). Piny użyte w firmware (`hardware_config.hpp`): TFT 0, 12, 13, 14, 27;
-przekaźniki 25, 26; zasilanie modułów 18; przycisk 5; I2C (RTC) 21/22; UART0 (TXD/RXD)
-dla CHPC i DTU. Dla kotła dochodzą (stałe w `hardware_config.hpp`):
+**ESP32-C3 SuperMini** (zasilanie i konsola przez USB-C, 5 V) i moduł **RS-485 HW-519**,
+który sam przełącza kierunek transmisji (nie ma pinu DE/RE). Etap 1 to tylko odbiór,
+więc z modułu do płytki idzie jeden przewód sygnałowy. Stałe są w `src/firmware.hpp`
+(`ECOMAX_RX_PIN = 21`, `ECOMAX_BAUD = 115200`).
 
-| Potrzebne | Pin płytki | Uwagi |
+| HW-519 | ESP32-C3 SuperMini | Uwagi |
 |---|---|---|
-| RX2 (odbiór z konwertera) | G16 | rząd „G16 / G17” na lewej listwie |
-| TX2 (nadawanie do konwertera) | G17 | etap 2; w etapie 1 nieużywany (TX = −1) |
-| DE/RE (kierunek) | G4 | lewa listwa, rząd „G0 / G4”; na stałe LOW (odbiór) |
-| zasilanie konwertera | 3V3 | druga listwa |
-| masa konwertera | GND | obok |
-
-Przed użyciem sprawdzić na płytce: napis na module (WROOM, nie WROVER — w WROVER piny
-16/17 zajmuje PSRAM) oraz czy GPIO4 nie steruje którymś przekaźnikiem (opis sprzedawcy
-albo ścieżki RY1–RY4). Przy kolizji UART2 i DE/RE można przemapować na inne wolne piny,
-bo w ESP32 piny UART wybiera się w `begin()`.
+| TXD (wyjście: dane odebrane z magistrali) | GPIO21 | odbiór, UART1; opisy HW-519 są od strony modułu (przy odbiorze miga dioda TXD); sprawdzone 2026-10-03 |
+| RXD | — | nieużywany: pin TX UART-u nie jest przypisany, sterownik nigdy nie nadaje |
+| VCC | 3V3 | sprawdzone 2026-10-03; przy 5V wyjście TXD dawałoby 5 V na GPIO21, czego ESP32-C3 nie toleruje |
+| GND | GND | masa modułu |
 
 ### Gdzie wpiąć się w kotle
 
@@ -87,46 +88,35 @@ flowchart LR
     P["Panel dotykowy<br/>(zostaje podłączony)"]
     G2 --- P
   end
-  subgraph C["Odbiornik/nadajnik (nowy)"]
-    M["Konwerter RS-485/TTL 3,3 V<br/>(MAX3485)"]
-    E["ESP32 co — UART2"]
-    M -- "RO → GPIO16 (RX2)" --> E
-    E -- "GPIO17 (TX2) → DI" --> M
-    E -- "GPIO4 → DE+RE" --> M
+  subgraph C["Sterownik pieca"]
+    M["Moduł RS-485 HW-519<br/>(automatyczny kierunek)"]
+    E["ESP32-C3 SuperMini<br/>(USB-C 5 V)"]
+    M -- "TXD → GPIO21" --> E
+    E -- "3V3, GND" --- M
   end
   G2 -- "D+ ↔ A" --- M
   G2 -- "D− ↔ B" --- M
 ```
 
-| Z (kocioł, moduł A, gniazdo G2) | Do (konwerter RS-485) | Uwagi |
+| Z (kocioł, moduł A, gniazdo G2) | Do (HW-519) | Uwagi |
 |---|---|---|
 | D+ | A (RS-485 A) | równolegle do przewodu panelu |
 | D− | B (RS-485 B) | równolegle do przewodu panelu |
 | 5V | — | **nie podłączać** |
 | GND | — | na początek **nie podłączać** |
 
-| Konwerter | ESP32 (`co`) | Uwagi |
-|---|---|---|
-| RO (wyjście odbiornika) | GPIO16 (RX2) | odbiór |
-| DI (wejście nadajnika) | GPIO17 (TX2) | nadawanie (etap 2) |
-| DE i RE (zwarte razem) | GPIO4 | HIGH = nadawanie, LOW = odbiór |
-| VCC | 3V3 | konwerter musi być wersją 3,3 V |
-| GND | GND ESP32 | masa samego konwertera |
-
-Wariant bez pinu kierunku: moduł RS-485 z automatycznym przełączaniem kierunku; wtedy
-GPIO4 jest niepotrzebny. Do etapu 1 (sam odbiór) DE i RE są zwarte do GND.
-
 ### Odbiór i nadawanie
 
 RS-485 jest półdupleksem: para D+/D− służy naprzemiennie do odbioru i nadawania.
 
-- **Odbiór (etap 1, jedyny zaimplementowany):** GPIO4 = LOW, ramki z D+/D− → A/B → RO →
-  GPIO16 → UART2 → parser (`ecomax_frame.*`).
-- **Nadawanie (etap 2, nie zaimplementowane):** po `CheckDevice` (`0x30`) od kotła `co`
-  ustawiłby GPIO4 = HIGH, wysłał przez GPIO17 ramkę `DeviceAvailable` (`0xB0`), po
-  opróżnieniu bufora (`flush`) wrócił do LOW i odebrał `SensorData` adresowane do siebie.
-  Linia nie może zostać w trybie nadawania: zablokowałaby panel i kocioł. Adres `co` na
-  magistrali kotła (w PyPlumIO `0x56`) i czasy trzeba ustalić z nasłuchu.
+- **Odbiór (etap 1, jedyny zaimplementowany):** ramki z D+/D− → A/B → TXD HW-519 →
+  GPIO21 → UART1 → parser (`ecomax_frame.*`).
+- **Nadawanie (etap 2, nie zaimplementowane):** po `CheckDevice` (`0x30`) od kotła
+  sterownik wysłałby ramkę `DeviceAvailable` (`0xB0`) i odebrał `SensorData` adresowane
+  do siebie; HW-519 sam przełącza się na nadawanie na czas wysyłki. W teście na biurku
+  (2026-10-03) nadawanie z C3 przez HW-519 **nie działało** — przed etapem 2 trzeba to
+  wyjaśnić. Linia nie może zostać w trybie nadawania: zablokowałaby panel i kocioł. Adres
+  sterownika na magistrali kotła (w PyPlumIO `0x56`) i czasy trzeba ustalić z nasłuchu.
 
 ### Zasady i ostrzeżenia
 
@@ -135,18 +125,19 @@ RS-485 jest półdupleksem: para D+/D− służy naprzemiennie do odbioru i nada
 - **Nie mieszać z magistralą CHPC/DTU.** Tam jest 9600 baud i `co` jest masterem, a ecoMAX
   ma własnego mastera, nadaje cyklicznie i pracuje na 115200 baud. Jego ramki wpadałyby do
   odczytów CHPC, który odrzuca komendę z obcymi bajtami w jednym odczycie (CLAUDE.md,
-  punkt 7). Kocioł ma osobny UART2 i osobny konwerter.
-- **Konwerter 3,3 V.** Popularne moduły MAX485 pracują na 5 V i podają 5 V na RO, czego
-  ESP32 nie toleruje. Użyć MAX3485 albo dzielnika napięcia na RO.
+  punkt 7). Dlatego kocioł ma osobną płytkę i osobny moduł RS-485.
+- **Poziom 3,3 V na GPIO21.** HW-519 zasilać z 3V3 płytki C3 (sprawdzone, odbiór bez
+  błędów); ESP32-C3 nie toleruje 5 V na wejściu.
 - **Masa kotła i ESP32.** Nie łączymy ich na początku. Gdy ramki będą nieczytelne,
   zmierzyć multimetrem różnicę potencjałów; bezpieczniejszy jest konwerter z izolacją
   galwaniczną.
 - **Zasilanie kotła wyłączone** na czas wpinania przewodów.
-- Zamiana D+ i D− niczego nie uszkadza, daje tylko nieczytelne ramki.
+- Zamiana D+ i D− niczego nie uszkadza, daje tylko nieczytelne ramki, a te sterownik
+  wykrywa i sam odwraca sygnał ([automatyczna polaryzacja](../README.md#automatyczna-polaryzacja)).
 
 ## 4. Protokół na magistrali (wg PyPlumIO)
 
-Warstwa fizyczna: RS-485 half-duplex, **115200 baud** 8N1 (stała w `hardware_config.hpp`).
+Warstwa fizyczna: RS-485 half-duplex, **115200 baud** 8N1 (stała `ECOMAX_BAUD` w `firmware.hpp`).
 
 Ramka (little-endian): `0x68` | długość całej ramki, uint16 (od `0x68` do `0x16`
 włącznie) | adres odbiorcy | adres nadawcy | typ nadawcy | wersja ecoNET | typ ramki |
@@ -161,7 +152,7 @@ broadcast, `0x45` ecoMAX, `0x51` ecoSTER (panel), `0x56` ecoNET (PyPlumIO).
 | `SENSOR_DATA` | 53 / `0x35` | zestaw czujników i stanów — **tego odczytujemy** |
 | `PROGRAM_VERSION`, `UID`, parametry `0x31`/`0xB1` | 64/192, 57/185, 49/177 | wersja, identyfikator, parametry edytowalne — nie używamy |
 
-`co` przyjmuje `SENSOR_DATA` tylko od nadawcy `0x45` (ecoMAX). Parser jest defensywny:
+Sterownik przyjmuje `SENSOR_DATA` tylko od nadawcy `0x45` (ecoMAX). Parser jest defensywny:
 sprawdza granice, liczy ramki odrzucone, resynchronizuje się po śmieciach (szuka
 następnego `0x68`) i nie czyta poza buforem.
 
@@ -240,7 +231,6 @@ Ramka `SensorData` od ecoMAX do panelu (60 bajtów), zbudowana według opisu PyP
 
 ```json
 {
-  "time": "2026.10.01 00:41:07",
   "state": 3,
   "heating_temp": 62.5, "water_heater_temp": 48.0,
   "outside_temp": 7.0, "exhaust_temp": 145.0,
@@ -254,8 +244,8 @@ Ramka `SensorData` od ecoMAX do panelu (60 bajtów), zbudowana według opisu PyP
 }
 ```
 
-Serwer ignoruje `time` (bierze swój zegar), zapisuje dokument w kolekcji
-`pellet_boiler_pelux200` i odpowiada `{"poll_interval_seconds": 300}`.
+Sterownik nie wysyła `time` (serwer i tak bierze czas ze swojego zegara). Serwer
+zapisuje dokument w kolekcji `pellet_boiler_pelux200` i odpowiada `{"poll_interval_seconds": 300}`.
 
 ## 6. Jak wygląda w aplikacji
 
@@ -290,13 +280,14 @@ następnej wysyłce danych.
 1. Model ecoMAX i wersja oprogramowania (MENU → Informacje).
 2. Czy na G2 widać ramki od `0x68` do `0x16` z typem `0x35` od nadawcy `0x45`. Jeśli nie,
    powtórzyć na G3 (zaciski 36 = D+, 37 = D−).
-3. Prędkość: 115200 baud według PyPlumIO; przy nieczytelnych ramkach mimo właściwej
-   polaryzacji sprawdzić inne.
+3. Prędkość: 115200 baud według PyPlumIO; gdy ramki są odrzucane w obu polaryzacjach
+   (liczniki na stronie `/` sterownika), sprawdzić inne.
 4. Czy `SensorData` w ogóle płynie do panelu, czy trzeba odpowiadać na `CheckDevice`
    (etap 2).
 5. Założenia dekodera bez potwierdzenia: bajt licznika alertów liczony osobno od bajtów
    alertów, odejmowanie 101 od poziomu paliwa, nadawca `0x45`.
-6. Napis na module ESP32 (WROOM) i wolne GPIO4/16/17 na płytce.
+6. Liczniki na stronie `/` sterownika przy kotle: bajty, ramki (w tym `SensorData`),
+   odrzucone i wybrana polaryzacja.
 
 ## 8. Źródła
 

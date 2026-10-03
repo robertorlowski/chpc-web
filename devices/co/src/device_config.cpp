@@ -1,5 +1,6 @@
 // Odczyt i zapis konfiguracji połączenia w NVS (Preferences) oraz SN z eFuse.
-// Brak wartości w NVS oznacza wartość domyślną z secrets.h.
+// Brak wartości w NVS oznacza wartość domyślną z secrets.h. Przy starcie usuwa
+// klucze dawnej roli pieca Pellux 200 (OBSOLETE_KEYS).
 #include <device_config.hpp>
 
 #include <Preferences.h>
@@ -22,8 +23,10 @@ namespace {
 constexpr const char *KEY_WIFI_SSID = "wifi_ssid";
 constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_ROOT_ID = "root_id";
-constexpr const char *KEY_PELLET_ROOT_ID = "pellet_root";
-constexpr const char *KEY_PELLET_POLL = "pellet_poll";
+// Klucze roli pieca Pellux 200 z firmware do 2026-10-02 (Root ID pieca
+// i interwał wysyłki). Od 2026-10-03 piec ma osobną płytkę
+// (devices/pellet-boiler-pelux200), więc loadDeviceConfig() je usuwa.
+constexpr const char *OBSOLETE_KEYS[] = {"pellet_root", "pellet_poll"};
 
 DeviceConfig config;
 
@@ -49,16 +52,15 @@ String readSerial()
 void loadDeviceConfig()
 {
   Preferences preferences;
-  preferences.begin(PREFERENCES_NAMESPACE, true);
+  // Zapis tylko dla usunięcia starych kluczy (isKey: bez błędu, gdy ich nie ma).
+  preferences.begin(PREFERENCES_NAMESPACE, false);
+  for (const char *key : OBSOLETE_KEYS) {
+    if (preferences.isKey(key)) preferences.remove(key);
+  }
   config.wifiSsid = storedOrDefault(preferences, KEY_WIFI_SSID, WIFI_SSID);
   config.wifiPassword =
     storedOrDefault(preferences, KEY_WIFI_PASSWORD, WIFI_PASSWORD);
   config.rootId = storedOrDefault(preferences, KEY_ROOT_ID, CLOUD_ROOT_ID);
-  config.pelletRootId = preferences.getString(KEY_PELLET_ROOT_ID, "");
-  uint32_t poll = preferences.getUInt(KEY_PELLET_POLL, PELLET_POLL_DEFAULT_S);
-  config.pelletPollSeconds =
-    poll >= PELLET_POLL_MIN_S && poll <= PELLET_POLL_MAX_S
-      ? poll : PELLET_POLL_DEFAULT_S;
   preferences.end();
 }
 
@@ -121,45 +123,4 @@ void clearRootId()
   // Also drops a CLOUD_ROOT_ID default until the next restart; if that one
   // is wrong too, the server rejects it again and the cycle repeats once.
   config.rootId = "";
-}
-
-bool pelletRegistered()
-{
-  return config.pelletRootId.length() > 0;
-}
-
-bool savePelletRootId(const String &rootId)
-{
-  if (rootId.length() == 0) return false;
-
-  Preferences preferences;
-  if (!preferences.begin(PREFERENCES_NAMESPACE, false)) return false;
-  bool stored = preferences.putString(KEY_PELLET_ROOT_ID, rootId) > 0;
-  preferences.end();
-
-  if (stored) config.pelletRootId = rootId;
-  return stored;
-}
-
-void clearPelletRootId()
-{
-  Preferences preferences;
-  if (preferences.begin(PREFERENCES_NAMESPACE, false)) {
-    preferences.remove(KEY_PELLET_ROOT_ID);
-    preferences.end();
-  }
-  config.pelletRootId = "";
-}
-
-bool savePelletPollSeconds(uint32_t seconds)
-{
-  if (seconds < PELLET_POLL_MIN_S || seconds > PELLET_POLL_MAX_S) return false;
-
-  Preferences preferences;
-  if (!preferences.begin(PREFERENCES_NAMESPACE, false)) return false;
-  if (config.pelletPollSeconds != seconds)
-    preferences.putUInt(KEY_PELLET_POLL, seconds);
-  preferences.end();
-  config.pelletPollSeconds = seconds;
-  return true;
 }

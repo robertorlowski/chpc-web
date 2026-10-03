@@ -51,4 +51,4 @@ yarn-error.log*
 .claude/settings.local.json
 
 # dokumentacja producenta pieca (cudze prawa autorskie, tylko lokalnie; źródła w README tego katalogu)
-devices/co/docs/pellux200-dokumentacja/*.pdf
+devices/pellet-boiler-pelux200/docs/pellux200-dokumentacja/*.pdf

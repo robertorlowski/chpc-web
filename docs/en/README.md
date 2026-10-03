@@ -10,7 +10,7 @@ The system controls a domestic heat pump (CHPC) from the cloud, collects data fr
 - **Photovoltaics.** Every minute the `co` controller reads power and production from the microinverters (Hoymiles DTU). The data goes to a separate collection and into the heat pump energy balance.
 - **Water pressure tank.** At every start of the water pump the tank controller runs the air compressor for a while and sends the run times to the cloud. From that the application calculates water consumption: pump run time × pump flow derived from manual water meter readings.
 - **Switch.** An ESP32 controller with a relay (the first one controls a water heater element) reports the relay states every 5 s and receives a command in the reply: on for a time, on without a limit, or off. The command follows from the mode chosen in the application and from the schedule (days as for the heat pump, no temperatures). The application shows the state and the activation history.
-- **Pellet boiler.** The `co` controller (in its second role) listens over a separate RS-485 link to the ecoMAX controller of a Plum Pellux 200 boiler and sends the state, temperatures, fuel and outputs of the boiler to the cloud every few minutes. The application only displays it; there is no transmitting onto the boiler bus and no control (stage 2), and the frame format has not been verified on a boiler yet.
+- **Pellet boiler.** A separate boiler controller (ESP32-C3 with an RS-485 module, [devices/pellet-boiler-pelux200](../../devices/pellet-boiler-pelux200/README.md), Polish) listens to the ecoMAX controller of a Plum Pellux 200 boiler and sends the state, temperatures, fuel and outputs of the boiler to the cloud every few minutes. Until 2026-10-02 this was done by the `co` controller (its second role). The application only displays it; there is no transmitting onto the boiler bus and no control (stage 2), and the frame format has not been verified on a boiler yet.
 
 ## System diagram
 
@@ -20,6 +20,7 @@ flowchart LR
     DTU["Hoymiles DTU<br/>photovoltaics"]
     CO["co<br/>controller (ESP32)"]
     ECO["Pellux 200 pellet boiler<br/>ecoMAX controller"]
+    PEL["Boiler<br/>controller (ESP32-C3 + RS-485)"]
     HYD["Water pressure tank<br/>controller (ESP32)"]
     SW["Switch<br/>controller (ESP32 + relay)"]
     SRV["chpc-web — server<br/>(Node.js, Render)"]
@@ -29,8 +30,9 @@ flowchart LR
 
     CHPC <-- "RS-485<br/>commands and state (JSON)" --> CO
     DTU <-- "RS-485<br/>Modbus RTU" --> CO
-    ECO -- "separate RS-485<br/>SensorData frames, receive only" --> CO
-    CO <-- "HTTPS: telemetry → operation<br/>WebSocket: fast action<br/>HTTPS: boiler reading every few minutes" --> SRV
+    ECO -- "RS-485<br/>SensorData frames, receive only" --> PEL
+    CO <-- "HTTPS: telemetry → operation<br/>WebSocket: fast action" --> SRV
+    PEL -- "HTTPS: boiler reading every few minutes<br/>registration → interval" --> SRV
     HYD -- "HTTPS: runs every 1 s<br/>registration → settings" --> SRV
     SW <-- "HTTPS: state every 5 s → commands<br/>WebSocket: fast change" --> SRV
     IMGW -- "every 10 min" --> SRV
@@ -49,12 +51,13 @@ The key rule: **controllers start the connection, the server only replies.** The
 | **water-pressure-tank** | water pressure tank in the application: runs, water from pump time and the water meter, screens | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/en/moduly/water-pressure-tank](moduly/water-pressure-tank/1-business-description.md) |
 | **pellet-boiler-pelux200** | pellet boiler in the application: boiler readings, polling interval, screens (view only) | `server/src/modules/pellet-boiler-pelux200`, `client/src/devices/pellet-boiler-pelux200` | [docs/en/moduly/pellet-boiler-pelux200](moduly/pellet-boiler-pelux200/1-business-description.md) |
 | **switch** | switch in the application: relays, modes, schedules, activation history, screens | `server/src/modules/switch`, `client/src/devices/switch` | [docs/en/moduly/switch](moduly/switch/1-business-description.md) |
-| **co firmware** | ESP32 controller between the pump, PV, the boiler and the cloud | `devices/co` | [devices/co/docs/en](../../devices/co/docs/en/1-business-description.md) |
+| **co firmware** | ESP32 controller between the pump, PV and the cloud | `devices/co` | [devices/co/docs/en](../../devices/co/docs/en/1-business-description.md) |
 | **CHPC firmware** | heat pump controller (compressor, circulation pumps, EEV, protections) | `devices/chpc` | [devices/chpc/docs/en](../../devices/chpc/docs/en/1-business-description.md) |
 | **tank firmware** | ESP32 controller of the tank compressor | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs/en](../../devices/water-pressure-tank/docs/en/1-business-description.md) |
 | **switch firmware** | ESP32 controller with a 230 V relay ("ESP32 Relay AC X1" board) | `devices/switch` | [devices/switch/docs/en](../../devices/switch/docs/en/1-business-description.md) |
+| **boiler firmware** | ESP32-C3 controller with an HW-519 RS-485 module: listens to the ecoMAX bus of the Pellux 200 boiler | `devices/pellet-boiler-pelux200` | [devices/pellet-boiler-pelux200](../../devices/pellet-boiler-pelux200/README.md) (Polish) |
 
-The controller kind (`deviceType`) decides which module the application uses: `heat_pump` (the `co` controller with the CHPC pump), `water-pressure-tank`, `pellet-boiler-pelux200` (a pellet boiler, the second role of the `co` controller) or `switch`. One physical controller may have several roles: in the application they are separate devices with the same `deviceId` but a different kind and `rootId` (described in the [core module](moduly/core/2-how-it-works.md)).
+The controller kind (`deviceType`) decides which module the application uses: `heat_pump` (the `co` controller with the CHPC pump), `water-pressure-tank`, `pellet-boiler-pelux200` (a pellet boiler, a separate boiler controller) or `switch`. One physical controller may have several roles (as on 2026-10-01–02, when `co` also served the boiler): in the application they are separate devices with the same `deviceId` but a different kind and `rootId` (described in the [core module](moduly/core/2-how-it-works.md)).
 
 ## Module documentation layout
 

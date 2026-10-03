@@ -26,7 +26,7 @@ z adresów z kolumny „Źródło” i położyć w tym katalogu pod podanymi na
 
 ## Dwie drogi pobierania danych
 
-1. **Lokalne HTTP przez ecoNET300 (prostsze dla `co`).** Moduł wystawia w sieci
+1. **Lokalne HTTP przez ecoNET300 (prostsze dla sterownika).** Moduł wystawia w sieci
    lokalnej (Basic Auth, fabrycznie `admin`/`admin`) JSON-y, m.in.
    `/econet/regParams`, `/econet/sysParams`, `/econet/rmCurrentDataParams`.
    Obiekt `curr` ma m.in. `tempCO`, `tempCWU`, `tempFlueGas`, `tempFeeder`,
@@ -69,9 +69,11 @@ Niezweryfikowane (do sprawdzenia nasłuchem pasywnym):
 - czy ramki `RegulatorData` (`0x08`) są na linii panelu (G2/G4), czy na G3 (36/37).
   Panel pobiera dane od sterownika, więc najbardziej prawdopodobne jest G2 albo G4,
   a G3 służy modułom rozszerzeń i może mieć inny protokół,
-- kolejność D+/D− przy konwerterze (zamiana nic nie uszkadza).
+- kolejność D+/D− przy konwerterze (zamiana nic nie uszkadza, a sterownik
+  `devices/pellet-boiler-pelux200` sam dobiera polaryzację).
 
 ## Uwaga o repozytorium
 
-PDF-y mają razem ok. 18 MB i są cudzymi materiałami z prawami autorskimi. Nie zostały
-dodane do gita; zdecyduj, czy je commitować, czy dodać katalog do `.gitignore`.
+PDF-y mają razem ok. 18 MB i są cudzymi materiałami z prawami autorskimi, dlatego są
+w `.gitignore` (wpis `devices/pellet-boiler-pelux200/docs/pellux200-dokumentacja/*.pdf`).
+Do 2026-10-02 ten katalog był w `devices/co/docs/`.

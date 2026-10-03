@@ -51,7 +51,7 @@ The user interface is in Polish; the screenshots below show it as is.
 2. **Everyday use.** When opened, the application shows the default controller straight away. If there is only one controller, it picks it by itself.
 3. **Several controllers.** The user switches in the footer. The choice lasts until the browser is closed; next time the default controller opens again.
 4. **Replacing a controller or wiping its memory.** The controller registers again with the same SN and gets the same record back — the data history stays.
-5. **A controller with several roles.** The `co` controller serves the heat pump and — when it is connected to a pellet boiler — the boiler as well. In the application these are two separate devices on the list (the pump and "Piec Pellux 200") with the same identifier (SN) but each with its own Root ID, menu and data history. The boiler appears only when the controller has received the first valid frame from it.
+5. **A controller with several roles.** One physical controller may appear in the application as several devices with the same identifier (SN), each with its own Root ID, menu and data history. That was the case on 2026-10-01–02, when `co` served the heat pump and the pellet boiler; since 2026-10-03 the boiler has its own boiler controller, and the role mechanism stays in the application.
 
 ## Limitations and risks
 
@@ -64,9 +64,9 @@ The user interface is in Polish; the screenshots below show it as is.
 
 | Term | Meaning |
 |---|---|
-| **Controller** (sterownik) | the device at the installation that talks to the cloud: `co` (heat pump, second role: pellet boiler), the tank controller or the switch |
+| **Controller** (sterownik) | the device at the installation that talks to the cloud: `co` (heat pump), the tank controller, the boiler controller (pellet boiler) or the switch |
 | **Controller kind** (`deviceType`) | `heat_pump`, `water-pressure-tank`, `pellet-boiler-pelux200` or `switch`; decides the menu, screens and data handling |
-| **Controller role** | one task of a physical controller (e.g. `co` as the heat pump or as the boiler); each role is a separate device in the application |
+| **Controller role** | one task of a physical controller (e.g. `co` as the heat pump or, on 2026-10-01–02, as the boiler); each role is a separate device in the application |
 | **SN** (`deviceId`) | the controller serial number — the factory MAC address of the ESP32, 12 hex characters; shared by all roles of the same controller |
 | **Root ID** (`rootId`) | the device (role) identifier in the database; the application and the controller send it with every request |
 | **Controller registration** (zgłoszenie) | the request a controller sends at start; creates the device or returns the existing one |

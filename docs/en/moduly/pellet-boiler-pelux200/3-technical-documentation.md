@@ -76,14 +76,16 @@ Index: `{rootId, createdAt: -1}`. No data expiry.
 | `poll_interval_seconds` range | 30–3600 s | `properties` schema; client form 0.5–60 min |
 | Kocioł view refresh | 30 s | `Home.tsx` |
 | stale reading | `3 × poll_interval_seconds` | `utils/boiler.ts` (`isStale`), `DEFAULT_POLL_SECONDS` = 300 |
-| reading age limit on the controller | 60 s | `co` firmware (section 5c of CLAUDE.md) |
+| reading age limit on the controller | 60 s | boiler controller firmware (`READING_MAX_AGE_MS` in `devices/pellet-boiler-pelux200/src/firmware.hpp`) |
 
-## Contract with the `co` controller
+## Contract with the boiler controller
 
-- Registration: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200"}`; reply 201/200 with `rootId` and `settings.poll_interval_seconds`; the Root ID is kept in NVS under the key `pellet_root`, the interval under `pellet_poll`.
-- Sending: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` every `poll_interval_seconds`. A failed registration is retried every 60 s; 404/409 drop the boiler Root ID.
+The boiler controller is a separate ESP32-C3 SuperMini board with an HW-519 RS-485 module (`devices/pellet-boiler-pelux200`, since 2026-10-03; before that, a second role of the `co` controller). The contract did not change.
+
+- Registration at every start: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}`; reply 201/200 with `rootId` and `settings.poll_interval_seconds`; the Root ID and the interval are kept in NVS (namespace `pel`, keys `root_id`, `poll_s`). A failed registration is retried every 30 s.
+- Sending: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` every `poll_interval_seconds` (without `time`). A failed send is retried after 60 s; 404/409 drop the Root ID and start the registration again.
 - Context: `controllerPaths` in `core/middleware/device-context.ts` contains `/pellet-boiler-pelux200/add` → `pellet-boiler-pelux200`. Details in the [core module](../core/3-technical-documentation.md).
-- Firmware code: `devices/co/src/ecomax_bus.*`, `ecomax_frame.*`, `pellet_telemetry.*`, `cloud_client.cpp`; description: [devices/co/docs/piec-pellux200.md](../../../../devices/co/docs/piec-pellux200.md) (Polish).
+- Firmware code: `devices/pellet-boiler-pelux200/src/pellet.cpp` (registration, sending, pages), `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; description: [controller README](../../../../devices/pellet-boiler-pelux200/README.md) and [piec-pellux200.md](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (both Polish).
 
 ## Tests
 
@@ -99,11 +101,11 @@ The client has no unit tests; the checks are `tsc` and `vite build`.
 
 ## Known issues
 
-- **Frame format not verified on a boiler.** The `SensorData` decoder and its assumptions (sender `0x45`, the alert counter, subtracting 101 from the fuel level) come from PyPlumIO; the 115200 baud rate, the connection point (G2 of module A) and the GPIO16/GPIO4 pins have not been checked on a boiler or on a board. The listening has to be verified before anything is transmitted.
+- **Frame format not verified on a boiler.** The `SensorData` decoder and its assumptions (sender `0x45`, the alert counter, subtracting 101 from the fuel level) come from PyPlumIO; the 115200 baud rate and the connection point (G2 of module A) have not been checked on a boiler; the boiler controller board (receiving on GPIO21) has only been checked on a desk. The listening has to be verified before anything is transmitted.
 - **Stage 2 does not exist.** No transmitting onto the boiler bus, no reply to `CheckDevice` and no control; the server has no boiler operations or scheduler.
-- **`lambda_level`** is in the contract, the schema and the types, but the `co` firmware does not fill it (the view shows `---`).
+- **`lambda_level`** is in the contract, the schema and the types, but the boiler controller firmware does not fill it (the view shows `---`).
 - **`heating_status` and `water_heater_status`** are raw numbers of undocumented meaning.
-- **The boiler HTTP send blocks the `co` loop** for up to about 10 s (like `pv/add`); the UART2 buffer (2 KB) drops the excess and the parser resynchronises.
+- **The HTTP send blocks the boiler controller loop** for a few seconds; the UART buffer (4 KB) drops the excess and the parser resynchronises.
 - **`PUT /device/properties` replaces the whole `properties`** — the client has to send the full set of fields (the boiler Settings extend the loaded object).
 - **No charts, aggregates or data expiry.** The history grows without limit (a reading every 5 minutes is about 288 records a day).
 - **The last reading in server memory** (`lastByRoot`) is restored from the database after a restart; there is no other in-memory state.

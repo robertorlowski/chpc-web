@@ -51,7 +51,7 @@ Moduły rodzajów sterowników nie znają się nawzajem. Łączy je tylko core: 
 
 ## Zgłoszenie sterownika
 
-Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` przy każdym starcie, po każdej zmianie adresu IP i po odpowiedzi 409, także gdy ma już Root ID danej roli (inny `rootId` z odpowiedzi zastępuje zapisany); rola kotła pelletowego zgłasza się dopiero po pierwszej poprawnej ramce z kotła. Oba sterowniki wysyłają w zgłoszeniu swój adres IP, który klient pokazuje w Ustawieniach. Serwer rozpoznaje urządzenie po parze (rodzaj, SN): nowe tworzy, znanemu oddaje jego rekord.
+Hydrofor wysyła zgłoszenie przy każdym starcie (odbiera w nim ustawienia), a `co` przy każdym starcie, po każdej zmianie adresu IP i po odpowiedzi 409, także gdy ma już Root ID danej roli (inny `rootId` z odpowiedzi zastępuje zapisany); sterownik pieca zgłasza się przy każdym starcie. Hydrofor, `co` i sterownik pieca wysyłają w zgłoszeniu swój adres IP, który klient pokazuje w Ustawieniach. Serwer rozpoznaje urządzenie po parze (rodzaj, SN): nowe tworzy, znanemu oddaje jego rekord.
 
 ```mermaid
 sequenceDiagram
@@ -74,15 +74,15 @@ sequenceDiagram
     Note over R,S: odpowiedź ma rootId, a dla rodzajów z controllerSettings<br/>(hydrofor, kocioł pelletowy) także pole settings — sterownik zapisuje je w pamięci
 ```
 
-Sterownik zapisuje `rootId` w swojej pamięci (NVS; `co` osobno dla każdej roli, kocioł pod kluczem `pellet_root`). Dane może wysyłać także przed zgłoszeniem, z samym SN — serwer przyjmie je, jeśli urządzenie o tym SN i rodzaju endpointu już istnieje.
+Sterownik zapisuje `rootId` w swojej pamięci (NVS; sterownik z kilkoma rolami osobno dla każdej roli). Dane może wysyłać także przed zgłoszeniem, z samym SN — serwer przyjmie je, jeśli urządzenie o tym SN i rodzaju endpointu już istnieje.
 
 ## Jeden sterownik, kilka ról
 
-Fizyczny sterownik `co` może mieć w aplikacji kilka urządzeń: pompę ciepła (`heat_pump`) i kocioł pelletowy (`pellet-boiler-pelux200`). Mają ten sam `deviceId` (SN), ale inny `deviceType` i inny `rootId`; model `devices` nie ma unikalnego indeksu na `deviceId`. Nie ma więc pojęcia „urządzenia nadrzędnego”: każda rola jest zwykłym urządzeniem z własnym kontekstem, menu, danymi i ustawieniami.
+Fizyczny sterownik może mieć w aplikacji kilka urządzeń. Tak było 2026-10-01–02: `co` był pompą ciepła (`heat_pump`) i kotłem pelletowym (`pellet-boiler-pelux200`); od 2026-10-03 kocioł ma osobny sterownik pieca (`devices/pellet-boiler-pelux200`), a mechanizm ról został na serwerze. Mają ten sam `deviceId` (SN), ale inny `deviceType` i inny `rootId`; model `devices` nie ma unikalnego indeksu na `deviceId`. Nie ma więc pojęcia „urządzenia nadrzędnego”: każda rola jest zwykłym urządzeniem z własnym kontekstem, menu, danymi i ustawieniami.
 
 ```mermaid
 flowchart LR
-    SN["sterownik co<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["urządzenie heat_pump<br/>rootId = A"]
+    SN["sterownik<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["urządzenie heat_pump<br/>rootId = A"]
     SN -- "/pellet-boiler-pelux200/add" --> PB["urządzenie pellet-boiler-pelux200<br/>rootId = B"]
 ```
 

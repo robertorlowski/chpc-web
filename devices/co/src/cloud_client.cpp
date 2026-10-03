@@ -94,28 +94,21 @@ bool CloudClient::registrationDue() const
       || millis() - lastRegistrationAt >= REGISTRATION_RETRY_MS);
 }
 
-String CloudClient::sendRegistration(const char *deviceType, const char *name, IPAddress &sentIp)
-{
-  const String &serial = deviceSerial();
-  if (serial.length() == 0) return "";
-
-  sentIp = WiFi.localIP();
-  JsonDocument request;
-  request["deviceType"] = deviceType;
-  request["deviceId"] = serial;
-  if (name) request["name"] = name;
-  request["ip"] = sentIp.toString();
-  return send(String(CLOUD_BASE_URL) + "devices/register", request);
-}
-
 void CloudClient::registerDevice()
 {
   registrationAttempted = true;
   lastRegistrationAt = millis();
 
+  const String &serial = deviceSerial();
+  if (serial.length() == 0) return;
+
   // Pompa zgłasza się bez nazwy (nadaje ją użytkownik).
-  IPAddress sentIp;
-  String response = sendRegistration("heat_pump", nullptr, sentIp);
+  IPAddress sentIp = WiFi.localIP();
+  JsonDocument request;
+  request["deviceType"] = "heat_pump";
+  request["deviceId"] = serial;
+  request["ip"] = sentIp.toString();
+  String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
   if (response.length() == 0) return;
 
   JsonDocument reply;
@@ -140,65 +133,6 @@ void CloudClient::registerDevice()
     stopWebSocket();
   }
   registeredIp = sentIp;
-}
-
-bool CloudClient::pelletRegistrationDue() const
-{
-  return WiFi.status() == WL_CONNECTED && !(pelletRegisteredIp == WiFi.localIP())
-    && (!pelletRegistrationAttempted
-      || millis() - lastPelletRegistrationAt >= REGISTRATION_RETRY_MS);
-}
-
-// Ten sam SN co pompa, inny deviceType: serwer zwraca osobny rootId.
-void CloudClient::registerPelletBoiler()
-{
-  pelletRegistrationAttempted = true;
-  lastPelletRegistrationAt = millis();
-
-  IPAddress sentIp;
-  String response = sendRegistration("pellet-boiler-pelux200", "Piec Pellux 200", sentIp);
-  if (response.length() == 0) return;
-
-  JsonDocument reply;
-  if (deserializeJson(reply, response)) {
-    requestErrors++;
-    return;
-  }
-  String rootId = reply["rootId"] | "";
-  if (rootId.length() == 0
-    || (rootId != deviceConfig().pelletRootId && !savePelletRootId(rootId))) {
-    requestErrors++;
-    return;
-  }
-  JsonVariantConst poll = reply["settings"]["poll_interval_seconds"];
-  if (poll.is<uint32_t>()) savePelletPollSeconds(poll.as<uint32_t>());
-  pelletRegisteredIp = sentIp;
-}
-
-bool CloudClient::postPelletBoiler(const JsonDocument &data)
-{
-  if (!pelletRegistered() || deviceSerial().length() == 0) return false;
-
-  String url = String(CLOUD_BASE_URL) + "pellet-boiler-pelux200/add?deviceId="
-    + deviceSerial() + "&rootId=" + deviceConfig().pelletRootId;
-  String response = send(url, data);
-
-  if (httpStatus == HTTP_CONFLICT || httpStatus == 404) {
-    // Root ID pieca nie pasuje do SN albo serwer go nie zna: rejestracja od nowa.
-    clearPelletRootId();
-    pelletRegistrationAttempted = false;
-    pelletRegisteredIp = IPAddress();
-    return false;
-  }
-  if (httpStatus < 200 || httpStatus >= 300) return false;
-
-  JsonDocument reply;
-  if (response.length() > 0 && !deserializeJson(reply, response)) {
-    JsonVariantConst poll = reply["poll_interval_seconds"];
-    // Wartość spoza 30..3600 jest ignorowana przez savePelletPollSeconds.
-    if (poll.is<uint32_t>()) savePelletPollSeconds(poll.as<uint32_t>());
-  }
-  return true;
 }
 
 bool CloudClient::takeOperationRequest()

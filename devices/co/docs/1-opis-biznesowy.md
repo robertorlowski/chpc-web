@@ -13,7 +13,7 @@
 
 Bez `co` pompa działa samodzielnie na ostatnich ustawieniach, ale nie da się nią sterować z aplikacji ani zbierać danych.
 
-`co` ma też **drugą rolę**: jeśli do osobnego wejścia podłączono kocioł pelletowy Pellux 200 (regulator ecoMAX), odczytuje jego dane i wysyła je do chmury jako osobne urządzenie (opis: [Druga rola](#druga-rola-piec-pelletowy-pellux-200)).
+Od 2026-10-03 odczyt pieca pelletowego Pellux 200 działa na osobnej płytce — [devices/pellet-boiler-pelux200](../../pellet-boiler-pelux200/README.md). W dniach 2026-10-01–02 był drugą rolą `co`.
 
 ## Dla kogo
 
@@ -32,18 +32,6 @@ Bez `co` pompa działa samodzielnie na ostatnich ustawieniach, ale nie da się n
 | Tryb PV | wymuszenie startu pompy, gdy PV produkuje co najmniej 2000 W |
 | Praca bez chmury | przycisk: `OFF` (pompa zatrzymana), `MANUAL_CO`, `MANUAL_CWU` |
 | Podgląd na miejscu | ekran kolorowy i strona WWW w sieci domowej |
-| Piec pelletowy Pellux 200 | odczyt kotła (stan, temperatury, paliwo, moc, wyjścia) co 5 min (30 s–60 min), tylko gdy kocioł jest podłączony |
-
-## Druga rola: piec pelletowy Pellux 200
-
-Gdy do `co` podłączono magistralę regulatora ecoMAX kotła Pellux 200 (osobny konwerter RS-485, wejście UART2), sterownik **podsłuchuje** ramki, które regulator sam wysyła do swojego panelu, i przekazuje ostatni odczyt do chmury: stan pracy kotła, temperatury (kocioł, CWU, zewnętrzna, spaliny, powrót, bufor), poziom paliwa, moc i obciążenie, zużycie paliwa oraz stany wyjść (wentylator, podajnik, pompy, zapalarka, alarm).
-
-- W aplikacji piec jest **osobnym urządzeniem** „Piec Pellux 200” (ten sam numer SN co pompa, inny Root ID). Zgłasza się dopiero po odebraniu pierwszej poprawnej ramki, więc sterownik bez kotła niczego nie tworzy w chmurze.
-- Odczyt idzie co 5 min; interwał (30 s–60 min) ustawia się w aplikacji, a `co` pobiera go z odpowiedzi chmury.
-- Działa niezależnie od trybu sterownika (przycisk) i nie wpływa na pompę ciepła.
-- Etap 1: **tylko odbiór**. `co` niczego nie wysyła do kotła i nie steruje nim. Format ramek pochodzi z biblioteki PyPlumIO i nie był sprawdzony na prawdziwym kotle.
-
-Podłączenie (zaciski, konwerter, ostrzeżenia), protokół i lista danych: [piec-pellux200.md](piec-pellux200.md).
 
 ## Ekran i strony sterownika
 
@@ -74,7 +62,6 @@ Pierwsze naciśnięcie tylko pokazuje tryb; kolejne przechodzą dalej: `OFF → 
 - Punkt dostępowy `HP-CO-setup` jest otwarty (bez hasła) i działa tylko przez pierwsze minuty albo gdy nie ma Wi-Fi lub chmury.
 - Login i hasło do `/install` są wpisane w kod; strony `/` i `/telemetry.json` są otwarte dla każdego w sieci domowej.
 - Sterownik nie weryfikuje certyfikatu serwera (HTTPS bez sprawdzania).
-- Piec: tylko odbiór (etap 1), format ramek niezweryfikowany na kotle, brak własnej strony podglądu (jak `/pv.json` dla PV) — dane pieca widać tylko w aplikacji. Wysyłka do chmury (HTTP) wstrzymuje pętlę na kilka sekund, tak jak wysyłka danych pompy.
 
 ## Słownik
 
@@ -83,7 +70,6 @@ Pierwsze naciśnięcie tylko pokazuje tryb; kolejne przechodzą dalej: `OFF → 
 | **RS-485** | dwuprzewodowa magistrala, na której są pompa (adres 0x41), DTU (0x69) i `co` (0x10) |
 | **DTU** | bramka mikrofalowników Hoymiles (Modbus RTU) |
 | **SN** | numer seryjny `co` — adres MAC układu ESP32 |
-| **Root ID** | identyfikator sterownika w chmurze, zapisany w pamięci `co` (pompa i piec mają osobne) |
-| **ecoMAX** | regulator kotła Pellux 200; jego ramki `SensorData` `co` podsłuchuje |
-| **NVS** | trwała pamięć ESP32 (Wi-Fi, Root ID, tryb, Root ID i interwał pieca) |
+| **Root ID** | identyfikator sterownika w chmurze, zapisany w pamięci `co` |
+| **NVS** | trwała pamięć ESP32 (Wi-Fi, Root ID, tryb) |
 | **Operacja** | ustawienia z chmury w odpowiedzi na dane pompy |

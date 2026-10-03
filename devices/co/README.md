@@ -1,12 +1,14 @@
 # co — sterownik pompy ciepła (ESP32)
 
-**Dokumentacja:** [opis biznesowy](docs/1-opis-biznesowy.md) · [zasada działania](docs/2-zasada-dzialania.md) · [dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) · [piec Pellux 200](docs/piec-pellux200.md) · [English](docs/en/1-business-description.md)
+**Dokumentacja:** [opis biznesowy](docs/1-opis-biznesowy.md) · [zasada działania](docs/2-zasada-dzialania.md) · [dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) · [English](docs/en/1-business-description.md)
 
 Firmware sterownika, który łączy pompę ciepła CHPC z chmurą `chpc-web`.
 Sterownik odczytuje pompę i instalację fotowoltaiczną po RS-485, wysyła
-telemetrię do chmury i wykonuje ustawienia, które z niej otrzymuje. Ma też drugą
-rolę: pasywny odczyt kotła pelletowego Pellux 200 (regulator ecoMAX) na osobnym
-UART2, wysyłany do chmury jako osobne urządzenie.
+telemetrię do chmury i wykonuje ustawienia, które z niej otrzymuje.
+
+Od 2026-10-03 odczyt pieca Pellux 200 działa na osobnej płytce —
+[devices/pellet-boiler-pelux200](../pellet-boiler-pelux200/README.md). Wcześniej
+(2026-10-01–02) był drugą rolą tego sterownika (UART2).
 
 ```text
 pompa CHPC (0x41) ───┐
@@ -14,8 +16,7 @@ pompa CHPC (0x41) ───┐
 DTU Hoymiles (0x69) ─┘                 │
                                        ├── przekaźniki CO / CWU
                                        ├── wyświetlacz ST7735, RTC DS3231
-                                       ├── przycisk trybu
-                                       └── UART2 (tylko odbiór) ── RS-485 ── kocioł Pellux 200 (ecoMAX)
+                                       └── przycisk trybu
 ```
 
 Powiązane repozytoria:
@@ -49,15 +50,6 @@ Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/ro
   Ustawieniach) i zapisuje otrzymany Root ID w NVS, gdy jest inny niż
   zapisany. Znany SN dostaje z powrotem swój dotychczasowy Root ID. Gdy serwer odpowie 409 (Root ID należy do innego SN),
   sterownik kasuje Root ID i rejestruje się ponownie.
-- **Piec Pellux 200 (druga rola).** UART2 (RX GPIO16, TX nieużywany, DE/RE GPIO4
-  na stałe LOW, 115200 baud) nasłuchuje magistrali ecoMAX i dekoduje ramki
-  `SensorData` (etap 1: tylko odbiór; format z PyPlumIO, niezweryfikowany na
-  kotle). Piec rejestruje się w chmurze jako osobne urządzenie (ten sam SN,
-  `deviceType` `pellet-boiler-pelux200`, własny Root ID w NVS `pellet_root`)
-  dopiero po pierwszej poprawnej ramce. Ostatni odczyt młodszy niż 60 s idzie
-  na `POST /api/pellet-boiler-pelux200/add` co `pellet_poll` (30–3600 s,
-  domyślnie 300, ustawiane w aplikacji), tylko przy wolnej magistrali
-  CHPC/DTU. Podłączenie, protokół i dane: [docs/piec-pellux200.md](docs/piec-pellux200.md).
 - **Punkt dostępowy** `HP-CO-setup` startuje razem ze sterownikiem i jest
   wyłączany po 3 min stabilnego dostępu do chmury; wraca po 1 min bez Wi-Fi
   albo po 5 min bez odpowiedzi chmury.
@@ -88,7 +80,6 @@ Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/ro
 | Przekaźniki CO / CWU | GPIO26 / GPIO25 |
 | Zasilanie modułów | GPIO18 |
 | Przycisk trybu | GPIO5, z zewnętrznym rezystorem |
-| Magistrala kotła Pellux 200 (ecoMAX) | `Serial2`: RX GPIO16, DE/RE GPIO4 (LOW), 115200 b/s, konwerter RS-485 3,3 V, tylko odbiór |
 | RTC DS3231 | I²C, synchronizacja z NTP co 6 h |
 
 Piny i adresy są w [src/hardware_config.hpp](src/hardware_config.hpp) oraz
@@ -129,7 +120,6 @@ pio test -e native
 | [test_pv_data_processor](test/test_pv_data_processor/test_main.cpp) | parser odpowiedzi Modbus z DTU Hoymiles |
 | [test_modbus_frame](test/test_modbus_frame/test_main.cpp) | kodowanie ramek RS-485 i CRC |
 | [test_access_point_policy](test/test_access_point_policy/test_main.cpp) | kiedy wyłączyć i włączyć punkt dostępowy `HP-CO-setup` |
-| [test_ecomax_frame](test/test_ecomax_frame/test_main.cpp) | parser ramek ecoMAX, dekoder `SensorData`, JSON pieca |
 
 **E2E całego łańcucha** (chpc ⇄ RS-485 ⇄ co ⇄ chpc-web ⇄ przeglądarka) są
 w `test/e2e/` w katalogu głównym chpc-web; instrukcja w `devices/chpc/test/README.md`.
@@ -144,13 +134,12 @@ lub interfejsów tych plików wymaga poprawki w `test/e2e/build-bridge.sh`.
 | Plik | Odpowiedzialność |
 |---|---|
 | `main.cpp` | pętla główna: odczyty, przycisk, wymiana z chmurą |
-| `cloud_client` | HTTPS i WebSocket do `chpc-web`, rejestracja urządzenia (także pieca) |
+| `cloud_client` | HTTPS i WebSocket do `chpc-web`, rejestracja urządzenia |
 | `operation_parser` | JSON operacji z chmury → struktury domenowe |
 | `operation_controller` | stan z chmury, tryby, efektywne komendy i przekaźniki |
 | `serial_bus`, `modbus_frame` | kolejka RS-485 z priorytetami, kodowanie ramek, CRC |
 | `heat_pump_data_processor`, `cop_estimator` | odczyt pompy i estymacja COP |
 | `pv_data_processor` | odczyt DTU Hoymiles, dane dla każdego panelu |
-| `ecomax_frame`, `ecomax_bus`, `pellet_telemetry` | odbiór UART2 kotła, parser ramek i dekoder `SensorData`, JSON pieca |
 | `telemetry`, `json_converters` | dokument telemetrii wysyłany do chmury i na stronę `/` |
 | `config_portal` | strony WWW na porcie 80 |
 | `device_config` | Wi-Fi, Root ID i SN; zapis w NVS |

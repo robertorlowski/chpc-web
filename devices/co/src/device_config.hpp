@@ -15,10 +15,6 @@ struct DeviceConfig {
   String wifiSsid;
   String wifiPassword;
   String rootId;
-  // Druga rola: piec Pellux 200. Własny Root ID (inny niż pompy) i interwał
-  // wysyłki z chmury [s].
-  String pelletRootId;
-  uint32_t pelletPollSeconds = 300;
 };
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
@@ -36,7 +32,8 @@ constexpr const char *CONFIG_AP_SSID = "HP-CO-setup";
 constexpr const char *INSTALL_USER = "admin";
 constexpr const char *INSTALL_PASSWORD = "123!";
 
-// Wczytuje NVS raz w setup(); później obowiązuje kopia w RAM.
+// Wczytuje NVS raz w setup() (i usuwa klucze dawnej roli pieca: pellet_root,
+// pellet_poll); później obowiązuje kopia w RAM.
 void loadDeviceConfig();
 const DeviceConfig &deviceConfig();
 // True, gdy jest Root ID (z NVS albo CLOUD_ROOT_ID z secrets.h).
@@ -52,14 +49,3 @@ bool saveRootId(const String &rootId);
 // Forgets a rootId the server does not match with this serial, so the
 // controller registers again.
 void clearRootId();
-
-// Piec Pellux 200: Root ID z rejestracji drugiej roli (klucz NVS osobny od
-// Root ID pompy) i interwał wysyłki (30..3600 s, domyślnie 300).
-constexpr uint32_t PELLET_POLL_DEFAULT_S = 300;
-constexpr uint32_t PELLET_POLL_MIN_S = 30;
-constexpr uint32_t PELLET_POLL_MAX_S = 3600;
-bool pelletRegistered();
-bool savePelletRootId(const String &rootId);
-void clearPelletRootId();
-// False i bez zmian, gdy wartość jest poza 30..3600.
-bool savePelletPollSeconds(uint32_t seconds);

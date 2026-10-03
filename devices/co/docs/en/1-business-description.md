@@ -13,7 +13,7 @@
 
 Without `co` the pump runs on its own with its last settings, but it cannot be controlled from the application and no data is collected.
 
-`co` also has a **second role**: if a Pellux 200 pellet boiler (ecoMAX controller) is connected to a separate input, it reads the boiler's data and sends it to the cloud as a separate device (see [Second role](#second-role-pellux-200-pellet-boiler)).
+Since 2026-10-03 the Pellux 200 pellet boiler is read by a separate board — [devices/pellet-boiler-pelux200](../../../pellet-boiler-pelux200/README.md) (Polish). On 2026-10-01–02 it was a second role of `co`.
 
 ## Who uses it
 
@@ -32,18 +32,6 @@ Without `co` the pump runs on its own with its last settings, but it cannot be c
 | PV mode | forced pump start when PV produces at least 2000 W |
 | Work without the cloud | button: `OFF` (pump stopped), `MANUAL_CO`, `MANUAL_CWU` |
 | Local view | colour display and a web page on the home network |
-| Pellux 200 pellet boiler | boiler reading (state, temperatures, fuel, power, outputs) every 5 min (30 s–60 min), only when a boiler is connected |
-
-## Second role: Pellux 200 pellet boiler
-
-When the bus of the boiler's ecoMAX controller is connected to `co` (a separate RS-485 converter, UART2 input), the controller **listens in** on the frames the ecoMAX sends to its own panel anyway and passes the latest reading to the cloud: boiler operating state, temperatures (boiler, CWU, outdoor, exhaust, return, buffer), fuel level, power and load, fuel consumption and output states (fan, feeder, pumps, igniter, alarm).
-
-- In the application the boiler is a **separate device** "Piec Pellux 200" (the same SN as the pump, a different Root ID). It registers only after the first valid frame has been received, so a controller without a boiler creates nothing in the cloud.
-- A reading is sent every 5 min; the interval (30 s–60 min) is set in the application and `co` takes it from the cloud reply.
-- It works regardless of the controller mode (button) and does not affect the heat pump.
-- Stage 1: **receive only**. `co` sends nothing to the boiler and does not control it. The frame format comes from the PyPlumIO library and has not been verified on a real boiler.
-
-Wiring (terminals, converter, warnings), protocol and data list: [piec-pellux200.md](../piec-pellux200.md) (Polish).
 
 ## Display and controller pages
 
@@ -76,7 +64,6 @@ The first press only shows the mode; further presses move on: `OFF → CLOUD →
 - The `HP-CO-setup` access point is open (no password) and runs only for the first minutes or when Wi-Fi or the cloud is missing.
 - The `/install` login and password are written in the code; the `/` and `/telemetry.json` pages are open to anyone on the home network.
 - The controller does not verify the server certificate (HTTPS without checking).
-- Boiler: receive only (stage 1), frame format not verified on a boiler, no local preview page (like `/pv.json` for PV) — boiler data is visible only in the application. Sending to the cloud (HTTP) stalls the loop for a few seconds, just like sending the pump data.
 
 ## Glossary
 
@@ -85,7 +72,6 @@ The first press only shows the mode; further presses move on: `OFF → CLOUD →
 | **RS-485** | two-wire bus with the pump (address 0x41), the DTU (0x69) and `co` (0x10) |
 | **DTU** | Hoymiles microinverter gateway (Modbus RTU) |
 | **SN** | `co` serial number — the MAC address of the ESP32 |
-| **Root ID** | the controller identifier in the cloud, stored in `co` memory (the pump and the boiler have separate ones) |
-| **ecoMAX** | the Pellux 200 boiler controller; `co` listens to its `SensorData` frames |
-| **NVS** | ESP32 persistent memory (Wi-Fi, Root ID, mode, boiler Root ID and interval) |
+| **Root ID** | the controller identifier in the cloud, stored in `co` memory |
+| **NVS** | ESP32 persistent memory (Wi-Fi, Root ID, mode) |
 | **Operation** | settings from the cloud in the reply to pump data |

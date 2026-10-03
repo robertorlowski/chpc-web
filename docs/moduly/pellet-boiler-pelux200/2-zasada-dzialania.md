@@ -6,65 +6,51 @@
 
 ```mermaid
 flowchart LR
-    ECO["kocioł Pellux 200<br/>regulator ecoMAX<br/>(moduł A)"] -- "RS-485 115200 baud<br/>ramki SensorData,<br/>tylko odbiór" --> CO["co (ESP32)<br/>UART2, druga rola"]
-    CO -- "POST /devices/register<br/>(po pierwszej poprawnej ramce)" --> SRV["chpc-web"]
+    ECO["kocioł Pellux 200<br/>regulator ecoMAX<br/>(moduł A)"] -- "RS-485 115200 baud<br/>ramki SensorData,<br/>tylko odbiór" --> CO["sterownik pieca<br/>(ESP32-C3 + HW-519)"]
+    CO -- "POST /devices/register<br/>(przy każdym starcie)" --> SRV["chpc-web"]
     CO -- "POST /pellet-boiler-pelux200/add<br/>co poll_interval_seconds" --> SRV
     SRV -- "{poll_interval_seconds}" --> CO
     SRV --> DB[("MongoDB:<br/>devices,<br/>pellet_boiler_pelux200")]
     WEB["aplikacja WWW"] <--> SRV
 ```
 
-Działanie sterownika (podłączenie, parser ramek, piny, protokół) opisuje [piec-pellux200.md](../../../devices/co/docs/piec-pellux200.md). Ten dokument opisuje stronę chmury i aplikacji. Kocioł jest **tylko źródłem danych**: serwer nie ma dla niego schedulera, operacji ani odpowiedzi ze sterowaniem (jedyna wartość odsyłana sterownikowi to odstęp odpytywania).
+Działanie sterownika (podłączenie, parser ramek, piny, protokół) opisują [README sterownika](../../../devices/pellet-boiler-pelux200/README.md) i [piec-pellux200.md](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md). Ten dokument opisuje stronę chmury i aplikacji. Kocioł jest **tylko źródłem danych**: serwer nie ma dla niego schedulera, operacji ani odpowiedzi ze sterowaniem (jedyna wartość odsyłana sterownikowi to odstęp odpytywania).
 
 ## Stan etapów
 
 | Etap | Zakres | Stan |
 |---|---|---|
-| 1 | `co` odbiera ramki `SensorData` z magistrali kotła i wysyła odczyty do chmury | zaimplementowany; format ramek z PyPlumIO **niezweryfikowany na kotle** |
-| 2 | `co` odpowiada na pytanie regulatora o obecność urządzenia (`CheckDevice`) i nadaje na magistralę, sterowanie kotłem | **niezaimplementowany** |
+| 1 | sterownik pieca odbiera ramki `SensorData` z magistrali kotła i wysyła odczyty do chmury | zaimplementowany; format ramek z PyPlumIO **niezweryfikowany na kotle** |
+| 2 | sterownik pieca odpowiada na pytanie regulatora o obecność urządzenia (`CheckDevice`) i nadaje na magistralę, sterowanie kotłem | **niezaimplementowany** |
 
-## Dwie role jednego sterownika
+## Sterownik pieca
 
-Ten sam fizyczny sterownik `co` jest w chmurze dwoma urządzeniami o tym samym `deviceId` (SN), ale innym rodzaju i innym `rootId`.
+Od 2026-10-03 kocioł odczytuje osobny sterownik pieca (płytka ESP32-C3 SuperMini z modułem RS-485 HW-519, `devices/pellet-boiler-pelux200`). Ma własny SN (MAC płytki), więc w chmurze jest zwykłym urządzeniem rodzaju `pellet-boiler-pelux200`. Do 2026-10-02 tę rolę pełnił sterownik `co`: ten sam SN był wtedy w chmurze dwoma urządzeniami (pompa ciepła i kocioł, różne `rootId`). Serwer nadal obsługuje kilka ról jednego SN (opis w [module core](../core/2-zasada-dzialania.md)): rozróżnia je po **ścieżce endpointu** (`controllerPaths` w `device-context`, szukanie po parze `{deviceId, deviceType}`), a `rootId` innej roli daje **409**.
 
-```mermaid
-flowchart TB
-    CO["sterownik co<br/>SN = AABBCC000001"]
-    CO -- "rola 1: deviceType = heat_pump<br/>rootId = A" --> HP["urządzenie: pompa ciepła"]
-    CO -- "rola 2: deviceType = pellet-boiler-pelux200<br/>rootId = B (NVS: pellet_root)" --> PB["urządzenie: Piec Pellux 200"]
-    HP -. "POST /hp/add, /pv/add" .-> CO
-    PB -. "POST /pellet-boiler-pelux200/add" .-> CO
-```
-
-- Kocioł ma własny Root ID w pamięci sterownika (klucz `pellet_root`), niezależny od Root ID pompy.
-- Serwer rozróżnia role po **ścieżce endpointu**: `device-context` ma mapę `controllerPaths` (endpoint → rodzaj) i szuka urządzenia po parze `{deviceId, deviceType}`. Zgłoszenie też szuka po tej parze. Dlatego `POST /pellet-boiler-pelux200/add?deviceId=SN` trafia w kocioł, a `POST /hp/add?deviceId=SN` w pompę.
-- `rootId` z innej roli daje **409**: `rootId` pompy wysłany na endpoint kotła (i odwrotnie) jest odrzucany, więc sterownik kasuje Root ID tej roli i rejestruje się ponownie.
-
-## Zgłoszenie: dopiero po pierwszej poprawnej ramce
+## Zgłoszenie: przy każdym starcie
 
 ```mermaid
 sequenceDiagram
     participant K as kocioł (ecoMAX)
-    participant C as sterownik co
+    participant C as sterownik pieca
     participant R as POST /devices/register
     participant A as POST /pellet-boiler-pelux200/add
     participant M as MongoDB
-    K->>C: ramki SensorData (ciągle, do panelu)
-    Note over C: dopóki nie ma poprawnej ramki — kocioł się nie zgłasza
-    C->>R: {deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200"}
+    C->>R: po połączeniu z Wi-Fi: {deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}
     R->>M: utwórz urządzenie (properties.poll_interval_seconds = 300) albo zwróć istniejące
     R-->>C: {rootId, ..., settings: {poll_interval_seconds}}
-    C->>C: zapis rootId (pellet_root) i interwału (pellet_poll) w NVS
+    C->>C: zapis rootId i interwału w NVS (przestrzeń pel)
+    K->>C: ramki SensorData (ciągle, do panelu)
     loop co poll_interval_seconds
         C->>A: ostatni poprawny odczyt (młodszy niż 60 s)
         A->>M: zapis odczytu
         A-->>C: 201 {poll_interval_seconds}
         C->>C: zapis nowego interwału w NVS
     end
-    Note over C,A: 404 lub 409 → sterownik kasuje Root ID kotła<br/>i ponawia zgłoszenie co 60 s
+    Note over C,A: nieudana wysyłka: ponowienie po 60 s;<br/>404 lub 409 → sterownik kasuje Root ID i zgłasza się od nowa
 ```
 
-- Sterownik bez kotła (bez żadnej poprawnej ramki) nie tworzy urządzenia kotła.
+- Nieudane zgłoszenie sterownik ponawia co 30 s; do skutku nic nie wysyła. Zgłasza się także bez podłączonego kotła (urządzenie jest wtedy bez odczytów).
 - Nazwa „Piec Pellux 200” trafia tylko do **nowego** urządzenia; znane urządzenie zachowuje nazwę.
 - Sterownik może też wysłać odczyt z samym `deviceId` (bez `rootId`), jeśli urządzenie o tym SN i rodzaju `pellet-boiler-pelux200` już istnieje.
 

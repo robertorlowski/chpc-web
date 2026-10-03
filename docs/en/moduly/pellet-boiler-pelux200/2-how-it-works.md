@@ -6,65 +6,51 @@
 
 ```mermaid
 flowchart LR
-    ECO["Pellux 200 boiler<br/>ecoMAX controller<br/>(module A)"] -- "RS-485 115200 baud<br/>SensorData frames,<br/>receive only" --> CO["co (ESP32)<br/>UART2, second role"]
-    CO -- "POST /devices/register<br/>(after the first valid frame)" --> SRV["chpc-web"]
+    ECO["Pellux 200 boiler<br/>ecoMAX controller<br/>(module A)"] -- "RS-485 115200 baud<br/>SensorData frames,<br/>receive only" --> CO["boiler controller<br/>(ESP32-C3 + HW-519)"]
+    CO -- "POST /devices/register<br/>(at every start)" --> SRV["chpc-web"]
     CO -- "POST /pellet-boiler-pelux200/add<br/>every poll_interval_seconds" --> SRV
     SRV -- "{poll_interval_seconds}" --> CO
     SRV --> DB[("MongoDB:<br/>devices,<br/>pellet_boiler_pelux200")]
     WEB["web application"] <--> SRV
 ```
 
-The controller side (wiring, frame parser, pins, protocol) is described in [piec-pellux200.md](../../../../devices/co/docs/piec-pellux200.md) (Polish). This document describes the cloud and application side. The boiler is **only a data source**: the server has no scheduler, no operations and no control replies for it (the only value sent back to the controller is the polling interval).
+The controller side (wiring, frame parser, pins, protocol) is described in the [controller README](../../../../devices/pellet-boiler-pelux200/README.md) and [piec-pellux200.md](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (both Polish). This document describes the cloud and application side. The boiler is **only a data source**: the server has no scheduler, no operations and no control replies for it (the only value sent back to the controller is the polling interval).
 
 ## Stages
 
 | Stage | Scope | Status |
 |---|---|---|
-| 1 | `co` receives `SensorData` frames from the boiler bus and sends readings to the cloud | implemented; frame format from PyPlumIO **not verified on a boiler** |
-| 2 | `co` answers the controller's device-presence query (`CheckDevice`) and transmits on the bus, boiler control | **not implemented** |
+| 1 | the boiler controller receives `SensorData` frames from the boiler bus and sends readings to the cloud | implemented; frame format from PyPlumIO **not verified on a boiler** |
+| 2 | the boiler controller answers the ecoMAX controller's device-presence query (`CheckDevice`) and transmits on the bus, boiler control | **not implemented** |
 
-## Two roles of one controller
+## The boiler controller
 
-The same physical `co` controller is two devices in the cloud with the same `deviceId` (SN) but a different kind and a different `rootId`.
+Since 2026-10-03 the boiler is read by a separate boiler controller (an ESP32-C3 SuperMini board with an HW-519 RS-485 module, `devices/pellet-boiler-pelux200`). It has its own SN (the board's MAC), so in the cloud it is an ordinary device of kind `pellet-boiler-pelux200`. Until 2026-10-02 this role was played by the `co` controller: the same SN was then two devices in the cloud (the heat pump and the boiler, different `rootId`s). The server still supports several roles of one SN (described in the [core module](../core/2-how-it-works.md)): it tells them apart by the **endpoint path** (`controllerPaths` in `device-context`, lookup by the pair `{deviceId, deviceType}`), and a `rootId` of another role gives **409**.
 
-```mermaid
-flowchart TB
-    CO["co controller<br/>SN = AABBCC000001"]
-    CO -- "role 1: deviceType = heat_pump<br/>rootId = A" --> HP["device: heat pump"]
-    CO -- "role 2: deviceType = pellet-boiler-pelux200<br/>rootId = B (NVS: pellet_root)" --> PB["device: Piec Pellux 200"]
-    HP -. "POST /hp/add, /pv/add" .-> CO
-    PB -. "POST /pellet-boiler-pelux200/add" .-> CO
-```
-
-- The boiler has its own Root ID in the controller memory (key `pellet_root`), independent of the pump's Root ID.
-- The server tells the roles apart by the **endpoint path**: `device-context` has a `controllerPaths` map (endpoint → kind) and looks the device up by the pair `{deviceId, deviceType}`. Registration also uses that pair. So `POST /pellet-boiler-pelux200/add?deviceId=SN` reaches the boiler and `POST /hp/add?deviceId=SN` reaches the pump.
-- A `rootId` of the other role gives **409**: a pump `rootId` sent to the boiler endpoint (and the other way round) is rejected, so the controller drops the Root ID of that role and registers again.
-
-## Registration: only after the first valid frame
+## Registration: at every start
 
 ```mermaid
 sequenceDiagram
     participant K as boiler (ecoMAX)
-    participant C as co controller
+    participant C as boiler controller
     participant R as POST /devices/register
     participant A as POST /pellet-boiler-pelux200/add
     participant M as MongoDB
-    K->>C: SensorData frames (continuously, to the panel)
-    Note over C: no valid frame yet — the boiler does not register
-    C->>R: {deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200"}
+    C->>R: once on Wi-Fi: {deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}
     R->>M: create the device (properties.poll_interval_seconds = 300) or return the existing one
     R-->>C: {rootId, ..., settings: {poll_interval_seconds}}
-    C->>C: store rootId (pellet_root) and the interval (pellet_poll) in NVS
+    C->>C: store rootId and the interval in NVS (namespace pel)
+    K->>C: SensorData frames (continuously, to the panel)
     loop every poll_interval_seconds
         C->>A: the last valid reading (younger than 60 s)
         A->>M: save the reading
         A-->>C: 201 {poll_interval_seconds}
         C->>C: store the new interval in NVS
     end
-    Note over C,A: 404 or 409 → the controller drops the boiler Root ID<br/>and retries registration every 60 s
+    Note over C,A: failed send: retry after 60 s;<br/>404 or 409 → the controller drops the Root ID and registers again
 ```
 
-- A controller with no boiler (no valid frame at all) does not create the boiler device.
+- A failed registration is retried every 30 s; until it succeeds nothing is sent. The controller registers even with no boiler connected (the device then has no readings).
 - The name "Piec Pellux 200" goes only to a **new** device; a known device keeps its name.
 - The controller may also send a reading with `deviceId` only (no `rootId`) if a device with that SN and kind `pellet-boiler-pelux200` already exists.
 

@@ -28,14 +28,6 @@ public:
   // Blokujący POST; zwraca treść odpowiedzi 2xx, a w każdym innym przypadku "".
   // Odpowiedź 409 kasuje Root ID i uruchamia ponowną rejestrację.
   String post(const String &path, const JsonDocument &data);
-  // Druga rola (piec Pellux 200): własny Root ID w NVS, ten sam SN; zgłoszenie
-  // na tych samych zasadach co pompa (start, zmiana IP). Oba wywołania blokują
-  // jak każde żądanie HTTP, więc main.cpp woła je przy wolnej magistrali.
-  bool pelletRegistrationDue() const;
-  void registerPelletBoiler();
-  // True, gdy chmura przyjęła odczyt (2xx). 404/409 kasuje Root ID pieca
-  // (ponowna rejestracja), a `poll_interval_seconds` z odpowiedzi trafia do NVS.
-  bool postPelletBoiler(const JsonDocument &data);
   int lastHttpStatus() const;
   // Any HTTP status, errors included, proves the internet is reachable.
   bool lastRequestAnswered() const;
@@ -51,9 +43,6 @@ private:
   void startWebSocket();
   void stopWebSocket();
   String send(const String &url, const JsonDocument &data);
-  // Wspólna część zgłoszenia obu ról: POST devices/register z SN i adresem IP,
-  // zwraca odpowiedź 2xx albo "" (wtedy sentIp jest bez znaczenia).
-  String sendRegistration(const char *deviceType, const char *name, IPAddress &sentIp);
 
   HTTPClient http;
   WebSocketsClient webSocket;
@@ -63,9 +52,6 @@ private:
   unsigned long lastRegistrationAt = 0;
   // adres z ostatniego udanego zgłoszenia w tym uruchomieniu (brak = 0.0.0.0)
   IPAddress registeredIp;
-  bool pelletRegistrationAttempted = false;
-  unsigned long lastPelletRegistrationAt = 0;
-  IPAddress pelletRegisteredIp;
   unsigned long lastWifiReconnectAt = 0;
   int httpStatus = 0;
   bool answered = false;

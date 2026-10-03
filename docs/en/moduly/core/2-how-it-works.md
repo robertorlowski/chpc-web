@@ -51,7 +51,7 @@ The controller-kind modules do not know about each other. Only core connects the
 
 ## Controller registration
 
-The tank controller registers at every start (it receives its settings in the reply); `co` registers at every start, after every IP address change and after a 409 reply, even when it already has the Root ID of the given role (a different `rootId` in the reply replaces the stored one); the pellet boiler role registers only after the first valid frame from the boiler. Both controllers send their IP address in the registration and the client shows it in Settings. The server recognises a device by the pair (kind, SN): a new one is created, a known one gets its record back.
+The tank controller registers at every start (it receives its settings in the reply); `co` registers at every start, after every IP address change and after a 409 reply, even when it already has the Root ID of the given role (a different `rootId` in the reply replaces the stored one); the boiler controller registers at every start. The tank controller, `co` and the boiler controller send their IP address in the registration and the client shows it in Settings. The server recognises a device by the pair (kind, SN): a new one is created, a known one gets its record back.
 
 ```mermaid
 sequenceDiagram
@@ -74,15 +74,15 @@ sequenceDiagram
     Note over R,S: the reply carries rootId and, for kinds with controllerSettings<br/>(the tank, the pellet boiler), a settings field — the controller stores it in memory
 ```
 
-The controller stores `rootId` in its memory (NVS; `co` separately for each role, the boiler under the key `pellet_root`). It may send data before registering too, with the SN only — the server accepts it if a device with that SN and the endpoint's kind already exists.
+The controller stores `rootId` in its memory (NVS; a controller with several roles separately for each role). It may send data before registering too, with the SN only — the server accepts it if a device with that SN and the endpoint's kind already exists.
 
 ## One controller, several roles
 
-A physical `co` controller may have several devices in the application: the heat pump (`heat_pump`) and the pellet boiler (`pellet-boiler-pelux200`). They share the `deviceId` (SN) but have a different `deviceType` and a different `rootId`; the `devices` model has no unique index on `deviceId`. So there is no "parent device": each role is an ordinary device with its own context, menu, data and settings.
+A physical controller may have several devices in the application. That was the case on 2026-10-01–02: `co` was the heat pump (`heat_pump`) and the pellet boiler (`pellet-boiler-pelux200`); since 2026-10-03 the boiler has its own boiler controller (`devices/pellet-boiler-pelux200`), and the role mechanism stays in the server. They share the `deviceId` (SN) but have a different `deviceType` and a different `rootId`; the `devices` model has no unique index on `deviceId`. So there is no "parent device": each role is an ordinary device with its own context, menu, data and settings.
 
 ```mermaid
 flowchart LR
-    SN["co controller<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["device heat_pump<br/>rootId = A"]
+    SN["controller<br/>SN = AABBCC000001"] -- "/hp/add, /pv/add" --> HP["device heat_pump<br/>rootId = A"]
     SN -- "/pellet-boiler-pelux200/add" --> PB["device pellet-boiler-pelux200<br/>rootId = B"]
 ```
 

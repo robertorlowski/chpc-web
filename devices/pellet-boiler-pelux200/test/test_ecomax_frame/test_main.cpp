@@ -175,7 +175,7 @@ void testOversizedFrameIsRejected()
   Bytes f = frame(Bytes(600, 0x11));  // 610 B > 512
   EcomaxFrameParser parser;
   EcomaxFrame out;
-  // Jak w EcomaxBus: next() po każdym bajcie.
+  // Jak w readBus() (pellet.cpp): next() po każdym bajcie.
   for (uint8_t x : f) {
     parser.feed(x);
     TEST_ASSERT_FALSE(parser.next(out));

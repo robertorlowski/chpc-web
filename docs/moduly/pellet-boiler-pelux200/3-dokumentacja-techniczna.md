@@ -76,14 +76,16 @@ Indeks: `{rootId, createdAt: -1}`. Brak wygasania danych.
 | zakres `poll_interval_seconds` | 30–3600 s | schemat `properties`; formularz klienta 0,5–60 min |
 | odświeżanie widoku Kocioł | 30 s | `Home.tsx` |
 | nieaktualny odczyt | `3 × poll_interval_seconds` | `utils/boiler.ts` (`isStale`), `DEFAULT_POLL_SECONDS` = 300 |
-| limit wieku odczytu po stronie sterownika | 60 s | firmware `co` (punkt 5c w CLAUDE.md) |
+| limit wieku odczytu po stronie sterownika | 60 s | firmware sterownika pieca (`READING_MAX_AGE_MS` w `devices/pellet-boiler-pelux200/src/firmware.hpp`) |
 
-## Kontrakt ze sterownikiem `co`
+## Kontrakt ze sterownikiem pieca
 
-- Zgłoszenie: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200"}`; odpowiedź 201/200 z `rootId` i `settings.poll_interval_seconds`; Root ID w NVS pod kluczem `pellet_root`, interwał pod `pellet_poll`.
-- Wysyłka: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` co `poll_interval_seconds`. Nieudane zgłoszenie jest ponawiane co 60 s; 404/409 kasują Root ID kotła.
+Sterownik pieca to osobna płytka ESP32-C3 SuperMini z modułem RS-485 HW-519 (`devices/pellet-boiler-pelux200`, od 2026-10-03; wcześniej druga rola sterownika `co`). Kontrakt się przy tym nie zmienił.
+
+- Zgłoszenie przy każdym starcie: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}`; odpowiedź 201/200 z `rootId` i `settings.poll_interval_seconds`; Root ID i interwał w NVS (przestrzeń `pel`, klucze `root_id`, `poll_s`). Nieudane zgłoszenie jest ponawiane co 30 s.
+- Wysyłka: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` co `poll_interval_seconds` (bez `time`). Nieudana wysyłka jest ponawiana po 60 s; 404/409 kasują Root ID i uruchamiają zgłoszenie od nowa.
 - Kontekst: `controllerPaths` w `core/middleware/device-context.ts` zawiera `/pellet-boiler-pelux200/add` → `pellet-boiler-pelux200`. Szczegóły w [module core](../core/3-dokumentacja-techniczna.md).
-- Kod po stronie firmware: `devices/co/src/ecomax_bus.*`, `ecomax_frame.*`, `pellet_telemetry.*`, `cloud_client.cpp`; opis: [devices/co/docs/piec-pellux200.md](../../../devices/co/docs/piec-pellux200.md).
+- Kod po stronie firmware: `devices/pellet-boiler-pelux200/src/pellet.cpp` (zgłoszenie, wysyłka, strony), `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; opis: [README sterownika](../../../devices/pellet-boiler-pelux200/README.md) i [piec-pellux200.md](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md).
 
 ## Testy
 
@@ -99,11 +101,11 @@ Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build`.
 
 ## Znane problemy
 
-- **Format ramek niezweryfikowany na kotle.** Dekoder `SensorData` i założenia (nadawca `0x45`, licznik alertów, odejmowanie 101 od poziomu paliwa) pochodzą z PyPlumIO; prędkość 115200 baud, punkt wpięcia (G2 modułu A) i piny GPIO16/GPIO4 nie były sprawdzone na kotle ani na płytce. Nasłuch trzeba zweryfikować przed jakimkolwiek nadawaniem.
+- **Format ramek niezweryfikowany na kotle.** Dekoder `SensorData` i założenia (nadawca `0x45`, licznik alertów, odejmowanie 101 od poziomu paliwa) pochodzą z PyPlumIO; prędkość 115200 baud i punkt wpięcia (G2 modułu A) nie były sprawdzone na kotle; płytkę sterownika pieca (odbiór na GPIO21) sprawdzono tylko na biurku. Nasłuch trzeba zweryfikować przed jakimkolwiek nadawaniem.
 - **Etap 2 nie istnieje.** Brak nadawania na magistralę kotła, odpowiedzi na `CheckDevice` i sterowania; serwer nie ma operacji ani schedulera kotła.
-- **`lambda_level`** jest w kontrakcie, schemacie i typach, ale firmware `co` go nie wypełnia (widok pokazuje `---`).
+- **`lambda_level`** jest w kontrakcie, schemacie i typach, ale firmware sterownika pieca go nie wypełnia (widok pokazuje `---`).
 - **`heating_status` i `water_heater_status`** to surowe liczby o nieudokumentowanym znaczeniu.
-- **Wysyłka HTTP pieca blokuje pętlę `co`** do ok. 10 s (jak `pv/add`); bufor UART2 (2 KB) gubi nadmiar, a parser się resynchronizuje.
+- **Wysyłka HTTP blokuje pętlę sterownika pieca** na kilka sekund; bufor UART (4 KB) gubi nadmiar, a parser się resynchronizuje.
 - **`PUT /device/properties` podmienia całe `properties`** — klient musi wysłać komplet pól (Ustawienia kotła rozszerzają wczytany obiekt).
 - **Brak wykresów, agregatów i wygasania danych.** Historia rośnie bez limitu (odczyt co 5 minut to ok. 288 rekordów dziennie).
 - **Ostatni odczyt w pamięci serwera** (`lastByRoot`) jest odtwarzany z bazy po restarcie; nie ma innego stanu w pamięci.

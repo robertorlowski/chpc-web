@@ -12,33 +12,31 @@
 | Zegar | RTC DS3231, synchronizacja NTP (czas polski) |
 | Przycisk | GPIO5, aktywny stan wysoki, debounce 50 ms |
 | Przekaźniki | CO i CWU (przełączane razem) |
-| Magistrala kotła (ecoMAX) | UART2 (`Serial2`): RX GPIO16, TX nieprzypisany (GPIO17 nietknięty), DE/RE GPIO4 na stałe LOW, 115200 8N1, bufor 2 KB; tylko odbiór |
 
-Piny i adresy są w `src/hardware_config.hpp`. Podłączenie kotła (zaciski, konwerter 3,3 V, ostrzeżenia): [piec-pellux200.md](piec-pellux200.md).
+Piny i adresy są w `src/hardware_config.hpp`.
+
+Od 2026-10-03 odczyt pieca Pellux 200 (magistrala ecoMAX, dawniej UART2 tego sterownika) działa na osobnej płytce — [devices/pellet-boiler-pelux200](../../pellet-boiler-pelux200/README.md).
 
 ## Pliki (`devices/co/src`)
 
 | Plik | Rola |
 |---|---|
-| `main.cpp` | pętla główna: odczyty CHPC i PV, przycisk trybu, wymiana z chmurą, odpowiedzi `co` jako urządzenia 0x10; rejestracja i wysyłka pieca (`postPelletToCloud()`) |
+| `main.cpp` | pętla główna: odczyty CHPC i PV, przycisk trybu, wymiana z chmurą, odpowiedzi `co` jako urządzenia 0x10 |
 | `access_point_policy.*` | kiedy AP `HP-CO-setup` ma działać (3 min / 1 min / 5 min) |
-| `cloud_client.*` | HTTPS do chpc-web (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, obsługa 409; dla pieca `registerPelletBoiler()` i `postPelletBoiler()` (404/409 kasują Root ID pieca) |
+| `cloud_client.*` | HTTPS do chpc-web (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, obsługa 409 |
 | `command_sink.hpp` | interfejs kolejki komend (na urządzeniu `SerialBus`, w testach `RecordingSink`) |
 | `config_portal.*` | serwer WWW na porcie 80 (`/`, `/telemetry.json`, `/pv.json`, `/install`, `/save`) |
 | `cop_estimator.*` | szacunek COP zbiornika 300 l dla cyklu sprężarki |
-| `device_config.*` | Wi-Fi i Root ID w NVS (przestrzeń `hp`), SN z MAC, dane logowania do `/install`; Root ID pieca (`pellet_root`) i interwał (`pellet_poll`, 30–3600 s) |
+| `device_config.*` | Wi-Fi i Root ID w NVS (przestrzeń `hp`), SN z MAC, dane logowania do `/install`; przy starcie usuwa klucze dawnej roli pieca |
 | `device_io.*` | ekran, RTC i NTP, Wi-Fi AP+STA, przekaźniki, zapis odpowiedzi na magistralę |
-| `ecomax_bus.*` | pasywny odbiór UART2: pobiera do 512 B na `tick()`, karmi parser, trzyma ostatni odczyt i czas odbioru (`fresh(maxAgeMs)`), liczniki ramek poprawnych i odrzuconych |
-| `ecomax_frame.*` | bez zależności od Arduino: strumieniowy parser ramek ecoMAX (`0x68 … 0x16`, BCC = XOR, maks. 512 B, resynchronizacja) i dekoder `SensorData` (`0x35`) z flagami `present` |
 | `domain_types.hpp` | typy PV, `SERIAL_OPERATION`, `WORK_MODE`, `ControllerMode`, `DeviceSettings` |
-| `hardware_config.hpp` | adresy 0x10 i 0x69, mapa rejestrów DTU, piny, piny i prędkość UART2 kotła |
+| `hardware_config.hpp` | adresy 0x10 i 0x69, mapa rejestrów DTU, piny |
 | `heat_pump_data_processor.*` | parsowanie JSON z CHPC, przekazanie danych do estymatora COP |
 | `json_converters.hpp` | konwertery ArduinoJson (pola PV, `time` jako `YYYY.MM.DD HH:MM:SS`, tryby) |
 | `modbus_frame.*` | ramki komend CHPC (5 B), zapytania Modbus do DTU (8 B), CRC-16/MODBUS |
 | `operation_controller.*` | stan z chmury → komendy RS-485 (tylko zmiany), tryby, sekwencja OFF, force z PV, ponawianie po niezgodności, przekaźniki |
 | `operation_parser.*` | JSON `operation` → `ServerOperationState`, z zakresami |
 | `operation_types.hpp` | `ServerValue`/`ServerOperationState` (flaga `present`), `HeatPumpReport`, scalanie |
-| `pellet_telemetry.*` | odczyt `SensorData` → JSON `POST /api/pellet-boiler-pelux200/add` (tylko pola odczytane; `time` dopisuje `main.cpp`) |
 | `pv_data_processor.*` | dwie odpowiedzi DTU → sumy instalacji i `panels[]` |
 | `pv_telemetry.*` | dokument `POST /api/pv/add` i `/pv.json` |
 | `serial_bus.*` | kolejka RS-485 w trzech klasach (bezpieczeństwo, kontynuacja PV, zwykłe); 500 ms, 3 s, 5 ms |
@@ -77,19 +75,8 @@ DTU: dwa zapytania Modbus po pięć portów — od `0x1000` i od `0x10C8` (porty
 | `co` → serwer | `POST /api/pv/add?...` | `time`, `total_power` (wymagane), `total_prod`, `total_prod_today`, `temperature` (najniższa z portów), `pv_power` (≥ 2000 W), `panels[]` |
 | `co` → serwer | `POST /api/devices/register` | `{deviceType: "heat_pump", deviceId: SN, ip}` — przy każdym starcie, po zmianie IP i po 409 (`registrationDue()`), także z Root ID; inny `rootId` z odpowiedzi zastępuje zapisany i restartuje WebSocket |
 | serwer → `co` | WebSocket `/ws?rootId=` | `{"type":"operation"}` → natychmiastowy `hp/add` |
-| `co` → serwer | `POST /api/devices/register` | `{deviceType: "pellet-boiler-pelux200", deviceId: SN, name: "Piec Pellux 200", ip}` — dopiero po pierwszej poprawnej ramce ecoMAX, potem jak pompa (start, zmiana IP, 404/409); odpowiedź: `rootId` i `settings.poll_interval_seconds` |
-| `co` → serwer | `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=<Root ID pieca>` | `state`, temperatury, `*_target`/`*_status`, `fuel_level`, `fan_power`, `boiler_load`, `boiler_power`, `fuel_consumption`, boole wyjść, `time`; odpowiedź `{"poll_interval_seconds": N}` |
 
 Nieprzyjęty odczyt PV sterownik ponawia co 60 s, aż zastąpi go nowszy.
-
-### Piec Pellux 200
-
-Pełny opis pól, dekodowania ramki i podłączenia: [piec-pellux200.md](piec-pellux200.md); kontrakt po stronie serwera: CLAUDE.md, punkt 5c. Zasady w firmware:
-
-- **Rejestracja** (`CloudClient::registerPelletBoiler`) wymaga wcześniej poprawnej ramki (`ecomaxBus.hasReading()`), Wi-Fi i wolnej magistrali RS-485 pompy; ponowienie co 60 s (`REGISTRATION_RETRY_MS`). `rootId` trafia do NVS (`pellet_root`), a `settings.poll_interval_seconds` do `pellet_poll`.
-- **Wysyłka** (`postPelletToCloud()` w `main.cpp`) tylko gdy: piec zarejestrowany, ostatni odczyt młodszy niż 60 s (`PELLET_MAX_AGE_MS`), magistrala CHPC/DTU wolna (`serialBus.isIdle()`), Wi-Fi połączone i minął interwał. Pierwsza wysyłka idzie od razu, kolejna po `pellet_poll` (po sukcesie) albo po mniejszej z wartości: interwał, 60 s (`PELLET_RETRY_MS`) po błędzie. Czas `time` jak w telemetrii pompy (RTC).
-- **Odpowiedzi:** 2xx oznacza przyjęcie, a `poll_interval_seconds` spoza 30–3600 jest ignorowane (`savePelletPollSeconds`). 404 i 409 kasują `pellet_root` i uruchamiają rejestrację od nowa.
-- **Dekoder** przyjmuje tylko `SensorData` od nadawcy `0x45`; niepoprawna długość, brak `0x16` albo zły BCC odrzucają ramkę (licznik `rejectedCount()`), ramka urwana w środku daje tylko pola odczytane do tego miejsca (bez flagi `present` pole nie trafia do JSON). Poziom paliwa większy niż 100 jest pomniejszany o 101. `lambda_level` jest w kontrakcie serwera, ale firmware go nie wysyła.
 
 ## Strony WWW (port 80)
 
@@ -112,8 +99,7 @@ Nieznany adres przekierowuje (302) na `/`. Login i hasło do `/install` są w `s
 | `wifi_ssid`, `wifi_pass` | Wi-Fi (pusty = wartość z `secrets.h`) |
 | `root_id` | Root ID z rejestracji (pusty = `CLOUD_ROOT_ID` z `secrets.h`, jeśli podany) |
 | `mode` | tryb sterownika (`ControllerMode`), domyślnie `CLOUD` |
-| `pellet_root` | Root ID pieca z rejestracji drugiej roli (pusty = piec niezarejestrowany) |
-| `pellet_poll` | interwał wysyłki pieca [s], 30–3600, domyślnie 300; wartość spoza zakresu w NVS wraca do 300 |
+| `pellet_root`, `pellet_poll` | dawna rola pieca (firmware 2026-10-01–02); `loadDeviceConfig()` usuwa je przy starcie |
 
 Ustawienia z chmury (`DeviceSettings`: tryb pracy, temperatury) są tylko w pamięci RAM; po starcie domyślnie `OFF`, 35/45, 40/47, aż do pierwszej operacji.
 
@@ -121,12 +107,12 @@ Ustawienia z chmury (`DeviceSettings`: tryb pracy, temperatury) są tylko w pami
 
 ```bash
 cp devices/co/src/secrets.example.h devices/co/src/secrets.h   # raz, uzupełnić
-pio test -d devices/co -e native     # 74 testy: kontroler operacji, parser, COP, ramki Modbus, PV, polityka AP, ramki ecoMAX
+pio test -d devices/co -e native     # 64 testy: kontroler operacji, parser, COP, ramki Modbus, PV, polityka AP
 pio run -d devices/co                # build esp32dev
 pio run -d devices/co -t upload      # wgranie przez USB
 ```
 
-Testy `native` nie wymagają sprzętu (`test/test_access_point_policy`, `test/test_ecomax_frame`, `test/test_modbus_frame`, `test/test_operation_controller`, `test/test_pv_data_processor`). `test_ecomax_frame` (10 testów) sprawdza dekodowanie poprawnej ramki `SensorData`, odrzucenie złego BCC i zbyt dużej ramki, ramkę urwaną, resynchronizację po śmieciach, dwie ramki pod rząd, poziom paliwa powyżej 100, krótki ładunek, inny nadawca lub typ ramki oraz JSON z samymi odczytanymi polami. Nie ma testów wysyłki pieca do chmury i rejestracji (kod zależny od sprzętu). Build `esp32dev` (stan po dodaniu pieca): RAM 17,4 %, Flash 34,9 %. Kod RS-485 `co` jest też używany w teście całego łańcucha (`test/e2e`, most `bridge.exe`), obecnie nieaktualnym.
+Testy `native` nie wymagają sprzętu (`test/test_access_point_policy`, `test/test_modbus_frame`, `test/test_operation_controller`, `test/test_pv_data_processor`). Build `esp32dev` (2026-10-03, po usunięciu roli pieca): RAM 17,2 %, Flash 34,7 %. Kod RS-485 `co` jest też używany w teście całego łańcucha (`test/e2e`, most `bridge.exe`), obecnie nieaktualnym.
 
 Kolejność wdrożenia: najpierw serwer, potem `co`, na końcu CHPC.
 
@@ -141,7 +127,4 @@ Kolejność wdrożenia: najpierw serwer, potem `co`, na końcu CHPC.
 - **Nieaktualny TODO** w `main.cpp` („Scheduler must perform the MANUAL -> AUTO transition”) — serwer już to robi.
 - **`DeviceSettings.controllerMode`** jest nieużywane; tryb trzyma `OperationController::localMode`.
 - **Bezpieczeństwo**: otwarty AP, login i hasło `/install` w kodzie, HTTPS bez sprawdzania certyfikatu.
-- **Piec: etap 1, tylko odbiór.** Nie ma nadawania na magistralę kotła (odpowiedzi na `CheckDevice`, TX2 nieużywany) i `co` niczego nie wysyła do kotła. Format `SensorData` pochodzi z PyPlumIO i **nie był sprawdzony na kotle**; piny i punkt wpięcia też nie były sprawdzone na płytce ([lista do sprawdzenia](piec-pellux200.md#7-do-sprawdzenia-nasłuchem-na-kotle)).
-- **Piec: HTTP blokuje pętlę** do ok. 10 s (rejestracja i wysyłka), a bufor UART2 ma 2 KB, więc w tym czasie część ramek ecoMAX ginie (parser się resynchronizuje, do chmury idzie ostatni poprawny odczyt).
-- **Piec: brak strony lokalnej** (odpowiednika `/telemetry.json` i `/pv.json`) i pól pieca na ekranie.
 - **Walidacja zakresów po cichu**: wartość spoza zakresu nie jest stosowana, a aplikacja tego nie pokazuje.

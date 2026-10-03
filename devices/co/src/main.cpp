@@ -3,8 +3,8 @@
 // na POST /api/hp/add i odczyt PV na POST /api/pv/add, stosuje `operation`
 // z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
 // HP-CO-setup i odpowiada na zapytania innych urządzeń do adresu 0x10.
-// Druga rola: pasywny odbiór ramek ecoMAX (piec Pellux 200) na UART2
-// i wysyłka odczytu na POST /api/pellet-boiler-pelux200/add.
+// Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
+// na osobnej płytce (devices/pellet-boiler-pelux200).
 #include <Arduino.h>
 #include <Preferences.h>
 #include <access_point_policy.hpp>
@@ -12,13 +12,11 @@
 #include <config_portal.hpp>
 #include <device_config.hpp>
 #include <device_io.hpp>
-#include <ecomax_bus.hpp>
 #include <hardware_config.hpp>
 #include <heat_pump_data_processor.hpp>
 #include <json_converters.hpp>
 #include <operation_controller.hpp>
 #include <operation_parser.hpp>
-#include <pellet_telemetry.hpp>
 #include <pv_data_processor.hpp>
 #include <pv_telemetry.hpp>
 #include <serial_bus.hpp>
@@ -62,10 +60,6 @@ constexpr unsigned long OUTDOOR_TEMPERATURE_MAX_AGE_MS = 30UL * 60UL * 1000UL;
 // A pump that keeps rejecting a command would otherwise be read every few
 // seconds, because each check sends the command again.
 constexpr unsigned long READ_AFTER_COMMAND_MIN_INTERVAL_MS = 10000;
-// Piec Pellux 200 (druga rola, pasywny odbiór ecoMAX): wysyłamy tylko odczyt
-// młodszy niż to; po nieudanej wysyłce ponawiamy najwyżej co minutę.
-constexpr unsigned long PELLET_MAX_AGE_MS = 60UL * 1000UL;
-constexpr unsigned long PELLET_RETRY_MS = 60UL * 1000UL;
 
 
 
@@ -81,9 +75,6 @@ PV pv;
 SerialBus serialBus(Serial);
 OperationController operationController(serialBus, HP_FORCE_ON);
 CloudClient cloudClient;
-EcomaxBus ecomaxBus;
-bool pelletPostStarted = false;
-unsigned long pelletNextPostAt = 0;
 AccessPointPolicy accessPointPolicy;
 HeatPumpDataProcessor heatPumpDataProcessor;
 PvDataProcessor pvDataProcessor;
@@ -131,7 +122,6 @@ void processSerialInput();
 void reportHeatPumpState(JsonObjectConst hp);
 void postTelemetryToCloud();
 void postPvTelemetryToCloud();
-void postPelletToCloud();
 void schedulePvRead();
 void refreshTelemetry();
 void applyServerOperation(JsonObjectConst operation);
@@ -171,7 +161,6 @@ void setup()
 
   beginConfigPortal(telemetry, pvTelemetry);
   cloudClient.begin();
-  ecomaxBus.begin();
 }
 
 // Pętla nie blokuje (poza żądaniami HTTP do chmury i NTP). Kolejność:
@@ -189,7 +178,6 @@ void loop()
   processSerialInput();
   serialBus.tick();
   cloudClient.tick();
-  ecomaxBus.tick();
   handleConfigPortal();
 
   setAccessPointEnabled(accessPointPolicy.update(millis(), stationOnline(),
@@ -215,20 +203,6 @@ void loop()
 
   if (cloudClient.registrationDue() && serialBus.isIdle()) {
     cloudClient.registerDevice();
-  }
-
-  // Piec rejestruje się dopiero po pierwszej poprawnej ramce, żeby sterownik
-  // bez podłączonego kotła nie tworzył urządzenia w chmurze.
-  if (ecomaxBus.hasReading() && cloudClient.pelletRegistrationDue()
-    && serialBus.isIdle()) {
-    cloudClient.registerPelletBoiler();
-  }
-
-  if (pelletRegistered() && ecomaxBus.fresh(PELLET_MAX_AGE_MS)
-    && serialBus.isIdle() && WiFi.status() == WL_CONNECTED
-    && (!pelletPostStarted
-      || static_cast<long>(millis() - pelletNextPostAt) >= 0)) {
-    postPelletToCloud();
   }
 
   if (cloudPostPending && serialBus.isIdle()) {
@@ -651,20 +625,4 @@ void postPvTelemetryToCloud()
   const bool accepted = cloudClient.post("pv/add", pvTelemetry.document()) != "";
   pvPostPending = !accepted;
   pvPostRetryWait = !accepted;
-}
-
-// Pierwszy odczyt idzie zaraz po pierwszej ramce, potem co interwał z chmury.
-// Żądanie blokuje pętlę tak samo jak hp/add i pv/add, dlatego tylko przy
-// wolnej magistrali RS-485 (pompa i DTU).
-void postPelletToCloud()
-{
-  JsonDocument document;
-  fillPelletJson(document, ecomaxBus.reading());
-  document["time"] = rtc.now();
-  const bool accepted = cloudClient.postPelletBoiler(document);
-
-  const unsigned long interval = deviceConfig().pelletPollSeconds * 1000UL;
-  pelletPostStarted = true;
-  pelletNextPostAt = millis()
-    + (accepted ? interval : min(interval, PELLET_RETRY_MS));
 }
