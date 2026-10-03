@@ -22,8 +22,10 @@ z kotła.
 
 - Kocioł **Pellux 200 Touch** (Plum, palnik PBMAX 20.1) ma regulator z rodziny **ecoMAX**
   z osobnym panelem dotykowym połączonym łączem RS-485 z modułem A (generacja TOUCH,
-  860P/920P). Instrukcja kotła nie podaje dokładnego modelu regulatora; trzeba go
-  odczytać z etykiety albo z menu panelu (MENU → Informacje).
+  860P/920P). Z tabliczek (2026-10-03): **Biawar ecoMAX 860P2**, moduł A, wykonanie N,
+  oprogramowanie v18.21.84; panel **ecoTOUCH 3** (ecoMAX860P2-N T5, gniazdo RJ: 5…12V,
+  D+, D−, GND); ochrona powrotu przez sterownik siłownika **ecoDRIVE**. Zdjęcia i
+  ustawienia regulatora: [kociol-ustawienia.md](kociol-ustawienia.md).
 - Kocioł obsługuje moduł internetowy ecoNET300 (Wi-Fi/LAN, econet24.com), którego **nie
   mamy**, dlatego czytamy RS-485 bezpośrednio.
 - Dokumentacja producenta (PDF-y i schematy) jest w

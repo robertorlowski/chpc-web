@@ -4,7 +4,7 @@ Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519, który podsłu
 
 Do 2026-10-02 tę rolę pełnił sterownik `co` (drugi UART, piny GPIO16 i GPIO4); od 2026-10-03 działa na tej osobnej płytce, a kontrakt z chmurą się nie zmienił.
 
-Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · [dokumentacja producenta kotła](docs/pellux200-dokumentacja/README.md) · strona chmury i aplikacji: [moduł pellet-boiler-pelux200](../../docs/moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) · kontrakt: [CLAUDE.md, punkt 5c](../../CLAUDE.md).
+Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · **[kocioł: sprzęt (ecoMAX 860P2) i ustawienia, plan z pompą ciepła](docs/kociol-ustawienia.md)** · [dokumentacja producenta kotła](docs/pellux200-dokumentacja/README.md) · strona chmury i aplikacji: [moduł pellet-boiler-pelux200](../../docs/moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) · kontrakt: [CLAUDE.md, punkt 5c](../../CLAUDE.md).
 
 ## Płytka i podłączenie
 
