@@ -30,10 +30,16 @@ void putU32(Bytes &b, uint32_t v)
   for (int i = 0; i < 4; i++) b.push_back((v >> (8 * i)) & 0xFF);
 }
 
-// Dane SensorData: state, outputs, flags, temperatury, cele, alerty, reszta.
+// Bajty tabeli wersji na początku SensorData: liczba wpisów i po 3 bajty (typ + uint16).
+constexpr size_t FRAME_VERSIONS_SIZE = 1 + 2 * 3;
+
+// Dane SensorData: tabela wersji, state, outputs, flags, temperatury, cele, alerty, reszta.
 Bytes sensorPayload(bool tail = true)
 {
   Bytes d;
+  d.push_back(2);                       // 2 wpisy tabeli wersji
+  d.push_back(0x31); d.push_back(0x10); d.push_back(0x27);
+  d.push_back(0x55); d.push_back(0x34); d.push_back(0x12);
   d.push_back(3);                       // state
   putU32(d, ECOMAX_OUT_FAN | ECOMAX_OUT_HEATING_PUMP | ECOMAX_OUT_ALARM);
   putU32(d, 0);                         // output_flags
@@ -153,7 +159,7 @@ void testTwoFramesInARow()
 {
   Bytes first = sensorPayload();
   Bytes second = sensorPayload();
-  second[0] = 7;
+  second[FRAME_VERSIONS_SIZE] = 7;  // state za tabelą wersji
   Bytes stream = frame(first);
   Bytes f2 = frame(second);
   stream.insert(stream.end(), f2.begin(), f2.end());
@@ -172,7 +178,7 @@ void testTwoFramesInARow()
 
 void testOversizedFrameIsRejected()
 {
-  Bytes f = frame(Bytes(600, 0x11));  // 610 B > 512
+  Bytes f = frame(Bytes(1100, 0x11));  // 1110 B > ECOMAX_MAX_FRAME
   EcomaxFrameParser parser;
   EcomaxFrame out;
   // Jak w readBus() (pellet.cpp): next() po każdym bajcie.
@@ -214,7 +220,7 @@ void testShortPayloadReturnsWhatWasRead()
 
   // Urwane po pierwszej temperaturze: zostają tylko poprawnie odczytane.
   EcomaxSensorData t;
-  TEST_ASSERT_TRUE(decodeSensorData(d.data(), 9 + 1 + 5 + 2, t));
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), FRAME_VERSIONS_SIZE + 9 + 1 + 5 + 2, t));
   TEST_ASSERT_TRUE(t.temperatures[0].present);
   TEST_ASSERT_FALSE(t.temperatures[5].present);
   TEST_ASSERT_FALSE(t.heatingTarget.present);

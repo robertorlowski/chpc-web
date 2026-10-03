@@ -1,6 +1,6 @@
 ﻿# Piec Pellux 200 — sterownik `pellet-boiler-pelux200`
 
-Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519, który podsłuchuje magistralę regulatora ecoMAX kotła pelletowego Pellux 200 Touch, dekoduje ramki `SensorData` i co kilka minut wysyła ostatni odczyt do chpc-web. Kotłem nie steruje i niczego na jego magistralę nie nadaje (etap 1). Firmware 1.0.1.
+Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519 na magistrali regulatora ecoMAX kotła pelletowego Pellux 200 Touch. Przedstawia się regulatorowi jako moduł ecoNET (`0x56`), dzięki czemu dostaje ramki `SensorData`, dekoduje je i co kilka minut wysyła ostatni odczyt do chpc-web; czyta też wszystkie ustawienia regulatora (kopia na wypadek awarii) i na polecenie z konsoli USB zmienia jeden parametr kotła przy kotle zatrzymanym (sprawdzone: CWU 55 → 50 °C). Z aplikacji kotłem nie steruje. Firmware 1.1.0 (sprawdzony na kotle 2026-10-03).
 
 Do 2026-10-02 tę rolę pełnił sterownik `co` (drugi UART, piny GPIO16 i GPIO4); od 2026-10-03 działa na tej osobnej płytce, a kontrakt z chmurą się nie zmienił.
 
@@ -16,7 +16,7 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
  │ D+ ──────────────────────┼────────────┤ A            │        │ ESP32-C3 SuperMini   │
  │ D− ──────────────────────┼────────────┤ B    HW-519  │        │                      │
  │ 12V DC (nie podłączać)   │            │         TXD ─┼───────►│ GPIO21 (UART1 RX)    │
- │ GND  (nie podłączać)     │            │         RXD ─┼── ✕    │ (TX nieprzypisany)   │
+ │ GND  (nie podłączać)     │            │         RXD ◄┼────────┤ GPIO20 (UART1 TX)    │
  │ sterownik pokojowy       │            │         VCC ─┼────────┤ 3V3                  │
  │ zostaje, równolegle      │            │         GND ─┼────────┤ GND                  │
  └──────────────────────────┘            └──────────────┘        │ USB-C 5 V: zasilanie │
@@ -26,8 +26,8 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
 
 | HW-519 | ESP32-C3 SuperMini | Uwagi |
 |---|---|---|
-| TXD | GPIO21 | **wyjście** modułu: dane odebrane z magistrali (opisy HW-519 są od strony modułu, przy odbiorze miga dioda TXD); jedyny przewód sygnałowy (sprawdzone 2026-10-03) |
-| RXD | — (GPIO20, nieużywany) | wejście nadawcze modułu; UART nie ma przypisanego pinu TX, sterownik nie nadaje |
+| TXD | GPIO21 | **wyjście** modułu: dane odebrane z magistrali (opisy HW-519 są od strony modułu, przy odbiorze miga dioda TXD); sprawdzone 2026-10-03 |
+| RXD | GPIO20 | **wejście** nadawcze modułu (od 1.1.0): odpowiedzi ecoNET i zapytania o ustawienia; sprawdzone na kotle 2026-10-03. Bez tego przewodu sterownik tylko słucha i nie dostaje `SensorData` |
 | VCC | 3V3 | sprawdzone 2026-10-03 (odbiór bez błędów); przy 5V wyjście TXD dawałoby 5 V na GPIO21, czego ESP32-C3 nie toleruje |
 | GND | GND | |
 | A / B | D+ / D− na zaciskach **G4** modułu A kotła (`12V DC / D+ / D− / GND`, wejście panelu pokojowego) | pod te same zaciski co przewody sterownika pokojowego, równolegle; zapasowo para D+/D− kabla panelu kotła (G2, wtyk RJ); kolejność dobiera sterownik (niżej) |
@@ -36,7 +36,18 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
 - HW-519 sam przełącza kierunek transmisji, więc nie ma pinu DE/RE.
 - Płytkę C3 zasila się przez USB-C (5 V). Tym samym złączem idzie konsola (USB CDC, 115200) i pierwsze wgranie.
 - Punkt wpięcia w kotle (zaciski G4, równolegle do sterownika pokojowego; ostrzeżenia: tylko D+ i D−, bez 12 V i GND, wyłączone zasilanie kotła): [docs/piec-pellux200.md, punkt 3](docs/piec-pellux200.md#3-podłączenie).
-- Magistrala: 115200 baud 8N1 (`ECOMAX_RX_PIN = 21`, `ECOMAX_BAUD` w `src/firmware.hpp`).
+- Magistrala: 115200 baud 8N1 (`ECOMAX_RX_PIN = 21`, `ECOMAX_TX_PIN = 20`, `ECOMAX_BAUD` w `src/firmware.hpp`). Moduł HW-519 nie słyszy własnego nadawania (echo 0).
+
+## ecoNET: odczyt danych i ustawień (od 1.1.0)
+
+Regulator co 2 s pyta adres ecoNET `0x56` (CheckDevice `0x30`). Fabryczny moduł ecoNET kotła jest wyłączony, więc odpowiada sterownik (`src/econet.*`, ustalenia: [docs/kociol-ustawienia.md, punkt 1a](docs/kociol-ustawienia.md)):
+
+- **DeviceAvailable `0xB0`** (stan Wi-Fi sterownika) na CheckDevice i **`0xC0`** na ProgramVersion `0x40`; potem regulator nadaje **SensorData `0x35` do wszystkich (`0x00`)** co ok. 2,5 s. Odpowiedź wychodzi 2 ms po zapytaniu z osobnego zadania FreeRTOS (`busTask`), bo HTTP blokuje `loop()`.
+- **Osłona adresu `0x56`** (`EconetGuard`): fabryczny ecoNET może zostać włączony, a dwa urządzenia pod jednym adresem zderzałyby się. Sterownik nadaje dopiero po minucie samego nasłuchu; obca ramka od `0x56` (nie nasze echo) albo 3 kolizje z rzędu wstrzymują nadawanie na 30 min, liczone od ostatniego zdarzenia.
+- **Odczyt ustawień** (`src/boiler_settings.*`) po każdym starcie i na polecenie `p` z konsoli: zapytania `0x31` (parametry kotła), `0x32` (mieszacze), `0x5C` (termostaty), `0x36` (harmonogramy), `0x55` (schemat RegulatorData), każde 50 ms po naszej odpowiedzi na CheckDevice (doklejone tuż za nią regulator pomija); odpowiedź (typ | `0x80`) przychodzi po ok. 65 ms do `0x00`. 4 s na odpowiedź, 3 próby. Wynik: `/boiler-settings.json` i linie `SETTINGS` na konsoli; rozkodowanie: `tools/dekoduj_ustawienia.py`. Kopia z 2026-10-03: [docs/kociol-ustawienia.md, punkt 4](docs/kociol-ustawienia.md).
+- **Zmiana parametru kotła** (`BoilerParameterWriter`, tylko z konsoli): `set <nr> <wartość>` → ramka `0x33 [nr, wartość]` w oknie ecoNET, potwierdzenie `0xB3` (do `0x00`), potem ponowny odczyt ustawień. Tylko przy świeżym odczycie z kotłem zatrzymanym (stan 0), w zakresie min–max z ostatniego odczytu, jedna naraz, 3 próby po 4 s. Sprawdzone 2026-10-03: CWU (nr 119) 55 → 50 °C ([docs/kociol-ustawienia.md, punkt 4a](docs/kociol-ustawienia.md)). Ramek `0x34` (mieszacz), `0x37` (harmonogram), `0x3B` (włącz/wyłącz regulator) i `0x5D` (termostat) firmware nie buduje.
+
+**Konsola USB** (115200): `p` — odczyt ustawień, `t` — czasy ramek przez 3 s (`TRACE`), `r` — nagranie rozmowy z kotłem przez 5 min (`RAW <ms> RX|TX <hex>`), `set <nr> <wartość>` + Enter — zmiana parametru kotła. Co 10 s `DUMP` ramek `0x08`, `0x89`, `0x35`; co 30 s stan, liczniki ecoNET, zdekodowany odczyt i lista rodzajów ramek.
 
 ## Automatyczna polaryzacja
 
@@ -58,8 +69,9 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 
 | Adres | Dostęp | Zawartość |
 |---|---|---|
-| `/` (i każdy nieznany adres) | otwarty | odczyt kotła (stan, temperatury, paliwo, moc, wyjścia, wiek odczytu); diagnostyka magistrali: bajty, ramki (w tym `SensorData`), odrzucone, polaryzacja (normalna / odwrócona, „dobierany” przed zatwierdzeniem); Wi-Fi i chmura (sieć, IP, RSSI, zgłoszenie, ostatnia wysyłka i jej kod HTTP, interwał). Odświeżane co 2 s z `/state.json` |
+| `/` (i każdy nieznany adres) | otwarty | odczyt kotła (stan, temperatury, paliwo, moc, wyjścia, wiek odczytu); diagnostyka magistrali: bajty, ramki (w tym `SensorData`), odrzucone, polaryzacja (normalna / odwrócona, „dobierany” przed zatwierdzeniem); ecoNET: stan (nasłuch / odpowiada / wstrzymany), odpowiedzi, echo, obce ramki, kolizje, ustawienia kotła `N/5` z linkiem „pobierz”; Wi-Fi i chmura (sieć, IP, RSSI, zgłoszenie, ostatnia wysyłka i jej kod HTTP, interwał). Odświeżane co 2 s z `/state.json` |
 | `/state.json` | otwarty | to samo jako JSON |
+| `/boiler-settings.json` | otwarty | surowe odpowiedzi regulatora z ustawieniami (`hex`, typ, wiek) — kopia na wypadek awarii |
 | `/install` | Basic Auth (`INSTALL_USER`/`INSTALL_PASSWORD` z `secrets.h`) | Wi-Fi (SSID, hasło: puste = bez zmian), wersja firmware i wgranie pliku `firmware.bin`, SN, Root ID, stan zgłoszenia |
 | `POST /install/firmware` | Basic Auth | wgranie `firmware.bin` (formularz albo `curl`, niżej); po poprawnym pliku restart do nowej wersji |
 
@@ -67,7 +79,7 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 
 Kontrakt jak w CLAUDE.md, punkt 5c (serwer i klient pieca bez zmian):
 
-- **Zgłoszenie** przy każdym starcie (po połączeniu z Wi-Fi): `POST devices/register` z `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version: "1.0.1", ip}`. SN to fabryczny MAC z eFuse (12 znaków hex). Odpowiedź niesie `rootId` (zapis w NVS) i `settings.poll_interval_seconds`. Nieudane zgłoszenie jest ponawiane co 30 s; do skutku sterownik niczego nie wysyła.
+- **Zgłoszenie** przy każdym starcie (po połączeniu z Wi-Fi): `POST devices/register` z `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version: "1.1.0", ip}`. SN to fabryczny MAC z eFuse (12 znaków hex). Odpowiedź niesie `rootId` (zapis w NVS) i `settings.poll_interval_seconds`. Nieudane zgłoszenie jest ponawiane co 30 s; do skutku sterownik niczego nie wysyła.
 - **Wysyłka** `POST pellet-boiler-pelux200/add?deviceId=<SN>&rootId=<id>` co `poll_interval_seconds` (domyślnie 300 s, 30–3600, ustawiane w aplikacji, zapis w NVS `poll_s`), tylko gdy ostatni odczyt `SensorData` jest młodszy niż 60 s. Treść: pola odczytane z ramki (bez `time`, czas bierze serwer). Odpowiedź `{"poll_interval_seconds": N}` aktualizuje interwał.
 - Nieudana wysyłka jest ponawiana po 60 s; 404 albo 409 kasuje Root ID i uruchamia zgłoszenie od nowa.
 - Adres chmury: `https://chpc-web.onrender.com/api/` (`CLOUD_URL` w `firmware.hpp`, do podmiany flagą `-D PELLET_CLOUD_URL=...`). Certyfikat nie jest sprawdzany, jak w pozostałych sterownikach.
@@ -82,7 +94,7 @@ Kontrakt jak w CLAUDE.md, punkt 5c (serwer i klient pieca bez zmian):
 ```sh
 cp src/secrets.example.h src/secrets.h   # nazwa i hasło AP, login /install, domyślne Wi-Fi
 pio run                                  # build (esp32c3)
-pio test -e native                       # testy logiki na PC (14: 10 ecoMAX + 4 polaryzacji)
+pio test -e native                       # testy na PC (35, w tym 7 na nagraniach z kotła)
 pio device monitor                       # konsola (USB CDC, 115200)
 ```
 
@@ -93,33 +105,43 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
   write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin
 ```
 
-(`esptool.py` jest w `~/.platformio/packages/tool-esptoolpy/`.) Kolejne wersje: `/install` albo `curl` (wyżej).
+(`esptool.py` jest w `~/.platformio/packages/tool-esptoolpy/`.) Kolejne wersje: `/install` albo `curl` (wyżej). Wgrana przez USB sama aplikacja (`0x10000`) po wcześniejszym OTA nie startuje, bo `otadata` wskazuje drugą partycję — wtedy razem z nią `0xe000 boot_app0.bin`.
 
 ## Testy
 
 | Zestaw | Co sprawdza |
 |---|---|
-| [test_ecomax_frame](test/test_ecomax_frame/test_main.cpp) (10, przeniesione z `co`) | parser ramek ecoMAX (BCC, za duża ramka, ramka urwana, resynchronizacja, dwie ramki pod rząd), dekoder `SensorData` (poziom paliwa > 100, krótki ładunek, inny nadawca lub typ) i JSON z samymi odczytanymi polami |
+| [test_ecomax_frame](test/test_ecomax_frame/test_main.cpp) (10, przeniesione z `co`) | parser ramek ecoMAX (BCC, za duża ramka, ramka urwana, resynchronizacja, dwie ramki pod rząd), dekoder `SensorData` z tabelą wersji ramek na początku (poziom paliwa > 100, krótki ładunek, inny nadawca lub typ) i JSON z samymi odczytanymi polami |
 | [test_logic](test/test_logic/test_main.cpp) (4) | polaryzacja: odwrócenie po bajtach bez ramek, brak zmiany przy ciszy, zatwierdzenie ramką i dłuższe trzymanie, ramki odnawiające okno |
+| [test_econet](test/test_econet/test_main.cpp) (14) | DeviceAvailable i ProgramVersion, brak odpowiedzi na cudze zapytania, osłona `0x56` (nasłuch, echo odpowiedzi i zapytania, obcy ecoNET, kolizje), zapytania o ustawienia, odpowiedź do `0x00`, ponowienia, zmiana parametru (ramka, potwierdzenie, ponowienia) |
+| [test_capture](test/test_capture/test_main.cpp) (7) | **nagrania z kotła** [test/fixtures/](test/fixtures/): całość bez odrzuconych ramek, 128 `SensorData` (stan 0, zadane 67 / 55 °C), zapytania o ustawienia bajt w bajt jak nagrane i przyjęte odpowiedzi, zakres parametru z odczytu, odpowiedzi na CheckDevice, brak obcego ecoNET; sterowanie ręczne z panelu (stan 9, pompa mieszacza 1 w `SensorData`); zmiana CWU 55 → 50 (ramka jak nagrana, `0xB3`, nowa wartość w odczycie i w `SensorData`) |
 
-### Test na biurku
+### Bez kotła: nagranie i symulator
 
-Komputer z przejściówką USB-RS485 udaje kocioł: co 1 s wysyła ramkę `SensorData` (typ `0x35`) od nadawcy `0x45`, a sterownik ją podsłuchuje (skrypt nie jest w repozytorium). Wynik 2026-10-03: po 16 s sterownik sam odwrócił polaryzację (przewody A/B były zamienione), potem odebrał 13 z 13 wysłanych ramek `SensorData`.
+- **Nagranie** `test/fixtures/kociol-2026-10-03.txt`: 5 min rozmowy z kotłem 2026-10-03 (kocioł uruchomiony, wyłączony; 1518 ramek: regulator, panele, eSTER, ISM i nasze odpowiedzi; dwa odczyty ustawień). Format `<ms> <RX|TX> <cała ramka hex>`. Drugie nagranie `kociol-2026-10-03-sterowanie-reczne.txt` (ok. 6 min, z przerwą na restart płytki ok. 11:08:52, czas `ms` liczony od nowa): sterowanie ręczne z panelu, pompa mieszacza 1 włączona i wyłączona ([docs/kociol-ustawienia.md, punkt 1b](docs/kociol-ustawienia.md)). Trzecie `kociol-2026-10-03-zmiana-cwu.txt`: zmiana CWU 55 → 50 °C i ponowny odczyt ustawień (punkt 4a). Zamaskowane `tools/maskuj_nagranie.py` (dane modułu ISM, ProgramVersion regulatora, IP, brama i SSID w naszej `0xB0` i w RegulatorData, do której regulator je przepisuje) — długości i ruch bez zmian. Nowe nagranie: polecenie `r` na konsoli, potem `maskuj_nagranie.py`.
+- **Symulator kotła** `tools/symulator_kotla.py COMx`: odtwarza nagranie przez przejściówkę USB-RS485 podłączoną do A/B modułu HW-519; `SensorData` dopiero po odpowiedzi sterownika na CheckDevice, na zapytania o ustawienia nagrana odpowiedź po 65 ms. Sprawdzony tylko na sucho (`--dry-run`).
+- **Ustawienia**: `tools/dekoduj_ustawienia.py` (PyPlumIO z `pip`) — z logu konsoli albo `/boiler-settings.json` robi archiwum JSON i tabele jak w `docs/kociol-ustawienia.md`.
+- Wcześniejszy test na biurku (1.0.x, 2026-10-03): komputer wysyłał co 1 s ramkę `SensorData`, sterownik sam odwrócił polaryzację po 16 s i odebrał 13 z 13 ramek.
 
 ## Pliki
 
 | Plik | Zawartość |
 |---|---|
-| `src/pellet.cpp` | nasłuch magistrali (UART1, GPIO21), Wi-Fi i punkt dostępowy, zgłoszenie i wysyłka do chmury, strony `/`, `/state.json`, `/install`, `/install/firmware` |
-| `src/firmware.hpp` | typ, wersja (`FW_VERSION`), nazwa, pin i prędkość magistrali, wiek odczytu, domyślny interwał, adres chmury |
+| `src/pellet.cpp` | magistrala w zadaniu `busTask` (UART1, GPIO21/20), odpowiedzi ecoNET i odczyt ustawień, polecenia konsoli, Wi-Fi i punkt dostępowy, zgłoszenie i wysyłka do chmury, strony `/`, `/state.json`, `/boiler-settings.json`, `/install`, `/install/firmware` |
+| `src/firmware.hpp` | typ, wersja (`FW_VERSION`), nazwa, piny i prędkość magistrali, wiek odczytu, domyślny interwał, adres chmury |
 | `src/bus_polarity.*` | automatyczny wybór polaryzacji (bez zależności od Arduino) |
-| `src/ecomax_frame.*` | parser ramek ecoMAX i dekoder `SensorData` (skopiowane z `co`) |
+| `src/econet.*` | ramki ecoNET (DeviceAvailable, ProgramVersion) i osłona adresu `0x56` (`EconetGuard`) |
+| `src/boiler_settings.*` | zapytania o ustawienia i przechowywanie odpowiedzi (`BoilerSettingsReader`) |
+| `src/ecomax_frame.*` | parser ramek ecoMAX (do 1024 B) i dekoder `SensorData` (skopiowane z `co`) |
+| `test/fixtures/` | nagranie rozmowy z kotłem (dane testów i symulatora) |
+| `tools/` | `maskuj_nagranie.py`, `symulator_kotla.py`, `dekoduj_ustawienia.py` (Python) |
 | `src/pellet_telemetry.*` | JSON wysyłki `pellet-boiler-pelux200/add` (skopiowane z `co`) |
 | `src/secrets.example.h` | wzór `secrets.h` (poza gitem) |
 
 ## Znane ograniczenia
 
-- Format ramek i `SensorData` pochodzi z biblioteki PyPlumIO i **nie był sprawdzony na prawdziwym kotle** (lista do sprawdzenia: [docs/piec-pellux200.md, punkt 7](docs/piec-pellux200.md#7-do-sprawdzenia-nasłuchem-na-kotle)).
-- Nadawanie z C3 przez HW-519 nie działało w teście na biurku; dla etapu 1 (sam odbiór) jest niepotrzebne, ale przed etapem 2 (odpowiedź na `CheckDevice`) trzeba to wyjaśnić.
+- Format ramek, `SensorData` (z tabelą wersji ramek na początku) i odpowiedzi ecoNET sprawdzone na kotle 2026-10-03, ale **tylko przy kotle zatrzymanym** (stan 0): stany pracy, moc, wentylator, podajnik i alarmy z `SensorData` czekają na nagranie przy pracy.
+- Odczyt ustawień: nazwy parametrów według PyPlumIO dla ecoMAX P; grupa „nadmuch” ma wartości > 100 przy jednostce `%`; mieszacz 2 nie ma wartości w odpowiedzi; termostaty tylko surowo.
+- Przy kotle słabe Wi-Fi: 2026-10-03 płytka nie łączyła się z siecią (status 6), więc odczyty nie szły do chmury.
 - Brak OTA z chmury: aktualizacja tylko przez `/install` albo `curl`.
 - Wysyłka HTTP blokuje pętlę na kilka sekund; bufor UART (4 KB) gubi wtedy nadmiar bajtów, parser się resynchronizuje, a do chmury idzie ostatni poprawny odczyt.

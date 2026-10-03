@@ -7,14 +7,16 @@
 
 constexpr const char *DEVICE_TYPE = "pellet-boiler-pelux200";
 // Wersja firmware: wysyłana w zgłoszeniu (strona Ustawienia w aplikacji). Podnieść przy wydaniu.
-constexpr const char *FW_VERSION = "1.0.3";
+constexpr const char *FW_VERSION = "1.1.0";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Piec Pellux 200";
 
-// Magistrala ecoMAX przez HW-519 (transceiver z automatycznym kierunkiem, bez pinu DE/RE):
-// wyjście RXD modułu na GPIO21 (sprawdzone 2026-10-03). Etap 1 tylko nasłuch: pin TX
-// nie jest przypisany, więc sterownik nigdy nie nadaje na magistralę kotła.
+// Magistrala ecoMAX przez HW-519 (transceiver z automatycznym kierunkiem, bez pinu DE/RE;
+// opisy pinów od strony modułu): TXD modułu (dane z magistrali) na GPIO21, sprawdzone
+// 2026-10-03; RXD modułu (dane na magistralę) na GPIO20 od 1.1.0 (etap 2: odpowiedzi ecoNET,
+// econet.hpp). Sterownik nadaje tylko odpowiedzi na zapytania regulatora do adresu 0x56.
 constexpr int ECOMAX_RX_PIN = 21;
+constexpr int ECOMAX_TX_PIN = 20;
 constexpr uint32_t ECOMAX_BAUD = 115200;
 
 // Odczyt starszy niż to nie jest wysyłany.

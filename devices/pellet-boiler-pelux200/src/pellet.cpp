@@ -1,7 +1,14 @@
 // Sterownik pieca Pellux 200 (typ pellet-boiler-pelux200) na osobnej płytce ESP32-C3
 // SuperMini z modułem RS-485 HW-519 (CLAUDE.md, punkt 5c; do 2026-10-02 rola firmware co):
-// nasłuch magistrali ecoMAX panelu kotła (tylko odbiór, etap 1), dekodowanie SensorData
-// (ecomax_frame.*), wysyłka ostatniego odczytu co poll_interval_seconds. Polaryzacja magistrali wybierana sama (bus_polarity.hpp).
+// nasłuch magistrali ecoMAX kotła, dekodowanie SensorData (ecomax_frame.*), wysyłka ostatniego
+// odczytu co poll_interval_seconds. Polaryzacja magistrali wybierana sama (bus_polarity.hpp).
+// Od 1.1.0 (etap 2) sterownik udaje moduł ecoNET (0x56): odpowiada na CheckDevice i
+// ProgramVersion, żeby regulator wysyłał mu SensorData (econet.hpp). Nie odpowiada, gdy
+// odzywa się fabryczny ecoNET kotła (EconetGuard). Magistralę obsługuje osobne zadanie
+// FreeRTOS (busTask), bo odpowiedź musi wyjść od razu, a HTTP blokuje loop() do 8 s.
+// Etap 3: po starcie (i na polecenie „p” z konsoli USB) sterownik czyta wszystkie ustawienia
+// kotła (boiler_settings.hpp) — linie „SETTINGS …” na konsoli i /boiler-settings.json; to
+// kopia na wypadek awarii regulatora. Ustawień nie zapisuje.
 // Kontrakt z chmurą: POST devices/register (rootId, settings.poll_interval_seconds),
 // POST pellet-boiler-pelux200/add (odpowiedź {poll_interval_seconds}). NVS: przestrzeń „pel”.
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
@@ -17,8 +24,10 @@
 #include <Update.h>
 #include <esp_mac.h>
 
+#include <boiler_settings.hpp>
 #include <bus_polarity.hpp>
 #include <ecomax_frame.hpp>
+#include <econet.hpp>
 #include <firmware.hpp>
 #include <pellet_telemetry.hpp>
 #include <secrets.h>
@@ -45,9 +54,16 @@ constexpr uint32_t STATUS_LOG_MS = 30000;
 constexpr uint32_t WATCHDOG_S = 30;
 // tyle bez połączenia z siecią domową = restart (stos Wi-Fi bywa, że nie wraca sam)
 constexpr uint32_t WIFI_RESTART_AFTER_MS = 10UL * 60 * 1000;
-// bufor UART: HTTP blokuje pętlę na kilka sekund, nadmiar przepada, parser się resynchronizuje
+// bufor UART (zapas, gdy zadanie magistrali chwilę nie dostanie procesora)
 constexpr size_t RX_BUFFER_BYTES = 4096;
 constexpr size_t MAX_BYTES_PER_LOOP = 512;
+// Odstęp przed odpowiedzią: regulator po ostatnim bajcie zapytania musi przełączyć swój
+// nadajnik na odbiór (bajt przy 115200 bodów to ok. 0,1 ms).
+constexpr uint32_t ECONET_REPLY_DELAY_MS = 2;
+// Odstęp zapytania o ustawienia od naszej odpowiedzi na CheckDevice (handleEconet).
+constexpr uint32_t SETTINGS_QUERY_GAP_MS = 50;
+constexpr uint32_t BUS_TASK_STACK = 6144;
+constexpr UBaseType_t BUS_TASK_PRIORITY = 2;  // wyżej niż loop() (1)
 
 const IPAddress AP_ADDRESS(10, 11, 18, 1);
 
@@ -61,6 +77,9 @@ WiFiClientSecure secureClient;
 WiFiClient plainClient;
 HTTPClient http;
 
+// Stan wspólny zadania magistrali i loop(): odczyt, ramki, stan sieci dla ecoNET — zmiany
+// i kopie pod stateLock (sekcja krytyczna, bez wypisywania na konsolę w środku).
+portMUX_TYPE stateLock = portMUX_INITIALIZER_UNLOCKED;
 EcomaxFrameParser parser;
 BusPolarity polarity;
 EcomaxSensorData latest;
@@ -69,6 +88,54 @@ uint32_t readingAtMs = 0;
 uint32_t busBytes = 0;
 uint32_t validFrames = 0;
 uint32_t sensorFrames = 0;
+
+// ecoNET (etap 2): osłona adresu 0x56, stan sieci zgłaszany regulatorowi (aktualizowany
+// w tick()), zapytania pominięte w czasie nasłuchu albo blokady.
+EconetGuard guard;
+EconetNetworkInfo networkInfo;
+uint32_t econetSkipped = 0;
+bool econetAllowed = false;
+
+// Odczyt ustawień kotła (etap 3): zlecany flagą (start, konsola), wykonywany w busTask.
+BoilerSettingsReader boilerSettings;
+volatile bool boilerSettingsRequested = true;
+
+// Zmiana parametru kotła („set <nr> <wartość>” z konsoli): busTask sprawdza zakres podany przez
+// regulator i stan kotła (tylko zatrzymany, stan 0), wysyła 0x33, po potwierdzeniu czyta
+// ustawienia od nowa, żeby było widać nową wartość.
+BoilerParameterWriter parameterWriter;
+volatile bool parameterSetRequested = false;
+volatile uint8_t parameterSetIndex = 0;
+volatile uint8_t parameterSetValue = 0;
+
+// Podgląd czasów na magistrali („t” z konsoli): przez TRACE_MS każda ramka i każde nasze
+// nadanie jako „TRACE <µs> …” — do ustalenia, kiedy regulator słucha.
+constexpr uint32_t TRACE_MS = 3000;
+volatile uint32_t traceUntilMs = 0;
+
+bool tracing()
+{
+  return traceUntilMs != 0 && static_cast<int32_t>(traceUntilMs - millis()) > 0;
+}
+
+// Nagranie rozmowy z kotłem („r” z konsoli): przez CAPTURE_MS każda poprawna ramka z magistrali
+// i każde nasze nadanie w całości, „RAW <ms> RX|TX <hex>”. Z nagrań powstają dane testowe
+// (test/fixtures) i symulator kotła (tools/), bo kocioł nie zawsze jest pod ręką.
+constexpr uint32_t CAPTURE_MS = 5UL * 60 * 1000;
+volatile uint32_t captureUntilMs = 0;
+
+bool capturing()
+{
+  return captureUntilMs != 0 && static_cast<int32_t>(captureUntilMs - millis()) > 0;
+}
+
+void captureFrame(const char *direction, const uint8_t *bytes, size_t length)
+{
+  if (!capturing()) return;
+  Serial.printf("RAW %lu %s ", static_cast<unsigned long>(millis()), direction);
+  for (size_t index = 0; index < length; index++) Serial.printf("%02x", bytes[index]);
+  Serial.println();
+}
 
 // Diagnostyka magistrali (od 1.0.2): jakie ramki naprawdę lecą na magistrali kotła —
 // para (typ, nadawca, odbiorca) z licznikiem; pierwsza ramka każdej pary trafia na konsolę
@@ -85,15 +152,20 @@ FrameKind frameKinds[MAX_FRAME_KINDS];
 uint8_t frameKindCount = 0;
 
 // Pełne dane ramek do rozszyfrowania (od 1.0.3): RegulatorData 0x08 (regulator → wszyscy,
-// co 2 s) i 0x89 (panele → wszyscy), najwyżej raz na DUMP_INTERVAL_MS dla każdego typu.
+// co 2 s), 0x89 (panele → wszyscy) i od 1.1.0 SensorData 0x35, najwyżej raz na
+// DUMP_INTERVAL_MS dla każdego typu.
 // Linia: "DUMP <typ> <nadawca> <ms> <hex>" — do porównania z wartościami na panelu kotła.
 constexpr uint32_t DUMP_INTERVAL_MS = 10000;
 uint32_t lastDump08Ms = 0;
 uint32_t lastDump89Ms = 0;
+uint32_t lastDump35Ms = 0;
 
 void dumpFrame(const EcomaxFrame &frame)
 {
-  uint32_t *last = frame.type == 0x08 ? &lastDump08Ms : frame.type == 0x89 ? &lastDump89Ms : nullptr;
+  uint32_t *last = frame.type == 0x08 ? &lastDump08Ms
+    : frame.type == 0x89            ? &lastDump89Ms
+    : frame.type == 0x35            ? &lastDump35Ms
+                                    : nullptr;
   if (!last) return;
   const uint32_t now = millis();
   if (*last != 0 && now - *last < DUMP_INTERVAL_MS) return;
@@ -107,16 +179,23 @@ void dumpFrame(const EcomaxFrame &frame)
 void recordFrameKind(const EcomaxFrame &frame)
 {
   dumpFrame(frame);
-  for (uint8_t index = 0; index < frameKindCount; index++) {
+  bool added = false;
+  portENTER_CRITICAL(&stateLock);
+  uint8_t index = 0;
+  for (; index < frameKindCount; index++) {
     FrameKind &kind = frameKinds[index];
     if (kind.type == frame.type && kind.sender == frame.sender && kind.recipient == frame.recipient) {
       kind.count++;
       kind.lastLength = static_cast<uint16_t>(frame.dataLength);
-      return;
+      break;
     }
   }
-  if (frameKindCount >= MAX_FRAME_KINDS) return;
-  frameKinds[frameKindCount++] = {frame.type, frame.sender, frame.recipient, 1, static_cast<uint16_t>(frame.dataLength)};
+  if (index == frameKindCount && frameKindCount < MAX_FRAME_KINDS) {
+    frameKinds[frameKindCount++] = {frame.type, frame.sender, frame.recipient, 1, static_cast<uint16_t>(frame.dataLength)};
+    added = true;
+  }
+  portEXIT_CRITICAL(&stateLock);
+  if (!added) return;
   char hex[3 * 48 + 1] = {};
   const size_t shown = frame.dataLength < 48 ? frame.dataLength : 48;
   for (size_t index = 0; index < shown; index++) snprintf(hex + index * 3, 4, "%02x ", frame.data[index]);
@@ -187,18 +266,156 @@ void loadConfig()
 
 // --- magistrala ecoMAX ---
 
-// UART1 tylko z pinem odbioru (TX = -1: sterownik nie nadaje); invert odwraca sygnał,
-// gdy przewody A/B są zamienione.
+// UART1: odbiór GPIO21, nadawanie GPIO20; invert odwraca sygnał w obu kierunkach, gdy
+// przewody A/B są zamienione.
 void startBus()
 {
   Serial1.end();
   Serial1.setRxBufferSize(RX_BUFFER_BYTES);
-  Serial1.begin(ECOMAX_BAUD, SERIAL_8N1, ECOMAX_RX_PIN, -1, polarity.inverted());
-  logf("magistrala: GPIO%d, %lu bodów, sygnał %s", ECOMAX_RX_PIN, static_cast<unsigned long>(ECOMAX_BAUD),
-    polarity.inverted() ? "odwrócony" : "normalny");
+  Serial1.begin(ECOMAX_BAUD, SERIAL_8N1, ECOMAX_RX_PIN, ECOMAX_TX_PIN, polarity.inverted());
+  logf("magistrala: odbiór GPIO%d, nadawanie GPIO%d, %lu bodów, sygnał %s", ECOMAX_RX_PIN, ECOMAX_TX_PIN,
+    static_cast<unsigned long>(ECOMAX_BAUD), polarity.inverted() ? "odwrócony" : "normalny");
+}
+
+// Stan odpowiedzi ecoNET do strony i konsoli.
+const char *econetStateText(uint32_t nowMs)
+{
+  if (guard.blocked(nowMs)) {
+    return guard.blockReason() == EconetBlockReason::COLLISIONS ? "wstrzymany: kolizje na magistrali"
+                                                                : "wstrzymany: odzywa się inny moduł ecoNET";
+  }
+  if (!polarity.confirmed()) return "czeka na poprawne ramki";
+  if (!guard.mayTransmit(nowMs)) return "nasłuch przed nadawaniem";
+  return "odpowiada";
+}
+
+// Odpowiedź z ustawieniami: jedna linia „SETTINGS <nazwa> <ms> <hex>” na konsoli.
+void logSettingsResponse(uint8_t item)
+{
+  Serial.printf("SETTINGS %s %lu ", BOILER_SETTINGS_REQUESTS[item].name,
+    static_cast<unsigned long>(boilerSettings.receivedAtMs(item)));
+  const uint8_t *data = boilerSettings.data(item);
+  for (size_t index = 0; index < boilerSettings.length(item); index++) Serial.printf("%02x", data[index]);
+  Serial.println();
+}
+
+// Zlecona z konsoli zmiana parametru: tylko przy świeżym odczycie z kotłem zatrzymanym (stan 0)
+// i wartości w zakresie min–max z ostatniego odczytu ustawień.
+void startParameterSet(uint32_t nowMs)
+{
+  if (!parameterSetRequested || parameterWriter.busy()) return;
+  parameterSetRequested = false;
+  const uint8_t index = parameterSetIndex;
+  const uint8_t value = parameterSetValue;
+  uint8_t current, min, max;
+  if (!ecomaxParameterValues(boilerSettings, index, current, min, max)) {
+    logf("parametr kotła nr %u: brak w odczycie ustawień (najpierw „p”), nie zmieniam", index);
+    return;
+  }
+  if (value < min || value > max) {
+    logf("parametr kotła nr %u: %u poza zakresem %u–%u, nie zmieniam", index, value, min, max);
+    return;
+  }
+  if (!hasReading || nowMs - readingAtMs >= READING_MAX_AGE_MS || latest.state != 0) {
+    logf("parametr kotła nr %u: kocioł nie jest zatrzymany (stan %u) albo brak świeżego odczytu, nie zmieniam",
+      index, hasReading ? latest.state : 255);
+    return;
+  }
+  if (current == value) {
+    logf("parametr kotła nr %u ma już wartość %u", index, value);
+    return;
+  }
+  parameterWriter.start(index, value);
+  logf("parametr kotła nr %u: %u → %u (zakres %u–%u), wysyłam", index, current, value, min, max);
+}
+
+// Ramka od 0x56 (echo albo fabryczny ecoNET), odpowiedź regulatora z ustawieniami
+// i odpowiedź na zapytanie regulatora do 0x56 (z doklejonym zapytaniem o ustawienia).
+void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
+{
+  if (frame.sender == ECONET_ADDRESS) {
+    if (!guard.onEconetFrame(frame, millis())) {
+      logf("ecoNET: ramka typu 0x%02x od 0x56, która nie jest naszą — inny moduł ecoNET, cisza na %lu min",
+        frame.type, static_cast<unsigned long>(EconetGuard::BLOCK_MS / 60000));
+    }
+    return;
+  }
+  if (frame.recipient != ECONET_ADDRESS && frame.recipient != ECOMAX_ADDRESS_BROADCAST) return;
+  if (parameterWriter.onResponse(frame)) {
+    logf("parametr kotła nr %u = %u: regulator potwierdził, czytam ustawienia od nowa",
+      parameterWriter.index(), parameterWriter.value());
+    boilerSettingsRequested = true;
+    return;
+  }
+  const int8_t item = boilerSettings.current();
+  portENTER_CRITICAL(&stateLock);
+  const bool stored = boilerSettings.onResponse(frame, nowMs);
+  portEXIT_CRITICAL(&stateLock);
+  if (stored) {
+    logf("ustawienia kotła: %s, %u B", BOILER_SETTINGS_REQUESTS[item].name,
+      static_cast<unsigned>(boilerSettings.length(item)));
+    logSettingsResponse(item);
+    if (!boilerSettings.busy()) logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)",
+      static_cast<unsigned long>(boilerSettings.failed()));
+    return;
+  }
+  if (frame.recipient != ECONET_ADDRESS) return;
+  EconetNetworkInfo network;
+  portENTER_CRITICAL(&stateLock);
+  network = networkInfo;
+  portEXIT_CRITICAL(&stateLock);
+  uint8_t reply[ECONET_MAX_FRAME];
+  const size_t length = buildEconetResponse(frame, network, reply, sizeof(reply));
+  if (length == 0) return;
+  if (!polarity.confirmed() || !guard.mayTransmit(nowMs)) {
+    econetSkipped++;
+    return;
+  }
+  // Zapytanie o ustawienia tylko za odpowiedzią na CheckDevice (regulator oddał nam magistralę).
+  size_t queryLength = 0;
+  uint8_t query[ECONET_MAX_FRAME];
+  if (frame.type == ECOMAX_FRAME_CHECK_DEVICE) {
+    startParameterSet(nowMs);
+    if (parameterWriter.busy()) {
+      queryLength = parameterWriter.nextRequest(nowMs, query, sizeof(query));
+    } else {
+      if (boilerSettingsRequested && !boilerSettings.busy()) {
+        boilerSettingsRequested = false;
+        boilerSettings.start();
+        logf("ustawienia kotła: początek odczytu");
+      }
+      queryLength = boilerSettings.nextRequest(nowMs, query, sizeof(query));
+    }
+  }
+  vTaskDelay(pdMS_TO_TICKS(ECONET_REPLY_DELAY_MS));
+  Serial1.write(reply, length);
+  captureFrame("TX", reply, length);
+  if (tracing()) {
+    Serial.printf("TRACE %lu TX typ 0x%02x %u B\n", static_cast<unsigned long>(micros()), reply[7],
+      static_cast<unsigned>(length));
+  }
+  guard.onTransmitted(reply, length, millis(), parser.rejectedCount());
+  if (queryLength == 0) return;
+  // Zapytanie osobno, SETTINGS_QUERY_GAP_MS po odpowiedzi: doklejone tuż za nią regulator
+  // pomijał (2026-10-03). Okno adresu 0x56 trwa ok. 300 ms, więc to wciąż nasza kolej;
+  // gdy ktoś w tym czasie nadaje, zapytanie czeka na następne CheckDevice.
+  vTaskDelay(pdMS_TO_TICKS(SETTINGS_QUERY_GAP_MS));
+  if (Serial1.available() > 0) {
+    if (parameterWriter.busy()) parameterWriter.cancelRequest();
+    else boilerSettings.cancelRequest();
+    return;
+  }
+  Serial1.write(query, queryLength);
+  captureFrame("TX", query, queryLength);
+  if (tracing()) {
+    Serial.printf("TRACE %lu TX typ 0x%02x %u B (zapytanie)\n", static_cast<unsigned long>(micros()), query[7],
+      static_cast<unsigned>(queryLength));
+  }
+  guard.onTransmitted(query, queryLength, millis(), parser.rejectedCount());
 }
 
 // Bajty z UART1 do parsera; każda poprawna ramka potwierdza polaryzację, SensorData to odczyt.
+// Wołane tylko z busTask.
 void readBus(uint32_t nowMs)
 {
   size_t budget = MAX_BYTES_PER_LOOP;
@@ -218,15 +435,46 @@ void readBus(uint32_t nowMs)
         logf("magistrala: pierwsza poprawna ramka, sygnał %s", polarity.inverted() ? "odwrócony" : "normalny");
       }
       polarity.onFrame(nowMs);
+      // cała ramka: dane leżą w buforze parsera zaraz za 8 bajtami nagłówka
+      captureFrame("RX", frame.data - 8, frame.dataLength + 10);
+      if (tracing()) {
+        Serial.printf("TRACE %lu RX typ 0x%02x 0x%02x->0x%02x %u B\n", static_cast<unsigned long>(micros()),
+          frame.type, frame.sender, frame.recipient, static_cast<unsigned>(frame.dataLength));
+      }
       recordFrameKind(frame);
+      handleEconet(frame, nowMs);
       if (!isSensorDataFrame(frame)) continue;
       EcomaxSensorData decoded;
       if (!decodeSensorData(frame.data, frame.dataLength, decoded)) continue;
+      portENTER_CRITICAL(&stateLock);
       latest = decoded;
       hasReading = true;
       readingAtMs = nowMs;
       sensorFrames++;
+      portEXIT_CRITICAL(&stateLock);
     }
+  }
+  guard.update(millis(), parser.rejectedCount());
+  const bool writing = parameterWriter.busy();
+  parameterWriter.update(millis());
+  if (writing && parameterWriter.result() == BoilerParameterWriter::Result::FAILED) {
+    logf("parametr kotła nr %u: brak potwierdzenia po %u próbach — sprawdź wartość na panelu",
+      parameterWriter.index(), static_cast<unsigned>(BoilerParameterWriter::ATTEMPTS));
+    boilerSettingsRequested = true;
+  }
+  const int8_t settingsItem = boilerSettings.current();
+  const uint32_t settingsFailed = boilerSettings.failed();
+  boilerSettings.update(millis());
+  if (boilerSettings.failed() != settingsFailed) {
+    logf("ustawienia kotła: brak odpowiedzi na %s po %u próbach", BOILER_SETTINGS_REQUESTS[settingsItem].name,
+      static_cast<unsigned>(BoilerSettingsReader::ATTEMPTS));
+    if (!boilerSettings.busy()) logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)",
+      static_cast<unsigned long>(boilerSettings.failed()));
+  }
+  const bool allowed = polarity.confirmed() && guard.mayTransmit(nowMs);
+  if (allowed != econetAllowed) {
+    econetAllowed = allowed;
+    logf("ecoNET: %s", econetStateText(nowMs));
   }
   if (polarity.update(nowMs)) {
     logf("magistrala: bajty bez poprawnych ramek, odwracam sygnał (zmiana %lu)",
@@ -235,9 +483,31 @@ void readBus(uint32_t nowMs)
   }
 }
 
-bool readingFresh(uint32_t nowMs)
+// Zadanie magistrali: czyta bez przerwy (co 1 ms), także gdy loop() czeka na HTTP.
+void busTask(void *)
 {
-  return hasReading && nowMs - readingAtMs < READING_MAX_AGE_MS;
+  esp_task_wdt_add(nullptr);
+  for (;;) {
+    esp_task_wdt_reset();
+    readBus(millis());
+    vTaskDelay(1);
+  }
+}
+
+// Kopia ostatniego odczytu (false, gdy go nie ma albo jest starszy niż READING_MAX_AGE_MS).
+bool freshReading(EcomaxSensorData &out)
+{
+  portENTER_CRITICAL(&stateLock);
+  const bool fresh = hasReading && millis() - readingAtMs < READING_MAX_AGE_MS;
+  if (fresh) out = latest;
+  portEXIT_CRITICAL(&stateLock);
+  return fresh;
+}
+
+bool readingFresh()
+{
+  EcomaxSensorData ignored;
+  return freshReading(ignored);
 }
 
 // --- chmura ---
@@ -312,10 +582,10 @@ void registerDevice()
 }
 
 // Ostatni świeży odczyt do chmury. 404/409: Root ID nieaktualny, zgłoszenie od nowa.
-void sendReading(uint32_t nowMs)
+void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
 {
   JsonDocument document;
-  fillPelletJson(document, latest);
+  fillPelletJson(document, reading);
   String body;
   serializeJson(document, body);
   String response;
@@ -387,25 +657,68 @@ void logStatus(uint32_t nowMs)
     static_cast<int>(WiFi.status()), registeredThisBoot, static_cast<unsigned long>(busBytes),
     static_cast<unsigned long>(validFrames), static_cast<unsigned long>(sensorFrames),
     static_cast<unsigned long>(parser.rejectedCount()), polarity.inverted() ? "odwrócony" : "normalny",
-    polarity.confirmed() ? "" : " (niepotwierdzony)", readingFresh(nowMs) ? "świeży" : "brak");
-  for (uint8_t index = 0; index < frameKindCount; index++) {
-    const FrameKind &kind = frameKinds[index];
+    polarity.confirmed() ? "" : " (niepotwierdzony)", readingFresh() ? "świeży" : "brak");
+  logf("ecoNET: %s, odpowiedzi %lu, echo %lu, pominięte %lu, obce ramki %lu, kolizje %lu", econetStateText(nowMs),
+    static_cast<unsigned long>(guard.transmitted()), static_cast<unsigned long>(guard.echoes()),
+    static_cast<unsigned long>(econetSkipped), static_cast<unsigned long>(guard.foreignFrames()),
+    static_cast<unsigned long>(guard.collisions()));
+  EcomaxSensorData reading;
+  if (freshReading(reading)) {
+    JsonDocument document;
+    fillPelletJson(document, reading);
+    String json;
+    serializeJson(document, json);
+    Serial.printf("          odczyt: %s\n", json.c_str());
+  }
+  FrameKind kinds[MAX_FRAME_KINDS];
+  portENTER_CRITICAL(&stateLock);
+  const uint8_t kindCount = frameKindCount;
+  memcpy(kinds, frameKinds, sizeof(FrameKind) * kindCount);
+  portEXIT_CRITICAL(&stateLock);
+  for (uint8_t index = 0; index < kindCount; index++) {
+    const FrameKind &kind = kinds[index];
     Serial.printf("          ramki: typ 0x%02x od 0x%02x do 0x%02x: %lu szt., ostatnio %u B\n", kind.type, kind.sender,
       kind.recipient, static_cast<unsigned long>(kind.count), static_cast<unsigned>(kind.lastLength));
   }
 }
 
-// Co 1 s: AP, zgłoszenie (co 30 s do skutku), wysyłka świeżego odczytu co pollSeconds.
+// Stan sieci, który ecoNET zgłasza regulatorowi w DeviceAvailable (menu ecoNET na panelu).
+void updateNetworkInfo()
+{
+  EconetNetworkInfo info;
+  info.wifiConnected = WiFi.status() == WL_CONNECTED;
+  if (info.wifiConnected) {
+    const IPAddress ip = WiFi.localIP();
+    const IPAddress mask = WiFi.subnetMask();
+    const IPAddress gateway = WiFi.gatewayIP();
+    for (uint8_t i = 0; i < 4; i++) {
+      info.ip[i] = ip[i];
+      info.netmask[i] = mask[i];
+      info.gateway[i] = gateway[i];
+    }
+    info.signalPercent = signalPercentFromRssi(WiFi.RSSI());
+  }
+  info.cloudConnected = registeredThisBoot && (lastPostStatus == 0 || (lastPostStatus >= 200 && lastPostStatus < 300));
+  strlcpy(info.ssid, wifiSsid.c_str(), sizeof(info.ssid));
+  portENTER_CRITICAL(&stateLock);
+  networkInfo = info;
+  portEXIT_CRITICAL(&stateLock);
+}
+
+// Co 1 s: AP, stan sieci dla ecoNET, zgłoszenie (co 30 s do skutku), wysyłka świeżego
+// odczytu co pollSeconds.
 void tick(uint32_t nowMs)
 {
   updateAccessPoint(nowMs);
+  updateNetworkInfo();
   logStatus(nowMs);
   if (WiFi.status() != WL_CONNECTED) return;
   if (!registeredThisBoot) {
     if (lastRegisterAttemptMs == 0 || nowMs - lastRegisterAttemptMs >= REGISTER_RETRY_MS) registerDevice();
     if (!registeredThisBoot) return;
   }
-  if (readingFresh(nowMs) && static_cast<int32_t>(nowMs - nextPostMs) >= 0) sendReading(nowMs);
+  EcomaxSensorData reading;
+  if (static_cast<int32_t>(nowMs - nextPostMs) >= 0 && freshReading(reading)) sendReading(nowMs, reading);
 }
 
 // --- strony WWW ---
@@ -452,7 +765,11 @@ reading.innerHTML=s.reading?'<table>'+Object.keys(L).filter(k=>k in s.reading).m
 :'<span class="bad">Brak odczytu z kotła</span>';
 bus.innerHTML='Bajty: <b>'+s.bytes+'</b>, ramki: <b>'+s.frames+'</b> (SensorData '+s.sensorFrames+', odrzucone '+s.rejected+')<br>'
 +'Sygnał: <b>'+(s.inverted?'odwrócony':'normalny')+'</b>'+(s.confirmed?'':' <small>(dobierany)</small>')
-+'<br><small>GPIO21, 115200 bodów, tylko odbiór</small>';
++'<br>ecoNET (0x56): <b>'+s.econet+'</b><br><small>odpowiedzi '+s.econetTx+', echo '+s.econetEcho
++', obce ramki '+s.econetForeign+', kolizje '+s.econetCollisions+'</small>'
++'<br>Ustawienia kotła: <b>'+s.settingsRead+'/5</b>'+(s.settingsBusy?' (odczyt trwa)':'')
++' <a href="/boiler-settings.json" download>pobierz</a>'
++'<br><small>Odbiór GPIO21, nadawanie GPIO20, 115200 bodów</small>';
 net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">brak</b>')
 +'<br>Chmura: '+(s.registered?'<b class="on">zgłoszony</b>':'<b class="bad">niezgłoszony</b>')
 +(s.lastPostS!==null?', ostatnia wysyłka '+s.lastPostS+' s temu':'')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
@@ -472,15 +789,30 @@ void handleRoot()
 // GET /state.json: ostatni odczyt (te same pola co wysyłka), liczniki magistrali, sieć.
 void handleState()
 {
-  const uint32_t now = millis();
   JsonDocument state;
-  if (hasReading) {
+  EcomaxSensorData last;
+  portENTER_CRITICAL(&stateLock);
+  const bool have = hasReading;
+  const uint32_t at = readingAtMs;
+  if (have) last = latest;
+  portEXIT_CRITICAL(&stateLock);
+  const uint32_t now = millis();
+  if (have) {
     JsonDocument reading;
-    fillPelletJson(reading, latest);
+    fillPelletJson(reading, last);
     state["reading"] = reading;
-    state["stateName"] = latest.state < 12 ? STATE_NAMES[latest.state] : "?";
-    state["ageS"] = (now - readingAtMs) / 1000;
+    state["stateName"] = last.state < 12 ? STATE_NAMES[last.state] : "?";
+    state["ageS"] = (now - at) / 1000;
   }
+  uint8_t settingsRead = 0;
+  for (uint8_t item = 0; item < BOILER_SETTINGS_COUNT; item++) settingsRead += boilerSettings.has(item) ? 1 : 0;
+  state["settingsRead"] = settingsRead;
+  state["settingsBusy"] = boilerSettings.busy();
+  state["econet"] = econetStateText(now);
+  state["econetTx"] = guard.transmitted();
+  state["econetEcho"] = guard.echoes();
+  state["econetForeign"] = guard.foreignFrames();
+  state["econetCollisions"] = guard.collisions();
   state["bytes"] = busBytes;
   state["frames"] = validFrames;
   state["sensorFrames"] = sensorFrames;
@@ -500,6 +832,44 @@ void handleState()
   state["pollSeconds"] = pollSeconds;
   String body;
   serializeJson(state, body);
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", body);
+}
+
+// GET /boiler-settings.json: surowe odpowiedzi regulatora z ustawieniami (hex, dane ramki bez
+// nagłówka) — kopia na wypadek awarii; dekodowanie opisuje docs/kociol-ustawienia.md.
+void handleBoilerSettings()
+{
+  static uint8_t copy[BoilerSettingsReader::MAX_DATA];
+  JsonDocument document;
+  document["firmware"] = FW_VERSION;
+  document["busy"] = boilerSettings.busy();
+  for (uint8_t item = 0; item < BOILER_SETTINGS_COUNT; item++) {
+    size_t length = 0;
+    uint32_t at = 0;
+    portENTER_CRITICAL(&stateLock);
+    const bool has = boilerSettings.has(item);
+    if (has) {
+      length = boilerSettings.length(item);
+      at = boilerSettings.receivedAtMs(item);
+      memcpy(copy, boilerSettings.data(item), length);
+    }
+    portEXIT_CRITICAL(&stateLock);
+    if (!has) continue;
+    String hex;
+    hex.reserve(length * 2);
+    char pair[3];
+    for (size_t index = 0; index < length; index++) {
+      snprintf(pair, sizeof(pair), "%02x", copy[index]);
+      hex += pair;
+    }
+    JsonObject entry = document[BOILER_SETTINGS_REQUESTS[item].name].to<JsonObject>();
+    entry["type"] = BOILER_SETTINGS_REQUESTS[item].type | 0x80;
+    entry["ageS"] = (millis() - at) / 1000;
+    entry["hex"] = hex;
+  }
+  String body;
+  serializeJson(document, body);
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", body);
 }
@@ -603,6 +973,7 @@ void startNetwork()
   }
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state.json", HTTP_GET, handleState);
+  server.on("/boiler-settings.json", HTTP_GET, handleBoilerSettings);
   server.on("/install", handleInstall);
   server.on("/install/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareUpload);
   server.onNotFound(handleRoot);
@@ -620,20 +991,54 @@ void setup()
   serial = readSerial();
   logf("start: firmware %s, SN %s, rootId %s, chmura %s", FW_VERSION, serial.c_str(),
     rootId.length() > 0 ? rootId.c_str() : "brak", CLOUD_URL);
-  startBus();
-  startNetwork();
-  // watchdog zadania pętli: brak esp_task_wdt_reset() przez WATCHDOG_S = restart układu
+  // watchdog pętli i zadania magistrali: brak esp_task_wdt_reset() przez WATCHDOG_S = restart
   esp_task_wdt_init(WATCHDOG_S, true);
   esp_task_wdt_add(nullptr);
+  startBus();
+  guard.begin(millis());
+  xTaskCreate(busTask, "bus", BUS_TASK_STACK, nullptr, BUS_TASK_PRIORITY, nullptr);
+  startNetwork();
 }
 
-// Magistrala i strony w każdym obiegu (bufor UART nie może się przepełnić), reszta co 1 s.
+// Strony WWW w każdym obiegu, reszta co 1 s (magistrala w busTask).
 void loop()
 {
   esp_task_wdt_reset();
   server.handleClient();
+  // Konsola USB: litery p / t / r od razu, „set <nr> <wartość>” zakończone Enterem.
+  static char consoleLine[32];
+  static uint8_t consoleLength = 0;
+  while (Serial.available() > 0) {
+    const int command = Serial.read();
+    if (consoleLength > 0 || command == 's' || command == 'S') {
+      if (command == '\n' || command == '\r') {
+        consoleLine[consoleLength] = '\0';
+        consoleLength = 0;
+        unsigned index, value;
+        if (sscanf(consoleLine, "set %u %u", &index, &value) == 2 && index < 256 && value < 256) {
+          parameterSetIndex = static_cast<uint8_t>(index);
+          parameterSetValue = static_cast<uint8_t>(value);
+          parameterSetRequested = true;
+          logf("parametr kotła nr %u → %u: zlecone, czekam na okno ecoNET", index, value);
+        } else {
+          logf("konsola: nieznane polecenie „%s” (set <nr> <wartość>)", consoleLine);
+        }
+      } else if (consoleLength + 1 < sizeof(consoleLine)) {
+        consoleLine[consoleLength++] = static_cast<char>(command);
+      }
+      continue;
+    }
+    if (command == 'p' || command == 'P') {
+      boilerSettingsRequested = true;
+      logf("ustawienia kotła: odczyt zlecony z konsoli");
+    } else if (command == 't' || command == 'T') {
+      traceUntilMs = millis() + TRACE_MS;
+    } else if (command == 'r' || command == 'R') {
+      captureUntilMs = millis() + CAPTURE_MS;
+      logf("nagranie magistrali: %lu min", static_cast<unsigned long>(CAPTURE_MS / 60000));
+    }
+  }
   const uint32_t now = millis();
-  readBus(now);
   if (now - lastTickMs >= TICK_MS) {
     lastTickMs = now;
     tick(now);

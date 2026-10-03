@@ -14,9 +14,11 @@ constexpr uint8_t ECOMAX_START_BYTE = 0x68;
 constexpr uint8_t ECOMAX_END_BYTE = 0x16;
 constexpr size_t ECOMAX_HEADER_SIZE = 7;
 constexpr size_t ECOMAX_MIN_FRAME = 10;
-constexpr size_t ECOMAX_MAX_FRAME = 512;
+// Największa ramka: odpowiedź z parametrami kotła (0xB1) to do 255 × 3 B + nagłówek.
+constexpr size_t ECOMAX_MAX_FRAME = 1024;
 
 constexpr uint8_t ECOMAX_ADDRESS_ECOMAX = 0x45;
+constexpr uint8_t ECOMAX_ADDRESS_BROADCAST = 0x00;
 constexpr uint8_t ECOMAX_FRAME_SENSOR_DATA = 0x35;
 
 // Poprawna ramka; `data` wskazuje bufor parsera i jest ważne do następnego

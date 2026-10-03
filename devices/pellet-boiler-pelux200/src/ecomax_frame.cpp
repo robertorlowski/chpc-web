@@ -146,6 +146,11 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
   if (data == nullptr) return false;
   Reader reader(data, length);
 
+  // SensorDataMessage w PyPlumIO: najpierw FrameVersionsStructure (liczba wpisów i po 3 bajty:
+  // typ ramki + uint16 wersji), dopiero potem dane czujników (sprawdzone z kodem PyPlumIO 2026-10-03).
+  uint8_t versions;
+  if (!reader.u8(versions) || !reader.skip(static_cast<size_t>(versions) * 3)) return false;
+
   uint32_t ignored;
   if (!reader.u8(out.state) || !reader.u32(out.outputs)) return false;
   out.valid = true;
