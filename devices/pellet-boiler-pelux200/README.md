@@ -11,14 +11,14 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
 ![Podłączenie sterownika pieca do kotła](docs/img/podlaczenie-kotla.svg)
 
 ```text
- kocioł Pellux 200, moduł A, gniazdo G2          sterownik pieca
+ kocioł Pellux 200, moduł A, zaciski G4          sterownik pieca
  ┌──────────────────────────┐            ┌──────────────┐        ┌──────────────────────┐
  │ D+ ──────────────────────┼────────────┤ A            │        │ ESP32-C3 SuperMini   │
  │ D− ──────────────────────┼────────────┤ B    HW-519  │        │                      │
- │ 5V   (nie podłączać)     │            │         TXD ─┼───────►│ GPIO21 (UART1 RX)    │
- │ GND  (na początek nie)   │            │         RXD ─┼── ✕    │ (TX nieprzypisany)   │
- │ panel kotła zostaje      │            │         VCC ─┼────────┤ 3V3                  │
- │ podłączony równolegle    │            │         GND ─┼────────┤ GND                  │
+ │ 12V DC (nie podłączać)   │            │         TXD ─┼───────►│ GPIO21 (UART1 RX)    │
+ │ GND  (nie podłączać)     │            │         RXD ─┼── ✕    │ (TX nieprzypisany)   │
+ │ sterownik pokojowy       │            │         VCC ─┼────────┤ 3V3                  │
+ │ zostaje, równolegle      │            │         GND ─┼────────┤ GND                  │
  └──────────────────────────┘            └──────────────┘        │ USB-C 5 V: zasilanie │
                                                                  │ i konsola            │
                                                                  └──────────────────────┘
@@ -30,12 +30,12 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
 | RXD | — (GPIO20, nieużywany) | wejście nadawcze modułu; UART nie ma przypisanego pinu TX, sterownik nie nadaje |
 | VCC | 3V3 | sprawdzone 2026-10-03 (odbiór bez błędów); przy 5V wyjście TXD dawałoby 5 V na GPIO21, czego ESP32-C3 nie toleruje |
 | GND | GND | |
-| A / B | D+ / D− w gnieździe G2 modułu A kotła | równolegle do przewodów panelu; kolejność dobiera sterownik (niżej) |
+| A / B | D+ / D− na zaciskach **G4** modułu A kotła (`12V DC / D+ / D− / GND`, wejście panelu pokojowego) | pod te same zaciski co przewody sterownika pokojowego, równolegle; zapasowo para D+/D− kabla panelu kotła (G2, wtyk RJ); kolejność dobiera sterownik (niżej) |
 
 - Przy pierwszych próbach do GPIO21 trafił pin RXD modułu (wejście) i odbiór nie działał — bez względu na napięcie; dane są na pinie **TXD**.
 - HW-519 sam przełącza kierunek transmisji, więc nie ma pinu DE/RE.
 - Płytkę C3 zasila się przez USB-C (5 V). Tym samym złączem idzie konsola (USB CDC, 115200) i pierwsze wgranie.
-- Punkt wpięcia w kotle (zaciski G2, ostrzeżenia: tylko D+ i D−, bez 5 V, masa kotła, wyłączone zasilanie kotła): [docs/piec-pellux200.md, punkt 3](docs/piec-pellux200.md#3-podłączenie).
+- Punkt wpięcia w kotle (zaciski G4, równolegle do sterownika pokojowego; ostrzeżenia: tylko D+ i D−, bez 12 V i GND, wyłączone zasilanie kotła): [docs/piec-pellux200.md, punkt 3](docs/piec-pellux200.md#3-podłączenie).
 - Magistrala: 115200 baud 8N1 (`ECOMAX_RX_PIN = 21`, `ECOMAX_BAUD` w `src/firmware.hpp`).
 
 ## Automatyczna polaryzacja

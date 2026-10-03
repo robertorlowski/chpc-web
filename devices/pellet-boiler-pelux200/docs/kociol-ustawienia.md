@@ -19,10 +19,18 @@ Zdjęcia z kotła (numery seryjne zamaskowane):
 
 Wnioski dla sterownika pieca:
 
-- Panel ecoTOUCH 3 łączy się z modułem A kablem z wtykiem RJ: zasilanie 5…12 V, **D+, D−**
-  i GND. To ta magistrala, na której ecoMAX wysyła ramki `SensorData` — sterownik pieca
-  podpina się równolegle tylko do **D+ i D−** (zaciski modułu A przy opisie `12V DC / D+ /
-  D− / GND`, albo para D+/D− kabla panelu). Zasilania 5…12 V i GND nie podłączamy.
+- Panel ecoTOUCH 3 łączy się z modułem A kablem z wtykiem RJ (G2): zasilanie 5…12 V,
+  **D+, D−** i GND. Zaciski śrubowe `12V DC / D+ / D− / GND` modułu A to **G4** — wejście
+  panelu pokojowego; jest do nich podłączony sterownik pokojowy (2026-10-03). Panel kotła,
+  panel pokojowy i ecoNET dzielą jedną magistralę RS-485 ecoMAX, więc ramki `SensorData`
+  powinny być na G4 tak samo jak na G2 (do potwierdzenia odczytem).
+- **Punkt podłączenia sterownika pieca: G4**, tylko **D+ i D−**, pod te same zaciski co
+  przewody sterownika pokojowego (równolegle; sterownik pieca tylko słucha, więc nie
+  przeszkadza). 12V DC i GND z G4 nie podłączamy. Zapasowo: para D+/D− kabla panelu (G2).
+  Rysunek: [podlaczenie-kotla.svg](img/podlaczenie-kotla.svg).
+- Przy sterowniku pokojowym regulator ma prawdopodobnie `Wybór termostatu = ecoSTER`; to
+  wpływa na wariant automatyczny w punkcie 3 (jedno źródło termostatu). Model sterownika
+  pokojowego — do uzupełnienia.
 - Zaciski 36/37 (`D+`, `D−`, opis `B`) to osobna magistrala do modułu B/C — druga opcja,
   gdyby na magistrali panelu nie było ramek.
 - Instrukcja regulatora wprost dla „ecoMAX 860P2” nie została znaleziona; najbliższe są

@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 640" font-family="Segoe UI, Arial, sans-serif" font-size="14">
   <title>Podłączenie sterownika pieca do kotła Pellux 200</title>
   <rect width="980" height="640" fill="#ffffff"/>
-  <text x="490" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="#1a1a1a">Sterownik pieca → kocioł Pellux 200 (gniazdo G2 modułu A)</text>
+  <text x="490" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="#1a1a1a">Sterownik pieca → kocioł Pellux 200 (zaciski G4 modułu A)</text>
   <text x="490" y="58" text-anchor="middle" font-size="14" fill="#555">Tylko odbiór (nasłuch). Podłączać przy WYŁĄCZONYM zasilaniu kotła.</text>
 
   <!-- Kocioł -->
   <rect x="30" y="90" width="270" height="390" rx="10" fill="#f3f3f3" stroke="#888"/>
   <text x="165" y="118" text-anchor="middle" font-size="16" font-weight="700">Kocioł Pellux 200</text>
-  <text x="165" y="138" text-anchor="middle" fill="#555">moduł A (regulator ecoMAX)</text>
+  <text x="165" y="138" text-anchor="middle" fill="#555">moduł A (ecoMAX 860P2)</text>
   <rect x="60" y="160" width="210" height="200" rx="6" fill="#ffffff" stroke="#666"/>
-  <text x="165" y="184" text-anchor="middle" font-weight="700">gniazdo G2 (panel kotła)</text>
+  <text x="165" y="184" text-anchor="middle" font-weight="700">zaciski G4 (panel pokojowy)</text>
   <g font-size="15">
-    <rect x="80" y="200" width="60" height="30" rx="4" fill="#fde2e2" stroke="#c62828"/><text x="110" y="220" text-anchor="middle">5V</text>
+    <rect x="70" y="200" width="70" height="30" rx="4" fill="#fde2e2" stroke="#c62828"/><text x="105" y="220" text-anchor="middle">12V DC</text>
     <rect x="80" y="240" width="60" height="30" rx="4" fill="#e3f2fd" stroke="#1565c0"/><text x="110" y="260" text-anchor="middle" font-weight="700">D+</text>
     <rect x="80" y="280" width="60" height="30" rx="4" fill="#e8f5e9" stroke="#2e7d32"/><text x="110" y="300" text-anchor="middle" font-weight="700">D−</text>
     <rect x="80" y="320" width="60" height="30" rx="4" fill="#eeeeee" stroke="#666"/><text x="110" y="340" text-anchor="middle">GND</text>
@@ -23,9 +23,9 @@
   <line x1="80" y1="295" x2="44" y2="295" stroke="#2e7d32" stroke-width="2"/>
   <line x1="44" y1="255" x2="44" y2="410" stroke="#888" stroke-width="2"/>
   <rect x="60" y="395" width="210" height="64" rx="6" fill="#ffffff" stroke="#666"/>
-  <text x="165" y="420" text-anchor="middle" font-weight="700">panel dotykowy kotła</text>
-  <text x="165" y="440" text-anchor="middle" fill="#555" font-size="13">przewód zostaje podłączony —</text>
-  <text x="165" y="456" text-anchor="middle" fill="#555" font-size="13">wpinamy się równolegle</text>
+  <text x="165" y="420" text-anchor="middle" font-weight="700">sterownik pokojowy</text>
+  <text x="165" y="440" text-anchor="middle" fill="#555" font-size="13">zostaje podłączony — D+/D−</text>
+  <text x="165" y="456" text-anchor="middle" fill="#555" font-size="13">pod te same zaciski, równolegle</text>
 
   <!-- przewody D+/D- -->
   <path d="M140 255 H430" stroke="#1565c0" stroke-width="4" fill="none"/>
@@ -83,7 +83,7 @@
   <!-- uwagi -->
   <rect x="30" y="500" width="700" height="122" rx="8" fill="#fffbe6" stroke="#e0c050"/>
   <text x="46" y="524" font-weight="700">Uwagi</text>
-  <text x="46" y="546" font-size="13">• Do kotła idą tylko dwa przewody: D+ i D−. Zacisków 5V i GND gniazda G2 nie ruszać.</text>
+  <text x="46" y="546" font-size="13">• Do kotła tylko D+ i D− (12V DC i GND z G4 nie podłączać). Zapasowo: para D+/D− kabla panelu kotła (G2, RJ).</text>
   <text x="46" y="566" font-size="13">• Zamiana D+/D− niczego nie psuje: sterownik sam wykryje polaryzację (po ok. 8 s od pierwszych bajtów).</text>
   <text x="46" y="586" font-size="13">• HW-519 zasilany z 3V3 płytki C3 — wtedy na GPIO21 jest bezpieczne 3,3 V (bez dzielnika).</text>
   <text x="46" y="606" font-size="13">• Kontrola po włączeniu kotła: strona sterownika http://192.168.55.4/ — rosnące „ramki”, mało „odrzuconych”.</text>
