@@ -8,6 +8,8 @@ Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · 
 
 ## Płytka i podłączenie
 
+![Podłączenie sterownika pieca do kotła](docs/img/podlaczenie-kotla.svg)
+
 ```text
  kocioł Pellux 200, moduł A, gniazdo G2          sterownik pieca
  ┌──────────────────────────┐            ┌──────────────┐        ┌──────────────────────┐

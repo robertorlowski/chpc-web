@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 640" font-family="Segoe UI, Arial, sans-serif" font-size="14">
+  <title>Podłączenie sterownika pieca do kotła Pellux 200</title>
+  <rect width="980" height="640" fill="#ffffff"/>
+  <text x="490" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="#1a1a1a">Sterownik pieca → kocioł Pellux 200 (gniazdo G2 modułu A)</text>
+  <text x="490" y="58" text-anchor="middle" font-size="14" fill="#555">Tylko odbiór (nasłuch). Podłączać przy WYŁĄCZONYM zasilaniu kotła.</text>
+
+  <!-- Kocioł -->
+  <rect x="30" y="90" width="270" height="390" rx="10" fill="#f3f3f3" stroke="#888"/>
+  <text x="165" y="118" text-anchor="middle" font-size="16" font-weight="700">Kocioł Pellux 200</text>
+  <text x="165" y="138" text-anchor="middle" fill="#555">moduł A (regulator ecoMAX)</text>
+  <rect x="60" y="160" width="210" height="200" rx="6" fill="#ffffff" stroke="#666"/>
+  <text x="165" y="184" text-anchor="middle" font-weight="700">gniazdo G2 (panel kotła)</text>
+  <g font-size="15">
+    <rect x="80" y="200" width="60" height="30" rx="4" fill="#fde2e2" stroke="#c62828"/><text x="110" y="220" text-anchor="middle">5V</text>
+    <rect x="80" y="240" width="60" height="30" rx="4" fill="#e3f2fd" stroke="#1565c0"/><text x="110" y="260" text-anchor="middle" font-weight="700">D+</text>
+    <rect x="80" y="280" width="60" height="30" rx="4" fill="#e8f5e9" stroke="#2e7d32"/><text x="110" y="300" text-anchor="middle" font-weight="700">D−</text>
+    <rect x="80" y="320" width="60" height="30" rx="4" fill="#eeeeee" stroke="#666"/><text x="110" y="340" text-anchor="middle">GND</text>
+  </g>
+  <text x="150" y="220" fill="#c62828" font-size="13">nie podłączać</text>
+  <text x="150" y="340" fill="#666" font-size="13">nie podłączać</text>
+  <!-- panel -->
+  <line x1="80" y1="255" x2="44" y2="255" stroke="#1565c0" stroke-width="2"/>
+  <line x1="80" y1="295" x2="44" y2="295" stroke="#2e7d32" stroke-width="2"/>
+  <line x1="44" y1="255" x2="44" y2="410" stroke="#888" stroke-width="2"/>
+  <rect x="60" y="395" width="210" height="64" rx="6" fill="#ffffff" stroke="#666"/>
+  <text x="165" y="420" text-anchor="middle" font-weight="700">panel dotykowy kotła</text>
+  <text x="165" y="440" text-anchor="middle" fill="#555" font-size="13">przewód zostaje podłączony —</text>
+  <text x="165" y="456" text-anchor="middle" fill="#555" font-size="13">wpinamy się równolegle</text>
+
+  <!-- przewody D+/D- -->
+  <path d="M140 255 H430" stroke="#1565c0" stroke-width="4" fill="none"/>
+  <path d="M140 295 H430" stroke="#2e7d32" stroke-width="4" fill="none"/>
+  <text x="365" y="247" text-anchor="middle" fill="#1565c0" font-weight="700">D+ → A+</text>
+  <text x="365" y="314" text-anchor="middle" fill="#2e7d32" font-weight="700">D− → B−</text>
+  <text x="365" y="334" text-anchor="middle" fill="#555" font-size="12">skrętka,</text>
+  <text x="365" y="349" text-anchor="middle" fill="#555" font-size="12">możliwie krótko</text>
+
+  <!-- HW-519 -->
+  <rect x="430" y="150" width="190" height="300" rx="10" fill="#1f4e9e" stroke="#163a75"/>
+  <text x="525" y="178" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">HW-519</text>
+  <text x="525" y="196" text-anchor="middle" fill="#cfe0ff" font-size="12">RS-485, kierunek automatyczny</text>
+  <g fill="#fff" font-size="14">
+    <rect x="440" y="240" width="54" height="30" rx="4" fill="#e3f2fd" stroke="#fff"/><text x="467" y="260" text-anchor="middle" fill="#1565c0" font-weight="700">A+</text>
+    <rect x="440" y="280" width="54" height="30" rx="4" fill="#e8f5e9" stroke="#fff"/><text x="467" y="300" text-anchor="middle" fill="#2e7d32" font-weight="700">B−</text>
+    <text x="440" y="336" fill="#cfe0ff" font-size="12">zacisk uziemienia</text>
+    <text x="440" y="351" fill="#cfe0ff" font-size="12">(接大地): nie</text>
+    <text x="440" y="366" fill="#cfe0ff" font-size="12">podłączać</text>
+    <rect x="560" y="215" width="54" height="26" rx="4" fill="#eeeeee"/><text x="587" y="233" text-anchor="middle" fill="#222">VCC</text>
+    <rect x="560" y="250" width="54" height="26" rx="4" fill="#fff3cd"/><text x="587" y="268" text-anchor="middle" fill="#222" font-weight="700">TXD</text>
+    <rect x="560" y="285" width="54" height="26" rx="4" fill="#eeeeee"/><text x="587" y="303" text-anchor="middle" fill="#888">RXD</text>
+    <rect x="560" y="320" width="54" height="26" rx="4" fill="#eeeeee"/><text x="587" y="338" text-anchor="middle" fill="#222">GND</text>
+  </g>
+  <text x="525" y="400" text-anchor="middle" fill="#fff" font-size="12">przy odbiorze miga dioda TXD</text>
+  <text x="525" y="420" text-anchor="middle" fill="#cfe0ff" font-size="12">opisy pinów od strony modułu</text>
+
+  <!-- przewody HW-519 → C3 -->
+  <path d="M614 228 H760" stroke="#c62828" stroke-width="3" fill="none"/>
+  <path d="M614 263 H760" stroke="#e0a800" stroke-width="4" fill="none"/>
+  <path d="M614 298 H650" stroke="#999" stroke-width="2" stroke-dasharray="5 4" fill="none"/>
+  <text x="656" y="303" fill="#999" font-size="12">✕ nieużywany</text>
+  <path d="M614 333 H760" stroke="#222" stroke-width="3" fill="none"/>
+  <text x="690" y="222" text-anchor="middle" fill="#c62828" font-size="12">3,3 V</text>
+  <text x="690" y="257" text-anchor="middle" fill="#9a7400" font-size="12" font-weight="700">dane z kotła</text>
+  <text x="690" y="327" text-anchor="middle" font-size="12">masa</text>
+
+  <!-- ESP32-C3 -->
+  <rect x="760" y="170" width="190" height="230" rx="10" fill="#222" stroke="#000"/>
+  <text x="855" y="196" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">ESP32-C3</text>
+  <text x="855" y="213" text-anchor="middle" fill="#bbb" font-size="12">SuperMini</text>
+  <g font-size="14">
+    <rect x="766" y="215" width="70" height="26" rx="4" fill="#fde2e2"/><text x="801" y="233" text-anchor="middle" font-weight="700">3V3</text>
+    <rect x="766" y="250" width="70" height="26" rx="4" fill="#fff3cd"/><text x="801" y="268" text-anchor="middle" font-weight="700">GPIO21</text>
+    <rect x="766" y="320" width="70" height="26" rx="4" fill="#eeeeee"/><text x="801" y="338" text-anchor="middle" font-weight="700">GND</text>
+  </g>
+  <text x="893" y="233" text-anchor="middle" fill="#ff8a80" font-size="12" font-weight="700">nie 5V!</text>
+  <rect x="820" y="370" width="70" height="22" rx="6" fill="#999"/>
+  <text x="855" y="386" text-anchor="middle" fill="#111" font-size="12" font-weight="700">USB-C</text>
+  <path d="M855 392 V470" stroke="#555" stroke-width="3" fill="none"/>
+  <rect x="760" y="470" width="190" height="56" rx="8" fill="#f3f3f3" stroke="#888"/>
+  <text x="855" y="493" text-anchor="middle" font-weight="700">zasilacz USB 5 V</text>
+  <text x="855" y="512" text-anchor="middle" fill="#555" font-size="12">albo laptop (konsola, COM)</text>
+
+  <!-- uwagi -->
+  <rect x="30" y="500" width="700" height="122" rx="8" fill="#fffbe6" stroke="#e0c050"/>
+  <text x="46" y="524" font-weight="700">Uwagi</text>
+  <text x="46" y="546" font-size="13">• Do kotła idą tylko dwa przewody: D+ i D−. Zacisków 5V i GND gniazda G2 nie ruszać.</text>
+  <text x="46" y="566" font-size="13">• Zamiana D+/D− niczego nie psuje: sterownik sam wykryje polaryzację (po ok. 8 s od pierwszych bajtów).</text>
+  <text x="46" y="586" font-size="13">• HW-519 zasilany z 3V3 płytki C3 — wtedy na GPIO21 jest bezpieczne 3,3 V (bez dzielnika).</text>
+  <text x="46" y="606" font-size="13">• Kontrola po włączeniu kotła: strona sterownika http://192.168.55.4/ — rosnące „ramki”, mało „odrzuconych”.</text>
+</svg>
