@@ -70,6 +70,61 @@ uint32_t busBytes = 0;
 uint32_t validFrames = 0;
 uint32_t sensorFrames = 0;
 
+// Diagnostyka magistrali (od 1.0.2): jakie ramki naprawdę lecą na magistrali kotła —
+// para (typ, nadawca, odbiorca) z licznikiem; pierwsza ramka każdej pary trafia na konsolę
+// w hex. Na kotle 2026-10-03 przychodziły poprawne ramki, ale żadna SensorData (0x35).
+struct FrameKind {
+  uint8_t type;
+  uint8_t sender;
+  uint8_t recipient;
+  uint32_t count;
+  uint16_t lastLength;
+};
+constexpr uint8_t MAX_FRAME_KINDS = 24;
+FrameKind frameKinds[MAX_FRAME_KINDS];
+uint8_t frameKindCount = 0;
+
+// Pełne dane ramek do rozszyfrowania (od 1.0.3): RegulatorData 0x08 (regulator → wszyscy,
+// co 2 s) i 0x89 (panele → wszyscy), najwyżej raz na DUMP_INTERVAL_MS dla każdego typu.
+// Linia: "DUMP <typ> <nadawca> <ms> <hex>" — do porównania z wartościami na panelu kotła.
+constexpr uint32_t DUMP_INTERVAL_MS = 10000;
+uint32_t lastDump08Ms = 0;
+uint32_t lastDump89Ms = 0;
+
+void dumpFrame(const EcomaxFrame &frame)
+{
+  uint32_t *last = frame.type == 0x08 ? &lastDump08Ms : frame.type == 0x89 ? &lastDump89Ms : nullptr;
+  if (!last) return;
+  const uint32_t now = millis();
+  if (*last != 0 && now - *last < DUMP_INTERVAL_MS) return;
+  *last = now;
+  Serial.printf("DUMP %02x %02x %lu ", frame.type, frame.sender, static_cast<unsigned long>(now));
+  for (size_t index = 0; index < frame.dataLength; index++) Serial.printf("%02x", frame.data[index]);
+  Serial.println();
+}
+
+// Zlicza ramkę; przy nowej parze wypisuje nagłówek i do 48 bajtów danych.
+void recordFrameKind(const EcomaxFrame &frame)
+{
+  dumpFrame(frame);
+  for (uint8_t index = 0; index < frameKindCount; index++) {
+    FrameKind &kind = frameKinds[index];
+    if (kind.type == frame.type && kind.sender == frame.sender && kind.recipient == frame.recipient) {
+      kind.count++;
+      kind.lastLength = static_cast<uint16_t>(frame.dataLength);
+      return;
+    }
+  }
+  if (frameKindCount >= MAX_FRAME_KINDS) return;
+  frameKinds[frameKindCount++] = {frame.type, frame.sender, frame.recipient, 1, static_cast<uint16_t>(frame.dataLength)};
+  char hex[3 * 48 + 1] = {};
+  const size_t shown = frame.dataLength < 48 ? frame.dataLength : 48;
+  for (size_t index = 0; index < shown; index++) snprintf(hex + index * 3, 4, "%02x ", frame.data[index]);
+  Serial.printf("[%7lu] ramka nowa: typ 0x%02x od 0x%02x (typ nadawcy 0x%02x, wersja %u) do 0x%02x, dane %u B: %s\n",
+    static_cast<unsigned long>(millis()), frame.type, frame.sender, frame.senderType, frame.version, frame.recipient,
+    static_cast<unsigned>(frame.dataLength), hex);
+}
+
 String wifiSsid;
 String wifiPassword;
 const String cloudUrl = CLOUD_URL;
@@ -163,6 +218,7 @@ void readBus(uint32_t nowMs)
         logf("magistrala: pierwsza poprawna ramka, sygnał %s", polarity.inverted() ? "odwrócony" : "normalny");
       }
       polarity.onFrame(nowMs);
+      recordFrameKind(frame);
       if (!isSensorDataFrame(frame)) continue;
       EcomaxSensorData decoded;
       if (!decodeSensorData(frame.data, frame.dataLength, decoded)) continue;
@@ -332,6 +388,11 @@ void logStatus(uint32_t nowMs)
     static_cast<unsigned long>(validFrames), static_cast<unsigned long>(sensorFrames),
     static_cast<unsigned long>(parser.rejectedCount()), polarity.inverted() ? "odwrócony" : "normalny",
     polarity.confirmed() ? "" : " (niepotwierdzony)", readingFresh(nowMs) ? "świeży" : "brak");
+  for (uint8_t index = 0; index < frameKindCount; index++) {
+    const FrameKind &kind = frameKinds[index];
+    Serial.printf("          ramki: typ 0x%02x od 0x%02x do 0x%02x: %lu szt., ostatnio %u B\n", kind.type, kind.sender,
+      kind.recipient, static_cast<unsigned long>(kind.count), static_cast<unsigned>(kind.lastLength));
+  }
 }
 
 // Co 1 s: AP, zgłoszenie (co 30 s do skutku), wysyłka świeżego odczytu co pollSeconds.

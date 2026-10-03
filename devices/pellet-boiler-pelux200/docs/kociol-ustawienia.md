@@ -37,12 +37,55 @@ Wnioski dla sterownika pieca:
   instrukcja panelu ecoMAX ze strony Pellux (niżej, źródło 1) i instrukcje 860P/860P3.
   Nazwy pozycji menu na panelu mogą się nieznacznie różnić.
 
+## 1a. Co jest na magistrali (nasłuch 2026-10-03, zaciski G4)
+
+Wersje z panelu (`Informacje 8/8`): panel 18.11.7, moduł A 18.21.85P1, panel pokojowy
+**eSTER_x80 T1** 1.25.93, moduł internetowy **ISM_X-SMART** 1.22.41. Na magistrali ok. 290
+poprawnych ramek na minutę, 0 błędów, polaryzacja normalna (firmware pieca 1.0.2/1.0.3,
+diagnostyka na konsoli USB):
+
+| Typ ramki | Od → do | Rozmiar | Co to jest |
+|---|---|---|---|
+| `0x08` | regulator `0x45` → wszyscy `0x00`, co 2 s | 313 B | **RegulatorData** — bieżące dane regulatora (mapa niżej) |
+| `0x30` | `0x45` → `0x56`, co 2 s | 0 B | CheckDevice: regulator szuka ecoNET pod `0x56` — nikt nie odpowiada |
+| `0x40` | `0x45` → `0x57`, `0x58` | 0 B | ProgramVersion (inne moduły) |
+| `0x0a` | `0x45` → `0x50`, `0x55` | 0 B | zapytania do paneli |
+| `0x89` | `0x50` (panel kotła), `0x51` (eSTER) → wszyscy | 26 / 48 B | zaczynają się od „TIME”; eSTER niesie m.in. 20,0 i 21,8 °C |
+| `0x6b` / `0xeb` | `0x45` ↔ `0x59` | 31 / 256 B | prawdopodobnie moduł ISM X-SMART |
+| `0x6a` / `0xea` | `0x50` ↔ `0x59` | 5 / 14 B | panel ↔ ISM |
+
+**SensorData (`0x35`) nie występuje**: regulator wysyła ją tylko do modułu ecoNET, który się
+przedstawi na CheckDevice (wymaga nadawania — etap 2). Dlatego odczyt opieramy na
+**RegulatorData (`0x08`)**, którą słychać bez nadawania.
+
+Mapa RegulatorData tego regulatora (offset = bajt danych ramki, od 0; float32 LE; NaN =
+czujnik niepodłączony). Porównanie zrzutów z panelem przy postoju kotła (kocioł 23,0 °C,
+pogodowa 11,0, mieszacz 1 19,8, mieszacz 2 20,0, CWU 24,3, zadana CWU 55, zadane mieszaczy
+40 / 27):
+
+| Offset | Typ | Znaczenie | Pewność |
+|---|---|---|---|
+| 81 | float | 22,6–22,9 °C — CWU albo podajnik | do potwierdzenia |
+| 85 | float | temperatura mieszacza 1 | potwierdzone |
+| 89 | float | temperatura mieszacza 2 | potwierdzone |
+| 93 | float | temperatura zewnętrzna (pogodowa) | potwierdzone |
+| 97, 113–165 | float NaN | czujniki niepodłączone (spaliny, powrót, bufor…) | zgodne z „---” na panelu |
+| 105 | float | **temperatura kotła** | potwierdzone |
+| 169 | bajt | **temperatura zadana CWU** (55) | potwierdzone |
+| 170 / 171 | bajt | temperatury zadane mieszacza 1 / 2 (40 / 27) | potwierdzone |
+| 175 | bajt | **temperatura zadana kotła** (67) | potwierdzone |
+
+Do ustalenia przy pracy kotła: stan (rozpalanie, praca, nadzór…), płomień, moc, wyjścia
+(nadmuch, podajnik, pompy). Układ ramki zależy od schematu regulatora (PyPlumIO pobiera go
+zapytaniem `0x55`), więc mapa dotyczy tego regulatora i tej wersji oprogramowania.
+
 ## 2. Kiedy kocioł rozpala i kiedy pracują pompy
 
 | Zachowanie | Parametr (menu) | Wartość fabryczna | U nas (obserwacja) |
 |---|---|---|---|
-| Rozpalenie, gdy temperatura kotła < **temperatura zadana − histereza** | Temperatura zadana kotła (`Menu → Ustawienia kotła`) | — | ok. 60 °C |
-| | Histereza kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **5 °C** (źródło 1, str. 26) | rozpala przy 55 °C |
+| Rozpalenie, gdy temperatura kotła < **temperatura zadana − histereza** | Temperatura zadana kotła (`Menu → Ustawienia kotła`) | — | **67 °C** (panel i bajt 175 RegulatorData) |
+| | Histereza kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **5 °C** (źródło 1, str. 26) | do odczytu w menu serwisowym; rozpala przy ok. 55 °C, więc prawdopodobnie ok. **12 °C** |
+| Pompa CWU włącza się, gdy CWU < **zadana CWU − histereza zasobnika CWU** | Temperatura zadana CWU, Histereza zasobnika CWU (`Menu → Ustawienia CWU`) | — | zadana CWU **55 °C**, histereza CWU **15 °C** (panel, 2026-10-03) → ładowanie CWU poniżej 40 °C |
 | Pompa CO pracuje dopiero powyżej progu (ochrona kotła przed wychłodzeniem i roszeniem) | Temperatura załączenia pompy CO (`Ustawienia serwisowe → Ustawienia CO i CWU`) | nie podana w dokumentacji Pellux | pompy stoją poniżej 50 °C |
 | Obniżenie temperatury zadanej przy rozwartym styku termostatu | Termostat pokojowy kotła (`Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy`) | **0 °C**, maks. 30 °C (źródło 1, str. 26) | — |
 | Wejście termostatu | Wybór termostatu (`Ustawienia serwisowe → Ustawienia kotła`): Wyłączony / Uniwersalny / ecoSTER | — | — |
@@ -65,8 +108,11 @@ Na czas pracy pompy ciepła:
    stoi.
 2. **Próg rozpalenia poniżej tego, co daje pompa ciepła (np. ok. 40 °C)** — kocioł zostaje
    rezerwą. Dwie drogi:
-   - **ręcznie:** Histereza kotła 5 → 20 °C (przy zadanej 60 °C start przy 40 °C); po
-     zakończeniu pracy pompy ciepła z powrotem 5 °C i pompa CO 50 °C;
+   - **ręcznie, bez menu serwisowego:** obniżyć temperaturę zadaną kotła z 67 °C do ok.
+     **52 °C** (przy histerezie ok. 12 °C start przy ok. 40 °C); Minimalna temperatura kotła
+     (serwis) musi na to pozwalać. Albo w menu serwisowym histereza kotła ok. 12 → 27 °C przy
+     zadanej 67 °C. Po zakończeniu pracy pompy ciepła z powrotem 67 °C (i ewentualnie
+     histereza) oraz pompa CO 50 °C;
    - **automatycznie, przez wejście termostatu:** Wybór termostatu = Uniwersalny, Termostat
      pokojowy kotła = 20 °C (rozwarty styk obniża zadaną 60 → 40 °C, start przy 35 °C),
      **Minimalna temperatura kotła ≤ 40 °C** (inaczej obniżenie się nie zmieści). Styk
