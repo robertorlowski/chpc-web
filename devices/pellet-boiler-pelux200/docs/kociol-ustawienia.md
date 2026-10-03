@@ -123,6 +123,69 @@ Wnioski:
   który ecoNET zgłosił w DeviceAvailable (m.in. IP i SSID — w nagraniach zamaskowane);
   offsety w punkcie 1a dotyczą wersji 313 B.
 
+### Mapa sterowania ręcznego (nauka z panelu, 2026-10-03 wieczorem)
+
+Użytkownik wykonywał na panelu kolejne czynności i podawał ich godziny; każdą dopasowano do
+ramek co do sekundy. Nagranie z listą czynności w nagłówku:
+`test/fixtures/kociol-2026-10-03-sterowanie-mieszacze.txt`. Kotła nie rozpalano (pompa ciepła
+grzała wodę w kotle, ok. 26–29 °C).
+
+**Panel `0x50`, ramka `0x89` (co 2 s, do wszystkich) — bajty 14–17; regulator powtarza je
+1–2 s później w RegulatorData (324 B) w bajtach 32–35:**
+
+| Bajt panelu (regulatora) | Bit / wartość | Znaczenie | Potwierdzenie |
+|---|---|---|---|
+| 14 (32) | `01` (regulator `06`) | menu „Sterowanie ręczne” otwarte | wejście / wyjście z menu |
+| 15 (33) | bit 4 `0x10` | **mieszacz 1: otwieranie** | 22:39:05–22:40:14 |
+| 15 (33) | bit 5 `0x20` | **mieszacz 1: zamykanie** | 22:37:47–22:38:53 |
+| 15 (33) | bit 6 `0x40` | **pompa mieszacza 1** | wył. 22:44:48, wł. 22:45:16 (i rano 11:08–11:10) |
+| 15 (33) | bit 7 `0x80` | **pompa mieszacza 2** | wył. 22:43:39, wł. 22:44:04 |
+| 16 (34) | bit 0 `0x01` | **mieszacz 2: otwieranie** | 22:42:07–22:43:18 (także 22:30:11–22:31:20 i 14 s o 22:44:23) |
+| 16 (34) | bit 1 `0x02` | **mieszacz 2: zamykanie** | 22:40:37–22:41:46 (także do 22:29:43) |
+| 16 (34) | bit 3 `0x08` | **pompa CWU** | 22:45:36–22:46:23; SensorData `outputs` bit 3 (`water_heater_pump`) = 1 |
+| 15 bity 0–3, 16 bit 2 i 4–7, 17 | — | nieustalone (prawdopodobnie wentylator, podajnik, zapalarka, pompa CO, cyrkulacja) | **nie próbować** bez nagrania z panelu |
+
+**SensorData `0x35`, część mieszaczy, bajt stanu mieszacza** (od bajtu 155: liczba, potem 8 B
+na mieszacz; bajt stanu = 7. bajt wpisu, dla mieszacza 1 bajt 162, dla mieszacza 2 bajt 170):
+bit 0 = pompa, **bit 1 = otwieranie, bit 2 = zamykanie**, bit 3 = zawsze 1 (nieustalone).
+Pompy mieszaczy nie są w `outputs`; pompa CWU jest (bit 3).
+
+**Czas pełnego przejścia zaworu** (od włączenia do wyłączenia przez użytkownika, gdy panel
+pokazał koniec ruchu): mieszacz 1 — zamykanie 66 s, otwieranie 69 s; mieszacz 2 — zamykanie
+69 s, otwieranie 71 s i 69 s. **Siłowniki potrzebują ok. 70 s na pełny ruch.** Temperatura
+mieszacza po zamknięciu spada o ok. 3 °C w minutę, po otwarciu wraca w 1–2 min.
+
+Wnioski do sterowania: wszystkie te polecenia idą wyłącznie w ramce panelu (pole jego stanu,
+nadpisywane co 2 s przez prawdziwy panel), a regulator przyjmuje je tylko w menu ręcznym przy
+wyłączonym kotle. Sterownik pieca nie ma jak ich wysłać bez udawania panelu — do sterowania z
+aplikacji pozostają parametry (`0x33`/`0x34`, np. zadana mieszacza) i włączanie regulatora;
+mapa służy do **odczytu** stanu sterowania ręcznego i siłowników.
+
+## 1c. Kocioł bez panelu (próba 2026-10-03, 22:56–23:12)
+
+Kocioł wyłączony zasilaniem, odłączona wtyczka RJ panelu (G2), zasilanie włączone na ok. 8 min,
+potem panel z powrotem (przy wyłączonym zasilaniu). Nagranie z godzinami czynności:
+`test/fixtures/kociol-2026-10-03-bez-panelu.txt`.
+
+- **Regulator bez panelu pracuje normalnie** (zgodnie z instrukcją 860P str. 46: „nie wyłącza
+  regulacji i pracuje normalnie z zaprogramowanymi wcześniej parametrami”): RegulatorData i
+  SensorData co ok. 2,3 s, stan 0, bez alarmu w SensorData. Panel po podłączeniu nie pokazał
+  alarmu.
+- **Regulator szuka panelu:** co ok. 2,3 s `ProgramVersion` (`0x40`) do `0x50` (168 razy w
+  6,5 min); zwykłego odpytywania `0x0a` panelu nie ma, dopóki panel się nie przedstawi.
+- **Start panelu:** `0x40` → panel `0xC0` (36 B: wersja, „Aug 29 2019 07:46:34”, adres `0x50`);
+  potem regulator odpytuje `0x0a`, a panel rozsyła `0x89` (na starcie 20 B, potem 26 B); panel
+  wysyła też `0x61` (`ff 00`), `0x63`, `0x62` (znaczenie nieznane) i `0xD6` (52 B); regulator
+  pobiera z panelu **dziennik alarmów**: `0x3D` `[od, ff]` co 10 pozycji (0…90) → `0xBD` 93 B
+  (typy alarmów w PyPlumIO) — dziennik alarmów jest w panelu.
+- **Wejście w sterowanie ręczne** to tylko bajt 14 ramki `0x89` (`00 → 01`), bez osobnego
+  polecenia.
+
+Wniosek: sterownik pieca mógłby zastąpić panel (adres `0x50`) i sterować pompami i zaworami
+w menu ręcznym, ale musiałby odtworzyć przedstawienie się (`0xC0`), ramki `0x61`/`0x62`/
+`0x63`/`0xD6` i dziennik alarmów; bez panelu nie ma też obsługi na miejscu. Na razie nie
+podjęte.
+
 ## 2. Kiedy kocioł rozpala i kiedy pracują pompy
 
 | Zachowanie | Parametr (menu) | Wartość fabryczna | U nas (obserwacja) |
@@ -197,6 +260,84 @@ odczycie z **kotłem zatrzymanym (stan 0)**, tylko w zakresie min–max, który 
 w ostatnim odczycie ustawień, jedna naraz; brak potwierdzenia po 3 próbach (4 s każda) =
 komunikat „sprawdź wartość na panelu”. Po potwierdzeniu sterownik czyta ustawienia od nowa.
 Powrót: `set 119 55` albo na panelu (`Menu → Ustawienia CWU`).
+
+## 4b. Dwa zestawy ustawień: praca na pellecie i kocioł bez palenia (2026-10-04)
+
+Kocioł ma na razie tylko rozprowadzać ciepłą wodę z pompy ciepła (pompy i mieszacze), bez
+palenia. Ustawienia „bez palenia” zmniejszają szansę rozpalenia: próg rozpalenia (zadana −
+histereza) jak najniżej, mieszacz 1 nie podnosi zadanej kotła powyżej 32 °C, CWU nie wywołuje
+rozpalenia. **Sprawdzone 2026-10-04 00:53–01:23:** regulator stosuje histerezę także do zadanej
+podniesionej przez mieszacz — przy zadanej kotła 37 °C (mieszacz 1: 35 + 2) i wodzie w kotle
+30,6 °C kocioł został w postoju (stan 5), bez rozpalania (próg 37 − 30 = 7 °C). Rozpalenie i
+tak nie byłoby według użytkownika groźne. Ustawia użytkownik na panelu; sterownik sprawdza wynik
+odczytem ustawień.
+
+| # | Parametr (nr ecoNET) | Gdzie na panelu | **Praca na pellecie** (powrót) | **Bez palenia** |
+|---|---|---|---|---|
+| 1 | Minimalna temperatura kotła (99) | `Ustawienia serwisowe → Ustawienia kotła` | 65 °C | 30 °C |
+| 2 | Temperatura zadana kotła (98) | `Menu → Ustawienia kotła` | 67 °C | 30 °C |
+| 3 | Histereza kotła (17) | `Ustawienia serwisowe → Ustawienia kotła → Modulacja mocy` | 10 °C | 20 °C (2026-10-04 najpierw 30) |
+| 4 | Tryb pracy pompy CWU (122) | `Menu → Ustawienia CWU` | Bez priorytetu (2) | Wyłączony (0) |
+| 5 | Podwyższenie temp. kotła od CWU i mieszacza (105) | `Ustawienia serwisowe → Ustawienia CO i CWU` | 5 °C | 5 °C (2026-10-04 najpierw 2; zbędne, bo histereza działa i przy podniesionej zadanej) |
+| 6 | Minimalna temperatura mieszacza 1 (mieszacz, nr 1) | `Ustawienia serwisowe → Ustawienia mieszacza 1` | 40 °C | 30 °C |
+| 7 | Maksymalna temperatura mieszacza 1 (mieszacz, nr 2) | to samo menu | 50 °C | 30 °C |
+| 8 | Temperatura załączenia pompy CO (101) | `Ustawienia serwisowe → Ustawienia CO i CWU` | 50 °C | 30 °C |
+
+Punkt 8 dopisany po pierwszym włączeniu regulatora (2026-10-04 00:53): przy 50 °C i wodzie w
+kotle 46,7 °C pompy CO i obu mieszaczy stały mimo zapotrzebowania; po obniżeniu ruszyły
+(00:57:00). Regulator w stanie 5 (postój), zadana kotła 33 °C (30 podbite przez mieszacz 1:
+31 + 2), bez rozpalania. Po włączeniu regulatora zawór mieszacza 1 zamykał się bez przerwy
+4 min 42 s (00:53:21–00:58:03), mimo temperatury obiegu poniżej zadanej, potem regulator
+otwierał go impulsami 2–14 s — najpewniej kalibracja położenia zaworu po starcie (instr.
+850P2 str. 31: mieszacz 1 kalibruje się samoczynnie; czasu nie podaje). Do potwierdzenia przy
+kolejnym włączeniu.
+
+Kolejność: przy przejściu na „bez palenia” 1 przed 2 i 6 przed 7 (panel nie przyjmie zadanej
+poniżej minimum ani minimum powyżej maksimum); przy powrocie odwrotnie — 2 przed 1 (najpierw
+zadana 67, potem minimum 65) i 7 przed 6 (najpierw max 50, potem min 40). Bez zmian w obu
+zestawach: temperatura załączenia pompy CO 50 °C, sterowanie pogodowe mieszacza 1 włączone.
+CWU w odczycie 2026-10-04: zadana 45 °C (nr 119; 2026-10-03 rano 55, potem 50 ze sterownika),
+histereza 10 °C (nr 123; kopia z punktu 4 ma 15) — zmienione na panelu poza tą listą.
+
+Odczyt 2026-10-04 po ustawieniu „bez palenia” na panelu: nr 99, 98, 17, 122, 105 i min
+mieszacza 1 zgodne z tabelą; **max mieszacza 1 = 40 °C** (zamiast 30), więc zadana mieszacza
+1 z krzywej to 30–40 °C, a zadana kotła rośnie od mieszacza najwyżej do 42 °C. Harmonogramy
+bez zmian.
+
+**Stan faktyczny 2026-10-04 ok. 01:40** (odczyt ustawień, pełna kopia:
+[ustawienia-kotla-2026-10-04.json](ustawienia-kotla-2026-10-04.json)) — „bez palenia” z
+poprawkami użytkownika: min. kotła 30, zadana 30, histereza kotła 30, pompa CO od 30 °C,
+podwyższenie 5; **CWU: zadana 40, histereza 5, tryb Priorytet** (nr 122 = 1 — potwierdza
+kolejność 0 Wyłączony / 1 Priorytet / 2 Bez priorytetu); **mieszacz 1: sterowanie pogodowe
+wyłączone, stała zadana 35 °C** (min 30, max 40; zaraz potem max z powrotem 50 — kopia JSON ma jeszcze 40). Pompa ciepła trzyma wodę w kotle ok. 45 °C
+bez odbioru i ok. 31 °C przy pracujących grzejnikach; przy Priorytecie pompa CO stoi na czas
+ładowania CWU, woda w kotle rośnie i ładuje zasobnik bez palenia.
+
+**Histereza kotła 20 °C — kocioł jako rezerwa pompy ciepła** (ustawione 2026-10-04 ok. 01:50):
+kocioł rozpala, gdy woda spadnie poniżej zadanej kotła − 20. Zadana kotła: grzejniki 35 + 5 =
+40 °C → rozpala poniżej **20 °C**; ładowanie CWU 40 + 5 = 45 °C → rozpala poniżej **25 °C**.
+Przy pracującej pompie ciepła woda w kotle ma ok. 31 °C (grzejniki pracują) do 45 °C (bez
+odbioru), więc kocioł nie rozpala; gdy pompa ciepła stanie i woda ostygnie, kocioł przejmuje
+grzanie. Histereza 30 = nie rozpala nigdy (progi 10/15 °C). Zadana mieszacza 1 powyżej 35 °C
+podnosi próg dla grzejników (np. 50 → zadana kotła 55, próg 35 °C — rozpalałby przy pracy
+pompy ciepła). Do potwierdzenia odczytem ustawień (kopia JSON z 01:40 ma jeszcze 30).
+
+Dobór histerezy kotła (przy zadanej mieszacza 1 = 35 °C, zadanej CWU = 40 °C, podwyższeniu 5 °C;
+woda z pompy ciepła ok. 31 °C przy pracujących grzejnikach — od takiej zwykle zaczyna się też
+ładowanie CWU — i ok. 45 °C bez odbioru):
+
+| Histereza kotła | Rozpala dla grzejników poniżej (40 − h) | Rozpala dla CWU poniżej (45 − h) | Co to daje |
+|---|---|---|---|
+| 30 | 10 °C | 15 °C | nie rozpala nigdy, nawet gdy pompa ciepła stanie |
+| **20 (wybrane)** | **20 °C** | **25 °C** | rozpala tylko wtedy, gdy pompa ciepła przestanie grzać (rezerwa) |
+| 15 | 25 °C | 30 °C | mały zapas, może rozpalić przy początku ładowania CWU |
+| 10 | 30 °C | 35 °C | rozpala prawie zawsze przy ładowaniu CWU |
+
+Skutki „bez palenia”: grzejniki dostają najwyżej 30 °C (zadana mieszacza 1 stała 30 °C);
+zasobnika CWU kocioł nie grzeje. Plan na później: tryb pompy CWU **Priorytet** — przy niskiej
+CWU regulator zatrzymuje pompę CO, podnosi zadaną kotła do zadanej CWU + nr 105 i rozpala,
+żeby naładować CWU; wtedy ustawić też „Postój pompy CO podczas ładowania CWU” (nr 102, dziś 0),
+żeby grzejniki nie wystygły. Opis parametrów: [parametry-kotla.md](parametry-kotla.md).
 
 ## 4. Kopia ustawień regulatora (2026-10-03)
 

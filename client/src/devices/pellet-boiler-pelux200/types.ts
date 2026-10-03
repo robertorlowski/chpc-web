@@ -36,3 +36,28 @@ export type PelletBoilerReading = {
   lighter?: boolean;
   alarm?: boolean;
 };
+
+/** Parametr regulatora z GET /pellet-boiler-pelux200/settings (rozkodowany na serwerze). */
+export type PelletBoilerParameter = {
+  /** numer parametru w regulatorze (ramka zmiany 0x33 / 0x34) */
+  index: number;
+  /** nazwa w PyPlumIO, null dla pozycji bez nazwy */
+  name: string | null;
+  label?: string;
+  description?: string;
+  /** ocena zmiany: „Bezpieczny z aplikacji”, „Ostrożnie”, „Tylko serwis”, „Nie ruszać” */
+  rating?: string;
+  unit?: string;
+  kind?: 'switch';
+  value: number;
+  min: number;
+  max: number;
+  raw: [number, number, number];
+};
+
+/** Ostatni odczyt ustawień regulatora; {} (brak readAt), gdy sterownik jeszcze ich nie wysłał. */
+export type PelletBoilerSettings = {
+  readAt?: string;
+  groups?: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
+  mixers?: { mixer: number; parameters: PelletBoilerParameter[] }[];
+};

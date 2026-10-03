@@ -1,7 +1,10 @@
 // Testy kotła pelletowego Pellux 200 (baza w mongodb-memory-server): zgłoszenie z
 // ustawieniami, ten sam SN jako pompa i kocioł (routing po rodzaju), zapis i
 // walidacja odczytu, 404/409, /last, /list (granice doby warszawskiej) oraz
-// zapis i walidacja poll_interval_seconds przez PUT /device/properties.
+// zapis i walidacja poll_interval_seconds przez PUT /device/properties, ustawienia
+// regulatora (surowe odpowiedzi od sterownika, rozkodowanie do grup, walidacja).
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -152,5 +155,51 @@ describe('Kocioł pelletowy Pellux 200', () => {
     // nowe ustawienie dociera do sterownika w odpowiedzi na odczyt
     const add = await request(app).post(`/api/pellet-boiler-pelux200/add?rootId=${rootId}`).send({ state: 0 });
     expect(add.body).toEqual({ poll_interval_seconds: 60 });
+  });
+
+  // Prawdziwe odpowiedzi regulatora z kopii ustawień kotła (2026-10-03).
+  const archive = JSON.parse(readFileSync(resolve(__dirname,
+    '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-03.json'), 'utf-8'));
+
+  it('ustawienia: sterownik wysyła hex samym deviceId, aplikacja dostaje parametry w grupach', async () => {
+    const sn = 'AABBCC000009';
+    const { rootId } = (await register(sn)).body;
+    const empty = await request(app).get(`/api/pellet-boiler-pelux200/settings?rootId=${rootId}`);
+    expect(empty.body).toEqual({});
+
+    const post = await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`)
+      .send(archive.raw_hex);
+    expect(post.status).toBe(201);
+
+    const res = await request(app).get(`/api/pellet-boiler-pelux200/settings?rootId=${rootId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.deviceId).toBe(sn);
+    type Item = { index: number; name: string; value: number; min: number; max: number; unit?: string };
+    const all: Item[] = res.body.groups.flatMap((group: { parameters: Item[] }) => group.parameters);
+    expect(all).toHaveLength(60);  // tyle parametrów ma wartość w tym kotle
+    const byName = (name: string) => all.find((p) => p.name === name);
+    expect(byName('heating_target_temp')).toMatchObject({ index: 98, value: 67, min: 65, max: 80, unit: '°C' });
+    expect(byName('water_heater_target_temp')).toMatchObject({ index: 119, value: 55 });
+    expect(byName('heating_curve_shift')).toMatchObject({ value: 0, min: -20, max: 20 });  // przesunięcie 20
+    expect(byName('max_fuel_flow')).toMatchObject({ value: 9.6 });  // krok 0,2
+    expect(all.find((p) => p.index === 139)).toMatchObject({ name: null, raw: [50, 0, 100] });
+    const boiler = res.body.groups.find((group: { key: string }) => group.key === 'boiler');
+    expect(boiler.label).toBe('Kocioł: temperatury i histerezy');
+
+    expect(res.body.mixers).toHaveLength(1);
+    expect(res.body.mixers[0].mixer).toBe(1);
+    expect(res.body.mixers[0].parameters[0]).toMatchObject({ name: 'mixer_target_temp', value: 40 });
+  });
+
+  it('ustawienia: 400 bez parametrów kotła, dla złego hex i nie-napisu', async () => {
+    const sn = 'AABBCC00000A';
+    await register(sn);
+    const post = (body: unknown) =>
+      request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(body as object);
+    expect((await post({})).status).toBe(400);
+    expect((await post({ mixer_parameters: archive.raw_hex.mixer_parameters })).status).toBe(400);
+    expect((await post({ ecomax_parameters: 'zz00' })).status).toBe(400);
+    expect((await post({ ecomax_parameters: '000' })).status).toBe(400);
+    expect((await post({ ecomax_parameters: 12 })).status).toBe(400);
   });
 });

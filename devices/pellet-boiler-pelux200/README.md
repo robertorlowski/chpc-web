@@ -4,7 +4,7 @@ Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519 na magistrali r
 
 Do 2026-10-02 tę rolę pełnił sterownik `co` (drugi UART, piny GPIO16 i GPIO4); od 2026-10-03 działa na tej osobnej płytce, a kontrakt z chmurą się nie zmienił.
 
-Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · **[kocioł: sprzęt (ecoMAX 860P2) i ustawienia, plan z pompą ciepła](docs/kociol-ustawienia.md)** · [dokumentacja producenta kotła](docs/pellux200-dokumentacja/README.md) · strona chmury i aplikacji: [moduł pellet-boiler-pelux200](../../docs/moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) · kontrakt: [CLAUDE.md, punkt 5c](../../CLAUDE.md).
+Dokumentacja: **[podłączenie, protokół i dane](docs/piec-pellux200.md)** · **[kocioł: sprzęt (ecoMAX 860P2) i ustawienia, plan z pompą ciepła](docs/kociol-ustawienia.md)** · **[wszystkie parametry regulatora z opisem i oceną](docs/parametry-kotla.md)** · [dokumentacja producenta kotła](docs/pellux200-dokumentacja/README.md) · strona chmury i aplikacji: [moduł pellet-boiler-pelux200](../../docs/moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) · kontrakt: [CLAUDE.md, punkt 5c](../../CLAUDE.md).
 
 ## Płytka i podłączenie
 
@@ -63,7 +63,10 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 - Punkt dostępowy `Piec-setup` pod adresem `10.11.18.1` (hydrofor ma `10.11.16.1`, włącznik `10.11.17.1`), domyślnie otwarty (`AP_PASSWORD` krótsze niż 8 znaków = bez hasła). Działa po starcie razem z Wi-Fi (AP+STA), wyłącza się po 1 min połączenia z siecią domową i wraca po 1 min bez Wi-Fi.
 - Wi-Fi ustawia się na stronie `/install`; zapis trafia do NVS i ma pierwszeństwo przed `WIFI_SSID`/`WIFI_PASSWORD` z `secrets.h`.
 - NVS: przestrzeń `pel` (`wifi_ssid`, `wifi_pass`, `root_id`, `poll_s`, `bus_inv`).
-- **Samoczynny restart** (od 1.0.1; 2026-10-03 płytka raz zawisła bez restartu przy słabym Wi-Fi): watchdog zadania pętli restartuje układ, gdy pętla stoi dłużej niż 30 s (`WATCHDOG_S`; najdłuższe zapytanie HTTP trwa 8 s), a po 10 min bez sieci domowej (`WIFI_RESTART_AFTER_MS`) sterownik restartuje się sam — tylko z zapisaną siecią i gdy nikt nie jest połączony z AP.
+- **Moc nadajnika 8,5 dBm** (`WIFI_TX_POWER`, od 2026-10-03): ESP32-C3 SuperMini przy pełnej mocy często nie łączy się z siecią — przy kotle płytka przez wiele minut miała status 6; po obniżeniu mocy łączy się w ok. 2 s (2026-10-03, RSSI −74 dBm za ścianą). Moc jest ustawiana po każdej zmianie trybu Wi-Fi.
+- **Diagnostyka Wi-Fi:** na konsoli przyczyna rozłączenia (np. 201 = nie widać sieci, 15 = złe hasło), adres i RSSI po połączeniu; bez połączenia co minutę skan: czy sieć jest widoczna i z jakim sygnałem (też na stronie `/`).
+- **Samoczynny restart** (od 1.0.1; 2026-10-03 płytka raz zawisła bez restartu przy słabym Wi-Fi): watchdog zadania pętli i magistrali restartuje układ, gdy któreś stoi dłużej niż 30 s (`WATCHDOG_S`; najdłuższe zapytanie HTTP trwa 8 s). Bez sieci domowej sterownik co 2 min łączy się od nowa (`WIFI_RECONNECT_EVERY_MS`), a restartuje dopiero po 30 min (`WIFI_RESTART_AFTER_MS`) — tylko z zapisaną siecią, gdy nikt nie jest połączony z AP i nie trwa odczyt ani zmiana ustawień kotła. Do 2026-10-03 restart był po 10 min i przerwał pracę na magistrali (11:08:51, w trakcie sterowania ręcznego z panelu; przyczyną był brak Wi-Fi, nie pompa).
+- **Przyczyna poprzedniego startu** (`esp_reset_reason` i zapisana w NVS przyczyna restartu programowego, klucz `restart`) — na konsoli po starcie i na stronie `/` („poprzedni start”, razem z czasem działania).
 
 ## Strony sterownika
 
@@ -82,6 +85,7 @@ Kontrakt jak w CLAUDE.md, punkt 5c (serwer i klient pieca bez zmian):
 - **Zgłoszenie** przy każdym starcie (po połączeniu z Wi-Fi): `POST devices/register` z `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version: "1.1.0", ip}`. SN to fabryczny MAC z eFuse (12 znaków hex). Odpowiedź niesie `rootId` (zapis w NVS) i `settings.poll_interval_seconds`. Nieudane zgłoszenie jest ponawiane co 30 s; do skutku sterownik niczego nie wysyła.
 - **Wysyłka** `POST pellet-boiler-pelux200/add?deviceId=<SN>&rootId=<id>` co `poll_interval_seconds` (domyślnie 300 s, 30–3600, ustawiane w aplikacji, zapis w NVS `poll_s`), tylko gdy ostatni odczyt `SensorData` jest młodszy niż 60 s. Treść: pola odczytane z ramki (bez `time`, czas bierze serwer). Odpowiedź `{"poll_interval_seconds": N}` aktualizuje interwał.
 - Nieudana wysyłka jest ponawiana po 60 s; 404 albo 409 kasuje Root ID i uruchamia zgłoszenie od nowa.
+- **Ustawienia regulatora** po każdym pełnym odczycie (start, `p`, po zmianie parametru): `POST pellet-boiler-pelux200/settings?deviceId=…&rootId=…` z `{ecomax_parameters, mixer_parameters, thermostat_parameters, schedules, regulator_data_schema}` (hex, jak `/boiler-settings.json`). Serwer pokazuje je w aplikacji w panelu „Ustawienia zaawansowane”. Błąd (także 404 od serwera bez tego endpointu) nie kasuje Root ID; ponowienie po 10 min.
 - Adres chmury: `https://chpc-web.onrender.com/api/` (`CLOUD_URL` w `firmware.hpp`, do podmiany flagą `-D PELLET_CLOUD_URL=...`). Certyfikat nie jest sprawdzany, jak w pozostałych sterownikach.
 - **Brak OTA z chmury** dla tego rodzaju. Nowa wersja: strona `/install` albo
 
@@ -142,6 +146,6 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
 
 - Format ramek, `SensorData` (z tabelą wersji ramek na początku) i odpowiedzi ecoNET sprawdzone na kotle 2026-10-03, ale **tylko przy kotle zatrzymanym** (stan 0): stany pracy, moc, wentylator, podajnik i alarmy z `SensorData` czekają na nagranie przy pracy.
 - Odczyt ustawień: nazwy parametrów według PyPlumIO dla ecoMAX P; grupa „nadmuch” ma wartości > 100 przy jednostce `%`; mieszacz 2 nie ma wartości w odpowiedzi; termostaty tylko surowo.
-- Przy kotle słabe Wi-Fi: 2026-10-03 płytka nie łączyła się z siecią (status 6), więc odczyty nie szły do chmury.
+- Wi-Fi przy kotle: do obniżenia mocy nadajnika (2026-10-03) płytka nie łączyła się z siecią; po zmianie łączy się, sygnał za ścianą ok. −74 dBm (słaby, ale wystarcza).
 - Brak OTA z chmury: aktualizacja tylko przez `/install` albo `curl`.
 - Wysyłka HTTP blokuje pętlę na kilka sekund; bufor UART (4 KB) gubi wtedy nadmiar bajtów, parser się resynchronizuje, a do chmury idzie ostatni poprawny odczyt.

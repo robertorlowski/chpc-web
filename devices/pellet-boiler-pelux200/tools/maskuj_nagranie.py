@@ -40,14 +40,32 @@ def mask_network(data: bytearray) -> bytearray:
     return out
 
 
+def read_frame(line: str):
+    """(ms, kierunek, ramka) z linii „RAW <ms> RX|TX <hex>”; None dla linii uciętej (zatrzymanie
+    nagrania, restart płytki) albo ramki z niezgodną długością, BCC lub końcem."""
+    parts = line.split()
+    if len(parts) != 4 or parts[0] != 'RAW':
+        return None
+    try:
+        frame = bytearray.fromhex(parts[3])
+    except ValueError:
+        return None
+    if len(frame) < 10 or len(frame) != (frame[1] | frame[2] << 8) or frame[-1] != 0x16:
+        return None
+    bcc = 0
+    for byte in frame[:-2]:
+        bcc ^= byte
+    return (parts[1], parts[2], frame) if bcc == frame[-2] else None
+
+
 def network_secrets(source: str) -> list:
     """Pary (prawdziwe bajty, zastępcze tej samej długości) z naszych ramek DeviceAvailable."""
     pairs = {}
     for line in open(source, encoding='utf-8'):
-        parts = line.split()
-        if len(parts) != 4 or parts[0] != 'RAW':
+        parsed = read_frame(line)
+        if not parsed:
             continue
-        frame = bytes.fromhex(parts[3])
+        frame = bytes(parsed[2])
         if frame[7] != 0xB0 or frame[4] != ECONET:
             continue
         data = frame[8:-2]
@@ -80,21 +98,24 @@ def mask(frame: bytearray, secrets: list) -> bytearray:
 
 
 def main(source: str, target: str) -> None:
-    kept = masked = 0
+    kept = masked = skipped = 0
     secrets = network_secrets(source)
     with open(source, encoding='utf-8') as lines, open(target, 'w', encoding='utf-8', newline='\n') as out:
         out.write('# Nagranie magistrali ecoMAX kotła Pellux 200 (sterownik pieca jako ecoNET 0x56).\n')
         out.write('# <ms od startu sterownika> <RX|TX> <cała ramka hex>; zamaskowane: tools/maskuj_nagranie.py\n')
         for line in lines:
-            parts = line.split()
-            if len(parts) != 4 or parts[0] != 'RAW':
+            if not line.startswith('RAW'):
                 continue
-            frame = bytearray.fromhex(parts[3])
+            parsed = read_frame(line)
+            if not parsed:
+                skipped += 1
+                continue
+            ms, direction, frame = parsed
             result = mask(frame, secrets)
             masked += result != frame
             kept += 1
-            out.write(f'{parts[1]} {parts[2]} {result.hex()}\n')
-    print(f'{kept} ramek, zamaskowanych {masked}')
+            out.write(f'{ms} {direction} {result.hex()}\n')
+    print(f'{kept} ramek, zamaskowanych {masked}, pominiętych uciętych {skipped}')
 
 
 if __name__ == '__main__':

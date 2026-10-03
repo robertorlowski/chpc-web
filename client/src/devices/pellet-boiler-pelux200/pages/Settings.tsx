@@ -1,5 +1,5 @@
-// Zakładka Ustawienia kotła pelletowego (/settings): interwał odpytywania pieca (PUT /device/properties)
-// oraz dane sterownika.
+// Zakładka Ustawienia kotła pelletowego (/settings): interwał odpytywania pieca (PUT /device/properties),
+// dane sterownika i zwinięty panel „Ustawienia zaawansowane” (parametry regulatora, podgląd).
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
@@ -8,6 +8,7 @@ import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
+import { AdvancedSettings } from '../components/AdvancedSettings';
 import './style.css';
 
 // interwał w minutach w formularzu, w sekundach w ustawieniach (30–3600 s = 0,5–60 min)
@@ -81,6 +82,8 @@ export const PelletBoilerSettings: React.FC = () => {
             <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
           </div>
         </div>
+
+        <AdvancedSettings />
       </section>
 
       {editingDevice && device && (

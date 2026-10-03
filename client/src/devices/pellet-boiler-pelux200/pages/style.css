@@ -114,6 +114,86 @@
   color: #b00020;
 }
 
+/* Ustawienia zaawansowane: zwijany panel z grupami parametrów regulatora */
+.boiler-advanced-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.boiler-advanced-body {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.boiler-group summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.boiler-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.boiler-parameter {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #e4e4e4;
+  overflow-wrap: anywhere;
+}
+
+.boiler-parameter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.boiler-parameter-label {
+  font-weight: 600;
+}
+
+.boiler-parameter-value {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #1481a5;
+}
+
+.boiler-parameter-description {
+  font-size: 0.9rem;
+  margin-top: 0.15rem;
+}
+
+.boiler-parameter-rating {
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+  font-style: italic;
+}
+
+.boiler-rating-safe {
+  color: #2e7d32;
+}
+
+.boiler-rating-careful {
+  color: #b26a00;
+}
+
+.boiler-rating-service {
+  color: #b00020;
+}
+
 @media (max-width: 560px) {
   body .settings.boiler-page > section > .resource,
   body .settings.boiler-page > section > .resource:first-child {

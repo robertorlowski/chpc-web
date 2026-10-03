@@ -12,7 +12,8 @@
 // Kontrakt z chmurą: POST devices/register (rootId, settings.poll_interval_seconds),
 // POST pellet-boiler-pelux200/add (odpowiedź {poll_interval_seconds}). NVS: przestrzeń „pel”.
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
-// (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu).
+// (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
+// wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
 #include <Arduino.h>
 #include <esp_task_wdt.h>
 #include <cstdarg>
@@ -52,8 +53,13 @@ constexpr uint16_t REGISTER_TIMEOUT_MS = 8000;
 constexpr uint32_t STATUS_LOG_MS = 30000;
 // pętla stoi dłużej (najdłuższe zapytanie HTTP to 8 s) = zawieszenie, restart układu
 constexpr uint32_t WATCHDOG_S = 30;
-// tyle bez połączenia z siecią domową = restart (stos Wi-Fi bywa, że nie wraca sam)
-constexpr uint32_t WIFI_RESTART_AFTER_MS = 10UL * 60 * 1000;
+// Brak Wi-Fi: co WIFI_RECONNECT_EVERY_MS ponowne łączenie bez restartu, restart układu dopiero po
+// WIFI_RESTART_AFTER_MS (stos Wi-Fi bywa, że nie wraca sam). Do 2026-10-03 restart był już po 10 min
+// i przerywał pracę na magistrali kotła (11:08:51, w trakcie sterowania ręcznego z panelu).
+constexpr uint32_t WIFI_RECONNECT_EVERY_MS = 2UL * 60 * 1000;
+constexpr uint32_t WIFI_RESTART_AFTER_MS = 30UL * 60 * 1000;
+// przyczyna ostatniego restartu programowego (NVS), pokazywana po starcie
+constexpr const char *KEY_RESTART_REASON = "restart";
 // bufor UART (zapas, gdy zadanie magistrali chwilę nie dostanie procesora)
 constexpr size_t RX_BUFFER_BYTES = 4096;
 constexpr size_t MAX_BYTES_PER_LOOP = 512;
@@ -99,6 +105,8 @@ bool econetAllowed = false;
 // Odczyt ustawień kotła (etap 3): zlecany flagą (start, konsola), wykonywany w busTask.
 BoilerSettingsReader boilerSettings;
 volatile bool boilerSettingsRequested = true;
+// koniec odczytu z parametrami kotła → wysyłka do chmury w tick() (sendSettings)
+volatile bool settingsUploadPending = false;
 
 // Zmiana parametru kotła („set <nr> <wartość>” z konsoli): busTask sprawdza zakres podany przez
 // regulator i stan kotła (tylko zatrzymany, stan 0), wysyła 0x33, po potwierdzeniu czyta
@@ -289,6 +297,13 @@ const char *econetStateText(uint32_t nowMs)
   return "odpowiada";
 }
 
+// Koniec odczytu ustawień (busTask): wpis na konsoli i zlecenie wysyłki do chmury.
+void finishSettingsRead()
+{
+  logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)", static_cast<unsigned long>(boilerSettings.failed()));
+  if (boilerSettings.has(0)) settingsUploadPending = true;
+}
+
 // Odpowiedź z ustawieniami: jedna linia „SETTINGS <nazwa> <ms> <hex>” na konsoli.
 void logSettingsResponse(uint8_t item)
 {
@@ -355,8 +370,7 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
     logf("ustawienia kotła: %s, %u B", BOILER_SETTINGS_REQUESTS[item].name,
       static_cast<unsigned>(boilerSettings.length(item)));
     logSettingsResponse(item);
-    if (!boilerSettings.busy()) logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)",
-      static_cast<unsigned long>(boilerSettings.failed()));
+    if (!boilerSettings.busy()) finishSettingsRead();
     return;
   }
   if (frame.recipient != ECONET_ADDRESS) return;
@@ -468,8 +482,7 @@ void readBus(uint32_t nowMs)
   if (boilerSettings.failed() != settingsFailed) {
     logf("ustawienia kotła: brak odpowiedzi na %s po %u próbach", BOILER_SETTINGS_REQUESTS[settingsItem].name,
       static_cast<unsigned>(BoilerSettingsReader::ATTEMPTS));
-    if (!boilerSettings.busy()) logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)",
-      static_cast<unsigned long>(boilerSettings.failed()));
+    if (!boilerSettings.busy()) finishSettingsRead();
   }
   const bool allowed = polarity.confirmed() && guard.mayTransmit(nowMs);
   if (allowed != econetAllowed) {
@@ -581,6 +594,54 @@ void registerDevice()
     static_cast<unsigned>(pollSeconds));
 }
 
+// Odpowiedź z ustawieniami jako hex (kopia pod stateLock, bo zapisuje ją busTask); woła tylko
+// loop() (strona /boiler-settings.json i wysyłka do chmury), więc bufor może być statyczny.
+bool settingsItemHex(uint8_t item, String &hex, uint32_t &at)
+{
+  static uint8_t copy[BoilerSettingsReader::MAX_DATA];
+  size_t length = 0;
+  portENTER_CRITICAL(&stateLock);
+  const bool has = boilerSettings.has(item);
+  if (has) {
+    length = boilerSettings.length(item);
+    at = boilerSettings.receivedAtMs(item);
+    memcpy(copy, boilerSettings.data(item), length);
+  }
+  portEXIT_CRITICAL(&stateLock);
+  if (!has) return false;
+  hex = "";
+  hex.reserve(length * 2);
+  char pair[3];
+  for (size_t index = 0; index < length; index++) {
+    snprintf(pair, sizeof(pair), "%02x", copy[index]);
+    hex += pair;
+  }
+  return true;
+}
+
+// Ustawienia regulatora do chmury (panel „Ustawienia zaawansowane”) po każdym pełnym odczycie:
+// POST pellet-boiler-pelux200/settings {nazwa: hex}. Błąd (także 404/409 — starszy serwer bez
+// tego endpointu) nie kasuje Root ID, tylko ponawia wysyłkę po SETTINGS_RETRY_MS.
+constexpr uint32_t SETTINGS_RETRY_MS = 10UL * 60 * 1000;
+uint32_t nextSettingsUploadMs = 0;
+
+void sendSettings(uint32_t nowMs)
+{
+  JsonDocument document;
+  for (uint8_t item = 0; item < BOILER_SETTINGS_COUNT; item++) {
+    String hex;
+    uint32_t at = 0;
+    if (settingsItemHex(item, hex, at)) document[BOILER_SETTINGS_REQUESTS[item].name] = hex;
+  }
+  String body;
+  serializeJson(document, body);
+  const bool ok = post(requestUrl("pellet-boiler-pelux200/settings"), body);
+  logf("ustawienia kotła do chmury: %s (HTTP %d, %u B)", ok ? "OK" : "błąd", lastHttpStatus,
+    static_cast<unsigned>(body.length()));
+  if (ok) settingsUploadPending = false;
+  else nextSettingsUploadMs = nowMs + SETTINGS_RETRY_MS;
+}
+
 // Ostatni świeży odczyt do chmury. 404/409: Root ID nieaktualny, zgłoszenie od nowa.
 void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
 {
@@ -615,6 +676,92 @@ const char *accessPointPassword()
   return strlen(AP_PASSWORD) >= 8 ? AP_PASSWORD : nullptr;
 }
 
+// Moc nadajnika Wi-Fi. Płytki ESP32-C3 SuperMini przy pełnej mocy (19,5 dBm) często nie łączą
+// się z siecią (znana wada anteny i zasilania tej płytki); 8,5 dBm to sprawdzone obejście.
+// Ustawiane po każdej zmianie trybu Wi-Fi, bo stos ją wtedy przywraca.
+constexpr wifi_power_t WIFI_TX_POWER = WIFI_POWER_8_5dBm;
+constexpr uint32_t WIFI_SCAN_EVERY_MS = 60000;
+uint32_t lastWifiScanMs = 0;
+// RSSI sieci z ostatniego skanu bez połączenia (0 = nie widać albo nie skanowano)
+int wifiScanRssi = 0;
+volatile uint8_t wifiLastDisconnectReason = 0;
+
+uint32_t lastWifiReconnectMs = 0;
+// przyczyna poprzedniego startu: sprzętowa (esp_reset_reason) i programowa z NVS
+String lastResetText;
+
+void applyTxPower()
+{
+  WiFi.setTxPower(WIFI_TX_POWER);
+}
+
+// Restart programowy z zapisem przyczyny w NVS (widać ją po starcie na konsoli i stronie /).
+void restartWithReason(const char *reason)
+{
+  logf("restart: %s", reason);
+  preferences.putString(KEY_RESTART_REASON, reason);
+  delay(100);
+  ESP.restart();
+}
+
+// Opis przyczyny poprzedniego startu; programowy restart z zapisaną przyczyną ma pierwszeństwo.
+String describeLastReset()
+{
+  const String saved = preferences.getString(KEY_RESTART_REASON, "");
+  preferences.remove(KEY_RESTART_REASON);
+  switch (esp_reset_reason()) {
+  case ESP_RST_POWERON: return "włączenie zasilania";
+  case ESP_RST_SW: return saved.length() ? "restart programowy: " + saved : "restart programowy (wgranie, /install)";
+  case ESP_RST_PANIC: return "błąd programu (panic)";
+  case ESP_RST_INT_WDT:
+  case ESP_RST_TASK_WDT:
+  case ESP_RST_WDT: return "watchdog (zawieszenie)";
+  case ESP_RST_BROWNOUT: return "spadek napięcia zasilania (brownout)";
+  case ESP_RST_DEEPSLEEP: return "wybudzenie";
+  case ESP_RST_EXT: return "przycisk RESET";
+  case ESP_RST_UNKNOWN: return "nieznana (np. reset po wgraniu przez USB)";
+  default: return "inna (" + String(static_cast<int>(esp_reset_reason())) + ")";
+  }
+}
+
+// Zdarzenia Wi-Fi na konsoli: przyczyna rozłączenia (np. 201 = nie widać sieci, 15 = złe hasło
+// / brak uzgodnienia, 2 = wygasło uwierzytelnienie) i adres po połączeniu.
+void onWifiEvent(arduino_event_id_t event, arduino_event_info_t info)
+{
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    const uint8_t reason = info.wifi_sta_disconnected.reason;
+    if (reason != wifiLastDisconnectReason) {
+      wifiLastDisconnectReason = reason;
+      Serial.printf("[%7lu] Wi-Fi: rozłączone, przyczyna %u\n", static_cast<unsigned long>(millis()), reason);
+    }
+  } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+    wifiLastDisconnectReason = 0;
+    Serial.printf("[%7lu] Wi-Fi: połączone, IP %s, RSSI %d dBm\n", static_cast<unsigned long>(millis()),
+      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  }
+}
+
+// Bez połączenia co minutę skan: czy zapisana sieć jest widoczna i z jakim sygnałem.
+void scanForNetwork(uint32_t nowMs)
+{
+  if (wifiSsid.length() == 0 || (lastWifiScanMs != 0 && nowMs - lastWifiScanMs < WIFI_SCAN_EVERY_MS)) return;
+  lastWifiScanMs = nowMs;
+  const int count = WiFi.scanNetworks();
+  int best = 0;
+  int channel = 0;
+  for (int index = 0; index < count; index++) {
+    if (WiFi.SSID(index) == wifiSsid && (best == 0 || WiFi.RSSI(index) > best)) {
+      best = WiFi.RSSI(index);
+      channel = WiFi.channel(index);
+    }
+  }
+  WiFi.scanDelete();
+  wifiScanRssi = best;
+  if (count < 0) logf("Wi-Fi: skan nieudany (%d)", count);
+  else if (best == 0) logf("Wi-Fi: sieci %s nie widać (widocznych sieci: %d)", wifiSsid.c_str(), count);
+  else logf("Wi-Fi: sieć %s widoczna, RSSI %d dBm, kanał %d, nadal bez połączenia", wifiSsid.c_str(), best, channel);
+}
+
 // AP do konfiguracji (domyślnie otwarty): po starcie i po 1 min bez Wi-Fi; wyłączany
 // po 1 min połączenia (strony są wtedy pod adresem IP sterownika w sieci domowej).
 void updateAccessPoint(uint32_t nowMs)
@@ -622,29 +769,41 @@ void updateAccessPoint(uint32_t nowMs)
   const bool connected = WiFi.status() == WL_CONNECTED;
   if (connected) {
     wifiLostSinceMs = 0;
+    wifiScanRssi = 0;
     if (wifiConnectedSinceMs == 0) wifiConnectedSinceMs = nowMs;
   } else {
     wifiConnectedSinceMs = 0;
     if (wifiLostSinceMs == 0) wifiLostSinceMs = nowMs;
+    if (nowMs - wifiLostSinceMs >= 20000) scanForNetwork(nowMs);
   }
   if (accessPointOn && connected && nowMs - wifiConnectedSinceMs >= AP_OFF_AFTER_MS) {
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
+    applyTxPower();
     accessPointOn = false;
     logf("AP %s: wyłączony (strony pod %s)", AP_SSID, WiFi.localIP().toString().c_str());
   } else if (!accessPointOn && !connected && wifiLostSinceMs != 0 && nowMs - wifiLostSinceMs >= AP_ON_AFTER_MS) {
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
     accessPointOn = WiFi.softAP(AP_SSID, accessPointPassword());
+    applyTxPower();
     logf("AP %s: włączony (brak Wi-Fi)", AP_SSID);
   }
-  // Restart po długim braku Wi-Fi, ale nie bez zapisanej sieci i nie w trakcie konfiguracji
-  // przez AP (restart przerwałby telefonowi stronę /install).
-  if (!connected && wifiSsid.length() > 0 && wifiLostSinceMs != 0 && nowMs - wifiLostSinceMs >= WIFI_RESTART_AFTER_MS
-    && WiFi.softAPgetStationNum() == 0) {
-    logf("Wi-Fi: brak połączenia od %lu min, restart", static_cast<unsigned long>(WIFI_RESTART_AFTER_MS / 60000));
-    delay(100);
-    ESP.restart();
+  if (connected || wifiSsid.length() == 0 || wifiLostSinceMs == 0) return;
+  // Najpierw ponowne łączenie bez restartu.
+  const uint32_t lostMs = nowMs - wifiLostSinceMs;
+  if (lostMs >= WIFI_RECONNECT_EVERY_MS && nowMs - lastWifiReconnectMs >= WIFI_RECONNECT_EVERY_MS) {
+    lastWifiReconnectMs = nowMs;
+    logf("Wi-Fi: brak połączenia od %lu s, łączę od nowa", static_cast<unsigned long>(lostMs / 1000));
+    WiFi.disconnect();
+    WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+    applyTxPower();
+  }
+  // Restart dopiero po długim braku Wi-Fi; nie w trakcie konfiguracji przez AP (przerwałby
+  // telefonowi stronę /install) ani w trakcie odczytu lub zmiany ustawień kotła.
+  if (lostMs >= WIFI_RESTART_AFTER_MS && WiFi.softAPgetStationNum() == 0 && !boilerSettings.busy()
+    && !parameterWriter.busy()) {
+    restartWithReason("brak Wi-Fi od 30 min");
   }
 }
 
@@ -719,6 +878,7 @@ void tick(uint32_t nowMs)
   }
   EcomaxSensorData reading;
   if (static_cast<int32_t>(nowMs - nextPostMs) >= 0 && freshReading(reading)) sendReading(nowMs, reading);
+  if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
 }
 
 // --- strony WWW ---
@@ -770,10 +930,13 @@ bus.innerHTML='Bajty: <b>'+s.bytes+'</b>, ramki: <b>'+s.frames+'</b> (SensorData
 +'<br>Ustawienia kotła: <b>'+s.settingsRead+'/5</b>'+(s.settingsBusy?' (odczyt trwa)':'')
 +' <a href="/boiler-settings.json" download>pobierz</a>'
 +'<br><small>Odbiór GPIO21, nadawanie GPIO20, 115200 bodów</small>';
-net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">brak</b>')
+net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">brak</b>'
++(s.scanRssi?' <small>(sieć widoczna, '+s.scanRssi+' dBm)</small>':'')
++(s.disconnectReason?' <small>przyczyna '+s.disconnectReason+'</small>':''))
 +'<br>Chmura: '+(s.registered?'<b class="on">zgłoszony</b>':'<b class="bad">niezgłoszony</b>')
 +(s.lastPostS!==null?', ostatnia wysyłka '+s.lastPostS+' s temu':'')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
-+'<br><small>Wysyłka co '+s.pollSeconds+' s, gdy odczyt jest świeży</small>'})}
++'<br><small>Wysyłka co '+s.pollSeconds+' s, gdy odczyt jest świeży</small>'
++'<br><small>Działa od '+Math.floor(s.uptimeS/60)+' min; poprzedni start: '+s.lastReset+'</small>'})}
 load();setInterval(load,2000);
 </script></body></html>)html";
 
@@ -824,12 +987,17 @@ void handleState()
   if (WiFi.status() == WL_CONNECTED) {
     state["ip"] = WiFi.localIP().toString();
     state["rssi"] = WiFi.RSSI();
+  } else {
+    if (wifiScanRssi != 0) state["scanRssi"] = wifiScanRssi;
+    if (wifiLastDisconnectReason != 0) state["disconnectReason"] = wifiLastDisconnectReason;
   }
   state["registered"] = registeredThisBoot;
   if (lastPostOkMs) state["lastPostS"] = (now - lastPostOkMs) / 1000;
   else state["lastPostS"] = nullptr;
   state["lastStatus"] = lastPostStatus ? lastPostStatus : lastHttpStatus;
   state["pollSeconds"] = pollSeconds;
+  state["lastReset"] = lastResetText;
+  state["uptimeS"] = now / 1000;
   String body;
   serializeJson(state, body);
   server.sendHeader("Cache-Control", "no-store");
@@ -840,29 +1008,13 @@ void handleState()
 // nagłówka) — kopia na wypadek awarii; dekodowanie opisuje docs/kociol-ustawienia.md.
 void handleBoilerSettings()
 {
-  static uint8_t copy[BoilerSettingsReader::MAX_DATA];
   JsonDocument document;
   document["firmware"] = FW_VERSION;
   document["busy"] = boilerSettings.busy();
   for (uint8_t item = 0; item < BOILER_SETTINGS_COUNT; item++) {
-    size_t length = 0;
-    uint32_t at = 0;
-    portENTER_CRITICAL(&stateLock);
-    const bool has = boilerSettings.has(item);
-    if (has) {
-      length = boilerSettings.length(item);
-      at = boilerSettings.receivedAtMs(item);
-      memcpy(copy, boilerSettings.data(item), length);
-    }
-    portEXIT_CRITICAL(&stateLock);
-    if (!has) continue;
     String hex;
-    hex.reserve(length * 2);
-    char pair[3];
-    for (size_t index = 0; index < length; index++) {
-      snprintf(pair, sizeof(pair), "%02x", copy[index]);
-      hex += pair;
-    }
+    uint32_t at = 0;
+    if (!settingsItemHex(item, hex, at)) continue;
     JsonObject entry = document[BOILER_SETTINGS_REQUESTS[item].name].to<JsonObject>();
     entry["type"] = BOILER_SETTINGS_REQUESTS[item].type | 0x80;
     entry["ageS"] = (millis() - at) / 1000;
@@ -898,7 +1050,10 @@ void handleInstall()
       }
     }
     WiFi.disconnect();
-    if (wifiSsid.length() > 0) WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+    if (wifiSsid.length() > 0) {
+      WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+      applyTxPower();
+    }
     server.sendHeader("Location", "/install", true);
     server.send(303, "text/plain", "");
     return;
@@ -954,20 +1109,24 @@ void handleFirmwareDone()
     uploadFinished ? "Firmware wgrany, sterownik się restartuje." : "Nie wgrano: plik jest niepoprawny.");
   if (uploadFinished) {
     delay(500);
-    ESP.restart();
+    restartWithReason("wgranie firmware przez /install");
   }
 }
 
 // AP do konfiguracji (10.11.18.1) razem z siecią domową (AP+STA) i strony WWW.
 void startNetwork()
 {
+  WiFi.onEvent(onWifiEvent);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
   accessPointOn = WiFi.softAP(AP_SSID, accessPointPassword());
-  logf("AP %s: %s (10.11.18.1)", AP_SSID, accessPointOn ? "uruchomiony" : "NIE uruchomiony");
+  applyTxPower();
+  logf("AP %s: %s (10.11.18.1), moc nadajnika %.1f dBm", AP_SSID, accessPointOn ? "uruchomiony" : "NIE uruchomiony",
+    WiFi.getTxPower() / 4.0);
   if (wifiSsid.length() > 0) {
     logf("Wi-Fi: łączę z %s", wifiSsid.c_str());
     WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+    applyTxPower();
   } else {
     logf("Wi-Fi: brak zapisanej sieci (ustaw na /install przez AP)");
   }
@@ -989,8 +1148,10 @@ void setup()
   preferences.begin(PREFERENCES_NAMESPACE, false);
   loadConfig();
   serial = readSerial();
+  lastResetText = describeLastReset();
   logf("start: firmware %s, SN %s, rootId %s, chmura %s", FW_VERSION, serial.c_str(),
     rootId.length() > 0 ? rootId.c_str() : "brak", CLOUD_URL);
+  logf("start: przyczyna — %s", lastResetText.c_str());
   // watchdog pętli i zadania magistrali: brak esp_task_wdt_reset() przez WATCHDOG_S = restart
   esp_task_wdt_init(WATCHDOG_S, true);
   esp_task_wdt_add(nullptr);

@@ -1,0 +1,2289 @@
+{
+ "opis": "Kopia ustawień regulatora kotła Pellux 200 Touch (ecoMAX 860P2) odczytana przez sterownik pieca jako ecoNET. Punkt odniesienia do przywrócenia po awarii. Nazwy parametrów według PyPlumIO (ecoMAX P), opisy po polsku orientacyjne; raw = [wartość, min, max] z ramki. Narzędzie: devices/pellet-boiler-pelux200/tools/dekoduj_ustawienia.py.",
+ "odczyt": "",
+ "ecomax_parameters": [
+  {
+   "index": 0,
+   "name": "airflow_power_100",
+   "raw": [
+    235,
+    171,
+    255
+   ],
+   "value": 235.0,
+   "min": 171.0,
+   "max": 255.0,
+   "unit": "%",
+   "opis": "Nadmuch przy mocy 100%",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 1,
+   "name": "airflow_power_50",
+   "raw": [
+    170,
+    101,
+    234
+   ],
+   "value": 170.0,
+   "min": 101.0,
+   "max": 234.0,
+   "unit": "%",
+   "opis": "Nadmuch przy mocy 50%",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 2,
+   "name": "airflow_power_30",
+   "raw": [
+    100,
+    10,
+    169
+   ],
+   "value": 100.0,
+   "min": 10.0,
+   "max": 169.0,
+   "unit": "%",
+   "opis": "Nadmuch przy mocy 30%",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 14,
+   "name": "cycle_duration",
+   "raw": [
+    20,
+    1,
+    250
+   ],
+   "value": 20.0,
+   "min": 1.0,
+   "max": 250.0,
+   "unit": "s",
+   "opis": "Czas cyklu (podawanie + przerwa)"
+  },
+  {
+   "index": 15,
+   "name": "h2_hysteresis",
+   "raw": [
+    5,
+    1,
+    30
+   ],
+   "value": 5.0,
+   "min": 1.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Histereza H2 (zmniejszenie mocy do 50%)"
+  },
+  {
+   "index": 16,
+   "name": "h1_hysteresis",
+   "raw": [
+    4,
+    1,
+    30
+   ],
+   "value": 4.0,
+   "min": 1.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Histereza H1 (zmniejszenie mocy do 30%)"
+  },
+  {
+   "index": 17,
+   "name": "heating_hysteresis",
+   "raw": [
+    30,
+    1,
+    30
+   ],
+   "value": 30.0,
+   "min": 1.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Histereza kotła",
+   "zgodne_z_panelem": true
+  },
+  {
+   "index": 18,
+   "name": "fuzzy_logic",
+   "raw": [
+    1,
+    0,
+    2
+   ],
+   "value": 1,
+   "min": 0,
+   "max": 2,
+   "unit": null,
+   "opis": "Tryb regulacji (1 = Fuzzy Logic)"
+  },
+  {
+   "index": 23,
+   "name": "min_fan_power",
+   "raw": [
+    9,
+    9,
+    70
+   ],
+   "value": 9.0,
+   "min": 9.0,
+   "max": 70.0,
+   "unit": "%",
+   "opis": "Minimalna moc nadmuchu"
+  },
+  {
+   "index": 24,
+   "name": "max_fan_power",
+   "raw": [
+    100,
+    30,
+    100
+   ],
+   "value": 100.0,
+   "min": 30.0,
+   "max": 100.0,
+   "unit": "%",
+   "opis": "Maksymalna moc nadmuchu"
+  },
+  {
+   "index": 41,
+   "name": "kindling_airflow_power",
+   "raw": [
+    60,
+    10,
+    255
+   ],
+   "value": 60.0,
+   "min": 10.0,
+   "max": 255.0,
+   "unit": "%",
+   "opis": "Rozpalanie: nadmuch",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 44,
+   "name": "kindling_test_time",
+   "raw": [
+    60,
+    10,
+    240
+   ],
+   "value": 60.0,
+   "min": 10.0,
+   "max": 240.0,
+   "unit": "s",
+   "opis": "Rozpalanie: czas testu"
+  },
+  {
+   "index": 47,
+   "name": "kindling_time",
+   "raw": [
+    7,
+    1,
+    20
+   ],
+   "value": 7.0,
+   "min": 1.0,
+   "max": 20.0,
+   "unit": "min",
+   "opis": "Rozpalanie: czas rozpalania"
+  },
+  {
+   "index": 48,
+   "name": "warming_up_time",
+   "raw": [
+    30,
+    1,
+    250
+   ],
+   "value": 30.0,
+   "min": 1.0,
+   "max": 250.0,
+   "unit": "min",
+   "opis": "Rozpalanie: czas nagrzewania"
+  },
+  {
+   "index": 50,
+   "name": "kindling_finish_threshold_temp",
+   "raw": [
+    10,
+    1,
+    100
+   ],
+   "value": 10.0,
+   "min": 1.0,
+   "max": 100.0,
+   "unit": "°C",
+   "opis": "Rozpalanie: przyrost temperatury spalin / próg zakończenia"
+  },
+  {
+   "index": 53,
+   "name": "kindling_min_power_time",
+   "raw": [
+    3,
+    0,
+    100
+   ],
+   "value": 3.0,
+   "min": 0.0,
+   "max": 100.0,
+   "unit": "min",
+   "opis": "Rozpalanie: czas pracy na mocy minimalnej"
+  },
+  {
+   "index": 55,
+   "name": "stabilization_airflow_power",
+   "raw": [
+    115,
+    10,
+    255
+   ],
+   "value": 115.0,
+   "min": 10.0,
+   "max": 255.0,
+   "unit": "%",
+   "opis": "Stabilizacja: nadmuch",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 56,
+   "name": "supervision_time",
+   "raw": [
+    0,
+    0,
+    60
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 60.0,
+   "unit": null,
+   "opis": "Nadzór: czas nadzoru (0 = wyłączony)"
+  },
+  {
+   "index": 60,
+   "name": "supervision_cycle_duration",
+   "raw": [
+    20,
+    1,
+    250
+   ],
+   "value": 20.0,
+   "min": 1.0,
+   "max": 250.0,
+   "unit": "s",
+   "opis": "Nadzór: czas cyklu"
+  },
+  {
+   "index": 61,
+   "name": "supervision_airflow_power",
+   "raw": [
+    60,
+    10,
+    255
+   ],
+   "value": 60.0,
+   "min": 10.0,
+   "max": 255.0,
+   "unit": "%",
+   "opis": "Nadzór: nadmuch",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 65,
+   "name": "burning_off_max_time",
+   "raw": [
+    15,
+    5,
+    60
+   ],
+   "value": 15.0,
+   "min": 5.0,
+   "max": 60.0,
+   "unit": "min",
+   "opis": "Wygaszanie: czas maksymalny"
+  },
+  {
+   "index": 66,
+   "name": "burning_off_min_time",
+   "raw": [
+    5,
+    1,
+    15
+   ],
+   "value": 5.0,
+   "min": 1.0,
+   "max": 15.0,
+   "unit": "min",
+   "opis": "Wygaszanie: czas minimalny"
+  },
+  {
+   "index": 68,
+   "name": "burning_off_airflow_power",
+   "raw": [
+    150,
+    10,
+    255
+   ],
+   "value": 150.0,
+   "min": 10.0,
+   "max": 255.0,
+   "unit": "%",
+   "opis": "Wygaszanie: nadmuch",
+   "uwaga": "jednostka niepewna (wartości > 100 przy %)"
+  },
+  {
+   "index": 69,
+   "name": "burning_off_fan_work",
+   "raw": [
+    40,
+    1,
+    100
+   ],
+   "value": 40.0,
+   "min": 1.0,
+   "max": 100.0,
+   "unit": null,
+   "opis": "Wygaszanie: praca nadmuchu"
+  },
+  {
+   "index": 70,
+   "name": "burning_off_fan_pause",
+   "raw": [
+    0,
+    0,
+    250
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 250.0,
+   "unit": null,
+   "opis": "Wygaszanie: przerwa nadmuchu"
+  },
+  {
+   "index": 71,
+   "name": "start_burning_off",
+   "raw": [
+    10,
+    1,
+    100
+   ],
+   "value": 10.0,
+   "min": 1.0,
+   "max": 100.0,
+   "unit": "%",
+   "opis": "Wygaszanie: start"
+  },
+  {
+   "index": 72,
+   "name": "stop_burning_off",
+   "raw": [
+    5,
+    1,
+    100
+   ],
+   "value": 5.0,
+   "min": 1.0,
+   "max": 100.0,
+   "unit": "%",
+   "opis": "Wygaszanie: stop"
+  },
+  {
+   "index": 73,
+   "name": "cleaning_begin_time",
+   "raw": [
+    15,
+    10,
+    250
+   ],
+   "value": 15.0,
+   "min": 10.0,
+   "max": 250.0,
+   "unit": null,
+   "opis": "Czyszczenie: czas na początku"
+  },
+  {
+   "index": 75,
+   "name": "cleaning_airflow_power",
+   "raw": [
+    0,
+    0,
+    1
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 1.0,
+   "unit": "%",
+   "opis": "Czyszczenie: nadmuch"
+  },
+  {
+   "index": 76,
+   "name": "warming_up_pause_time",
+   "raw": [
+    4,
+    1,
+    24
+   ],
+   "value": 4.0,
+   "min": 1.0,
+   "max": 24.0,
+   "unit": null,
+   "opis": "Nagrzewanie: przerwa"
+  },
+  {
+   "index": 85,
+   "name": "max_fuel_flow",
+   "raw": [
+    48,
+    1,
+    250
+   ],
+   "value": 9.6,
+   "min": 0.2,
+   "max": 50.0,
+   "unit": "kg/h",
+   "opis": "Maksymalna wydajność podajnika"
+  },
+  {
+   "index": 87,
+   "name": "fuel_tank_capacity",
+   "raw": [
+    2,
+    1,
+    100
+   ],
+   "value": 100.0,
+   "min": 50.0,
+   "max": 5000.0,
+   "unit": "kg",
+   "opis": "Pojemność zasobnika paliwa"
+  },
+  {
+   "index": 88,
+   "name": "fuel_calorific_value",
+   "raw": [
+    52,
+    1,
+    250
+   ],
+   "value": 5.2,
+   "min": 0.1,
+   "max": 25.0,
+   "unit": "kWh/kg",
+   "opis": "Kaloryczność paliwa"
+  },
+  {
+   "index": 89,
+   "name": "fuel_detection_time",
+   "raw": [
+    1,
+    0,
+    5
+   ],
+   "value": 1.0,
+   "min": 0.0,
+   "max": 5.0,
+   "unit": "min",
+   "opis": "Czas detekcji paliwa"
+  },
+  {
+   "index": 98,
+   "name": "heating_target_temp",
+   "raw": [
+    30,
+    30,
+    80
+   ],
+   "value": 30.0,
+   "min": 30.0,
+   "max": 80.0,
+   "unit": "°C",
+   "opis": "Temperatura zadana kotła",
+   "zgodne_z_panelem": true
+  },
+  {
+   "index": 99,
+   "name": "min_heating_target_temp",
+   "raw": [
+    30,
+    30,
+    80
+   ],
+   "value": 30.0,
+   "min": 30.0,
+   "max": 80.0,
+   "unit": "°C",
+   "opis": "Minimalna temperatura kotła"
+  },
+  {
+   "index": 100,
+   "name": "max_heating_target_temp",
+   "raw": [
+    80,
+    30,
+    90
+   ],
+   "value": 80.0,
+   "min": 30.0,
+   "max": 90.0,
+   "unit": "°C",
+   "opis": "Maksymalna temperatura kotła"
+  },
+  {
+   "index": 101,
+   "name": "heating_pump_enable_temp",
+   "raw": [
+    30,
+    30,
+    80
+   ],
+   "value": 30.0,
+   "min": 30.0,
+   "max": 80.0,
+   "unit": "°C",
+   "opis": "Temperatura załączenia pompy CO",
+   "zgodne_z_panelem": true
+  },
+  {
+   "index": 102,
+   "name": "pause_heating_for_water_heater",
+   "raw": [
+    0,
+    0,
+    99
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 99.0,
+   "unit": "min",
+   "opis": "Postój pompy CO przy ładowaniu CWU"
+  },
+  {
+   "index": 105,
+   "name": "increase_heating_temp_for_water_heater",
+   "raw": [
+    5,
+    2,
+    15
+   ],
+   "value": 5.0,
+   "min": 2.0,
+   "max": 15.0,
+   "unit": "°C",
+   "opis": "Podwyższenie temperatury kotła od CWU"
+  },
+  {
+   "index": 106,
+   "name": "weather_control",
+   "raw": [
+    0,
+    0,
+    1
+   ],
+   "value": 0,
+   "min": 0,
+   "max": 1,
+   "unit": null,
+   "opis": "Sterowanie pogodowe kotła"
+  },
+  {
+   "index": 107,
+   "name": "heating_curve",
+   "raw": [
+    7,
+    1,
+    40
+   ],
+   "value": 0.7,
+   "min": 0.1,
+   "max": 4.0,
+   "unit": null,
+   "opis": "Krzywa grzewcza kotła"
+  },
+  {
+   "index": 108,
+   "name": "heating_curve_shift",
+   "raw": [
+    20,
+    0,
+    40
+   ],
+   "value": 0.0,
+   "min": -20.0,
+   "max": 20.0,
+   "unit": "°C",
+   "opis": "Przesunięcie krzywej grzewczej kotła"
+  },
+  {
+   "index": 109,
+   "name": "weather_factor",
+   "raw": [
+    1,
+    0,
+    100
+   ],
+   "value": 1.0,
+   "min": 0.0,
+   "max": 100.0,
+   "unit": null,
+   "opis": "Współczynnik temperatury pokojowej"
+  },
+  {
+   "index": 111,
+   "name": "thermostat_mode",
+   "raw": [
+    0,
+    0,
+    2
+   ],
+   "value": 0,
+   "min": 0,
+   "max": 2,
+   "unit": null,
+   "opis": "Wybór termostatu (0 wył., 1 uniwersalny, 2 ecoSTER)"
+  },
+  {
+   "index": 112,
+   "name": "thermostat_decrease_target_temp",
+   "raw": [
+    0,
+    0,
+    30
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Termostat pokojowy kotła (obniżenie zadanej)"
+  },
+  {
+   "index": 113,
+   "name": "disable_pump_on_thermostat",
+   "raw": [
+    0,
+    0,
+    1
+   ],
+   "value": 0,
+   "min": 0,
+   "max": 1,
+   "unit": null,
+   "opis": "Wyłączenie pomp od termostatu"
+  },
+  {
+   "index": 114,
+   "name": "boiler_alert_temp",
+   "raw": [
+    88,
+    85,
+    95
+   ],
+   "value": 88.0,
+   "min": 85.0,
+   "max": 95.0,
+   "unit": "°C",
+   "opis": "Temperatura alarmowa kotła (STB)"
+  },
+  {
+   "index": 116,
+   "name": "external_boiler_temp",
+   "raw": [
+    0,
+    0,
+    75
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 75.0,
+   "unit": "°C",
+   "opis": "Temperatura zewnętrzna wyłączenia kotła / parametr zewn."
+  },
+  {
+   "index": 119,
+   "name": "water_heater_target_temp",
+   "raw": [
+    40,
+    20,
+    70
+   ],
+   "value": 40.0,
+   "min": 20.0,
+   "max": 70.0,
+   "unit": "°C",
+   "opis": "Temperatura zadana CWU",
+   "zgodne_z_panelem": true
+  },
+  {
+   "index": 120,
+   "name": "min_water_heater_target_temp",
+   "raw": [
+    20,
+    20,
+    55
+   ],
+   "value": 20.0,
+   "min": 20.0,
+   "max": 55.0,
+   "unit": "°C",
+   "opis": "Minimalna temperatura CWU"
+  },
+  {
+   "index": 121,
+   "name": "max_water_heater_target_temp",
+   "raw": [
+    70,
+    25,
+    80
+   ],
+   "value": 70.0,
+   "min": 25.0,
+   "max": 80.0,
+   "unit": "°C",
+   "opis": "Maksymalna temperatura CWU"
+  },
+  {
+   "index": 122,
+   "name": "water_heater_work_mode",
+   "raw": [
+    1,
+    0,
+    2
+   ],
+   "value": 1.0,
+   "min": 0.0,
+   "max": 2.0,
+   "unit": null,
+   "opis": "Tryb pracy pompy CWU (0 wył., 1 priorytet, 2 bez priorytetu)"
+  },
+  {
+   "index": 123,
+   "name": "water_heater_hysteresis",
+   "raw": [
+    5,
+    1,
+    30
+   ],
+   "value": 5.0,
+   "min": 1.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Histereza zasobnika CWU",
+   "zgodne_z_panelem": true
+  },
+  {
+   "index": 124,
+   "name": "water_heater_disinfection",
+   "raw": [
+    0,
+    0,
+    1
+   ],
+   "value": 0,
+   "min": 0,
+   "max": 1,
+   "unit": null,
+   "opis": "Dezynfekcja CWU"
+  },
+  {
+   "index": 125,
+   "name": "summer_mode",
+   "raw": [
+    0,
+    0,
+    2
+   ],
+   "value": 0.0,
+   "min": 0.0,
+   "max": 2.0,
+   "unit": null,
+   "opis": "Tryb LATO (0 wył., 1 wł., 2 auto)"
+  },
+  {
+   "index": 126,
+   "name": "summer_mode_enable_temp",
+   "raw": [
+    15,
+    5,
+    30
+   ],
+   "value": 15.0,
+   "min": 5.0,
+   "max": 30.0,
+   "unit": "°C",
+   "opis": "Temperatura załączenia trybu LATO"
+  },
+  {
+   "index": 127,
+   "name": "summer_mode_disable_temp",
+   "raw": [
+    10,
+    1,
+    14
+   ],
+   "value": 10.0,
+   "min": 1.0,
+   "max": 14.0,
+   "unit": "°C",
+   "opis": "Temperatura wyłączenia trybu LATO"
+  },
+  {
+   "index": 128,
+   "name": "water_heater_work_extension",
+   "raw": [
+    3,
+    0,
+    99
+   ],
+   "value": 3.0,
+   "min": 0.0,
+   "max": 99.0,
+   "unit": "min",
+   "opis": "Wydłużenie pracy pompy CWU"
+  },
+  {
+   "index": 139,
+   "name": null,
+   "raw": [
+    50,
+    0,
+    100
+   ]
+  }
+ ],
+ "mixers": [
+  {
+   "mixer": 1,
+   "parameters": [
+    {
+     "index": 0,
+     "name": "mixer_target_temp",
+     "raw": [
+      35,
+      30,
+      40
+     ],
+     "value": 35.0,
+     "min": 30.0,
+     "max": 40.0,
+     "unit": "°C",
+     "opis": "Temperatura zadana mieszacza"
+    },
+    {
+     "index": 1,
+     "name": "min_target_temp",
+     "raw": [
+      30,
+      20,
+      90
+     ],
+     "value": 30.0,
+     "min": 20.0,
+     "max": 90.0,
+     "unit": "°C",
+     "opis": "Minimalna temperatura mieszacza"
+    },
+    {
+     "index": 2,
+     "name": "max_target_temp",
+     "raw": [
+      40,
+      20,
+      90
+     ],
+     "value": 40.0,
+     "min": 20.0,
+     "max": 90.0,
+     "unit": "°C",
+     "opis": "Maksymalna temperatura mieszacza"
+    },
+    {
+     "index": 3,
+     "name": "thermostat_decrease_target_temp",
+     "raw": [
+      0,
+      0,
+      30
+     ],
+     "value": 0.0,
+     "min": 0.0,
+     "max": 30.0,
+     "unit": "°C",
+     "opis": "Obniżenie zadanej mieszacza od termostatu"
+    },
+    {
+     "index": 4,
+     "name": "weather_control",
+     "raw": [
+      0,
+      0,
+      1
+     ],
+     "value": 0,
+     "min": 0,
+     "max": 1,
+     "unit": null,
+     "opis": "Sterowanie pogodowe mieszacza"
+    },
+    {
+     "index": 5,
+     "name": "heating_curve",
+     "raw": [
+      7,
+      1,
+      40
+     ],
+     "value": 0.7,
+     "min": 0.1,
+     "max": 4.0,
+     "unit": null,
+     "opis": "Krzywa grzewcza mieszacza"
+    },
+    {
+     "index": 6,
+     "name": "heating_curve_shift",
+     "raw": [
+      20,
+      0,
+      40
+     ],
+     "value": 0.0,
+     "min": -20.0,
+     "max": 20.0,
+     "unit": "°C",
+     "opis": "Przesunięcie krzywej grzewczej mieszacza"
+    },
+    {
+     "index": 7,
+     "name": "weather_factor",
+     "raw": [
+      10,
+      0,
+      100
+     ],
+     "value": 10.0,
+     "min": 0.0,
+     "max": 100.0,
+     "unit": null,
+     "opis": "Współczynnik temperatury pokojowej mieszacza"
+    },
+    {
+     "index": 8,
+     "name": "work_mode",
+     "raw": [
+      1,
+      0,
+      3
+     ],
+     "value": 1.0,
+     "min": 0.0,
+     "max": 3.0,
+     "unit": null,
+     "opis": "Obsługa mieszacza (0 wył., 1 CO, 2 podłogowe, 3 tylko pompa)"
+    },
+    {
+     "index": 9,
+     "name": "mixer_input_dead_zone",
+     "raw": [
+      20,
+      0,
+      40
+     ],
+     "value": 2.0,
+     "min": 0.0,
+     "max": 4.0,
+     "unit": "°C",
+     "opis": "Strefa nieczułości mieszacza"
+    },
+    {
+     "index": 11,
+     "name": "thermostat_mode",
+     "raw": [
+      0,
+      0,
+      2
+     ],
+     "value": 0.0,
+     "min": 0.0,
+     "max": 2.0,
+     "unit": null,
+     "opis": "Wybór termostatu mieszacza (0 wył.)"
+    },
+    {
+     "index": 12,
+     "name": "disable_pump_on_thermostat",
+     "raw": [
+      0,
+      0,
+      1
+     ],
+     "value": 0,
+     "min": 0,
+     "max": 1,
+     "unit": null,
+     "opis": "Wyłączenie pompy mieszacza od termostatu"
+    }
+   ]
+  }
+ ],
+ "schedules": {
+  "list": [
+   {
+    "name": "heating",
+    "days": {
+     "niedziela": "111111111111111111111111111111111111111111111111",
+     "poniedziałek": "111111111111111111111111111111111111111111111111",
+     "wtorek": "111111111111111111111111111111111111111111111111",
+     "środa": "111111111111111111111111111111111111111111111111",
+     "czwartek": "111111111111111111111111111111111111111111111111",
+     "piątek": "111111111111111111111111111111111111111111111111",
+     "sobota": "111111111111111111111111111111111111111111111111"
+    }
+   },
+   {
+    "name": "water_heater",
+    "days": {
+     "niedziela": "111111111111111111111111111111111111111111111111",
+     "poniedziałek": "111111111111111111111111111111111111111111111111",
+     "wtorek": "111111111111111111111111111111111111111111111111",
+     "środa": "111111111111111111111111111111111111111111111111",
+     "czwartek": "111111111111111111111111111111111111111111111111",
+     "piątek": "111111111111111111111111111111111111111111111111",
+     "sobota": "111111111111111111111111111111111111111111111111"
+    }
+   },
+   {
+    "name": "boiler_clean",
+    "days": {
+     "niedziela": "000000000000001111111111111111111111111111100000",
+     "poniedziałek": "000000000000001111111111111111111111111111100000",
+     "wtorek": "000000000000001111111111111111111111111111100000",
+     "środa": "000000000000001111111111111111111111111111100000",
+     "czwartek": "000000000000001111111111111111111111111111100000",
+     "piątek": "000000000000001111111111111111111111111111100000",
+     "sobota": "000000000000001111111111111111111111111111100000"
+    }
+   },
+   {
+    "name": "mixer_1",
+    "days": {
+     "niedziela": "111111111111111111111111111111111111111111111111",
+     "poniedziałek": "111111111111111111111111111111111111111111111111",
+     "wtorek": "111111111111111111111111111111111111111111111111",
+     "środa": "111111111111111111111111111111111111111111111111",
+     "czwartek": "111111111111111111111111111111111111111111111111",
+     "piątek": "111111111111111111111111111111111111111111111111",
+     "sobota": "111111111111111111111111111111111111111111111111"
+    }
+   },
+   {
+    "name": "mixer_2",
+    "days": {
+     "niedziela": "111111111111111111111111111111111111111111111111",
+     "poniedziałek": "111111111111111111111111111111111111111111111111",
+     "wtorek": "111111111111111111111111111111111111111111111111",
+     "środa": "111111111111111111111111111111111111111111111111",
+     "czwartek": "111111111111111111111111111111111111111111111111",
+     "piątek": "111111111111111111111111111111111111111111111111",
+     "sobota": "111111111111111111111111111111111111111111111111"
+    }
+   }
+  ],
+  "parameters": [
+   {
+    "index": 0,
+    "raw": [
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "index": 1,
+    "raw": [
+     0,
+     0,
+     20
+    ]
+   },
+   {
+    "index": 2,
+    "raw": [
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "index": 3,
+    "raw": [
+     0,
+     0,
+     20
+    ]
+   },
+   {
+    "index": 8,
+    "raw": [
+     1,
+     0,
+     1
+    ]
+   },
+   {
+    "index": 9,
+    "raw": [
+     0,
+     0,
+     20
+    ]
+   },
+   {
+    "index": 12,
+    "raw": [
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "index": 13,
+    "raw": [
+     0,
+     0,
+     20
+    ]
+   },
+   {
+    "index": 14,
+    "raw": [
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "index": 15,
+    "raw": [
+     0,
+     0,
+     20
+    ]
+   }
+  ]
+ },
+ "thermostat_parameters": {
+  "start": 0,
+  "count": 37,
+  "bytes": 159,
+  "note": "nierozkodowane: podział wymaga liczby termostatów z SensorData; surowe dane w raw_hex"
+ },
+ "regulator_data_schema": [
+  [
+   1792,
+   "UnsignedChar"
+  ],
+  [
+   1538,
+   "BitArray"
+  ],
+  [
+   1536,
+   "BitArray"
+  ],
+  [
+   8,
+   "BitArray"
+  ],
+  [
+   1,
+   "BitArray"
+  ],
+  [
+   1545,
+   "BitArray"
+  ],
+  [
+   1546,
+   "BitArray"
+  ],
+  [
+   1544,
+   "BitArray"
+  ],
+  [
+   1547,
+   "BitArray"
+  ],
+  [
+   1548,
+   "BitArray"
+  ],
+  [
+   1549,
+   "BitArray"
+  ],
+  [
+   1541,
+   "BitArray"
+  ],
+  [
+   1542,
+   "BitArray"
+  ],
+  [
+   5,
+   "BitArray"
+  ],
+  [
+   2,
+   "BitArray"
+  ],
+  [
+   3,
+   "BitArray"
+  ],
+  [
+   1537,
+   "BitArray"
+  ],
+  [
+   1550,
+   "BitArray"
+  ],
+  [
+   1551,
+   "BitArray"
+  ],
+  [
+   1552,
+   "BitArray"
+  ],
+  [
+   1540,
+   "BitArray"
+  ],
+  [
+   1543,
+   "BitArray"
+  ],
+  [
+   9,
+   "BitArray"
+  ],
+  [
+   6,
+   "BitArray"
+  ],
+  [
+   10,
+   "BitArray"
+  ],
+  [
+   1553,
+   "BitArray"
+  ],
+  [
+   1554,
+   "BitArray"
+  ],
+  [
+   1555,
+   "BitArray"
+  ],
+  [
+   1556,
+   "BitArray"
+  ],
+  [
+   1557,
+   "BitArray"
+  ],
+  [
+   1558,
+   "BitArray"
+  ],
+  [
+   7,
+   "BitArray"
+  ],
+  [
+   11,
+   "BitArray"
+  ],
+  [
+   12,
+   "UnsignedShort"
+  ],
+  [
+   20,
+   "UnsignedShort"
+  ],
+  [
+   19,
+   "UnsignedShort"
+  ],
+  [
+   16,
+   "UnsignedShort"
+  ],
+  [
+   17,
+   "UnsignedShort"
+  ],
+  [
+   30,
+   "UnsignedShort"
+  ],
+  [
+   14,
+   "UnsignedShort"
+  ],
+  [
+   31,
+   "UnsignedShort"
+  ],
+  [
+   18,
+   "UnsignedShort"
+  ],
+  [
+   21,
+   "UnsignedShort"
+  ],
+  [
+   26,
+   "UnsignedShort"
+  ],
+  [
+   22,
+   "UnsignedShort"
+  ],
+  [
+   33,
+   "UnsignedShort"
+  ],
+  [
+   32,
+   "UnsignedShort"
+  ],
+  [
+   29,
+   "UnsignedShort"
+  ],
+  [
+   24,
+   "UnsignedShort"
+  ],
+  [
+   36,
+   "UnsignedShort"
+  ],
+  [
+   37,
+   "UnsignedShort"
+  ],
+  [
+   38,
+   "UnsignedShort"
+  ],
+  [
+   39,
+   "UnsignedShort"
+  ],
+  [
+   40,
+   "UnsignedShort"
+  ],
+  [
+   41,
+   "UnsignedShort"
+  ],
+  [
+   1025,
+   "Float"
+  ],
+  [
+   1031,
+   "Float"
+  ],
+  [
+   1032,
+   "Float"
+  ],
+  [
+   1027,
+   "Float"
+  ],
+  [
+   1030,
+   "Float"
+  ],
+  [
+   54,
+   "Float"
+  ],
+  [
+   1024,
+   "Float"
+  ],
+  [
+   55,
+   "Float"
+  ],
+  [
+   1028,
+   "Float"
+  ],
+  [
+   1029,
+   "Float"
+  ],
+  [
+   57,
+   "Float"
+  ],
+  [
+   44,
+   "Float"
+  ],
+  [
+   1033,
+   "Float"
+  ],
+  [
+   56,
+   "Float"
+  ],
+  [
+   46,
+   "Float"
+  ],
+  [
+   53,
+   "Float"
+  ],
+  [
+   52,
+   "Float"
+  ],
+  [
+   1034,
+   "Float"
+  ],
+  [
+   1035,
+   "Float"
+  ],
+  [
+   49,
+   "Float"
+  ],
+  [
+   50,
+   "Float"
+  ],
+  [
+   51,
+   "Float"
+  ],
+  [
+   1281,
+   "UnsignedChar"
+  ],
+  [
+   1287,
+   "UnsignedChar"
+  ],
+  [
+   1288,
+   "UnsignedChar"
+  ],
+  [
+   1283,
+   "UnsignedChar"
+  ],
+  [
+   1286,
+   "UnsignedChar"
+  ],
+  [
+   72,
+   "UnsignedChar"
+  ],
+  [
+   1280,
+   "UnsignedChar"
+  ],
+  [
+   73,
+   "UnsignedChar"
+  ],
+  [
+   1284,
+   "UnsignedChar"
+  ],
+  [
+   1285,
+   "UnsignedChar"
+  ],
+  [
+   75,
+   "UnsignedChar"
+  ],
+  [
+   63,
+   "UnsignedChar"
+  ],
+  [
+   1289,
+   "UnsignedChar"
+  ],
+  [
+   74,
+   "UnsignedChar"
+  ],
+  [
+   65,
+   "UnsignedChar"
+  ],
+  [
+   71,
+   "UnsignedChar"
+  ],
+  [
+   70,
+   "UnsignedChar"
+  ],
+  [
+   1290,
+   "UnsignedChar"
+  ],
+  [
+   1291,
+   "UnsignedChar"
+  ],
+  [
+   67,
+   "UnsignedChar"
+  ],
+  [
+   68,
+   "UnsignedChar"
+  ],
+  [
+   69,
+   "UnsignedChar"
+  ],
+  [
+   78,
+   "UnsignedChar"
+  ],
+  [
+   86,
+   "UnsignedChar"
+  ],
+  [
+   85,
+   "UnsignedChar"
+  ],
+  [
+   82,
+   "UnsignedChar"
+  ],
+  [
+   83,
+   "UnsignedChar"
+  ],
+  [
+   98,
+   "UnsignedChar"
+  ],
+  [
+   80,
+   "UnsignedChar"
+  ],
+  [
+   99,
+   "UnsignedChar"
+  ],
+  [
+   84,
+   "UnsignedChar"
+  ],
+  [
+   87,
+   "UnsignedChar"
+  ],
+  [
+   92,
+   "UnsignedChar"
+  ],
+  [
+   88,
+   "UnsignedChar"
+  ],
+  [
+   101,
+   "UnsignedChar"
+  ],
+  [
+   100,
+   "UnsignedChar"
+  ],
+  [
+   97,
+   "UnsignedChar"
+  ],
+  [
+   90,
+   "UnsignedChar"
+  ],
+  [
+   96,
+   "UnsignedChar"
+  ],
+  [
+   91,
+   "UnsignedChar"
+  ],
+  [
+   102,
+   "UnsignedChar"
+  ],
+  [
+   93,
+   "UnsignedChar"
+  ],
+  [
+   94,
+   "UnsignedChar"
+  ],
+  [
+   95,
+   "UnsignedChar"
+  ],
+  [
+   104,
+   "BitArray"
+  ],
+  [
+   112,
+   "BitArray"
+  ],
+  [
+   111,
+   "BitArray"
+  ],
+  [
+   108,
+   "BitArray"
+  ],
+  [
+   109,
+   "BitArray"
+  ],
+  [
+   122,
+   "BitArray"
+  ],
+  [
+   106,
+   "BitArray"
+  ],
+  [
+   123,
+   "BitArray"
+  ],
+  [
+   110,
+   "BitArray"
+  ],
+  [
+   113,
+   "BitArray"
+  ],
+  [
+   125,
+   "BitArray"
+  ],
+  [
+   114,
+   "BitArray"
+  ],
+  [
+   118,
+   "BitArray"
+  ],
+  [
+   124,
+   "BitArray"
+  ],
+  [
+   116,
+   "BitArray"
+  ],
+  [
+   121,
+   "BitArray"
+  ],
+  [
+   128,
+   "BitArray"
+  ],
+  [
+   129,
+   "BitArray"
+  ],
+  [
+   130,
+   "BitArray"
+  ],
+  [
+   131,
+   "BitArray"
+  ],
+  [
+   132,
+   "BitArray"
+  ],
+  [
+   133,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   127,
+   "BitArray"
+  ],
+  [
+   59,
+   "Float"
+  ],
+  [
+   141,
+   "BitArray"
+  ],
+  [
+   135,
+   "BitArray"
+  ],
+  [
+   140,
+   "BitArray"
+  ],
+  [
+   137,
+   "BitArray"
+  ],
+  [
+   139,
+   "BitArray"
+  ],
+  [
+   144,
+   "BitArray"
+  ],
+  [
+   145,
+   "BitArray"
+  ],
+  [
+   142,
+   "BitArray"
+  ],
+  [
+   143,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   146,
+   "BitArray"
+  ],
+  [
+   147,
+   "UnsignedChar"
+  ],
+  [
+   148,
+   "UnsignedChar"
+  ],
+  [
+   2048,
+   "UnsignedChar"
+  ],
+  [
+   149,
+   "BitArray"
+  ],
+  [
+   150,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   176,
+   "BitArray"
+  ],
+  [
+   2049,
+   "UnsignedChar"
+  ],
+  [
+   152,
+   "BitArray"
+  ],
+  [
+   153,
+   "BitArray"
+  ],
+  [
+   154,
+   "BitArray"
+  ],
+  [
+   155,
+   "BitArray"
+  ],
+  [
+   156,
+   "BitArray"
+  ],
+  [
+   157,
+   "BitArray"
+  ],
+  [
+   157,
+   "BitArray"
+  ],
+  [
+   157,
+   "BitArray"
+  ],
+  [
+   158,
+   "BitArray"
+  ],
+  [
+   159,
+   "BitArray"
+  ],
+  [
+   160,
+   "BitArray"
+  ],
+  [
+   161,
+   "BitArray"
+  ],
+  [
+   162,
+   "BitArray"
+  ],
+  [
+   163,
+   "BitArray"
+  ],
+  [
+   164,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   166,
+   "BitArray"
+  ],
+  [
+   168,
+   "BitArray"
+  ],
+  [
+   169,
+   "BitArray"
+  ],
+  [
+   170,
+   "BitArray"
+  ],
+  [
+   167,
+   "BitArray"
+  ],
+  [
+   171,
+   "BitArray"
+  ],
+  [
+   172,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   173,
+   "BitArray"
+  ],
+  [
+   174,
+   "BitArray"
+  ],
+  [
+   1798,
+   "BitArray"
+  ],
+  [
+   175,
+   "BitArray"
+  ],
+  [
+   177,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   1794,
+   "UnsignedChar"
+  ],
+  [
+   1793,
+   "Float"
+  ],
+  [
+   177,
+   "BitArray"
+  ],
+  [
+   178,
+   "BitArray"
+  ],
+  [
+   179,
+   "BitArray"
+  ],
+  [
+   180,
+   "BitArray"
+  ],
+  [
+   181,
+   "BitArray"
+  ],
+  [
+   182,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   183,
+   "UnsignedChar"
+  ],
+  [
+   184,
+   "UnsignedChar"
+  ],
+  [
+   185,
+   "UnsignedChar"
+  ],
+  [
+   186,
+   "UnsignedChar"
+  ],
+  [
+   187,
+   "UnsignedChar"
+  ],
+  [
+   200,
+   "UnsignedChar"
+  ],
+  [
+   201,
+   "UnsignedChar"
+  ],
+  [
+   202,
+   "UnsignedChar"
+  ],
+  [
+   203,
+   "UnsignedChar"
+  ],
+  [
+   204,
+   "UnsignedChar"
+  ],
+  [
+   205,
+   "UnsignedChar"
+  ],
+  [
+   206,
+   "UnsignedChar"
+  ],
+  [
+   207,
+   "UnsignedChar"
+  ],
+  [
+   208,
+   "UnsignedChar"
+  ],
+  [
+   209,
+   "UnsignedChar"
+  ],
+  [
+   210,
+   "BitArray"
+  ],
+  [
+   211,
+   "BitArray"
+  ],
+  [
+   212,
+   "BitArray"
+  ],
+  [
+   213,
+   "BitArray"
+  ],
+  [
+   214,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   165,
+   "BitArray"
+  ],
+  [
+   215,
+   "UnsignedChar"
+  ],
+  [
+   216,
+   "UnsignedChar"
+  ],
+  [
+   217,
+   "Float"
+  ],
+  [
+   218,
+   "Float"
+  ],
+  [
+   1795,
+   "UnsignedChar"
+  ],
+  [
+   220,
+   "UnsignedShort"
+  ],
+  [
+   219,
+   "UnsignedChar"
+  ],
+  [
+   221,
+   "UnsignedChar"
+  ],
+  [
+   222,
+   "UnsignedChar"
+  ],
+  [
+   223,
+   "UnsignedShort"
+  ],
+  [
+   224,
+   "UnsignedShort"
+  ],
+  [
+   225,
+   "UnsignedShort"
+  ],
+  [
+   226,
+   "UnsignedShort"
+  ],
+  [
+   227,
+   "UnsignedShort"
+  ],
+  [
+   228,
+   "UnsignedShort"
+  ],
+  [
+   229,
+   "IPv4"
+  ],
+  [
+   230,
+   "IPv4"
+  ],
+  [
+   231,
+   "IPv4"
+  ],
+  [
+   232,
+   "UnsignedChar"
+  ],
+  [
+   233,
+   "IPv4"
+  ],
+  [
+   234,
+   "IPv4"
+  ],
+  [
+   235,
+   "IPv4"
+  ],
+  [
+   236,
+   "UnsignedChar"
+  ],
+  [
+   237,
+   "UnsignedChar"
+  ],
+  [
+   238,
+   "UnsignedChar"
+  ],
+  [
+   239,
+   "UnsignedChar"
+  ],
+  [
+   240,
+   "UnsignedChar"
+  ],
+  [
+   241,
+   "String"
+  ]
+ ],
+ "raw_hex": {
+  "ecomax_parameters": "00008cebabffaa65ea640aa9ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff1401fa05011e04011e1e011e010002ffffffffffffffffffffffff090946641e64ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff3c0affffffffffffff3c0af0ffffffffffff0701141e01faffffff0a0164ffffffffffff030064ffffff730aff00003cffffffffffffffffff1401fa3c0affffffffffffffffffff0f053c05010fffffff960aff2801640000fa0a01640501640f0afaffffff000001040118ffffffffffffffffffffffffffffffffffffffffffffffff3001faffffff0201643401fa010005ffffffffffffffffffffffffffffffffffffffffffffffff1e1e501e1e50501e5a1e1e50000063ffffffffffff05020f000001070128140028010064ffffff00000200001e00000158555fffffff00004bff00ffffffff28144614143746195001000205011e0000010000020f051e0a010e030063ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff320064",
+  "mixer_parameters": "00000e05231e281e145a28145a00001e0000010701281400280a0064010003140028ffffff000002000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "thermostat_parameters": "000025ffffff020007dc0064005e01960064005e01643c8c01003c01003c01003c0a003c140032c80064005e01d20064005e015a0032002c01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "schedules": "1001050000000014ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0100000014ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04010000140003ffffffe00003ffffffe00003ffffffe00003ffffffe00003ffffffe00003ffffffe00003ffffffe00600000014ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0700000014ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "regulator_data_schema": "13010400070a02060a00060a08000a01000a09060a0a060a08060a0b060a0c060a0d060a05060a06060a05000a02000a03000a01060a0e060a0f060a10060a04060a07060a09000a06000a0a000a11060a12060a13060a14060a15060a16060a07000a0b00050c00051400051300051000051100051e00050e00051f00051200051500051a00051600052100052000051d00051800052400052500052600052700052800052900070104070704070804070304070604073600070004073700070404070504073900072c00070904073800072e00073500073400070a04070b04073100073200073300040105040705040805040305040605044800040005044900040405040505044b00043f00040905044a00044100044700044600040a05040b05044300044400044500044e00045600045500045200045300046200045000046300045400045700045c00045800046500046400046100045a00046000045b00046600045d00045e00045f000a68000a70000a6f000a6c000a6d000a7a000a6a000a7b000a6e000a71000a7d000a72000a76000a7c000a74000a79000a80000a81000a82000a83000a84000a85000a7f000a7f000a7f000a7f000a7f000a7f000a7f000a7f000a7f000a7f00073b000a8d000a87000a8c000a89000a8b000a90000a91000a8e000a8f000a92000a92000a92000a92000a92000a92000a92000493000494000400080a95000a96000ab0000ab0000ab0000ab0000ab0000ab0000401080a98000a99000a9a000a9b000a9c000a9d000a9d000a9d000a9e000a9f000aa0000aa1000aa2000aa3000aa4000aa5000aa6000aa8000aa9000aaa000aa7000aab000aac000aa5000aad000aae000a06070aaf000ab1000aa5000aa5000aa5000402070701070ab1000ab2000ab3000ab4000ab5000ab6000aa5000aa50004b70004b80004b90004ba0004bb0004c80004c90004ca0004cb0004cc0004cd0004ce0004cf0004d00004d1000ad2000ad3000ad4000ad5000ad6000aa5000aa5000aa50004d70004d80007d90007da0004030705dc0004db0004dd0004de0005df0005e00005e10005e20005e30005e4000fe5000fe6000fe70004e8000fe9000fea000feb0004ec0004ed0004ee0004ef0004f0000cf100"
+ }
+}

@@ -43,6 +43,40 @@ export interface PelletBoilerPelux200Measurements {
   alarm?: boolean;
 }
 
+/** Ustawienia regulatora ze sterownika: surowe dane odpowiedzi (hex), jak /boiler-settings.json. */
+export interface PelletBoilerSettingsRaw {
+  /** odpowiedź 0xB1: [0, pierwszy nr, liczba] + liczba × (wartość, min, max) */
+  ecomax_parameters?: string;
+  /** odpowiedź 0xB2: [0, pierwszy nr, liczba, mieszacze] + mieszacze × liczba × 3 */
+  mixer_parameters?: string;
+  thermostat_parameters?: string;
+  schedules?: string;
+  regulator_data_schema?: string;
+}
+
+/** Parametr po rozkodowaniu (wartość, min i max w jednostkach, raw = bajty z ramki). */
+export interface PelletBoilerParameter {
+  index: number;
+  name: string | null;
+  label?: string;
+  description?: string;
+  /** ocena zmiany z docs/parametry-kotla.md */
+  rating?: string;
+  unit?: string;
+  kind?: 'switch';
+  value: number;
+  min: number;
+  max: number;
+  raw: [number, number, number];
+}
+
+export interface PelletBoilerSettingsView {
+  readAt: Date;
+  deviceId?: string;
+  groups: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
+  mixers: { mixer: number; parameters: PelletBoilerParameter[] }[];
+}
+
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {
   rootId: string;
   deviceType?: DeviceType;
