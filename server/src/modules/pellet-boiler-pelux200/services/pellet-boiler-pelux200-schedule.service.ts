@@ -12,6 +12,11 @@
 // zmienione na panelu wraca co minutę do harmonogramu (pompa ciepła nie dogrzeje wyższej temperatury),
 // a „CWU do” jest ograniczone do HEAT_PUMP_CWU_MAX (45 °C). Okno przez północ należy do dnia
 // startu (jak harmonogram włącznika); data ma pierwszeństwo przed dniem tygodnia, potem późniejszy start.
+// Od 2026-10-04 drugi rodzaj wpisu: sezon Lato / Zima (type season, parametr nr 125: 0 zima, 1 lato) w oknach
+// godzin, z sezonem poza harmonogramem w defaults; wpis z progiem coldBelow działa tylko, gdy temperatura
+// zewnętrzna z czujnika kotła (outside_temp z ostatniego odczytu) jest poniżej progu (z histerezą SEASON_COLD_HYSTERESIS: działający
+// wpis zostaje do progu + 1 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
+// harmonogram sezonem nie steruje. Zmiany sezonu i CWU idą do kotła jednym zleceniem (createCommands).
 // Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C).
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
@@ -26,7 +31,7 @@ import {
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import {
   PelletBoilerCommandChange, PelletBoilerCwuRange, PelletBoilerMode, PelletBoilerProfile, PelletBoilerScheduleEntry,
-  PelletBoilerScheduleSettings, PelletBoilerScheduleState,
+  PelletBoilerScheduleSettings, PelletBoilerScheduleState, PelletBoilerSeason,
 } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
@@ -49,6 +54,25 @@ const CWU_MAX = 80;
 export const HEAT_PUMP_CWU_MAX = 45;
 // zmiana CWU z panelu wraca do harmonogramu dopiero, gdy od ostatniego zlecenia CWU minęło tyle czasu
 const CWU_RESTORE_AFTER_MS = 5 * 60 * 1000;
+// sezon: nr 125 (0 zima, 1 lato; kolejność z PyPlumIO, jak przełącznik Zima/Lato w Ustawieniach)
+const SEASON_PARAMETER = 125;
+const SEASON_VALUE: Record<PelletBoilerSeason, number> = { winter: 0, summer: 1 };
+const SEASONS: PelletBoilerSeason[] = ['winter', 'summer'];
+// próg temperatury wpisu sezonu [°C] i histereza: działający wpis zostaje do progu + histereza
+const COLD_BELOW_MIN = -30;
+const COLD_BELOW_MAX = 30;
+export const SEASON_COLD_HYSTERESIS = 1;
+// temperatura zewnętrzna z czujnika kotła (outside_temp) tylko z odczytu nie starszego niż (3 × domyślny interwał)
+const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
+
+// Temperatura zewnętrzna z ostatniego odczytu kotła (czujnik zewnętrzny regulatora; od 2026-10-04 zamiast
+// IMGW Zakopane, decyzja użytkownika); null bez odczytu, bez czujnika albo gdy odczyt jest starszy niż 15 min.
+export async function boilerOutdoorTemperature(rootId: string, now = new Date()): Promise<number | null> {
+  const last = await getPelletBoilerPelux200Last(rootId);
+  const at = (last as { createdAt?: Date } | undefined)?.createdAt;
+  if (typeof last?.outside_temp !== 'number' || !at || now.getTime() - new Date(at).getTime() > OUTDOOR_MAX_AGE_MS) return null;
+  return last.outside_temp;
+}
 
 // Wartości startowe (kociol-ustawienia.md, punkt 4b; CWU z ustaleń 2026-10-04): pompa ciepła CWU
 // 35–40 °C, pellet zadana 55 °C z histerezą 15 °C. Nastawy trybów bez CWU — CWU ustawia harmonogram.
@@ -83,13 +107,25 @@ const parseRange = (from: unknown, to: unknown, mode?: PelletBoilerMode): Pellet
 export function parseScheduleEntry(body: unknown): ScheduleInput | string {
   const input = (body ?? {}) as Record<string, unknown>;
   if (!MODES.includes(input.mode as PelletBoilerMode)) return 'mode: heat-pump albo pellet.';
-  if ((input.type ?? 'cwu') !== 'cwu') return 'type: tylko cwu (włączanie i wyłączanie kotła z harmonogramu usunięto).';
+  const type = input.type ?? 'cwu';
+  if (type !== 'cwu' && type !== 'season') return 'type: cwu albo season (włączanie i wyłączanie kotła z harmonogramu usunięto).';
   if (typeof input.startTime !== 'string' || !TIME.test(input.startTime)
     || typeof input.endTime !== 'string' || !TIME.test(input.endTime)) {
     return 'startTime i endTime w formacie HH:mm.';
   }
-  const range = parseRange(input.cwuFrom, input.cwuTo, input.mode as PelletBoilerMode);
-  if (typeof range === 'string') return range;
+  let what: Partial<ScheduleInput>;
+  if (type === 'season') {
+    if (!SEASONS.includes(input.season as PelletBoilerSeason)) return 'season: winter albo summer.';
+    const cold = input.coldBelow;
+    if (cold !== undefined && cold !== null && (!isInteger(cold) || cold < COLD_BELOW_MIN || cold > COLD_BELOW_MAX)) {
+      return `coldBelow: liczba całkowita ${COLD_BELOW_MIN}–${COLD_BELOW_MAX} °C albo brak.`;
+    }
+    what = { season: input.season as PelletBoilerSeason, coldBelow: isInteger(cold) ? cold : null };
+  } else {
+    const range = parseRange(input.cwuFrom, input.cwuTo, input.mode as PelletBoilerMode);
+    if (typeof range === 'string') return range;
+    what = range;
+  }
   let date: Date | undefined;
   if (input.date !== undefined && input.date !== null && input.date !== '') {
     date = new Date(String(input.date));
@@ -97,9 +133,9 @@ export function parseScheduleEntry(body: unknown): ScheduleInput | string {
   }
   if (!date && !WEEK_DAYS.includes(input.dayOfWeek as WeekDay)) return 'Podaj dayOfWeek (-3…6) albo date.';
   return {
-    type: 'cwu', mode: input.mode as PelletBoilerMode, enabled: input.enabled !== false,
+    type, mode: input.mode as PelletBoilerMode, enabled: input.enabled !== false,
     dayOfWeek: date ? undefined : input.dayOfWeek as WeekDay, date,
-    startTime: input.startTime, endTime: input.endTime, ...range,
+    startTime: input.startTime, endTime: input.endTime, ...what,
   };
 }
 
@@ -113,7 +149,11 @@ export function parseScheduleSettings(body: unknown): Omit<PelletBoilerScheduleS
   for (const mode of MODES) {
     const range = parseRange(defaults[mode]?.cwuFrom, defaults[mode]?.cwuTo, mode);
     if (typeof range === 'string') return range;
-    result.defaults[mode] = range;
+    const season = defaults[mode]?.season;
+    if (season !== undefined && season !== null && !SEASONS.includes(season as PelletBoilerSeason)) {
+      return 'Sezon poza harmonogramem: winter albo summer.';
+    }
+    result.defaults[mode] = { ...range, ...(season ? { season: season as PelletBoilerSeason } : {}) };
     const profile = profiles[mode] ?? {};
     if (typeof profile !== 'object' || Array.isArray(profile)) return 'profiles: obiekt klucz → wartość.';
     const clean: PelletBoilerProfile = {};
@@ -143,10 +183,14 @@ function entryWindow(entry: PelletBoilerScheduleEntry, localDate: string) {
   return { start: warsawTime(localDate, entry.startTime), end: warsawTime(endDate, entry.endTime) };
 }
 
-// Działający wpis CWU trybu: z datą przed cyklicznym, potem późniejszy start (dawne wpisy pracy kotła pomijane).
-export function activeEntry(entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date) {
+// Działający wpis danego rodzaju (cwu albo season) trybu: z datą przed cyklicznym, potem późniejszy start
+// (dawne wpisy pracy kotła pomijane). eligible odrzuca wpisy, które teraz nie mogą działać (próg temperatury).
+export function activeEntry(
+  entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date,
+  type: 'cwu' | 'season' = 'cwu', eligible: (entry: PelletBoilerScheduleEntry) => boolean = () => true,
+) {
   const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
-  const matches = entries.filter((e) => e.mode === mode && (e.type ?? 'cwu') === 'cwu').flatMap((entry) =>
+  const matches = entries.filter((e) => e.mode === mode && (e.type ?? 'cwu') === type && eligible(e)).flatMap((entry) =>
     [today, shiftDate(today, -1)].flatMap((day) => {
       const window = entryWindow(entry, day);
       return window && window.start <= now && now < window.end ? [{ entry, start: window.start }] : [];
@@ -155,27 +199,44 @@ export function activeEntry(entries: PelletBoilerScheduleEntry[], mode: PelletBo
   return matches[0]?.entry ?? null;
 }
 
+// Wpis sezonu z progiem działa, gdy temperatura zewnętrzna jest poniżej progu; wpis, który już działał
+// (lastSeasonScheduleId), zostaje do progu + SEASON_COLD_HYSTERESIS. Bez temperatury wpis z progiem nie działa.
+const coldEnough = (entry: PelletBoilerScheduleEntry, outdoor: number | null, lastSeasonScheduleId?: string | null) => {
+  if (entry.coldBelow === undefined || entry.coldBelow === null) return true;
+  if (outdoor === null) return false;
+  const wasActive = !!lastSeasonScheduleId && String(entry._id) === lastSeasonScheduleId;
+  return outdoor < entry.coldBelow + (wasActive ? SEASON_COLD_HYSTERESIS : 0);
+};
+
 export function scheduleState(
   settings: Omit<PelletBoilerScheduleSettings, 'rootId'>, entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date,
+  outdoor: number | null = null, lastSeasonScheduleId?: string | null,
 ) {
   const entry = activeEntry(entries, mode, now);
+  const seasonEntry = activeEntry(entries, mode, now, 'season', (e) => coldEnough(e, outdoor, lastSeasonScheduleId));
   const defaults = settings.defaults[mode];
+  const season = seasonEntry?.season ?? defaults.season;
+  const seasonScheduleId = seasonEntry?._id ? String(seasonEntry._id) : null;
   const state: PelletBoilerScheduleState = {
     mode,
     cwuFrom: entry?.cwuFrom ?? defaults.cwuFrom,
     cwuTo: entry?.cwuTo ?? defaults.cwuTo,
+    ...(season ? { season } : {}),
+    seasonScheduleId,
   };
-  return { state, scheduleId: entry?._id ? String(entry._id) : null };
+  return { state, scheduleId: entry?._id ? String(entry._id) : null, seasonScheduleId };
 }
 
 const sameState = (a?: PelletBoilerScheduleState, b?: PelletBoilerScheduleState) =>
-  !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && !!a.paused === !!b.paused;
+  !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && a.season === b.season
+  && !!a.paused === !!b.paused;
 
-// Zmiany dla regulatora: tylko pola różne od ostatniego odczytu ustawień kotła.
+// Zmiany dla regulatora (sezon i CWU w jednym zleceniu): tylko pola różne od ostatniego odczytu ustawień kotła.
 function changesFor(state: PelletBoilerScheduleState, settings: PelletBoilerSettingsEntry): PelletBoilerCommandChange[] {
   const parameters = buildSettingsView(settings).groups.flatMap((g) => g.parameters);
   const current = (index: number) => parameters.find((p) => p.index === index)?.raw[0];
   const wanted: PelletBoilerCommandChange[] = [
+    ...(state.season ? [{ kind: 'ecomax' as const, index: SEASON_PARAMETER, value: SEASON_VALUE[state.season] }] : []),
     { kind: 'ecomax', index: 119, value: state.cwuTo },
     { kind: 'ecomax', index: 123, value: state.cwuTo - state.cwuFrom },
   ];
@@ -202,8 +263,12 @@ export async function applySchedule(rootId: string, now = new Date()) {
     const mode = boilerMode(boiler);
     if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
     const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
-    const { state } = scheduleState(settings, entries, mode, now);
+    const { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
     if (sameState(state, last)) {
+      // ten sam sezon z innego wpisu (np. kolejne okno): zapamiętuje wpis dla histerezy progu
+      if (last && (last.seasonScheduleId ?? null) !== state.seasonScheduleId) {
+        await PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { 'lastApplied.seasonScheduleId': state.seasonScheduleId } });
+      }
       if (mode === 'heat-pump') await restoreCwu(rootId, state, boiler, now);
       return;
     }
@@ -230,7 +295,8 @@ async function restoreCwu(rootId: string, state: PelletBoilerScheduleState, boil
   });
   if (recent) return;
   const target = (await getPelletBoilerPelux200Last(rootId))?.water_heater_target;
-  const changes = changesFor(state, boiler);
+  // tylko CWU: sezon zmieniony ręcznie zostaje do następnej zmiany stanu harmonogramu
+  const changes = changesFor(state, boiler).filter((change) => change.index !== SEASON_PARAMETER);
   if (target !== undefined && target !== state.cwuTo && !changes.some((c) => c.index === 119)) {
     changes.unshift({ kind: 'ecomax', index: 119, value: state.cwuTo });
   }
@@ -299,8 +365,12 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
   const mode = boilerMode(boiler);
   const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
-  const current = mode ? scheduleState(settings, entries, mode, now) : { state: null, scheduleId: null };
-  return { enabled: settings.enabled, mode, ...current, lastError: settings.lastError ?? null };
+  const outdoor = await boilerOutdoorTemperature(rootId, now);
+  const current = mode
+    ? scheduleState(settings, entries, mode, now, outdoor, settings.lastApplied?.seasonScheduleId)
+    : { state: null, scheduleId: null, seasonScheduleId: null };
+  // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
+  return { enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor, lastError: settings.lastError ?? null };
 }
 
 // dawne wpisy pracy kotła (type work) nie są pokazywane

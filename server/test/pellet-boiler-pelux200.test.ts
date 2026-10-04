@@ -11,7 +11,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from '../src/core/app'
-import { applySchedule } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
+import { applySchedule, scheduleState } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { PelletBoilerPelux200Model } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200.model'
 
 const TYPE = 'pellet-boiler-pelux200';
@@ -379,5 +379,73 @@ describe('Kocioł pelletowy Pellux 200', () => {
     await applySchedule(rootId, new Date('2026-10-06T03:30:00Z'));
     expect((await commands()).length).toBeGreaterThan(stopped);
     expect((await commands()).some((c) => c.kind === 'control')).toBe(false);
+  });
+
+  it('harmonogram sezonu: Lato/Zima (nr 125) w oknie razem z CWU jednym zleceniem, próg temperatury z histerezą', async () => {
+    const sn = 'AABBCC000013';
+    const { rootId } = (await register(sn)).body;
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5 }).expect(201);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const view = (await request(app).get(api('settings'))).body;
+    const raw125 = view.groups.flatMap((g: { parameters: { index: number; raw: number[] }[] }) => g.parameters)
+      .find((p: { index: number }) => p.index === 125).raw[0];
+    // sezon w oknie: przeciwny do tego, co jest w kotle, żeby było co zlecić
+    const night = raw125 === 0 ? 'summer' : 'winter';
+    const nightValue = raw125 === 0 ? 1 : 0;
+
+    // walidacja wpisu sezonu
+    const post = (body: object) => request(app).post(api('schedules')).send({ mode: 'heat-pump', dayOfWeek: -1, startTime: '22:00', endTime: '06:00', ...body });
+    expect((await post({ type: 'season', season: 'spring' })).status).toBe(400);
+    expect((await post({ type: 'season', season: 'winter', coldBelow: 6.5 })).status).toBe(400);
+    expect((await post({ type: 'season', season: 'winter', coldBelow: 99 })).status).toBe(400);
+    const created = (await post({ type: 'season', season: night }).expect(201)).body;
+    expect(created).toMatchObject({ type: 'season', season: night, coldBelow: null });
+    // CWU w tym samym oknie
+    await post({ cwuFrom: 40, cwuTo: 43 }).expect(201);
+
+    const settings = (await request(app).get(api('schedule-settings'))).body;
+    expect((await request(app).put(api('schedule-settings')).send({ ...settings, defaults: { ...settings.defaults, pellet: { ...settings.defaults.pellet, season: 'jesień' } } })).status).toBe(400);
+    await request(app).put(api('schedule-settings')).send({ ...settings, enabled: true }).expect(200);
+
+    // 23:00 w Warszawie: sezon i CWU razem (jedno zlecenie = jedna partia, kolejność: sezon, CWU)
+    await applySchedule(rootId, new Date('2026-10-05T21:00:00Z'));
+    const list = (await request(app).get(api('commands'))).body as { index: number; value: number; status: string }[];
+    const pending = list.filter((c) => c.status === 'pending').map((c) => [c.index, c.value]);
+    expect(pending).toContainEqual([125, nightValue]);
+    expect(pending).toContainEqual([119, 43]);
+    const current = (await request(app).get(api('schedules/current'))).body;
+    expect(current.seasonScheduleId).toBe(created._id);
+    expect(current.state.season).toBe(night);
+    // temperatura zewnętrzna z czujnika kotła (ostatni odczyt), bez czujnika null
+    expect(current.outdoorTemperature).toBeNull();
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, outside_temp: 4.5 }).expect(201);
+    expect((await request(app).get(api('schedules/current'))).body.outdoorTemperature).toBe(4.5);
+  });
+
+  it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {
+    const settings = {
+      enabled: true, profiles: { 'heat-pump': {}, pellet: {} },
+      defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40, season: 'summer' as const }, pellet: { cwuFrom: 40, cwuTo: 55 } },
+    };
+    const entry = {
+      _id: 'w1', rootId: 'r', type: 'season' as const, mode: 'heat-pump' as const, enabled: true,
+      dayOfWeek: -1, startTime: '22:00', endTime: '06:00', season: 'winter' as const, coldBelow: 6,
+    };
+    const night = new Date('2026-10-05T21:00:00Z');  // 23:00 w Warszawie
+    const day = new Date('2026-10-05T10:00:00Z');
+    const at = (outdoor: number | null, last?: string | null, now = night) =>
+      scheduleState(settings, [entry as never], 'heat-pump', now, outdoor, last).state.season;
+    expect(at(5)).toBe('winter');
+    expect(at(6)).toBe('summer');
+    // histereza: działający wpis zostaje przy 6,5 °C, od 7 °C wraca sezon spoza harmonogramu
+    expect(at(6.5, 'w1')).toBe('winter');
+    expect(at(7, 'w1')).toBe('summer');
+    // bez temperatury z serwera wpis z progiem nie działa
+    expect(at(null)).toBe('summer');
+    // poza oknem: sezon spoza harmonogramu
+    expect(at(0, null, day)).toBe('summer');
+    // bez sezonu w ustawieniach poza harmonogramem: harmonogram sezonem nie steruje
+    expect(scheduleState(settings, [], 'pellet', day).state.season).toBeUndefined();
   });
 });

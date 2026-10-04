@@ -526,6 +526,23 @@
   color: #555;
 }
 
+/* wiersz wpisu harmonogramu kotła: druga i kolejne linie (godziny, ustawienie) zwykłą czcionką */
+.boiler-schedule-line {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.boiler-default-season {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.boiler-cold-input {
+  width: 3.5rem;
+}
+
 /* Wykres i Dane na całe okno (fill-page): wykres bez stałej wysokości, tabela przewijana w obu
    kierunkach z przyklejonym wierszem nagłówka i kolumną „Czas” (tło jak karta, żeby nie prześwitywało) */
 .fill-page .boiler-chart {

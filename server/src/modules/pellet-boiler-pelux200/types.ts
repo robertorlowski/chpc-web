@@ -131,28 +131,42 @@ export interface PelletBoilerCwuRange {
   cwuTo: number;
 }
 
-/** Wpis harmonogramu dla jednego trybu pracy: CWU od–do w oknie godzin. Włączanie i wyłączanie kotła
- * z harmonogramu usunięto 2026-10-04 (decyzja użytkownika); stare wpisy type = work są pomijane. */
+/** Sezon regulatora (Tryb LATO, nr 125): zima = 0 (CO i CWU), lato = 1 (tylko CWU). */
+export type PelletBoilerSeason = 'winter' | 'summer';
+
+/** Wpis harmonogramu dla jednego trybu pracy kotła w oknie godzin: type cwu = CWU od–do, type season =
+ * sezon Lato / Zima (od 2026-10-04), opcjonalnie tylko przy temperaturze zewnętrznej poniżej coldBelow.
+ * Włączanie i wyłączanie kotła z harmonogramu usunięto 2026-10-04; stare wpisy type = work są pomijane. */
 export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange> {
   _id?: unknown;
   rootId: string;
-  type: 'cwu';
+  type: 'cwu' | 'season';
   mode: PelletBoilerMode;
   enabled: boolean;
   dayOfWeek?: WeekDay;
   date?: Date;
   startTime: string;
   endTime: string;
+  /** type season: sezon w oknie */
+  season?: PelletBoilerSeason;
+  /** type season: wpis działa tylko, gdy temperatura zewnętrzna (IMGW) jest poniżej [°C]; brak = zawsze */
+  coldBelow?: number | null;
 }
 
-/** Stan, który harmonogram ustawia w kotle; paused = harmonogram nie działa („Wyłącz regulator”). */
+/** Stan, który harmonogram ustawia w kotle; paused = harmonogram nie działa („Wyłącz regulator”).
+ * season brak = sezonem harmonogram nie steruje (brak wpisu i brak sezonu poza harmonogramem);
+ * seasonScheduleId = działający wpis sezonu (do histerezy progu temperatury). */
 export interface PelletBoilerScheduleState extends PelletBoilerCwuRange {
   mode: PelletBoilerMode;
+  season?: PelletBoilerSeason;
+  seasonScheduleId?: string | null;
   paused?: boolean;
 }
 
-/** Wartości poza harmonogramem dla trybu (CWU od–do). */
-export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange;
+/** Wartości poza harmonogramem dla trybu: CWU od–do i sezon (brak sezonu = harmonogram go nie zmienia). */
+export interface PelletBoilerScheduleDefaults extends PelletBoilerCwuRange {
+  season?: PelletBoilerSeason;
+}
 
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;

@@ -98,10 +98,14 @@ export type PelletBoilerCommand = PelletBoilerChange & {
 /** Tryb pracy kotła: pompa ciepła (bez palenia) albo pellet. */
 export type PelletBoilerMode = 'heat-pump' | 'pellet';
 
-/** Wpis harmonogramu dla trybu: CWU od–do (od = start ładowania, do = zadana) w oknie godzin. */
+/** Sezon regulatora (nr 125): zima (CO i CWU) albo lato (tylko CWU). */
+export type PelletBoilerSeason = 'winter' | 'summer';
+
+/** Wpis harmonogramu dla trybu w oknie godzin: type cwu = CWU od–do (od = start ładowania, do = zadana),
+ *  type season = tryb pracy Lato / Zima, opcjonalnie tylko przy temperaturze zewnętrznej poniżej coldBelow. */
 export type PelletBoilerSchedule = {
   _id?: string;
-  type: 'cwu';
+  type: 'cwu' | 'season';
   mode: PelletBoilerMode;
   enabled: boolean;
   dayOfWeek?: WeekDay;
@@ -110,9 +114,14 @@ export type PelletBoilerSchedule = {
   endTime: string;
   cwuFrom?: number;
   cwuTo?: number;
+  season?: PelletBoilerSeason;
+  coldBelow?: number | null;
 };
 
 export type PelletBoilerCwuRange = { cwuFrom: number; cwuTo: number };
+
+/** Poza harmonogramem: CWU od–do i tryb pracy Lato / Zima (brak = harmonogram go nie zmienia). */
+export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange & { season?: PelletBoilerSeason };
 
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;
@@ -121,7 +130,7 @@ export type PelletBoilerProfile = Record<string, number>;
  *  CWU poza harmonogramem oraz nastawy trybów. */
 export type PelletBoilerScheduleSettings = {
   enabled: boolean;
-  defaults: Record<PelletBoilerMode, PelletBoilerCwuRange>;
+  defaults: Record<PelletBoilerMode, PelletBoilerScheduleDefaults>;
   profiles: Record<PelletBoilerMode, PelletBoilerProfile>;
   lastError?: string;
 };
@@ -130,9 +139,13 @@ export type PelletBoilerCurrentSchedule = {
   enabled: boolean;
   /** tryb z odczytu ustawień kotła; null bez odczytu */
   mode: PelletBoilerMode | null;
-  state: ({ mode: PelletBoilerMode } & PelletBoilerCwuRange) | null;
+  state: ({ mode: PelletBoilerMode; season?: PelletBoilerSeason } & PelletBoilerCwuRange) | null;
   /** działający wpis CWU (null = poza harmonogramem) */
   scheduleId: string | null;
+  /** działający wpis trybu pracy Lato / Zima (null = poza harmonogramem) */
+  seasonScheduleId?: string | null;
+  /** temperatura zewnętrzna z serwera (IMGW); null bez pomiaru */
+  outdoorTemperature?: number | null;
   lastError: string | null;
 };
 
