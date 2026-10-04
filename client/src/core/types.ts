@@ -101,8 +101,6 @@ export type DeviceTypeView = {
   label?: string;
   /** sterownik aktualizuje firmware przez sieć: kafelek ma trybik prowadzący do /firmware/:deviceType */
   firmwareUpdates?: boolean;
-  /** kiedy sterownik pobierze firmware po „Aktualizuj” (podpowiedź w karcie „Sterownik”) */
-  firmwareUpdateHint?: string;
   views: DeviceView[];
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];

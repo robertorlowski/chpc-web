@@ -1,7 +1,7 @@
 // Opis rodzaju „switch” (włącznik: ESP32 z przekaźnikami) dla rejestru core/device-types.tsx:
 // ikona włącznika na kafelku, menu i widoki. Ścieżki spoza listy (np. /chart) prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { DataIcon, SettingsIcon } from '../../core/components/icons';
+import { DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
 import { SwitchHome } from './pages/Home';
 import { SwitchData } from './pages/Data';
 import { SwitchSchedules } from './pages/Schedules';
@@ -16,24 +16,16 @@ const SwitchIcon = ({ className }: { className?: string }) => (
 	</svg>
 );
 
-const ClockIcon = () => (
-	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-		<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-		<path d="M12 7V12L15 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-	</svg>
-);
-
 // Włącznik: przekaźniki (stan, tryb, sterowanie), włączenia w dniu, harmonogram i ustawienia.
 export const switchDeviceType: DeviceTypeView = {
 	type: DeviceType.SWITCH,
 	tileIcon: <SwitchIcon className="device-selection-icon" />,
 	label: 'Włącznik',
 	firmwareUpdates: true,
-	firmwareUpdateHint: 'Sterownik pobierze firmware w ciągu kilku sekund, gdy wszystkie przekaźniki są wyłączone (od wersji 1.1.0; starsza tylko po restarcie).',
 	views: [
 		{ path: '/', label: 'Włącznik', icon: <SwitchIcon />, element: <SwitchHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <SwitchData /> },
-		{ path: '/schedules', label: 'Harmonogram', icon: <ClockIcon />, element: <SwitchSchedules /> },
+		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <SwitchSchedules /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <SwitchSettings /> },
 	],
 };

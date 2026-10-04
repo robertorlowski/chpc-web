@@ -23,22 +23,9 @@
   color: #5b6a72;
 }
 
-/* „Aktualizuj” / „Anuluj aktualizację” w karcie „Sterownik” i podpowiedź, kiedy sterownik pobierze plik */
-.firmware-update {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.75rem;
-  margin-top: 0.4rem;
-}
-
-.firmware-update button.firmware-cancel {
+/* „Anuluj aktualizację” na dole karty „Sterownik” */
+button.firmware-cancel {
   background: #7a8c93;
-}
-
-.firmware-hint-text {
-  color: #555;
-  flex: 1 1 14rem;
 }
 
 .firmware-update-error {

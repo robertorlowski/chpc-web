@@ -363,26 +363,31 @@ export const MainParameters: React.FC = () => {
     load();
   };
 
-  // Kocioł: Włączony = regulator pracuje normalnie (sezon, ustawienia, CWU z harmonogramu), Wyłączony =
-  // zlecenie wyłącz (ramka 0x3B, stan „wyłączony” jak z panelu przed pracą ręczną; kocioł nie rozpali)
-  // i harmonogram stoi (schedule-settings.enabled; zlecenia robi serwer). Pod spodem rzeczywisty stan
-  // z ostatniego odczytu; kocioł włączony z panelu przy „Wyłączony” daje ostrzeżenie (panel ma
-  // pierwszeństwo, aplikacja nie wyłącza go z powrotem).
+  // Regulator jak na panelu: „Włącz regulator” / „Wyłącz regulator” wysyłają zlecenie control (ramka 0x3B,
+  // firmware od 1.4.0). Stan pokazuje ostatni odczyt kotła (wyłączony = stan 0 albo 7, wygaszanie), nie
+  // ustawienie w aplikacji. Wyłączenie zatrzymuje też harmonogram, włączenie go wznawia
+  // (schedule-settings.enabled); zapis ustawień idzie przed zleceniem, żeby zlecenie serwera przy tym
+  // zapisie zostało zastąpione naszym (createCommands: ta sama pozycja oczekująca = replaced).
   const [boilerState, setBoilerState] = useState<number | undefined>(undefined);
   useEffect(() => { PelletBoilerRequests.getLast().then((last) => setBoilerState(last?.state)); }, [commands]);
+  const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0 && boilerState !== 7;
+  const controlPending = commands.find((command) => command.kind === 'control' && (command.status === 'pending' || command.status === 'sent'));
   const [workError, setWorkError] = useState('');
   const setWork = async (on: boolean) => {
-    if (!scheduleSettings || scheduleSettings.enabled === on) return;
+    if (!scheduleSettings) return;
     const question = on
-      ? 'Włączyć kocioł? Będzie pracował normalnie, według sezonu i ustawień (CWU według harmonogramu).'
-      : 'Wyłączyć kocioł zdalnie? Nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.';
+      ? 'Włączyć regulator? Kocioł będzie pracował według sezonu i ustawień, harmonogram zacznie działać.'
+      : 'Wyłączyć regulator? Kocioł nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.';
     if (!window.confirm(question)) return;
     try {
-      setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
-      setWorkError('');
+      if (scheduleSettings.enabled !== on) {
+        setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
+      }
+      const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }]);
+      setWorkError(response?.status === 201 ? '' : await errorMessage(response));
       load();
     } catch {
-      setWorkError('Nie udało się zapisać.');
+      setWorkError('Nie udało się wysłać.');
     }
   };
 
@@ -421,24 +426,26 @@ export const MainParameters: React.FC = () => {
         {settings !== undefined && !ready && <div>Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</div>}
         {scheduleSettings && (
           <div className="boiler-main-section">
-            <div className="boiler-main-title">Kocioł</div>
+            <div className="boiler-main-title">
+              Regulator:{' '}
+              {regulatorOn === undefined
+                ? <span>brak odczytu</span>
+                : <span className={regulatorOn ? 'boiler-state-on' : 'boiler-state-off'}>{regulatorOn ? 'WŁĄCZONY' : 'WYŁĄCZONY'}</span>}
+              {boilerState !== undefined && <span className="boiler-hint"> ({stateName(boilerState)})</span>}
+            </div>
             <div className="boiler-profiles">
-              {[true, false].map((on) => (
-                <button key={String(on)} type="button" onClick={() => setWork(on)}
-                  className={scheduleSettings.enabled === on ? 'boiler-profile-active' : 'boiler-profile'}>
-                  {on ? 'Włączony' : 'Wyłączony'}
-                </button>
-              ))}
+              <button type="button" className="boiler-profile" disabled={regulatorOn === true || !!controlPending} onClick={() => setWork(true)}>
+                Włącz regulator
+              </button>
+              <button type="button" className="boiler-profile" disabled={regulatorOn === false || !!controlPending} onClick={() => setWork(false)}>
+                Wyłącz regulator
+              </button>
             </div>
             <div className="boiler-hint">
-              {scheduleSettings.enabled
-                ? 'Pracuje normalnie, według sezonu i ustawień (CWU według harmonogramu).'
-                : 'Wyłączony zdalnie, nie rozpali się. Harmonogram nie działa.'}
-              {' '}Stan kotła: <strong>{stateName(boilerState)}</strong>.
+              {controlPending
+                ? `${controlPending.value ? 'Włączenie' : 'Wyłączenie'} regulatora czeka na sterownik.`
+                : `Harmonogram ${scheduleSettings.enabled ? 'działa' : 'nie działa'}.`}
             </div>
-            {!scheduleSettings.enabled && boilerState !== undefined && boilerState !== 0 && boilerState !== 7 && (
-              <div className="boiler-error">Kocioł pracuje mimo wyłączenia w aplikacji — włączony z panelu?</div>
-            )}
             {workError && <div className="boiler-error">{workError}</div>}
           </div>
         )}

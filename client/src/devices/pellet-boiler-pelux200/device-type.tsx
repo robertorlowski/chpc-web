@@ -2,8 +2,8 @@
 // rejestru core/device-types.tsx: ikona płomienia na kafelku, menu i widoki. Ścieżki spoza listy
 // prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { ChartIcon, DataIcon, SettingsIcon } from '../../core/components/icons';
-import { ClockIcon, FLAME_PATH, FlameIcon } from './components/icons';
+import { ChartIcon, DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
+import { FLAME_PATH, FlameIcon } from './components/icons';
 import { PelletBoilerHome } from './pages/Home';
 import { PelletBoilerData } from './pages/Data';
 import { PelletBoilerChart } from './pages/Chart';
@@ -20,12 +20,11 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 	),
 	label: 'Piec Pellux 200',
 	firmwareUpdates: true,
-	firmwareUpdateHint: 'Sterownik pobierze firmware w ciągu ok. 15 s (od wersji 1.5.0; starszą wgrywa się przez USB albo stronę /install sterownika).',
 	views: [
 		{ path: '/', label: 'Kocioł', icon: <FlameIcon />, element: <PelletBoilerHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <PelletBoilerData /> },
 		{ path: '/chart', label: 'Wykres', icon: <ChartIcon />, element: <PelletBoilerChart /> },
-		{ path: '/schedules', label: 'Harmonogram', icon: <ClockIcon />, element: <PelletBoilerSchedules /> },
+		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <PelletBoilerSchedules /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <PelletBoilerSettings /> },
 	],
 };

@@ -5,6 +5,7 @@ import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
 import Notification from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
+import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { useDevice } from '../../../core/context/DeviceContext';
@@ -95,16 +96,13 @@ export const SwitchSettings: React.FC = () => {
         </form>
 
         <div className="resource settings-device">
-          <h3 className="settings-section-title">Sterownik</h3>
+          <ControllerCardTitle disabled={!device} onEdit={() => setEditingDevice(true)} />
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
           <div><span className="label">Przekaźników:</span><span>{relays?.length ?? '---'}</span></div>
           <DeviceAddress device={device} />
-          <FirmwareStatus device={device} />
-          <div className="switch-form-actions">
-            <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
-          </div>
+          <FirmwareStatus device={device} actionsClassName="switch-form-actions" />
         </div>
       </section>
 

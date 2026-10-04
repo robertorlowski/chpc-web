@@ -40,15 +40,21 @@ const PORT = Number(process.env.PORT ?? 3001);
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
 
-  // scheduler działa w procesie serwera: operacje ręczne i wyliczone są tylko w pamięci,
-  // więc restart serwera je kasuje (pierwszy przebieg od razu po starcie)
-  startScheduler();
-  // harmonogram kotła pelletowego: sezon i CWU od–do, zlecenia zmian parametrów co minutę
-  startPelletBoilerScheduler();
+  // BACKGROUND_JOBS=off: podgląd lokalny na bazie produkcyjnej bez schedulerów i czyszczenia PV
+  // (inaczej drugi serwer zlecałby zmiany kotłu i kasował dane obok produkcji)
+  if (process.env.BACKGROUND_JOBS === 'off') {
+    console.log('BACKGROUND_JOBS=off: schedulery i czyszczenie PV wyłączone');
+  } else {
+    // scheduler działa w procesie serwera: operacje ręczne i wyliczone są tylko w pamięci,
+    // więc restart serwera je kasuje (pierwszy przebieg od razu po starcie)
+    startScheduler();
+    // harmonogram kotła pelletowego: sezon i CWU od–do, zlecenia zmian parametrów co minutę
+    startPelletBoilerScheduler();
 
-  // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
-  void cleanPanelDetails();
-  setInterval(() => void cleanPanelDetails(), PANEL_CLEANUP_INTERVAL_MS);
+    // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
+    void cleanPanelDetails();
+    setInterval(() => void cleanPanelDetails(), PANEL_CLEANUP_INTERVAL_MS);
+  }
 
   // przed nasłuchem, żeby pierwsze /hp/add miało już t_out; błąd IMGW nie blokuje startu
   await prepareMeteoData()

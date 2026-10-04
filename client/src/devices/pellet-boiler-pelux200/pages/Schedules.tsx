@@ -236,9 +236,10 @@ export const PelletBoilerSchedules: React.FC = () => {
             <h3 className="settings-section-title">Kocioł i CWU</h3>
           </div>
           {settings && (
-            <div className={settings.enabled ? 'boiler-hint' : 'boiler-error'}>
-              Kocioł: <b>{settings.enabled ? 'Włączony — według harmonogramu' : 'Wyłączony zdalnie — harmonogram nie działa'}</b>
-              {' '}(zmiana w Ustawieniach).
+            <div className="boiler-hint">
+              Harmonogram: <span className={settings.enabled ? 'boiler-state-on' : 'boiler-state-off'}>
+                {settings.enabled ? 'DZIAŁA' : 'NIE DZIAŁA'}
+              </span>{settings.enabled ? '' : ' — działa po „Włącz regulator” w Ustawieniach'}
             </div>
           )}
           {current && !current.mode && <div className="boiler-hint">Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.</div>}
@@ -266,7 +267,10 @@ export const PelletBoilerSchedules: React.FC = () => {
                 );
                 return (
                   <section key={mode} className="schedule-group">
-                    <h4>{MODE_LABEL[mode]}{now && <span className="boiler-mode-now"> · działa teraz</span>}</h4>
+                    {/* tryb kotła z odczytu ustawień (nr 99), niezależnie od harmonogramu: WŁĄCZONA niebieski, drugi WYŁĄCZONY czerwony */}
+                    <h4>{MODE_LABEL[mode]} · <span className={current?.mode === mode ? 'boiler-state-on' : 'boiler-state-off'}>
+                      {mode === 'heat-pump' ? (current?.mode === mode ? 'WŁĄCZONA' : 'WYŁĄCZONA') : (current?.mode === mode ? 'WŁĄCZONY' : 'WYŁĄCZONY')}
+                    </span></h4>
 
                     <div className="schedule-list-header">
                       <span className="boiler-schedule-kind">Kocioł włączony / wyłączony</span>

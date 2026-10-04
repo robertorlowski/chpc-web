@@ -590,3 +590,24 @@
     height: auto;
   }
 }
+
+/* Stan wielkimi literami w Harmonogramie (tryb i kocioł): włączony niebieski, wyłączony czerwony */
+.boiler-state-on,
+.boiler-state-off {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.boiler-state-on {
+  color: #1481a5;
+}
+
+.boiler-state-off {
+  color: #b00020;
+}
+
+/* nieaktywny przycisk (np. „Włącz regulator”, gdy regulator już pracuje) */
+.boiler-profile:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

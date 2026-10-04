@@ -7,6 +7,7 @@ import { DeviceProperties } from '../../../core/types';
 import Notification from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
+import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
@@ -80,15 +81,12 @@ export const PelletBoilerSettings: React.FC = () => {
         <AdvancedSettings />
 
         <div className="resource settings-device">
-          <h3 className="settings-section-title">Sterownik</h3>
+          <ControllerCardTitle disabled={!device} onEdit={() => setEditingDevice(true)} />
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
           <DeviceAddress device={device} />
-          <FirmwareStatus device={device} />
-          <div className="boiler-actions">
-            <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
-          </div>
+          <FirmwareStatus device={device} actionsClassName="boiler-actions" />
         </div>
       </section>
 

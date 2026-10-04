@@ -24,20 +24,22 @@ function withDeviceContext(path: string, includeDevice: boolean) {
 // w trybie dev serwer jest na tym samym komputerze co Vite, port 4001; nazwa hosta z paska adresu
 // pozwala otworzyć klienta z telefonu w sieci lokalnej (npm run local -- --host)
 const devServerHost = () => window.location.hostname;
+// VITE_API_PORT: inny port serwera w trybie dev (np. podgląd na bazie produkcyjnej obok środowiska lokalnego)
+const devServerPort = () => import.meta.env.VITE_API_PORT ?? '4001';
 
 // Adres WebSocket serwera; ?rootId=… dopisuje wywołujący (widok główny pompy), bez niego serwer
 // zamyka połączenie. Serwer przyjmuje dowolną ścieżkę, klient łączy się na ścieżkę główną.
 // Produkcja: stały adres Render; build nie ma konfiguracji adresu przez zmienne środowiskowe.
 export const wsAddressServer = () => {
   if (import.meta.env.DEV)
-    return  `ws://${devServerHost()}:4001`
+    return  `ws://${devServerHost()}:${devServerPort()}`
   else
     return  "wss://chpc-web.onrender.com/";
 }
 
 function prefixMocks(path: string) {
   if (import.meta.env.DEV)
-    return  `http://${devServerHost()}:4001/api`.concat(path)
+    return  `http://${devServerHost()}:${devServerPort()}/api`.concat(path)
   else
     return  "https://chpc-web.onrender.com/api".concat(path);
 

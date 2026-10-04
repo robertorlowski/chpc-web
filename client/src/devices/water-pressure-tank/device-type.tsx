@@ -24,8 +24,6 @@ export const waterPressureTankDeviceType: DeviceTypeView = {
 	),
 	label: 'Hydrofor',
 	firmwareUpdates: true,
-	// sterownik ma zasilanie tylko w czasie pracy pompy; ofertę dostaje w zgłoszeniu przy starcie
-	firmwareUpdateHint: 'Sterownik pobierze firmware przy najbliższym uruchomieniu pompy, gdy kompresor nie pracuje.',
 	views: [
 		{ path: '/', label: 'Hydrofor', icon: <DropIcon />, element: <WaterPressureTankHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <WaterPressureTankData /> },

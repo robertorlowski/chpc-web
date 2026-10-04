@@ -2,8 +2,9 @@
 // przy ostatnim uruchomieniu, stan względem oferowanej wersji, czas zgłoszenia i przycisk „Aktualizuj”.
 // Sterowniki nie aktualizują się same: „Aktualizuj” zapisuje zlecenie (POST /devices/:rootId/firmware-update)
 // i dopiero wtedy chmura wysyła sterownikowi ofertę; zlecenie znika, gdy sterownik zgłosi nową wersję.
-// Tylko rodzaje z aktualizacją przez sieć (firmwareUpdates w rejestrze; firmwareUpdateHint mówi, kiedy
-// sterownik pobierze plik). Wersja i zlecenie z GET /api/devices (nie z localStorage), oferta z
+// Tylko rodzaje z aktualizacją przez sieć (firmwareUpdates w rejestrze). „Aktualizuj” stoi na dole karty po prawej
+// (actionsClassName: klasa wiersza przycisków strony); edycja danych sterownika to ikona w nagłówku (ControllerCardTitle).
+// Wersja i zlecenie z GET /api/devices (nie z localStorage), oferta z
 // GET /api/firmware/:rodzaj; przy zleceniu stan jest odświeżany co 15 s.
 import { useEffect, useState } from 'react';
 import { DeviceRequests, FirmwareRequests } from '../api';
@@ -16,7 +17,7 @@ const REFRESH_MS = 15000;
 const formatDateTime = (value?: string) =>
   value ? new Date(value).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '---';
 
-export const FirmwareStatus: React.FC<{ device: Device | null }> = ({ device }) => {
+export const FirmwareStatus: React.FC<{ device: Device | null; actionsClassName?: string }> = ({ device, actionsClassName }) => {
   const [current, setCurrent] = useState<Device | null>(null);
   const [summary, setSummary] = useState<FirmwareSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,16 +86,15 @@ export const FirmwareStatus: React.FC<{ device: Device | null }> = ({ device }) 
       {current?.firmwareSeenAt && (
         <div><span className="label">Ostatnie zgłoszenie:</span><span>{formatDateTime(current.firmwareSeenAt)}</span></div>
       )}
-      {current && (differs || pending) && (
-        <div className="firmware-update">
+      {error && <div className="firmware-update-error" role="alert">{error}</div>}
+      {current && (pending || differs) && (
+        <div className={actionsClassName}>
           {pending
             ? <button type="button" className="firmware-cancel" disabled={busy}
                 onClick={() => run(() => DeviceRequests.cancelFirmwareUpdate(device.rootId))}>Anuluj aktualizację</button>
             : <button type="button" disabled={busy} onClick={update}>Aktualizuj</button>}
-          {view?.firmwareUpdateHint && <small className="firmware-hint-text">{view.firmwareUpdateHint}</small>}
         </div>
       )}
-      {error && <div className="firmware-update-error" role="alert">{error}</div>}
     </>
   );
 };

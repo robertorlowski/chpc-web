@@ -1,4 +1,5 @@
-// Ikony menu wspólne dla rodzajów sterowników (Dane, Wykres, Ustawienia).
+// Ikony menu wspólne dla rodzajów sterowników (Dane, Wykres, Harmonogram, Ustawienia). Kolejność menu we
+// wszystkich rodzajach: strona główna, Dane, Wykres, Harmonogram, Ustawienia (zawsze na końcu).
 
 export const DataIcon = () => (
 	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -10,6 +11,14 @@ export const ChartIcon = () => (
 	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 		<path d="M4 18L9 13L13 16L20 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 		<path d="M16 7H20V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+	</svg>
+);
+
+// zegar: Harmonogram we wszystkich rodzajach; fill="none" jawnie, bo CSS menu ustawia fill: white
+export const ScheduleIcon = () => (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+		<path d="M12 7V12L15 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 	</svg>
 );
 
