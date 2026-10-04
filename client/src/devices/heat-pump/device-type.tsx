@@ -23,6 +23,8 @@ export const heatPumpDeviceType: DeviceTypeView = {
 			<path d="M11.0007 3C11.0007 3 9.86264 7.5 11.9313 12C14 16.5 13.5 21 13.5 21M18.9313 21C18.9313 21 19.6008 16.5 17.5007 13C15.4007 9.5 16.0007 6 16.0007 6M7.92989 21C7.92989 21 8.5993 16.5 6.49927 13C4.39924 9.5 4.99927 6 4.99927 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
 	),
+	// OTA od firmware co 1.1.0 (oferta w odpowiedzi /hp/add)
+	firmwareUpdates: true,
 	views: [
 		{ path: '/', label: 'HP', icon: <HeatPumpIcon />, element: <HP /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <HeatPumpTable /> },

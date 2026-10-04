@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WebSocketsClient.h>
+#include <ota.hpp>
 
 // Klient chmury chpc-web (https://chpc-web.onrender.com/api/): POST JSON
 // (hp/add, pv/add) z ?deviceId=<SN>[&rootId=<id>], rejestracja
@@ -28,6 +29,9 @@ public:
   // Blokujący POST; zwraca treść odpowiedzi 2xx, a w każdym innym przypadku "".
   // Odpowiedź 409 kasuje Root ID i uruchamia ponowną rejestrację.
   String post(const String &path, const JsonDocument &data);
+  // Pobiera obraz z oferty OTA do drugiej partycji i aktywuje go przy zgodnej
+  // SHA-256 (restart robi main.cpp). Blokuje pętlę; status: opis wyniku.
+  bool downloadFirmware(const OtaOffer &offer, String &status);
   int lastHttpStatus() const;
   // Any HTTP status, errors included, proves the internet is reachable.
   bool lastRequestAnswered() const;

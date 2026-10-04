@@ -9,6 +9,8 @@ import { HpEntryModel } from '../models/hp.model'
 import { getFreshPvSummary } from '../services/pv.service'
 import { getTemperature } from '../../../core/services/meteo.service'
 import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../../core/time'
+import { firmwareOfferForRoot } from '../../../core/services/firmware.service'
+import { serverBaseUrl } from '../../../core/controllers/firmware.controller'
 
 interface THpClear {
   clear?: Boolean
@@ -263,9 +265,12 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     // Temperatura zewnętrzna z IMGW na ekran sterownika; poza operacją, bo
     // operacja niesie wyłącznie napisy do zastosowania w pompie.
     const outdoor = getTemperature();
+    // oferta OTA {version, url, sha256, request} tylko przy zleceniu „Aktualizuj” (co od 1.1.0)
+    const firmware = await firmwareOfferForRoot(rootId, serverBaseUrl(req));
     return res.status(201).json({
       operation: operation,
       ...(typeof outdoor === 'number' && Number.isFinite(outdoor) ? { t_out: outdoor } : {}),
+      ...(firmware ? { firmware } : {}),
     });
   } catch (error) {
     return res.status(500).send({ error: error })

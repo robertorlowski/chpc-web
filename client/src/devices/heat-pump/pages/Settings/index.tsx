@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../../core/components/DeviceAddress';
+import { FirmwareStatus } from '../../../../core/components/FirmwareStatus';
 import { ControllerCardTitle } from '../../../../core/components/ControllerCardTitle';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
@@ -375,6 +376,7 @@ export const Settings: React.FC = () => {
 						<code className="settings-root-id">{device?.rootId ?? '---'}</code>
 					</div>
 					<DeviceAddress device={device} />
+					<FirmwareStatus device={device} actionsClassName="settings-error-actions" />
 				</div>
 
 			</section>

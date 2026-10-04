@@ -1,10 +1,14 @@
-// Komunikacja z chpc-web: HTTPS (hp/add, pv/add, devices/register) i WebSocket.
+// Komunikacja z chpc-web: HTTPS (hp/add, pv/add, devices/register), WebSocket
+// i pobieranie obrazu firmware (OTA na zlecenie „Aktualizuj”, od 1.1.0).
 // Kontrakt: CLAUDE.md, punkty 3 (rejestracja, 404/409) i 8 (WebSocket).
 // Certyfikat serwera nie jest weryfikowany (brak CA w kliencie).
 #include <cloud_client.hpp>
 
+#include <Update.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <device_config.hpp>
+#include <mbedtls/sha256.h>
 
 namespace {
 constexpr const char *CLOUD_HOST = "chpc-web.onrender.com";
@@ -20,6 +24,9 @@ constexpr uint16_t RESPONSE_TIMEOUT_MS = 5000;
 // A failed registration is retried at this pace, so an unreachable cloud
 // costs one blocked request a minute instead of stalling every loop.
 constexpr unsigned long REGISTRATION_RETRY_MS = 60000;
+
+// Pobieranie obrazu OTA: limit na połączenie i na przerwę w danych.
+constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 
 String rootIdQuery()
 {
@@ -199,6 +206,82 @@ String CloudClient::send(const String &url, const JsonDocument &data)
   }
   http.end();
   return response;
+}
+
+// Pobiera obraz z oferty do nieaktywnej partycji OTA, licząc SHA-256 w locie; obraz jest aktywowany
+// (Update.end) dopiero po zgodnej sumie. Blokuje pętlę na czas pobierania (ok. 1 MB, kilkanaście
+// sekund), dlatego main.cpp woła je tylko przy wolnej magistrali i postoju sprężarki.
+bool CloudClient::downloadFirmware(const OtaOffer &offer, String &status)
+{
+  if (WiFi.status() != WL_CONNECTED) {
+    status = "brak Wi-Fi";
+    return false;
+  }
+  stopWebSocket();
+  WiFiClientSecure client;
+  client.setInsecure();  // integralność daje SHA-256 z odpowiedzi chmury
+  HTTPClient download;
+  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  download.setConnectTimeout(OTA_TIMEOUT_MS);
+  download.setTimeout(OTA_TIMEOUT_MS);
+  if (!download.begin(client, offer.url.c_str())) {
+    status = "zły adres pliku";
+    return false;
+  }
+  const int code = download.GET();
+  const int total = download.getSize();
+  if (code != 200 || total <= 0 || !Update.begin(total)) {
+    status = "pobieranie nie powiodło się (HTTP " + String(code) + ")";
+    download.end();
+    return false;
+  }
+
+  mbedtls_sha256_context sha;
+  mbedtls_sha256_init(&sha);
+  mbedtls_sha256_starts(&sha, 0);
+  WiFiClient *stream = download.getStreamPtr();
+  uint8_t buffer[1024];
+  int remaining = total;
+  unsigned long lastDataAt = millis();
+  bool ok = true;
+  while (remaining > 0) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      if (!download.connected() || millis() - lastDataAt > OTA_TIMEOUT_MS) { ok = false; break; }
+      delay(1);
+      continue;
+    }
+    const size_t count = stream->readBytes(buffer,
+      min(min(available, sizeof(buffer)), static_cast<size_t>(remaining)));
+    mbedtls_sha256_update(&sha, buffer, count);
+    if (Update.write(buffer, count) != count) { ok = false; break; }
+    remaining -= count;
+    lastDataAt = millis();
+  }
+  download.end();
+
+  uint8_t digest[32];
+  mbedtls_sha256_finish(&sha, digest);
+  mbedtls_sha256_free(&sha);
+  char hex[65];
+  for (int index = 0; index < 32; index++) snprintf(hex + index * 2, 3, "%02x", digest[index]);
+
+  if (!ok || remaining != 0) {
+    Update.abort();
+    status = "przerwane pobieranie";
+    return false;
+  }
+  if (offer.sha256 != hex) {
+    Update.abort();
+    status = "suma SHA-256 niezgodna";
+    return false;
+  }
+  if (!Update.end(true)) {
+    status = "obraz odrzucony";
+    return false;
+  }
+  status = "pobrano wersję " + String(offer.version.c_str()) + ", restart";
+  return true;
 }
 
 int CloudClient::lastHttpStatus() const

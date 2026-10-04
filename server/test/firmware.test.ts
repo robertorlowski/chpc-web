@@ -72,10 +72,10 @@ describe('Firmware sterowników (OTA)', () => {
     expect((await request(app).get('/api/firmware/water-pressure-tank')).body.images).toHaveLength(0);
   });
 
-  it('rodzaj bez aktualizacji przez sieć (pompa ciepła) daje 404', async () => {
-    expect((await request(app).get('/api/firmware/heat_pump')).status).toBe(404);
-    expect((await upload('1.0.0', image(1), 'heat_pump')).status).toBe(404);
+  it('nieznany rodzaj daje 404, pompa ciepła ma aktualizacje (co od 1.1.0)', async () => {
     expect((await request(app).get('/api/firmware/nieznany')).status).toBe(404);
+    expect((await upload('1.0.0', image(1), 'nieznany')).status).toBe(404);
+    expect((await upload('1.1.0', image(1), 'heat_pump')).status).toBe(200);
   });
 
   it('trzyma wersję bieżącą i jedną poprzednią, starsze usuwa', async () => {
@@ -174,7 +174,7 @@ describe('Firmware sterowników (OTA)', () => {
     expect((await register('AABBCCDDEE05')).body.settings.firmware).toBeUndefined();
   });
 
-  it('zlecenie bez pliku albo przy wyłączonych aktualizacjach daje 409, pompa ciepła 400', async () => {
+  it('zlecenie bez pliku albo przy wyłączonych aktualizacjach daje 409', async () => {
     const rootId = (await register('AABBCCDDEE02')).body.rootId;
     expect((await requestUpdate(rootId)).status).toBe(409);
 
@@ -188,9 +188,6 @@ describe('Firmware sterowników (OTA)', () => {
 
     await request(app).put('/api/firmware/water-pressure-tank').send({ enabled: true });
     expect((await register('AABBCCDDEE02')).body.settings.firmware.version).toBe('1.0.1');
-
-    const pump = (await register('AABBCCDDEE06', 'heat_pump')).body.rootId;
-    expect((await requestUpdate(pump)).status).toBe(400);
   });
 
   it('włącznik dostaje ofertę w odpowiedzi na stan, piec w GET commands/next', async () => {
@@ -214,10 +211,25 @@ describe('Firmware sterowników (OTA)', () => {
     expect((await next()).body.firmware.url).toMatch(/\/api\/firmware\/pellet-boiler-pelux200\/1\.5\.0\.bin$/);
   });
 
-  it('oferta nie trafia do rodzajów bez aktualizacji (pompa ciepła)', async () => {
+  it('pompa ciepła dostaje ofertę w odpowiedzi /hp/add obok operacji, tylko przy zleceniu', async () => {
     await upload('1.0.1', image(3));
-    const response = await register('AABBCCDDEE03', 'heat_pump');
-    expect(response.body.settings?.firmware).toBeUndefined();
+    await upload('1.1.0', image(6), 'heat_pump');
+    const pumpRoot = (await request(app).post('/api/devices/register')
+      .send({ deviceId: 'AABBCCDDEE03', deviceType: 'heat_pump', version: '1.0.0' })).body.rootId;
+    const add = () => request(app).post('/api/hp/add').query({ deviceId: 'AABBCCDDEE03' }).send({ HP: {} });
+    const before = await add();
+    expect(before.status).toBe(201);
+    expect(before.body.operation).toBeDefined();
+    expect(before.body.firmware).toBeUndefined();
+
+    await requestUpdate(pumpRoot);
+    const withOffer = await add();
+    expect(withOffer.body.operation).toBeDefined();
+    expect(withOffer.body.firmware).toMatchObject({
+      version: '1.1.0',
+      url: expect.stringMatching(/\/api\/firmware\/heat_pump\/1\.1\.0\.bin$/),
+      sha256: createHash('sha256').update(image(6)).digest('hex'),
+    });
   });
   it('zapisuje opis wersji i odrzuca za długi', async () => {
     const put = (version: string, description: string) =>

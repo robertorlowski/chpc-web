@@ -3,6 +3,7 @@
 // na POST /api/hp/add i odczyt PV na POST /api/pv/add, stosuje `operation`
 // z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
 // HP-CO-setup i odpowiada na zapytania innych urządzeń do adresu 0x10.
+// Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
 // Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
 // na osobnej płytce (devices/pellet-boiler-pelux200).
 #include <Arduino.h>
@@ -17,6 +18,7 @@
 #include <json_converters.hpp>
 #include <operation_controller.hpp>
 #include <operation_parser.hpp>
+#include <ota.hpp>
 #include <pv_data_processor.hpp>
 #include <pv_telemetry.hpp>
 #include <serial_bus.hpp>
@@ -39,6 +41,9 @@ constexpr unsigned long MODE_CHANGE_DELAY_MS = 5000;
 constexpr unsigned long MODE_SCREEN_MS = 3000;
 // Klucz NVS (przestrzeń PREFERENCES_NAMESPACE) z trybem sterownika.
 constexpr const char *CONTROLLER_MODE_KEY = "mode";
+// Klucz NVS z kluczem oferty OTA (wersja#zlecenie, ota.hpp), po której pobraniu
+// sterownik ostatnio się zrestartował (ochrona przed pętlą aktualizacji).
+constexpr const char *OTA_TRIED_KEY = "ota_tried";
 // PV has its own timer, independent of the heat pump refresh interval, and
 // the first reading is taken right after start.
 constexpr unsigned long PV_READ_INTERVAL_MS = 60UL * 1000UL;
@@ -114,6 +119,11 @@ bool postAfterHpRead = false;
 bool outdoorReceived = false;
 float outdoorTemperature = 0.0f;
 unsigned long outdoorReceivedAt = 0;
+// Oferta OTA z ostatniej odpowiedzi hp/add (jest tylko przy zleceniu „Aktualizuj”)
+// i klucz oferty próbowanej w tym uruchomieniu (jedna próba na zlecenie).
+OtaOffer otaOffer;
+bool otaOfferReceived = false;
+std::string otaAttemptedKey;
 }
 
 // global functions
@@ -127,6 +137,7 @@ void refreshTelemetry();
 void applyServerOperation(JsonObjectConst operation);
 void scheduleNextDeviceRead();
 void applyControllerOutputs(void);
+void tryFirmwareUpdate();
 void processControlButton();
 void applyPendingControllerMode();
 void holdModeScreen();
@@ -219,6 +230,8 @@ void loop()
     || millis() - lastPvReadAt >= PV_READ_INTERVAL_MS) {
     schedulePvRead();
   }
+
+  if (otaOfferReceived && serialBus.isIdle()) tryFirmwareUpdate();
 
   if (serialBus.takeControlCommandWritten()) {
     readAfterCommandPending = true;
@@ -615,6 +628,36 @@ void postTelemetryToCloud() {
   }
 
   applyServerOperation(responseDocument["operation"].as<JsonObjectConst>());
+
+  // Oferta OTA jest w odpowiedzi tylko przy zleceniu „Aktualizuj”; jej brak =
+  // zlecenia nie ma (albo zostało odwołane).
+  otaOfferReceived = parseOtaOffer(responseDocument.as<JsonVariantConst>(), otaOffer);
+}
+
+// Aktualizacja na zlecenie z aplikacji (oferta z hp/add), tylko przy postoju
+// sprężarki, bez niewysłanych komend do pompy i bez wyboru trybu przyciskiem:
+// pobieranie blokuje pętlę na kilkanaście sekund (CHPC pracuje wtedy sam na
+// ostatnich ustawieniach), a po restarcie co wysyła pompie cały stan od nowa.
+// Jedna próba na zlecenie w uruchomieniu (otaAttemptedKey) i jedna po pobraniu
+// (ota_tried w NVS); ponowne „Aktualizuj” w aplikacji to nowe zlecenie.
+void tryFirmwareUpdate()
+{
+  if (telemetry.heatPumpRunning() || pendingControllerMode || readAfterCommandPending) return;
+  const std::string key = otaKey(otaOffer);
+  if (key == otaAttemptedKey) return;
+  devicePreferences.begin(PREFERENCES_NAMESPACE, true);
+  const String tried = devicePreferences.getString(OTA_TRIED_KEY, "");
+  devicePreferences.end();
+  if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
+
+  otaAttemptedKey = key;
+  String status;
+  if (!cloudClient.downloadFirmware(otaOffer, status)) return;
+  devicePreferences.begin(PREFERENCES_NAMESPACE, false);
+  devicePreferences.putString(OTA_TRIED_KEY, key.c_str());
+  devicePreferences.end();
+  delay(100);
+  ESP.restart();
 }
 
 // The answer carries no operation, so only its arrival matters: a rejected
