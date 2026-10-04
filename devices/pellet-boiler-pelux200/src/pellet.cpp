@@ -16,6 +16,11 @@
 // Od 1.6.0 WebSocket /ws?rootId= (jak we włączniku): „operation” = nowe zlecenie, płytka od razu pyta
 // o zlecenia; odczyt idzie od razu po zmianie stanu kotła i po wykonanym zleceniu (nie tylko co poll_s).
 // Od 1.6.1 także od razu po włączeniu i wyłączeniu pompy CWU (ładowanie CWU przestawia pompę ciepła).
+// Od 1.6.2: odczyt od razu po każdej zmianie stanu, wyjść (pompy, wentylator, podajnik, zapalarka, alarm)
+// i zadanych (kocioł, CWU, mieszacze) — także zmienionych na panelu; zmiana zadanej i co 10 min pełny
+// odczyt ustawień (zmiany z panelu w chmurze); zapis parametru zawsze (bez pomijania według kopii
+// ustawień płytki) i na ustawieniach nie starszych niż SETTINGS_FRESH_MS (2026-10-04: kopia sprzed zmiany
+// na panelu kazała pominąć zapis CWU 42 przy 45 na kotle).
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
 // (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
 // wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
@@ -261,11 +266,17 @@ volatile bool commandPollDue = true;
 // wykonanym zleceniu; najwyżej co IMMEDIATE_POST_MIN_MS, żeby zmieniający się stan nie zasypał chmury.
 constexpr uint32_t IMMEDIATE_POST_MIN_MS = 10000;
 bool readingDue = false;
-int lastSentState = -1;
-// pompa CWU w ostatnim wysłanym odczycie (-1 = jeszcze nic): jej włączenie i wyłączenie = ładowanie CWU,
-// na które serwer od razu przestawia pompę ciepła (od 1.6.1)
-int lastSentCwuPump = -1;
+// podpis ostatnio wysłanego odczytu (readingSignature; 0 = jeszcze nic): stan, wyjścia i zadane
+uint32_t lastSentSignature = 0;
 uint32_t lastImmediatePostMs = 0;
+// Ustawienia kotła: koniec ostatniego pełnego odczytu (busTask), podpis zadanych z ostatniego świeżego
+// odczytu; zmiana zadanej (np. na panelu) albo SETTINGS_REFRESH_MS bez odczytu = odczyt ustawień od nowa.
+constexpr uint32_t SETTINGS_FRESH_MS = 60000;
+constexpr uint32_t SETTINGS_REFRESH_MS = 10UL * 60 * 1000;
+constexpr uint32_t SETTINGS_TRIGGER_MIN_MS = 60000;
+volatile uint32_t settingsReadDoneMs = 0;
+uint32_t lastTargetsSignature = 0;
+uint32_t lastSettingsTriggerMs = 0;
 
 bool accessPointOn = false;
 uint32_t wifiLostSinceMs = 0;
@@ -339,6 +350,7 @@ const char *econetStateText(uint32_t nowMs)
 // Koniec odczytu ustawień (busTask): wpis na konsoli i zlecenie wysyłki do chmury.
 void finishSettingsRead()
 {
+  settingsReadDoneMs = millis();
   logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)", static_cast<unsigned long>(boilerSettings.failed()));
   if (boilerSettings.has(0)) settingsUploadPending = true;
 }
@@ -396,6 +408,13 @@ void startParameterSet(uint32_t)
     logf("regulator: %s, wysyłam", value ? "włącz" : "wyłącz");
     return;
   }
+  // zakres i wartość ze świeżego odczytu ustawień (kopia sprzed zmiany na panelu bywa nieaktualna)
+  if (millis() - settingsReadDoneMs > SETTINGS_FRESH_MS) {
+    parameterSetRequested = true;
+    boilerSettingsRequested = true;
+    logf("parametr %s: najpierw świeży odczyt ustawień", name.c_str());
+    return;
+  }
   uint8_t current, min, max;
   const bool known = mixer == BoilerParameterWriter::NO_MIXER
     ? ecomaxParameterValues(boilerSettings, index, current, min, max)
@@ -410,11 +429,7 @@ void startParameterSet(uint32_t)
     finishParameterSet(false, "wartość poza zakresem regulatora");
     return;
   }
-  if (current == value) {
-    logf("parametr %s ma już wartość %u", name.c_str(), value);
-    finishParameterSet(true, nullptr);
-    return;
-  }
+  // zapis zawsze, także gdy odczyt pokazuje tę samą wartość (serwer zleca tylko różnice)
   parameterWriter.start(index, value, mixer);
   logf("parametr %s: %u → %u (zakres %u–%u), wysyłam", name.c_str(), current, value, min, max);
 }
@@ -789,6 +804,8 @@ void sendSettings(uint32_t nowMs)
 }
 
 // Ostatni świeży odczyt do chmury. 404/409: Root ID nieaktualny, zgłoszenie od nowa.
+uint32_t readingSignature(const EcomaxSensorData &reading);
+
 void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
 {
   JsonDocument document;
@@ -801,8 +818,7 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
   logf("odczyt do chmury: %s (HTTP %d)", ok ? "OK" : "błąd", lastHttpStatus);
   if (ok) {
     lastPostOkMs = nowMs;
-    lastSentState = reading.state;
-    lastSentCwuPump = (reading.outputs & ECOMAX_OUT_WATER_HEATER_PUMP) != 0;
+    lastSentSignature = readingSignature(reading);
     // zlecenia czekające na stan kotła (zmiana trybu po wyłączeniu) mogą być już do wysłania
     commandPollDue = true;
     JsonDocument reply;
@@ -817,6 +833,48 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
     registeredThisBoot = false;
     lastRegisterAttemptMs = 0;
     stopWebSocket();
+  }
+}
+
+// Podpis odczytu (FNV-1a): stan, wyjścia i zadane; temperatury pominięte (zmieniają się ciągle).
+uint32_t fnv(uint32_t hash, uint32_t value, int bytes)
+{
+  for (int i = 0; i < bytes; i++) {
+    hash ^= (value >> (8 * i)) & 0xFF;
+    hash *= 16777619u;
+  }
+  return hash;
+}
+
+uint32_t targetsSignature(const EcomaxSensorData &reading)
+{
+  uint32_t hash = 2166136261u;
+  hash = fnv(hash, reading.heatingTarget.present ? reading.heatingTarget.value : 0xFFFF, 2);
+  hash = fnv(hash, reading.waterHeaterTarget.present ? reading.waterHeaterTarget.value : 0xFFFF, 2);
+  for (const EcomaxMixer &mixer : reading.mixers) hash = fnv(hash, mixer.present ? mixer.target : 0xFFFF, 2);
+  return hash | 1;  // 0 = „jeszcze nic”
+}
+
+uint32_t readingSignature(const EcomaxSensorData &reading)
+{
+  uint32_t hash = fnv(targetsSignature(reading), reading.state, 1);
+  return fnv(hash, reading.outputs, 4) | 1;
+}
+
+// Pełny odczyt ustawień: po zmianie zadanej (zmiana na panelu albo nasza, najwyżej co SETTINGS_TRIGGER_MIN_MS)
+// i co SETTINGS_REFRESH_MS; nie w trakcie zapisu ani zlecenia z aplikacji.
+void requestSettingsWhenChanged(uint32_t nowMs, const EcomaxSensorData &reading)
+{
+  const uint32_t targets = targetsSignature(reading);
+  const bool targetsChanged = lastTargetsSignature != 0 && targets != lastTargetsSignature;
+  lastTargetsSignature = targets;
+  if (boilerSettings.busy() || boilerSettingsRequested || parameterWriter.busy() || cloudCommandActive) return;
+  const bool stale = nowMs - settingsReadDoneMs >= SETTINGS_REFRESH_MS;
+  if ((targetsChanged && nowMs - lastSettingsTriggerMs >= SETTINGS_TRIGGER_MIN_MS && nowMs - settingsReadDoneMs >= 10000)
+    || stale) {
+    lastSettingsTriggerMs = nowMs;
+    boilerSettingsRequested = true;
+    logf("ustawienia kotła: %s, odczyt od nowa", targetsChanged ? "zmiana zadanej" : "co 10 min");
   }
 }
 
@@ -1221,14 +1279,12 @@ void tick(uint32_t nowMs)
   }
   EcomaxSensorData reading;
   const bool fresh = freshReading(reading);
-  const int cwuPump = fresh ? ((reading.outputs & ECOMAX_OUT_WATER_HEATER_PUMP) != 0) : -1;
-  const bool cwuPumpChanged = fresh && lastSentCwuPump >= 0 && cwuPump != lastSentCwuPump;
-  const bool stateChanged = fresh && ((lastSentState >= 0 && reading.state != lastSentState) || cwuPumpChanged);
-  if (fresh && (readingDue || stateChanged) && nowMs - lastImmediatePostMs >= IMMEDIATE_POST_MIN_MS) {
+  const bool changed = fresh && lastSentSignature != 0 && readingSignature(reading) != lastSentSignature;
+  if (fresh) requestSettingsWhenChanged(nowMs, reading);
+  if (fresh && (readingDue || changed) && nowMs - lastImmediatePostMs >= IMMEDIATE_POST_MIN_MS) {
     lastImmediatePostMs = nowMs;
     readingDue = false;
-    if (cwuPumpChanged) logf("pompa CWU: %s, odczyt do chmury od razu", cwuPump ? "włączona" : "wyłączona");
-    else if (stateChanged) logf("stan kotła: %d → %d, odczyt do chmury od razu", lastSentState, reading.state);
+    if (changed) logf("odczyt kotła: zmiana stanu, wyjść albo zadanych, do chmury od razu");
     sendReading(nowMs, reading);
   } else if (fresh && static_cast<int32_t>(nowMs - nextPostMs) >= 0) {
     sendReading(nowMs, reading);

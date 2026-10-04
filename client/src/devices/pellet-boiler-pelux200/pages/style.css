@@ -255,6 +255,13 @@
   border-bottom: 1px solid #e4e4e4;
 }
 
+/* okno „Tryb pracy”: nazwa parametru, a pod nią „teraz → nowa” */
+.boiler-commands-stacked li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
 .boiler-command-done {
   color: #2e7d32;
 }

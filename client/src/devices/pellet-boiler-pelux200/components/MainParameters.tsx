@@ -315,6 +315,7 @@ export const MainParameters: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [scheduleSettings, setScheduleSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [profileError, setProfileError] = useState('');
+  const [recentOpen, setRecentOpen] = useState(false);
   // zmiana trybu przy pracującym regulatorze: najpierw wyłączenie, nastawy czekają na stan „wyłączony”
   const [profileNeedsOff, setProfileNeedsOff] = useState(false);
   const [turnOnAfter, setTurnOnAfter] = useState(true);
@@ -450,6 +451,7 @@ export const MainParameters: React.FC = () => {
     return { name: `${where}${parameter?.label ?? `nr ${change.index}`}`, parameter };
   };
   const recent = commands.slice(0, 8);
+  const inProgressCount = commands.filter((c) => c.status === 'pending' || c.status === 'sent').length;
 
   return (
     <>
@@ -548,7 +550,14 @@ export const MainParameters: React.FC = () => {
 
       {recent.length > 0 && (
         <div className="resource">
-          <h3 className="settings-section-title">Ostatnie zmiany</h3>
+          {/* zwinięte domyślnie (jak Ustawienia zaawansowane); w nagłówku liczba zmian w toku */}
+          <h3 className="settings-section-title">
+            <button type="button" className="boiler-advanced-toggle" aria-expanded={recentOpen} onClick={() => setRecentOpen(!recentOpen)}>
+              <span>Ostatnie zmiany{inProgressCount > 0 ? ` (w toku: ${inProgressCount})` : ''}</span>
+              <span aria-hidden="true">{recentOpen ? '▲' : '▼'}</span>
+            </button>
+          </h3>
+          {recentOpen && (
           <ul className="boiler-commands">
             {recent.map((command) => {
               const control = command.kind === 'control';
@@ -567,6 +576,7 @@ export const MainParameters: React.FC = () => {
               );
             })}
           </ul>
+          )}
         </div>
       )}
 
@@ -582,7 +592,8 @@ export const MainParameters: React.FC = () => {
             {pendingChanges(profile.changes).length === 0
               ? <div>Ustawienia kotła już odpowiadają temu trybowi.</div>
               : <div>Zostaną zlecone zmiany (w tej kolejności):</div>}
-            <ul className="boiler-commands">
+            {/* wartość zawsze pod nazwą parametru (jednakowo na telefonie i komputerze) */}
+            <ul className="boiler-commands boiler-commands-stacked">
               {pendingChanges(profile.changes).map((change) => {
                 const { name, parameter } = labelOf(change);
                 const item: Item = { kind: change.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: change.mixer, index: change.index };
