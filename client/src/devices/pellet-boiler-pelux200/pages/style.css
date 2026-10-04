@@ -235,6 +235,11 @@
   font-size: 0.9rem;
 }
 
+/* zwykła opcja w panelu (np. „Po zmianie włączyć regulator”), bez czerwieni ostrzeżenia */
+.boiler-confirm.boiler-option {
+  color: inherit;
+}
+
 .boiler-confirm input {
   width: auto !important;
   margin-top: 0.2rem;

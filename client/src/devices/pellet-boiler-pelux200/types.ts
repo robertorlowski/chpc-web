@@ -79,6 +79,8 @@ export type PelletBoilerChange = {
   mixer?: number;
   index: number;
   value: number;
+  /** wysłać dopiero, gdy kocioł zgłosi stan „wyłączony” (zmiana trybu pracy) */
+  waitOff?: boolean;
 };
 
 /** Zlecenie zmiany z GET/POST /pellet-boiler-pelux200/commands. */

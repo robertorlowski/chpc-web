@@ -313,6 +313,9 @@ export const MainParameters: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [scheduleSettings, setScheduleSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [profileError, setProfileError] = useState('');
+  // zmiana trybu przy pracującym regulatorze: najpierw wyłączenie, nastawy czekają na stan „wyłączony”
+  const [profileNeedsOff, setProfileNeedsOff] = useState(false);
+  const [turnOnAfter, setTurnOnAfter] = useState(true);
 
   const load = useCallback(() => {
     PelletBoilerRequests.getSettings().then(setSettings);
@@ -341,9 +344,14 @@ export const MainParameters: React.FC = () => {
     changes: Object.entries(scheduleSettings?.profiles[key] ?? {}).map(([name, value]) => ({ ...itemOfKey(name), value })),
   }));
 
+  // Tryb pracy tylko przy wyłączonym kotle: przy pracującym regulatorze zlecenie to „wyłącz”, nastawy
+  // z waitOff (serwer wysyła je po odczycie ze stanem 0) i opcjonalnie „włącz” na końcu.
   const sendProfile = async () => {
     if (!profile) return;
-    const response = await PelletBoilerRequests.postCommands(pendingChanges(profile.changes));
+    const changes = pendingChanges(profile.changes).map((change) => (profileNeedsOff ? { ...change, waitOff: true } : change));
+    const on: PelletBoilerChange[] = turnOnAfter ? [{ kind: 'control', index: 0, value: 1, ...(profileNeedsOff ? { waitOff: true } : {}) }] : [];
+    const off: PelletBoilerChange[] = profileNeedsOff ? [{ kind: 'control', index: 0, value: 0 }] : [];
+    const response = await PelletBoilerRequests.postCommands([...off, ...changes, ...on]);
     if (response?.status === 201) {
       setProfile(null);
       setProfileError('');
@@ -391,6 +399,17 @@ export const MainParameters: React.FC = () => {
     }
   };
 
+  const modeChangePending = commands.some((command) => command.waitOff && (command.status === 'pending' || command.status === 'sent'));
+  const openProfile = (item: Profile) => {
+    const needsOff = regulatorOn !== false;
+    if (needsOff && pendingChanges(item.changes).length > 0
+      && !window.confirm('Zmiana trybu pracy wymaga wyłączonego kotła. Wyłączyć regulator?')) return;
+    setProfileError('');
+    setProfileNeedsOff(needsOff);
+    setTurnOnAfter(true);
+    setProfile(item);
+  };
+
   const ready = settings && settings.readAt;
   const currentMode = workModeName(settings ?? null);
   const labelOf = (change: PelletBoilerChange) => {
@@ -406,9 +425,9 @@ export const MainParameters: React.FC = () => {
         <h3 className="settings-section-title">Tryb pracy</h3>
         <div className="boiler-profiles">
           {profiles.map((item) => (
-            <button key={item.key} type="button" disabled={!ready || !scheduleSettings}
+            <button key={item.key} type="button" disabled={!ready || !scheduleSettings || modeChangePending}
               className={currentMode === item.label ? 'boiler-profile-active' : 'boiler-profile'}
-              onClick={() => { setProfileError(''); setProfile(item); }}>
+              onClick={() => openProfile(item)}>
               {item.label}
             </button>
           ))}
@@ -416,7 +435,9 @@ export const MainParameters: React.FC = () => {
         <div className="boiler-hint">
           Obecny: <strong>{currentMode}</strong> (z minimalnej temperatury kotła). Przełączenie zleca nastawy
           trybu z Ustawień zaawansowanych (grupa „Pompa ciepła / Pellet”); CWU ustawia harmonogram trybu.
+          Zmiana tylko przy wyłączonym kotle.
         </div>
+        {modeChangePending && <div className="boiler-hint"><strong>Zmiana trybu czeka na wyłączenie kotła.</strong></div>}
 
       </div>
 
@@ -503,7 +524,8 @@ export const MainParameters: React.FC = () => {
                 <li key={command._id}>
                   <span>{control ? <strong>{CONTROL_LABEL(command.value)}</strong> : <>{name} → <strong>{value}</strong></>}</span>
                   <span className={`boiler-command-${command.status}`}>
-                    {STATUS_TEXT[command.status]}{command.error ? `: ${command.error}` : ''}
+                    {command.waitOff && command.status === 'pending' ? 'czeka na wyłączenie kotła' : STATUS_TEXT[command.status]}
+                    {command.error ? `: ${command.error}` : ''}
                     <span className="boiler-hint"> · {formatDateTime(command.createdAt)}</span>
                   </span>
                 </li>
@@ -540,6 +562,18 @@ export const MainParameters: React.FC = () => {
                 );
               })}
             </ul>
+            {profileNeedsOff && pendingChanges(profile.changes).length > 0 && (
+              <div className="boiler-hint">
+                Najpierw zostanie wyłączony regulator; zmiany pójdą do kotła, gdy zgłosi stan „wyłączony”
+                (przy paleniu pelletu po wygaszeniu).
+              </div>
+            )}
+            {pendingChanges(profile.changes).length > 0 && (
+              <label className="boiler-confirm boiler-option">
+                <input type="checkbox" checked={turnOnAfter} onChange={(event) => setTurnOnAfter(event.currentTarget.checked)} />
+                Po zmianie włączyć regulator
+              </label>
+            )}
             {profileError && <p className="device-modal-error">{profileError}</p>}
             <div className="device-modal-actions">
               <button type="button" onClick={() => setProfile(null)}>Anuluj</button>

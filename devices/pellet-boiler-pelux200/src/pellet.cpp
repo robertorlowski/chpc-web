@@ -13,6 +13,8 @@
 // POST pellet-boiler-pelux200/add (odpowiedź {poll_interval_seconds}). NVS: przestrzeń „pel”.
 // Od 1.5.0 aktualizacja z chmury (OTA) na zlecenie z aplikacji: oferta w odpowiedzi na
 // GET commands/next (ota.hpp), pobieranie z kontrolą SHA-256, gdy nie trwa zapis parametru.
+// Od 1.6.0 WebSocket /ws?rootId= (jak we włączniku): „operation” = nowe zlecenie, płytka od razu pyta
+// o zlecenia; odczyt idzie od razu po zmianie stanu kotła i po wykonanym zleceniu (nie tylko co poll_s).
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
 // (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
 // wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
@@ -24,6 +26,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <WebSocketsClient.h>
 #include <Update.h>
 #include <esp_mac.h>
 #include <mbedtls/sha256.h>
@@ -243,6 +246,22 @@ int lastHttpStatus = 0;
 int lastPostStatus = 0;
 uint32_t lastTickMs = 0;
 uint32_t lastStatusLogMs = 0;
+
+// WebSocket /ws?rootId= do tego samego serwera co HTTP (od 1.6.0): komunikat „operation” (nowe zlecenie
+// z aplikacji, „Aktualizuj”) ustawia commandPollDue i płytka od razu pyta o zlecenia; bez WebSocketu
+// zostaje pytanie co CLOUD_COMMAND_POLL_MS.
+WebSocketsClient webSocket;
+bool webSocketStarted = false;
+bool cloudTls = true;
+String cloudHost;
+uint16_t cloudPort = 443;
+volatile bool commandPollDue = true;
+// Odczyt od razu, poza poll_s: po zmianie stanu kotła (np. praca → wygaszanie → wyłączony) i po
+// wykonanym zleceniu; najwyżej co IMMEDIATE_POST_MIN_MS, żeby zmieniający się stan nie zasypał chmury.
+constexpr uint32_t IMMEDIATE_POST_MIN_MS = 10000;
+bool readingDue = false;
+int lastSentState = -1;
+uint32_t lastImmediatePostMs = 0;
 
 bool accessPointOn = false;
 uint32_t wifiLostSinceMs = 0;
@@ -588,6 +607,56 @@ String requestUrl(const char *path)
   return url;
 }
 
+// https://host[:port]/api/ albo http://host[:port]/api/ (środowisko lokalne): WebSocket łączy się z tym samym serwerem.
+void parseCloudUrl()
+{
+  cloudTls = cloudUrl.startsWith("https://");
+  const int hostStart = cloudUrl.indexOf("://") + 3;
+  int hostEnd = cloudUrl.indexOf('/', hostStart);
+  if (hostEnd < 0) hostEnd = cloudUrl.length();
+  const String hostPort = cloudUrl.substring(hostStart, hostEnd);
+  const int colon = hostPort.indexOf(':');
+  cloudHost = colon < 0 ? hostPort : hostPort.substring(0, colon);
+  cloudPort = colon < 0 ? (cloudTls ? 443 : 80) : static_cast<uint16_t>(hostPort.substring(colon + 1).toInt());
+}
+
+// Rozłącza WebSocket (zmiana Root ID, 404/409, pobieranie OTA); startWebSocket połączy go znowu.
+void stopWebSocket()
+{
+  if (!webSocketStarted) return;
+  webSocket.disconnect();
+  webSocketStarted = false;
+}
+
+// {"type":"operation"}: nowe zlecenie albo „Aktualizuj” — pytanie o zlecenia w najbliższym tick();
+// „update” (dla przeglądarek) jest pomijany.
+void handleWebSocketEvent(WStype_t type, uint8_t *payload, size_t length)
+{
+  if (type == WStype_CONNECTED) {
+    logf("WebSocket: połączony");
+    commandPollDue = true;
+  } else if (type == WStype_DISCONNECTED) {
+    logf("WebSocket: rozłączony");
+  } else if (type == WStype_TEXT) {
+    JsonDocument message;
+    if (!deserializeJson(message, reinterpret_cast<const char *>(payload), length)
+      && strcmp(message["type"] | "", "operation") == 0) {
+      commandPollDue = true;
+    }
+  }
+}
+
+// TLS dla https://; biblioteka sama łączy ponownie co 10 s po zerwaniu.
+void startWebSocket()
+{
+  const String path = "/ws?rootId=" + rootId;
+  if (cloudTls) webSocket.beginSSL(cloudHost.c_str(), cloudPort, path.c_str());
+  else webSocket.begin(cloudHost.c_str(), cloudPort, path.c_str());
+  webSocket.onEvent(handleWebSocketEvent);
+  webSocket.setReconnectInterval(10000);
+  webSocketStarted = true;
+}
+
 // Jedno zapytanie HTTP(S) (certyfikat nie jest sprawdzany, jak w pozostałych sterownikach).
 // lastHttpStatus < 0 oznacza błąd połączenia.
 bool post(const String &url, const String &body, String *response = nullptr, uint16_t timeoutMs = HTTP_TIMEOUT_MS)
@@ -658,9 +727,11 @@ void registerDevice()
   if (id != rootId) {
     rootId = id;
     preferences.putString(KEY_ROOT_ID, rootId);
+    stopWebSocket();
   }
   applyPollSeconds(reply["settings"]["poll_interval_seconds"]);
   registeredThisBoot = true;
+  if (!webSocketStarted) startWebSocket();
   logf("zgłoszenie: OK (HTTP %d), rootId %s, interwał %u s", lastHttpStatus, rootId.c_str(),
     static_cast<unsigned>(pollSeconds));
 }
@@ -726,6 +797,9 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
   logf("odczyt do chmury: %s (HTTP %d)", ok ? "OK" : "błąd", lastHttpStatus);
   if (ok) {
     lastPostOkMs = nowMs;
+    lastSentState = reading.state;
+    // zlecenia czekające na stan kotła (zmiana trybu po wyłączeniu) mogą być już do wysłania
+    commandPollDue = true;
     JsonDocument reply;
     if (!deserializeJson(reply, response)) applyPollSeconds(reply["poll_interval_seconds"]);
     nextPostMs = nowMs + pollSeconds * 1000UL;
@@ -737,6 +811,7 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
     preferences.remove(KEY_ROOT_ID);
     registeredThisBoot = false;
     lastRegisterAttemptMs = 0;
+    stopWebSocket();
   }
 }
 
@@ -777,6 +852,9 @@ void sendCommandResult()
   cloudCommandId = "";
   cloudResultReady = false;
   cloudCommandActive = false;
+  // następne zlecenie od razu, a aplikacja dostaje świeży odczyt (np. stan po włącz/wyłącz)
+  commandPollDue = true;
+  readingDue = true;
 }
 
 void pollCloudCommand(uint32_t nowMs)
@@ -792,7 +870,8 @@ void pollCloudCommand(uint32_t nowMs)
     }
     return;
   }
-  if (lastCommandPollMs != 0 && nowMs - lastCommandPollMs < CLOUD_COMMAND_POLL_MS) return;
+  if (!commandPollDue && lastCommandPollMs != 0 && nowMs - lastCommandPollMs < CLOUD_COMMAND_POLL_MS) return;
+  commandPollDue = false;
   lastCommandPollMs = nowMs;
   String response;
   if (!get(requestUrl("pellet-boiler-pelux200/commands/next"), response)) return;
@@ -840,6 +919,7 @@ void restartWithReason(const char *reason);
 bool downloadFirmware(const OtaOffer &offer)
 {
   logf("OTA: pobieram %s", offer.url.c_str());
+  stopWebSocket();
   secureClient.stop();
   WiFiClientSecure client;
   client.setInsecure();  // integralność daje SHA-256 z odpowiedzi chmury
@@ -1135,7 +1215,16 @@ void tick(uint32_t nowMs)
     if (!registeredThisBoot) return;
   }
   EcomaxSensorData reading;
-  if (static_cast<int32_t>(nowMs - nextPostMs) >= 0 && freshReading(reading)) sendReading(nowMs, reading);
+  const bool fresh = freshReading(reading);
+  const bool stateChanged = fresh && lastSentState >= 0 && reading.state != lastSentState;
+  if (fresh && (readingDue || stateChanged) && nowMs - lastImmediatePostMs >= IMMEDIATE_POST_MIN_MS) {
+    lastImmediatePostMs = nowMs;
+    readingDue = false;
+    if (stateChanged) logf("stan kotła: %d → %d, odczyt do chmury od razu", lastSentState, reading.state);
+    sendReading(nowMs, reading);
+  } else if (fresh && static_cast<int32_t>(nowMs - nextPostMs) >= 0) {
+    sendReading(nowMs, reading);
+  }
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
   pollCloudCommand(nowMs);
   tryFirmwareUpdate();
@@ -1408,6 +1497,7 @@ void setup()
   Serial.begin(115200);
   preferences.begin(PREFERENCES_NAMESPACE, false);
   loadConfig();
+  parseCloudUrl();
   serial = readSerial();
   lastResetText = describeLastReset();
   logf("start: firmware %s, SN %s, rootId %s, chmura %s", FW_VERSION, serial.c_str(),
@@ -1427,6 +1517,7 @@ void loop()
 {
   esp_task_wdt_reset();
   server.handleClient();
+  if (webSocketStarted) webSocket.loop();
   // Konsola USB: litery p / t / r od razu, „set <nr> <wartość>” zakończone Enterem.
   static char consoleLine[32];
   static uint8_t consoleLength = 0;

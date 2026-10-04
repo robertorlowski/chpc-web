@@ -50,8 +50,9 @@ export const DEFAULT_SCHEDULE_SETTINGS: Omit<PelletBoilerScheduleSettings, 'root
       'ecomax:99': 30, 'ecomax:98': 30, 'ecomax:17': 20, 'ecomax:101': 30, 'ecomax:105': 5, 'ecomax:122': 1,
       'mixer1:1': 30, 'mixer1:2': 50, 'mixer1:4': 0, 'mixer1:0': 35,
     },
+    // histereza 12: start kotła przy 67 − 12 = 55 °C (decyzja użytkownika 2026-10-04)
     pellet: {
-      'ecomax:99': 65, 'ecomax:98': 67, 'ecomax:17': 10, 'ecomax:101': 50, 'ecomax:105': 5, 'ecomax:122': 2,
+      'ecomax:99': 65, 'ecomax:98': 67, 'ecomax:17': 12, 'ecomax:101': 50, 'ecomax:105': 5, 'ecomax:122': 2,
       'mixer1:1': 40, 'mixer1:2': 50, 'mixer1:4': 1, 'mixer1:0': 40,
     },
   },

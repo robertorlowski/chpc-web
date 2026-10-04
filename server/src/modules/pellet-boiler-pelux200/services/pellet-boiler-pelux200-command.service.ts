@@ -3,18 +3,23 @@
 // do regulatora i odsyła wynik (finishCommand). Wartość jest surowa (bajt z ramki), sprawdzana
 // z zakresem min–max z ostatniego odczytu ustawień — regulator i tak odrzuci wartość spoza niego,
 // a sterownik sprawdza to jeszcze raz na świeżym odczycie. Zapis w każdym stanie kotła
-// (decyzja użytkownika 2026-10-04, jak fabryczny ecoNET300).
+// (decyzja użytkownika 2026-10-04, jak fabryczny ecoNET300). Wyjątek: zlecenia z waitOff (zmiana trybu
+// pracy Pompa ciepła / Pellet) czekają w kolejce, aż kocioł zgłosi stan „wyłączony” (0) w odczycie
+// nowszym niż zlecenie; po WAIT_OFF_MAX_MS kończą się błędem, żeby nie blokować kolejki.
 import { Types } from 'mongoose';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerCommandChange, PelletBoilerCommandEntry, PelletBoilerParameter } from '../types';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
+import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { sendMessage } from '../../../core/websocket';
 
 // najwięcej zmian w jednym zleceniu (przełącznik trybu pracy ma kilka)
 const MAX_CHANGES = 16;
 // zlecenie wysłane do sterownika bez wyniku przez tyle czasu wraca do kolejki (np. restart płytki)
 export const SENT_TIMEOUT_MS = 3 * 60 * 1000;
+// zlecenie czekające na wyłączenie kotła (waitOff) najdłużej tyle (wygaszanie pelletu trwa kilkanaście minut)
+export const WAIT_OFF_MAX_MS = 60 * 60 * 1000;
 // historia pokazywana w aplikacji
 const RECENT_LIMIT = 20;
 
@@ -54,10 +59,12 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
   };
   for (const raw of changes as Record<string, unknown>[]) {
     const kind = raw?.kind;
+    if (raw?.waitOff !== undefined && typeof raw.waitOff !== 'boolean') throw new CommandError('waitOff: true albo false');
+    const waitOff = raw?.waitOff === true ? { waitOff: true } : {};
     // włącz (1) / wyłącz (0) regulator (ramka 0x3B, firmware od 1.4.0): bez zakresu z odczytu ustawień
     if (kind === 'control') {
       if (raw.value !== 0 && raw.value !== 1) throw new CommandError('control: value 0 (wyłącz) albo 1 (włącz)');
-      valid.push({ kind, index: 0, value: raw.value, previous: 1 - raw.value, label: raw.value ? 'Włącz kocioł' : 'Wyłącz kocioł' });
+      valid.push({ kind, index: 0, value: raw.value, previous: 1 - raw.value, label: raw.value ? 'Włącz kocioł' : 'Wyłącz kocioł', ...waitOff });
       continue;
     }
     if (kind !== 'ecomax' && kind !== 'mixer') throw new CommandError('kind: ecomax, mixer albo control');
@@ -73,19 +80,25 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
     if (change.value < min || change.value > max) {
       throw new CommandError(`${parameter.label ?? parameter.name ?? change.index}: wartość poza zakresem regulatora.`);
     }
-    valid.push({ ...change, previous: parameter.raw[0], label: parameter.label ?? parameter.name ?? undefined });
+    valid.push({ ...change, previous: parameter.raw[0], label: parameter.label ?? parameter.name ?? undefined, ...waitOff });
   }
 
+  // zastępowane są tylko wcześniejsze zlecenia: w jednym zleceniu „wyłącz … włącz” oba zostają
   const created: PelletBoilerCommandEntry[] = [];
   for (const change of valid) {
     await PelletBoilerCommandModel.updateMany(
-      { rootId, kind: change.kind, mixer: change.mixer, index: change.index, status: 'pending' },
+      {
+        rootId, kind: change.kind, mixer: change.mixer, index: change.index, status: 'pending',
+        _id: { $nin: created.map((entry) => entry._id) },
+      },
       { $set: { status: 'replaced', doneAt: new Date() } },
     );
     const doc = await PelletBoilerCommandModel.create({ rootId, ...change, status: 'pending' });
     created.push(doc.toObject());
   }
   sendMessage('update', rootId);
+  // budzi sterownik pieca (WebSocket, firmware od 1.6.0): pobiera zlecenie od razu, nie po 15 s
+  sendMessage('operation', rootId);
   return created;
 }
 
@@ -93,13 +106,33 @@ export const listRecentCommands = (rootId: string) =>
   PelletBoilerCommandModel.find({ rootId }).sort({ createdAt: -1 }).limit(RECENT_LIMIT).lean<PelletBoilerCommandEntry[]>();
 
 // Dla sterownika: najstarsze oczekujące albo wysłane bez wyniku dłużej niż SENT_TIMEOUT_MS
-// (oznaczane jako wysłane). null, gdy nic nie czeka.
-export async function takeNextCommand(rootId: string, now = new Date()) {
+// (oznaczane jako wysłane). null, gdy nic nie czeka albo najstarsze czeka na wyłączenie kotła
+// (waitOff: kolejka stoi, żeby zachować kolejność zmian trybu).
+export async function takeNextCommand(rootId: string, now = new Date()): Promise<PelletBoilerCommandEntry | null> {
   const stale = new Date(now.getTime() - SENT_TIMEOUT_MS);
+  const next = await PelletBoilerCommandModel
+    .findOne({ rootId, $or: [{ status: 'pending' }, { status: 'sent', sentAt: { $lt: stale } }] })
+    .sort({ createdAt: 1, _id: 1 }).lean<PelletBoilerCommandEntry>();
+  if (!next) return null;
+  if (next.waitOff && next.status === 'pending') {
+    const createdAt = new Date(next.createdAt as Date);
+    if (now.getTime() - createdAt.getTime() > WAIT_OFF_MAX_MS) {
+      // kocioł się nie wyłączył (np. włączony z panelu): ta i pozostałe zmiany trybu kończą się błędem
+      await PelletBoilerCommandModel.updateMany(
+        { rootId, status: 'pending', waitOff: true },
+        { $set: { status: 'error', doneAt: now, error: 'kocioł nie wyłączył się w ciągu 60 min — zmiana trybu nie wysłana' } },
+      );
+      sendMessage('update', rootId);
+      return takeNextCommand(rootId, now);
+    }
+    const last = await getPelletBoilerPelux200Last(rootId);
+    const lastAt = last ? new Date((last as { createdAt?: Date }).createdAt ?? 0) : undefined;
+    if (!last || last.state !== 0 || !lastAt || lastAt <= createdAt) return null;
+  }
   return PelletBoilerCommandModel.findOneAndUpdate(
-    { rootId, $or: [{ status: 'pending' }, { status: 'sent', sentAt: { $lt: stale } }] },
+    { _id: next._id, status: next.status },
     { $set: { status: 'sent', sentAt: now } },
-    { sort: { createdAt: 1 }, new: true },
+    { new: true },
   ).lean<PelletBoilerCommandEntry>();
 }
 

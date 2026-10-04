@@ -272,6 +272,48 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(history[0].error).toBe('brak potwierdzenia 0xB3');
   });
 
+  it('zmiana trybu przy wyłączonym kotle: wyłącz, nastawy czekają na stan 0, na końcu włącz', async () => {
+    const sn = 'AABBCC000013';
+    const { rootId } = (await register(sn)).body;
+    const commands = `/api/pellet-boiler-pelux200/commands?rootId=${rootId}`;
+    const next = () => request(app).get(`/api/pellet-boiler-pelux200/commands/next?deviceId=${sn}`);
+    const result = (id: string) => request(app).post(`/api/pellet-boiler-pelux200/commands/result?deviceId=${sn}`).send({ id, ok: true });
+    const reading = (state: number) =>
+      request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state, heating_temp: 40 }).expect(201);
+    const pause = () => new Promise((done) => setTimeout(done, 5));
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+    await reading(3);
+    await pause();
+
+    expect((await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 119, value: 45, waitOff: 'tak' }] })).status).toBe(400);
+    const created = await request(app).post(commands).send({ changes: [
+      { kind: 'control', index: 0, value: 0 },
+      { kind: 'ecomax', index: 119, value: 45, waitOff: true },
+      { kind: 'control', index: 0, value: 1, waitOff: true },
+    ] });
+    expect(created.status).toBe(201);
+    // „włącz” w tym samym zleceniu nie zastępuje „wyłącz”
+    expect(created.body.map((c: { status: string }) => c.status)).toEqual(['pending', 'pending', 'pending']);
+
+    const off = (await next()).body;
+    expect(off).toMatchObject({ kind: 'control', value: 0 });
+    await result(off.id).expect(201);
+    // kocioł jeszcze pracuje (albo wygasza): nastawy czekają
+    expect((await next()).body).toEqual({});
+    await pause();
+    await reading(7);
+    expect((await next()).body).toEqual({});
+    await pause();
+    await reading(0);
+    const cwu = (await next()).body;
+    expect(cwu).toMatchObject({ kind: 'ecomax', index: 119, value: 45 });
+    await result(cwu.id).expect(201);
+    const on = (await next()).body;
+    expect(on).toMatchObject({ kind: 'control', value: 1 });
+    await result(on.id).expect(201);
+    expect((await next()).body).toEqual({});
+  });
+
   // Kopia ustawień z 2026-10-04: minimalna temperatura kotła 30 °C (tryb pompy ciepła), CWU 40 / histereza 5.
   const archiveHeatPump = JSON.parse(readFileSync(resolve(__dirname,
     '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));

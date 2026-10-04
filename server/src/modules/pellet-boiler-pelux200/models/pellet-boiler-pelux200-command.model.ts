@@ -17,6 +17,8 @@ const PelletBoilerCommandSchema = new Schema<PelletBoilerCommandEntry>(
     /** wartość przed zmianą (surowa, z ostatniego odczytu ustawień) */
     previous: { type: Number },
     label: { type: String },
+    /** czeka na odczyt ze stanem 0 (kocioł wyłączony) nowszy niż zlecenie (zmiana trybu pracy) */
+    waitOff: { type: Boolean },
     status: { type: String, enum: ['pending', 'sent', 'done', 'error', 'replaced'], required: true, default: 'pending' },
     error: { type: String },
     sentAt: { type: Date },

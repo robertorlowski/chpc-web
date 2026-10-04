@@ -103,6 +103,8 @@ export interface PelletBoilerCommandChange {
   mixer?: number;
   index: number;
   value: number;
+  /** wysłać dopiero, gdy kocioł zgłosi stan „wyłączony” (0) w odczycie nowszym niż zlecenie — zmiana trybu pracy */
+  waitOff?: boolean;
 }
 
 export type PelletBoilerCommandStatus = 'pending' | 'sent' | 'done' | 'error' | 'replaced';
