@@ -42,6 +42,10 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
     lastApplied: { mode, ...cwu, paused: Boolean },
     lastAppliedAt: { type: Date },
     lastError: { type: String },
+    // ładowanie CWU w trybie pompy ciepła (pellet-boiler-pelux200-cwu-loading.service.ts)
+    cwuLoading: { type: Schema.Types.Mixed },
+    // automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (komunikat do „OK”)
+    autoPellet: { type: Schema.Types.Mixed },
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200_schedule_settings', minimize: false }
 );

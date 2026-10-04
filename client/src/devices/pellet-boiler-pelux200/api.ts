@@ -1,7 +1,7 @@
 import { Requests } from '../../core/http';
 import {
-  PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerReading, PelletBoilerSchedule,
-  PelletBoilerScheduleSettings, PelletBoilerSettings,
+  PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
+  PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSettings,
 } from './types';
 
 // Kocioł pelletowy Pellux 200: odczyty ze sterownika (/api/pellet-boiler-pelux200/*);
@@ -10,6 +10,21 @@ export class PelletBoilerRequests {
   // ostatni odczyt; serwer zwraca {} przy braku danych, get null przy błędzie
   static getLast(): Promise<PelletBoilerReading | null> {
     return Requests.get('/pellet-boiler-pelux200/last');
+  }
+
+  // niepotwierdzone automatyczne przejście na Pellet (rozpalanie w trybie pompy ciepła) albo null
+  static getAutoPellet(): Promise<PelletBoilerAutoPellet | null> {
+    return Requests.get('/pellet-boiler-pelux200/auto-pellet');
+  }
+
+  // „OK” na komunikacie o automatycznym przejściu
+  static acknowledgeAutoPellet() {
+    return Requests.post('/pellet-boiler-pelux200/auto-pellet/ack', {}, false);
+  }
+
+  // ładowanie CWU w trybie pompy ciepła; null przy błędzie
+  static getCwuLoading(): Promise<PelletBoilerCwuLoading | null> {
+    return Requests.get('/pellet-boiler-pelux200/cwu-loading');
   }
 
   // odczyty z dnia czasu warszawskiego (YYYY-MM-DD), malejąco po createdAt

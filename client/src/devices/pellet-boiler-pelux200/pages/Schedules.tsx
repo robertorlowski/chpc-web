@@ -29,6 +29,8 @@ const dayOptions = [
 ] as const;
 export const MODE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
 const MODES: PelletBoilerMode[] = ['heat-pump', 'pellet'];
+// tryb pompy ciepła: CWU najwyżej 45 °C (wyżej pompa ciepła nie dogrzeje); serwer sprawdza to samo
+const cwuMax = (mode: PelletBoilerMode) => (mode === 'heat-pump' ? 45 : 80);
 
 const formatDay = (schedule: PelletBoilerSchedule) => {
   if (schedule.date) return new Date(schedule.date).toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw' });
@@ -86,6 +88,9 @@ export const PelletBoilerSchedules: React.FC = () => {
     if (MODES.some((mode) => settings.defaults[mode].cwuFrom >= settings.defaults[mode].cwuTo)) {
       return setSettingsError('CWU: „od” musi być mniejsze niż „do”.');
     }
+    if (settings.defaults['heat-pump'].cwuTo > cwuMax('heat-pump')) {
+      return setSettingsError(`Pompa ciepła: CWU najwyżej ${cwuMax('heat-pump')} °C.`);
+    }
     try {
       setSettings(await PelletBoilerRequests.saveScheduleSettings(settings));
       setSettingsError('');
@@ -121,6 +126,7 @@ export const PelletBoilerSchedules: React.FC = () => {
       cwuFrom: Number(form.cwuFrom), cwuTo: Number(form.cwuTo),
     };
     if (Number(form.cwuFrom) >= Number(form.cwuTo)) return setError('CWU: „od” musi być mniejsze niż „do”.');
+    if (Number(form.cwuTo) > cwuMax(form.mode)) return setError(`Pompa ciepła: CWU najwyżej ${cwuMax(form.mode)} °C.`);
     setSaving(true);
     try {
       if (editingId) await PelletBoilerRequests.updateSchedule(editingId, payload);
@@ -196,10 +202,13 @@ export const PelletBoilerSchedules: React.FC = () => {
               <div className="boiler-hint">Przez północ: do {form.endTime} następnego dnia.</div>
             )}
             <div className="schedule-fields">
-              <label>CWU od [°C]<input type="number" min={10} max={80} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
-              <label>CWU do [°C]<input type="number" min={10} max={80} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
+              <label>CWU od [°C]<input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
+              <label>CWU do [°C]<input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
             </div>
-            <div className="boiler-hint">„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).</div>
+            <div className="boiler-hint">
+              „Do” = zadana CWU, „od” = start ładowania (histereza = do − od).
+              {form.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}
+            </div>
             <label className="schedule-toggle">
               <input type="checkbox" checked={form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
               Aktywny
@@ -262,9 +271,9 @@ export const PelletBoilerSchedules: React.FC = () => {
                       <div className={`boiler-default-row${now && !current?.scheduleId ? ' boiler-default-current' : ''}`}>
                         <span><b>Poza harmonogramem</b></span>
                         <span className="schedule-fields">
-                          <label>CWU od [°C]<input type="number" min={10} max={80} value={settings.defaults[mode].cwuFrom}
+                          <label>CWU od [°C]<input type="number" min={10} max={cwuMax(mode)} value={settings.defaults[mode].cwuFrom}
                             onChange={(event) => setDefault(mode, 'cwuFrom', event.target.value)} /></label>
-                          <label>CWU do [°C]<input type="number" min={10} max={80} value={settings.defaults[mode].cwuTo}
+                          <label>CWU do [°C]<input type="number" min={10} max={cwuMax(mode)} value={settings.defaults[mode].cwuTo}
                             onChange={(event) => setDefault(mode, 'cwuTo', event.target.value)} /></label>
                         </span>
                       </div>

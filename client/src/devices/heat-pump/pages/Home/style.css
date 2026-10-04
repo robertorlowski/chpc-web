@@ -217,3 +217,14 @@ td.label.hp-temp-label {
 		flex-basis: 100%;
 	}
 }
+
+/* ładowanie CWU w kotle (kocioł w trybie pompy ciepła): pasek nad danymi pompy */
+.cwu-loading {
+  border-left: 4px solid #1481a5;
+  color: #1481a5;
+}
+
+.cwu-loading-off {
+  color: #b00020;
+  font-weight: 600;
+}

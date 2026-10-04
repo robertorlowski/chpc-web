@@ -14,6 +14,7 @@ import { DeviceType } from '../../../core/types';
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
 import { getHpLastData } from './hp.service';
 import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
+import { syncCwuLoading } from './cwu-loading.service';
 import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/services/calendar.service';
 import { TIME_ZONE } from '../../../core/time';
 
@@ -251,6 +252,8 @@ export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): P
 
     // Sterownik pobiera OperationEntry przy zapisie telemetrii.
     // Scheduler celowo nie wysyła powiadomienia przez WebSocket.
+    // Ładowanie CWU w kotle (nadpisanie 47–49 °C) zgodne z bazą: po restarcie serwera i po wygaśnięciu.
+    await syncCwuLoading(rootId, now);
     replaceOperationData(rootId, operation);
 
     console.log(`[scheduler] ${rootId}`, operation);

@@ -4,7 +4,7 @@
 import {
   ECOMAX_PARAMETER_GROUPS, ECOMAX_PARAMETERS, EcomaxParameterDefinition, MIXER_PARAMETERS,
 } from '../ecomax-parameters';
-import { PelletBoilerParameter, PelletBoilerSettingsRaw, PelletBoilerSettingsView } from '../types';
+import { PelletBoilerMode, PelletBoilerParameter, PelletBoilerSettingsRaw, PelletBoilerSettingsView } from '../types';
 import {
   PelletBoilerSettingsEntry, PelletBoilerSettingsModel,
 } from '../models/pellet-boiler-pelux200-settings.model';
@@ -107,6 +107,14 @@ export function decodeMixerParameters(hex: string): { mixer: number; parameters:
     if (parameters.length) result.push({ mixer: mixer + 1, parameters });
   }
   return result;
+}
+
+// Tryb z odczytu ustawień kotła: minimalna temperatura kotła (nr 99) < 50 °C = pompa ciepła.
+export function boilerMode(settings: PelletBoilerSettingsEntry | null): PelletBoilerMode | null {
+  const minimum = settings
+    ? buildSettingsView(settings).groups.flatMap((g) => g.parameters).find((p) => p.index === 99)?.raw[0]
+    : undefined;
+  return minimum === undefined ? null : minimum < 50 ? 'heat-pump' : 'pellet';
 }
 
 export function buildSettingsView(entry: PelletBoilerSettingsEntry): PelletBoilerSettingsView {

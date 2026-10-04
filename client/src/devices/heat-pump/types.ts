@@ -172,3 +172,11 @@ export type THPL = HpMetrics & {
   pv :number,
   error_code?: number
 };
+
+/** Ładowanie CWU w kotle zasilanym przez pompę (GET /hp/cwu-loading); pompa grzeje wtedy 47–49 °C. */
+export type HpCwuLoading = {
+  active: boolean;
+  since: string | null;
+  /** pompa w trybie OFF: ładowanie trwa, ale pompa nie dogrzewa wody */
+  pumpOff: boolean;
+};

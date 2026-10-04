@@ -5,6 +5,7 @@ import { getSettings, setSettings } from './controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation, setOperationAction } from './controllers/operation.controller'
 import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from './controllers/schedule.controller'
 import { addPv, getPv, getPvForRange } from './controllers/pv.controller'
+import { getCwuLoadingState, putCwuLoadingState } from './controllers/cwu-loading.controller'
 
 // Pompa ciepła (sterownik co): telemetria, PV, operacje, harmonogramy i starsze ustawienia.
 const router = express.Router()
@@ -25,6 +26,9 @@ router.get('/hp/monthly-summary', getHpMonthlySummary)
 router.get('/hp/last-error', getLastError)
 router.post('/hp/add', addHp)
 router.post('/hp/clear', clearHp)
+// ładowanie CWU w kotle zasilanym przez pompę: kocioł zgłasza (PUT, z rootId pompy), ekran główny czyta (GET)
+router.get('/hp/cwu-loading', getCwuLoadingState)
+router.put('/hp/cwu-loading', putCwuLoadingState)
 
 router.get('/pv', getPv)
 router.get('/pv/range', getPvForRange)

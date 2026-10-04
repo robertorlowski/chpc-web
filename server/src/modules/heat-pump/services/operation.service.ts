@@ -2,7 +2,8 @@
 // Operacje dla sterownika co, tylko w pamięci procesu (restart serwera je kasuje).
 // Scheduler ustawia operację wyliczoną (replaceOperationData), użytkownik — ręczne
 // nadpisania (setManualOperationData), a /hp/add odbiera bieżącą i ją czyści.
-// Ręczne pola wygrywają: { ...scheduled, ...manual }.
+// Ręczne pola wygrywają: { ...scheduled, ...manual }. Nad nimi jest jeszcze nadpisanie na czas ładowania
+// CWU w kotle (services/cwu-loading.service.ts): { ...scheduled, ...manual, ...cwuLoading }.
 import { OperationEntry  } from '../types';
 
 // operacja do wysłania w najbliższej odpowiedzi /hp/add
@@ -11,13 +12,30 @@ const operations = new Map<string, OperationEntry>();
 const scheduledOperations = new Map<string, OperationEntry>();
 // ręczne nadpisania z /operation/set (tylko przekazane pola)
 const manualOperations = new Map<string, OperationEntry>();
+// nadpisanie na czas ładowania CWU w kotle (temperatury 47–49 °C), ustawiane przez cwu-loading.service.ts
+const cwuLoadingOperations = new Map<string, OperationEntry>();
 // Ręczne force: czy od jego ustawienia telemetria pokazała sprężarkę w spoczynku.
 const manualForceSeenIdle = new Map<string, boolean>();
 
 const mergeWithManualOperation = (rootId: string, operation: OperationEntry) => ({
   ...operation,
   ...(manualOperations.get(rootId) ?? {}),
+  ...(cwuLoadingOperations.get(rootId) ?? {}),
 });
+
+// Ładowanie CWU w kotle: nadpisanie temperatur nad harmonogramem i ręcznymi polami albo jego zdjęcie
+// (undefined). Bieżąca operacja od razu dostaje nowy stan; bez wyliczonej operacji czeka na scheduler.
+export const setCwuLoadingOperation = (rootId: string, data: OperationEntry | undefined) => {
+  if (data) cwuLoadingOperations.set(rootId, data);
+  else cwuLoadingOperations.delete(rootId);
+  const base = scheduledOperations.get(rootId);
+  if (base) operations.set(rootId, mergeWithManualOperation(rootId, base));
+  else if (data) operations.set(rootId, { ...getOperationData(rootId), ...data });
+};
+
+// Tryb pracy, który pompa dostaje teraz (harmonogram z ręcznymi polami); OFF = pompa wyłączona.
+export const getEffectiveWorkMode = (rootId: string) =>
+  ({ ...(scheduledOperations.get(rootId) ?? {}), ...(manualOperations.get(rootId) ?? {}) }).work_mode;
 
 export const getOperationData = (rootId: string) => {
   return operations.get(rootId) ?? {};
@@ -29,10 +47,11 @@ export const clearOperation = (rootId: string) => {
   operations.delete(rootId);
 
   const manualOperation = manualOperations.get(rootId);
-  if (manualOperation) {
+  const loading = cwuLoadingOperations.get(rootId);
+  if (manualOperation || loading) {
     operations.set(
       rootId,
-      mergeWithManualOperation(rootId, scheduledOperations.get(rootId) ?? manualOperation),
+      mergeWithManualOperation(rootId, scheduledOperations.get(rootId) ?? manualOperation ?? {}),
     );
   }
 
@@ -145,7 +164,7 @@ export const clearManualOperation = (rootId: string) => {
 
   const scheduledOperation = scheduledOperations.get(rootId);
   if (scheduledOperation) {
-    operations.set(rootId, { ...scheduledOperation });
+    operations.set(rootId, mergeWithManualOperation(rootId, scheduledOperation));
   } else {
     operations.delete(rootId);
   }

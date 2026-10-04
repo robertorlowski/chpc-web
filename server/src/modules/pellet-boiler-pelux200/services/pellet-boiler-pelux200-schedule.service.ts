@@ -8,8 +8,11 @@
 // regulator” w Ustawieniach (enabled); włączanie i wyłączanie regulatora robią same przyciski (zlecenie
 // control), harmonogram regulatora nie przełącza (wpisy pracy kotła usunięte 2026-10-04, decyzja
 // użytkownika; dawne wpisy type work są pomijane). Zmiana ręczna w aplikacji albo na panelu zostaje do
-// następnej zmiany stanu (jak ręczne nadpisanie w pompie ciepła). Okno przez północ należy do dnia
+// następnej zmiany stanu (jak ręczne nadpisanie w pompie ciepła) — poza trybem pompy ciepła: tam CWU
+// zmienione na panelu wraca co minutę do harmonogramu (pompa ciepła nie dogrzeje wyższej temperatury),
+// a „CWU do” jest ograniczone do HEAT_PUMP_CWU_MAX (45 °C). Okno przez północ należy do dnia
 // startu (jak harmonogram włącznika); data ma pierwszeństwo przed dniem tygodnia, potem późniejszy start.
+// Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C).
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { scheduleDayMatches } from '../../../core/services/calendar.service';
@@ -26,7 +29,12 @@ import {
   PelletBoilerScheduleSettings, PelletBoilerScheduleState,
 } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
-import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
+import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
+import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
+import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service';
+import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
+
+export { boilerMode };
 
 export const PELLET_SCHEDULER_INTERVAL_MS = 60 * 1000;
 
@@ -37,6 +45,10 @@ const WEEK_DAYS = Object.values(WeekDay).filter((v): v is WeekDay => typeof v ==
 // CWU od–do: rozsądne granice (zakres regulatora sprawdza serwer przy zleceniu)
 const CWU_MIN = 10;
 const CWU_MAX = 80;
+// tryb pompy ciepła: CWU najwyżej 45 °C (wyżej pompa ciepła nie dogrzeje, nawet przy 47–49 °C w kotle)
+export const HEAT_PUMP_CWU_MAX = 45;
+// zmiana CWU z panelu wraca do harmonogramu dopiero, gdy od ostatniego zlecenia CWU minęło tyle czasu
+const CWU_RESTORE_AFTER_MS = 5 * 60 * 1000;
 
 // Wartości startowe (kociol-ustawienia.md, punkt 4b; CWU z ustaleń 2026-10-04): pompa ciepła CWU
 // 35–40 °C, pellet zadana 55 °C z histerezą 15 °C. Nastawy trybów bez CWU — CWU ustawia harmonogram.
@@ -60,10 +72,12 @@ type ScheduleInput = Omit<PelletBoilerScheduleEntry, 'rootId'>;
 
 const isInteger = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value);
 
-const parseRange = (from: unknown, to: unknown): PelletBoilerCwuRange | string =>
-  isInteger(from) && isInteger(to) && from >= CWU_MIN && to <= CWU_MAX && from < to
+const parseRange = (from: unknown, to: unknown, mode?: PelletBoilerMode): PelletBoilerCwuRange | string => {
+  const max = mode === 'heat-pump' ? HEAT_PUMP_CWU_MAX : CWU_MAX;
+  return isInteger(from) && isInteger(to) && from >= CWU_MIN && to <= max && from < to
     ? { cwuFrom: from, cwuTo: to }
-    : `CWU od–do: liczby całkowite ${CWU_MIN}–${CWU_MAX} °C, „od” mniejsze niż „do”.`;
+    : `CWU od–do: liczby całkowite ${CWU_MIN}–${max} °C${mode === 'heat-pump' ? ' (tryb pompy ciepła)' : ''}, „od” mniejsze niż „do”.`;
+};
 
 // Wpis z body (POST/PUT) albo napis z błędem.
 export function parseScheduleEntry(body: unknown): ScheduleInput | string {
@@ -74,7 +88,7 @@ export function parseScheduleEntry(body: unknown): ScheduleInput | string {
     || typeof input.endTime !== 'string' || !TIME.test(input.endTime)) {
     return 'startTime i endTime w formacie HH:mm.';
   }
-  const range = parseRange(input.cwuFrom, input.cwuTo);
+  const range = parseRange(input.cwuFrom, input.cwuTo, input.mode as PelletBoilerMode);
   if (typeof range === 'string') return range;
   let date: Date | undefined;
   if (input.date !== undefined && input.date !== null && input.date !== '') {
@@ -97,7 +111,7 @@ export function parseScheduleSettings(body: unknown): Omit<PelletBoilerScheduleS
   const profiles = (input.profiles ?? {}) as Record<string, Record<string, unknown>>;
   const result = { enabled: input.enabled, defaults: {}, profiles: {} } as Omit<PelletBoilerScheduleSettings, 'rootId'>;
   for (const mode of MODES) {
-    const range = parseRange(defaults[mode]?.cwuFrom, defaults[mode]?.cwuTo);
+    const range = parseRange(defaults[mode]?.cwuFrom, defaults[mode]?.cwuTo, mode);
     if (typeof range === 'string') return range;
     result.defaults[mode] = range;
     const profile = profiles[mode] ?? {};
@@ -139,14 +153,6 @@ export function activeEntry(entries: PelletBoilerScheduleEntry[], mode: PelletBo
     }));
   matches.sort((a, b) => Number(!!b.entry.date) - Number(!!a.entry.date) || b.start.getTime() - a.start.getTime());
   return matches[0]?.entry ?? null;
-}
-
-// Tryb z odczytu ustawień kotła: minimalna temperatura kotła (nr 99) < 50 °C = pompa ciepła.
-export function boilerMode(settings: PelletBoilerSettingsEntry | null): PelletBoilerMode | null {
-  const minimum = settings
-    ? buildSettingsView(settings).groups.flatMap((g) => g.parameters).find((p) => p.index === 99)?.raw[0]
-    : undefined;
-  return minimum === undefined ? null : minimum < 50 ? 'heat-pump' : 'pellet';
 }
 
 export function scheduleState(
@@ -197,7 +203,10 @@ export async function applySchedule(rootId: string, now = new Date()) {
     if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
     const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
     const { state } = scheduleState(settings, entries, mode, now);
-    if (sameState(state, last)) return;
+    if (sameState(state, last)) {
+      if (mode === 'heat-pump') await restoreCwu(rootId, state, boiler, now);
+      return;
+    }
     const changes = changesFor(state, boiler);
     if (changes.length) await createCommands(rootId, { changes });
     await PelletBoilerScheduleSettingsModel.updateOne(
@@ -210,9 +219,32 @@ export async function applySchedule(rootId: string, now = new Date()) {
   sendMessage('update', rootId);
 }
 
+// Tryb pompy ciepła: CWU zmienione na panelu wraca do harmonogramu. Zadaną kocioł podaje w każdym odczycie
+// (water_heater_target), histerezę tylko w odczycie ustawień. Nie częściej niż co CWU_RESTORE_AFTER_MS
+// od ostatniego zlecenia CWU (odczyt tuż po zapisie może jeszcze mieć starą wartość).
+async function restoreCwu(rootId: string, state: PelletBoilerScheduleState, boiler: PelletBoilerSettingsEntry, now: Date) {
+  // zlecenie CWU w toku albo świeże: najpierw jego wynik i nowy odczyt
+  const recent = await PelletBoilerCommandModel.exists({
+    rootId, kind: 'ecomax', index: { $in: [119, 123] },
+    $or: [{ status: { $in: ['pending', 'sent'] } }, { createdAt: { $gt: new Date(now.getTime() - CWU_RESTORE_AFTER_MS) } }],
+  });
+  if (recent) return;
+  const target = (await getPelletBoilerPelux200Last(rootId))?.water_heater_target;
+  const changes = changesFor(state, boiler);
+  if (target !== undefined && target !== state.cwuTo && !changes.some((c) => c.index === 119)) {
+    changes.unshift({ kind: 'ecomax', index: 119, value: state.cwuTo });
+  }
+  if (!changes.length) return;
+  await createCommands(rootId, { changes });
+  console.log(`[pellet scheduler] ${rootId} CWU zmienione poza harmonogramem — przywracam`, changes);
+}
+
 export async function runPelletBoilerSchedulerOnce(now = new Date()) {
   const devices = await DeviceModel.find({ deviceType: DeviceType.PELLET_BOILER_PELUX200 }).select('_id').lean();
-  for (const device of devices) await applySchedule(String(device._id), now);
+  for (const device of devices) {
+    await applySchedule(String(device._id), now);
+    await evaluateCwuLoading(String(device._id), now).catch((error) => console.error('[pellet cwu] error:', error));
+  }
 }
 
 export function startPelletBoilerScheduler(): NodeJS.Timeout {

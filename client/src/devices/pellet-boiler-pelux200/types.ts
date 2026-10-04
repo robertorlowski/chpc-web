@@ -142,3 +142,20 @@ export type PelletBoilerSettings = {
   groups?: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
   mixers?: { mixer: number; parameters: PelletBoilerParameter[] }[];
 };
+
+/** Ładowanie CWU w trybie pompy ciepła (GET /pellet-boiler-pelux200/cwu-loading); pompa ciepła grzeje wtedy 47–49 °C. */
+export type PelletBoilerCwuLoading = {
+  active: boolean;
+  since: string | null;
+  /** pompa ciepła w trybie OFF: nie dogrzeje wody */
+  heatPumpOff: boolean;
+  error?: string;
+};
+
+/** Automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (GET …/auto-pellet), do „OK”. */
+export type PelletBoilerAutoPellet = {
+  at: string;
+  acknowledged: boolean;
+  changes: number;
+  error?: string;
+};

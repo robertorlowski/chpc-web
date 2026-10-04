@@ -1,5 +1,5 @@
 import { Requests } from '../../core/http';
-import { CurrentSchedule, HpEntry, OperationEntry, ScheduleEntry } from './types';
+import { CurrentSchedule, HpEntry, OperationEntry, ScheduleEntry, HpCwuLoading } from './types';
 
 // Pompa ciepła (sterownik co): telemetria, podsumowania, operacje i harmonogramy.
 // Endpointy /api/hp*, /api/operation*, /api/schedules* z modułu server/src/modules/heat-pump;
@@ -76,6 +76,11 @@ export class HpRequests {
   }
 
   // najnowszy rekord z error_code z 24 h (przy blokadzie ERRc ≥ 5 bez limitu czasu) albo null
+  // ładowanie CWU w kotle (kocioł w trybie pompy ciepła); null przy błędzie
+  static getCwuLoading(): Promise<HpCwuLoading | null> {
+    return Requests.get('/hp/cwu-loading');
+  }
+
   static getHpLastError() : Promise<HpEntry | null> {
       return Requests.get("/hp/last-error");
   }

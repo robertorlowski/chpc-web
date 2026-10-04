@@ -578,3 +578,29 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* ładowanie CWU w trybie pompy ciepła: pasek nad stanem kotła (jak na ekranie pompy ciepła) */
+.cwu-loading {
+  border-left: 4px solid #1481a5;
+  color: #1481a5;
+}
+
+.cwu-loading-off {
+  color: #b00020;
+  font-weight: 600;
+}
+
+/* automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła: czerwony komunikat z „OK” */
+.boiler-auto-pellet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-left: 4px solid #b00020;
+  color: #b00020;
+  font-weight: 600;
+}
+
+.boiler-auto-pellet button {
+  flex: 0 0 auto;
+}

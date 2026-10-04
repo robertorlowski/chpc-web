@@ -19,6 +19,8 @@ import {
   parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
+import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
+import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 
@@ -31,7 +33,42 @@ export async function addPelletBoilerPelux200(req: Request, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
     await addPelletBoilerPelux200Reading(rootId, reading);
+    // ładowanie CWU (pompa CWU w trybie pompy ciepła) zgłaszane pompie ciepła od razu, po odpowiedzi
+    void evaluateCwuLoading(rootId).catch((error) => console.error('[pellet cwu] error:', error));
+    // rozpalanie w trybie pompy ciepła → nastawy trybu Pellet (bez wyłączania regulatora)
+    void checkAutoPellet(rootId).catch((error) => console.error('[pellet auto] error:', error));
     return res.status(201).json({ poll_interval_seconds: await getPollIntervalSeconds(rootId) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// GET /auto-pellet (aplikacja): niepotwierdzone automatyczne przejście na Pellet {at, changes, error?} albo null.
+export async function getPelletBoilerAutoPellet(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getAutoPellet(req.deviceRootId as string));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// POST /auto-pellet/ack (aplikacja): „OK” na komunikacie.
+export async function acknowledgePelletBoilerAutoPellet(req: Request, res: Response) {
+  try {
+    await acknowledgeAutoPellet(req.deviceRootId as string);
+    return res.status(200).json({});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// GET /cwu-loading (aplikacja): ładowanie CWU w trybie pompy ciepła {active, since, heatPumpOff, error?}.
+export async function getPelletBoilerCwuLoading(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getCwuLoadingState(req.deviceRootId as string));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });

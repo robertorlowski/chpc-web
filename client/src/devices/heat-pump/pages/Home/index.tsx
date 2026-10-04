@@ -1,11 +1,13 @@
 // Widok główny pompy (/ i /hp): bieżąca telemetria z GET /hp (HP z CHPC, przekaźniki co, PV,
 // temperatura zewnętrzna, COP zbiornika) i dzwonek błędu z GET /hp/last-error. Bez odpytywania
 // cyklicznego: dane odświeża komunikat WebSocket „update”, który serwer wysyła po zapisie telemetrii.
+// Na górze informacja o ładowaniu CWU w kotle (GET /hp/cwu-loading, co minutę i przy „update”): kocioł
+// w trybie pompy ciepła ładuje CWU, pompa grzeje wtedy 47–49 °C; „pompa ciepła wyłączona” przy trybie OFF.
 import './style.css';
 import { HpRequests } from '../../api';
 import { wsAddressServer } from '../../../../core/http';
 import { getSelectedDevice } from '../../../../core/context/DeviceContext';
-import { HpEntry, HpMetrics, PvMetrics } from '../../types';
+import { HpCwuLoading, HpEntry, HpMetrics, PvMetrics } from '../../types';
 import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../../../assets/swith_on.svg';
 import swith_off from '../../../../assets/swith_off.svg';
@@ -18,7 +20,17 @@ const HP: React.FC = () => {
   const [_hp, setHP] = useState<HpMetrics | null >(null);
   const [_data, setData] = useState<HpEntry | null>(null);
   const [_lastError, setLastError] = useState<HpEntry | null>(null);
+  const [cwuLoading, setCwuLoading] = useState<HpCwuLoading | null>(null);
   const ws = useRef<WebSocket | null>(null);
+
+  const loadCwuLoading = () => {
+    HpRequests.getCwuLoading().then(setCwuLoading).catch(() => setCwuLoading(null));
+  };
+  useEffect(() => {
+    loadCwuLoading();
+    const timer = window.setInterval(loadCwuLoading, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadLastError = () => {
     HpRequests.getHpLastError()
@@ -64,6 +76,7 @@ const HP: React.FC = () => {
           })
           .catch(err => console.error('Błąd przy pobieraniu danych:', err));
         loadLastError();
+        loadCwuLoading();
       } catch (error) {
         console.error('Nieprawidłowy komunikat WebSocket:', error);
       }
@@ -99,6 +112,13 @@ const HP: React.FC = () => {
     <div className="settings hp-page">
       <h2>CWU / CO</h2>
       <section>
+        {cwuLoading?.active && (
+          <div className="resource cwu-loading">
+            <strong>Ładowanie CWU</strong>
+            {cwuLoading.since && <span> od {new Date(cwuLoading.since).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}</span>}
+            {cwuLoading.pumpOff && <span className="cwu-loading-off"> — pompa ciepła wyłączona</span>}
+          </div>
+        )}
         <div className="resource">
           <div className="heet">
             <div className="heat head">

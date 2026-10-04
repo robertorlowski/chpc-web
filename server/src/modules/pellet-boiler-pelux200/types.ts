@@ -157,6 +157,26 @@ export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange;
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;
 
+/** Ładowanie CWU w trybie pompy ciepła (pellet-boiler-pelux200-cwu-loading.service.ts) dla ekranu kotła. */
+export interface PelletBoilerCwuLoading {
+  active: boolean;
+  since: Date | null;
+  /** pompa ciepła w trybie OFF: ładowanie trwa, ale pompa nie dogrzewa wody */
+  heatPumpOff: boolean;
+  /** błąd zgłoszenia do pompy ciepła (brak pompy, HTTP) */
+  error?: string;
+}
+
+/** Automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (komunikat do „OK”). */
+export interface PelletBoilerAutoPellet {
+  /** czas odczytu z rozpalaniem */
+  at: Date;
+  acknowledged: boolean;
+  /** liczba zleconych zmian nastaw */
+  changes: number;
+  error?: string;
+}
+
 export interface PelletBoilerScheduleSettings {
   rootId: string;
   /** „Praca kotła” w Ustawieniach: true = włączony, pracuje według harmonogramu; false = wyłączony
@@ -169,6 +189,10 @@ export interface PelletBoilerScheduleSettings {
   lastApplied?: PelletBoilerScheduleState;
   lastAppliedAt?: Date;
   lastError?: string;
+  /** ładowanie CWU w trybie pompy ciepła, dla ekranu kotła */
+  cwuLoading?: PelletBoilerCwuLoading;
+  /** automatyczne przejście na Pellet (pellet-boiler-pelux200-auto-pellet.service.ts) */
+  autoPellet?: PelletBoilerAutoPellet;
 }
 
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {

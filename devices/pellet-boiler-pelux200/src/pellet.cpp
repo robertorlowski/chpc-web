@@ -15,6 +15,7 @@
 // GET commands/next (ota.hpp), pobieranie z kontrolą SHA-256, gdy nie trwa zapis parametru.
 // Od 1.6.0 WebSocket /ws?rootId= (jak we włączniku): „operation” = nowe zlecenie, płytka od razu pyta
 // o zlecenia; odczyt idzie od razu po zmianie stanu kotła i po wykonanym zleceniu (nie tylko co poll_s).
+// Od 1.6.1 także od razu po włączeniu i wyłączeniu pompy CWU (ładowanie CWU przestawia pompę ciepła).
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
 // (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
 // wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
@@ -261,6 +262,9 @@ volatile bool commandPollDue = true;
 constexpr uint32_t IMMEDIATE_POST_MIN_MS = 10000;
 bool readingDue = false;
 int lastSentState = -1;
+// pompa CWU w ostatnim wysłanym odczycie (-1 = jeszcze nic): jej włączenie i wyłączenie = ładowanie CWU,
+// na które serwer od razu przestawia pompę ciepła (od 1.6.1)
+int lastSentCwuPump = -1;
 uint32_t lastImmediatePostMs = 0;
 
 bool accessPointOn = false;
@@ -798,6 +802,7 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
   if (ok) {
     lastPostOkMs = nowMs;
     lastSentState = reading.state;
+    lastSentCwuPump = (reading.outputs & ECOMAX_OUT_WATER_HEATER_PUMP) != 0;
     // zlecenia czekające na stan kotła (zmiana trybu po wyłączeniu) mogą być już do wysłania
     commandPollDue = true;
     JsonDocument reply;
@@ -1216,11 +1221,14 @@ void tick(uint32_t nowMs)
   }
   EcomaxSensorData reading;
   const bool fresh = freshReading(reading);
-  const bool stateChanged = fresh && lastSentState >= 0 && reading.state != lastSentState;
+  const int cwuPump = fresh ? ((reading.outputs & ECOMAX_OUT_WATER_HEATER_PUMP) != 0) : -1;
+  const bool cwuPumpChanged = fresh && lastSentCwuPump >= 0 && cwuPump != lastSentCwuPump;
+  const bool stateChanged = fresh && ((lastSentState >= 0 && reading.state != lastSentState) || cwuPumpChanged);
   if (fresh && (readingDue || stateChanged) && nowMs - lastImmediatePostMs >= IMMEDIATE_POST_MIN_MS) {
     lastImmediatePostMs = nowMs;
     readingDue = false;
-    if (stateChanged) logf("stan kotła: %d → %d, odczyt do chmury od razu", lastSentState, reading.state);
+    if (cwuPumpChanged) logf("pompa CWU: %s, odczyt do chmury od razu", cwuPump ? "włączona" : "wyłączona");
+    else if (stateChanged) logf("stan kotła: %d → %d, odczyt do chmury od razu", lastSentState, reading.state);
     sendReading(nowMs, reading);
   } else if (fresh && static_cast<int32_t>(nowMs - nextPostMs) >= 0) {
     sendReading(nowMs, reading);

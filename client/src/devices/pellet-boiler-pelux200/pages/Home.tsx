@@ -3,12 +3,15 @@
 // Na górze stan kotła z płomieniem (gdy się pali), tryb zima/lato i tryb pracy pompa ciepła/pellet
 // (z ostatniego odczytu ustawień), pompy CO i CWU; niżej kafelki: kocioł, CWU, mieszacze 1 i 2
 // (aktualna i zadana; kocioł i CWU jako „od–do”: zadana − histereza z ustawień nr 17 i 123) oraz
-// pozostałe odczyty.
+// pozostałe odczyty. Przy ładowaniu CWU w trybie pompy ciepła pasek „Ładowanie CWU od …” (i „pompa ciepła
+// wyłączona”, gdy pompa jest w trybie OFF), GET /pellet-boiler-pelux200/cwu-loading razem z odczytem.
+// Czerwony komunikat o automatycznym przejściu na Pellet (kocioł rozpalił się w trybie pompy ciepła),
+// GET …/auto-pellet, do kliknięcia „OK” (POST …/auto-pellet/ack).
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
 import { FlameIcon, PumpIcon } from '../components/icons';
-import { PelletBoilerReading, PelletBoilerSettings } from '../types';
+import { PelletBoilerAutoPellet, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
   DEFAULT_POLL_SECONDS, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
   stateName, summerModeName, valveText, workModeName,
@@ -50,13 +53,23 @@ export const PelletBoilerHome: React.FC = () => {
   const [reading, setReading] = useState<PelletBoilerReading | null>(null);
   const [settings, setSettings] = useState<PelletBoilerSettings | null>(null);
   const [pollSeconds, setPollSeconds] = useState(DEFAULT_POLL_SECONDS);
+  const [cwuLoading, setCwuLoading] = useState<PelletBoilerCwuLoading | null>(null);
+  const [autoPellet, setAutoPellet] = useState<PelletBoilerAutoPellet | null>(null);
+  const acknowledge = async () => {
+    await PelletBoilerRequests.acknowledgeAutoPellet();
+    setAutoPellet(await PelletBoilerRequests.getAutoPellet());
+  };
 
   useEffect(() => {
     DeviceRequests.getDeviceProperties().then((properties) => {
       if (properties?.poll_interval_seconds) setPollSeconds(properties.poll_interval_seconds);
     });
     PelletBoilerRequests.getSettings().then(setSettings);
-    const load = () => PelletBoilerRequests.getLast().then((result) => result && setReading(result));
+    const load = () => {
+      PelletBoilerRequests.getLast().then((result) => result && setReading(result));
+      PelletBoilerRequests.getCwuLoading().then(setCwuLoading);
+      PelletBoilerRequests.getAutoPellet().then(setAutoPellet);
+    };
     load();
     const timer = window.setInterval(load, REFRESH_MS);
     return () => window.clearInterval(timer);
@@ -83,6 +96,24 @@ export const PelletBoilerHome: React.FC = () => {
         {empty && <div className="resource">Brak danych od sterownika</div>}
         {reading && !empty && (
           <>
+            {autoPellet && (
+              <div className="resource boiler-auto-pellet" role="alert">
+                <span>
+                  Kocioł rozpalił się w trybie pompy ciepła o{' '}
+                  {new Date(autoPellet.at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
+                  {' '}— przełączono na tryb Pellet.
+                  {autoPellet.error && <> Błąd zlecenia nastaw: {autoPellet.error}</>}
+                </span>
+                <button type="button" onClick={acknowledge}>OK</button>
+              </div>
+            )}
+            {cwuLoading?.active && (
+              <div className="resource cwu-loading">
+                <strong>Ładowanie CWU</strong>
+                {cwuLoading.since && <span> od {new Date(cwuLoading.since).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}</span>}
+                {cwuLoading.heatPumpOff && <span className="cwu-loading-off"> — pompa ciepła wyłączona</span>}
+              </div>
+            )}
             <div className="resource boiler-status">
               <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
               <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>
