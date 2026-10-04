@@ -11,7 +11,7 @@ import '../../../core/components/deviceEditModal.css';
 import { PelletBoilerRequests } from '../api';
 import {
   PelletBoilerChange, PelletBoilerCommand, PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSettings,
-  PelletBoilerSettings,
+  PelletBoilerReading, PelletBoilerSettings,
 } from '../types';
 import { formatDateTime, formatNumber, stateName, workModeName } from '../utils/boiler';
 
@@ -31,6 +31,28 @@ const SECTIONS: Section[] = [
   { title: 'Mieszacz 1 (grzejniki)', items: mixerItems(1), min: 1, max: 2 },
   { title: 'Mieszacz 2', items: mixerItems(2), min: 1, max: 2 },
 ];
+
+// Mieszacz bez nastaw w odczycie ustawień (mieszacz 2: regulator podaje same FF): zadana z ostatniego
+// odczytu pracy (SensorData, mixer<n>_target), bez ołówka — zmiana tylko na panelu kotła.
+function ReadOnlyMixerTarget({ item, reading }: { item: Item; reading: PelletBoilerReading | null }) {
+  const target = item.kind === 'mixer'
+    ? reading?.[`mixer${item.mixer}_target` as keyof PelletBoilerReading]
+    : undefined;
+  return (
+    <>
+      {typeof target === 'number' && (
+        <div className="boiler-main-row">
+          <span className="boiler-main-label">Temperatura zadana mieszacza</span>
+          <span className="boiler-parameter-value">{formatNumber(target)} °C</span>
+        </div>
+      )}
+      <div className="boiler-hint">
+        {typeof target === 'number' ? 'Z odczytu pracy kotła. ' : ''}
+        Regulator nie podaje nastaw tego mieszacza — zmiana tylko na panelu kotła.
+      </div>
+    </>
+  );
+}
 
 // Wybory zamiast liczb (kolejność według kopii ustawień; 125 niepotwierdzona na kotle).
 export const CHOICES: Record<string, string[]> = {
@@ -380,8 +402,9 @@ export const MainParameters: React.FC = () => {
   // (schedule-settings.enabled; sam harmonogram regulatora nie przełącza). Przycisk jest aktywny, gdy
   // regulator albo harmonogram nie jest w żądanym stanie: kocioł włączony z panelu przy stojącym
   // harmonogramie — „Włącz regulator” tylko uruchamia harmonogram (bez zlecenia do kotła).
-  const [boilerState, setBoilerState] = useState<number | undefined>(undefined);
-  useEffect(() => { PelletBoilerRequests.getLast().then((last) => setBoilerState(last?.state)); }, [commands]);
+  const [lastReading, setLastReading] = useState<PelletBoilerReading | null>(null);
+  useEffect(() => { PelletBoilerRequests.getLast().then((last) => setLastReading(last ?? null)); }, [commands]);
+  const boilerState = lastReading?.state;
   const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0 && boilerState !== 7;
   const controlPending = commands.find((command) => command.kind === 'control' && (command.status === 'pending' || command.status === 'sent'));
   const [workError, setWorkError] = useState('');
@@ -424,8 +447,9 @@ export const MainParameters: React.FC = () => {
     const changesNeeded = pendingChanges(item.changes).length > 0;
     let needsOff = false;
     if (changesNeeded) {
-      const state = (await PelletBoilerRequests.getLast())?.state;
-      setBoilerState(state);
+      const last = await PelletBoilerRequests.getLast();
+      setLastReading(last ?? null);
+      const state = last?.state;
       if (state === undefined) {
         setModeBlocked('Brak odczytu stanu kotła — nie można zmienić trybu.');
         return;
@@ -540,7 +564,7 @@ export const MainParameters: React.FC = () => {
                   <IconButton label={`Zmień: ${section.title}`} icon={<EditIcon />} onClick={() => setEditing(section)} />
                 </div>
               ) : (
-                <div className="boiler-hint">Regulator nie podaje nastaw tego mieszacza — zmiana tylko na panelu kotła.</div>
+                <ReadOnlyMixerTarget item={item} reading={lastReading} />
               )}
             </div>
           );
