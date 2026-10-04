@@ -20,6 +20,133 @@
   font-weight: 600;
 }
 
+/* Strona główna: płomień przy stanie, pasek trybów i pomp, kafelki temperatur */
+.boiler-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.boiler-flame {
+  width: 1.4rem;
+  height: 1.4rem;
+  color: #aaa;
+}
+
+.boiler-flame-on {
+  color: #e8590c;
+}
+
+.boiler-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  align-items: center;
+}
+
+.boiler-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.boiler-chip-label {
+  font-weight: normal;
+  color: #555;
+}
+
+.boiler-pump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #999;
+}
+
+.boiler-pump-on {
+  color: #1481a5;
+  font-weight: 600;
+}
+
+.boiler-pump-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.boiler-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.boiler-tile {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  background: #fff;
+  min-width: 0;
+}
+
+.boiler-tile-title {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.boiler-tile-current {
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.boiler-tile-target {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.boiler-tile-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.7rem;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.boiler-tile-extra .boiler-pump-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.boiler-data-more {
+  margin-top: 0.5rem;
+}
+
+/* Wykres: wysokość jak w innych wykresach, przełączniki serii pod spodem */
+.boiler-chart {
+  width: 100%;
+  height: 320px;
+}
+
+.boiler-series {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.boiler-series label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.boiler-series-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.25rem;
+  border-radius: 2px;
+}
+
 .boiler-table {
   width: 100%;
   border-collapse: collapse;
@@ -209,5 +336,13 @@
 
   .boiler-table {
     font-size: 0.8rem;
+  }
+
+  .boiler-tile-current {
+    font-size: 1.35rem;
+  }
+
+  .boiler-chart {
+    height: 260px;
   }
 }

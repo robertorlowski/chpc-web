@@ -2,6 +2,8 @@
 // pellet-boiler-pelux200). Pomijane są pola bez wartości.
 #include <pellet_telemetry.hpp>
 
+#include <cstdio>
+
 namespace {
 const char *const TEMPERATURE_KEYS[ECOMAX_TEMPERATURE_COUNT] = {
   "heating_temp", "feeder_temp", "water_heater_temp", "outside_temp",
@@ -48,4 +50,22 @@ void fillPelletJson(JsonDocument &document, const EcomaxSensorData &data)
     (data.outputs & ECOMAX_OUT_CIRCULATION_PUMP) != 0;
   document["lighter"] = (data.outputs & ECOMAX_OUT_LIGHTER) != 0;
   document["alarm"] = (data.outputs & ECOMAX_OUT_ALARM) != 0;
+
+  // Mieszacze 1 i 2 (więcej instalacja nie ma): mixer1_temp, mixer1_target, mixer1_pump,
+  // mixer1_opening, mixer1_closing; niepodłączony mieszacz jest pomijany.
+  for (uint8_t i = 0; i < PELLET_JSON_MIXERS; i++) {
+    const EcomaxMixer &mixer = data.mixers[i];
+    if (!mixer.present) continue;
+    char key[24];
+    snprintf(key, sizeof(key), "mixer%u_temp", i + 1);
+    document[key] = mixer.temperature;
+    snprintf(key, sizeof(key), "mixer%u_target", i + 1);
+    document[key] = mixer.target;
+    snprintf(key, sizeof(key), "mixer%u_pump", i + 1);
+    document[key] = (mixer.status & ECOMAX_MIXER_PUMP) != 0;
+    snprintf(key, sizeof(key), "mixer%u_opening", i + 1);
+    document[key] = (mixer.status & ECOMAX_MIXER_OPENING) != 0;
+    snprintf(key, sizeof(key), "mixer%u_closing", i + 1);
+    document[key] = (mixer.status & ECOMAX_MIXER_CLOSING) != 0;
+  }
 }

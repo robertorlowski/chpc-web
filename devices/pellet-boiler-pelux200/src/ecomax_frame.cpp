@@ -192,6 +192,39 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
   if (!reader.f32(out.fanPower)) return true;
   if (!reader.optionalU8(out.boilerLoad)) return true;
   if (!reader.f32(out.boilerPower)) return true;
-  reader.f32(out.fuelConsumption);
+  if (!reader.f32(out.fuelConsumption)) return true;
+
+  // Dalej kolejność jak w PyPlumIO (structures/sensor_data.py): termostat, wersje modułów,
+  // sonda lambda, czujniki termostatów, czujniki mieszaczy.
+  if (!reader.skip(1)) return true;  // thermostat
+  for (uint8_t module = 0; module < 6; module++) {  // A, B, C, ecoLAMBDA, ecoSTER, panel
+    uint8_t first;
+    if (!reader.u8(first)) return true;
+    if (first == 0xFF) continue;
+    if (!reader.skip(module == 0 ? 4 : 2)) return true;  // wersja 3 B, moduł A + 2 B producenta
+  }
+  uint8_t lambda;
+  if (!reader.u8(lambda)) return true;
+  if (lambda != 0xFF && !reader.skip(3)) return true;  // zadana + uint16 poziomu
+  uint8_t contacts;
+  if (!reader.u8(contacts)) return true;
+  if (contacts != 0xFF) {
+    uint8_t thermostats;
+    if (!reader.u8(thermostats) || !reader.skip(static_cast<size_t>(thermostats) * 9)) return true;
+  }
+
+  uint8_t mixers;
+  if (!reader.u8(mixers)) return true;
+  for (uint8_t i = 0; i < mixers; i++) {
+    EcomaxFloat temperature;
+    uint8_t target, unknown, status;
+    if (!reader.f32(temperature) || !reader.u8(target) || !reader.u8(unknown)
+      || !reader.u8(status) || !reader.skip(1)) return true;
+    if (i >= ECOMAX_MIXER_MAX || !temperature.present) continue;
+    out.mixers[i].present = true;
+    out.mixers[i].temperature = temperature.value;
+    out.mixers[i].target = target;
+    out.mixers[i].status = status;
+  }
   return true;
 }

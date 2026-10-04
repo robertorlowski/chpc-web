@@ -40,6 +40,16 @@ const PelletBoilerPelux200Schema = new Schema<PelletBoilerPelux200Entry>(
     circulation_pump: flag,
     lighter: flag,
     alarm: flag,
+    mixer1_temp: number,
+    mixer1_target: number,
+    mixer1_pump: flag,
+    mixer1_opening: flag,
+    mixer1_closing: flag,
+    mixer2_temp: number,
+    mixer2_target: number,
+    mixer2_pump: flag,
+    mixer2_opening: flag,
+    mixer2_closing: flag,
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200' }
 );

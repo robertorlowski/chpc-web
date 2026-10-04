@@ -35,6 +35,17 @@ export type PelletBoilerReading = {
   circulation_pump?: boolean;
   lighter?: boolean;
   alarm?: boolean;
+  // mieszacze 1 (grzejniki) i 2 od firmware 1.2.0; brak pól = niepodłączony albo starszy firmware
+  mixer1_temp?: number;
+  mixer1_target?: number;
+  mixer1_pump?: boolean;
+  mixer1_opening?: boolean;
+  mixer1_closing?: boolean;
+  mixer2_temp?: number;
+  mixer2_target?: number;
+  mixer2_pump?: boolean;
+  mixer2_opening?: boolean;
+  mixer2_closing?: boolean;
 };
 
 /** Parametr regulatora z GET /pellet-boiler-pelux200/settings (rozkodowany na serwerze). */

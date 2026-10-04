@@ -72,6 +72,8 @@ describe('Kocioł pelletowy Pellux 200', () => {
       .send({
         time: '2026.10.01 12:00:00', state: 3, heating_temp: 63.5, fuel_level: 80,
         boiler_power: 12.4, fan: true, alarm: false, nieznane: 1,
+        mixer1_temp: 31.5, mixer1_target: 35, mixer1_pump: true, mixer1_opening: false,
+        mixer1_closing: true, mixer3_temp: 20,
       });
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ poll_interval_seconds: 300 });
@@ -84,6 +86,12 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(doc.deviceId).toBe('AABBCC000003');
     expect(doc).not.toHaveProperty('nieznane');
     expect(doc).not.toHaveProperty('time');
+    // mieszacze 1 i 2 (firmware 1.2.0); mieszacza 3 kontrakt nie ma
+    expect(doc.mixer1_temp).toBe(31.5);
+    expect(doc.mixer1_target).toBe(35);
+    expect(doc.mixer1_pump).toBe(true);
+    expect(doc.mixer1_closing).toBe(true);
+    expect(doc).not.toHaveProperty('mixer3_temp');
   });
 
   it('400 dla pustego body, samego time i pól złego typu', async () => {
@@ -94,6 +102,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await request(app).post(url).send({ state: '3' })).status).toBe(400);
     expect((await request(app).post(url).send({ fan: 1 })).status).toBe(400);
     expect((await request(app).post(url).send({ heating_temp: null })).status).toBe(400);
+    expect((await request(app).post(url).send({ mixer1_pump: 1 })).status).toBe(400);
   });
 
   it('404 dla nieznanego deviceId, 409 dla rootId innego urządzenia', async () => {

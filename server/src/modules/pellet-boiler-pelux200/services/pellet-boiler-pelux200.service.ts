@@ -13,9 +13,11 @@ const NUMBER_FIELDS = [
   'exhaust_temp', 'optical_temp', 'upper_buffer_temp', 'lower_buffer_temp', 'heating_target',
   'water_heater_target', 'heating_status', 'water_heater_status', 'fuel_level', 'fan_power',
   'boiler_load', 'boiler_power', 'fuel_consumption', 'lambda_level',
+  'mixer1_temp', 'mixer1_target', 'mixer2_temp', 'mixer2_target',
 ] as const;
 const BOOLEAN_FIELDS = [
   'fan', 'feeder', 'heating_pump', 'water_heater_pump', 'circulation_pump', 'lighter', 'alarm',
+  'mixer1_pump', 'mixer1_opening', 'mixer1_closing', 'mixer2_pump', 'mixer2_opening', 'mixer2_closing',
 ] as const;
 
 // Zwraca tylko znane pola pomiarowe albo null, gdy body nie jest obiektem, pole

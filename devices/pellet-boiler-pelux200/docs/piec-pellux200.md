@@ -187,12 +187,20 @@ Układ danych `SensorData` po bajcie typu ramki: stan (1 B), maska wyjść (uint
 wyjść (uint32, pomijane), liczba temperatur N, N × {indeks, float32}, cztery bajty
 (zadana CO, status CO, zadana CWU, status CWU), liczba alertów M i M bajtów alertów,
 poziom paliwa, bajt `transmission` (pomijany), moc wentylatora, obciążenie, moc kotła,
-zużycie paliwa. Brak wartości: float NaN albo bajt `0xFF` — pole nie trafia do JSON.
-Poziom paliwa większy niż 100 jest pomniejszany o 101.
+zużycie paliwa, bajt termostatu, wersje 6 modułów (A: 5 B, pozostałe 3 B, brak = 1 bajt
+`0xFF`), sonda lambda (`0xFF` albo 4 B), termostaty (styki `0xFF` albo styki, liczba i po 9 B),
+liczba mieszaczy i po 8 B na mieszacz: temperatura (float32), zadana, bajt nieznany, bajt stanu
+(bit 0 pompa, bit 1 zawór otwiera, bit 2 zamyka — bity 1 i 2 z nagrania sterowania ręcznego),
+bajt nieznany. Brak wartości: float NaN albo bajt `0xFF` — pole nie trafia do JSON.
+Poziom paliwa większy niż 100 jest pomniejszany o 101. U nas (regulator 860P2, ramka 196 B)
+mieszacz 1 zaczyna się od bajtu 156, a mieszacz 2 od 164; test na nagraniach sprawdza zgodność.
 
-**Czego nie odczytujemy w etapie 1:** poziom sondy lambda (`lambda_level` jest w kontrakcie,
-ale dekoder go nie wypełnia), mieszacze, termostaty pokojowe, wersje modułów, treść
-alertów i pozostałe temperatury (solar, kominek, wymiennik).
+**Mieszacze od firmware 1.2.0:** do JSON idą mieszacze 1 i 2 (`mixer1_temp`, `mixer1_target`,
+`mixer1_pump`, `mixer1_opening`, `mixer1_closing`, tak samo `mixer2_*`).
+
+**Czego nie odczytujemy:** poziom sondy lambda (`lambda_level` jest w kontrakcie, ale
+dekoder go nie wypełnia), termostaty pokojowe, wersje modułów, treść alertów i pozostałe
+temperatury (solar, kominek, wymiennik).
 
 ### Przykład: ramka na magistrali
 

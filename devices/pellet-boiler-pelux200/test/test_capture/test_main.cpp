@@ -28,6 +28,8 @@ std::vector<Recorded> recording;
 std::vector<Recorded> manualRecording;
 // trzecie nagranie: zmiana zadanej CWU 55 → 50 °C (0x33, potwierdzenie 0xB3, ponowny odczyt)
 std::vector<Recorded> setRecording;
+// czwarte nagranie: zawory i pompy obu mieszaczy z panelu (mapa sterowania ręcznego)
+std::vector<Recorded> mixerRecording;
 
 void loadFile(const char *path, std::vector<Recorded> &out)
 {
@@ -57,6 +59,7 @@ void load()
   loadFile("test/fixtures/kociol-2026-10-03.txt", recording);
   loadFile("test/fixtures/kociol-2026-10-03-sterowanie-reczne.txt", manualRecording);
   loadFile("test/fixtures/kociol-2026-10-03-zmiana-cwu.txt", setRecording);
+  loadFile("test/fixtures/kociol-2026-10-03-sterowanie-mieszacze.txt", mixerRecording);
 }
 
 bool parseRecorded(const Recorded &entry, EcomaxFrameParser &parser, EcomaxFrame &frame)
@@ -115,6 +118,16 @@ void testSensorDataFromBoiler()
     TEST_ASSERT_EQUAL_UINT8(55, data.waterHeaterTarget.value);
     TEST_ASSERT_TRUE(data.temperatures[0].present);  // temperatura kotła
     TEST_ASSERT_FLOAT_WITHIN(10.0f, 23.0f, data.temperatures[0].value);
+    // Mieszacze po modułach, lambdzie i termostatach trafiają w te same bajty co mapa z nagrań
+    // (punkt 1b kociol-ustawienia.md): mieszacz 1 od bajtu 156, mieszacz 2 od 164.
+    TEST_ASSERT_TRUE(data.mixers[0].present);
+    TEST_ASSERT_TRUE(data.mixers[1].present);
+    TEST_ASSERT_EQUAL_UINT8(frame.data[160], data.mixers[0].target);
+    TEST_ASSERT_EQUAL_UINT8(frame.data[162], data.mixers[0].status);
+    TEST_ASSERT_EQUAL_UINT8(frame.data[168], data.mixers[1].target);
+    TEST_ASSERT_EQUAL_UINT8(40, data.mixers[0].target);
+    TEST_ASSERT_EQUAL_UINT8(27, data.mixers[1].target);
+    TEST_ASSERT_FLOAT_WITHIN(10.0f, 20.0f, data.mixers[0].temperature);
     decoded++;
   }
   TEST_ASSERT_TRUE(decoded > 100);
@@ -218,13 +231,41 @@ void testManualControlRecording()
     if (data.state != 9) continue;
     manual++;
     TEST_ASSERT_EQUAL_UINT32(196, frame.dataLength);
-    if (frame.data[162] & 0x01) pumpOn++;
+    const bool pump = (data.mixers[0].status & ECOMAX_MIXER_PUMP) != 0;
+    TEST_ASSERT_EQUAL(frame.data[162] & 0x01, pump ? 1 : 0);
+    if (pump) pumpOn++;
     else pumpOff++;
   }
   TEST_ASSERT_TRUE(frames > 1000);
   TEST_ASSERT_TRUE(manual > 10);
   TEST_ASSERT_TRUE(pumpOn > 0);
   TEST_ASSERT_TRUE(pumpOff > 0);
+}
+
+// Zawory mieszaczy z panelu: dekoder widzi otwieranie i zamykanie obu mieszaczy, a nigdy obu
+// kierunków naraz.
+void testMixerValvesRecording()
+{
+  size_t opening[2] = {0, 0}, closing[2] = {0, 0};
+  for (const Recorded &entry : mixerRecording) {
+    if (entry.tx) continue;
+    EcomaxFrameParser parser;
+    EcomaxFrame frame;
+    TEST_ASSERT_TRUE(parseRecorded(entry, parser, frame));
+    if (!isSensorDataFrame(frame)) continue;
+    EcomaxSensorData data;
+    TEST_ASSERT_TRUE(decodeSensorData(frame.data, frame.dataLength, data));
+    for (int i = 0; i < 2; i++) {
+      const uint8_t status = data.mixers[i].status;
+      TEST_ASSERT_FALSE((status & ECOMAX_MIXER_OPENING) && (status & ECOMAX_MIXER_CLOSING));
+      if (status & ECOMAX_MIXER_OPENING) opening[i]++;
+      if (status & ECOMAX_MIXER_CLOSING) closing[i]++;
+    }
+  }
+  for (int i = 0; i < 2; i++) {
+    TEST_ASSERT_TRUE(opening[i] > 10);
+    TEST_ASSERT_TRUE(closing[i] > 10);
+  }
 }
 
 // Zmiana CWU 55 → 50 °C na kotle: nasza ramka 0x33 jak nagrana, regulator potwierdza 0xB3,
@@ -282,6 +323,7 @@ int main(int, char **)
   RUN_TEST(testCheckDeviceAnswersMatchRecording);
   RUN_TEST(testGuardSeesNoForeignEconet);
   RUN_TEST(testManualControlRecording);
+  RUN_TEST(testMixerValvesRecording);
   RUN_TEST(testParameterChangeRecording);
   return UNITY_END();
 }

@@ -64,6 +64,30 @@ Bytes sensorPayload(bool tail = true)
   return d;
 }
 
+// Pełna ramka do mieszaczy (kolejność PyPlumIO): termostat, 6 modułów (A z 5 B, B brak, panel
+// 3 B, reszta brak), lambda (jest: 4 B), termostaty (styki + 1 × 9 B), 3 mieszacze
+// (1 i 2 podłączone, 3 NaN).
+Bytes sensorPayloadWithMixers()
+{
+  Bytes d = sensorPayload();
+  d.push_back(0);                                            // thermostat
+  d.push_back(18); d.push_back(21); d.push_back(85);         // moduł A: wersja
+  d.push_back('P'); d.push_back(1);                          // moduł A: producent
+  d.push_back(0xFF);                                         // moduł B: brak
+  d.push_back(0xFF); d.push_back(0xFF); d.push_back(0xFF);   // C, ecoLAMBDA, ecoSTER
+  d.push_back(1); d.push_back(2); d.push_back(3);            // panel
+  d.push_back(1); d.push_back(40); d.push_back(0x10); d.push_back(0x00);  // lambda
+  d.push_back(0x01); d.push_back(1);                         // styki, 1 termostat
+  d.push_back(0); putF32(d, 21.0f); putF32(d, 22.0f);        // termostat 1
+  d.push_back(3);                                            // 3 mieszacze
+  putF32(d, 31.5f); d.push_back(35); d.push_back(0x08);      // mieszacz 1: pompa, otwiera
+  d.push_back(0x08 | ECOMAX_MIXER_PUMP | ECOMAX_MIXER_OPENING); d.push_back(0);
+  putF32(d, 27.0f); d.push_back(25); d.push_back(0x08);      // mieszacz 2: zamyka
+  d.push_back(0x08 | ECOMAX_MIXER_CLOSING); d.push_back(0);
+  putF32(d, NAN); d.push_back(0); d.push_back(0); d.push_back(0); d.push_back(0);
+  return d;
+}
+
 Bytes frame(const Bytes &data, uint8_t sender = 0x45, uint8_t type = 0x35)
 {
   Bytes f;
@@ -257,6 +281,37 @@ void testJsonHasOnlyReadFields()
   TEST_ASSERT_TRUE(doc["fan"].as<bool>());
   TEST_ASSERT_FALSE(doc["feeder"].as<bool>());
   TEST_ASSERT_TRUE(doc["alarm"].as<bool>());
+  TEST_ASSERT_TRUE(doc["mixer1_temp"].isNull());  // ramka bez części mieszaczy
+}
+
+void testMixersAfterModulesLambdaAndThermostats()
+{
+  Bytes d = sensorPayloadWithMixers();
+  EcomaxSensorData s;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size(), s));
+  TEST_ASSERT_TRUE(s.mixers[0].present);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 31.5f, s.mixers[0].temperature);
+  TEST_ASSERT_EQUAL_UINT8(35, s.mixers[0].target);
+  TEST_ASSERT_TRUE(s.mixers[1].present);
+  TEST_ASSERT_EQUAL_UINT8(25, s.mixers[1].target);
+  TEST_ASSERT_FALSE(s.mixers[2].present);  // NaN = niepodłączony
+
+  JsonDocument doc;
+  fillPelletJson(doc, s);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 31.5f, doc["mixer1_temp"].as<float>());
+  TEST_ASSERT_EQUAL_INT(35, doc["mixer1_target"].as<int>());
+  TEST_ASSERT_TRUE(doc["mixer1_pump"].as<bool>());
+  TEST_ASSERT_TRUE(doc["mixer1_opening"].as<bool>());
+  TEST_ASSERT_FALSE(doc["mixer1_closing"].as<bool>());
+  TEST_ASSERT_FALSE(doc["mixer2_pump"].as<bool>());
+  TEST_ASSERT_TRUE(doc["mixer2_closing"].as<bool>());
+  TEST_ASSERT_TRUE(doc["mixer3_temp"].isNull());  // do JSON idą tylko mieszacze 1 i 2
+
+  // Urwana w środku mieszacza 2: mieszacz 1 zostaje, 2 nie.
+  EcomaxSensorData t;
+  TEST_ASSERT_TRUE(decodeSensorData(d.data(), d.size() - 12, t));
+  TEST_ASSERT_TRUE(t.mixers[0].present);
+  TEST_ASSERT_FALSE(t.mixers[1].present);
 }
 }
 
@@ -276,5 +331,6 @@ int main(int, char **)
   RUN_TEST(testShortPayloadReturnsWhatWasRead);
   RUN_TEST(testOtherSenderOrTypeIsNotSensorData);
   RUN_TEST(testJsonHasOnlyReadFields);
+  RUN_TEST(testMixersAfterModulesLambdaAndThermostats);
   return UNITY_END();
 }

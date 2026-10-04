@@ -41,6 +41,21 @@ export interface PelletBoilerPelux200Measurements {
   circulation_pump?: boolean;
   lighter?: boolean;
   alarm?: boolean;
+  // mieszacze 1 (grzejniki) i 2 od firmware 1.2.0; brak pól = mieszacz niepodłączony
+  /** temperatura obiegu mieszacza [°C] */
+  mixer1_temp?: number;
+  /** zadana mieszacza [°C] */
+  mixer1_target?: number;
+  mixer1_pump?: boolean;
+  /** siłownik zaworu otwiera */
+  mixer1_opening?: boolean;
+  /** siłownik zaworu zamyka */
+  mixer1_closing?: boolean;
+  mixer2_temp?: number;
+  mixer2_target?: number;
+  mixer2_pump?: boolean;
+  mixer2_opening?: boolean;
+  mixer2_closing?: boolean;
 }
 
 /** Ustawienia regulatora ze sterownika: surowe dane odpowiedzi (hex), jak /boiler-settings.json. */

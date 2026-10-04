@@ -68,6 +68,20 @@ struct EcomaxFloat {
   float value = 0.0f;
 };
 
+// Mieszacz z części mieszaczy SensorData: 8 B na mieszacz (temperatura float, zadana, bajt
+// nieznany, bajt stanu, bajt nieznany). Brak temperatury (NaN) = mieszacz niepodłączony.
+constexpr uint8_t ECOMAX_MIXER_MAX = 5;
+constexpr uint8_t ECOMAX_MIXER_PUMP = 1u << 0;
+constexpr uint8_t ECOMAX_MIXER_OPENING = 1u << 1;  // z nagrania sterowania ręcznego, nie z PyPlumIO
+constexpr uint8_t ECOMAX_MIXER_CLOSING = 1u << 2;  // jw.
+
+struct EcomaxMixer {
+  bool present = false;
+  float temperature = 0.0f;
+  uint8_t target = 0;
+  uint8_t status = 0;
+};
+
 // Pola z flagą `present`: ramka urwana w środku daje tylko to, co zdążono
 // poprawnie odczytać.
 struct EcomaxSensorData {
@@ -82,6 +96,7 @@ struct EcomaxSensorData {
   EcomaxFloat fanPower;
   EcomaxU8 boilerLoad;
   EcomaxFloat boilerPower, fuelConsumption;
+  EcomaxMixer mixers[ECOMAX_MIXER_MAX];  // indeks 0 = mieszacz 1
 };
 
 // Bity `outputs`.

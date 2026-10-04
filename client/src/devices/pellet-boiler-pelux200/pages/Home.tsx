@@ -1,11 +1,16 @@
 // Widok główny kotła pelletowego (/): ostatni odczyt ze sterownika (GET /pellet-boiler-pelux200/last),
 // odświeżany co 30 s, ze znacznikiem nieaktualnych danych (starszych niż 3 interwały odpytywania).
+// Na górze stan kotła z płomieniem (gdy się pali), tryb zima/lato i tryb pracy pompa ciepła/pellet
+// (z ostatniego odczytu ustawień), pompy CO i CWU; niżej kafelki: kocioł, CWU, mieszacze 1 i 2
+// (aktualna i zadana) oraz pozostałe odczyty.
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
-import { PelletBoilerReading } from '../types';
+import { FlameIcon, PumpIcon } from '../components/icons';
+import { PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
-  DEFAULT_POLL_SECONDS, formatDateTime, formatNumber, formatPercent, formatTemp, isStale, onOff, stateName,
+  DEFAULT_POLL_SECONDS, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
+  stateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
 
@@ -15,15 +20,36 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
   <div><span className="label">{label}:</span><span>{children}</span></div>
 );
 
-// Podgląd kotła: stan, temperatury, zadane, paliwo i moc oraz stany wyjść.
+// Pompa: niebieska ikona w pracy, szara w spoczynku, „---” bez odczytu.
+const Pump: React.FC<{ label: string; on?: boolean }> = ({ label, on }) => (
+  <span className={`boiler-pump${on ? ' boiler-pump-on' : ''}`}
+    title={`${label}: ${on === undefined ? 'brak odczytu' : on ? 'pracuje' : 'stoi'}`}>
+    <PumpIcon className="boiler-pump-icon" />
+    {label}
+  </span>
+);
+
+const Tile: React.FC<{ title: string; current?: number; target?: number; children?: React.ReactNode }> = ({
+  title, current, target, children,
+}) => (
+  <div className="boiler-tile">
+    <div className="boiler-tile-title">{title}</div>
+    <div className="boiler-tile-current">{formatTemp(current)}</div>
+    <div className="boiler-tile-target">zadana {formatTemp(target)}</div>
+    {children}
+  </div>
+);
+
 export const PelletBoilerHome: React.FC = () => {
   const [reading, setReading] = useState<PelletBoilerReading | null>(null);
+  const [settings, setSettings] = useState<PelletBoilerSettings | null>(null);
   const [pollSeconds, setPollSeconds] = useState(DEFAULT_POLL_SECONDS);
 
   useEffect(() => {
     DeviceRequests.getDeviceProperties().then((properties) => {
       if (properties?.poll_interval_seconds) setPollSeconds(properties.poll_interval_seconds);
     });
+    PelletBoilerRequests.getSettings().then(setSettings);
     const load = () => PelletBoilerRequests.getLast().then((result) => result && setReading(result));
     load();
     const timer = window.setInterval(load, REFRESH_MS);
@@ -32,13 +58,18 @@ export const PelletBoilerHome: React.FC = () => {
 
   const empty = reading !== null && !reading.createdAt;
   const stale = !!reading?.createdAt && isStale(reading.createdAt, pollSeconds);
+  const burning = isBurning(reading?.state);
+  const hasMixers = reading?.mixer1_temp !== undefined || reading?.mixer2_temp !== undefined;
 
   return (
     <div className="settings boiler-page">
-      <h2>
+      <h2 className="boiler-title">
         Kocioł
         {reading?.state !== undefined && (
           <>: <span className={reading.alarm || reading.state === 8 ? 'boiler-alarm' : ''}>{stateName(reading.state)}</span></>
+        )}
+        {reading?.state !== undefined && (
+          <FlameIcon className={`boiler-flame${burning ? ' boiler-flame-on' : ''}`} filled={burning} />
         )}
       </h2>
       <section>
@@ -46,57 +77,51 @@ export const PelletBoilerHome: React.FC = () => {
         {empty && <div className="resource">Brak danych od sterownika</div>}
         {reading && !empty && (
           <>
+            <div className="resource boiler-status">
+              <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
+              <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>
+              <Pump label="Pompa CO" on={reading.heating_pump} />
+              <Pump label="Pompa CWU" on={reading.water_heater_pump} />
+            </div>
+
             <div className="resource">
-              <h3 className="settings-section-title">Temperatury</h3>
-              <Row label="Kocioł (CO)">{formatTemp(reading.heating_temp)}</Row>
-              <Row label="CWU">{formatTemp(reading.water_heater_temp)}</Row>
+              <div className="boiler-tiles">
+                <Tile title="Kocioł" current={reading.heating_temp} target={reading.heating_target} />
+                <Tile title="CWU" current={reading.water_heater_temp} target={reading.water_heater_target} />
+                {hasMixers && (
+                  <>
+                    <Tile title="Mieszacz 1 (grzejniki)" current={reading.mixer1_temp} target={reading.mixer1_target}>
+                      <div className="boiler-tile-extra">
+                        <Pump label="pompa" on={reading.mixer1_pump} />
+                        <span>zawór {valveText(reading.mixer1_opening, reading.mixer1_closing)}</span>
+                      </div>
+                    </Tile>
+                    <Tile title="Mieszacz 2" current={reading.mixer2_temp} target={reading.mixer2_target}>
+                      <div className="boiler-tile-extra">
+                        <Pump label="pompa" on={reading.mixer2_pump} />
+                        <span>zawór {valveText(reading.mixer2_opening, reading.mixer2_closing)}</span>
+                      </div>
+                    </Tile>
+                  </>
+                )}
+              </div>
+              {!hasMixers && <div className="boiler-hint">Mieszacze pojawią się po wgraniu firmware 1.2.0 na sterownik.</div>}
+            </div>
+
+            <div className="resource">
+              <h3 className="settings-section-title">Pozostałe</h3>
               <Row label="Zewnętrzna">{formatTemp(reading.outside_temp)}</Row>
               <Row label="Powrót">{formatTemp(reading.return_temp)}</Row>
               <Row label="Spaliny">{formatTemp(reading.exhaust_temp)}</Row>
-              <Row label="Podajnik">{formatTemp(reading.feeder_temp)}</Row>
-              <Row label="Czujnik optyczny">{formatTemp(reading.optical_temp)}</Row>
-              <Row label="Bufor góra">{formatTemp(reading.upper_buffer_temp)}</Row>
-              <Row label="Bufor dół">{formatTemp(reading.lower_buffer_temp)}</Row>
-            </div>
-
-            <div className="resource">
-              <h3 className="settings-section-title">Wartości zadane</h3>
-              <Row label="Kocioł zadana">{formatTemp(reading.heating_target)}</Row>
-              <Row label="CWU zadana">{formatTemp(reading.water_heater_target)}</Row>
-              <Row label="Status CO">{formatNumber(reading.heating_status, 0)}</Row>
-              <Row label="Status CWU">{formatNumber(reading.water_heater_status, 0)}</Row>
-            </div>
-
-            <div className="resource">
-              <h3 className="settings-section-title">Praca kotła</h3>
               <Row label="Poziom paliwa">{formatPercent(reading.fuel_level)}</Row>
               <Row label="Wentylator">{formatPercent(reading.fan_power)}</Row>
-              <Row label="Obciążenie">{formatPercent(reading.boiler_load)}</Row>
               <Row label="Moc">{reading.boiler_power === undefined ? '---' : `${formatNumber(reading.boiler_power)} kW`}</Row>
-              <Row label="Zużycie paliwa">{reading.fuel_consumption === undefined ? '---' : `${formatNumber(reading.fuel_consumption, 2)} kg/h`}</Row>
-              <Row label="Lambda">{formatPercent(reading.lambda_level)}</Row>
-            </div>
-
-            <div className="resource">
-              <h3 className="settings-section-title">Wyjścia</h3>
-              {([
-                ['Wentylator', reading.fan],
-                ['Podajnik', reading.feeder],
-                ['Pompa CO', reading.heating_pump],
-                ['Pompa CWU', reading.water_heater_pump],
-                ['Cyrkulacja', reading.circulation_pump],
-                ['Zapalarka', reading.lighter],
-              ] as [string, boolean | undefined][]).map(([label, value]) => (
-                <Row key={label} label={label}><span className={value ? 'boiler-on' : ''}>{onOff(value)}</span></Row>
-              ))}
+              <Row label="Cyrkulacja">{reading.circulation_pump === undefined ? '---' : reading.circulation_pump ? 'pracuje' : 'stoi'}</Row>
               <Row label="Alarm">
                 <span className={reading.alarm ? 'boiler-alarm' : ''}>
                   {reading.alarm === undefined ? '---' : reading.alarm ? 'tak' : 'nie'}
                 </span>
               </Row>
-            </div>
-
-            <div className="resource">
               <Row label="Ostatni odczyt">{formatDateTime(reading.createdAt)}</Row>
               {stale && <div className="boiler-stale">Dane nieaktualne</div>}
             </div>
