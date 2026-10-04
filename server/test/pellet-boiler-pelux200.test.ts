@@ -421,6 +421,8 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(current.outdoorTemperature).toBeNull();
     await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, outside_temp: 4.5 }).expect(201);
     expect((await request(app).get(api('schedules/current'))).body.outdoorTemperature).toBe(4.5);
+    // ten sam czujnik to temperatura zewnętrzna serwera (t_out pompy ciepła, GET /temperature)
+    expect((await request(app).get(`/api/temperature?rootId=${rootId}`)).body.temperature).toBe(4.5);
   });
 
   it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {

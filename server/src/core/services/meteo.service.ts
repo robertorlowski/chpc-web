@@ -1,41 +1,22 @@
-// Temperatura zewnętrzna z IMGW (stacja synoptyczna Zakopane), odświeżana co 10 min
-// przez server.ts. Trafia do rekordów hp (t_out), do odpowiedzi /hp/add dla
-// ekranu sterownika co i do GET /temperature. Trzymana tylko w pamięci.
+// Temperatura zewnętrzna z czujnika zewnętrznego kotła pelletowego (outside_temp z odczytu sterownika pieca).
+// Od 2026-10-04 zamiast stacji IMGW Zakopane (decyzja użytkownika). Ustawia ją moduł kotła przy każdym
+// odczycie i po starcie serwera z ostatniego odczytu w bazie (core nie importuje modułów). Trafia do
+// rekordów hp (t_out), do odpowiedzi /hp/add dla ekranu sterownika co i do GET /temperature. Trzymana
+// tylko w pamięci; pomiar starszy niż OUTDOOR_MAX_AGE_MS jest pomijany (null), np. przy wyłączonym sterowniku pieca.
 
-// undefined/null do pierwszego udanego pobrania; nieudane pobranie zostawia starą wartość
-let temperature_2m :number | null;
+export const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
 
-interface ImgwStacja {
-  id_stacji: string;
-  stacja: string;
-  data_pomiaru: string;
-  godzina_pomiaru: string;
-  temperatura: string;
-  predkosc_wiatru: string;
-  kierunek_wiatru: string;
-  wilgotnosc_wzgledna: string;
-  suma_opadu: string;
-  cisnienie: string;
+let outdoor: { value: number; at: Date } | null = null;
+
+// Nowy pomiar z czujnika kotła (moduł pellet-boiler-pelux200); starszy niż zapamiętany jest pomijany.
+export function setOutdoorTemperature(value: number, at = new Date()) {
+  if (!Number.isFinite(value)) return;
+  if (outdoor && outdoor.at > at) return;
+  outdoor = { value, at };
 }
 
-export function getTemperature() :number|null {
-    return temperature_2m;
-}
-
-
-export const prepareMeteoData = async () => {
-	try { 
-		const response = await fetch('https://danepubliczne.imgw.pl/api/data/synop/station/zakopane');
-		const lokalnaStacja: ImgwStacja = await response.json();
-		
-		if (lokalnaStacja) {
-			// Ważne: IMGW zwraca temperaturę jako string (np. "18.2"), musisz ją sparsować na liczbę
-			temperature_2m = parseFloat(lokalnaStacja.temperatura);
-			console.log(`Temperture: ${temperature_2m} °C`);
-			return temperature_2m;
-		}
-
-	} catch( e ) {
-		console.log(e);
-	}
+// Ostatni świeży pomiar albo null.
+export function getTemperature(now = new Date()): number | null {
+  if (!outdoor || now.getTime() - outdoor.at.getTime() > OUTDOOR_MAX_AGE_MS) return null;
+  return outdoor.value;
 }

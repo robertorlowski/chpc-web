@@ -123,7 +123,7 @@ export type PvEntry = PvMetrics & {
 
 // Rekord telemetrii (GET /hp, /hp/4day, /hp/all). time z co: "YYYY.MM.DD HH:MM:SS" (czas polski).
 // PV: w rekordach z bazy samo total_power wpisane przez serwer, w GET /hp pełne podsumowanie.
-// t_out: temperatura zewnętrzna z IMGW dopisana przez serwer.
+// t_out: temperatura zewnętrzna (czujnik kotła) dopisana przez serwer.
 export type HpEntry = {
   HP: HpMetrics,
   PV: PvMetrics,

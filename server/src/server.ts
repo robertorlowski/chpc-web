@@ -1,13 +1,13 @@
 // Punkt startowy serwera (npm start, Render): HTTP + WebSocket na jednym porcie,
 // połączenie z MongoDB (MONGODB_URI), scheduler pompy ciepła, czyszczenie
-// szczegółów paneli PV i odświeżanie temperatury z IMGW. Aplikacja Express
+// szczegółów paneli PV i temperatura zewnętrzna z czujnika kotła. Aplikacja Express
 // jest w core/app.ts (osobno, żeby testy mogły jej użyć bez nasłuchu i bazy).
 import 'dotenv/config';
 import http from 'http';
 import app from './core/app'
 import { createWsServer } from './core/websocket';
 import mongoose from 'mongoose';
-import { prepareMeteoData } from './core/services/meteo.service';
+import { restoreOutdoorTemperature } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200.service';
 import { startScheduler } from './modules/heat-pump/services/scheduler.service';
 import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service';
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
@@ -56,15 +56,10 @@ const PORT = Number(process.env.PORT ?? 3001);
     setInterval(() => void cleanPanelDetails(), PANEL_CLEANUP_INTERVAL_MS);
   }
 
-  // przed nasłuchem, żeby pierwsze /hp/add miało już t_out; błąd IMGW nie blokuje startu
-  await prepareMeteoData()
+  // przed nasłuchem, żeby pierwsze /hp/add miało już t_out: temperatura zewnętrzna z ostatniego odczytu
+  // czujnika kotła (od 2026-10-04 zamiast IMGW Zakopane); dalej ustawia ją każdy odczyt kotła
+  await restoreOutdoorTemperature().catch((error) => console.error('[meteo] error:', error));
 
-
-  // temperatura zewnętrzna co 10 min (t_out w rekordach hp i w odpowiedzi dla co)
-  setInterval(()=> (async() => {
-    await prepareMeteoData()
-  })(), 10 * 60 * 1000 );
-  
   server.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
 })();
 

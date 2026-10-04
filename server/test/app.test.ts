@@ -7,11 +7,11 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-// temperatura z IMGW bez sieci; null = serwis meteo jeszcze nic nie pobrał
+// temperatura zewnętrzna bez kotła; null = brak świeżego pomiaru z czujnika kotła
 const meteo = vi.hoisted(() => ({ temperature: null as number | null }));
 vi.mock('../src/core/services/meteo.service', () => ({
   getTemperature: () => meteo.temperature,
-  prepareMeteoData: async () => meteo.temperature,
+  setOutdoorTemperature: () => undefined,
 }));
 
 import app from '../src/core/app'

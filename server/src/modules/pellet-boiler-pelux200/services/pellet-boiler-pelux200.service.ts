@@ -1,10 +1,12 @@
 // Odczyty kotła Pellux 200: walidacja body sterownika, zapis, ostatni odczyt
-// w pamięci per rootId (po restarcie serwera z bazy) i lista z jednego dnia.
+// w pamięci per rootId (po restarcie serwera z bazy) i lista z jednego dnia. Czujnik zewnętrzny kotła
+// (outside_temp) ustawia temperaturę zewnętrzną serwera (core meteo.service: t_out pompy ciepła).
 import { PelletBoilerPelux200Entry, PelletBoilerPelux200Measurements } from '../types';
 import { PelletBoilerPelux200Model } from '../models/pellet-boiler-pelux200.model';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { DeviceModel } from '../../../core/models/device.model';
 import { sendMessage } from '../../../core/websocket';
+import { setOutdoorTemperature } from '../../../core/services/meteo.service';
 
 export const DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
@@ -51,8 +53,19 @@ export async function addPelletBoilerPelux200Reading(
     ...reading, rootId, deviceType: device.deviceType, deviceId: device.deviceId,
   });
   lastByRoot.set(rootId, doc.toObject() as PelletBoilerPelux200Entry);
+  // czujnik zewnętrzny kotła = temperatura zewnętrzna całego serwera (pompa ciepła: t_out, ekran co)
+  if (typeof reading.outside_temp === 'number') setOutdoorTemperature(reading.outside_temp, new Date());
   sendMessage('update', rootId);
   return doc;
+}
+
+// Po starcie serwera: temperatura zewnętrzna z ostatniego odczytu kotła z czujnikiem (wiek sprawdza core).
+export async function restoreOutdoorTemperature() {
+  const last = await PelletBoilerPelux200Model
+    .findOne({ outside_temp: { $type: 'number' } }).sort({ createdAt: -1 })
+    .lean<PelletBoilerPelux200Entry & { createdAt?: Date }>();
+  if (typeof last?.outside_temp === 'number' && last.createdAt) setOutdoorTemperature(last.outside_temp, new Date(last.createdAt));
+  return last?.outside_temp;
 }
 
 export async function getPelletBoilerPelux200Last(rootId: string) {

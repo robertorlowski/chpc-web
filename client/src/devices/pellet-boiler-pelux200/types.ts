@@ -144,7 +144,7 @@ export type PelletBoilerCurrentSchedule = {
   scheduleId: string | null;
   /** działający wpis trybu pracy Lato / Zima (null = poza harmonogramem) */
   seasonScheduleId?: string | null;
-  /** temperatura zewnętrzna z serwera (IMGW); null bez pomiaru */
+  /** temperatura zewnętrzna z czujnika kotła; null bez świeżego pomiaru */
   outdoorTemperature?: number | null;
   lastError: string | null;
 };

@@ -159,7 +159,7 @@ export const getHpLastError = async (rootId: string, now = new Date()) => {
   return doc ?? {};
 };
 
-// Zapis rekordu hp: dopisuje t_out (IMGW), rootId, rodzaj, deviceId i ewentualny
+// Zapis rekordu hp: dopisuje t_out (czujnik kotła), rootId, rodzaj, deviceId i ewentualny
 // error_code, aktualizuje pamięć podręczną i wysyła WebSocket "update" do klienta.
 export const addHpData = async (rootId: string, data :HpEntry) => {
   data.t_out = getTemperature()!;

@@ -149,7 +149,7 @@ export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange>
   endTime: string;
   /** type season: sezon w oknie */
   season?: PelletBoilerSeason;
-  /** type season: wpis działa tylko, gdy temperatura zewnętrzna (IMGW) jest poniżej [°C]; brak = zawsze */
+  /** type season: wpis działa tylko, gdy temperatura zewnętrzna (czujnik kotła) jest poniżej [°C]; brak = zawsze */
   coldBelow?: number | null;
 }
 

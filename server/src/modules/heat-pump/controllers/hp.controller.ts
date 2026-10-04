@@ -262,7 +262,7 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
       }
       await addHpData(rootId, data);
     }
-    // Temperatura zewnętrzna z IMGW na ekran sterownika; poza operacją, bo
+    // Temperatura zewnętrzna (czujnik kotła, core meteo.service) na ekran sterownika; poza operacją, bo
     // operacja niesie wyłącznie napisy do zastosowania w pompie.
     const outdoor = getTemperature();
     // oferta OTA {version, url, sha256, request} tylko przy zleceniu „Aktualizuj” (co od 1.1.0)
