@@ -107,6 +107,7 @@ void CloudClient::registerDevice()
   JsonDocument request;
   request["deviceType"] = "heat_pump";
   request["deviceId"] = serial;
+  request["version"] = FW_VERSION;
   request["ip"] = sentIp.toString();
   String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
   if (response.length() == 0) return;

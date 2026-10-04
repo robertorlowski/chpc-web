@@ -17,6 +17,10 @@ struct DeviceConfig {
   String rootId;
 };
 
+// Wersja firmware wysyłana w zgłoszeniu (pole version, w chmurze firmwareVersion;
+// karta „Sterownik” w Ustawieniach). Pierwsza numerowana wersja co: 1.0.0 (2026-10-04).
+constexpr const char *FW_VERSION = "1.0.0";
+
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";
 
