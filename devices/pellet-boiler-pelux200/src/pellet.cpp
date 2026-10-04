@@ -108,13 +108,22 @@ volatile bool boilerSettingsRequested = true;
 // koniec odczytu z parametrami kotła → wysyłka do chmury w tick() (sendSettings)
 volatile bool settingsUploadPending = false;
 
-// Zmiana parametru kotła („set <nr> <wartość>” z konsoli): busTask sprawdza zakres podany przez
-// regulator i stan kotła (tylko zatrzymany, stan 0), wysyła 0x33, po potwierdzeniu czyta
-// ustawienia od nowa, żeby było widać nową wartość.
+// Zmiana parametru kotła albo mieszacza: z konsoli („set <nr> <wartość>”, „setm <mieszacz>
+// <nr> <wartość>”) albo ze zlecenia z aplikacji (GET commands/next co CLOUD_COMMAND_POLL_MS).
+// busTask sprawdza zakres z ostatniego odczytu ustawień — w każdym stanie kotła (decyzja
+// użytkownika 2026-10-04, jak fabryczny ecoNET300; do 1.2.0 tylko przy stanie 0) — wysyła
+// 0x33/0x34, po potwierdzeniu czyta ustawienia od nowa (nowa wartość idzie do chmury).
+// Wynik zlecenia z aplikacji odsyła loop() (POST commands/result).
 BoilerParameterWriter parameterWriter;
 volatile bool parameterSetRequested = false;
 volatile uint8_t parameterSetIndex = 0;
 volatile uint8_t parameterSetValue = 0;
+volatile uint8_t parameterSetMixer = BoilerParameterWriter::NO_MIXER;
+// zlecenie z aplikacji: od odebrania do odesłania wyniku; wynik ustawia busTask
+volatile bool cloudCommandActive = false;
+volatile bool cloudResultReady = false;
+bool cloudResultOk = false;
+char cloudResultError[96] = {};
 
 // Podgląd czasów na magistrali („t” z konsoli): przez TRACE_MS każda ramka i każde nasze
 // nadanie jako „TRACE <µs> …” — do ustalenia, kiedy regulator słucha.
@@ -314,34 +323,59 @@ void logSettingsResponse(uint8_t item)
   Serial.println();
 }
 
-// Zlecona z konsoli zmiana parametru: tylko przy świeżym odczycie z kotłem zatrzymanym (stan 0)
-// i wartości w zakresie min–max z ostatniego odczytu ustawień.
-void startParameterSet(uint32_t nowMs)
+// Wynik zlecenia z aplikacji (busTask); bez zlecenia w toku (konsola) nic nie robi.
+void finishParameterSet(bool ok, const char *error)
 {
-  if (!parameterSetRequested || parameterWriter.busy()) return;
+  if (!cloudCommandActive || cloudResultReady) return;
+  portENTER_CRITICAL(&stateLock);
+  cloudResultOk = ok;
+  strncpy(cloudResultError, error ? error : "", sizeof(cloudResultError) - 1);
+  cloudResultError[sizeof(cloudResultError) - 1] = '\0';
+  cloudResultReady = true;
+  portEXIT_CRITICAL(&stateLock);
+}
+
+// „kocioł nr 119” albo „mieszacz 1 nr 0” do komunikatów.
+String parameterName(uint8_t mixer, uint8_t index)
+{
+  char text[32];
+  if (mixer == BoilerParameterWriter::NO_MIXER) snprintf(text, sizeof(text), "kocioł nr %u", index);
+  else snprintf(text, sizeof(text), "mieszacz %u nr %u", mixer + 1, index);
+  return String(text);
+}
+
+// Zlecona zmiana parametru (konsola albo aplikacja): wartość w zakresie min–max z ostatniego
+// odczytu ustawień, w każdym stanie kotła. Czeka, aż trwający odczyt ustawień się skończy.
+void startParameterSet(uint32_t)
+{
+  // po poprzedniej zmianie najpierw ponowny odczyt: zakres zadanej zależy od zmienionego minimum
+  if (!parameterSetRequested || parameterWriter.busy() || boilerSettings.busy() || boilerSettingsRequested) return;
   parameterSetRequested = false;
   const uint8_t index = parameterSetIndex;
   const uint8_t value = parameterSetValue;
+  const uint8_t mixer = parameterSetMixer;
+  const String name = parameterName(mixer, index);
   uint8_t current, min, max;
-  if (!ecomaxParameterValues(boilerSettings, index, current, min, max)) {
-    logf("parametr kotła nr %u: brak w odczycie ustawień (najpierw „p”), nie zmieniam", index);
+  const bool known = mixer == BoilerParameterWriter::NO_MIXER
+    ? ecomaxParameterValues(boilerSettings, index, current, min, max)
+    : mixerParameterValues(boilerSettings, mixer, index, current, min, max);
+  if (!known) {
+    logf("parametr %s: brak w odczycie ustawień (najpierw „p”), nie zmieniam", name.c_str());
+    finishParameterSet(false, "brak parametru w odczycie ustawień sterownika");
     return;
   }
   if (value < min || value > max) {
-    logf("parametr kotła nr %u: %u poza zakresem %u–%u, nie zmieniam", index, value, min, max);
-    return;
-  }
-  if (!hasReading || nowMs - readingAtMs >= READING_MAX_AGE_MS || latest.state != 0) {
-    logf("parametr kotła nr %u: kocioł nie jest zatrzymany (stan %u) albo brak świeżego odczytu, nie zmieniam",
-      index, hasReading ? latest.state : 255);
+    logf("parametr %s: %u poza zakresem %u–%u, nie zmieniam", name.c_str(), value, min, max);
+    finishParameterSet(false, "wartość poza zakresem regulatora");
     return;
   }
   if (current == value) {
-    logf("parametr kotła nr %u ma już wartość %u", index, value);
+    logf("parametr %s ma już wartość %u", name.c_str(), value);
+    finishParameterSet(true, nullptr);
     return;
   }
-  parameterWriter.start(index, value);
-  logf("parametr kotła nr %u: %u → %u (zakres %u–%u), wysyłam", index, current, value, min, max);
+  parameterWriter.start(index, value, mixer);
+  logf("parametr %s: %u → %u (zakres %u–%u), wysyłam", name.c_str(), current, value, min, max);
 }
 
 // Ramka od 0x56 (echo albo fabryczny ecoNET), odpowiedź regulatora z ustawieniami
@@ -357,8 +391,9 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
   }
   if (frame.recipient != ECONET_ADDRESS && frame.recipient != ECOMAX_ADDRESS_BROADCAST) return;
   if (parameterWriter.onResponse(frame)) {
-    logf("parametr kotła nr %u = %u: regulator potwierdził, czytam ustawienia od nowa",
-      parameterWriter.index(), parameterWriter.value());
+    logf("parametr %s = %u: regulator potwierdził, czytam ustawienia od nowa",
+      parameterName(parameterWriter.mixer(), parameterWriter.index()).c_str(), parameterWriter.value());
+    finishParameterSet(true, nullptr);
     boilerSettingsRequested = true;
     return;
   }
@@ -472,8 +507,10 @@ void readBus(uint32_t nowMs)
   const bool writing = parameterWriter.busy();
   parameterWriter.update(millis());
   if (writing && parameterWriter.result() == BoilerParameterWriter::Result::FAILED) {
-    logf("parametr kotła nr %u: brak potwierdzenia po %u próbach — sprawdź wartość na panelu",
-      parameterWriter.index(), static_cast<unsigned>(BoilerParameterWriter::ATTEMPTS));
+    logf("parametr %s: brak potwierdzenia po %u próbach — sprawdź wartość na panelu",
+      parameterName(parameterWriter.mixer(), parameterWriter.index()).c_str(),
+      static_cast<unsigned>(BoilerParameterWriter::ATTEMPTS));
+    finishParameterSet(false, "regulator nie potwierdził zmiany — sprawdź wartość na panelu");
     boilerSettingsRequested = true;
   }
   const int8_t settingsItem = boilerSettings.current();
@@ -548,6 +585,22 @@ bool post(const String &url, const String &body, String *response = nullptr, uin
   lastHttpStatus = http.POST(body);
   const bool ok = lastHttpStatus >= 200 && lastHttpStatus < 300;
   if (ok && response) *response = http.getString();
+  http.end();
+  return ok;
+}
+
+bool get(const String &url, String &response, uint16_t timeoutMs = HTTP_TIMEOUT_MS)
+{
+  if (WiFi.status() != WL_CONNECTED) return false;
+  const bool secure = url.startsWith("https://");
+  if (secure) secureClient.setInsecure();
+  http.setReuse(true);
+  http.setConnectTimeout(timeoutMs);
+  http.setTimeout(timeoutMs);
+  if (!(secure ? http.begin(secureClient, url) : http.begin(plainClient, url))) return false;
+  lastHttpStatus = http.GET();
+  const bool ok = lastHttpStatus >= 200 && lastHttpStatus < 300;
+  if (ok) response = http.getString();
   http.end();
   return ok;
 }
@@ -667,6 +720,83 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
     registeredThisBoot = false;
     lastRegisterAttemptMs = 0;
   }
+}
+
+// Zlecenia zmiany parametrów z aplikacji (serwer: pellet-boiler-pelux200-command.service.ts):
+// co CLOUD_COMMAND_POLL_MS pytanie o najstarsze oczekujące, jedno naraz; wynik (ok / błąd) wraca
+// przez POST commands/result. Bez wyniku po CLOUD_COMMAND_TIMEOUT_MS (brak odczytu ustawień albo
+// okna ecoNET) zlecenie kończy się błędem; zapis w toku nie jest przerywany.
+constexpr uint32_t CLOUD_COMMAND_POLL_MS = 15000;
+constexpr uint32_t CLOUD_COMMAND_TIMEOUT_MS = 120000;
+uint32_t lastCommandPollMs = 0;
+uint32_t cloudCommandAtMs = 0;
+String cloudCommandId;
+
+void sendCommandResult()
+{
+  bool ok;
+  char error[sizeof(cloudResultError)];
+  portENTER_CRITICAL(&stateLock);
+  ok = cloudResultOk;
+  memcpy(error, cloudResultError, sizeof(error));
+  portEXIT_CRITICAL(&stateLock);
+  JsonDocument document;
+  document["id"] = cloudCommandId;
+  document["ok"] = ok;
+  if (!ok) document["error"] = error;
+  String body;
+  serializeJson(document, body);
+  const bool sent = post(requestUrl("pellet-boiler-pelux200/commands/result"), body);
+  logf("zlecenie z aplikacji: wynik %s do chmury: %s (HTTP %d)", ok ? "OK" : error, sent ? "wysłany" : "błąd",
+    lastHttpStatus);
+  // 404: serwer nie ma już tego zlecenia w toku (np. wróciło do kolejki) — i tak koniec
+  if (!sent && lastHttpStatus != 404) return;
+  cloudCommandId = "";
+  cloudResultReady = false;
+  cloudCommandActive = false;
+}
+
+void pollCloudCommand(uint32_t nowMs)
+{
+  if (cloudCommandActive) {
+    if (!cloudResultReady && !parameterWriter.busy() && nowMs - cloudCommandAtMs >= CLOUD_COMMAND_TIMEOUT_MS) {
+      parameterSetRequested = false;
+      finishParameterSet(false, "brak odczytu ustawień albo okna ecoNET — zmiana nie wysłana");
+    }
+    if (cloudResultReady && nowMs - lastCommandPollMs >= 2000) {
+      lastCommandPollMs = nowMs;
+      sendCommandResult();
+    }
+    return;
+  }
+  if (lastCommandPollMs != 0 && nowMs - lastCommandPollMs < CLOUD_COMMAND_POLL_MS) return;
+  lastCommandPollMs = nowMs;
+  String response;
+  if (!get(requestUrl("pellet-boiler-pelux200/commands/next"), response)) return;
+  JsonDocument document;
+  if (deserializeJson(document, response)) return;
+  const char *id = document["id"] | "";
+  if (!*id) return;
+  const String kind = document["kind"] | "";
+  const int mixer = document["mixer"] | 0;
+  const int index = document["index"] | -1;
+  const int value = document["value"] | -1;
+  const bool isMixer = kind == "mixer";
+  cloudCommandId = id;
+  cloudResultReady = false;
+  cloudCommandActive = true;
+  cloudCommandAtMs = nowMs;
+  if ((!isMixer && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
+    || (isMixer && (mixer < 1 || mixer > ECOMAX_MIXER_MAX))) {
+    finishParameterSet(false, "nieprawidłowe zlecenie");
+    return;
+  }
+  parameterSetIndex = static_cast<uint8_t>(index);
+  parameterSetValue = static_cast<uint8_t>(value);
+  parameterSetMixer = isMixer ? static_cast<uint8_t>(mixer - 1) : BoilerParameterWriter::NO_MIXER;
+  parameterSetRequested = true;
+  logf("zlecenie z aplikacji: %s → %d, czekam na okno ecoNET",
+    parameterName(parameterSetMixer, parameterSetIndex).c_str(), value);
 }
 
 // --- Wi-Fi i AP ---
@@ -879,6 +1009,7 @@ void tick(uint32_t nowMs)
   EcomaxSensorData reading;
   if (static_cast<int32_t>(nowMs - nextPostMs) >= 0 && freshReading(reading)) sendReading(nowMs, reading);
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
+  pollCloudCommand(nowMs);
 }
 
 // --- strony WWW ---
@@ -1175,14 +1306,24 @@ void loop()
       if (command == '\n' || command == '\r') {
         consoleLine[consoleLength] = '\0';
         consoleLength = 0;
-        unsigned index, value;
-        if (sscanf(consoleLine, "set %u %u", &index, &value) == 2 && index < 256 && value < 256) {
+        unsigned mixer, index, value;
+        if (cloudCommandActive) {
+          logf("konsola: trwa zlecenie z aplikacji, spróbuj za chwilę");
+        } else if (sscanf(consoleLine, "setm %u %u %u", &mixer, &index, &value) == 3 && mixer >= 1
+          && mixer <= ECOMAX_MIXER_MAX && index < 256 && value < 256) {
+          parameterSetMixer = static_cast<uint8_t>(mixer - 1);
+          parameterSetIndex = static_cast<uint8_t>(index);
+          parameterSetValue = static_cast<uint8_t>(value);
+          parameterSetRequested = true;
+          logf("parametr mieszacz %u nr %u → %u: zlecone, czekam na okno ecoNET", mixer, index, value);
+        } else if (sscanf(consoleLine, "set %u %u", &index, &value) == 2 && index < 256 && value < 256) {
+          parameterSetMixer = BoilerParameterWriter::NO_MIXER;
           parameterSetIndex = static_cast<uint8_t>(index);
           parameterSetValue = static_cast<uint8_t>(value);
           parameterSetRequested = true;
           logf("parametr kotła nr %u → %u: zlecone, czekam na okno ecoNET", index, value);
         } else {
-          logf("konsola: nieznane polecenie „%s” (set <nr> <wartość>)", consoleLine);
+          logf("konsola: nieznane polecenie „%s” (set <nr> <wartość>, setm <mieszacz> <nr> <wartość>)", consoleLine);
         }
       } else if (consoleLength + 1 < sizeof(consoleLine)) {
         consoleLine[consoleLength++] = static_cast<char>(command);

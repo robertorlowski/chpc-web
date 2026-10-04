@@ -211,4 +211,63 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await post({ ecomax_parameters: '000' })).status).toBe(400);
     expect((await post({ ecomax_parameters: 12 })).status).toBe(400);
   });
+
+  it('zmiana parametrów: aplikacja zleca, sterownik odbiera po kolei i potwierdza', async () => {
+    const sn = 'AABBCC000011';
+    const { rootId } = (await register(sn)).body;
+    const commands = `/api/pellet-boiler-pelux200/commands?rootId=${rootId}`;
+    const next = () => request(app).get(`/api/pellet-boiler-pelux200/commands/next?deviceId=${sn}`);
+    const result = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/commands/result?deviceId=${sn}`).send(body);
+
+    // bez odczytu ustawień nie ma zakresów: 400
+    expect((await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 119, value: 50 }] })).status).toBe(400);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+
+    // walidacja: zakres regulatora (CWU 20–70), parametr nieużywany, typy, mieszacz bez numeru
+    const bad = async (change: object) =>
+      expect((await request(app).post(commands).send({ changes: [change] })).status).toBe(400);
+    await bad({ kind: 'ecomax', index: 119, value: 75 });
+    await bad({ kind: 'ecomax', index: 3, value: 1 });
+    await bad({ kind: 'ecomax', index: 119, value: '50' });
+    await bad({ kind: 'mixer', index: 0, value: 45 });
+    expect((await request(app).post(commands).send({ changes: [] })).status).toBe(400);
+
+    // dwie zmiany w kolejności; trzecia zastępuje oczekującą zmianę CWU
+    const created = await request(app).post(commands).send({ changes: [
+      { kind: 'ecomax', index: 119, value: 45 },
+      { kind: 'mixer', mixer: 1, index: 0, value: 45 },
+    ] });
+    expect(created.status).toBe(201);
+    expect(created.body[0]).toMatchObject({ kind: 'ecomax', index: 119, value: 45, previous: 55, status: 'pending' });
+    await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 119, value: 48 }] }).expect(201);
+
+    // sterownik: najpierw mieszacz (zmiana CWU 45 zastąpiona), potem CWU 48, potem nic
+    const first = (await next()).body;
+    expect(first).toMatchObject({ kind: 'mixer', mixer: 1, index: 0, value: 45 });
+    expect((await result({ id: first.id, ok: true })).status).toBe(201);
+    expect((await result({ id: first.id, ok: true })).status).toBe(404);
+    const second = (await next()).body;
+    expect(second).toMatchObject({ kind: 'ecomax', mixer: 0, index: 119, value: 48 });
+    await result({ id: second.id, ok: false, error: 'brak potwierdzenia 0xB3' }).expect(201);
+    expect((await next()).body).toEqual({});
+
+    // zależny zakres: zadana kotła 30 przy minimum 65 tylko razem z obniżeniem minimum (wcześniej w zleceniu)
+    expect((await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 98, value: 30 }] })).status).toBe(400);
+    const pump = await request(app).post(commands).send({ changes: [
+      { kind: 'ecomax', index: 99, value: 30 }, { kind: 'ecomax', index: 98, value: 30 },
+    ] });
+    expect(pump.status).toBe(201);
+    await request(app).post(commands).send({ changes: [
+      { kind: 'ecomax', index: 98, value: 30 }, { kind: 'ecomax', index: 99, value: 30 },
+    ] }).expect(400);
+    for (const command of pump.body) {
+      const taken = (await next()).body;
+      expect(taken.id).toBe(String(command._id));
+      await result({ id: taken.id, ok: true }).expect(201);
+    }
+
+    const history = (await request(app).get(commands)).body.slice(2);
+    expect(history.map((c: { status: string }) => c.status)).toEqual(['error', 'done', 'replaced']);
+    expect(history[0].error).toBe('brak potwierdzenia 0xB3');
+  });
 });

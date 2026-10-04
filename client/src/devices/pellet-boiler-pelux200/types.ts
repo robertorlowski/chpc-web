@@ -60,10 +60,34 @@ export type PelletBoilerParameter = {
   rating?: string;
   unit?: string;
   kind?: 'switch';
+  /** wartość = (surowa − offset) × step (brak = 1 i 0); z nich aplikacja liczy wartość surową zlecenia */
+  step?: number;
+  offset?: number;
   value: number;
   min: number;
   max: number;
   raw: [number, number, number];
+};
+
+/** Zmiana parametru dla regulatora: kotła (0x33) albo mieszacza (0x34), wartość surowa (bajt). */
+export type PelletBoilerChange = {
+  kind: 'ecomax' | 'mixer';
+  /** numer mieszacza od 1 */
+  mixer?: number;
+  index: number;
+  value: number;
+};
+
+/** Zlecenie zmiany z GET/POST /pellet-boiler-pelux200/commands. */
+export type PelletBoilerCommand = PelletBoilerChange & {
+  _id: string;
+  previous?: number;
+  label?: string;
+  /** pending: czeka na sterownik, sent: u sterownika, done: regulator potwierdził, replaced: zastąpione nowszym */
+  status: 'pending' | 'sent' | 'done' | 'error' | 'replaced';
+  error?: string;
+  createdAt: string;
+  doneAt?: string;
 };
 
 /** Ostatni odczyt ustawień regulatora; {} (brak readAt), gdy sterownik jeszcze ich nie wysłał. */

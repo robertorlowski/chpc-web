@@ -1,11 +1,17 @@
 // Panel „Ustawienia zaawansowane” w Ustawieniach pieca: wszystkie parametry regulatora z ostatniego
 // odczytu sterownika (GET /pellet-boiler-pelux200/settings), w grupach, z opisem i oceną zmiany
-// (docs/parametry-kotla.md). Tylko podgląd — zmiany z aplikacji jeszcze nie ma. Zwinięty na start;
-// dane pobierane przy pierwszym rozwinięciu.
-import { useState } from 'react';
+// (docs/parametry-kotla.md). Gdy ADVANCED_SETTINGS_EDIT w config.ts jest włączone, każdy parametr z nazwą
+// ma ikonę zmiany — ten sam panel co w „Głównych
+// parametrach” (MainParameters.tsx), przy parametrach serwisowych z dodatkowym potwierdzeniem.
+// Zwinięty na start; dane pobierane przy pierwszym rozwinięciu i po każdym zleceniu zmiany.
+import { useCallback, useEffect, useState } from 'react';
+import { IconButton } from '../../../core/components/IconButton';
+import { EditIcon } from '../../../core/components/icons';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerParameter, PelletBoilerSettings } from '../types';
 import { formatDateTime, formatNumber } from '../utils/boiler';
+import { COMMANDS_CHANGED, EditPanel, Item, ratingClass } from './MainParameters';
+import { ADVANCED_SETTINGS_EDIT } from '../config';
 
 const formatValue = (parameter: PelletBoilerParameter, value: number) => {
   if (parameter.kind === 'switch' && parameter.min === 0 && parameter.max === 1) return value ? 'wł.' : 'wył.';
@@ -13,21 +19,15 @@ const formatValue = (parameter: PelletBoilerParameter, value: number) => {
   return `${formatNumber(value, 2)}${unit}`;
 };
 
-// kolor oceny: zielony = bezpieczny, pomarańczowy = ostrożnie, czerwony = serwis / nie ruszać
-const ratingClass = (rating?: string) => {
-  const text = (rating ?? '').toLowerCase();
-  if (text.startsWith('bezpieczny')) return 'boiler-rating-safe';
-  if (text.startsWith('ostrożnie')) return 'boiler-rating-careful';
-  if (text.startsWith('tylko serwis') || text.startsWith('nie ruszać')) return 'boiler-rating-service';
-  return '';
-};
-
-const ParameterRow: React.FC<{ parameter: PelletBoilerParameter }> = ({ parameter }) => (
+const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void }> = ({ parameter, onEdit }) => (
   <li className="boiler-parameter">
     <div className="boiler-parameter-head">
       <span className="boiler-parameter-label">{parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}</span>
       <span className="boiler-parameter-value">
         {parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}
+        {parameter.name && ADVANCED_SETTINGS_EDIT && (
+          <IconButton label={`Zmień: ${parameter.label ?? parameter.name}`} icon={<EditIcon />} onClick={onEdit} />
+        )}
       </span>
     </div>
     <div className="boiler-hint">
@@ -43,12 +43,20 @@ const ParameterRow: React.FC<{ parameter: PelletBoilerParameter }> = ({ paramete
 export const AdvancedSettings: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState<PelletBoilerSettings | null | undefined>(undefined);
+  const [editing, setEditing] = useState<{ item: Item; parameter: PelletBoilerParameter } | null>(null);
 
+  const reload = useCallback(() => { PelletBoilerRequests.getSettings().then(setSettings); }, []);
   const toggle = () => {
     const next = !open;
     setOpen(next);
-    if (next && settings === undefined) PelletBoilerRequests.getSettings().then(setSettings);
+    if (next && settings === undefined) reload();
   };
+  // nowe wartości po zleceniu (stąd albo z „Głównych parametrów”), gdy panel był już wczytany
+  useEffect(() => {
+    if (settings === undefined) return undefined;
+    window.addEventListener(COMMANDS_CHANGED, reload);
+    return () => window.removeEventListener(COMMANDS_CHANGED, reload);
+  }, [settings, reload]);
 
   const count = (settings?.groups ?? []).reduce((sum, group) => sum + group.parameters.length, 0);
 
@@ -74,23 +82,35 @@ export const AdvancedSettings: React.FC = () => {
             <>
               <div className="boiler-hint">
                 Odczyt z regulatora: {formatDateTime(settings.readAt)} · {count} parametrów kotła.
-                Tylko podgląd: zmiana ustawień z aplikacji nie jest jeszcze dostępna.
+                {ADVANCED_SETTINGS_EDIT
+                  ? 'Ołówek zleca zmianę (sterownik wyśle ją do regulatora w ciągu ok. 15–30 s); parametry serwisowe wymagają potwierdzenia.'
+                  : 'Tylko podgląd: zmiana tych parametrów jest wyłączona w konfiguracji aplikacji (config.ts).'}
               </div>
               {settings.groups?.map((group) => (
                 <details key={group.key} className="boiler-group">
                   <summary>{group.label} <span className="boiler-hint">({group.parameters.length})</span></summary>
-                  <ul>{group.parameters.map((p) => <ParameterRow key={p.index} parameter={p} />)}</ul>
+                  <ul>{group.parameters.map((p) => (
+                    <ParameterRow key={p.index} parameter={p}
+                      onEdit={() => setEditing({ item: { kind: 'ecomax', index: p.index }, parameter: p })} />
+                  ))}</ul>
                 </details>
               ))}
               {settings.mixers?.map((mixer) => (
                 <details key={`mixer-${mixer.mixer}`} className="boiler-group">
                   <summary>Mieszacz {mixer.mixer} <span className="boiler-hint">({mixer.parameters.length})</span></summary>
-                  <ul>{mixer.parameters.map((p) => <ParameterRow key={p.index} parameter={p} />)}</ul>
+                  <ul>{mixer.parameters.map((p) => (
+                    <ParameterRow key={p.index} parameter={p}
+                      onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />
+                  ))}</ul>
                 </details>
               ))}
             </>
           )}
         </div>
+      )}
+      {editing && (
+        <EditPanel item={editing.item} parameter={editing.parameter} onClose={() => setEditing(null)}
+          onSent={() => setEditing(null)} />
       )}
     </div>
   );

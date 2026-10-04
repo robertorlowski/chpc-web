@@ -346,9 +346,45 @@ void testParameterWriter()
   TEST_ASSERT_EQUAL_INT(static_cast<int>(BoilerParameterWriter::Result::FAILED), static_cast<int>(writer.result()));
 }
 
+// Mieszacz (od 1.3.0, według PyPlumIO): 0x34 [mieszacz od 0, nr, wartość], potwierdzenie 0xB4;
+// potwierdzenie 0xB3 (parametr kotła) nie kończy zmiany mieszacza.
+void testMixerParameterWriter()
+{
+  BoilerParameterWriter writer;
+  uint8_t out[ECONET_MAX_FRAME];
+  TEST_ASSERT_TRUE(writer.start(0, 45, 0));
+  TEST_ASSERT_TRUE(writer.isMixer());
+  const size_t length = writer.nextRequest(0, out, sizeof(out));
+  const uint8_t expected[] = {0x68, 13, 0, 0x45, 0x56, 48, 5, 0x34, 0, 0, 45};
+  TEST_ASSERT_EQUAL_UINT32(13, length);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, out, sizeof(expected));
+
+  auto ack = [](uint8_t type) {
+    Bytes bytes = {0x68, 10, 0, 0x00, 0x45, 0x00, 0x05, type, 0x00, 0x16};
+    uint8_t bcc = 0;
+    for (size_t i = 0; i < 8; i++) bcc ^= bytes[i];
+    bytes[8] = bcc;
+    return bytes;
+  };
+  EcomaxFrameParser parser;
+  EcomaxFrame frame;
+  Bytes wrong = ack(0xB3);
+  TEST_ASSERT_TRUE(parse(parser, wrong.data(), wrong.size(), frame));
+  TEST_ASSERT_FALSE(writer.onResponse(frame));
+  Bytes right = ack(0xB4);
+  TEST_ASSERT_TRUE(parse(parser, right.data(), right.size(), frame));
+  TEST_ASSERT_TRUE(writer.onResponse(frame));
+  TEST_ASSERT_FALSE(writer.busy());
+
+  // kolejna zmiana bez mieszacza znów jest parametrem kotła
+  TEST_ASSERT_TRUE(writer.start(119, 50));
+  TEST_ASSERT_FALSE(writer.isMixer());
+}
+
 int main(int, char **)
 {
   UNITY_BEGIN();
+  RUN_TEST(testMixerParameterWriter);
   RUN_TEST(testDeviceAvailableAnswersCheckDevice);
   RUN_TEST(testProgramVersionAnswer);
   RUN_TEST(testNoAnswerForOtherRecipientSenderOrType);

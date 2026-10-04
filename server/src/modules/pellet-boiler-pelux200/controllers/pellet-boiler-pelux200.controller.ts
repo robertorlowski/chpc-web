@@ -1,6 +1,7 @@
 // Endpointy kotła Pellux 200 (/pellet-boiler-pelux200/...): zapis odczytu od
 // sterownika pieca, ostatni odczyt, lista z jednego dnia (doba warszawska) i ustawienia
-// regulatora (zapis surowych odpowiedzi od sterownika, odczyt rozkodowany).
+// regulatora (zapis surowych odpowiedzi od sterownika, odczyt rozkodowany) oraz zlecenia zmiany
+// parametrów z aplikacji (odbiera i potwierdza je sterownik).
 import { Request, Response } from 'express';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
@@ -10,6 +11,9 @@ import {
 import {
   getPelletBoilerSettingsView, savePelletBoilerSettings, validateSettingsUpload,
 } from '../services/pellet-boiler-pelux200-settings.service';
+import {
+  CommandError, createCommands, finishCommand, listRecentCommands, takeNextCommand,
+} from '../services/pellet-boiler-pelux200-command.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 
 // Odpowiedź niesie aktualny odstęp odpytywania: sterownik stosuje go od razu,
@@ -76,5 +80,54 @@ export async function getPelletBoilerPelux200List(req: Request, res: Response) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });
+  }
+}
+
+// --- zmiana parametrów z aplikacji (pellet-boiler-pelux200-command.service.ts) ---
+
+const commandError = (res: Response, error: unknown) => {
+  if (error instanceof CommandError) return res.status(400).json({ message: error.message });
+  console.error(error);
+  return res.status(500).json({ message: String(error) });
+};
+
+// POST /commands (aplikacja): {changes: [{kind, mixer?, index, value}]} → 201 z utworzonymi zleceniami.
+export async function addPelletBoilerPelux200Commands(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await createCommands(req.deviceRootId as string, req.body));
+  } catch (error) {
+    return commandError(res, error);
+  }
+}
+
+// GET /commands (aplikacja): ostatnie zlecenia od najnowszego.
+export async function getPelletBoilerPelux200Commands(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await listRecentCommands(req.deviceRootId as string));
+  } catch (error) {
+    return commandError(res, error);
+  }
+}
+
+// GET /commands/next (sterownik, sam deviceId): {id, kind, mixer, index, value} albo {}.
+export async function getPelletBoilerPelux200NextCommand(req: Request, res: Response) {
+  try {
+    const command = await takeNextCommand(req.deviceRootId as string);
+    if (!command) return res.status(200).json({});
+    return res.status(200).json({
+      id: String(command._id), kind: command.kind, mixer: command.mixer ?? 0, index: command.index, value: command.value,
+    });
+  } catch (error) {
+    return commandError(res, error);
+  }
+}
+
+// POST /commands/result (sterownik): {id, ok, error?}; 404, gdy zlecenia nie ma albo już ma wynik.
+export async function addPelletBoilerPelux200CommandResult(req: Request, res: Response) {
+  try {
+    const updated = await finishCommand(req.deviceRootId as string, req.body);
+    return updated ? res.status(201).json({}) : res.status(404).json({ message: 'Brak takiego zlecenia w toku.' });
+  } catch (error) {
+    return commandError(res, error);
   }
 }

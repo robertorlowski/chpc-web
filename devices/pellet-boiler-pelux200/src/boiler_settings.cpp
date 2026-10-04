@@ -62,6 +62,17 @@ bool BoilerSettingsReader::onResponse(const EcomaxFrame &frame, uint32_t nowMs)
   return true;
 }
 
+namespace {
+// Parametr nieużywany: żaden bajt trójki nie jest ani 0xFF, ani 0 (jak is_valid_parameter
+// w PyPlumIO i serwer, np. nr 117 tego kotła: FF 00 FF).
+bool usedTriple(const uint8_t *triple)
+{
+  for (int i = 0; i < 3; i++)
+    if (triple[i] != 0xFF && triple[i] != 0) return true;
+  return false;
+}
+}
+
 bool ecomaxParameterValues(const BoilerSettingsReader &reader, uint8_t index, uint8_t &value, uint8_t &min,
   uint8_t &max)
 {
@@ -73,17 +84,37 @@ bool ecomaxParameterValues(const BoilerSettingsReader &reader, uint8_t index, ui
   const uint8_t count = data[2];
   if (index < first || index >= first + count) return false;
   const size_t at = 3 + 3 * static_cast<size_t>(index - first);
-  if (at + 3 > length) return false;
+  if (at + 3 > length || !usedTriple(data + at)) return false;
   value = data[at];
   min = data[at + 1];
   max = data[at + 2];
-  return !(value == 0xFF && min == 0xFF && max == 0xFF);
+  return true;
 }
 
-bool BoilerParameterWriter::start(uint8_t index, uint8_t value)
+bool mixerParameterValues(const BoilerSettingsReader &reader, uint8_t mixer, uint8_t index, uint8_t &value,
+  uint8_t &min, uint8_t &max)
+{
+  if (!reader.has(1)) return false;
+  const uint8_t *data = reader.data(1);
+  const size_t length = reader.length(1);
+  if (length < 4) return false;
+  const uint8_t first = data[1];
+  const uint8_t count = data[2];
+  const uint8_t mixers = data[3];
+  if (mixer >= mixers || index < first || index >= first + count) return false;
+  const size_t at = 4 + 3 * (static_cast<size_t>(mixer) * count + (index - first));
+  if (at + 3 > length || !usedTriple(data + at)) return false;
+  value = data[at];
+  min = data[at + 1];
+  max = data[at + 2];
+  return true;
+}
+
+bool BoilerParameterWriter::start(uint8_t index, uint8_t value, uint8_t mixer)
 {
   if (pending) return false;
   pending = true;
+  mixerIndex = mixer;
   awaiting = false;
   attempts = 0;
   parameterIndex = index;
@@ -95,8 +126,12 @@ bool BoilerParameterWriter::start(uint8_t index, uint8_t value)
 size_t BoilerParameterWriter::nextRequest(uint32_t nowMs, uint8_t *out, size_t outSize)
 {
   if (!pending || awaiting) return 0;
-  const uint8_t data[2] = {parameterIndex, parameterValue};
-  const size_t length = buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_PARAMETER, data, 2, out, outSize);
+  // 0x33 [nr, wartość] dla kotła, 0x34 [mieszacz od 0, nr, wartość] dla mieszacza (PyPlumIO)
+  const uint8_t boilerData[2] = {parameterIndex, parameterValue};
+  const uint8_t mixerData[3] = {mixerIndex, parameterIndex, parameterValue};
+  const size_t length = isMixer()
+    ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_MIXER_PARAMETER, mixerData, 3, out, outSize)
+    : buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_PARAMETER, boilerData, 2, out, outSize);
   if (length == 0) return 0;
   awaiting = true;
   sentMs = nowMs;
@@ -115,7 +150,7 @@ bool BoilerParameterWriter::onResponse(const EcomaxFrame &frame)
 {
   if (!pending || !awaiting || frame.sender != ECOMAX_ADDRESS_ECOMAX) return false;
   if (frame.recipient != ECONET_ADDRESS && frame.recipient != ECOMAX_ADDRESS_BROADCAST) return false;
-  if (frame.type != ECOMAX_FRAME_SET_PARAMETER_RESPONSE) return false;
+  if (frame.type != (isMixer() ? ECOMAX_FRAME_SET_MIXER_PARAMETER_RESPONSE : ECOMAX_FRAME_SET_PARAMETER_RESPONSE)) return false;
   pending = false;
   awaiting = false;
   lastResult = Result::CONFIRMED;

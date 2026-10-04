@@ -1,5 +1,6 @@
-// Zakładka Ustawienia kotła pelletowego (/settings): interwał odpytywania pieca (PUT /device/properties),
-// dane sterownika i zwinięty panel „Ustawienia zaawansowane” (parametry regulatora, podgląd).
+// Zakładka Ustawienia kotła pelletowego (/settings): tryb pracy i główne parametry regulatora ze zmianą
+// z aplikacji (components/MainParameters.tsx), interwał odpytywania pieca (PUT /device/properties),
+// dane sterownika i zwinięty panel „Ustawienia zaawansowane” (wszystkie parametry, podgląd).
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
@@ -9,6 +10,7 @@ import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
 import { AdvancedSettings } from '../components/AdvancedSettings';
+import { MainParameters } from '../components/MainParameters';
 import './style.css';
 
 // interwał w minutach w formularzu, w sekundach w ustawieniach (30–3600 s = 0,5–60 min)
@@ -58,6 +60,8 @@ export const PelletBoilerSettings: React.FC = () => {
       <Notification message={notice} />
       <h2>Ustawienia</h2>
       <section>
+        <MainParameters />
+
         <form className="resource boiler-form" onSubmit={save}>
           <h3 className="settings-section-title">Odpytywanie</h3>
           <label>
@@ -72,6 +76,8 @@ export const PelletBoilerSettings: React.FC = () => {
           </div>
         </form>
 
+        <AdvancedSettings />
+
         <div className="resource settings-device">
           <h3 className="settings-section-title">Sterownik</h3>
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
@@ -82,8 +88,6 @@ export const PelletBoilerSettings: React.FC = () => {
             <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
           </div>
         </div>
-
-        <AdvancedSettings />
       </section>
 
       {editingDevice && device && (

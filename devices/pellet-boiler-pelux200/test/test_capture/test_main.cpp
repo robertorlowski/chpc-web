@@ -167,6 +167,14 @@ void testSettingsExchangeMatchesRecording()
   TEST_ASSERT_EQUAL_UINT8(20, min);
   TEST_ASSERT_EQUAL_UINT8(70, max);
   TEST_ASSERT_FALSE(ecomaxParameterValues(reader, 3, value, min, max));    // nieużywany (FF)
+  TEST_ASSERT_FALSE(ecomaxParameterValues(reader, 117, value, min, max));  // FF 00 FF: nieużywany jak w PyPlumIO
+  // mieszacz 1 (indeks 0), nr 0: zadana 40 (40–50), jak w kopii ustawień; mieszacz 2 bez wartości
+  TEST_ASSERT_TRUE(mixerParameterValues(reader, 0, 0, value, min, max));
+  TEST_ASSERT_EQUAL_UINT8(40, value);
+  TEST_ASSERT_EQUAL_UINT8(40, min);
+  TEST_ASSERT_EQUAL_UINT8(50, max);
+  TEST_ASSERT_FALSE(mixerParameterValues(reader, 1, 0, value, min, max));
+  TEST_ASSERT_FALSE(mixerParameterValues(reader, 9, 0, value, min, max));
   TEST_ASSERT_FALSE(ecomaxParameterValues(reader, 200, value, min, max));  // poza odpowiedzią
 }
 

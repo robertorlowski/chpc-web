@@ -2,14 +2,15 @@
 // odświeżany co 30 s, ze znacznikiem nieaktualnych danych (starszych niż 3 interwały odpytywania).
 // Na górze stan kotła z płomieniem (gdy się pali), tryb zima/lato i tryb pracy pompa ciepła/pellet
 // (z ostatniego odczytu ustawień), pompy CO i CWU; niżej kafelki: kocioł, CWU, mieszacze 1 i 2
-// (aktualna i zadana) oraz pozostałe odczyty.
+// (aktualna i zadana; kocioł i CWU jako „od–do”: zadana − histereza z ustawień nr 17 i 123) oraz
+// pozostałe odczyty.
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
 import { FlameIcon, PumpIcon } from '../components/icons';
 import { PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
-  DEFAULT_POLL_SECONDS, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
+  DEFAULT_POLL_SECONDS, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
   stateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
@@ -29,13 +30,18 @@ const Pump: React.FC<{ label: string; on?: boolean }> = ({ label, on }) => (
   </span>
 );
 
-const Tile: React.FC<{ title: string; current?: number; target?: number; children?: React.ReactNode }> = ({
-  title, current, target, children,
-}) => (
+// hysteresis: zadana „od–do” (od = zadana − histereza: tu kocioł rozpala / zaczyna się ładowanie CWU)
+const Tile: React.FC<{
+  title: string; current?: number; target?: number; hysteresis?: number; children?: React.ReactNode;
+}> = ({ title, current, target, hysteresis, children }) => (
   <div className="boiler-tile">
     <div className="boiler-tile-title">{title}</div>
     <div className="boiler-tile-current">{formatTemp(current)}</div>
-    <div className="boiler-tile-target">zadana {formatTemp(target)}</div>
+    <div className="boiler-tile-target">
+      zadana {target !== undefined && hysteresis !== undefined
+        ? `${formatNumber(target - hysteresis, 0)}–${formatTemp(target)}`
+        : formatTemp(target)}
+    </div>
     {children}
   </div>
 );
@@ -86,8 +92,10 @@ export const PelletBoilerHome: React.FC = () => {
 
             <div className="resource">
               <div className="boiler-tiles">
-                <Tile title="Kocioł" current={reading.heating_temp} target={reading.heating_target} />
-                <Tile title="CWU" current={reading.water_heater_temp} target={reading.water_heater_target} />
+                <Tile title="Kocioł" current={reading.heating_temp} target={reading.heating_target}
+                  hysteresis={findParameter(settings, 17)?.value} />
+                <Tile title="CWU" current={reading.water_heater_temp} target={reading.water_heater_target}
+                  hysteresis={findParameter(settings, 123)?.value} />
                 {hasMixers && (
                   <>
                     <Tile title="Mieszacz 1 (grzejniki)" current={reading.mixer1_temp} target={reading.mixer1_target}>

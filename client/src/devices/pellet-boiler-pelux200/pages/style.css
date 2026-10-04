@@ -159,6 +159,118 @@
   border-radius: 2px;
 }
 
+/* Ustawienia: tryb pracy, główne parametry z ikoną zmiany, ostatnie zmiany */
+.boiler-profiles {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.boiler-profiles button {
+  flex: 1;
+  margin: 0;
+}
+
+.boiler-profiles .boiler-profile {
+  background: #fff;
+  color: #1481a5;
+  border: 1px solid #1481a5;
+}
+
+
+.boiler-main-section + .boiler-main-section {
+  margin-top: 0.6rem;
+}
+
+.boiler-main-title {
+  font-weight: 600;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.boiler-main-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.boiler-main-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.boiler-edit select,
+.boiler-edit input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem;
+  font-size: 1rem;
+}
+
+.boiler-edit {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+/* panel grupy parametrów: pole i zwijany zakres z opisem pod nim */
+.boiler-group-field details summary {
+  cursor: pointer;
+}
+
+.boiler-group-field + .boiler-group-field {
+  border-top: 1px solid #e4e4e4;
+  padding-top: 0.5rem;
+}
+
+/* potwierdzenie zmiany parametru serwisowego w panelu zmiany */
+.boiler-confirm {
+  display: flex !important;
+  gap: 0.5rem;
+  align-items: flex-start;
+  color: #b00020;
+  font-size: 0.9rem;
+}
+
+.boiler-confirm input {
+  width: auto !important;
+  margin-top: 0.2rem;
+}
+
+.boiler-commands {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.boiler-commands li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.2rem 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.boiler-command-done {
+  color: #2e7d32;
+}
+
+.boiler-command-error {
+  color: #b00020;
+}
+
+.boiler-command-pending,
+.boiler-command-sent {
+  color: #b26a00;
+}
+
+.boiler-command-replaced {
+  color: #777;
+}
+
 .boiler-table {
   width: 100%;
   border-collapse: collapse;
@@ -305,6 +417,9 @@
 }
 
 .boiler-parameter-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   white-space: nowrap;
   font-weight: 600;
   color: #1481a5;

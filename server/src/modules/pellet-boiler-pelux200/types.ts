@@ -79,6 +79,9 @@ export interface PelletBoilerParameter {
   rating?: string;
   unit?: string;
   kind?: 'switch';
+  /** wartość = (surowa − offset) × step (brak = 1 i 0) */
+  step?: number;
+  offset?: number;
   value: number;
   min: number;
   max: number;
@@ -90,6 +93,30 @@ export interface PelletBoilerSettingsView {
   deviceId?: string;
   groups: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
   mixers: { mixer: number; parameters: PelletBoilerParameter[] }[];
+}
+
+/** Zmiana parametru z aplikacji: parametr kotła (0x33) albo mieszacza (0x34), wartość surowa. */
+export interface PelletBoilerCommandChange {
+  kind: 'ecomax' | 'mixer';
+  /** numer mieszacza od 1 (kind = mixer) */
+  mixer?: number;
+  index: number;
+  value: number;
+}
+
+export type PelletBoilerCommandStatus = 'pending' | 'sent' | 'done' | 'error' | 'replaced';
+
+export interface PelletBoilerCommandEntry extends PelletBoilerCommandChange {
+  _id?: unknown;
+  rootId: string;
+  previous?: number;
+  label?: string;
+  status: PelletBoilerCommandStatus;
+  error?: string;
+  sentAt?: Date;
+  doneAt?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {

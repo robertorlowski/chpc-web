@@ -63,6 +63,9 @@ function parameter(
     rating: definition?.rating,
     unit: definition?.unit,
     kind: definition?.kind,
+    // krok i przesunięcie: aplikacja liczy z nich wartość surową do zlecenia zmiany
+    step: definition?.kind === 'switch' ? undefined : definition?.step,
+    offset: definition?.kind === 'switch' ? undefined : definition?.offset,
     value: convert(definition, triple[0]),
     min: convert(definition, triple[1]),
     max: convert(definition, triple[2]),
