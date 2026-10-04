@@ -9,6 +9,7 @@ import {
   updateDeviceName, updateDeviceProperties,
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
+import { getDeviceInfo } from '../services/device-info.service';
 import { getFirmwareOffer } from '../services/firmware.service';
 import { serverBaseUrl } from './firmware.controller';
 
@@ -38,12 +39,14 @@ export async function getProperties(req: Request, res: Response) {
 }
 
 // Zapis zastępuje całe properties (wszystkie rodzaje w jednym polu): klient musi
-// wysłać komplet, bo pominięte klucze znikną. Pompa: od najbliższego przebiegu
-// schedulera; hydrofor: od następnego zgłoszenia, czyli uruchomienia pompy.
+// wysłać komplet, bo pominięte klucze znikną. Pompa: od razu, ręczne ustawienia znikają
+// (onPropertiesSaved); hydrofor: od następnego zgłoszenia, czyli uruchomienia pompy.
 export async function updateProperties(req: Request<{}, {}, DeviceProperties>, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
     const properties = await updateDeviceProperties(rootId, req.body);
+    const { deviceType } = await getDeviceInfo(rootId);
+    await getDeviceTypeModule(deviceType).onPropertiesSaved?.(rootId);
     return res.status(200).json(properties);
   } catch (error) {
     return res.status(400).json({ message: String(error) });

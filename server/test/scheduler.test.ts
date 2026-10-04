@@ -167,6 +167,27 @@ describe('Schedules and manual operation control', () => {
     });
   });
 
+  it('saving default settings overrides manual settings at once', async () => {
+    // bez harmonogramu ręczne pole trwa (produkcja 2026-10-04: ręczne CWU max 38, domyślne 48)
+    await runSchedulerOnce(afterScheduleTime);
+    await request(app).post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ cwu_max: '38', co_pomp: '0' }).expect(201);
+    await runSchedulerOnce(afterScheduleTime);
+    expect(getOperationData(rootId)).toMatchObject({ cwu_max: '38', co_pomp: '0' });
+
+    const properties = { work_mode: 'CWU', co_min: '32', co_max: '42', cwu_min: '40', cwu_max: '48' };
+    await request(app).put(`/api/device/properties?rootId=${rootId}&deviceId=${deviceId}`)
+      .send(properties).expect(200);
+
+    expect(getManualOperationData(rootId)).toEqual({});
+    // nowa operacja od razu, bez czekania na przebieg schedulera; ręczne co_pomp "0" jawnie na "1"
+    expect(getOperationData(rootId)).toMatchObject({ work_mode: 'CWU', cwu_min: '40', cwu_max: '48', co_pomp: '1' });
+
+    await DeviceModel.findByIdAndUpdate(rootId, {
+      properties: { work_mode: 'CWU', co_min: '32', co_max: '42', cwu_min: '44', cwu_max: '52' },
+    });
+  });
+
   it('restores the CO pump when the work mode changes without co_pomp', async () => {
     const setManual = (body: Record<string, string>) => request(app)
       .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)

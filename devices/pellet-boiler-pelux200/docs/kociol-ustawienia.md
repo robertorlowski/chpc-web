@@ -339,6 +339,22 @@ CWU regulator zatrzymuje pompę CO, podnosi zadaną kotła do zadanej CWU + nr 1
 żeby naładować CWU; wtedy ustawić też „Postój pompy CO podczas ładowania CWU” (nr 102, dziś 0),
 żeby grzejniki nie wystygły. Opis parametrów: [parametry-kotla.md](parametry-kotla.md).
 
+## 4c. Czujnik CWU: podejrzenie złego styku (noc 2026-10-03/04)
+
+Nocny podgląd (SensorData co 30 s z magistrali i odczyty z chmury co 5 min), kocioł w postoju,
+pompa CWU kotła cały czas wyłączona, pompa ciepła ok. 38 °C, kocioł 34–38 °C: temperatura CWU
+rosła nierówno (skoki ±0,5–1,5 °C co 30 s) do 61,9 °C (04:32), 65,7 °C (05:53) i 67,6 °C (06:06),
+a potem spadała **skokowo w ciągu 30 s**: 58,6 → 42,9 °C (04:43), 65,4 → 58,3 °C (05:55),
+67,1 → 55,4 °C (06:08), 49,6 → 44,9 °C (06:16). Po skoku odczyt był równy (42,8–43,0 °C przez
+kilka minut) — to najpewniej prawdziwa temperatura wody. Zasobnik nie stygnie o 16 °C w 30 s, a
+żadne źródło ciepła nie dawało > 50 °C, więc to błąd pomiaru, najpewniej rosnąca rezystancja na
+złączu lub przewodzie czujnika (użytkownik też podejrzewa czujnik).
+
+Skutki: przy zawyżonym odczycie regulator uznaje CWU za nagrzaną i nie ładuje zasobnika
+(tryb Priorytet); przekłamanie do ok. 70 °C mogłoby uruchomić ochronę przed przegrzaniem CWU.
+Do sprawdzenia: złącze czujnika CWU w module A (dokręcić, śniedź), przewód i łączenia, osadzenie
+czujnika w tulei zasobnika, porównanie z termometrem.
+
 ## 4. Kopia ustawień regulatora (2026-10-03)
 
 Wartości instalacji odczytane z regulatora 2026-10-03 przy kotle uruchomionym, ale

@@ -111,8 +111,6 @@ export const PelletBoilerHome: React.FC = () => {
             <div className="resource">
               <h3 className="settings-section-title">Pozostałe</h3>
               <Row label="Zewnętrzna">{formatTemp(reading.outside_temp)}</Row>
-              <Row label="Powrót">{formatTemp(reading.return_temp)}</Row>
-              <Row label="Spaliny">{formatTemp(reading.exhaust_temp)}</Row>
               <Row label="Poziom paliwa">{formatPercent(reading.fuel_level)}</Row>
               <Row label="Wentylator">{formatPercent(reading.fan_power)}</Row>
               <Row label="Moc">{reading.boiler_power === undefined ? '---' : `${formatNumber(reading.boiler_power)} kW`}</Row>

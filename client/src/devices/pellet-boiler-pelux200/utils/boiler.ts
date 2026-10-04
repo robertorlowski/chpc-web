@@ -112,8 +112,6 @@ export const READING_COLUMNS: ReadingColumn[] = [
   flag('mixer2_pump', 'Pompa M2'),
   { key: 'mixer2_valve', header: 'Zawór M2', csvHeader: 'Zawór M2',
     cell: (r) => valveText(r.mixer2_opening, r.mixer2_closing), csv: (r) => valveText(r.mixer2_opening, r.mixer2_closing) },
-  temp('return_temp', 'Powrót', 'Powrót'),
-  temp('exhaust_temp', 'Spaliny', 'Spaliny'),
   temp('feeder_temp', 'T podajn.', 'Temperatura podajnika'),
   temp('optical_temp', 'Optyczny', 'Czujnik optyczny'),
   temp('upper_buffer_temp', 'Bufor góra', 'Bufor góra'),

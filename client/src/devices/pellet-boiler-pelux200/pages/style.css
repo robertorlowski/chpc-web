@@ -117,8 +117,20 @@
   height: 1.05rem;
 }
 
-.boiler-data-more {
-  margin-top: 0.5rem;
+/* checkboxy bez ramki i wysokości pól tekstowych (.boiler-page input) */
+.boiler-page input[type='checkbox'] {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* „Pokaż wszystkie parametry” po prawej, nad tabelą */
+.boiler-data-all {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Wykres: wysokość jak w innych wykresach, przełączniki serii pod spodem */

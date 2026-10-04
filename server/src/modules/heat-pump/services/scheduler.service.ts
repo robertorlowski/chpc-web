@@ -204,10 +204,11 @@ export async function getCurrentSchedule(
   };
 }
 
-// Jeden przebieg dla wszystkich pomp; now jako parametr dla testów.
-export async function runSchedulerOnce(now = new Date()): Promise<void> {
+// Jeden przebieg dla wszystkich pomp (albo jednej: onlyRootId, np. zaraz po zapisie ustawień
+// domyślnych); now jako parametr dla testów.
+export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): Promise<void> {
   const devices = await DeviceModel
-    .find({ deviceType: DeviceType.HP })
+    .find({ deviceType: DeviceType.HP, ...(onlyRootId ? { _id: onlyRootId } : {}) })
     .select('_id schedules properties deviceType deviceId')
     .lean<DeviceDocument[]>();
 
@@ -237,7 +238,7 @@ export async function runSchedulerOnce(now = new Date()): Promise<void> {
 
     // Koniec harmonogramu kasuje ręczne nadpisania: zmiana z Ustawień obowiązuje
     // najwyżej do końca bieżącego wpisu. Bez harmonogramu nadpisania trwają do
-    // restartu serwera (albo wymiany przez kolejny zapis).
+    // zapisu ustawień domyślnych (device-type.ts, onPropertiesSaved) albo restartu serwera.
     const hasActiveSchedule = Boolean(activeSchedule);
     if (previousScheduleState.get(rootId) === true && !hasActiveSchedule) {
       clearManualOperation(rootId);

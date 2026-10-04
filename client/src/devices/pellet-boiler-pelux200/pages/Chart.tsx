@@ -12,7 +12,7 @@ import './style.css';
 type SeriesKey = 'mixer1_temp' | 'water_heater_temp' | 'heating_temp' | 'mixer2_temp' | 'outside_temp';
 
 const SERIES: { key: SeriesKey; label: string; color: string; visible: boolean }[] = [
-  { key: 'mixer1_temp', label: 'CO (grzejniki, mieszacz 1)', color: '#d0521b', visible: true },
+  { key: 'mixer1_temp', label: 'CO', color: '#d0521b', visible: true },
   { key: 'water_heater_temp', label: 'CWU', color: '#1481a5', visible: true },
   { key: 'heating_temp', label: 'Kocioł', color: '#8e44ad', visible: false },
   { key: 'mixer2_temp', label: 'Mieszacz 2', color: '#2e7d32', visible: false },

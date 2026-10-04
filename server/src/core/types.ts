@@ -76,4 +76,6 @@ export interface DeviceTypeModule {
   firmwareUpdates?: boolean;
   /** dodatkowe pola zgłoszenia (np. liczba przekaźników włącznika); wołane przy każdym zgłoszeniu */
   onRegister?: (rootId: string, deviceId: string, body: Record<string, unknown>) => Promise<void>;
+  /** wołane po zapisie ustawień urządzenia (PUT /device/properties), np. pompa kasuje ręczne nadpisania */
+  onPropertiesSaved?: (rootId: string) => Promise<void>;
 }

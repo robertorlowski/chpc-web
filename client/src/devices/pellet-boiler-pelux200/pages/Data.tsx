@@ -1,6 +1,6 @@
 // Zakładka Dane kotła pelletowego (/data): odczyty z wybranego dnia (GET /pellet-boiler-pelux200/list)
-// z eksportem CSV. Najpierw główne kolumny (kocioł, CWU, mieszacze, pompy), reszta po „Pokaż wszystkie
-// parametry”; CSV ma zawsze wszystkie. Dane pobierane przy wejściu i zmianie daty, bez odświeżania.
+// z eksportem CSV. Najpierw główne kolumny (kocioł, CWU, mieszacze, pompy), reszta po zaznaczeniu „Pokaż
+// wszystkie parametry” nad tabelą (domyślnie odznaczone); CSV ma zawsze wszystkie. Dane pobierane przy wejściu i zmianie daty, bez odświeżania.
 import { useEffect, useState } from 'react';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerReading } from '../types';
@@ -34,6 +34,11 @@ export const PelletBoilerData: React.FC = () => {
             </button>
           </div>
 
+          <label className="boiler-data-all">
+            <input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.currentTarget.checked)} />
+            Pokaż wszystkie parametry
+          </label>
+
           {readings === null && <div>Wczytywanie…</div>}
           {readings?.length === 0 && <div>Brak odczytów w tym dniu.</div>}
           {readings && readings.length > 0 && (
@@ -51,11 +56,6 @@ export const PelletBoilerData: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-              </div>
-              <div className="boiler-actions boiler-data-more">
-                <button type="button" onClick={() => setShowAll(!showAll)}>
-                  {showAll ? 'Pokaż główne parametry' : 'Pokaż wszystkie parametry'}
-                </button>
               </div>
             </>
           )}

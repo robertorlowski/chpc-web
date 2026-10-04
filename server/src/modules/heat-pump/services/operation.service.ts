@@ -47,7 +47,7 @@ export const replaceOperationData = (rootId: string, data: OperationEntry) => {
   return operation;
 };
 
-// Doklejenie pól do bieżącej operacji; obecnie nieużywane.
+// Doklejenie pól do bieżącej operacji (co_pomp "1" po zapisie ustawień domyślnych, device-type.ts).
 export const setOperationData = (rootId: string, data :OperationEntry) => {
   const operation = { ...getOperationData(rootId), ...data };
   operations.set(rootId, operation);
@@ -138,7 +138,7 @@ export const takeOperationActions = (rootId: string): OperationEntry => {
 };
 
 // Usuwa ręczne nadpisania; scheduler woła to przy przejściu z aktywnego harmonogramu
-// do braku harmonogramu. Klient nie ma przycisku do tego.
+// do braku harmonogramu, a zapis ustawień domyślnych przez onPropertiesSaved (device-type.ts).
 export const clearManualOperation = (rootId: string) => {
   manualOperations.delete(rootId);
   manualForceSeenIdle.delete(rootId);
