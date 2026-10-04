@@ -1,12 +1,33 @@
 
 // Operacje na kolekcji devices dla device.controller: tworzenie, zgłoszenie
-// sterownika, nazwa, sterownik domyślny i ustawienia (properties).
-import { DeviceProperties, DeviceType } from '../types';
+// sterownika, nazwa, definicja pompy, sterownik domyślny i ustawienia (properties).
+import { DeviceProperties, DeviceType, PumpConfig } from '../types';
 import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig';
+
+// Pojemność zbiornika pompy [l], pełne litry.
+const TANK_LITERS_MIN = 20;
+const TANK_LITERS_MAX = 2000;
+
+// Definicja pompy z okna „Dane sterownika”: komplet pól, wymuszenie PV tylko z DTU.
+export function parsePumpConfig(value: unknown): PumpConfig {
+  const config = (value ?? {}) as Record<string, unknown>;
+  if (config.connection !== 'cwu' && config.connection !== 'co') {
+    throw new Error('pumpConfig.connection: cwu albo co.');
+  }
+  const tankLiters = config.tankLiters;
+  if (typeof tankLiters !== 'number' || !Number.isInteger(tankLiters)
+    || tankLiters < TANK_LITERS_MIN || tankLiters > TANK_LITERS_MAX) {
+    throw new Error(`pumpConfig.tankLiters: pełne litry ${TANK_LITERS_MIN}–${TANK_LITERS_MAX}.`);
+  }
+  if (typeof config.pvDtu !== 'boolean' || typeof config.pvForce !== 'boolean') {
+    throw new Error('pumpConfig.pvDtu i pumpConfig.pvForce: true albo false.');
+  }
+  return { connection: config.connection, tankLiters, pvDtu: config.pvDtu, pvForce: config.pvDtu && config.pvForce };
+}
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
 
@@ -76,10 +97,19 @@ export async function setDefaultDevice(rootId: string, isDefault: boolean): Prom
   return updated as DeviceDocument;
 }
 
-export async function updateDeviceName(rootId: string, name: string): Promise<DeviceDocument> {
+// Okno „Dane sterownika”: nazwa i (tylko pompa ciepła) definicja pompy.
+export async function updateDeviceData(
+  rootId: string,
+  data: { name?: string; pumpConfig?: PumpConfig },
+): Promise<DeviceDocument> {
+  if (data.pumpConfig) {
+    const existing = await DeviceModel.findById(rootId).select('deviceType').lean<DeviceDocument>();
+    if (!existing) throw new Error('Device not found.');
+    if (existing.deviceType !== DeviceType.HP) throw new Error('pumpConfig: tylko pompa ciepła.');
+  }
   const device = await DeviceModel.findByIdAndUpdate(
     rootId,
-    { $set: { name } },
+    { $set: data },
     { new: true, runValidators: true },
   ).select(DEVICE_PUBLIC_FIELDS).lean<DeviceDocument>();
   if (!device) throw new Error('Device not found.');

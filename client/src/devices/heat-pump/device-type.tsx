@@ -7,6 +7,7 @@ import { HeatPumpTable } from './pages/Data';
 import { HeatPumpChart } from './pages/Charts';
 import { Settings } from './pages/Settings';
 import { Schedules } from './pages/Schedules';
+import { PumpConfigFields } from './components/PumpConfigFields';
 
 const HeatPumpIcon = () => (
 	<svg x="0px" y="0px" width="25" height="25" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff">
@@ -25,6 +26,8 @@ export const heatPumpDeviceType: DeviceTypeView = {
 	),
 	// OTA od firmware co 1.1.0 (oferta w odpowiedzi /hp/add)
 	firmwareUpdates: true,
+	// okno „Dane sterownika”: podłączenie CWU / CO, zbiornik, fotowoltaika
+	DefinitionFields: PumpConfigFields,
 	views: [
 		{ path: '/', label: 'HP', icon: <HeatPumpIcon />, element: <HP /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <HeatPumpTable /> },

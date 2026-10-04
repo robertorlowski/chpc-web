@@ -72,6 +72,16 @@ const DeviceSchema = new Schema<DeviceDocument>(
     // adres IPv4 sterownika w sieci lokalnej ze zgłoszenia (pole ip) i czas tego zgłoszenia
     ipAddress: { type: String, trim: true },
     ipSeenAt: { type: Date },
+    // pompa ciepła: definicja sterownika (okno „Dane sterownika”), walidacja w device.service.ts
+    pumpConfig: {
+      type: new Schema({
+        connection: { type: String, enum: ['cwu', 'co'], required: true },
+        tankLiters: { type: Number, required: true },
+        pvDtu: { type: Boolean, required: true },
+        pvForce: { type: Boolean, required: true },
+      }, { _id: false }),
+      default: undefined,
+    },
     // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },

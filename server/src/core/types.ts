@@ -45,6 +45,20 @@ export interface DeviceProperties {
   default_on_minutes?: number;
 }
 
+// Definicja pompy ciepła (okno „Dane sterownika”), ustawiana raz przy montażu; nie zmienia trybu
+// pracy ani temperatur. Osobne pole urządzenia, bo PUT /device/properties zastępuje całe properties.
+export type PumpConnection = 'cwu' | 'co';
+export interface PumpConfig {
+  /** cwu: pompa grzeje zasobnik CWU; co: bufor CO albo wodę w piecu */
+  connection: PumpConnection;
+  /** pojemność zbiornika [l] (COP zbiornika w co) */
+  tankLiters: number;
+  /** panele Hoymiles podłączone przez DTU (RS-485 sterownika co) */
+  pvDtu: boolean;
+  /** wymuszenie pracy przy produkcji PV > 2 kW; tylko z pvDtu */
+  pvForce: boolean;
+}
+
 export interface Device {
   deviceType: DeviceType;
   deviceId: string;
@@ -59,6 +73,8 @@ export interface Device {
   /** adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia (pole ip) i kiedy */
   ipAddress?: string;
   ipSeenAt?: Date;
+  /** pompa ciepła: podłączenie, zbiornik i fotowoltaika; brak = jeszcze nie ustawione (PUMP_CONFIG_DEFAULTS) */
+  pumpConfig?: PumpConfig;
   // pompa ciepła: starsze ustawienia czasowe i harmonogramy
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];

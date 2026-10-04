@@ -11,6 +11,8 @@
 
 .device-modal {
   width: min(420px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
   box-sizing: border-box;
   padding: 1.25rem;
   border-radius: 0.5rem;

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 import type { WorkMode } from '../devices/heat-pump/types';
 
 // Typy części wspólnej: urządzenie i jego ustawienia oraz opis rodzaju sterownika dla rejestru
@@ -60,7 +60,31 @@ export type Device = {
   // adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia i czas zgłoszenia (ISO)
   ipAddress?: string;
   ipSeenAt?: string;
+  // pompa ciepła: definicja z okna „Dane sterownika”; brak = jeszcze nie ustawiona
+  pumpConfig?: PumpConfig;
   properties?: DeviceProperties;
+};
+
+// Definicja pompy ciepła (kontrakt z serwerem, core/types.ts): podłączenie, zbiornik i fotowoltaika.
+export type PumpConnection = 'cwu' | 'co';
+export type PumpConfig = {
+  connection: PumpConnection;
+  /** pojemność zbiornika [l], pełne litry 20–2000 */
+  tankLiters: number;
+  /** panele Hoymiles podłączone przez DTU (RS-485) */
+  pvDtu: boolean;
+  /** wymuszenie pracy przy produkcji PV > 2 kW; tylko z pvDtu */
+  pvForce: boolean;
+};
+
+// Pola okna „Dane sterownika” poza nazwą (PUT /devices/:rootId), zależne od rodzaju.
+export type DeviceDefinition = { pumpConfig?: PumpConfig };
+
+// Część okna „Dane sterownika” dla rodzaju sterownika: zmiany zgłasza przez onChange,
+// a null blokuje zapis (pole z błędem, opis w komponencie).
+export type DeviceDefinitionFieldsProps = {
+  device: Device;
+  onChange: (definition: DeviceDefinition | null) => void;
 };
 
 export type FirmwareUpdateRequest = { version: string; requestedAt: string };
@@ -102,6 +126,8 @@ export type DeviceTypeView = {
   /** sterownik aktualizuje firmware przez sieć: kafelek ma trybik prowadzący do /firmware/:deviceType */
   firmwareUpdates?: boolean;
   views: DeviceView[];
+  /** dodatkowe pola okna „Dane sterownika” (np. konfiguracja pompy ciepła) */
+  DefinitionFields?: ComponentType<DeviceDefinitionFieldsProps>;
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];
 };

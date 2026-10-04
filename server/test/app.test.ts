@@ -254,6 +254,46 @@ describe('API with MongoDB', () => {
     expect(response.status).toBe(404);
   });
 
+  it('saves the heat pump definition (connection, tank, PV) without touching properties', async () => {
+    const before = await DeviceModel.findById(rootId).lean();
+    const response = await request(app)
+      .put(`/api/devices/${rootId}`)
+      .send({ name: 'Pompa', pumpConfig: { connection: 'co', tankLiters: 200, pvDtu: false, pvForce: true } });
+
+    expect(response.status).toBe(200);
+    // wymuszenie PV tylko z DTU
+    expect(response.body.pumpConfig).toEqual({ connection: 'co', tankLiters: 200, pvDtu: false, pvForce: false });
+    const listed = (await request(app).get('/api/devices')).body.find((item: { rootId: string }) => item.rootId === rootId);
+    expect(listed.pumpConfig.connection).toBe('co');
+    const after = await DeviceModel.findById(rootId).lean();
+    expect(after?.properties).toEqual(before?.properties);
+
+    // sama nazwa zostawia definicję
+    await request(app).put(`/api/devices/${rootId}`).send({ name: 'Pompa 2' });
+    expect((await DeviceModel.findById(rootId).lean())?.pumpConfig?.tankLiters).toBe(200);
+  });
+
+  it('rejects an invalid heat pump definition and a definition for other device types', async () => {
+    const bad = [
+      { connection: 'pv', tankLiters: 200, pvDtu: false, pvForce: false },
+      { connection: 'cwu', tankLiters: 10, pvDtu: false, pvForce: false },
+      { connection: 'cwu', tankLiters: 200.5, pvDtu: false, pvForce: false },
+      { connection: 'cwu', tankLiters: 200, pvDtu: 'tak', pvForce: false },
+    ];
+    for (const pumpConfig of bad) {
+      expect((await request(app).put(`/api/devices/${rootId}`).send({ pumpConfig })).status).toBe(400);
+    }
+    expect((await request(app).put(`/api/devices/${rootId}`).send({})).status).toBe(400);
+
+    const tank = await request(app)
+      .post('/api/devices/register')
+      .send({ deviceId: 'A4CF000000F1', deviceType: DeviceType.WATER_PRESSURE_TANK });
+    const response = await request(app)
+      .put(`/api/devices/${tank.body.rootId}`)
+      .send({ pumpConfig: { connection: 'cwu', tankLiters: 300, pvDtu: false, pvForce: false } });
+    expect(response.status).toBe(400);
+  });
+
   it('rejects a registration without deviceId', async () => {
     const response = await request(app)
       .post('/api/devices/register')

@@ -1,0 +1,97 @@
+/* konfiguracja pompy w oknie „Dane sterownika” (PumpConfigFields) */
+.pump-config {
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #ccc;
+}
+
+.pump-config h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.pump-config-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pump-config-label {
+  width: 9.5rem;
+  flex: none;
+  color: #444;
+  font-size: 0.9rem;
+}
+
+.device-modal .pump-config-line input {
+  width: 5rem;
+}
+
+.pump-config-seg {
+  display: flex;
+  border: 1px solid #1481a5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.device-modal .pump-config-seg button {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: #fff;
+  color: #1481a5;
+  padding: 0.35rem 0.9rem;
+  min-height: 2rem;
+}
+
+.device-modal .pump-config-seg button.on {
+  background-color: #1481a5;
+  color: #fff;
+}
+
+.pump-config-pv-title {
+  margin-top: 0.4rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* nadpisuje układ etykiet okna (.device-modal label: siatka, szary opis) */
+.device-modal label.pump-config-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.device-modal label.pump-config-check input {
+  width: auto;
+  margin: 0.2rem 0 0;
+}
+
+.device-modal label.pump-config-check span {
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.device-modal label.pump-config-check.disabled {
+  opacity: 0.45;
+}
+
+.pump-config-schema {
+  margin-top: 0.4rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background-color: #f1f1f1;
+}
+
+.pump-config-schema-title {
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pump-config-note {
+  margin: 0;
+  color: #5b5b5b;
+  font-size: 0.8rem;
+}

@@ -5,8 +5,8 @@ import { Request, Response } from 'express';
 import { DeviceProperties, DeviceType } from '../types';
 import { DeviceDocument } from '../models/device.model';
 import {
-  createDevice, getDeviceProperties, listDevices, registerDevice, setDefaultDevice,
-  updateDeviceName, updateDeviceProperties,
+  createDevice, getDeviceProperties, listDevices, parsePumpConfig, registerDevice, setDefaultDevice,
+  updateDeviceData, updateDeviceProperties,
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
 import { getDeviceInfo } from '../services/device-info.service';
@@ -28,6 +28,7 @@ const toPublicDevice = (device: DeviceDocument) => ({
   firmwareUpdate: device.firmwareUpdate ?? undefined,
   ipAddress: device.ipAddress,
   ipSeenAt: device.ipSeenAt,
+  pumpConfig: device.pumpConfig ?? undefined,
 });
 
 // Ustawienia, które sterownik pobiera w odpowiedzi na zgłoszenie (tylko rodzaje, które je mają).
@@ -164,18 +165,26 @@ export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }
   }
 }
 
-// Zmiana nazwy sterownika z listy urządzeń; rootId i deviceId nie podlegają edycji.
-// Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
+// Okno „Dane sterownika”: nazwa {name} i dla pompy ciepła definicja {pumpConfig} (komplet pól);
+// rootId i deviceId nie podlegają edycji. Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
+// Definicja pompy nie zmienia trybu pracy ani temperatur, więc nie budzi schedulera.
 export async function updateDevice(
-  req: Request<{ rootId: string }, {}, { name?: string }>,
+  req: Request<{ rootId: string }, {}, { name?: string; pumpConfig?: unknown }>,
   res: Response,
 ) {
-  if (typeof req.body.name !== 'string') {
-    return res.status(400).json({ message: 'name jest wymagane.' });
+  const { name, pumpConfig } = req.body ?? {};
+  if (name !== undefined && typeof name !== 'string') {
+    return res.status(400).json({ message: 'name: napis.' });
+  }
+  if (name === undefined && pumpConfig === undefined) {
+    return res.status(400).json({ message: 'name albo pumpConfig jest wymagane.' });
   }
 
   try {
-    const device = await updateDeviceName(req.params.rootId, req.body.name.trim());
+    const device = await updateDeviceData(req.params.rootId, {
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(pumpConfig !== undefined ? { pumpConfig: parsePumpConfig(pumpConfig) } : {}),
+    });
     return res.status(200).json(toPublicDevice(device));
   } catch (error) {
     return res.status(String(error).includes('not found') ? 404 : 400).json({ message: String(error) });

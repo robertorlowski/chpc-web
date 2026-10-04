@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { Device, DeviceProperties, DeviceType, FirmwareSummary, FirmwareUpdateRequest } from './types';
+import { Device, DeviceDefinition, DeviceProperties, DeviceType, FirmwareSummary, FirmwareUpdateRequest } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -12,9 +12,10 @@ export class DeviceRequests {
     return Requests.get('/devices', false) as Promise<Device[]>;
   }
 
-  // rootId w ścieżce: na liście urządzeń żadne nie jest jeszcze wybrane
-  static updateDeviceName(rootId: string, name: string): Promise<Device> {
-    return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { name }, false) as Promise<Device>;
+  // okno „Dane sterownika”: nazwa i pola rodzaju (definicja pompy); rootId w ścieżce,
+  // bo na liście urządzeń żadne nie jest jeszcze wybrane
+  static updateDevice(rootId: string, data: { name: string } & DeviceDefinition): Promise<Device> {
+    return Requests.put(`/devices/${encodeURIComponent(rootId)}`, data, false) as Promise<Device>;
   }
 
   // sterownik otwierany po starcie aplikacji; w bazie najwyżej jeden
