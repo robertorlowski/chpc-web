@@ -71,6 +71,8 @@ export const orderChanges = (changes: PelletBoilerChange[], settings: PelletBoil
 };
 
 type Profile = { key: PelletBoilerMode; label: string; changes: PelletBoilerChange[] };
+// stany „postoju” regulatora (pauza, czuwanie): zmiana trybu dozwolona z wyłączeniem regulatora
+const STANDBY_STATES = [5, 6];
 const PROFILE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
 
 const CONTROL_LABEL = (value: number) => (value ? 'Kocioł → włączony' : 'Kocioł → wyłączony');
@@ -411,10 +413,29 @@ export const MainParameters: React.FC = () => {
   };
 
   const modeChangePending = commands.some((command) => command.waitOff && (command.status === 'pending' || command.status === 'sent'));
-  const openProfile = (item: Profile) => {
-    const needsOff = regulatorOn !== false;
-    if (needsOff && pendingChanges(item.changes).length > 0
-      && !window.confirm('Zmiana trybu pracy wymaga wyłączonego kotła. Wyłączyć regulator?')) return;
+  // Tryb pracy tylko przy kotle wyłączonym albo na postoju (decyzja użytkownika 2026-10-04): stan ze świeżo
+  // pobranego odczytu; wyłączony (0) — od razu; postój (5 pauza, 6 czuwanie) — cały proces z wyłączeniem
+  // regulatora; praca, rozpalanie, stabilizacja, nadzór, wygaszanie, alarm, praca ręczna — zablokowane.
+  // Pompy ciepła przy przełączaniu na Pellet nie sprawdzamy (pompa CO sama stanie po nagrzaniu wody).
+  const [modeBlocked, setModeBlocked] = useState('');
+  const openProfile = async (item: Profile) => {
+    setModeBlocked('');
+    const changesNeeded = pendingChanges(item.changes).length > 0;
+    let needsOff = false;
+    if (changesNeeded) {
+      const state = (await PelletBoilerRequests.getLast())?.state;
+      setBoilerState(state);
+      if (state === undefined) {
+        setModeBlocked('Brak odczytu stanu kotła — nie można zmienić trybu.');
+        return;
+      }
+      if (state !== 0 && !STANDBY_STATES.includes(state)) {
+        setModeBlocked(`Kocioł pracuje (stan: ${stateName(state)}). Zmiana trybu możliwa, gdy kocioł jest na postoju albo wyłączony.`);
+        return;
+      }
+      needsOff = state !== 0;
+      if (needsOff && !window.confirm('Zmiana trybu pracy wymaga wyłączonego kotła. Wyłączyć regulator?')) return;
+    }
     setProfileError('');
     setProfileNeedsOff(needsOff);
     setTurnOnAfter(true);
@@ -446,9 +467,10 @@ export const MainParameters: React.FC = () => {
         <div className="boiler-hint">
           Obecny: <strong>{currentMode}</strong> (z minimalnej temperatury kotła). Przełączenie zleca nastawy
           trybu z Ustawień zaawansowanych (grupa „Pompa ciepła / Pellet”); CWU ustawia harmonogram trybu.
-          Zmiana tylko przy wyłączonym kotle.
+          Zmiana tylko przy kotle wyłączonym albo na postoju.
         </div>
         {modeChangePending && <div className="boiler-hint"><strong>Zmiana trybu czeka na wyłączenie kotła.</strong></div>}
+        {modeBlocked && <div className="boiler-error">{modeBlocked}</div>}
 
       </div>
 
