@@ -131,35 +131,28 @@ export interface PelletBoilerCwuRange {
   cwuTo: number;
 }
 
-/** Praca kotła: włączony (regulator włączony) albo wyłączony (ramka 0x3B). */
-export type PelletBoilerWork = 'on' | 'off';
-
-/** Wpis harmonogramu dla jednego trybu pracy: CWU od–do albo praca kotła (on) w oknie godzin. */
+/** Wpis harmonogramu dla jednego trybu pracy: CWU od–do w oknie godzin. Włączanie i wyłączanie kotła
+ * z harmonogramu usunięto 2026-10-04 (decyzja użytkownika); stare wpisy type = work są pomijane. */
 export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange> {
   _id?: unknown;
   rootId: string;
-  type: 'cwu' | 'work';
+  type: 'cwu';
   mode: PelletBoilerMode;
   enabled: boolean;
-  /** type = work: kocioł włączony (true) albo wyłączony (false) w oknie */
-  on?: boolean;
   dayOfWeek?: WeekDay;
   date?: Date;
   startTime: string;
   endTime: string;
 }
 
-/** Stan, który harmonogram ustawia w kotle; paused = „Praca kotła: Wyłączony” (harmonogram stoi). */
+/** Stan, który harmonogram ustawia w kotle; paused = harmonogram nie działa („Wyłącz regulator”). */
 export interface PelletBoilerScheduleState extends PelletBoilerCwuRange {
   mode: PelletBoilerMode;
-  work: PelletBoilerWork;
   paused?: boolean;
 }
 
-/** Wartości poza harmonogramem dla trybu. */
-export interface PelletBoilerScheduleDefaults extends PelletBoilerCwuRange {
-  work: PelletBoilerWork;
-}
+/** Wartości poza harmonogramem dla trybu (CWU od–do). */
+export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange;
 
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;

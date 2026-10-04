@@ -98,17 +98,12 @@ export type PelletBoilerCommand = PelletBoilerChange & {
 /** Tryb pracy kotła: pompa ciepła (bez palenia) albo pellet. */
 export type PelletBoilerMode = 'heat-pump' | 'pellet';
 
-/** Praca kotła: włączony / wyłączony (regulator, ramka 0x3B). */
-export type PelletBoilerWork = 'on' | 'off';
-
-/** Wpis harmonogramu dla trybu: CWU od–do (od = start ładowania, do = zadana) albo praca kotła w oknie godzin. */
+/** Wpis harmonogramu dla trybu: CWU od–do (od = start ładowania, do = zadana) w oknie godzin. */
 export type PelletBoilerSchedule = {
   _id?: string;
-  type: 'cwu' | 'work';
+  type: 'cwu';
   mode: PelletBoilerMode;
   enabled: boolean;
-  /** type = work: włączony (true) / wyłączony (false) w oknie */
-  on?: boolean;
   dayOfWeek?: WeekDay;
   date?: string;
   startTime: string;
@@ -122,11 +117,11 @@ export type PelletBoilerCwuRange = { cwuFrom: number; cwuTo: number };
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;
 
-/** Ustawienia harmonogramu: „Praca kotła” (enabled: włączony = według harmonogramu, wyłączony = stop),
- *  CWU i praca poza harmonogramem oraz nastawy trybów. */
+/** Ustawienia harmonogramu: działa / nie działa (enabled, przyciski „Włącz/Wyłącz regulator”),
+ *  CWU poza harmonogramem oraz nastawy trybów. */
 export type PelletBoilerScheduleSettings = {
   enabled: boolean;
-  defaults: Record<PelletBoilerMode, PelletBoilerCwuRange & { work: PelletBoilerWork }>;
+  defaults: Record<PelletBoilerMode, PelletBoilerCwuRange>;
   profiles: Record<PelletBoilerMode, PelletBoilerProfile>;
   lastError?: string;
 };
@@ -135,10 +130,9 @@ export type PelletBoilerCurrentSchedule = {
   enabled: boolean;
   /** tryb z odczytu ustawień kotła; null bez odczytu */
   mode: PelletBoilerMode | null;
-  state: ({ mode: PelletBoilerMode; work: PelletBoilerWork } & PelletBoilerCwuRange) | null;
-  /** działający wpis CWU i pracy kotła (null = poza harmonogramem) */
+  state: ({ mode: PelletBoilerMode } & PelletBoilerCwuRange) | null;
+  /** działający wpis CWU (null = poza harmonogramem) */
   scheduleId: string | null;
-  workScheduleId: string | null;
   lastError: string | null;
 };
 

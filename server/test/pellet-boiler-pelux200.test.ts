@@ -362,25 +362,22 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await commands()).length).toBe(count);
     await applySchedule(rootId, new Date('2026-10-05T06:00:00Z'));
 
-    // praca kotła: wpis „wyłączony 22:00–05:00” (przez północ) dla pompy ciepła → o 23:00 zlecenie wyłącz
-    await request(app).post(api('schedules')).send({ type: 'work', mode: 'heat-pump', on: 'tak', dayOfWeek: -1, startTime: '22:00', endTime: '05:00' }).expect(400);
-    await request(app).post(api('schedules')).send({ type: 'work', mode: 'heat-pump', on: false, dayOfWeek: -1, startTime: '22:00', endTime: '05:00' }).expect(201);
-    await applySchedule(rootId, new Date('2026-10-05T21:00:00Z'));
-    const control = async () => (await commands()).filter((c) => c.kind === 'control' && c.status === 'pending');
-    expect((await control()).map((c) => c.value)).toEqual([0]);
+    // włączania i wyłączania kotła w harmonogramie już nie ma: wpis pracy kotła jest odrzucany
+    await request(app).post(api('schedules')).send({ type: 'work', mode: 'heat-pump', on: false, dayOfWeek: -1, startTime: '22:00', endTime: '05:00' }).expect(400);
 
-    // „Praca kotła: Wyłączony” — harmonogram stoi (kolejne przebiegi nic nie zlecają)
+    // harmonogram nie działa („Wyłącz regulator”): kolejne przebiegi nic nie zlecają, także w oknie CWU;
+    // harmonogram nigdy nie zleca włącz/wyłącz regulatora (robią to przyciski)
     const settings = (await request(app).get(api('schedule-settings'))).body;
+    expect(settings.defaults['heat-pump']).toEqual({ cwuFrom: 35, cwuTo: 40 });
     await request(app).put(api('schedule-settings')).send({ ...settings, enabled: false }).expect(200);
     const stopped = (await commands()).length;
-    await applySchedule(rootId, new Date('2026-10-06T10:00:00Z'));
+    await applySchedule(rootId, new Date('2026-10-06T03:30:00Z'));
     expect((await commands()).length).toBe(stopped);
 
-    // „Włączony” w dzień: domyślnie włączony, a odczyt nadal pokazuje pracę (stan 5) — „włącz” niepotrzebne;
-    // ostatnie zlecenie sterowania to wciąż wyłączenie z przerwy
+    // znów działa: w oknie 05:00–06:00 od razu CWU 43 / 3
     await request(app).put(api('schedule-settings')).send({ ...settings, enabled: true }).expect(200);
-    await applySchedule(rootId, new Date('2026-10-06T10:00:00Z'));
-    const latest = (await commands()).find((c) => c.kind === 'control');
-    expect(latest?.value).toBe(0);
+    await applySchedule(rootId, new Date('2026-10-06T03:30:00Z'));
+    expect((await commands()).length).toBeGreaterThan(stopped);
+    expect((await commands()).some((c) => c.kind === 'control')).toBe(false);
   });
 });

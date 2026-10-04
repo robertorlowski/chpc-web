@@ -15,11 +15,6 @@
   font-weight: 600;
 }
 
-.boiler-on {
-  color: #1481a5;
-  font-weight: 600;
-}
-
 /* Strona główna: płomień przy stanie, pasek trybów i pomp, kafelki temperatur */
 .boiler-title {
   display: flex;
@@ -518,43 +513,10 @@
   text-align: right;
 }
 
-/* Harmonogram: nagłówek rodzaju wpisów, wybór włączony/wyłączony, kolor stanu */
+/* Harmonogram: nagłówek rodzaju wpisów */
 .boiler-schedule-kind {
   font-weight: 600;
   color: #555;
-}
-
-.boiler-work-choice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 1rem;
-  align-items: center;
-}
-
-.boiler-work-choice label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.boiler-off {
-  color: #777;
-  font-weight: 600;
-}
-
-/* radio w harmonogramie bez rozmiaru pól z .schedules-page input */
-.boiler-schedules .boiler-work-choice input[type='radio'] {
-  width: auto;
-  height: auto;
-  min-height: 0;
-  margin: 0;
-}
-
-.boiler-schedules .boiler-work-choice label {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.3rem;
 }
 
 /* Wykres i Dane na całe okno (fill-page): wykres bez stałej wysokości, tabela przewijana w obu

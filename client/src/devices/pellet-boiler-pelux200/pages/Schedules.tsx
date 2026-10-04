@@ -1,8 +1,9 @@
-// Zakładka Harmonogram kotła (/schedules): praca kotła (włączony/wyłączony) i CWU od–do w oknach godzin,
-// osobne listy i osobne wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez północ
+// Zakładka Harmonogram kotła (/schedules): CWU od–do w oknach godzin, osobne listy i osobne wartości
+// poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez północ
 // należy do dnia startu). Działa lista trybu, w którym kocioł jest teraz (z odczytu ustawień). Serwer
-// co minutę wylicza stan i przy jego zmianie zleca kotłowi włącz/wyłącz, zadaną CWU (nr 119 = do)
-// i histerezę (nr 123 = do − od). Harmonogram działa przy „Kocioł: Włączony” w Ustawieniach. Czerwona kreska: wpis albo ustawienie domyślne, które działa teraz
+// co minutę wylicza stan i przy jego zmianie zleca kotłowi zadaną CWU (nr 119 = do) i histerezę
+// (nr 123 = do − od). Harmonogram działa po „Włącz regulator” w Ustawieniach; włączania i wyłączania
+// kotła w harmonogramie nie ma (usunięte 2026-10-04). Czerwona kreska: wpis albo ustawienie domyślne, które działa teraz
 // (GET /schedules/current, odświeżane co minutę). Wygląd z harmonogramów pompy (te same klasy CSS).
 import '../../heat-pump/pages/Schedules/style.css';
 import './style.css';
@@ -40,7 +41,6 @@ const formatDay = (schedule: PelletBoilerSchedule) => {
 const cwuText = (from: number, to: number) => `${from}–${to} °C (zadana ${to}, histereza ${to - from})`;
 
 const emptyForm = {
-  type: 'cwu' as 'cwu' | 'work', on: false,
   mode: 'heat-pump' as PelletBoilerMode, enabled: true,
   dayOfWeek: String(WeekDay.ANY_DAY), date: '', startTime: '', endTime: '', cwuFrom: '40', cwuTo: '43',
 };
@@ -75,9 +75,9 @@ export const PelletBoilerSchedules: React.FC = () => {
     window.setTimeout(() => setNotice(''), 3000);
   };
 
-  const setDefault = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo' | 'work', value: string) => settings && setSettings({
+  const setDefault = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo', value: string) => settings && setSettings({
     ...settings,
-    defaults: { ...settings.defaults, [mode]: { ...settings.defaults[mode], [field]: field === 'work' ? value : Number(value) } },
+    defaults: { ...settings.defaults, [mode]: { ...settings.defaults[mode], [field]: Number(value) } },
   });
 
   const saveSettings = async (event: FormEvent) => {
@@ -103,8 +103,8 @@ export const PelletBoilerSchedules: React.FC = () => {
     setShowForm(false);
   };
   const update = (field: keyof typeof form, value: string | boolean) => setForm((old) => ({ ...old, [field]: value }));
-  const openForm = (mode: PelletBoilerMode, type: 'cwu' | 'work') => {
-    setForm({ ...emptyForm, mode, type });
+  const openForm = (mode: PelletBoilerMode) => {
+    setForm({ ...emptyForm, mode });
     setUseDate(false);
     setEditingId(null);
     setShowForm(true);
@@ -115,12 +115,12 @@ export const PelletBoilerSchedules: React.FC = () => {
     event.preventDefault();
     setError('');
     const payload: PelletBoilerSchedule = {
-      type: form.type, mode: form.mode, enabled: form.enabled,
+      type: 'cwu', mode: form.mode, enabled: form.enabled,
       ...(useDate ? { date: form.date } : { dayOfWeek: Number(form.dayOfWeek) as WeekDay }),
       startTime: form.startTime, endTime: form.endTime,
-      ...(form.type === 'work' ? { on: form.on } : { cwuFrom: Number(form.cwuFrom), cwuTo: Number(form.cwuTo) }),
+      cwuFrom: Number(form.cwuFrom), cwuTo: Number(form.cwuTo),
     };
-    if (form.type === 'cwu' && Number(form.cwuFrom) >= Number(form.cwuTo)) return setError('CWU: „od” musi być mniejsze niż „do”.');
+    if (Number(form.cwuFrom) >= Number(form.cwuTo)) return setError('CWU: „od” musi być mniejsze niż „do”.');
     setSaving(true);
     try {
       if (editingId) await PelletBoilerRequests.updateSchedule(editingId, payload);
@@ -137,7 +137,6 @@ export const PelletBoilerSchedules: React.FC = () => {
 
   const edit = (schedule: PelletBoilerSchedule) => {
     setForm({
-      type: schedule.type ?? 'cwu', on: !!schedule.on,
       mode: schedule.mode, enabled: schedule.enabled,
       dayOfWeek: String(schedule.dayOfWeek ?? WeekDay.ANY_DAY), date: schedule.date ? schedule.date.slice(0, 10) : '',
       startTime: schedule.startTime, endTime: schedule.endTime,
@@ -175,20 +174,6 @@ export const PelletBoilerSchedules: React.FC = () => {
                 {MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
               </select>
             </label>
-            <label>
-              Rodzaj
-              <select value={form.type} disabled={!!editingId} onChange={(event) => update('type', event.target.value)}>
-                <option value="work">Kocioł włączony / wyłączony</option>
-                <option value="cwu">CWU od–do</option>
-              </select>
-            </label>
-            {form.type === 'work' && (
-              <div className="boiler-work-choice">
-                <span>Stan w oknie:</span>
-                <label><input type="radio" checked={form.on} onChange={() => update('on', true)} /> włączony</label>
-                <label><input type="radio" checked={!form.on} onChange={() => update('on', false)} /> wyłączony</label>
-              </div>
-            )}
             <label className="schedule-toggle">
               <input type="checkbox" checked={useDate} onChange={(event) => setUseDate(event.target.checked)} />
               Data jednorazowa
@@ -210,15 +195,11 @@ export const PelletBoilerSchedules: React.FC = () => {
             {form.startTime && form.endTime && form.startTime > form.endTime && (
               <div className="boiler-hint">Przez północ: do {form.endTime} następnego dnia.</div>
             )}
-            {form.type === 'cwu' && (
-              <>
-                <div className="schedule-fields">
-                  <label>CWU od [°C]<input type="number" min={10} max={80} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
-                  <label>CWU do [°C]<input type="number" min={10} max={80} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
-                </div>
-                <div className="boiler-hint">„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).</div>
-              </>
-            )}
+            <div className="schedule-fields">
+              <label>CWU od [°C]<input type="number" min={10} max={80} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
+              <label>CWU do [°C]<input type="number" min={10} max={80} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
+            </div>
+            <div className="boiler-hint">„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).</div>
             <label className="schedule-toggle">
               <input type="checkbox" checked={form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
               Aktywny
@@ -233,7 +214,7 @@ export const PelletBoilerSchedules: React.FC = () => {
 
         <section className="schedule-card">
           <div className="schedule-list-header">
-            <h3 className="settings-section-title">Kocioł i CWU</h3>
+            <h3 className="settings-section-title">CWU</h3>
           </div>
           {settings && (
             <div className="boiler-hint">
@@ -246,7 +227,6 @@ export const PelletBoilerSchedules: React.FC = () => {
           {schedules === null || settings === null ? <p>Ładowanie...</p> : (
             <form className="schedule-groups" onSubmit={saveSettings}>
               {MODES.map((mode) => {
-                const work = schedules.filter((s) => s.mode === mode && s.type === 'work');
                 const cwu = schedules.filter((s) => s.mode === mode && (s.type ?? 'cwu') === 'cwu');
                 const now = running(mode);
                 const row = (schedule: PelletBoilerSchedule, current: boolean, what: React.ReactNode) => (
@@ -273,24 +253,8 @@ export const PelletBoilerSchedules: React.FC = () => {
                     </span></h4>
 
                     <div className="schedule-list-header">
-                      <span className="boiler-schedule-kind">Kocioł włączony / wyłączony</span>
-                      {!showForm && <IconButton label={`Dodaj włączenie lub wyłączenie kotła: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'work')} />}
-                    </div>
-                    <div className="schedule-list">
-                      {work.map((schedule) => row(schedule, now && schedule._id === current?.workScheduleId,
-                        <span className={schedule.on ? 'boiler-on' : 'boiler-off'}>{schedule.on ? 'włączony' : 'wyłączony'}</span>))}
-                      <div className={`boiler-default-row${now && !current?.workScheduleId ? ' boiler-default-current' : ''}`}>
-                        <span><b>Poza harmonogramem</b></span>
-                        <span className="boiler-work-choice">
-                          <label><input type="radio" checked={settings.defaults[mode].work === 'on'} onChange={() => setDefault(mode, 'work', 'on')} /> włączony</label>
-                          <label><input type="radio" checked={settings.defaults[mode].work === 'off'} onChange={() => setDefault(mode, 'work', 'off')} /> wyłączony</label>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="schedule-list-header">
                       <span className="boiler-schedule-kind">CWU</span>
-                      {!showForm && <IconButton label={`Dodaj CWU: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'cwu')} />}
+                      {!showForm && <IconButton label={`Dodaj CWU: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode)} />}
                     </div>
                     <div className="schedule-list">
                       {cwu.map((schedule) => row(schedule, now && schedule._id === current?.scheduleId,
@@ -310,8 +274,7 @@ export const PelletBoilerSchedules: React.FC = () => {
               })}
               {current?.enabled && current.state && (
                 <div className="boiler-hint">
-                  Teraz ({MODE_LABEL[current.state.mode]}): kocioł {current.state.work === 'on' ? 'włączony' : 'wyłączony'},
-                  {' '}CWU {cwuText(current.state.cwuFrom, current.state.cwuTo)}.
+                  Teraz ({MODE_LABEL[current.state.mode]}): CWU {cwuText(current.state.cwuFrom, current.state.cwuTo)}.
                   {' '}Zmiana zlecana kotłowi przy przejściu między wpisami; ręczna zmiana zostaje do następnego przejścia.
                 </div>
               )}

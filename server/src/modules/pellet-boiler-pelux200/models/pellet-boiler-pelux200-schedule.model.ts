@@ -1,8 +1,9 @@
 // Harmonogram kotła (kolekcje pellet_boiler_pelux200_schedules i ..._schedule_settings).
-// Wpis: CWU od–do albo praca kotła (włączony/wyłączony) w oknie godzin (dzień tygodnia albo data, jak
-// harmonogram włącznika), osobno dla trybu pracy „heat-pump” (pompa ciepła) i „pellet”. Ustawienia:
-// „Praca kotła” Włączony/Wyłączony (enabled), CWU i praca poza harmonogramem dla każdego trybu, nastawy
-// kotła stosowane przy przełączeniu trybu (profiles) i ostatnio zastosowany stan.
+// Wpis: CWU od–do w oknie godzin (dzień tygodnia albo data, jak harmonogram włącznika), osobno dla
+// trybu pracy „heat-pump” (pompa ciepła) i „pellet”. Ustawienia: harmonogram działa / nie działa (enabled,
+// przyciski „Włącz/Wyłącz regulator”), CWU poza harmonogramem dla każdego trybu, nastawy kotła stosowane
+// przy przełączeniu trybu (profiles) i ostatnio zastosowany stan. Dawne wpisy pracy kotła (type work,
+// usunięte 2026-10-04) zostają w bazie, ale są pomijane.
 import { Schema, model } from 'mongoose';
 import { WeekDay } from '../../../core/types';
 import { PelletBoilerScheduleEntry, PelletBoilerScheduleSettings } from '../types';
@@ -10,15 +11,13 @@ import { PelletBoilerScheduleEntry, PelletBoilerScheduleSettings } from '../type
 const time = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const mode = { type: String, enum: ['heat-pump', 'pellet'] };
 const cwu = { cwuFrom: Number, cwuTo: Number };
-const work = { type: String, enum: ['on', 'off'] };
 
 const PelletBoilerScheduleSchema = new Schema<PelletBoilerScheduleEntry>(
   {
     rootId: { type: String, required: true },
-    type: { type: String, enum: ['cwu', 'work'], default: 'cwu' },
+    type: { type: String, default: 'cwu' },
     mode: { ...mode, required: true },
     enabled: { type: Boolean, default: true },
-    on: { type: Boolean },
     dayOfWeek: { type: Number, enum: Object.values(WeekDay).filter((v) => typeof v === 'number') },
     date: { type: Date },
     startTime: { type: String, match: time, required: true },
@@ -37,10 +36,10 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
   {
     rootId: { type: String, required: true, unique: true },
     enabled: { type: Boolean, default: false },
-    defaults: { 'heat-pump': { ...cwu, work }, pellet: { ...cwu, work } },
+    defaults: { 'heat-pump': cwu, pellet: cwu },
     // nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa
     profiles: { 'heat-pump': { type: Schema.Types.Mixed }, pellet: { type: Schema.Types.Mixed } },
-    lastApplied: { mode, ...cwu, work, paused: Boolean },
+    lastApplied: { mode, ...cwu, paused: Boolean },
     lastAppliedAt: { type: Date },
     lastError: { type: String },
   },

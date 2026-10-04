@@ -1,14 +1,13 @@
-// Harmonogram kotła (zakładka Harmonogram pieca): CWU od–do i praca kotła (włączony/wyłączony) w oknach
-// godzin, osobna lista i osobne wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet”; działa lista trybu, w którym kocioł
+// Harmonogram kotła (zakładka Harmonogram pieca): CWU od–do w oknach godzin, osobna lista i osobne
+// wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet”; działa lista trybu, w którym kocioł
 // jest teraz (z ostatniego odczytu ustawień: minimalna temperatura kotła nr 99 < 50 °C = pompa ciepła,
 // jak w aplikacji). Serwer co minutę (startPelletBoilerScheduler, server.ts) wylicza stan dla każdego
-// kotła z włączonym harmonogramem i — tylko gdy stan zmienił się od ostatnio zastosowanego
+// kotła z działającym harmonogramem i — tylko gdy stan zmienił się od ostatnio zastosowanego
 // (lastApplied) — zleca zmianę parametrów tą samą drogą co aplikacja (createCommands): zadana CWU
-// nr 119 = do, histereza nr 123 = do − od, praca kotła ramką włącz/wyłącz (kind control, 0x3B).
-// „Praca kotła: Wyłączony” w Ustawieniach (enabled = false) zleca wyłączenie i zatrzymuje harmonogram;
-// „Włączony” wraca do harmonogramu. Włączenie albo wyłączenie nie jest zlecane, gdy kocioł już jest
-// w tym stanie (stan z ostatniego odczytu: 0 wyłączony, 7 wygaszanie). Przy nakładaniu wpisów pracy
-// wygrywa wpis z datą, potem wyłączenie przed włączeniem, potem późniejszy start. Zmiana ręczna w aplikacji albo na panelu zostaje do
+// nr 119 = do, histereza nr 123 = do − od. Harmonogram działa po „Włącz regulator” i stoi po „Wyłącz
+// regulator” w Ustawieniach (enabled); włączanie i wyłączanie regulatora robią same przyciski (zlecenie
+// control), harmonogram regulatora nie przełącza (wpisy pracy kotła usunięte 2026-10-04, decyzja
+// użytkownika; dawne wpisy type work są pomijane). Zmiana ręczna w aplikacji albo na panelu zostaje do
 // następnej zmiany stanu (jak ręczne nadpisanie w pompie ciepła). Okno przez północ należy do dnia
 // startu (jak harmonogram włącznika); data ma pierwszeństwo przed dniem tygodnia, potem późniejszy start.
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
@@ -24,9 +23,8 @@ import {
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import {
   PelletBoilerCommandChange, PelletBoilerCwuRange, PelletBoilerMode, PelletBoilerProfile, PelletBoilerScheduleEntry,
-  PelletBoilerScheduleSettings, PelletBoilerScheduleState, PelletBoilerWork,
+  PelletBoilerScheduleSettings, PelletBoilerScheduleState,
 } from '../types';
-import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 
@@ -44,7 +42,7 @@ const CWU_MAX = 80;
 // 35–40 °C, pellet zadana 55 °C z histerezą 15 °C. Nastawy trybów bez CWU — CWU ustawia harmonogram.
 export const DEFAULT_SCHEDULE_SETTINGS: Omit<PelletBoilerScheduleSettings, 'rootId'> = {
   enabled: false,
-  defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40, work: 'on' }, pellet: { cwuFrom: 40, cwuTo: 55, work: 'on' } },
+  defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40 }, pellet: { cwuFrom: 40, cwuTo: 55 } },
   profiles: {
     'heat-pump': {
       'ecomax:99': 30, 'ecomax:98': 30, 'ecomax:17': 20, 'ecomax:101': 30, 'ecomax:105': 5, 'ecomax:122': 1,
@@ -71,14 +69,12 @@ const parseRange = (from: unknown, to: unknown): PelletBoilerCwuRange | string =
 export function parseScheduleEntry(body: unknown): ScheduleInput | string {
   const input = (body ?? {}) as Record<string, unknown>;
   if (!MODES.includes(input.mode as PelletBoilerMode)) return 'mode: heat-pump albo pellet.';
-  const type = input.type ?? 'cwu';
-  if (type !== 'cwu' && type !== 'work') return 'type: cwu albo work.';
-  if (type === 'work' && typeof input.on !== 'boolean') return 'on: true (włączony) albo false (wyłączony).';
+  if ((input.type ?? 'cwu') !== 'cwu') return 'type: tylko cwu (włączanie i wyłączanie kotła z harmonogramu usunięto).';
   if (typeof input.startTime !== 'string' || !TIME.test(input.startTime)
     || typeof input.endTime !== 'string' || !TIME.test(input.endTime)) {
     return 'startTime i endTime w formacie HH:mm.';
   }
-  const range = type === 'cwu' ? parseRange(input.cwuFrom, input.cwuTo) : {};
+  const range = parseRange(input.cwuFrom, input.cwuTo);
   if (typeof range === 'string') return range;
   let date: Date | undefined;
   if (input.date !== undefined && input.date !== null && input.date !== '') {
@@ -87,8 +83,7 @@ export function parseScheduleEntry(body: unknown): ScheduleInput | string {
   }
   if (!date && !WEEK_DAYS.includes(input.dayOfWeek as WeekDay)) return 'Podaj dayOfWeek (-3…6) albo date.';
   return {
-    type, mode: input.mode as PelletBoilerMode, enabled: input.enabled !== false,
-    ...(type === 'work' ? { on: input.on as boolean } : {}),
+    type: 'cwu', mode: input.mode as PelletBoilerMode, enabled: input.enabled !== false,
     dayOfWeek: date ? undefined : input.dayOfWeek as WeekDay, date,
     startTime: input.startTime, endTime: input.endTime, ...range,
   };
@@ -104,9 +99,7 @@ export function parseScheduleSettings(body: unknown): Omit<PelletBoilerScheduleS
   for (const mode of MODES) {
     const range = parseRange(defaults[mode]?.cwuFrom, defaults[mode]?.cwuTo);
     if (typeof range === 'string') return range;
-    const work = defaults[mode]?.work ?? 'on';
-    if (work !== 'on' && work !== 'off') return `defaults.${mode}.work: on albo off.`;
-    result.defaults[mode] = { ...range, work };
+    result.defaults[mode] = range;
     const profile = profiles[mode] ?? {};
     if (typeof profile !== 'object' || Array.isArray(profile)) return 'profiles: obiekt klucz → wartość.';
     const clean: PelletBoilerProfile = {};
@@ -136,20 +129,15 @@ function entryWindow(entry: PelletBoilerScheduleEntry, localDate: string) {
   return { start: warsawTime(localDate, entry.startTime), end: warsawTime(endDate, entry.endTime) };
 }
 
-// Działający wpis trybu danego rodzaju: z datą przed cyklicznym, przy pracy wyłączenie przed
-// włączeniem, potem późniejszy start.
-export function activeEntry(
-  entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date, type: 'cwu' | 'work' = 'cwu',
-) {
+// Działający wpis CWU trybu: z datą przed cyklicznym, potem późniejszy start (dawne wpisy pracy kotła pomijane).
+export function activeEntry(entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date) {
   const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
-  const matches = entries.filter((e) => e.mode === mode && (e.type ?? 'cwu') === type).flatMap((entry) =>
+  const matches = entries.filter((e) => e.mode === mode && (e.type ?? 'cwu') === 'cwu').flatMap((entry) =>
     [today, shiftDate(today, -1)].flatMap((day) => {
       const window = entryWindow(entry, day);
       return window && window.start <= now && now < window.end ? [{ entry, start: window.start }] : [];
     }));
-  matches.sort((a, b) => Number(!!b.entry.date) - Number(!!a.entry.date)
-    || Number(!!a.entry.on) - Number(!!b.entry.on)
-    || b.start.getTime() - a.start.getTime());
+  matches.sort((a, b) => Number(!!b.entry.date) - Number(!!a.entry.date) || b.start.getTime() - a.start.getTime());
   return matches[0]?.entry ?? null;
 }
 
@@ -164,36 +152,18 @@ export function boilerMode(settings: PelletBoilerSettingsEntry | null): PelletBo
 export function scheduleState(
   settings: Omit<PelletBoilerScheduleSettings, 'rootId'>, entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date,
 ) {
-  const entry = activeEntry(entries, mode, now, 'cwu');
-  const workEntry = activeEntry(entries, mode, now, 'work');
+  const entry = activeEntry(entries, mode, now);
   const defaults = settings.defaults[mode];
   const state: PelletBoilerScheduleState = {
     mode,
     cwuFrom: entry?.cwuFrom ?? defaults.cwuFrom,
     cwuTo: entry?.cwuTo ?? defaults.cwuTo,
-    work: workEntry ? (workEntry.on ? 'on' : 'off') : defaults.work ?? 'on',
   };
-  return {
-    state,
-    scheduleId: entry?._id ? String(entry._id) : null,
-    workScheduleId: workEntry?._id ? String(workEntry._id) : null,
-  };
+  return { state, scheduleId: entry?._id ? String(entry._id) : null };
 }
 
 const sameState = (a?: PelletBoilerScheduleState, b?: PelletBoilerScheduleState) =>
-  !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && a.work === b.work
-  && !!a.paused === !!b.paused;
-
-// Kocioł już w danym stanie pracy (ostatni odczyt): wyłączony = stan 0 albo 7 (wygaszanie).
-async function boilerIs(rootId: string, work: PelletBoilerWork) {
-  const state = (await getPelletBoilerPelux200Last(rootId))?.state;
-  if (state === undefined) return false;
-  const off = state === 0 || state === 7;
-  return work === 'off' ? off : !off;
-}
-
-const controlChange = (work: PelletBoilerWork): PelletBoilerCommandChange =>
-  ({ kind: 'control', index: 0, value: work === 'on' ? 1 : 0 });
+  !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && !!a.paused === !!b.paused;
 
 // Zmiany dla regulatora: tylko pola różne od ostatniego odczytu ustawień kotła.
 function changesFor(state: PelletBoilerScheduleState, settings: PelletBoilerSettingsEntry): PelletBoilerCommandChange[] {
@@ -212,13 +182,11 @@ export async function applySchedule(rootId: string, now = new Date()) {
   const settings = await getScheduleSettings(rootId);
   const last = settings.lastApplied;
   try {
-    // „Praca kotła: Wyłączony”: jedno zlecenie wyłączenia, harmonogram stoi. Tylko po przełączeniu
-    // z „Włączony” (był zastosowany stan) — nowo dodany kocioł bez harmonogramu nie jest wyłączany.
+    // harmonogram nie działa („Wyłącz regulator”): nic nie zleca; zapamiętuje przerwę, żeby po wznowieniu
+    // zastosować stan od razu
     if (!settings.enabled) {
       if (!last || last.paused) return;
-      const changes = (await boilerIs(rootId, 'off')) ? [] : [controlChange('off')];
-      if (changes.length) await createCommands(rootId, { changes });
-      const paused = { ...(last ?? { mode: 'pellet', cwuFrom: 0, cwuTo: 0 }), work: 'off', paused: true };
+      const paused = { ...last, paused: true };
       await PelletBoilerScheduleSettingsModel.updateOne(
         { rootId }, { $set: { lastApplied: paused, lastAppliedAt: now }, $unset: { lastError: 1 } }, { upsert: true });
       sendMessage('update', rootId);
@@ -231,8 +199,6 @@ export async function applySchedule(rootId: string, now = new Date()) {
     const { state } = scheduleState(settings, entries, mode, now);
     if (sameState(state, last)) return;
     const changes = changesFor(state, boiler);
-    const workChanged = !last || last.paused || last.work !== state.work;
-    if (workChanged && !(await boilerIs(rootId, state.work))) changes.unshift(controlChange(state.work));
     if (changes.length) await createCommands(rootId, { changes });
     await PelletBoilerScheduleSettingsModel.updateOne(
       { rootId }, { $set: { lastApplied: state, lastAppliedAt: now }, $unset: { lastError: 1 } }, { upsert: true });
@@ -301,12 +267,13 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
   const mode = boilerMode(boiler);
   const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
-  const current = mode ? scheduleState(settings, entries, mode, now) : { state: null, scheduleId: null, workScheduleId: null };
+  const current = mode ? scheduleState(settings, entries, mode, now) : { state: null, scheduleId: null };
   return { enabled: settings.enabled, mode, ...current, lastError: settings.lastError ?? null };
 }
 
+// dawne wpisy pracy kotła (type work) nie są pokazywane
 export const listScheduleEntries = (rootId: string) =>
-  PelletBoilerScheduleModel.find({ rootId }).sort({ mode: 1, type: 1, startTime: 1 }).lean<PelletBoilerScheduleEntry[]>();
+  PelletBoilerScheduleModel.find({ rootId, type: { $ne: 'work' } }).sort({ mode: 1, type: 1, startTime: 1 }).lean<PelletBoilerScheduleEntry[]>();
 
 export async function createScheduleEntry(rootId: string, entry: ScheduleInput) {
   const created = await PelletBoilerScheduleModel.create({ ...entry, rootId });

@@ -373,9 +373,10 @@ export const MainParameters: React.FC = () => {
 
   // Regulator jak na panelu: „Włącz regulator” / „Wyłącz regulator” wysyłają zlecenie control (ramka 0x3B,
   // firmware od 1.4.0). Stan pokazuje ostatni odczyt kotła (wyłączony = stan 0 albo 7, wygaszanie), nie
-  // ustawienie w aplikacji. Wyłączenie zatrzymuje też harmonogram, włączenie go wznawia
-  // (schedule-settings.enabled); zapis ustawień idzie przed zleceniem, żeby zlecenie serwera przy tym
-  // zapisie zostało zastąpione naszym (createCommands: ta sama pozycja oczekująca = replaced).
+  // ustawienie w aplikacji. Wyłączenie zatrzymuje też harmonogram CWU, włączenie go wznawia
+  // (schedule-settings.enabled; sam harmonogram regulatora nie przełącza). Przycisk jest aktywny, gdy
+  // regulator albo harmonogram nie jest w żądanym stanie: kocioł włączony z panelu przy stojącym
+  // harmonogramie — „Włącz regulator” tylko uruchamia harmonogram (bez zlecenia do kotła).
   const [boilerState, setBoilerState] = useState<number | undefined>(undefined);
   useEffect(() => { PelletBoilerRequests.getLast().then((last) => setBoilerState(last?.state)); }, [commands]);
   const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0 && boilerState !== 7;
@@ -383,16 +384,26 @@ export const MainParameters: React.FC = () => {
   const [workError, setWorkError] = useState('');
   const setWork = async (on: boolean) => {
     if (!scheduleSettings) return;
+    // regulator już w żądanym stanie (odczyt): zmienia się tylko harmonogram
+    const regulatorAlready = regulatorOn === on;
     const question = on
-      ? 'Włączyć regulator? Kocioł będzie pracował według sezonu i ustawień, harmonogram zacznie działać.'
-      : 'Wyłączyć regulator? Kocioł nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.';
+      ? (regulatorAlready
+        ? 'Regulator już pracuje. Uruchomić harmonogram CWU?'
+        : 'Włączyć regulator? Kocioł będzie pracował według sezonu i ustawień, harmonogram zacznie działać.')
+      : (regulatorAlready
+        ? 'Regulator jest już wyłączony. Zatrzymać harmonogram CWU?'
+        : 'Wyłączyć regulator? Kocioł nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.');
     if (!window.confirm(question)) return;
     try {
       if (scheduleSettings.enabled !== on) {
         setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
       }
-      const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }]);
-      setWorkError(response?.status === 201 ? '' : await errorMessage(response));
+      if (!regulatorAlready) {
+        const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }]);
+        setWorkError(response?.status === 201 ? '' : await errorMessage(response));
+      } else {
+        setWorkError('');
+      }
       load();
     } catch {
       setWorkError('Nie udało się wysłać.');
@@ -455,10 +466,12 @@ export const MainParameters: React.FC = () => {
               {boilerState !== undefined && <span className="boiler-hint"> ({stateName(boilerState)})</span>}
             </div>
             <div className="boiler-profiles">
-              <button type="button" className="boiler-profile" disabled={regulatorOn === true || !!controlPending} onClick={() => setWork(true)}>
+              <button type="button" className="boiler-profile" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending}
+                onClick={() => setWork(true)}>
                 Włącz regulator
               </button>
-              <button type="button" className="boiler-profile" disabled={regulatorOn === false || !!controlPending} onClick={() => setWork(false)}>
+              <button type="button" className="boiler-profile" disabled={(regulatorOn === false && !scheduleSettings.enabled) || !!controlPending}
+                onClick={() => setWork(false)}>
                 Wyłącz regulator
               </button>
             </div>
