@@ -23,6 +23,7 @@ import {
   formatDateYMD,
 } from '../../utils/utils';
 import { ClipLoader } from 'react-spinners';
+import { useFillHeight } from '../../../../core/components/useFillHeight';
 import { energyCostG12w } from '../../utils/energy-cost-g12w';
 
 type ChartPeriod = 'day' | 'month' | 'year';
@@ -237,6 +238,8 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
 };
 
 export const HeatPumpChart: React.FC = () => {
+  // strona na całe okno: wykres wypełnia miejsce między kontrolkami a legendą (core/components/useFillHeight.ts)
+  const pageRef = useFillHeight<HTMLDivElement>(420);
   const [filteredData, setFilteredData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -377,6 +380,8 @@ export const HeatPumpChart: React.FC = () => {
 
         const rowsByDate = new Map<string, THPL[]>();
         data.forEach((row) => {
+          // rekord bez czasu ze sterownika (np. z testu lokalnego) pomijany, jak w widoku dnia niżej
+          if (!row?.time) return;
           const dateRows = rowsByDate.get(getRowDate(row.time)) || [];
           dateRows.push(row);
           rowsByDate.set(getRowDate(row.time), dateRows);
@@ -504,7 +509,7 @@ export const HeatPumpChart: React.FC = () => {
   );
 
   return (
-    <div className="charts-page">
+    <div className="charts-page fill-page" ref={pageRef}>
       <div className="period-selector">
         <button
           className={period === 'day' ? 'active' : ''}
@@ -630,7 +635,7 @@ export const HeatPumpChart: React.FC = () => {
         </span>
       </div>
 
-      <div className="chart-area">
+      <div className="chart-area fill-area">
       <ResponsiveContainer width="100%" height="100%">
         {isDay ? <LineChart data={filteredData}>
           <CartesianGrid strokeDasharray="1 1" />

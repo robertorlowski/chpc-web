@@ -1,9 +1,11 @@
 // Zakładka Wykres kotła pelletowego (/chart): temperatury z wybranego dnia (GET /pellet-boiler-pelux200/list,
 // co interwał odpytywania sterownika). Domyślnie CO (obieg grzejników = mieszacz 1) i CWU; kocioł,
 // mieszacz 2 i temperatura zewnętrzna do włączenia przełącznikami. Dane pobierane przy wejściu
-// i zmianie daty, bez odświeżania cyklicznego.
+// i zmianie daty, bez odświeżania cyklicznego. Karta na całe okno (useFillHeight, klasa fill-page):
+// wykres wypełnia miejsce między wyborem dnia a przełącznikami serii.
 import { useEffect, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useFillHeight } from '../../../core/components/useFillHeight';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerReading } from '../types';
 import { formatTemp, todayWarsaw } from '../utils/boiler';
@@ -23,6 +25,7 @@ const timeLabel = (iso?: string) =>
   iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
 
 export const PelletBoilerChart: React.FC = () => {
+  const cardRef = useFillHeight<HTMLDivElement>();
   const [date, setDate] = useState(todayWarsaw());
   const [readings, setReadings] = useState<PelletBoilerReading[] | null>(null);
   const [visible, setVisible] = useState<Record<SeriesKey, boolean>>(
@@ -40,20 +43,20 @@ export const PelletBoilerChart: React.FC = () => {
   }));
 
   return (
-    <div className="settings boiler-page">
+    <div className="settings boiler-page fill-page">
       <h2>Wykres temperatur</h2>
       <section>
-        <div className="resource">
+        <div className="resource" ref={cardRef}>
           <div className="boiler-toolbar">
             <label>Dzień:{' '}
               <input type="date" value={date} onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
             </label>
           </div>
 
-          {readings === null && <div>Wczytywanie…</div>}
-          {readings?.length === 0 && <div>Brak odczytów w tym dniu.</div>}
+          {readings === null && <div className="fill-area">Wczytywanie…</div>}
+          {readings?.length === 0 && <div className="fill-area">Brak odczytów w tym dniu.</div>}
           {readings && readings.length > 0 && (
-            <div className="boiler-chart">
+            <div className="boiler-chart fill-area">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" />

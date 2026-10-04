@@ -126,10 +126,13 @@ bool BoilerParameterWriter::start(uint8_t index, uint8_t value, uint8_t mixer)
 size_t BoilerParameterWriter::nextRequest(uint32_t nowMs, uint8_t *out, size_t outSize)
 {
   if (!pending || awaiting) return 0;
-  // 0x33 [nr, wartość] dla kotła, 0x34 [mieszacz od 0, nr, wartość] dla mieszacza (PyPlumIO)
+  // 0x33 [nr, wartość] dla kotła, 0x34 [mieszacz od 0, nr, wartość] dla mieszacza, 0x3B [0/1]
+  // włącz/wyłącz regulator (PyPlumIO)
   const uint8_t boilerData[2] = {parameterIndex, parameterValue};
   const uint8_t mixerData[3] = {mixerIndex, parameterIndex, parameterValue};
-  const size_t length = isMixer()
+  const size_t length = isControl()
+    ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_CONTROL, &parameterValue, 1, out, outSize)
+    : isMixer()
     ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_MIXER_PARAMETER, mixerData, 3, out, outSize)
     : buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_PARAMETER, boilerData, 2, out, outSize);
   if (length == 0) return 0;
@@ -150,7 +153,10 @@ bool BoilerParameterWriter::onResponse(const EcomaxFrame &frame)
 {
   if (!pending || !awaiting || frame.sender != ECOMAX_ADDRESS_ECOMAX) return false;
   if (frame.recipient != ECONET_ADDRESS && frame.recipient != ECOMAX_ADDRESS_BROADCAST) return false;
-  if (frame.type != (isMixer() ? ECOMAX_FRAME_SET_MIXER_PARAMETER_RESPONSE : ECOMAX_FRAME_SET_PARAMETER_RESPONSE)) return false;
+  const uint8_t expected = isControl() ? ECOMAX_FRAME_CONTROL_RESPONSE
+    : isMixer()                         ? ECOMAX_FRAME_SET_MIXER_PARAMETER_RESPONSE
+                                        : ECOMAX_FRAME_SET_PARAMETER_RESPONSE;
+  if (frame.type != expected) return false;
   pending = false;
   awaiting = false;
   lastResult = Result::CONFIRMED;

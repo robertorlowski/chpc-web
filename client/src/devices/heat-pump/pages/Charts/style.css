@@ -194,9 +194,26 @@
   min-height: 320px;
 }
 
+/* strona na całe okno (fill-page, useFillHeight): kolumna o wysokości okna do stopki, wykres bierze
+   miejsce, które zostaje po kontrolkach, podsumowaniu i legendzie */
+.charts-page.fill-page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.charts-page.fill-page .chart-area {
+  height: auto;
+  min-height: 200px;
+}
+
 /* telefon: niższy wykres, żeby kontrolki, wykres i legenda mieściły się na ekranie */
 @media (max-width: 560px) {
   .chart-area {
     height: 55vh;
+  }
+
+  .charts-page.fill-page .chart-area {
+    height: auto;
   }
 }

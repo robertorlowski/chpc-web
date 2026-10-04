@@ -9,8 +9,11 @@ import { IconButton } from '../../../core/components/IconButton';
 import { EditIcon } from '../../../core/components/icons';
 import '../../../core/components/deviceEditModal.css';
 import { PelletBoilerRequests } from '../api';
-import { PelletBoilerChange, PelletBoilerCommand, PelletBoilerParameter, PelletBoilerSettings } from '../types';
-import { formatDateTime, formatNumber, workModeName } from '../utils/boiler';
+import {
+  PelletBoilerChange, PelletBoilerCommand, PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSettings,
+  PelletBoilerSettings,
+} from '../types';
+import { formatDateTime, formatNumber, stateName, workModeName } from '../utils/boiler';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -37,29 +40,40 @@ export const CHOICES: Record<string, string[]> = {
 export const choicesOf = (item: Item, parameter: PelletBoilerParameter) =>
   CHOICES[`${item.kind}:${item.index}`] ?? (parameter.kind === 'switch' ? ['wył.', 'wł.'] : null);
 
-// Zestawy z kociol-ustawienia.md, punkt 4b (wartości surowe = °C; kolejność ma znaczenie).
-const PROFILES: { key: string; label: string; changes: PelletBoilerChange[] }[] = [
-  {
-    key: 'heat-pump', label: 'Pompa ciepła', changes: [
-      { kind: 'ecomax', index: 99, value: 30 }, { kind: 'ecomax', index: 98, value: 30 },
-      { kind: 'ecomax', index: 17, value: 20 }, { kind: 'ecomax', index: 101, value: 30 },
-      { kind: 'ecomax', index: 105, value: 5 }, { kind: 'ecomax', index: 119, value: 40 },
-      { kind: 'ecomax', index: 123, value: 5 }, { kind: 'ecomax', index: 122, value: 1 },
-      { kind: 'mixer', mixer: 1, index: 1, value: 30 }, { kind: 'mixer', mixer: 1, index: 2, value: 50 },
-      { kind: 'mixer', mixer: 1, index: 4, value: 0 }, { kind: 'mixer', mixer: 1, index: 0, value: 35 },
-    ],
-  },
-  {
-    key: 'pellet', label: 'Pellet', changes: [
-      { kind: 'ecomax', index: 98, value: 67 }, { kind: 'ecomax', index: 99, value: 65 },
-      { kind: 'ecomax', index: 17, value: 10 }, { kind: 'ecomax', index: 101, value: 50 },
-      { kind: 'ecomax', index: 105, value: 5 }, { kind: 'ecomax', index: 119, value: 50 },
-      { kind: 'ecomax', index: 123, value: 15 }, { kind: 'ecomax', index: 122, value: 2 },
-      { kind: 'mixer', mixer: 1, index: 2, value: 50 }, { kind: 'mixer', mixer: 1, index: 1, value: 40 },
-      { kind: 'mixer', mixer: 1, index: 4, value: 1 },
-    ],
-  },
+// Nastawy trybów pracy przychodzą z serwera (GET /schedule-settings, pole profiles; edycja w Ustawieniach
+// zaawansowanych, grupa „Pompa ciepła / Pellet”). Klucz „ecomax:<nr>” albo „mixer<n>:<nr>”.
+export const PROFILE_ROWS = [
+  'ecomax:99', 'ecomax:98', 'ecomax:17', 'ecomax:101', 'ecomax:105', 'ecomax:122',
+  'mixer1:1', 'mixer1:2', 'mixer1:4', 'mixer1:0',
 ];
+export const itemOfKey = (key: string): Item => {
+  const [where, index] = key.split(':');
+  return where === 'ecomax'
+    ? { kind: 'ecomax', index: Number(index) }
+    : { kind: 'mixer', mixer: Number(where.slice(5)), index: Number(index) };
+};
+
+// Kolejność, którą regulator przyjmie: granice poszerzające zakres zadanej (min w dół, max w górę),
+// potem zadane (kotła nr 98, mieszacza nr 0), potem granice zawężające, na końcu reszta.
+export const orderChanges = (changes: PelletBoilerChange[], settings: PelletBoilerSettings | null) => {
+  const rank = (change: PelletBoilerChange) => {
+    const current = findIn(settings, change)?.raw[0] ?? change.value;
+    const raising = change.value > current;
+    const role = change.kind === 'ecomax'
+      ? ({ 99: 'min', 100: 'max', 98: 'target' } as Record<number, string>)[change.index]
+      : ({ 1: 'min', 2: 'max', 0: 'target' } as Record<number, string>)[change.index];
+    if (role === 'min') return raising ? 2 : 0;
+    if (role === 'max') return raising ? 0 : 2;
+    return role === 'target' ? 1 : 3;
+  };
+  return changes.map((change, i) => ({ change, i, r: rank(change) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i).map(({ change }) => change);
+};
+
+type Profile = { key: PelletBoilerMode; label: string; changes: PelletBoilerChange[] };
+const PROFILE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
+
+const CONTROL_LABEL = (value: number) => (value ? 'Kocioł → włączony' : 'Kocioł → wyłączony');
 
 const STATUS_TEXT: Record<PelletBoilerCommand['status'], string> = {
   pending: 'czeka na sterownik',
@@ -69,9 +83,12 @@ const STATUS_TEXT: Record<PelletBoilerCommand['status'], string> = {
   replaced: 'zastąpione nowszą zmianą',
 };
 
-const findIn = (settings: PelletBoilerSettings | null, item: Item) => item.kind === 'ecomax'
-  ? settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === item.index)
-  : settings?.mixers?.find((m) => m.mixer === item.mixer)?.parameters.find((p) => p.index === item.index);
+// parametr z odczytu ustawień; polecenie włącz/wyłącz (kind control) nie jest parametrem
+const findIn = (settings: PelletBoilerSettings | null, item: { kind: string; mixer?: number; index: number }) =>
+  item.kind === 'control' ? undefined
+  : item.kind === 'ecomax'
+    ? settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === item.index)
+    : settings?.mixers?.find((m) => m.mixer === item.mixer)?.parameters.find((p) => p.index === item.index);
 
 // wartość w jednostkach → surowa (bajt) i z powrotem
 const toRaw = (parameter: PelletBoilerParameter, value: number) =>
@@ -293,11 +310,13 @@ export const MainParameters: React.FC = () => {
   const [settings, setSettings] = useState<PelletBoilerSettings | null | undefined>(undefined);
   const [commands, setCommands] = useState<PelletBoilerCommand[]>([]);
   const [editing, setEditing] = useState<Section | null>(null);
-  const [profile, setProfile] = useState<(typeof PROFILES)[number] | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [scheduleSettings, setScheduleSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [profileError, setProfileError] = useState('');
 
   const load = useCallback(() => {
     PelletBoilerRequests.getSettings().then(setSettings);
+    PelletBoilerRequests.getScheduleSettings().then(setScheduleSettings);
     PelletBoilerRequests.getCommands().then((result) => setCommands(result ?? []));
   }, []);
   useEffect(() => {
@@ -315,8 +334,12 @@ export const MainParameters: React.FC = () => {
   }, [inProgress, load]);
 
   // tylko zmiany, które coś zmieniają (parametr bez odczytu zostaje — serwer go odrzuci z opisem)
-  const pendingChanges = (changes: PelletBoilerChange[]) =>
-    changes.filter((change) => findIn(settings ?? null, change)?.raw[0] !== change.value);
+  const pendingChanges = (changes: PelletBoilerChange[]) => orderChanges(
+    changes.filter((change) => findIn(settings ?? null, change)?.raw[0] !== change.value), settings ?? null);
+  const profiles: Profile[] = (['heat-pump', 'pellet'] as PelletBoilerMode[]).map((key) => ({
+    key, label: PROFILE_LABEL[key],
+    changes: Object.entries(scheduleSettings?.profiles[key] ?? {}).map(([name, value]) => ({ ...itemOfKey(name), value })),
+  }));
 
   const sendProfile = async () => {
     if (!profile) return;
@@ -340,6 +363,26 @@ export const MainParameters: React.FC = () => {
     load();
   };
 
+  // Praca kotła: Włączony = według harmonogramu, Wyłączony = zlecenie wyłącz i harmonogram stoi
+  // (schedule-settings.enabled; zlecenia robi serwer). Pod spodem rzeczywisty stan z ostatniego odczytu.
+  const [boilerState, setBoilerState] = useState<number | undefined>(undefined);
+  useEffect(() => { PelletBoilerRequests.getLast().then((last) => setBoilerState(last?.state)); }, [commands]);
+  const [workError, setWorkError] = useState('');
+  const setWork = async (on: boolean) => {
+    if (!scheduleSettings || scheduleSettings.enabled === on) return;
+    const question = on
+      ? 'Włączyć kocioł? Będzie pracował według harmonogramu.'
+      : 'Wyłączyć kocioł? Pellet przejdzie w wygaszanie, harmonogram przestanie działać.';
+    if (!window.confirm(question)) return;
+    try {
+      setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
+      setWorkError('');
+      load();
+    } catch {
+      setWorkError('Nie udało się zapisać.');
+    }
+  };
+
   const ready = settings && settings.readAt;
   const currentMode = workModeName(settings ?? null);
   const labelOf = (change: PelletBoilerChange) => {
@@ -354,8 +397,8 @@ export const MainParameters: React.FC = () => {
       <div className="resource">
         <h3 className="settings-section-title">Tryb pracy</h3>
         <div className="boiler-profiles">
-          {PROFILES.map((item) => (
-            <button key={item.key} type="button" disabled={!ready}
+          {profiles.map((item) => (
+            <button key={item.key} type="button" disabled={!ready || !scheduleSettings}
               className={currentMode === item.label ? 'boiler-profile-active' : 'boiler-profile'}
               onClick={() => { setProfileError(''); setProfile(item); }}>
               {item.label}
@@ -363,8 +406,8 @@ export const MainParameters: React.FC = () => {
           ))}
         </div>
         <div className="boiler-hint">
-          Obecny: <strong>{currentMode}</strong> (z minimalnej temperatury kotła). Przełączenie zleca cały
-          zestaw ustawień z dokumentacji kotła (punkt 4b).
+          Obecny: <strong>{currentMode}</strong> (z minimalnej temperatury kotła). Przełączenie zleca nastawy
+          trybu z Ustawień zaawansowanych (grupa „Pompa ciepła / Pellet”); CWU ustawia harmonogram trybu.
         </div>
 
       </div>
@@ -373,6 +416,24 @@ export const MainParameters: React.FC = () => {
         <h3 className="settings-section-title">Główne parametry</h3>
         {settings === undefined && <div>Wczytywanie…</div>}
         {settings !== undefined && !ready && <div>Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</div>}
+        {scheduleSettings && (
+          <div className="boiler-main-section">
+            <div className="boiler-main-title">Praca kotła</div>
+            <div className="boiler-profiles">
+              {[true, false].map((on) => (
+                <button key={String(on)} type="button" onClick={() => setWork(on)}
+                  className={scheduleSettings.enabled === on ? 'boiler-profile-active' : 'boiler-profile'}>
+                  {on ? 'Włączony' : 'Wyłączony'}
+                </button>
+              ))}
+            </div>
+            <div className="boiler-hint">
+              {scheduleSettings.enabled ? 'Pracuje według harmonogramu (zakładka Harmonogram).' : 'Wyłączony, harmonogram nie działa.'}
+              {' '}Teraz: <strong>{stateName(boilerState)}</strong>.
+            </div>
+            {workError && <div className="boiler-error">{workError}</div>}
+          </div>
+        )}
         {ready && (
           <div className="boiler-main-section">
             <div className="boiler-main-title">Sezon</div>
@@ -419,12 +480,13 @@ export const MainParameters: React.FC = () => {
           <h3 className="settings-section-title">Ostatnie zmiany</h3>
           <ul className="boiler-commands">
             {recent.map((command) => {
-              const { name, parameter } = labelOf(command);
-              const item: Item = { kind: command.kind, mixer: command.mixer, index: command.index };
+              const control = command.kind === 'control';
+              const { name, parameter } = control ? { name: '', parameter: undefined } : labelOf(command);
+              const item: Item = { kind: command.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: command.mixer, index: command.index };
               const value = parameter ? display(item, parameter, fromRaw(parameter, command.value)) : String(command.value);
               return (
                 <li key={command._id}>
-                  <span>{name} → <strong>{value}</strong></span>
+                  <span>{control ? <strong>{CONTROL_LABEL(command.value)}</strong> : <>{name} → <strong>{value}</strong></>}</span>
                   <span className={`boiler-command-${command.status}`}>
                     {STATUS_TEXT[command.status]}{command.error ? `: ${command.error}` : ''}
                     <span className="boiler-hint"> · {formatDateTime(command.createdAt)}</span>
@@ -451,7 +513,7 @@ export const MainParameters: React.FC = () => {
             <ul className="boiler-commands">
               {pendingChanges(profile.changes).map((change) => {
                 const { name, parameter } = labelOf(change);
-                const item: Item = { kind: change.kind, mixer: change.mixer, index: change.index };
+                const item: Item = { kind: change.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: change.mixer, index: change.index };
                 return (
                   <li key={`${change.kind}-${change.mixer ?? 0}-${change.index}`}>
                     <span>{name}</span>

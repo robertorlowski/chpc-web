@@ -1,4 +1,4 @@
-import type { DeviceType } from '../../core/types';
+import type { DeviceType, WeekDay } from '../../core/types';
 
 // Typy kotła pelletowego Plum Pellux 200 (regulator ecoMAX): odczyt wysyłany
 // przez sterownik co (kolekcja pellet_boiler_pelux200). Wszystkie pola pomiarowe
@@ -97,7 +97,8 @@ export interface PelletBoilerSettingsView {
 
 /** Zmiana parametru z aplikacji: parametr kotła (0x33) albo mieszacza (0x34), wartość surowa. */
 export interface PelletBoilerCommandChange {
-  kind: 'ecomax' | 'mixer';
+  /** control: włącz (1) / wyłącz (0) regulator, index 0 */
+  kind: 'ecomax' | 'mixer' | 'control';
   /** numer mieszacza od 1 (kind = mixer) */
   mixer?: number;
   index: number;
@@ -117,6 +118,62 @@ export interface PelletBoilerCommandEntry extends PelletBoilerCommandChange {
   doneAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+/** Tryb pracy kotła: pompa ciepła (kocioł bez palenia) albo pellet (kociol-ustawienia.md, punkt 4b). */
+export type PelletBoilerMode = 'heat-pump' | 'pellet';
+
+/** CWU od (start ładowania) i do (zadana) [°C]: zadana nr 119 = do, histereza nr 123 = do − od. */
+export interface PelletBoilerCwuRange {
+  cwuFrom: number;
+  cwuTo: number;
+}
+
+/** Praca kotła: włączony (regulator włączony) albo wyłączony (ramka 0x3B). */
+export type PelletBoilerWork = 'on' | 'off';
+
+/** Wpis harmonogramu dla jednego trybu pracy: CWU od–do albo praca kotła (on) w oknie godzin. */
+export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange> {
+  _id?: unknown;
+  rootId: string;
+  type: 'cwu' | 'work';
+  mode: PelletBoilerMode;
+  enabled: boolean;
+  /** type = work: kocioł włączony (true) albo wyłączony (false) w oknie */
+  on?: boolean;
+  dayOfWeek?: WeekDay;
+  date?: Date;
+  startTime: string;
+  endTime: string;
+}
+
+/** Stan, który harmonogram ustawia w kotle; paused = „Praca kotła: Wyłączony” (harmonogram stoi). */
+export interface PelletBoilerScheduleState extends PelletBoilerCwuRange {
+  mode: PelletBoilerMode;
+  work: PelletBoilerWork;
+  paused?: boolean;
+}
+
+/** Wartości poza harmonogramem dla trybu. */
+export interface PelletBoilerScheduleDefaults extends PelletBoilerCwuRange {
+  work: PelletBoilerWork;
+}
+
+/** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
+export type PelletBoilerProfile = Record<string, number>;
+
+export interface PelletBoilerScheduleSettings {
+  rootId: string;
+  /** „Praca kotła” w Ustawieniach: true = włączony, pracuje według harmonogramu; false = wyłączony
+   *  (zlecenie wyłącz, harmonogram stoi) */
+  enabled: boolean;
+  /** CWU i praca kotła poza harmonogramem, osobno dla trybu */
+  defaults: Record<PelletBoilerMode, PelletBoilerScheduleDefaults>;
+  /** nastawy kotła stosowane przy przełączeniu trybu (Ustawienia → Tryb pracy) */
+  profiles: Record<PelletBoilerMode, PelletBoilerProfile>;
+  lastApplied?: PelletBoilerScheduleState;
+  lastAppliedAt?: Date;
+  lastError?: string;
 }
 
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {

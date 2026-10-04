@@ -9,6 +9,7 @@ import { createWsServer } from './core/websocket';
 import mongoose from 'mongoose';
 import { prepareMeteoData } from './core/services/meteo.service';
 import { startScheduler } from './modules/heat-pump/services/scheduler.service';
+import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service';
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -42,6 +43,8 @@ const PORT = Number(process.env.PORT ?? 3001);
   // scheduler działa w procesie serwera: operacje ręczne i wyliczone są tylko w pamięci,
   // więc restart serwera je kasuje (pierwszy przebieg od razu po starcie)
   startScheduler();
+  // harmonogram kotła pelletowego: sezon i CWU od–do, zlecenia zmian parametrów co minutę
+  startPelletBoilerScheduler();
 
   // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
   void cleanPanelDetails();

@@ -339,6 +339,7 @@ void finishParameterSet(bool ok, const char *error)
 String parameterName(uint8_t mixer, uint8_t index)
 {
   char text[32];
+  if (mixer == BoilerParameterWriter::CONTROL) return String("włącz/wyłącz regulator");
   if (mixer == BoilerParameterWriter::NO_MIXER) snprintf(text, sizeof(text), "kocioł nr %u", index);
   else snprintf(text, sizeof(text), "mieszacz %u nr %u", mixer + 1, index);
   return String(text);
@@ -355,6 +356,16 @@ void startParameterSet(uint32_t)
   const uint8_t value = parameterSetValue;
   const uint8_t mixer = parameterSetMixer;
   const String name = parameterName(mixer, index);
+  // włącz/wyłącz regulator (0x3B): bez zakresu z odczytu ustawień, tylko 0 albo 1
+  if (mixer == BoilerParameterWriter::CONTROL) {
+    if (value > 1) {
+      finishParameterSet(false, "włącz/wyłącz: wartość 0 albo 1");
+      return;
+    }
+    parameterWriter.start(0, value, mixer);
+    logf("regulator: %s, wysyłam", value ? "włącz" : "wyłącz");
+    return;
+  }
   uint8_t current, min, max;
   const bool known = mixer == BoilerParameterWriter::NO_MIXER
     ? ecomaxParameterValues(boilerSettings, index, current, min, max)
@@ -782,18 +793,21 @@ void pollCloudCommand(uint32_t nowMs)
   const int index = document["index"] | -1;
   const int value = document["value"] | -1;
   const bool isMixer = kind == "mixer";
+  const bool isControl = kind == "control";
   cloudCommandId = id;
   cloudResultReady = false;
   cloudCommandActive = true;
   cloudCommandAtMs = nowMs;
-  if ((!isMixer && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
+  if ((!isMixer && !isControl && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
     || (isMixer && (mixer < 1 || mixer > ECOMAX_MIXER_MAX))) {
     finishParameterSet(false, "nieprawidłowe zlecenie");
     return;
   }
   parameterSetIndex = static_cast<uint8_t>(index);
   parameterSetValue = static_cast<uint8_t>(value);
-  parameterSetMixer = isMixer ? static_cast<uint8_t>(mixer - 1) : BoilerParameterWriter::NO_MIXER;
+  parameterSetMixer = isControl ? BoilerParameterWriter::CONTROL
+    : isMixer                   ? static_cast<uint8_t>(mixer - 1)
+                                : BoilerParameterWriter::NO_MIXER;
   parameterSetRequested = true;
   logf("zlecenie z aplikacji: %s → %d, czekam na okno ecoNET",
     parameterName(parameterSetMixer, parameterSetIndex).c_str(), value);

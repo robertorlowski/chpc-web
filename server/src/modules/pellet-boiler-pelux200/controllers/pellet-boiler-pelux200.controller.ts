@@ -14,6 +14,10 @@ import {
 import {
   CommandError, createCommands, finishCommand, listRecentCommands, takeNextCommand,
 } from '../services/pellet-boiler-pelux200-command.service';
+import {
+  createScheduleEntry, getCurrentSchedule, getScheduleSettings, listScheduleEntries, parseScheduleEntry,
+  parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings,
+} from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 
 // Odpowiedź niesie aktualny odstęp odpytywania: sterownik stosuje go od razu,
@@ -129,5 +133,77 @@ export async function addPelletBoilerPelux200CommandResult(req: Request, res: Re
     return updated ? res.status(201).json({}) : res.status(404).json({ message: 'Brak takiego zlecenia w toku.' });
   } catch (error) {
     return commandError(res, error);
+  }
+}
+
+// --- harmonogram (pellet-boiler-pelux200-schedule.service.ts) ---
+
+const scheduleError = (res: Response, error: unknown) => {
+  console.error(error);
+  return res.status(500).json({ message: String(error) });
+};
+
+export async function getPelletBoilerScheduleSettings(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getScheduleSettings(req.deviceRootId as string));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+export async function putPelletBoilerScheduleSettings(req: Request, res: Response) {
+  const input = parseScheduleSettings(req.body);
+  if (typeof input === 'string') return res.status(400).json({ message: input });
+  try {
+    return res.status(200).json(await saveScheduleSettings(req.deviceRootId as string, input));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+// GET /schedules/current: {enabled, state, seasonScheduleId, cwuScheduleId, lastError}
+export async function getPelletBoilerCurrentSchedule(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getCurrentSchedule(req.deviceRootId as string));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+export async function getPelletBoilerSchedules(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await listScheduleEntries(req.deviceRootId as string));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+export async function postPelletBoilerSchedule(req: Request, res: Response) {
+  const entry = parseScheduleEntry(req.body);
+  if (typeof entry === 'string') return res.status(400).json({ message: entry });
+  try {
+    return res.status(201).json(await createScheduleEntry(req.deviceRootId as string, entry));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+export async function putPelletBoilerSchedule(req: Request<{ id: string }>, res: Response) {
+  const entry = parseScheduleEntry(req.body);
+  if (typeof entry === 'string') return res.status(400).json({ message: entry });
+  try {
+    const updated = await replaceScheduleEntry(req.deviceRootId as string, req.params.id, entry);
+    return updated ? res.status(200).json(updated) : res.status(404).json({ message: 'Nie znaleziono harmonogramu.' });
+  } catch {
+    return res.status(400).json({ message: 'Nieprawidłowy identyfikator harmonogramu.' });
+  }
+}
+
+export async function deletePelletBoilerSchedule(req: Request<{ id: string }>, res: Response) {
+  try {
+    const removed = await removeScheduleEntry(req.deviceRootId as string, req.params.id);
+    return removed ? res.status(200).json({}) : res.status(404).json({ message: 'Nie znaleziono harmonogramu.' });
+  } catch {
+    return res.status(400).json({ message: 'Nieprawidłowy identyfikator harmonogramu.' });
   }
 }

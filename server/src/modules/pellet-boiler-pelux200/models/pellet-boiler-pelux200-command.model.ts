@@ -1,13 +1,14 @@
 // Zlecenia zmiany parametru regulatora kotła z aplikacji (kolekcja pellet_boiler_pelux200_commands).
 // Aplikacja tworzy zlecenie (pending), sterownik pieca odbiera je pojedynczo (sent), wysyła do
-// regulatora (0x33 parametr kotła, 0x34 mieszacz) i odsyła wynik (done albo error).
+// regulatora (0x33 parametr kotła, 0x34 mieszacz, 0x3B włącz/wyłącz regulator) i odsyła wynik
+// (done albo error).
 import { Schema, model } from 'mongoose';
 import { PelletBoilerCommandEntry } from '../types';
 
 const PelletBoilerCommandSchema = new Schema<PelletBoilerCommandEntry>(
   {
     rootId: { type: String, required: true },
-    kind: { type: String, enum: ['ecomax', 'mixer'], required: true },
+    kind: { type: String, enum: ['ecomax', 'mixer', 'control'], required: true },
     /** numer mieszacza od 1 (tylko kind = mixer) */
     mixer: { type: Number },
     index: { type: Number, required: true },

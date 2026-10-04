@@ -381,10 +381,35 @@ void testMixerParameterWriter()
   TEST_ASSERT_FALSE(writer.isMixer());
 }
 
+// Włącz/wyłącz regulator (od 1.4.0, według PyPlumIO): 0x3B [0/1], potwierdzenie 0xBB.
+void testControlWriter()
+{
+  BoilerParameterWriter writer;
+  uint8_t out[ECONET_MAX_FRAME];
+  TEST_ASSERT_TRUE(writer.start(0, 0, BoilerParameterWriter::CONTROL));
+  TEST_ASSERT_TRUE(writer.isControl());
+  TEST_ASSERT_FALSE(writer.isMixer());
+  const size_t length = writer.nextRequest(0, out, sizeof(out));
+  const uint8_t expected[] = {0x68, 11, 0, 0x45, 0x56, 48, 5, 0x3B, 0};
+  TEST_ASSERT_EQUAL_UINT32(11, length);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, out, sizeof(expected));
+
+  Bytes ack = {0x68, 10, 0, 0x00, 0x45, 0x00, 0x05, 0xBB, 0x00, 0x16};
+  uint8_t bcc = 0;
+  for (size_t i = 0; i < 8; i++) bcc ^= ack[i];
+  ack[8] = bcc;
+  EcomaxFrameParser parser;
+  EcomaxFrame frame;
+  TEST_ASSERT_TRUE(parse(parser, ack.data(), ack.size(), frame));
+  TEST_ASSERT_TRUE(writer.onResponse(frame));
+  TEST_ASSERT_FALSE(writer.busy());
+}
+
 int main(int, char **)
 {
   UNITY_BEGIN();
   RUN_TEST(testMixerParameterWriter);
+  RUN_TEST(testControlWriter);
   RUN_TEST(testDeviceAvailableAnswersCheckDevice);
   RUN_TEST(testProgramVersionAnswer);
   RUN_TEST(testNoAnswerForOtherRecipientSenderOrType);

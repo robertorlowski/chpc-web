@@ -290,3 +290,32 @@ h4, h5 {
 	padding: 2px;
 	text-align: left;
 }
+
+/* Strona „na całe okno” (wykresy i tabele danych, core/components/useFillHeight.ts): karta na całą
+   szerokość, bez dolnego odstępu pod stopkę — wysokość karty liczy hak, przewija się jej zawartość. */
+.app-main:has(.fill-page) {
+	padding-bottom: 0;
+}
+
+body .settings.fill-page > section > .resource,
+body .settings.fill-page > section > .resource:first-child {
+	width: calc(100vw - 2rem);
+	max-width: none;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	margin-bottom: 0;
+}
+
+/* obszar, który wypełnia resztę karty (wykres, przewijana tabela) */
+.fill-area {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+@media (max-width: 560px) {
+	html body .settings.fill-page > section > .resource,
+	html body .settings.fill-page > section > .resource:first-child {
+		width: 100vw;
+	}
+}

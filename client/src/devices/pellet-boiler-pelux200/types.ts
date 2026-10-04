@@ -1,6 +1,8 @@
 // Typy kotła pelletowego Plum Pellux 200 (regulator ecoMAX): odczyt ze sterownika.
 // Kontrakt z modułem serwera pellet-boiler-pelux200; wszystkie pola odczytu są opcjonalne.
 
+import type { WeekDay } from '../../core/types';
+
 export type PelletBoilerReading = {
   createdAt?: string;
   /** stan kotła 0..11 (BOILER_STATE_NAMES) */
@@ -71,7 +73,8 @@ export type PelletBoilerParameter = {
 
 /** Zmiana parametru dla regulatora: kotła (0x33) albo mieszacza (0x34), wartość surowa (bajt). */
 export type PelletBoilerChange = {
-  kind: 'ecomax' | 'mixer';
+  /** control: włącz (1) / wyłącz (0) regulator */
+  kind: 'ecomax' | 'mixer' | 'control';
   /** numer mieszacza od 1 */
   mixer?: number;
   index: number;
@@ -88,6 +91,53 @@ export type PelletBoilerCommand = PelletBoilerChange & {
   error?: string;
   createdAt: string;
   doneAt?: string;
+};
+
+/** Tryb pracy kotła: pompa ciepła (bez palenia) albo pellet. */
+export type PelletBoilerMode = 'heat-pump' | 'pellet';
+
+/** Praca kotła: włączony / wyłączony (regulator, ramka 0x3B). */
+export type PelletBoilerWork = 'on' | 'off';
+
+/** Wpis harmonogramu dla trybu: CWU od–do (od = start ładowania, do = zadana) albo praca kotła w oknie godzin. */
+export type PelletBoilerSchedule = {
+  _id?: string;
+  type: 'cwu' | 'work';
+  mode: PelletBoilerMode;
+  enabled: boolean;
+  /** type = work: włączony (true) / wyłączony (false) w oknie */
+  on?: boolean;
+  dayOfWeek?: WeekDay;
+  date?: string;
+  startTime: string;
+  endTime: string;
+  cwuFrom?: number;
+  cwuTo?: number;
+};
+
+export type PelletBoilerCwuRange = { cwuFrom: number; cwuTo: number };
+
+/** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
+export type PelletBoilerProfile = Record<string, number>;
+
+/** Ustawienia harmonogramu: „Praca kotła” (enabled: włączony = według harmonogramu, wyłączony = stop),
+ *  CWU i praca poza harmonogramem oraz nastawy trybów. */
+export type PelletBoilerScheduleSettings = {
+  enabled: boolean;
+  defaults: Record<PelletBoilerMode, PelletBoilerCwuRange & { work: PelletBoilerWork }>;
+  profiles: Record<PelletBoilerMode, PelletBoilerProfile>;
+  lastError?: string;
+};
+
+export type PelletBoilerCurrentSchedule = {
+  enabled: boolean;
+  /** tryb z odczytu ustawień kotła; null bez odczytu */
+  mode: PelletBoilerMode | null;
+  state: ({ mode: PelletBoilerMode; work: PelletBoilerWork } & PelletBoilerCwuRange) | null;
+  /** działający wpis CWU i pracy kotła (null = poza harmonogramem) */
+  scheduleId: string | null;
+  workScheduleId: string | null;
+  lastError: string | null;
 };
 
 /** Ostatni odczyt ustawień regulatora; {} (brak readAt), gdy sterownik jeszcze ich nie wysłał. */

@@ -39,7 +39,6 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
     throw new CommandError(`changes: od 1 do ${MAX_CHANGES} zmian`);
   }
   const settings = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
-  if (!settings) throw new CommandError('Brak odczytu ustawień kotła — sterownik jeszcze ich nie wysłał.');
 
   const valid: (PelletBoilerCommandChange & { previous: number; label?: string })[] = [];
   // Zakres zadanej zależy od innego parametru: zadana kotła (98) od min/max kotła (99/100),
@@ -55,7 +54,14 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
   };
   for (const raw of changes as Record<string, unknown>[]) {
     const kind = raw?.kind;
-    if (kind !== 'ecomax' && kind !== 'mixer') throw new CommandError('kind: ecomax albo mixer');
+    // włącz (1) / wyłącz (0) regulator (ramka 0x3B, firmware od 1.4.0): bez zakresu z odczytu ustawień
+    if (kind === 'control') {
+      if (raw.value !== 0 && raw.value !== 1) throw new CommandError('control: value 0 (wyłącz) albo 1 (włącz)');
+      valid.push({ kind, index: 0, value: raw.value, previous: 1 - raw.value, label: raw.value ? 'Włącz kocioł' : 'Wyłącz kocioł' });
+      continue;
+    }
+    if (kind !== 'ecomax' && kind !== 'mixer') throw new CommandError('kind: ecomax, mixer albo control');
+    if (!settings) throw new CommandError('Brak odczytu ustawień kotła — sterownik jeszcze ich nie wysłał.');
     if (!isInteger(raw.index, 0, 255) || !isInteger(raw.value, 0, 255)) throw new CommandError('index i value: liczby 0–255');
     if (kind === 'mixer' && !isInteger(raw.mixer, 1, 5)) throw new CommandError('mixer: numer 1–5');
     const change: PelletBoilerCommandChange = {

@@ -4,6 +4,7 @@
 // Dane pobierane przy zmianie okresu lub daty, bez odświeżania cyklicznego.
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useFillHeight } from '../../../core/components/useFillHeight';
 import { WaterPressureTankRequests } from '../api';
 import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../types';
 import { formatDuration, formatLiters, todayWarsaw } from '../utils/water';
@@ -34,6 +35,8 @@ const bucketLabel =(period: WaterSummaryPeriod, key: number) =>
 // Wykres wody hydroforu: dzień w godzinach, miesiąc w dniach, rok w miesiącach.
 // Rok może pokazać obok szacunku zużycie z odczytów wodomierza.
 export const WaterPressureTankChart: React.FC = () => {
+  // karta na całe okno: wykres wypełnia miejsce między wyborem okresu a podsumowaniem (useFillHeight)
+  const cardRef = useFillHeight<HTMLDivElement>(360);
   const [period, setPeriod] = useState<WaterSummaryPeriod>('day');
   const [date, setDate] = useState(todayWarsaw());
   const [summary, setSummary] = useState<WaterSummary | null>(null);
@@ -82,10 +85,10 @@ export const WaterPressureTankChart: React.FC = () => {
   const meterMode = meterWanted && meterReady;
 
   return (
-    <div className="settings water-page">
+    <div className="settings water-page fill-page">
       <h2>Zużycie wody w okresie</h2>
       <section>
-        <div className="resource">
+        <div className="resource" ref={cardRef}>
           <div className="water-toolbar">
             <div className="water-periods" role="radiogroup" aria-label="Okres">
               {PERIODS.map((item) => (
@@ -111,7 +114,7 @@ export const WaterPressureTankChart: React.FC = () => {
 
           {meterMode ? (
             <>
-              <div className="water-chart">
+              <div className="water-chart fill-area">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={meterData}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -136,7 +139,7 @@ export const WaterPressureTankChart: React.FC = () => {
             </>
           ) : (
             <>
-              <div className="water-chart">
+              <div className="water-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" />

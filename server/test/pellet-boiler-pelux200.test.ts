@@ -11,6 +11,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from '../src/core/app'
+import { applySchedule } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { PelletBoilerPelux200Model } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200.model'
 
 const TYPE = 'pellet-boiler-pelux200';
@@ -269,5 +270,75 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const history = (await request(app).get(commands)).body.slice(2);
     expect(history.map((c: { status: string }) => c.status)).toEqual(['error', 'done', 'replaced']);
     expect(history[0].error).toBe('brak potwierdzenia 0xB3');
+  });
+
+  // Kopia ustawień z 2026-10-04: minimalna temperatura kotła 30 °C (tryb pompy ciepła), CWU 40 / histereza 5.
+  const archiveHeatPump = JSON.parse(readFileSync(resolve(__dirname,
+    '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));
+
+  it('harmonogram: CWU od–do osobno dla trybu, tryb z odczytu ustawień, zlecenia tylko przy zmianie', async () => {
+    const sn = 'AABBCC000012';
+    const { rootId } = (await register(sn)).body;
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
+    const commands = async () => (await request(app).get(api('commands'))).body as { kind: string; index: number; value: number; status: string }[];
+    // kocioł w postoju (stan 5) — włączony, więc „włącz” nie jest zlecane
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5 }).expect(201);
+
+    // wartości startowe: wyłączony, pompa ciepła 35–40, pellet 40–55, nastawy trybów
+    const start = (await request(app).get(api('schedule-settings'))).body;
+    expect(start).toMatchObject({ enabled: false, defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40 }, pellet: { cwuFrom: 40, cwuTo: 55 } } });
+    expect(start.profiles['heat-pump']['ecomax:99']).toBe(30);
+
+    // walidacja
+    expect((await request(app).post(api('schedules')).send({ mode: 'gas', dayOfWeek: -1, startTime: '05:00', endTime: '06:00', cwuFrom: 40, cwuTo: 43 })).status).toBe(400);
+    expect((await request(app).post(api('schedules')).send({ mode: 'heat-pump', dayOfWeek: -1, startTime: '05:00', endTime: '06:00', cwuFrom: 43, cwuTo: 40 })).status).toBe(400);
+    expect((await request(app).put(api('schedule-settings')).send({ ...start, profiles: { pellet: { 'ecomax:98': 300 } } })).status).toBe(400);
+
+    // wpisy tylko dla pompy ciepła
+    await request(app).post(api('schedules')).send({ mode: 'heat-pump', dayOfWeek: -1, startTime: '05:00', endTime: '06:00', cwuFrom: 40, cwuTo: 43 }).expect(201);
+    await request(app).post(api('schedules')).send({ mode: 'heat-pump', dayOfWeek: -1, startTime: '13:00', endTime: '15:00', cwuFrom: 40, cwuTo: 43 }).expect(201);
+
+    // bez odczytu ustawień nie wiadomo, który tryb działa: błąd, bez zleceń
+    await request(app).put(api('schedule-settings')).send({ ...start, enabled: true }).expect(200);
+    expect((await request(app).get(api('schedules/current'))).body.lastError).toMatch(/Brak odczytu/);
+
+    // pellet (kopia z 3.10: minimum 65): domyślne 40–55 = CWU 55 / histereza 15, już takie — nic do zlecenia
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+    await applySchedule(rootId, new Date('2026-10-05T03:30:00Z'));  // 05:30 w Warszawie, ale wpisy są pompy ciepła
+    expect((await commands()).map((c) => `${c.kind}:${c.index}=${c.value}`)).toEqual([]);
+
+    // pompa ciepła (kopia z 4.10: minimum 30, CWU 40 / 5): w oknie 05:00–06:00 CWU 43 / 3
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    await applySchedule(rootId, new Date('2026-10-05T03:30:00Z'));
+    expect((await commands()).map((c) => [c.kind, c.index, c.value]).sort()).toEqual([['ecomax', 119, 43], ['ecomax', 123, 3]]);
+    const current = (await request(app).get(api('schedules/current'))).body;
+    expect(current).toMatchObject({ enabled: true, mode: 'heat-pump', lastError: null });
+
+    // ten sam stan: nic nowego; po oknie domyślne 35–40 (CWU 40 / 5 jak w odczycie, więc zastępuje oczekujące)
+    const count = (await commands()).length;
+    await applySchedule(rootId, new Date('2026-10-05T03:50:00Z'));
+    expect((await commands()).length).toBe(count);
+    await applySchedule(rootId, new Date('2026-10-05T06:00:00Z'));
+
+    // praca kotła: wpis „wyłączony 22:00–05:00” (przez północ) dla pompy ciepła → o 23:00 zlecenie wyłącz
+    await request(app).post(api('schedules')).send({ type: 'work', mode: 'heat-pump', on: 'tak', dayOfWeek: -1, startTime: '22:00', endTime: '05:00' }).expect(400);
+    await request(app).post(api('schedules')).send({ type: 'work', mode: 'heat-pump', on: false, dayOfWeek: -1, startTime: '22:00', endTime: '05:00' }).expect(201);
+    await applySchedule(rootId, new Date('2026-10-05T21:00:00Z'));
+    const control = async () => (await commands()).filter((c) => c.kind === 'control' && c.status === 'pending');
+    expect((await control()).map((c) => c.value)).toEqual([0]);
+
+    // „Praca kotła: Wyłączony” — harmonogram stoi (kolejne przebiegi nic nie zlecają)
+    const settings = (await request(app).get(api('schedule-settings'))).body;
+    await request(app).put(api('schedule-settings')).send({ ...settings, enabled: false }).expect(200);
+    const stopped = (await commands()).length;
+    await applySchedule(rootId, new Date('2026-10-06T10:00:00Z'));
+    expect((await commands()).length).toBe(stopped);
+
+    // „Włączony” w dzień: domyślnie włączony, a odczyt nadal pokazuje pracę (stan 5) — „włącz” niepotrzebne;
+    // ostatnie zlecenie sterowania to wciąż wyłączenie z przerwy
+    await request(app).put(api('schedule-settings')).send({ ...settings, enabled: true }).expect(200);
+    await applySchedule(rootId, new Date('2026-10-06T10:00:00Z'));
+    const latest = (await commands()).find((c) => c.kind === 'control');
+    expect(latest?.value).toBe(0);
   });
 });

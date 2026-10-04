@@ -1,5 +1,8 @@
 import { Requests } from '../../core/http';
-import { PelletBoilerChange, PelletBoilerCommand, PelletBoilerReading, PelletBoilerSettings } from './types';
+import {
+  PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerReading, PelletBoilerSchedule,
+  PelletBoilerScheduleSettings, PelletBoilerSettings,
+} from './types';
 
 // Kocioł pelletowy Pellux 200: odczyty ze sterownika (/api/pellet-boiler-pelux200/*);
 // rootId i deviceId dopisuje core/http.ts. Ustawienia idą przez core/api.ts (/device/properties).
@@ -22,6 +25,38 @@ export class PelletBoilerRequests {
   // zlecenie zmian parametrów w podanej kolejności; Response (201 albo 400 z {message})
   static postCommands(changes: PelletBoilerChange[]) {
     return Requests.post('/pellet-boiler-pelux200/commands', { changes }, false);
+  }
+
+  // --- harmonogram: sezon (zakres dat) i CWU od–do (okna godzin) ---
+  static getScheduleSettings(): Promise<PelletBoilerScheduleSettings | null> {
+    return Requests.get('/pellet-boiler-pelux200/schedule-settings');
+  }
+
+  // rzuca wyjątek przy błędzie (Requests.put)
+  static saveScheduleSettings(settings: PelletBoilerScheduleSettings): Promise<PelletBoilerScheduleSettings> {
+    return Requests.put('/pellet-boiler-pelux200/schedule-settings', settings);
+  }
+
+  static getCurrentSchedule(): Promise<PelletBoilerCurrentSchedule | null> {
+    return Requests.get('/pellet-boiler-pelux200/schedules/current');
+  }
+
+  static getSchedules(): Promise<PelletBoilerSchedule[] | null> {
+    return Requests.get('/pellet-boiler-pelux200/schedules');
+  }
+
+  // Requests.post połyka błędy, więc status sprawdzany tutaj (json = false zwraca Response)
+  static async createSchedule(schedule: PelletBoilerSchedule) {
+    const response = await Requests.post('/pellet-boiler-pelux200/schedules', schedule, false) as Response | undefined;
+    if (!response?.ok) throw new Error(`HTTP ${response?.status ?? 'błąd sieci'}`);
+  }
+
+  static updateSchedule(id: string, schedule: PelletBoilerSchedule) {
+    return Requests.put(`/pellet-boiler-pelux200/schedules/${id}`, schedule);
+  }
+
+  static deleteSchedule(id: string) {
+    return Requests.delete(`/pellet-boiler-pelux200/schedules/${id}`);
   }
 
   // ostatnie zlecenia od najnowszego

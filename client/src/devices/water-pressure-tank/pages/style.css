@@ -226,6 +226,12 @@
   height: 280px;
 }
 
+/* wykres na całe okno (fill-page, useFillHeight): wysokość z miejsca w karcie */
+.fill-page .water-chart {
+  height: auto;
+  min-height: 180px;
+}
+
 .water-form {
   display: grid;
   gap: 0.4rem;

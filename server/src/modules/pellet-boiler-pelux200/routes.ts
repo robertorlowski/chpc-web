@@ -3,6 +3,8 @@ import {
   addPelletBoilerPelux200, addPelletBoilerPelux200Settings, getPelletBoilerPelux200,
   getPelletBoilerPelux200List, getPelletBoilerPelux200Settings, addPelletBoilerPelux200Commands,
   getPelletBoilerPelux200Commands, getPelletBoilerPelux200NextCommand, addPelletBoilerPelux200CommandResult,
+  getPelletBoilerScheduleSettings, putPelletBoilerScheduleSettings, getPelletBoilerCurrentSchedule,
+  getPelletBoilerSchedules, postPelletBoilerSchedule, putPelletBoilerSchedule, deletePelletBoilerSchedule,
 } from './controllers/pellet-boiler-pelux200.controller'
 
 // Kocioł pelletowy Pellux 200: zapis odczytu (sterownik pieca), ostatni odczyt, lista dnia
@@ -20,5 +22,13 @@ router.post('/pellet-boiler-pelux200/commands', addPelletBoilerPelux200Commands)
 router.get('/pellet-boiler-pelux200/commands', getPelletBoilerPelux200Commands)
 router.get('/pellet-boiler-pelux200/commands/next', getPelletBoilerPelux200NextCommand)
 router.post('/pellet-boiler-pelux200/commands/result', addPelletBoilerPelux200CommandResult)
+// harmonogram: sezon (zakres dat) i CWU od–do (okna godzin), ustawienie poza harmonogramem
+router.get('/pellet-boiler-pelux200/schedule-settings', getPelletBoilerScheduleSettings)
+router.put('/pellet-boiler-pelux200/schedule-settings', putPelletBoilerScheduleSettings)
+router.get('/pellet-boiler-pelux200/schedules/current', getPelletBoilerCurrentSchedule)
+router.get('/pellet-boiler-pelux200/schedules', getPelletBoilerSchedules)
+router.post('/pellet-boiler-pelux200/schedules', postPelletBoilerSchedule)
+router.put('/pellet-boiler-pelux200/schedules/:id', putPelletBoilerSchedule)
+router.delete('/pellet-boiler-pelux200/schedules/:id', deletePelletBoilerSchedule)
 
 export default router

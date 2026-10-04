@@ -85,9 +85,13 @@ constexpr uint8_t ECOMAX_FRAME_SET_PARAMETER = 0x33;
 constexpr uint8_t ECOMAX_FRAME_SET_PARAMETER_RESPONSE = 0xB3;
 constexpr uint8_t ECOMAX_FRAME_SET_MIXER_PARAMETER = 0x34;
 constexpr uint8_t ECOMAX_FRAME_SET_MIXER_PARAMETER_RESPONSE = 0xB4;
+// Włącz (1) / wyłącz (0) regulator — jak „Włącz/Wyłącz regulator” na panelu (od 1.4.0, z PyPlumIO,
+// na kotle niesprawdzone): pellet rozpala albo przechodzi w wygaszanie.
+constexpr uint8_t ECOMAX_FRAME_CONTROL = 0x3B;
+constexpr uint8_t ECOMAX_FRAME_CONTROL_RESPONSE = 0xBB;
 
-// Zmiana jednego parametru kotła albo mieszacza: wysyłka jak zapytania o ustawienia (w oknie
-// 0x56), czekanie na 0xB3/0xB4, 4 s na odpowiedź, 3 próby.
+// Zmiana jednego parametru kotła albo mieszacza albo włącz/wyłącz regulator: wysyłka jak zapytania o ustawienia (w oknie
+// 0x56), czekanie na 0xB3/0xB4/0xBB, 4 s na odpowiedź, 3 próby.
 class BoilerParameterWriter {
 public:
   enum class Result : uint8_t { NONE, CONFIRMED, FAILED };
@@ -96,6 +100,8 @@ public:
   static constexpr uint8_t ATTEMPTS = 3;
 
   static constexpr uint8_t NO_MIXER = 0xFF;
+  // zamiast numeru mieszacza: polecenie włącz/wyłącz regulator (0x3B), wartość 0/1, numer bez znaczenia
+  static constexpr uint8_t CONTROL = 0xFE;
 
   // False, gdy poprzednia zmiana jeszcze trwa. mixer: numer od 0 albo NO_MIXER (parametr kotła).
   bool start(uint8_t index, uint8_t value, uint8_t mixer = NO_MIXER);
@@ -109,7 +115,8 @@ public:
   Result result() const { return lastResult; }
   uint8_t index() const { return parameterIndex; }
   uint8_t value() const { return parameterValue; }
-  bool isMixer() const { return mixerIndex != NO_MIXER; }
+  bool isMixer() const { return mixerIndex != NO_MIXER && mixerIndex != CONTROL; }
+  bool isControl() const { return mixerIndex == CONTROL; }
   uint8_t mixer() const { return mixerIndex; }
 
 private:

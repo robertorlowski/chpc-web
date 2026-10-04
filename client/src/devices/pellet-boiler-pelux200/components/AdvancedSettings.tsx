@@ -12,6 +12,7 @@ import { PelletBoilerParameter, PelletBoilerSettings } from '../types';
 import { formatDateTime, formatNumber } from '../utils/boiler';
 import { COMMANDS_CHANGED, EditPanel, Item, ratingClass } from './MainParameters';
 import { ADVANCED_SETTINGS_EDIT } from '../config';
+import { ModeProfiles } from './ModeProfiles';
 
 const formatValue = (parameter: PelletBoilerParameter, value: number) => {
   if (parameter.kind === 'switch' && parameter.min === 0 && parameter.max === 1) return value ? 'wł.' : 'wył.';
@@ -86,6 +87,10 @@ export const AdvancedSettings: React.FC = () => {
                   ? 'Ołówek zleca zmianę (sterownik wyśle ją do regulatora w ciągu ok. 15–30 s); parametry serwisowe wymagają potwierdzenia.'
                   : 'Tylko podgląd: zmiana tych parametrów jest wyłączona w konfiguracji aplikacji (config.ts).'}
               </div>
+              <details className="boiler-group">
+                <summary>Pompa ciepła / Pellet <span className="boiler-hint">(nastawy trybów)</span></summary>
+                <ModeProfiles settings={settings} />
+              </details>
               {settings.groups?.map((group) => (
                 <details key={group.key} className="boiler-group">
                   <summary>{group.label} <span className="boiler-hint">({group.parameters.length})</span></summary>
