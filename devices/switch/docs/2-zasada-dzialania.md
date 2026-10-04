@@ -17,14 +17,14 @@ sequenceDiagram
     E->>S: WebSocket /ws?rootId=
     loop co 5 s (albo od razu po zmianie)
         E->>S: POST /switch/state {uptimeS, relays: [{on, changedS}]}
-        S-->>E: {relays: [{on, offAfterS?, mode}]}
+        S-->>E: {relays: [{on, offAfterS?, mode}], firmware?}
         E->>E: przekaźniki według poleceń
     end
 ```
 
 - **Przekaźnik po starcie jest wyłączony.** Pin dostaje stan „wyłączony” przed przełączeniem na wyjście; włączy go dopiero polecenie chmury.
 - **Bez zgłoszenia nie ma wymiany stanu.** Nieudane zgłoszenie jest ponawiane co 30 s; do tego czasu działa tylko strona sterownika.
-- **Zgłoszenie jest raz na start** (i ponownie po 404/409). Domyślny czas włączenia i oferta OTA docierają więc przy starcie.
+- **Zgłoszenie jest raz na start** (i ponownie po 404/409). Domyślny czas włączenia dociera więc przy starcie. Oferta OTA (tylko na zlecenie „Aktualizuj” z aplikacji) jest w odpowiedzi na zgłoszenie i, od wersji 1.1.0, na każdą wymianę stanu.
 
 ## Polecenia z chmury
 
@@ -76,7 +76,7 @@ W każdym obiegu `loop()`: strony WWW, WebSocket i odliczanie przekaźników. Co
 4. Brak zgłoszenia w tym starcie → `POST devices/register` (co 30 s do skutku); bez zgłoszenia — koniec.
 5. Niewysłane zmiany lokalne → `PUT switch/mode` (co 5 s albo od razu).
 6. Wymiana stanu co 5 s albo od razu po zmianie.
-7. OTA: raz na start, gdy chmura odpowiada, wszystkie przekaźniki są wyłączone i nie ma niewysłanych zmian.
+7. OTA: gdy jest oferta (zlecenie z aplikacji), chmura odpowiada, wszystkie przekaźniki są wyłączone i nie ma niewysłanych zmian; jedna próba na zlecenie.
 
 Połączenie HTTPS jest jedno i stałe (keep-alive), limit zapytania 4 s, zgłoszenia 8 s. Nieudana wymiana stanu nie jest ponawiana — za 5 s idzie nowa.
 
@@ -99,18 +99,20 @@ AP `Wlacznik-setup` jest domyślnie otwarty (hasło krótsze niż 8 znaków albo
 
 ```mermaid
 flowchart TD
-    R["zgłoszenie przy starcie:<br/>settings.firmware {version, url, sha256}"] --> C{"chmura odpowiada,<br/>przekaźniki wyłączone,<br/>brak zmian lokalnych?"}
+    A["„Aktualizuj” w aplikacji<br/>(zlecenie firmwareUpdate)"] --> R["zgłoszenie albo wymiana stanu:<br/>firmware {version, url, sha256, request}"]
+    R --> C{"chmura odpowiada,<br/>przekaźniki wyłączone,<br/>brak zmian lokalnych?"}
     C -- nie --> W["czeka (sprawdza co 1 s)"] --> C
-    C -- tak --> V{"wersja ≠ FW_VERSION<br/>i ≠ ota_tried?"}
-    V -- nie --> X["koniec do następnego startu"]
+    C -- tak --> V{"wersja ≠ FW_VERSION,<br/>klucz wersja#request ≠ ota_tried<br/>i nie próbowany w tym starcie?"}
+    V -- nie --> X["koniec do nowego zlecenia"]
     V -- tak --> D["pobranie do nieaktywnej partycji,<br/>SHA-256 w locie"]
-    D -- "suma zgodna" --> B["ota_tried = wersja, restart"]
+    D -- "suma zgodna" --> B["ota_tried = wersja#request, restart"]
     D -- "błąd" --> X
 ```
 
+- **Oferta przychodzi tylko na zlecenie.** Chmura wysyła `firmware` wyłącznie wtedy, gdy w aplikacji kliknięto „Aktualizuj” (Ustawienia, karta „Sterownik”) i zlecenie nie zostało anulowane. Zlecenie znika samo, gdy sterownik zgłosi się z oferowaną wersją.
+- **Od 1.1.0 bez restartu:** oferta jest też w każdej odpowiedzi na `POST /switch/state`, więc aktualizacja startuje w ciągu kilku sekund od kliknięcia (przy wyłączonych przekaźnikach). Wersja 1.0.3 czyta ofertę tylko przy zgłoszeniu, więc potrzebuje restartu płytki.
 - Pobieranie blokuje pętlę na kilkanaście sekund, a restart wyłącza przekaźniki, dlatego sterownik czeka, aż wszystkie przekaźniki będą wyłączone. Po restarcie stan przywraca chmura.
-- Próba jest jedna na start. Nieudane pobranie i nowa oferta wgrana w aplikacji czekają na następny start sterownika.
-- `ota_tried` w NVS chroni przed pętlą, gdy ktoś wgra obraz bez podniesienia `FW_VERSION`.
+- **Jedna próba na zlecenie.** Klucz `wersja#request` (`otaKey()`) jest pamiętany w RAM po próbie i w NVS (`ota_tried`) po pobraniu. Nieudane pobranie czeka na ponowne „Aktualizuj” (nowe zlecenie = nowa próba). `ota_tried` chroni też przed pętlą, gdy ktoś wgra obraz bez podniesienia `FW_VERSION`.
 
 ## Ustawienia
 

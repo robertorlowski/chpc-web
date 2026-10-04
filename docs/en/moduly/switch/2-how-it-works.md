@@ -76,7 +76,7 @@ sequenceDiagram
     S-->>U: relay with the new mode
     S--)C: WebSocket {"type":"operation"}
     C->>S: POST /switch/state (immediately)
-    S-->>C: {relays: [{on, offAfterS?, mode}]}
+    S-->>C: {relays: [{on, offAfterS?, mode}], firmware?} (firmware only with an "Aktualizuj" request)
     C->>C: relay changes state
     C->>S: POST /switch/state (new state)
     S--)U: WebSocket {"type":"update"} → view refresh
@@ -119,4 +119,4 @@ The controller sends the number of relays in the registration (`relays`) and in 
 | **Włącznik** (`/`) | `GET /switch/relays`, `GET /switch/activations?date=` (today), `GET /device/properties` (default time), `PUT /switch/mode` | every 5 s and on WebSocket `update`; countdown every 1 s in the browser |
 | **Dane** (`/data`) | `GET /switch/activations?date=`, `GET /switch/relays` (names); relay filter and CSV in the browser | on day change |
 | **Harmonogram** (`/schedules`) | `GET/POST /switch/schedules`, `PUT/DELETE /switch/schedules/:id`, `GET /switch/relays` (entry active now: `scheduleId`) | relays every minute and after saving |
-| **Ustawienia** (`/settings`) | `GET /switch/relays`, `PUT /switch/relays/:relay` (names), `GET/PUT /device/properties` (`default_on_minutes`), `GET /devices` and `GET /firmware/switch` (controller card: IP, firmware version, update) | on entry |
+| **Ustawienia** (`/settings`) | `GET /switch/relays`, `PUT /switch/relays/:relay` (names), `GET/PUT /device/properties` (`default_on_minutes`), `GET /devices` and `GET /firmware/switch` (controller card: IP, firmware version, update state), `POST`/`DELETE /devices/:rootId/firmware-update` ("Aktualizuj" / "Anuluj aktualizację") | on entry; the controller card every 15 s while an update request is pending |

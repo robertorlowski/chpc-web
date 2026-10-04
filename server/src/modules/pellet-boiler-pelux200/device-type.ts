@@ -13,4 +13,6 @@ export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
   controllerSettings: (properties) => ({
     poll_interval_seconds: properties.poll_interval_seconds ?? 300,
   }),
+  // OTA na zlecenie („Aktualizuj”); oferta idzie też w odpowiedzi GET …/commands/next (od firmware 1.5.0)
+  firmwareUpdates: true,
 };

@@ -7,9 +7,9 @@
 | Plik | Rola |
 |---|---|
 | `routes.ts` | trasy `/switch/*` |
-| `device-type.ts` | wpis do rejestru: `initialProperties` (`default_on_minutes: 30`), `controllerSettings` (`{default_on_minutes}` w odpowiedzi na zgłoszenie), `firmwareUpdates: true` (OTA), `onRegister` (przekaźniki z pola `relays` zgłoszenia) |
+| `device-type.ts` | wpis do rejestru: `initialProperties` (`default_on_minutes: 30`), `controllerSettings` (`{default_on_minutes}` w odpowiedzi na zgłoszenie), `firmwareUpdates: true` (OTA na zlecenie „Aktualizuj”), `onRegister` (przekaźniki z pola `relays` zgłoszenia) |
 | `types.ts` | `RelayMode`, `CommandSource`, `ActivationSource`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation`, `RelayReport`, `RelayCommand`, `timePattern` |
-| `controllers/switch.controller.ts` | obsługa tras; budzenie sterownika (`sendMessage('operation')`) po zmianie trybu i harmonogramu, `update` dla przeglądarek po zmianie stanu |
+| `controllers/switch.controller.ts` | obsługa tras; budzenie sterownika (`sendMessage('operation')`) po zmianie trybu i harmonogramu, `update` dla przeglądarek po zmianie stanu; oferta firmware w odpowiedzi na stan (`firmwareOfferForRoot`) |
 | `services/switch.service.ts` | przekaźniki (`ensureRelays`), polecenie (`relayCommand`), zgłoszenie stanu (`parseStateReport`, `reportState`), historia (`recordActivation`), tryb (`setRelayMode`), nazwy, lista dla aplikacji (`listRelays`), włączenia (`listActivations`) |
 | `services/switch-schedule.service.ts` | okna harmonogramu (`scheduleWindow`, `activeSchedule` z łączeniem okien, `nextScheduleStart`), walidacja wpisu (`parseSchedule`), zapis, podmiana, usunięcie |
 | `models/switch-relay.model.ts` | kolekcja `switch_relays` |
@@ -22,7 +22,7 @@ Zmiany w `core` dla włącznika: `DeviceType.SWITCH`, `WeekDay` przeniesione do 
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: ikona przełącznika, menu Włącznik, Dane, Harmonogram, Ustawienia (bez wykresu), `firmwareUpdates: true` |
+| `device-type.tsx` | wpis do rejestru: ikona przełącznika, menu Włącznik, Dane, Harmonogram, Ustawienia (bez wykresu), `firmwareUpdates: true`, `firmwareUpdateHint` |
 | `api.ts` | `SwitchRequests` |
 | `types.ts` | `RelayMode`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation` |
 | `pages/Home.tsx` | karty przekaźników (przełącznik stanu, opis trybu, odliczanie, offline, Włącz / Wyłącz / Harmonogram, czas włączenia), tabela „Dziś”; odświeżanie co 5 s i WebSocket `update` |
@@ -36,7 +36,7 @@ Zmiany w `core` dla włącznika: `DeviceType.SWITCH`, `WeekDay` przeniesione do 
 
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
-| `POST /switch/state` | sterownik | `{uptimeS?, relays: [{on, changedS}]}` (1–16 przekaźników, `changedS` ≥ 0); sam `deviceId` wystarcza, 404/409 jak w core; odpowiedź 200 `{relays: [{on, offAfterS?, mode}]}`; złe dane 400 |
+| `POST /switch/state` | sterownik | `{uptimeS?, relays: [{on, changedS}]}` (1–16 przekaźników, `changedS` ≥ 0); sam `deviceId` wystarcza, 404/409 jak w core; odpowiedź 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` tylko przy zleceniu „Aktualizuj”; firmware od 1.1.0 aktualizuje się z niej bez restartu); złe dane 400 |
 | `PUT /switch/mode` | aplikacja, sterownik | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`; `minutes` tylko dla `timer`, pełne 1–10080; `source: "controller"` albo żądanie z samym `deviceId` = zmiana ze sterownika; odpowiedź: przekaźnik jak w `GET /switch/relays`; 400 zły tryb, numer, czas albo nieznany przekaźnik |
 | `GET /switch/relays` | aplikacja | przekaźniki: `relay`, `name`, `mode` (timer po czasie już jako `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (wpis działający teraz), `nextStart` |
 | `PUT /switch/relays/:relay` | aplikacja | `{name}` (najwyżej 40 znaków, pusta = „Przekaźnik N”); 404 nieznany przekaźnik |
@@ -46,7 +46,7 @@ Zmiany w `core` dla włącznika: `DeviceType.SWITCH`, `WeekDay` przeniesione do 
 | `DELETE /switch/schedules/:id` | aplikacja | 200 `{}`; 404; 400 zły identyfikator |
 | `GET /switch/activations?date=YYYY-MM-DD[&relay=N]` | aplikacja | włączenia nachodzące na dzień (Warszawa), także zaczęte dzień wcześniej i trwające, rosnąco po `onAt`, z `durationS` (dla trwających do teraz); aplikacja filtruje przekaźnik u siebie i nie używa `relay` |
 
-Zgłoszenie (`POST /devices/register`, moduł core) z `deviceType: "switch"` przyjmuje dodatkowo `relays` (liczba całkowita 1–16): `onRegister` tworzy przekaźniki od razu. Odpowiedź niesie `settings: {default_on_minutes, firmware?}`. Ustawienie zapisuje wspólne `PUT /device/properties` (moduł core).
+Zgłoszenie (`POST /devices/register`, moduł core) z `deviceType: "switch"` przyjmuje dodatkowo `relays` (liczba całkowita 1–16): `onRegister` tworzy przekaźniki od razu. Odpowiedź niesie `settings: {default_on_minutes, firmware?}` (`firmware` tylko przy zleceniu aktualizacji, `POST /devices/:rootId/firmware-update`, moduł core). Ustawienie zapisuje wspólne `PUT /device/properties` (moduł core).
 
 ## Model danych
 

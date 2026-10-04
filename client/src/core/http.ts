@@ -128,6 +128,17 @@ export class Requests {
     return body;
   }
 
+  // POST bez treści i bez kontekstu urządzenia; jak putFile rzuca wyjątek z komunikatem serwera
+  static async postJson(path: string) {
+    const response = await fetch(prefixMocks(path), {
+      method: 'POST',
+      headers: { 'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510' },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body?.message ?? `HTTP error! status: ${response.status}`);
+    return body;
+  }
+
   // DELETE bez kontekstu urządzenia; jak putFile rzuca wyjątek z komunikatem serwera
   static async deleteJson(path: string) {
     const response = await fetch(prefixMocks(path), {

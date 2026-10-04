@@ -72,16 +72,16 @@ With the adapter connected, "Brownout detected" and a start in programming mode 
 | `src/firmware.hpp` | `DEVICE_TYPE`, `FW_VERSION`, `DEVICE_NAME`, `RELAY_PINS`, `RELAY_ACTIVE_HIGH`, `DEFAULT_ON_MINUTES`, `MAX_ON_MINUTES`, `CLOUD_URL` (from the `SWITCH_CLOUD_URL` macro) |
 | `src/relays.*` | `RelayBank`: `applyCloud` (cloud command, ignored while `pending`), `applyLocal` (change from the page), `update` (end of countdown), `pendingMinutes`, `confirmPending` (by change number) |
 | `src/protocol.*` | `buildStateReport`, `applyStateResponse`, `buildModeBody`, `parseDefaultMinutes` |
-| `src/ota.*` | `parseOtaOffer`, `shouldUpdate` (as in the tank controller) |
+| `src/ota.*` | `parseOtaOffer` (`{version, url, sha256, request}`), `otaKey` (`version#request`), `shouldUpdate` (one attempt per request) |
 | `src/secrets.example.h` | template of `secrets.h` (outside git): `AP_SSID` ("Wlacznik-setup"), `AP_PASSWORD` (empty = open AP), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
-| `test/test_logic/test_main.cpp` | 11 `native` tests |
+| `test/test_logic/test_main.cpp` | 12 `native` tests |
 
 ## Constants
 
 | Constant | Value | Location |
 |---|---|---|
 | `DEVICE_TYPE` / `DEVICE_NAME` | `switch` / "Włącznik" | `firmware.hpp` |
-| `FW_VERSION` | `1.0.3` | `firmware.hpp` |
+| `FW_VERSION` | `1.1.0` | `firmware.hpp` |
 | `RELAY_PINS` / `RELAY_ACTIVE_HIGH` | `{2}` / `true` | `firmware.hpp` |
 | `DEFAULT_ON_MINUTES` / `MAX_ON_MINUTES` | 30 / 10080 | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (`esp32dev-local`: `http://192.168.55.9:4001/api/`) | `firmware.hpp`, `platformio.ini` |
@@ -101,7 +101,7 @@ With the adapter connected, "Brownout detected" and a start in programming mode 
 | `wifi_ssid`, `wifi_pass` | Wi-Fi from `/install` (empty = values from `secrets.h`) |
 | `root_id` | Root ID from the registration reply (cleared on 404/409) |
 | `def_min` | default "Włącz" time from the cloud [min] |
-| `ota_tried` | the version after whose download the controller last restarted (protection against an update loop) |
+| `ota_tried` | the offer key `version#request` (`otaKey()`) after whose download the controller last restarted (one attempt per request, protection against an update loop; up to 1.0.3 the version alone) |
 
 The relay state is not stored: after start the relays are off and the cloud restores the state.
 
@@ -109,8 +109,8 @@ The relay state is not stored: after start the relays are off and the cloud rest
 
 | Request | Body | Reply |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType: "switch", name: "Włącznik", version, ip, relays}` | `{rootId, settings: {default_on_minutes, firmware?: {version, url, sha256}}}` |
-| `POST switch/state?deviceId=&rootId=` | `{uptimeS, relays: [{on, changedS}]}` | `{relays: [{on, offAfterS?, mode}]}`; 404 unknown SN, 409 foreign Root ID |
+| `POST devices/register` | `{deviceId: SN, deviceType: "switch", name: "Włącznik", version, ip, relays}` | `{rootId, settings: {default_on_minutes, firmware?: {version, url, sha256, request}}}`; `firmware` only with an "Aktualizuj" request |
+| `POST switch/state?deviceId=&rootId=` | `{uptimeS, relays: [{on, changedS}]}` | `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware` as above, read from 1.1.0); 404 unknown SN, 409 foreign Root ID |
 | `PUT switch/mode?deviceId=&rootId=` | `{relay, mode, minutes?, source: "controller"}` (`minutes` only for `timer`) | the relay; 400 change not acceptable (not retried) |
 | WebSocket `/ws?rootId=` | — | `{"type":"operation"}` → immediate state report; other messages ignored |
 
@@ -153,24 +153,25 @@ esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_r
 curl -u <login>:<password from secrets.h> -F "firmware=@.pio/build/esp32dev/firmware.bin" http://<controller IP>/install/firmware
 ```
 
-or the "Firmware" form on the `/install` page, or the OTA offer from the application (below).
+or the "Firmware" form on the `/install` page, or "Aktualizuj" (update) in the application (OTA, below).
 
 ## Over-the-air update (OTA)
 
 The flash layout is the default Arduino-ESP32 table with two application partitions (`app0`/`app1`, 1.28 MB each; the image takes about 77 %).
 
-1. The `.bin` file is in the server database (`firmware_images`, `firmware_offers`; the offered version and one previous). The registration reply carries `settings.firmware: {version, url, sha256}` with `url` = `<server>/api/firmware/switch/<version>.bin`.
-2. The controller accepts the offer when the address starts with `https://`, the version is non-empty and `sha256` has 64 hex characters.
-3. The download starts once per start when: the registration succeeded, the last state exchange succeeded within 30 s, **all relays are off**, there are no unsent local changes, and the offered version differs from `FW_VERSION` and from `ota_tried`. While a relay is on, the controller waits for it to switch off.
-4. The image goes straight into the inactive partition with SHA-256 computed on the fly; it is activated only if the checksum matches. Then `ota_tried` is stored and the controller restarts; the cloud restores the relay state.
+1. The `.bin` file is in the server database (`firmware_images`, `firmware_offers`; the offered version and one previous). **The server does not send the offer by itself:** only when the device has a request `devices.firmwareUpdate {version, requestedAt}`, created by the "Aktualizuj" (update) button in Settings ("Sterownik" card, `POST /api/devices/:rootId/firmware-update`) and cancelled by "Anuluj aktualizację" (`DELETE`). With updates disabled on the firmware page, requests are not delivered. The request disappears by itself when the controller registers with the offered version.
+2. The offer `{version, url, sha256, request}` (`url` = `<server>/api/firmware/switch/<version>.bin`, `request` = `requestedAt` in ms as a string) is in the registration reply (`settings.firmware`) and in every `POST switch/state` reply (`firmware`). Version 1.0.3 reads it only at registration (a restart is needed); from 1.1.0 also from the state exchange, so the update starts within seconds.
+3. The controller accepts the offer when the address starts with `https://`, the version is non-empty and `sha256` has 64 hex characters.
+4. The download starts when: the registration succeeded, the last state exchange succeeded within 30 s, **all relays are off**, there are no unsent local changes, the offered version differs from `FW_VERSION`, and the key `version#request` (`otaKey()`) differs from `ota_tried` and from the key tried in this start (RAM). While a relay is on, the controller waits for it to switch off.
+5. The image goes straight into the inactive partition with SHA-256 computed on the fly; it is activated only if the checksum matches. Then the key is stored in `ota_tried` and the controller restarts; the cloud restores the relay state. Each "Aktualizuj" gives one attempt; a failed one is retried by clicking again (a new request). The attempt state is shown on `/install` ("Aktualizacja z chmury: …").
 
-**Releasing a new version:** raise `FW_VERSION` in `src/firmware.hpp`, `pio run -d devices/switch`, upload `.pio/build/esp32dev/firmware.bin` on the firmware page in the application (controller list → cog on the switch tile, plus on the "Aktualna wersja" bar, version equal to `FW_VERSION` and a description) or `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin "https://chpc-web.onrender.com/api/firmware/switch/<version>?description=<text>"`. The controller downloads the image after its next start (the offer only comes in the registration reply), once the relay is off.
+**Releasing a new version:** raise `FW_VERSION` in `src/firmware.hpp`, `pio run -d devices/switch`, upload `.pio/build/esp32dev/firmware.bin` on the firmware page in the application (controller list → cog on the switch tile, plus on the "Aktualna wersja" bar, version equal to `FW_VERSION` and a description) or `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin "https://chpc-web.onrender.com/api/firmware/switch/<version>?description=<text>"`. Then click "Aktualizuj" in the switch Settings; the controller downloads the image once the relay is off.
 
 ## Build, tests, environments
 
 ```bash
 cp devices/switch/src/secrets.example.h devices/switch/src/secrets.h   # once, fill in
-pio test -d devices/switch -e native            # 11 tests
+pio test -d devices/switch -e native            # 12 tests
 pio run  -d devices/switch                      # esp32dev build (flash about 77 %, RAM about 15 %)
 pio run  -d devices/switch -e esp32dev-local    # build for a test with npm run local
 pio device monitor -d devices/switch            # console 115200 through the P1 header
@@ -180,12 +181,12 @@ pio device monitor -d devices/switch            # console 115200 through the P1 
 
 **Console log.** Lines `[ms since start] text` on UART0 115200 (P1 header): start (version, SN, Root ID, number of relays, cloud address), AP, Wi-Fi, registration with the reply and the OTA offer, every relay change with its cause (cloud, controller page, end of time), local changes sent to the cloud, HTTP errors, OTA steps. Every 30 s a `stan:` line (Wi-Fi with RSSI, registration, cloud, last HTTP, AP, relay 1). A 2 KB transmit buffer keeps the log from delaying the loop.
 
-**`native` tests** (`test/test_logic`): a timed on command from the cloud switches off by itself; a refreshed command extends the countdown without a state change; on without a limit; a local change wins over the cloud until confirmed (including the change number); a local timer and the minutes to send; a local "Harmonogram" switches off only without the cloud; state report JSON; applying the reply; `PUT switch/mode` JSON; default time from `settings`; OTA offer. **Wi-Fi, HTTP, WebSocket and the pages have no automatic tests** — without a board use the server-side simulator: `node scripts/simulate-switch.mjs [--relays N] [--history]` with `npm run local`.
+**`native` tests** (`test/test_logic`): a timed on command from the cloud switches off by itself; a refreshed command extends the countdown without a state change; on without a limit; a local change wins over the cloud until confirmed (including the change number); a local timer and the minutes to send; a local "Harmonogram" switches off only without the cloud; state report JSON; applying the reply; `PUT switch/mode` JSON; default time from `settings`; OTA offer; one attempt per request (`version#request`). **Wi-Fi, HTTP, WebSocket and the pages have no automatic tests** — without a board use the server-side simulator: `node scripts/simulate-switch.mjs [--relays N] [--history]` with `npm run local`.
 
 ## Known issues and notes
 
 - **Security:** the AP is open by default after start, the pages are plain HTTP, `/` and `POST /relay` have no login — within AP range (the first minute after connecting to Wi-Fi or after a Wi-Fi loss) and in the home network anyone can switch the relay.
-- **Registration only at start** (and after 404/409), not after an IP address change as in `co`: the IP address in the application, the default time on the controller page and the OTA offer are refreshed at restart. The board has no RST button; a restart = disconnecting power or uploading firmware on `/install`.
+- **Registration only at start** (and after 404/409), not after an IP address change as in `co`: the IP address in the application and the default time on the controller page are refreshed at restart (from 1.1.0 the OTA offer also comes with the state exchange). The board has no RST button; a restart = disconnecting power or uploading firmware on `/install`.
 - **Uploading on `/install` does not wait for the relay to switch off** (unlike OTA from the cloud): the restart switches it off for a few to a dozen or so seconds.
 - **The controller page does not know the relay names** from the application — it shows "Przekaźnik N".
 - **GPIO17** from the pin test does not drive the relay on this board; do not go back to it without a measurement.

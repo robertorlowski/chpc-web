@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { Device, DeviceProperties, DeviceType, FirmwareSummary } from './types';
+import { Device, DeviceProperties, DeviceType, FirmwareSummary, FirmwareUpdateRequest } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -20,6 +20,16 @@ export class DeviceRequests {
   // sterownik otwierany po starcie aplikacji; w bazie najwyżej jeden
   static setDefaultDevice(rootId: string, isDefault: boolean): Promise<Device> {
     return Requests.put(`/devices/${encodeURIComponent(rootId)}/default`, { isDefault }, false) as Promise<Device>;
+  }
+
+  // przycisk „Aktualizuj”: zlecenie aktualizacji firmware do oferowanej wersji (i jego odwołanie);
+  // bez zlecenia sterownik niczego nie pobiera. Rzuca wyjątek z komunikatem serwera.
+  static requestFirmwareUpdate(rootId: string): Promise<FirmwareUpdateRequest> {
+    return Requests.postJson(`/devices/${encodeURIComponent(rootId)}/firmware-update`);
+  }
+
+  static cancelFirmwareUpdate(rootId: string): Promise<void> {
+    return Requests.deleteJson(`/devices/${encodeURIComponent(rootId)}/firmware-update`);
   }
 
   // properties wybranego urządzenia (rootId z kontekstu): pompa — tryb i temperatury domyślne

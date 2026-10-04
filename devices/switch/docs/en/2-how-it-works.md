@@ -17,14 +17,14 @@ sequenceDiagram
     E->>S: WebSocket /ws?rootId=
     loop every 5 s (or immediately after a change)
         E->>S: POST /switch/state {uptimeS, relays: [{on, changedS}]}
-        S-->>E: {relays: [{on, offAfterS?, mode}]}
+        S-->>E: {relays: [{on, offAfterS?, mode}], firmware?}
         E->>E: relays according to the commands
     end
 ```
 
 - **The relay is off after start.** The pin gets the "off" level before it becomes an output; only a cloud command switches it on.
 - **No registration, no state exchange.** A failed registration is retried every 30 s; until then only the controller page works.
-- **Registration happens once per start** (and again after 404/409). The default on time and the OTA offer therefore arrive at start.
+- **Registration happens once per start** (and again after 404/409). The default on time therefore arrives at start. The OTA offer (only on an "Aktualizuj" request from the application) is in the registration reply and, from version 1.1.0, in every state exchange reply.
 
 ## Commands from the cloud
 
@@ -76,7 +76,7 @@ In every `loop()` pass: web pages, WebSocket and the relay countdown. Every 1 s 
 4. Not registered in this start → `POST devices/register` (every 30 s until it succeeds); not registered — done.
 5. Unsent local changes → `PUT switch/mode` (every 5 s or immediately).
 6. State exchange every 5 s or immediately after a change.
-7. OTA: once per start, when the cloud replies, all relays are off and there are no unsent changes.
+7. OTA: when there is an offer (a request from the application), the cloud replies, all relays are off and there are no unsent changes; one attempt per request.
 
 There is one persistent HTTPS connection (keep-alive), request timeout 4 s, registration 8 s. A failed state exchange is not retried — a new one follows in 5 s.
 
@@ -99,18 +99,20 @@ The `Wlacznik-setup` AP is open by default (password shorter than 8 characters o
 
 ```mermaid
 flowchart TD
-    R["registration at start:<br/>settings.firmware {version, url, sha256}"] --> C{"cloud replies,<br/>relays off,<br/>no local changes?"}
+    A["“Aktualizuj” in the application<br/>(firmwareUpdate request)"] --> R["registration or state exchange:<br/>firmware {version, url, sha256, request}"]
+    R --> C{"cloud replies,<br/>relays off,<br/>no local changes?"}
     C -- no --> W["waits (checks every 1 s)"] --> C
-    C -- yes --> V{"version ≠ FW_VERSION<br/>and ≠ ota_tried?"}
-    V -- no --> X["done until the next start"]
+    C -- yes --> V{"version ≠ FW_VERSION,<br/>key version#request ≠ ota_tried<br/>and not tried in this start?"}
+    V -- no --> X["done until a new request"]
     V -- yes --> D["download into the inactive partition,<br/>SHA-256 on the fly"]
-    D -- "checksum matches" --> B["ota_tried = version, restart"]
+    D -- "checksum matches" --> B["ota_tried = version#request, restart"]
     D -- "error" --> X
 ```
 
+- **The offer comes only on request.** The cloud sends `firmware` only when "Aktualizuj" (update) was clicked in the application (Settings, "Sterownik" card) and the request was not cancelled. The request disappears by itself when the controller registers with the offered version.
+- **From 1.1.0 without a restart:** the offer is also in every `POST /switch/state` reply, so the update starts within seconds of the click (with the relays off). Version 1.0.3 reads the offer only at registration, so it needs a board restart.
 - The download blocks the loop for a dozen or so seconds and the restart switches the relays off, so the controller waits until all relays are off. After the restart the cloud restores the state.
-- There is one attempt per start. A failed download and a new offer uploaded in the application wait for the next controller start.
-- `ota_tried` in NVS prevents a loop when someone uploads an image without raising `FW_VERSION`.
+- **One attempt per request.** The key `version#request` (`otaKey()`) is kept in RAM after an attempt and in NVS (`ota_tried`) after a download. A failed download waits for another "Aktualizuj" (a new request = a new attempt). `ota_tried` also prevents a loop when someone uploads an image without raising `FW_VERSION`.
 
 ## Settings
 

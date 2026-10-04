@@ -62,7 +62,7 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 
 - Punkt dostępowy `Piec-setup` pod adresem `10.11.18.1` (hydrofor ma `10.11.16.1`, włącznik `10.11.17.1`), domyślnie otwarty (`AP_PASSWORD` krótsze niż 8 znaków = bez hasła). Działa po starcie razem z Wi-Fi (AP+STA), wyłącza się po 1 min połączenia z siecią domową i wraca po 1 min bez Wi-Fi.
 - Wi-Fi ustawia się na stronie `/install`; zapis trafia do NVS i ma pierwszeństwo przed `WIFI_SSID`/`WIFI_PASSWORD` z `secrets.h`.
-- NVS: przestrzeń `pel` (`wifi_ssid`, `wifi_pass`, `root_id`, `poll_s`, `bus_inv`).
+- NVS: przestrzeń `pel` (`wifi_ssid`, `wifi_pass`, `root_id`, `poll_s`, `bus_inv`, `ota_tried` od 1.5.0).
 - **Moc nadajnika 8,5 dBm** (`WIFI_TX_POWER`, od 2026-10-03): ESP32-C3 SuperMini przy pełnej mocy często nie łączy się z siecią — przy kotle płytka przez wiele minut miała status 6; po obniżeniu mocy łączy się w ok. 2 s (2026-10-03, RSSI −74 dBm za ścianą). Moc jest ustawiana po każdej zmianie trybu Wi-Fi.
 - **Diagnostyka Wi-Fi:** na konsoli przyczyna rozłączenia (np. 201 = nie widać sieci, 15 = złe hasło), adres i RSSI po połączeniu; bez połączenia co minutę skan: czy sieć jest widoczna i z jakim sygnałem (też na stronie `/`).
 - **Samoczynny restart** (od 1.0.1; 2026-10-03 płytka raz zawisła bez restartu przy słabym Wi-Fi): watchdog zadania pętli i magistrali restartuje układ, gdy któreś stoi dłużej niż 30 s (`WATCHDOG_S`; najdłuższe zapytanie HTTP trwa 8 s). Bez sieci domowej sterownik co 2 min łączy się od nowa (`WIFI_RECONNECT_EVERY_MS`), a restartuje dopiero po 30 min (`WIFI_RESTART_AFTER_MS`) — tylko z zapisaną siecią, gdy nikt nie jest połączony z AP i nie trwa odczyt ani zmiana ustawień kotła. Do 2026-10-03 restart był po 10 min i przerwał pracę na magistrali (11:08:51, w trakcie sterowania ręcznego z panelu; przyczyną był brak Wi-Fi, nie pompa).
@@ -75,7 +75,7 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 | `/` (i każdy nieznany adres) | otwarty | odczyt kotła (stan, temperatury, paliwo, moc, wyjścia, wiek odczytu); diagnostyka magistrali: bajty, ramki (w tym `SensorData`), odrzucone, polaryzacja (normalna / odwrócona, „dobierany” przed zatwierdzeniem); ecoNET: stan (nasłuch / odpowiada / wstrzymany), odpowiedzi, echo, obce ramki, kolizje, ustawienia kotła `N/5` z linkiem „pobierz”; Wi-Fi i chmura (sieć, IP, RSSI, zgłoszenie, ostatnia wysyłka i jej kod HTTP, interwał). Odświeżane co 2 s z `/state.json` |
 | `/state.json` | otwarty | to samo jako JSON |
 | `/boiler-settings.json` | otwarty | surowe odpowiedzi regulatora z ustawieniami (`hex`, typ, wiek) — kopia na wypadek awarii |
-| `/install` | Basic Auth (`INSTALL_USER`/`INSTALL_PASSWORD` z `secrets.h`) | Wi-Fi (SSID, hasło: puste = bez zmian), wersja firmware i wgranie pliku `firmware.bin`, SN, Root ID, stan zgłoszenia |
+| `/install` | Basic Auth (`INSTALL_USER`/`INSTALL_PASSWORD` z `secrets.h`) | Wi-Fi (SSID, hasło: puste = bez zmian), wersja firmware i wgranie pliku `firmware.bin`, „Aktualizacja z chmury: <stan>” (od 1.5.0, po próbie OTA), SN, Root ID, stan zgłoszenia |
 | `POST /install/firmware` | Basic Auth | wgranie `firmware.bin` (formularz albo `curl`, niżej); po poprawnym pliku restart do nowej wersji |
 
 ## Chmura
@@ -87,7 +87,8 @@ Kontrakt jak w CLAUDE.md, punkt 5c (serwer i klient pieca bez zmian):
 - Nieudana wysyłka jest ponawiana po 60 s; 404 albo 409 kasuje Root ID i uruchamia zgłoszenie od nowa.
 - **Ustawienia regulatora** po każdym pełnym odczycie (start, `p`, po zmianie parametru): `POST pellet-boiler-pelux200/settings?deviceId=…&rootId=…` z `{ecomax_parameters, mixer_parameters, thermostat_parameters, schedules, regulator_data_schema}` (hex, jak `/boiler-settings.json`). Serwer pokazuje je w aplikacji w panelu „Ustawienia zaawansowane”. Błąd (także 404 od serwera bez tego endpointu) nie kasuje Root ID; ponowienie po 10 min.
 - Adres chmury: `https://chpc-web.onrender.com/api/` (`CLOUD_URL` w `firmware.hpp`, do podmiany flagą `-D PELLET_CLOUD_URL=...`). Certyfikat nie jest sprawdzany, jak w pozostałych sterownikach.
-- **Brak OTA z chmury** dla tego rodzaju. Nowa wersja: strona `/install` albo
+- **Aktualizacja z chmury (OTA, od 1.5.0), tylko na zlecenie.** Plik `.bin` wgrywa się na stronie firmware w aplikacji (lista sterowników → trybik na kafelku pieca, `/firmware/pellet-boiler-pelux200`), a aktualizację zleca przycisk „Aktualizuj” w Ustawieniach pieca (karta „Sterownik”; „Anuluj aktualizację” ją odwołuje). Sterownik co 15 s pyta `GET pellet-boiler-pelux200/commands/next`; przy zleceniu odpowiedź to `{firmware: {version, url, sha256, request}}` **zamiast** zlecenia parametru (zmiany parametrów czekają do końca aktualizacji). Pobranie startuje, gdy nie trwa zlecenie parametru ani odczyt ustawień kotła: HTTPS prosto do nieaktywnej partycji, SHA-256 liczone w locie, watchdog resetowany w trakcie, a `busTask` dalej obsługuje ecoNET. Po zgodnej sumie zapis `ota_tried` = `wersja#request` (`otaKey()` w `src/ota.hpp`) i restart; zgłoszenie z nową wersją kasuje zlecenie w chmurze. Każde „Aktualizuj” to jedna próba (klucz pamiętany też w RAM); nieudaną ponawia się kolejnym kliknięciem. Stan próby: „Aktualizacja z chmury: …” na `/install`.
+- **Wersja 1.4.0 i starsze nie mają OTA**: 1.5.0 trzeba wgrać raz przez USB albo stronę `/install`:
 
   ```sh
   curl -u admin:<hasło> -F "firmware=@.pio/build/esp32c3/firmware.bin" http://<IP>/install/firmware
@@ -98,7 +99,7 @@ Kontrakt jak w CLAUDE.md, punkt 5c (serwer i klient pieca bez zmian):
 ```sh
 cp src/secrets.example.h src/secrets.h   # nazwa i hasło AP, login /install, domyślne Wi-Fi
 pio run                                  # build (esp32c3)
-pio test -e native                       # testy na PC (35, w tym 7 na nagraniach z kotła)
+pio test -e native                       # testy na PC (42, w tym 8 na nagraniach z kotła)
 pio device monitor                       # konsola (USB CDC, 115200)
 ```
 
@@ -109,7 +110,7 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
   write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin
 ```
 
-(`esptool.py` jest w `~/.platformio/packages/tool-esptoolpy/`.) Kolejne wersje: `/install` albo `curl` (wyżej). Wgrana przez USB sama aplikacja (`0x10000`) po wcześniejszym OTA nie startuje, bo `otadata` wskazuje drugą partycję — wtedy razem z nią `0xe000 boot_app0.bin`.
+(`esptool.py` jest w `~/.platformio/packages/tool-esptoolpy/`.) Kolejne wersje: „Aktualizuj” w aplikacji (od 1.5.0), `/install` albo `curl` (wyżej). Wgrana przez USB sama aplikacja (`0x10000`) po wcześniejszym OTA nie startuje, bo `otadata` wskazuje drugą partycję — wtedy razem z nią `0xe000 boot_app0.bin`.
 
 ## Testy
 
@@ -118,6 +119,7 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
 | [test_ecomax_frame](test/test_ecomax_frame/test_main.cpp) (11, przeniesione z `co`) | parser ramek ecoMAX (BCC, za duża ramka, ramka urwana, resynchronizacja, dwie ramki pod rząd), dekoder `SensorData` z tabelą wersji ramek na początku (poziom paliwa > 100, krótki ładunek, inny nadawca lub typ) i JSON z samymi odczytanymi polami; mieszacze za modułami, lambdą i termostatami (ramka zbudowana według PyPlumIO) i ich pola w JSON |
 | [test_logic](test/test_logic/test_main.cpp) (4) | polaryzacja: odwrócenie po bajtach bez ramek, brak zmiany przy ciszy, zatwierdzenie ramką i dłuższe trzymanie, ramki odnawiające okno |
 | [test_econet](test/test_econet/test_main.cpp) (14) | DeviceAvailable i ProgramVersion, brak odpowiedzi na cudze zapytania, osłona `0x56` (nasłuch, echo odpowiedzi i zapytania, obcy ecoNET, kolizje), zapytania o ustawienia, odpowiedź do `0x00`, ponowienia, zmiana parametru (ramka, potwierdzenie, ponowienia) |
+| [test_ota](test/test_ota/test_main.cpp) (3) | oferta OTA z odpowiedzi `commands/next` (tylko przy zleceniu, odrzucenie bez `https://` i złej sumy), klucz `wersja#request`, jedna próba na zlecenie i kolejna po nowym „Aktualizuj” |
 | [test_capture](test/test_capture/test_main.cpp) (8) | **nagrania z kotła** [test/fixtures/](test/fixtures/): całość bez odrzuconych ramek, 128 `SensorData` (stan 0, zadane 67 / 55 °C, mieszacze z dekodera zgodne z bajtami 156–170), ruchy zaworów obu mieszaczy z panelu (nigdy oba kierunki naraz), zapytania o ustawienia bajt w bajt jak nagrane i przyjęte odpowiedzi, zakres parametru z odczytu, odpowiedzi na CheckDevice, brak obcego ecoNET; sterowanie ręczne z panelu (stan 9, pompa mieszacza 1 w `SensorData`); zmiana CWU 55 → 50 (ramka jak nagrana, `0xB3`, nowa wartość w odczycie i w `SensorData`) |
 
 ### Bez kotła: nagranie i symulator
@@ -131,7 +133,8 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
 
 | Plik | Zawartość |
 |---|---|
-| `src/pellet.cpp` | magistrala w zadaniu `busTask` (UART1, GPIO21/20), odpowiedzi ecoNET i odczyt ustawień, polecenia konsoli, Wi-Fi i punkt dostępowy, zgłoszenie i wysyłka do chmury, strony `/`, `/state.json`, `/boiler-settings.json`, `/install`, `/install/firmware` |
+| `src/pellet.cpp` | magistrala w zadaniu `busTask` (UART1, GPIO21/20), odpowiedzi ecoNET i odczyt ustawień, polecenia konsoli, Wi-Fi i punkt dostępowy, zgłoszenie i wysyłka do chmury, zlecenia z aplikacji i pobieranie OTA, strony `/`, `/state.json`, `/boiler-settings.json`, `/install`, `/install/firmware` |
+| `src/ota.*` | oferta OTA z chmury: `parseOtaOffer`, `otaKey` (`wersja#request`), `shouldUpdate` (jak we włączniku) |
 | `src/firmware.hpp` | typ, wersja (`FW_VERSION`), nazwa, piny i prędkość magistrali, wiek odczytu, domyślny interwał, adres chmury |
 | `src/bus_polarity.*` | automatyczny wybór polaryzacji (bez zależności od Arduino) |
 | `src/econet.*` | ramki ecoNET (DeviceAvailable, ProgramVersion) i osłona adresu `0x56` (`EconetGuard`) |
@@ -147,5 +150,5 @@ esptool.py --chip esp32c3 --port COMx --baud 115200 --no-stub --before default_r
 - Format ramek, `SensorData` (z tabelą wersji ramek na początku) i odpowiedzi ecoNET sprawdzone na kotle 2026-10-03, ale **tylko przy kotle zatrzymanym** (stan 0): stany pracy, moc, wentylator, podajnik i alarmy z `SensorData` czekają na nagranie przy pracy.
 - Odczyt ustawień: nazwy parametrów według PyPlumIO dla ecoMAX P; grupa „nadmuch” ma wartości > 100 przy jednostce `%`; mieszacz 2 nie ma wartości w odpowiedzi; termostaty tylko surowo.
 - Wi-Fi przy kotle: do obniżenia mocy nadajnika (2026-10-03) płytka nie łączyła się z siecią; po zmianie łączy się, sygnał za ścianą ok. −74 dBm (słaby, ale wystarcza).
-- Brak OTA z chmury: aktualizacja tylko przez `/install` albo `curl`.
+- OTA z chmury dopiero od 1.5.0 (wcześniejsze wersje: `/install` albo `curl`); tylko na zlecenie „Aktualizuj” z aplikacji.
 - Wysyłka HTTP blokuje pętlę na kilka sekund; bufor UART (4 KB) gubi wtedy nadmiar bajtów, parser się resynchronizuje, a do chmury idzie ostatni poprawny odczyt.

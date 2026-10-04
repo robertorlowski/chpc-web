@@ -19,6 +19,8 @@ import {
   parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
+import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
+import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 
 // Odpowiedź niesie aktualny odstęp odpytywania: sterownik stosuje go od razu,
 // więc zmiana w aplikacji dociera bez ponownego zgłoszenia.
@@ -114,8 +116,12 @@ export async function getPelletBoilerPelux200Commands(req: Request, res: Respons
 }
 
 // GET /commands/next (sterownik, sam deviceId): {id, kind, mixer, index, value} albo {}.
+// Przy zleceniu „Aktualizuj” zamiast zlecenia parametru idzie {firmware: {version, url, sha256, request}}
+// (core/services/firmware.service.ts); zlecenia parametrów czekają do końca aktualizacji.
 export async function getPelletBoilerPelux200NextCommand(req: Request, res: Response) {
   try {
+    const firmware = await firmwareOfferForRoot(req.deviceRootId as string, serverBaseUrl(req));
+    if (firmware) return res.status(200).json({ firmware });
     const command = await takeNextCommand(req.deviceRootId as string);
     if (!command) return res.status(200).json({});
     return res.status(200).json({

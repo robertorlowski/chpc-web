@@ -93,7 +93,7 @@ Formularz w aplikacji przyjmuje minuty (0,5–60) i zapisuje `round(minuty × 60
 |---|---|---|
 | **Kocioł** (`/`) | `GET /pellet-boiler-pelux200/last`, `GET /device/properties` (interwał do oceny aktualności) | ostatni odczyt co 30 s |
 | **Dane** (`/data`) | `GET /pellet-boiler-pelux200/list?date=YYYY-MM-DD`, CSV w przeglądarce | przy wejściu i zmianie daty |
-| **Ustawienia** (`/settings`) | `GET/PUT /device/properties`; sekcja „Sterownik” z `DeviceEditModal` | przy wejściu |
+| **Ustawienia** (`/settings`) | `GET/PUT /device/properties`; sekcja „Sterownik” z `DeviceEditModal` i stanem firmware: `GET /devices`, `GET /firmware/pellet-boiler-pelux200`, `POST`/`DELETE /devices/:rootId/firmware-update` („Aktualizuj” / „Anuluj aktualizację”; sterownik od 1.5.0 dostaje ofertę w odpowiedzi `commands/next` w ciągu ok. 15 s) | przy wejściu; sekcja „Sterownik” co 15 s, gdy czeka zlecenie aktualizacji |
 
 - **Aktualność danych.** Odczyt jest nieaktualny, gdy jest starszy niż `3 × poll_interval_seconds` (albo nie ma czasu): wtedy widok pokazuje „Dane nieaktualne”. Domyślny interwał do oceny to 300 s, dopóki właściwości nie zostaną wczytane.
 - **Stan alarmu.** Tytuł widoku Kocioł jest czerwony, gdy `alarm` jest `true` albo `state` = 8 (Alarm).

@@ -69,7 +69,7 @@ Deployment state: since 2026-10-03 one switch with firmware 1.0.3 runs in produc
 
 - Without the cloud the schedule does not work (the controller does not know it); the countdown of the current activation and the controller page do.
 - After a restart the relay is off until the first cloud reply.
-- New settings from the cloud (the default on time on the controller page) and the update offer arrive with the registration, i.e. **at controller start**.
+- New settings from the cloud (the default on time on the controller page) arrive with the registration, i.e. **at controller start**. A firmware update never comes by itself: only after „Aktualizuj” in the app Settings; from version 1.1.0 the controller downloads it within seconds (with the relays off), without a restart.
 - The controller pages are plain HTTP, the main page and `POST /relay` have no login, and the controller network is open by default after start: during that time anyone in range can switch the relay.
 - The controller only knows that it **set the relay pin** — it does not measure the load current.
 

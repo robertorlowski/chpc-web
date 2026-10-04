@@ -41,7 +41,7 @@ The user interface is in Polish; the screenshots show it as is. They were taken 
 
 *The year chart with "Pokaż odczyty z wodomierza" on (screenshot from before 1.3.0): water meter consumption and water "z czasu pompy" (from pump time) for each month, and below the chart the flow used to compute it. The former suggested `k` factor no longer exists.*
 
-**Settings** has the "Kompresor" card (compressor run time), the "Przepływ pompy" card (the flow in l/min and how many periods between water meter readings it was computed from, or instructions on how to get it) and the "Sterownik" card.
+**Settings** has the "Kompresor" card (compressor run time), the "Przepływ pompy" card (the flow in l/min and how many periods between water meter readings it was computed from, or instructions on how to get it) and the "Sterownik" card (among others the firmware version and the "Aktualizuj" (update) button when a newer version exists).
 
 ## First start
 

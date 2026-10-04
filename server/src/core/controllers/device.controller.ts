@@ -10,7 +10,10 @@ import {
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
 import { getDeviceInfo } from '../services/device-info.service';
-import { getFirmwareOffer } from '../services/firmware.service';
+import {
+  FirmwareError, cancelFirmwareUpdate, firmwareOfferForDevice, requestFirmwareUpdate,
+} from '../services/firmware.service';
+import { sendMessage } from '../websocket';
 import { serverBaseUrl } from './firmware.controller';
 
 // Kształt urządzenia w API; rootId to _id dokumentu w kolekcji devices.
@@ -22,6 +25,7 @@ const toPublicDevice = (device: DeviceDocument) => ({
   isDefault: device.isDefault ?? false,
   firmwareVersion: device.firmwareVersion,
   firmwareSeenAt: device.firmwareSeenAt,
+  firmwareUpdate: device.firmwareUpdate ?? undefined,
   ipAddress: device.ipAddress,
   ipSeenAt: device.ipSeenAt,
 });
@@ -118,9 +122,9 @@ export async function registerDeviceEntry(
     );
     const typeModule = getDeviceTypeModule(device.deviceType);
     await typeModule.onRegister?.(String(device._id), device.deviceId, req.body as Record<string, unknown>);
-    // oferta firmware (OTA) tylko dla rodzajów, które ją obsługują i gdy jest włączona
+    // oferta firmware (OTA) tylko przy zleceniu „Aktualizuj”; zgłoszenie z oferowaną wersją je kasuje
     const firmware = typeModule.firmwareUpdates
-      ? await getFirmwareOffer(device.deviceType, serverBaseUrl(req))
+      ? await firmwareOfferForDevice(device, serverBaseUrl(req))
       : undefined;
     const settings = controllerSettings(device) as object | undefined;
     return res.status(created ? 201 : 200).json({
@@ -129,6 +133,34 @@ export async function registerDeviceEntry(
     });
   } catch (error) {
     return res.status(400).json({ message: String(error) });
+  }
+}
+
+const firmwareError = (res: Response, error: unknown) =>
+  error instanceof FirmwareError
+    ? res.status(error.status).json({ message: error.message })
+    : res.status(400).json({ message: String(error) });
+
+// POST /devices/:rootId/firmware-update — przycisk „Aktualizuj”: zlecenie aktualizacji do oferowanej
+// wersji. Sterownik dostaje ofertę w najbliższej odpowiedzi chmury (piec co 15 s, włącznik co 5 s,
+// hydrofor przy następnym uruchomieniu pompy); WebSocket budzi włącznik od razu.
+export async function requestDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
+  try {
+    const firmwareUpdate = await requestFirmwareUpdate(req.params.rootId);
+    void sendMessage('operation', req.params.rootId);
+    return res.status(200).json(firmwareUpdate);
+  } catch (error) {
+    return firmwareError(res, error);
+  }
+}
+
+// DELETE /devices/:rootId/firmware-update — odwołanie zlecenia.
+export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
+  try {
+    await cancelFirmwareUpdate(req.params.rootId);
+    return res.status(200).json({});
+  } catch (error) {
+    return firmwareError(res, error);
   }
 }
 

@@ -72,16 +72,16 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 | `src/firmware.hpp` | `DEVICE_TYPE`, `FW_VERSION`, `DEVICE_NAME`, `RELAY_PINS`, `RELAY_ACTIVE_HIGH`, `DEFAULT_ON_MINUTES`, `MAX_ON_MINUTES`, `CLOUD_URL` (z makra `SWITCH_CLOUD_URL`) |
 | `src/relays.*` | `RelayBank`: `applyCloud` (polecenie chmury, pomijane przy `pending`), `applyLocal` (zmiana ze strony), `update` (koniec odliczania), `pendingMinutes`, `confirmPending` (po numerze zmiany) |
 | `src/protocol.*` | `buildStateReport`, `applyStateResponse`, `buildModeBody`, `parseDefaultMinutes` |
-| `src/ota.*` | `parseOtaOffer`, `shouldUpdate` (jak w hydroforze) |
+| `src/ota.*` | `parseOtaOffer` (`{version, url, sha256, request}`), `otaKey` (`wersja#request`), `shouldUpdate` (jedna próba na zlecenie) |
 | `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_SSID` („Wlacznik-setup”), `AP_PASSWORD` (puste = AP otwarty), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
-| `test/test_logic/test_main.cpp` | 11 testów `native` |
+| `test/test_logic/test_main.cpp` | 12 testów `native` |
 
 ## Stałe
 
 | Stała | Wartość | Miejsce |
 |---|---|---|
 | `DEVICE_TYPE` / `DEVICE_NAME` | `switch` / „Włącznik” | `firmware.hpp` |
-| `FW_VERSION` | `1.0.3` | `firmware.hpp` |
+| `FW_VERSION` | `1.1.0` | `firmware.hpp` |
 | `RELAY_PINS` / `RELAY_ACTIVE_HIGH` | `{2}` / `true` | `firmware.hpp` |
 | `DEFAULT_ON_MINUTES` / `MAX_ON_MINUTES` | 30 / 10080 | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (`esp32dev-local`: `http://192.168.55.9:4001/api/`) | `firmware.hpp`, `platformio.ini` |
@@ -101,7 +101,7 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 | `wifi_ssid`, `wifi_pass` | Wi-Fi z `/install` (puste = wartości z `secrets.h`) |
 | `root_id` | Root ID z odpowiedzi na zgłoszenie (kasowany przy 404/409) |
 | `def_min` | domyślny czas „Włącz” z chmury [min] |
-| `ota_tried` | wersja, po której pobraniu sterownik ostatnio się zrestartował (ochrona przed pętlą aktualizacji) |
+| `ota_tried` | klucz oferty `wersja#request` (`otaKey()`), po której pobraniu sterownik ostatnio się zrestartował (jedna próba na zlecenie, ochrona przed pętlą aktualizacji; do 1.0.3 sama wersja) |
 
 Stan przekaźników nie jest zapisywany: po starcie są wyłączone, a stan przywraca chmura.
 
@@ -109,8 +109,8 @@ Stan przekaźników nie jest zapisywany: po starcie są wyłączone, a stan przy
 
 | Żądanie | Treść | Odpowiedź |
 |---|---|---|
-| `POST devices/register` | `{deviceId: SN, deviceType: "switch", name: "Włącznik", version, ip, relays}` | `{rootId, settings: {default_on_minutes, firmware?: {version, url, sha256}}}` |
-| `POST switch/state?deviceId=&rootId=` | `{uptimeS, relays: [{on, changedS}]}` | `{relays: [{on, offAfterS?, mode}]}`; 404 nieznany SN, 409 cudzy Root ID |
+| `POST devices/register` | `{deviceId: SN, deviceType: "switch", name: "Włącznik", version, ip, relays}` | `{rootId, settings: {default_on_minutes, firmware?: {version, url, sha256, request}}}`; `firmware` tylko przy zleceniu „Aktualizuj” |
+| `POST switch/state?deviceId=&rootId=` | `{uptimeS, relays: [{on, changedS}]}` | `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware` jak wyżej, czytane od 1.1.0); 404 nieznany SN, 409 cudzy Root ID |
 | `PUT switch/mode?deviceId=&rootId=` | `{relay, mode, minutes?, source: "controller"}` (`minutes` tylko dla `timer`) | przekaźnik; 400 zmiana nie do przyjęcia (nie ponawiana) |
 | WebSocket `/ws?rootId=` | — | `{"type":"operation"}` → zgłoszenie stanu od razu; inne komunikaty pomijane |
 
@@ -153,24 +153,25 @@ esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_r
 curl -u <login>:<hasło z secrets.h> -F "firmware=@.pio/build/esp32dev/firmware.bin" http://<IP sterownika>/install/firmware
 ```
 
-albo formularz „Firmware” na stronie `/install`, albo oferta OTA z aplikacji (niżej).
+albo formularz „Firmware” na stronie `/install`, albo „Aktualizuj” w aplikacji (OTA, niżej).
 
 ## Aktualizacja przez sieć (OTA)
 
 Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`app0`/`app1` po 1,28 MB; obraz zajmuje ok. 77 %).
 
-1. Plik `.bin` jest w bazie serwera (`firmware_images`, `firmware_offers`; oferowana wersja i jedna poprzednia). Odpowiedź na zgłoszenie niesie `settings.firmware: {version, url, sha256}` z `url` = `<serwer>/api/firmware/switch/<wersja>.bin`.
-2. Sterownik przyjmuje ofertę, gdy adres zaczyna się od `https://`, wersja jest niepusta, a `sha256` ma 64 znaki hex.
-3. Pobranie startuje raz na start, gdy: zgłoszenie się udało, ostatnia wymiana stanu udała się w ciągu 30 s, **wszystkie przekaźniki są wyłączone**, nie ma niewysłanych zmian lokalnych i wersja z oferty różni się od `FW_VERSION` oraz od `ota_tried`. Przy włączonym przekaźniku sterownik czeka, aż się wyłączy.
-4. Obraz idzie prosto do nieaktywnej partycji z SHA-256 liczonym w locie; aktywacja tylko przy zgodnej sumie. Potem zapis `ota_tried` i restart; stan przekaźników przywraca chmura.
+1. Plik `.bin` jest w bazie serwera (`firmware_images`, `firmware_offers`; oferowana wersja i jedna poprzednia). **Serwer nie wysyła oferty sam:** tylko gdy urządzenie ma zlecenie `devices.firmwareUpdate {version, requestedAt}`, utworzone przyciskiem „Aktualizuj” w Ustawieniach (karta „Sterownik”, `POST /api/devices/:rootId/firmware-update`) i odwoływane „Anuluj aktualizację” (`DELETE`). Przy wyłączonych aktualizacjach na stronie firmware zlecenia nie są doręczane. Zlecenie znika samo, gdy sterownik zgłosi się z oferowaną wersją.
+2. Oferta `{version, url, sha256, request}` (`url` = `<serwer>/api/firmware/switch/<wersja>.bin`, `request` = `requestedAt` w ms jako napis) jest w odpowiedzi na zgłoszenie (`settings.firmware`) i w każdej odpowiedzi na `POST switch/state` (`firmware`). Wersja 1.0.3 czyta ją tylko przy zgłoszeniu (potrzebny restart), od 1.1.0 także z wymiany stanu, więc aktualizacja startuje w ciągu kilku sekund.
+3. Sterownik przyjmuje ofertę, gdy adres zaczyna się od `https://`, wersja jest niepusta, a `sha256` ma 64 znaki hex.
+4. Pobranie startuje, gdy: zgłoszenie się udało, ostatnia wymiana stanu udała się w ciągu 30 s, **wszystkie przekaźniki są wyłączone**, nie ma niewysłanych zmian lokalnych, wersja z oferty różni się od `FW_VERSION`, a klucz `wersja#request` (`otaKey()`) od `ota_tried` i od klucza próbowanego w tym starcie (RAM). Przy włączonym przekaźniku sterownik czeka, aż się wyłączy.
+5. Obraz idzie prosto do nieaktywnej partycji z SHA-256 liczonym w locie; aktywacja tylko przy zgodnej sumie. Potem zapis klucza w `ota_tried` i restart; stan przekaźników przywraca chmura. Każde „Aktualizuj” daje jedną próbę; nieudaną ponawia się kolejnym kliknięciem (nowe zlecenie). Stan próby widać na `/install` („Aktualizacja z chmury: …”).
 
-**Wydanie nowej wersji:** podnieść `FW_VERSION` w `src/firmware.hpp`, `pio run -d devices/switch`, wgrać `.pio/build/esp32dev/firmware.bin` na stronie firmware w aplikacji (lista sterowników → trybik na kafelku włącznika, plus na belce „Aktualna wersja”, wersja taka jak `FW_VERSION` i opis) albo `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin "https://chpc-web.onrender.com/api/firmware/switch/<wersja>?description=<opis>"`. Sterownik pobierze obraz po najbliższym starcie (oferta przychodzi tylko w odpowiedzi na zgłoszenie), gdy przekaźnik będzie wyłączony.
+**Wydanie nowej wersji:** podnieść `FW_VERSION` w `src/firmware.hpp`, `pio run -d devices/switch`, wgrać `.pio/build/esp32dev/firmware.bin` na stronie firmware w aplikacji (lista sterowników → trybik na kafelku włącznika, plus na belce „Aktualna wersja”, wersja taka jak `FW_VERSION` i opis) albo `curl -X PUT -H "Content-Type: application/octet-stream" --data-binary @firmware.bin "https://chpc-web.onrender.com/api/firmware/switch/<wersja>?description=<opis>"`. Potem w Ustawieniach włącznika „Aktualizuj”; sterownik pobierze obraz, gdy przekaźnik będzie wyłączony.
 
 ## Budowanie, testy, środowiska
 
 ```bash
 cp devices/switch/src/secrets.example.h devices/switch/src/secrets.h   # raz, uzupełnić
-pio test -d devices/switch -e native            # 11 testów
+pio test -d devices/switch -e native            # 12 testów
 pio run  -d devices/switch                      # build esp32dev (Flash ok. 77 %, RAM ok. 15 %)
 pio run  -d devices/switch -e esp32dev-local    # build do testu z npm run local
 pio device monitor -d devices/switch            # konsola 115200 przez złącze P1
@@ -180,12 +181,12 @@ pio device monitor -d devices/switch            # konsola 115200 przez złącze 
 
 **Dziennik na konsoli.** Linie `[ms od startu] treść` na UART0 115200 (złącze P1): start (wersja, SN, Root ID, liczba przekaźników, adres chmury), AP, Wi-Fi, zgłoszenie z odpowiedzią i ofertą OTA, każda zmiana przekaźnika z przyczyną (chmura, strona sterownika, koniec czasu), zmiany lokalne wysłane do chmury, błędy HTTP, kroki OTA. Co 30 s linia `stan:` (Wi-Fi z RSSI, zgłoszenie, chmura, ostatni HTTP, AP, przekaźnik 1). Bufor nadawania 2 KB, więc dziennik nie opóźnia pętli.
 
-**Testy `native`** (`test/test_logic`): włączenie na czas z chmury wyłącza się samo; odświeżenie polecenia przedłuża odliczanie bez zmiany stanu; włączenie bez limitu; zmiana lokalna wygrywa z chmurą do potwierdzenia (także numer zmiany); timer lokalny i minuty do wysłania; „Harmonogram” lokalny wyłącza tylko bez chmury; JSON zgłoszenia stanu; stosowanie odpowiedzi; JSON `PUT switch/mode`; domyślny czas z `settings`; oferta OTA. **Wi-Fi, HTTP, WebSocket i strony nie mają testów automatycznych** — bez płytki służy symulator po stronie serwera: `node scripts/simulate-switch.mjs [--relays N] [--history]` przy `npm run local`.
+**Testy `native`** (`test/test_logic`): włączenie na czas z chmury wyłącza się samo; odświeżenie polecenia przedłuża odliczanie bez zmiany stanu; włączenie bez limitu; zmiana lokalna wygrywa z chmurą do potwierdzenia (także numer zmiany); timer lokalny i minuty do wysłania; „Harmonogram” lokalny wyłącza tylko bez chmury; JSON zgłoszenia stanu; stosowanie odpowiedzi; JSON `PUT switch/mode`; domyślny czas z `settings`; oferta OTA; jedna próba na zlecenie (`wersja#request`). **Wi-Fi, HTTP, WebSocket i strony nie mają testów automatycznych** — bez płytki służy symulator po stronie serwera: `node scripts/simulate-switch.mjs [--relays N] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
 - **Bezpieczeństwo:** AP po starcie domyślnie otwarty, strony po HTTP, `/` i `POST /relay` bez logowania — w zasięgu AP (pierwsza minuta po połączeniu z Wi-Fi albo po zaniku Wi-Fi) i w sieci domowej każdy może przełączyć przekaźnik.
-- **Zgłoszenie tylko przy starcie** (i po 404/409), nie po zmianie adresu IP jak w `co`: adres IP w aplikacji, domyślny czas na stronie sterownika i oferta OTA odświeżają się przy restarcie. Płytka nie ma przycisku RST; restart = odłączenie zasilania albo wgranie firmware na `/install`.
+- **Zgłoszenie tylko przy starcie** (i po 404/409), nie po zmianie adresu IP jak w `co`: adres IP w aplikacji i domyślny czas na stronie sterownika odświeżają się przy restarcie (oferta OTA od 1.1.0 przychodzi też w wymianie stanu). Płytka nie ma przycisku RST; restart = odłączenie zasilania albo wgranie firmware na `/install`.
 - **Wgranie na `/install` nie czeka na wyłączenie przekaźnika** (w odróżnieniu od OTA z chmury): restart wyłącza go na kilka–kilkanaście sekund.
 - **Strona sterownika nie zna nazw przekaźników** z aplikacji — pokazuje „Przekaźnik N”.
 - **GPIO17** z testu pinów nie steruje przekaźnikiem tej płytki; nie wracać do niego bez pomiaru.

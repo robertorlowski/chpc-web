@@ -5,6 +5,8 @@ import { Request, Response } from 'express';
 import { sendMessage } from '../../../core/websocket';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { warsawDayBoundsUTC } from '../../../core/time';
+import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
+import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 import {
   listActivations, listRelays, parseStateReport, relayCount, renameRelay, reportState, setRelayMode,
 } from '../services/switch.service';
@@ -21,7 +23,8 @@ const handleError = (res: Response, error: unknown) => {
   return res.status(500).json({ message: String(error) });
 };
 
-// POST /switch/state {uptimeS?, relays: [{on, changedS}]} → {relays: [{on, offAfterS?}]}
+// POST /switch/state {uptimeS?, relays: [{on, changedS}]} → {relays: [{on, offAfterS?}], firmware?}
+// firmware: oferta OTA tylko przy zleceniu „Aktualizuj” z aplikacji (core/services/firmware.service.ts).
 export async function postSwitchState(req: Request, res: Response) {
   const report = parseStateReport(req.body);
   if (!report) return res.status(400).json({ message: 'Nieprawidłowy stan przekaźników.' });
@@ -30,7 +33,8 @@ export async function postSwitchState(req: Request, res: Response) {
     const { deviceId } = await getDeviceInfo(rootId);
     const { relays, changed } = await reportState(rootId, deviceId, report);
     if (changed) void sendMessage('update', rootId);
-    return res.status(200).json({ relays });
+    const firmware = await firmwareOfferForRoot(rootId, serverBaseUrl(req));
+    return res.status(200).json(firmware ? { relays, firmware } : { relays });
   } catch (error) {
     return handleError(res, error);
   }

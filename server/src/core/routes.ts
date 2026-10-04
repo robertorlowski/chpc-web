@@ -2,7 +2,10 @@
 // i routery modułów. Pełna lista endpointów: CLAUDE.md, punkt 8.
 import express from 'express'
 
-import { addDevice, getDevices, getProperties, registerDeviceEntry, updateDefaultDevice, updateDevice, updateProperties } from './controllers/device.controller'
+import {
+  addDevice, cancelDeviceFirmwareUpdate, getDevices, getProperties, registerDeviceEntry, requestDeviceFirmwareUpdate,
+  updateDefaultDevice, updateDevice, updateProperties,
+} from './controllers/device.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
@@ -21,6 +24,9 @@ router.post('/devices', addDevice)
 router.post('/devices/register', registerDeviceEntry)
 router.put('/devices/:rootId', updateDevice)
 router.put('/devices/:rootId/default', updateDefaultDevice)
+// przycisk „Aktualizuj” w Ustawieniach sterownika: zlecenie aktualizacji firmware i jego odwołanie
+router.post('/devices/:rootId/firmware-update', requestDeviceFirmwareUpdate)
+router.delete('/devices/:rootId/firmware-update', cancelDeviceFirmwareUpdate)
 router.get('/device/properties', getProperties)
 router.put('/device/properties', updateProperties)
 

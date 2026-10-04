@@ -41,7 +41,7 @@ Zrzuty ekranu pochodzą sprzed wersji 1.3.0, gdy wodę szacowano z objętości z
 
 *Wykres roku z włączonym „Pokaż odczyty z wodomierza” (zrzut sprzed wersji 1.3.0): w każdym miesiącu zużycie z wodomierza i woda „z czasu pompy”, a pod wykresem przepływ, którym ją policzono. Dawny sugerowany współczynnik `k` nie istnieje.*
 
-**Ustawienia** mają kartę „Kompresor” (czas pracy kompresora), kartę „Przepływ pompy” (wartość w l/min i z ilu okresów między odczytami wodomierza ją policzono albo instrukcja, jak ją uzyskać) i kartę „Sterownik”.
+**Ustawienia** mają kartę „Kompresor” (czas pracy kompresora), kartę „Przepływ pompy” (wartość w l/min i z ilu okresów między odczytami wodomierza ją policzono albo instrukcja, jak ją uzyskać) i kartę „Sterownik” (m.in. wersja firmware i przycisk „Aktualizuj”, gdy jest nowsza wersja).
 
 ## Pierwsze uruchomienie
 

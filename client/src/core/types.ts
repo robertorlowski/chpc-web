@@ -55,11 +55,15 @@ export type Device = {
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
   firmwareSeenAt?: string;
+  // zlecenie „Aktualizuj” czekające na sterownik; znika, gdy sterownik zgłosi oferowaną wersję
+  firmwareUpdate?: FirmwareUpdateRequest;
   // adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia i czas zgłoszenia (ISO)
   ipAddress?: string;
   ipSeenAt?: string;
   properties?: DeviceProperties;
 };
+
+export type FirmwareUpdateRequest = { version: string; requestedAt: string };
 
 // Stan firmware rodzaju sterownika (GET /api/firmware/:rodzaj): oferta i pliki w bazie
 // (bieżący i jeden poprzedni).
@@ -97,6 +101,8 @@ export type DeviceTypeView = {
   label?: string;
   /** sterownik aktualizuje firmware przez sieć: kafelek ma trybik prowadzący do /firmware/:deviceType */
   firmwareUpdates?: boolean;
+  /** kiedy sterownik pobierze firmware po „Aktualizuj” (podpowiedź w karcie „Sterownik”) */
+  firmwareUpdateHint?: string;
   views: DeviceView[];
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];

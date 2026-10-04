@@ -94,7 +94,7 @@ sequenceDiagram
     U->>S: PUT /device/properties (the whole properties)
     Note over C: next pump run
     C->>S: POST /devices/register
-    S-->>C: {rootId, settings: {compressor_seconds, firmware?}}
+    S-->>C: {rootId, settings: {compressor_seconds, firmware?}} (firmware only with an "Aktualizuj" request)
     C->>C: save in NVS (compressor time skipped while a change from /install is pending)
     Note over C: time changed on the controller's /install page
     C->>S: PUT /water-pressure-tank/settings {compressor_seconds} (every 10 s until it succeeds)
@@ -109,4 +109,4 @@ sequenceDiagram
 | **Data → pump runs** | `GET /water-pressure-tank/runs?from=&to=` (month), CSV built in the browser | on month change |
 | **Data → water meter readings** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | after a change |
 | **Chart** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (water bars, pump time without a flow); year with meter: `GET /water-pressure-tank/meter/summary?year=` | on period change |
-| **Settings** | `GET/PUT /device/properties` (compressor time, validation in the browser), `GET /water-pressure-tank/flow` | on entry |
+| **Settings** | `GET/PUT /device/properties` (compressor time, validation in the browser), `GET /water-pressure-tank/flow`; "Sterownik" card: `GET /devices`, `GET /firmware/water-pressure-tank`, `POST`/`DELETE /devices/:rootId/firmware-update` ("Aktualizuj" / "Anuluj aktualizację") | on entry; the "Sterownik" card every 15 s while an update request is pending |

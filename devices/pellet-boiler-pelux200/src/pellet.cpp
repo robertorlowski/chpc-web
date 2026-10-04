@@ -11,6 +11,8 @@
 // kopia na wypadek awarii regulatora. Ustawień nie zapisuje.
 // Kontrakt z chmurą: POST devices/register (rootId, settings.poll_interval_seconds),
 // POST pellet-boiler-pelux200/add (odpowiedź {poll_interval_seconds}). NVS: przestrzeń „pel”.
+// Od 1.5.0 aktualizacja z chmury (OTA) na zlecenie z aplikacji: oferta w odpowiedzi na
+// GET commands/next (ota.hpp), pobieranie z kontrolą SHA-256, gdy nie trwa zapis parametru.
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
 // (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
 // wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
@@ -24,12 +26,14 @@
 #include <WiFiClientSecure.h>
 #include <Update.h>
 #include <esp_mac.h>
+#include <mbedtls/sha256.h>
 
 #include <boiler_settings.hpp>
 #include <bus_polarity.hpp>
 #include <ecomax_frame.hpp>
 #include <econet.hpp>
 #include <firmware.hpp>
+#include <ota.hpp>
 #include <pellet_telemetry.hpp>
 #include <secrets.h>
 
@@ -41,6 +45,8 @@ constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_ROOT_ID = "root_id";
 constexpr const char *KEY_POLL_SECONDS = "poll_s";
 constexpr const char *KEY_INVERTED = "bus_inv";
+// klucz oferty OTA (wersja#zlecenie, ota.hpp), po której pobraniu sterownik się zrestartował
+constexpr const char *KEY_OTA_TRIED = "ota_tried";
 
 constexpr uint32_t TICK_MS = 1000;
 constexpr uint32_t REGISTER_RETRY_MS = 30000;
@@ -50,6 +56,7 @@ constexpr uint32_t AP_OFF_AFTER_MS = 60000;
 constexpr uint32_t AP_ON_AFTER_MS = 60000;
 constexpr uint16_t HTTP_TIMEOUT_MS = 5000;
 constexpr uint16_t REGISTER_TIMEOUT_MS = 8000;
+constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 constexpr uint32_t STATUS_LOG_MS = 30000;
 // pętla stoi dłużej (najdłuższe zapytanie HTTP to 8 s) = zawieszenie, restart układu
 constexpr uint32_t WATCHDOG_S = 30;
@@ -740,6 +747,11 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
 constexpr uint32_t CLOUD_COMMAND_POLL_MS = 15000;
 constexpr uint32_t CLOUD_COMMAND_TIMEOUT_MS = 120000;
 uint32_t lastCommandPollMs = 0;
+// oferta OTA z ostatniej odpowiedzi commands/next i klucz próbowany w tym uruchomieniu
+OtaOffer otaOffer;
+bool otaOfferReceived = false;
+std::string otaAttemptedKey;
+String otaStatus;
 uint32_t cloudCommandAtMs = 0;
 String cloudCommandId;
 
@@ -786,6 +798,13 @@ void pollCloudCommand(uint32_t nowMs)
   if (!get(requestUrl("pellet-boiler-pelux200/commands/next"), response)) return;
   JsonDocument document;
   if (deserializeJson(document, response)) return;
+  // zlecenie „Aktualizuj”: oferta zamiast zlecenia parametru (tryFirmwareUpdate); jej brak = zlecenia nie ma
+  const bool hadOffer = otaOfferReceived;
+  otaOfferReceived = parseOtaOffer(document.as<JsonVariantConst>(), otaOffer);
+  if (otaOfferReceived) {
+    if (!hadOffer) logf("OTA: zlecona wersja %s", otaOffer.version.c_str());
+    return;
+  }
   const char *id = document["id"] | "";
   if (!*id) return;
   const String kind = document["kind"] | "";
@@ -811,6 +830,101 @@ void pollCloudCommand(uint32_t nowMs)
   parameterSetRequested = true;
   logf("zlecenie z aplikacji: %s → %d, czekam na okno ecoNET",
     parameterName(parameterSetMixer, parameterSetIndex).c_str(), value);
+}
+
+// Pobiera obraz z oferty do nieaktywnej partycji OTA, licząc SHA-256 w locie; obraz jest aktywowany
+// dopiero po zgodnej sumie. Blokuje loop() (kilkanaście sekund, watchdog resetowany przy każdej
+// porcji); magistralę dalej obsługuje busTask, więc regulator nie traci ecoNET.
+void restartWithReason(const char *reason);
+
+bool downloadFirmware(const OtaOffer &offer)
+{
+  logf("OTA: pobieram %s", offer.url.c_str());
+  secureClient.stop();
+  WiFiClientSecure client;
+  client.setInsecure();  // integralność daje SHA-256 z odpowiedzi chmury
+  HTTPClient download;
+  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  download.setConnectTimeout(OTA_TIMEOUT_MS);
+  download.setTimeout(OTA_TIMEOUT_MS);
+  if (!download.begin(client, offer.url.c_str())) return false;
+  esp_task_wdt_reset();
+  const int status = download.GET();
+  const int total = download.getSize();
+  if (status != 200 || total <= 0 || !Update.begin(total)) {
+    otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    logf("OTA: HTTP %d, rozmiar %d", status, total);
+    download.end();
+    return false;
+  }
+
+  mbedtls_sha256_context sha;
+  mbedtls_sha256_init(&sha);
+  mbedtls_sha256_starts(&sha, 0);
+  WiFiClient *stream = download.getStreamPtr();
+  uint8_t buffer[1024];
+  int remaining = total;
+  uint32_t lastDataMs = millis();
+  bool ok = true;
+  while (remaining > 0) {
+    esp_task_wdt_reset();
+    const size_t available = stream->available();
+    if (available == 0) {
+      if (!download.connected() || millis() - lastDataMs > OTA_TIMEOUT_MS) { ok = false; break; }
+      delay(1);
+      continue;
+    }
+    const size_t count = stream->readBytes(buffer, min(min(available, sizeof(buffer)), static_cast<size_t>(remaining)));
+    mbedtls_sha256_update(&sha, buffer, count);
+    if (Update.write(buffer, count) != count) { ok = false; break; }
+    remaining -= count;
+    lastDataMs = millis();
+  }
+  download.end();
+
+  uint8_t digest[32];
+  mbedtls_sha256_finish(&sha, digest);
+  mbedtls_sha256_free(&sha);
+  char hex[65];
+  for (int index = 0; index < 32; index++) snprintf(hex + index * 2, 3, "%02x", digest[index]);
+
+  if (!ok || remaining != 0) {
+    Update.abort();
+    otaStatus = "przerwane pobieranie";
+    logf("OTA: przerwane, brakuje %d B", remaining);
+    return false;
+  }
+  if (offer.sha256 != hex) {
+    Update.abort();
+    otaStatus = "suma SHA-256 niezgodna";
+    logf("OTA: SHA-256 niezgodna (jest %s, oferta %s)", hex, offer.sha256.c_str());
+    return false;
+  }
+  if (!Update.end(true)) {
+    otaStatus = "obraz odrzucony";
+    return false;
+  }
+  logf("OTA: obraz %d B zapisany, SHA-256 zgodna", total);
+  return true;
+}
+
+// Aktualizacja na zlecenie z aplikacji, gdy nie trwa zlecenie parametru ani odczyt ustawień kotła
+// (restart przerwałby rozmowę z regulatorem w połowie). Jedna próba na zlecenie w uruchomieniu
+// (otaAttemptedKey) i jedna po pobraniu (ota_tried w NVS); ponowne „Aktualizuj” to nowe zlecenie.
+// Po restarcie zgłoszenie niesie nową wersję i serwer kasuje zlecenie.
+void tryFirmwareUpdate()
+{
+  if (!otaOfferReceived || cloudCommandActive || parameterSetRequested || parameterWriter.busy()
+    || boilerSettings.busy()) return;
+  const std::string key = otaKey(otaOffer);
+  if (key == otaAttemptedKey) return;
+  const String tried = preferences.getString(KEY_OTA_TRIED, "");
+  if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
+  otaAttemptedKey = key;
+  otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
+  if (!downloadFirmware(otaOffer)) return;
+  preferences.putString(KEY_OTA_TRIED, key.c_str());
+  restartWithReason(("aktualizacja z chmury do " + otaOffer.version).c_str());
 }
 
 // --- Wi-Fi i AP ---
@@ -1024,6 +1138,7 @@ void tick(uint32_t nowMs)
   if (static_cast<int32_t>(nowMs - nextPostMs) >= 0 && freshReading(reading)) sendReading(nowMs, reading);
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
   pollCloudCommand(nowMs);
+  tryFirmwareUpdate();
 }
 
 // --- strony WWW ---
@@ -1179,7 +1294,7 @@ bool authorized()
   return false;
 }
 
-// /install: Wi-Fi, ręczne wgranie firmware (OTA z chmury dla tego rodzaju nie ma), dane sterownika.
+// /install: Wi-Fi, ręczne wgranie firmware (z chmury: „Aktualizuj” w aplikacji), dane sterownika.
 void handleInstall()
 {
   if (!authorized()) return;
@@ -1210,6 +1325,7 @@ void handleInstall()
   page += "<p><button type=\"submit\">Zapisz</button></p></form>";
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
   page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
   page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
   page += "<p><button type=\"submit\">Wgraj</button></p></form>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";

@@ -63,6 +63,12 @@ const DeviceSchema = new Schema<DeviceDocument>(
     // wersja firmware ze zgłoszenia sterownika (strona /firmware); starsze sterowniki jej nie wysyłają
     firmwareVersion: { type: String, trim: true },
     firmwareSeenAt: { type: Date },
+    // zlecenie aktualizacji z aplikacji („Aktualizuj”): oferta idzie do sterownika tylko przy nim
+    // (core/services/firmware.service.ts); znika, gdy sterownik zgłosi oferowaną wersję
+    firmwareUpdate: {
+      type: new Schema({ version: { type: String, required: true }, requestedAt: { type: Date, required: true } }, { _id: false }),
+      default: undefined,
+    },
     // adres IPv4 sterownika w sieci lokalnej ze zgłoszenia (pole ip) i czas tego zgłoszenia
     ipAddress: { type: String, trim: true },
     ipSeenAt: { type: Date },

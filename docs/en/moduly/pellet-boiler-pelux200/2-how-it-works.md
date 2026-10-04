@@ -93,7 +93,7 @@ The application form takes minutes (0.5–60) and saves `round(minutes × 60)` s
 |---|---|---|
 | **Kocioł** (`/`) | `GET /pellet-boiler-pelux200/last`, `GET /device/properties` (the interval, to judge freshness) | last reading every 30 s |
 | **Dane** (`/data`) | `GET /pellet-boiler-pelux200/list?date=YYYY-MM-DD`, CSV in the browser | on entry and on date change |
-| **Ustawienia** (`/settings`) | `GET/PUT /device/properties`; the "Sterownik" section with `DeviceEditModal` | on entry |
+| **Ustawienia** (`/settings`) | `GET/PUT /device/properties`; the "Sterownik" section with `DeviceEditModal` and the firmware state: `GET /devices`, `GET /firmware/pellet-boiler-pelux200`, `POST`/`DELETE /devices/:rootId/firmware-update` ("Aktualizuj" / "Anuluj aktualizację"; from 1.5.0 the controller gets the offer in the `commands/next` reply within about 15 s) | on entry; the "Sterownik" section every 15 s while an update request is pending |
 
 - **Data freshness.** A reading is stale when it is older than `3 × poll_interval_seconds` (or has no time): the view then shows "Dane nieaktualne". The default interval used for the judgement is 300 s until the properties are loaded.
 - **Alarm state.** The title of the Kocioł view is red when `alarm` is `true` or `state` = 8 (Alarm).

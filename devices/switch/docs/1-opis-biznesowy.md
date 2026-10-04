@@ -69,7 +69,7 @@ Stan wdrożenia: od 2026-10-03 na produkcji działa jeden włącznik z firmware 
 
 - Bez chmury nie działa harmonogram (sterownik go nie zna); działa odliczanie bieżącego włączenia i strona sterownika.
 - Po restarcie przekaźnik jest wyłączony do pierwszej odpowiedzi chmury.
-- Nowe ustawienia z chmury (domyślny czas włączenia na stronie sterownika) i oferta aktualizacji docierają przy zgłoszeniu, czyli **przy starcie** sterownika.
+- Nowe ustawienia z chmury (domyślny czas włączenia na stronie sterownika) docierają przy zgłoszeniu, czyli **przy starcie** sterownika. Aktualizacja firmware nie przychodzi sama: dopiero po „Aktualizuj” w Ustawieniach aplikacji; od wersji 1.1.0 sterownik pobiera ją w kilka sekund (przy wyłączonych przekaźnikach), bez restartu.
 - Strony sterownika są po HTTP, strona główna i `POST /relay` bez logowania, a sieć sterownika po starcie jest domyślnie otwarta: w tym czasie każdy w zasięgu może przełączyć przekaźnik.
 - Sterownik wie tylko, że **ustawił pin przekaźnika** — nie mierzy prądu odbiornika.
 

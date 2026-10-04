@@ -1,8 +1,8 @@
 // Strona /firmware/:deviceType: firmware rodzaju sterownika (trybik na kafelku sterownika na liście
 // /devices). Aktualna (oferowana) wersja z opisem, poprzednie wersje z opisami (przywrócenie,
 // usunięcie) i dodanie nowej wersji w popupie (PUT /api/firmware/:rodzaj/:wersja). Oferta i pliki dotyczą
-// wszystkich sterowników danego rodzaju. Stan konkretnego sterownika (wersja, czeka na aktualizację)
-// jest w jego Ustawieniach (components/FirmwareStatus). Poza kontekstem urządzenia (bez rootId).
+// wszystkich sterowników danego rodzaju, ale sterownik pobiera plik dopiero po „Aktualizuj” w swoich
+// Ustawieniach (components/FirmwareStatus: wersja, stan, przycisk). Poza kontekstem urządzenia (bez rootId).
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FirmwareRequests } from '../../api';
@@ -134,7 +134,7 @@ export const Firmware: React.FC = () => {
     setBusy(true);
     const ok = await run(
       () => FirmwareRequests.upload(type, version.trim(), file, description.trim()),
-      'Plik zapisany i ustawiony jako oferowany. Sterowniki dostaną go przy następnym zgłoszeniu.',
+      'Plik zapisany i ustawiony jako oferowany. Sterownik pobierze go po „Aktualizuj” w jego Ustawieniach.',
     );
     setBusy(false);
     if (ok) closeAdd();
@@ -171,7 +171,9 @@ export const Firmware: React.FC = () => {
             <label className="firmware-switch">
               <input type="checkbox" checked={summary?.enabled ?? false}
                 onChange={(event) => run(() => FirmwareRequests.update(type, { enabled: event.currentTarget.checked }))} />
-              <span>{summary?.enabled ? 'Aktualizacje włączone' : 'Aktualizacje wyłączone: sterowniki niczego nie pobiorą'}</span>
+              <span>{summary?.enabled
+                ? 'Aktualizacje włączone: sterownik pobiera tę wersję po „Aktualizuj” w jego Ustawieniach'
+                : 'Aktualizacje wyłączone: „Aktualizuj” jest niedostępne, sterowniki niczego nie pobiorą'}</span>
             </label>
           </>
         ) : (

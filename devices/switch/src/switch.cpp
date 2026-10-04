@@ -7,7 +7,9 @@
 // i powrót do harmonogramu;
 // zmiana trafia do chmury przez PUT switch/mode (relays.hpp: pending).
 // Kontrakt z chmurą: POST devices/register (rootId, settings.default_on_minutes, oferta OTA),
-// POST switch/state, PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
+// POST switch/state (polecenia i oferta OTA), PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
+// OTA tylko na zlecenie z aplikacji („Aktualizuj”): chmura wysyła ofertę wyłącznie wtedy (od 1.1.0
+// także w odpowiedzi na stan, więc bez restartu).
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
@@ -33,7 +35,8 @@ constexpr const char *KEY_WIFI_SSID = "wifi_ssid";
 constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_ROOT_ID = "root_id";
 constexpr const char *KEY_DEFAULT_MINUTES = "def_min";
-// wersja, po której pobraniu sterownik ostatnio się zrestartował (ochrona przed pętlą OTA)
+// klucz oferty (wersja#zlecenie, ota.hpp), po której pobraniu sterownik ostatnio się zrestartował
+// (ochrona przed pętlą OTA)
 constexpr const char *KEY_OTA_TRIED = "ota_tried";
 
 constexpr uint32_t TICK_MS = 1000;
@@ -92,7 +95,8 @@ uint32_t wifiConnectedSinceMs = 0;
 
 OtaOffer otaOffer;
 bool otaOfferReceived = false;
-bool otaAttempted = false;
+// klucz oferty próbowanej w tym uruchomieniu: nieudane pobieranie nie jest powtarzane co 5 s
+std::string otaAttemptedKey;
 String otaStatus;
 bool uploadAccepted = false;
 bool uploadFinished = false;
@@ -337,6 +341,11 @@ void exchangeState(uint32_t nowMs)
     logf("stan do chmury: odpowiedź bez poleceń");
     return;
   }
+  // oferta OTA jest w odpowiedzi tylko przy zleceniu „Aktualizuj”; jej brak = zlecenia nie ma (albo odwołane)
+  JsonDocument reply;
+  const bool hadOffer = otaOfferReceived;
+  otaOfferReceived = !deserializeJson(reply, response) && parseOtaOffer(reply.as<JsonVariantConst>(), otaOffer);
+  if (otaOfferReceived && !hadOffer) logf("OTA: zlecona wersja %s", otaOffer.version.c_str());
   lastExchangeOkMs = millis();
   writeChanged(changed, "chmura");
   // stan już zgłoszony w tej wymianie; następna za EXCHANGE_INTERVAL_MS, chyba że coś się zmieni
@@ -424,18 +433,21 @@ bool allRelaysOff()
   return true;
 }
 
-// Aktualizacja raz na uruchomienie, gdy wszystkie przekaźniki są wyłączone (pobieranie blokuje
+// Aktualizacja na zlecenie z aplikacji, gdy wszystkie przekaźniki są wyłączone (pobieranie blokuje
 // pętlę i restart wyłącza przekaźniki; po starcie stan przywróci chmura). Przy włączonym
-// przekaźniku sterownik czeka, aż się wyłączy.
+// przekaźniku sterownik czeka, aż się wyłączy. Jedna próba na zlecenie w uruchomieniu
+// (otaAttemptedKey) i jedna po pobraniu (ota_tried w NVS); ponowne „Aktualizuj” to nowe zlecenie.
 void tryFirmwareUpdate()
 {
   if (!otaOfferReceived || !allRelaysOff() || bank.anyPending()) return;
-  otaAttempted = true;
+  const std::string key = otaKey(otaOffer);
+  if (key == otaAttemptedKey) return;
   const String tried = preferences.getString(KEY_OTA_TRIED, "");
   if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
+  otaAttemptedKey = key;
   otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
   if (!downloadFirmware(otaOffer)) return;
-  preferences.putString(KEY_OTA_TRIED, otaOffer.version.c_str());
+  preferences.putString(KEY_OTA_TRIED, key.c_str());
   logf("OTA: restart do wersji %s", otaOffer.version.c_str());
   delay(100);
   ESP.restart();
@@ -502,7 +514,7 @@ void tick(uint32_t nowMs)
     sendPending(nowMs);
   }
   if (registeredThisBoot && (exchangeDue || nowMs - lastExchangeMs >= EXCHANGE_INTERVAL_MS)) exchangeState(nowMs);
-  if (registeredThisBoot && !otaAttempted && cloudOnline(nowMs)) tryFirmwareUpdate();
+  if (registeredThisBoot && cloudOnline(nowMs)) tryFirmwareUpdate();
 }
 
 // --- strony WWW ---

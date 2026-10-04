@@ -18,6 +18,9 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 			<path d={FLAME_PATH} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
 		</svg>
 	),
+	label: 'Piec Pellux 200',
+	firmwareUpdates: true,
+	firmwareUpdateHint: 'Sterownik pobierze firmware w ciągu ok. 15 s (od wersji 1.5.0; starszą wgrywa się przez USB albo stronę /install sterownika).',
 	views: [
 		{ path: '/', label: 'Kocioł', icon: <FlameIcon />, element: <PelletBoilerHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <PelletBoilerData /> },

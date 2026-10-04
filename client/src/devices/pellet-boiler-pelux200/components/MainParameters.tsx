@@ -363,16 +363,19 @@ export const MainParameters: React.FC = () => {
     load();
   };
 
-  // Praca kotła: Włączony = według harmonogramu, Wyłączony = zlecenie wyłącz i harmonogram stoi
-  // (schedule-settings.enabled; zlecenia robi serwer). Pod spodem rzeczywisty stan z ostatniego odczytu.
+  // Kocioł: Włączony = regulator pracuje normalnie (sezon, ustawienia, CWU z harmonogramu), Wyłączony =
+  // zlecenie wyłącz (ramka 0x3B, stan „wyłączony” jak z panelu przed pracą ręczną; kocioł nie rozpali)
+  // i harmonogram stoi (schedule-settings.enabled; zlecenia robi serwer). Pod spodem rzeczywisty stan
+  // z ostatniego odczytu; kocioł włączony z panelu przy „Wyłączony” daje ostrzeżenie (panel ma
+  // pierwszeństwo, aplikacja nie wyłącza go z powrotem).
   const [boilerState, setBoilerState] = useState<number | undefined>(undefined);
   useEffect(() => { PelletBoilerRequests.getLast().then((last) => setBoilerState(last?.state)); }, [commands]);
   const [workError, setWorkError] = useState('');
   const setWork = async (on: boolean) => {
     if (!scheduleSettings || scheduleSettings.enabled === on) return;
     const question = on
-      ? 'Włączyć kocioł? Będzie pracował według harmonogramu.'
-      : 'Wyłączyć kocioł? Pellet przejdzie w wygaszanie, harmonogram przestanie działać.';
+      ? 'Włączyć kocioł? Będzie pracował normalnie, według sezonu i ustawień (CWU według harmonogramu).'
+      : 'Wyłączyć kocioł zdalnie? Nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.';
     if (!window.confirm(question)) return;
     try {
       setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
@@ -418,7 +421,7 @@ export const MainParameters: React.FC = () => {
         {settings !== undefined && !ready && <div>Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</div>}
         {scheduleSettings && (
           <div className="boiler-main-section">
-            <div className="boiler-main-title">Praca kotła</div>
+            <div className="boiler-main-title">Kocioł</div>
             <div className="boiler-profiles">
               {[true, false].map((on) => (
                 <button key={String(on)} type="button" onClick={() => setWork(on)}
@@ -428,9 +431,14 @@ export const MainParameters: React.FC = () => {
               ))}
             </div>
             <div className="boiler-hint">
-              {scheduleSettings.enabled ? 'Pracuje według harmonogramu (zakładka Harmonogram).' : 'Wyłączony, harmonogram nie działa.'}
-              {' '}Teraz: <strong>{stateName(boilerState)}</strong>.
+              {scheduleSettings.enabled
+                ? 'Pracuje normalnie, według sezonu i ustawień (CWU według harmonogramu).'
+                : 'Wyłączony zdalnie, nie rozpali się. Harmonogram nie działa.'}
+              {' '}Stan kotła: <strong>{stateName(boilerState)}</strong>.
             </div>
+            {!scheduleSettings.enabled && boilerState !== undefined && boilerState !== 0 && boilerState !== 7 && (
+              <div className="boiler-error">Kocioł pracuje mimo wyłączenia w aplikacji — włączony z panelu?</div>
+            )}
             {workError && <div className="boiler-error">{workError}</div>}
           </div>
         )}

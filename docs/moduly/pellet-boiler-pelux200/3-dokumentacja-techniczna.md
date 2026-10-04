@@ -7,7 +7,7 @@
 | Plik | Rola |
 |---|---|
 | `routes.ts` | trasy `/pellet-boiler-pelux200/*` |
-| `device-type.ts` | wpis do rejestru: ustawienia domyślne nowego kotła (`poll_interval_seconds: 300`) i pole `settings` w odpowiedzi na zgłoszenie |
+| `device-type.ts` | wpis do rejestru: ustawienia domyślne nowego kotła (`poll_interval_seconds: 300`), pole `settings` w odpowiedzi na zgłoszenie i `firmwareUpdates: true` (OTA na zlecenie „Aktualizuj”, od firmware 1.5.0) |
 | `types.ts` | `PelletBoilerPelux200Measurements` (pola pomiarowe), `PelletBoilerPelux200Entry` |
 | `controllers/pellet-boiler-pelux200.controller.ts` | `add` (odpowiedź z odstępem odpytywania), `last`, `list` (doba warszawska) |
 | `services/pellet-boiler-pelux200.service.ts` | `validateReading`, zapis, ostatni odczyt w pamięci (`lastByRoot`), zakres czasu, `getPollIntervalSeconds` |
@@ -19,12 +19,12 @@ Bez schedulera i bez serwisu operacji. Moduł importuje tylko z `core` (`device-
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: Kocioł, Dane, Ustawienia (ikona płomienia; bez wykresów i harmonogramów) |
+| `device-type.tsx` | wpis do rejestru: Kocioł, Dane, Ustawienia (ikona płomienia; bez wykresów i harmonogramów); `firmwareUpdates: true` (trybik firmware na kafelku, strona `/firmware/pellet-boiler-pelux200`) i `firmwareUpdateHint` |
 | `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`) |
 | `types.ts` | `PelletBoilerReading` |
 | `pages/Home.tsx` | bieżące dane: temperatury, wartości zadane, praca kotła, wyjścia; odświeżanie co 30 s; „Dane nieaktualne” |
 | `pages/Data.tsx` | odczyty z wybranego dnia, tabela 12 kolumn, CSV |
-| `pages/Settings.tsx` | „Odpytywanie pieca [min]” (0,5–60) i sekcja „Sterownik” (`DeviceEditModal`) |
+| `pages/Settings.tsx` | „Odpytywanie pieca [min]” (0,5–60) i sekcja „Sterownik” (`DeviceEditModal`, `FirmwareStatus`: wersja firmware, „Aktualizuj” / „Anuluj aktualizację”) |
 | `pages/style.css` | style widoków kotła |
 | `utils/boiler.ts` | nazwy stanów 0–11, formaty liczb i czasu (Warszawa), `isStale`, `readingsToCsv`, `downloadText` |
 
@@ -38,7 +38,7 @@ Ustawienia idą przez wspólne `DeviceRequests` z `core/api.ts` (`/device/proper
 | `GET /pellet-boiler-pelux200/last` | aplikacja | ostatni odczyt albo `{}`; wymaga `rootId` |
 | `GET /pellet-boiler-pelux200/list?date=YYYY-MM-DD` | aplikacja | odczyty z doby warszawskiej, malejąco po `createdAt`; bez `date` — dziś; zły format 400 (`date: YYYY-MM-DD.`) |
 
-Ustawienia kotła zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`, `deviceType: "pellet-boiler-pelux200"`) zwraca `settings: {poll_interval_seconds}`.
+Ustawienia kotła zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`, `deviceType: "pellet-boiler-pelux200"`) zwraca `settings: {poll_interval_seconds, firmware?}` (`firmware` tylko przy zleceniu aktualizacji; sterownik pieca czyta ofertę z `commands/next`, niżej).
 
 ### Pola odczytu
 
@@ -84,8 +84,9 @@ Sterownik pieca to osobna płytka ESP32-C3 SuperMini z modułem RS-485 HW-519 (`
 
 - Zgłoszenie przy każdym starcie: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}`; odpowiedź 201/200 z `rootId` i `settings.poll_interval_seconds`; Root ID i interwał w NVS (przestrzeń `pel`, klucze `root_id`, `poll_s`). Nieudane zgłoszenie jest ponawiane co 30 s.
 - Wysyłka: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` co `poll_interval_seconds` (bez `time`). Nieudana wysyłka jest ponawiana po 60 s; 404/409 kasują Root ID i uruchamiają zgłoszenie od nowa.
+- Aktualizacja firmware (OTA, od firmware 1.5.0): tylko na zlecenie „Aktualizuj” w Ustawieniach (`POST /devices/:rootId/firmware-update`, moduł core). Sterownik co 15 s pyta `GET /pellet-boiler-pelux200/commands/next`; przy zleceniu odpowiedź to `{firmware: {version, url, sha256, request}}` **zamiast** zlecenia parametru (zlecenia parametrów czekają do końca aktualizacji). Sterownik pobiera obraz, gdy nie trwa zlecenie parametru ani odczyt ustawień, sprawdza SHA-256 i się restartuje; zgłoszenie z nową wersją kasuje zlecenie. Firmware 1.4.0 nie ma OTA, więc 1.5.0 wgrywa się raz przez USB albo `/install` sterownika.
 - Kontekst: `controllerPaths` w `core/middleware/device-context.ts` zawiera `/pellet-boiler-pelux200/add` → `pellet-boiler-pelux200`. Szczegóły w [module core](../core/3-dokumentacja-techniczna.md).
-- Kod po stronie firmware: `devices/pellet-boiler-pelux200/src/pellet.cpp` (zgłoszenie, wysyłka, strony), `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; opis: [README sterownika](../../../devices/pellet-boiler-pelux200/README.md) i [piec-pellux200.md](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md).
+- Kod po stronie firmware: `devices/pellet-boiler-pelux200/src/pellet.cpp` (zgłoszenie, wysyłka, strony, pobieranie OTA), `ota.*`, `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; opis: [README sterownika](../../../devices/pellet-boiler-pelux200/README.md) i [piec-pellux200.md](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md).
 
 ## Testy
 

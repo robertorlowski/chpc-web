@@ -76,7 +76,7 @@ sequenceDiagram
     S-->>U: przekaźnik z nowym trybem
     S--)C: WebSocket {"type":"operation"}
     C->>S: POST /switch/state (od razu)
-    S-->>C: {relays: [{on, offAfterS?, mode}]}
+    S-->>C: {relays: [{on, offAfterS?, mode}], firmware?} (firmware tylko przy zleceniu „Aktualizuj”)
     C->>C: przekaźnik zmienia stan
     C->>S: POST /switch/state (nowy stan)
     S--)U: WebSocket {"type":"update"} → odświeżenie widoku
@@ -119,4 +119,4 @@ Sterownik podaje liczbę przekaźników w zgłoszeniu (`relays`) i w każdym zg�
 | **Włącznik** (`/`) | `GET /switch/relays`, `GET /switch/activations?date=` (dziś), `GET /device/properties` (domyślny czas), `PUT /switch/mode` | co 5 s i po WebSocket `update`; odliczanie co 1 s w przeglądarce |
 | **Dane** (`/data`) | `GET /switch/activations?date=`, `GET /switch/relays` (nazwy); filtr przekaźnika i CSV w przeglądarce | przy zmianie dnia |
 | **Harmonogram** (`/schedules`) | `GET/POST /switch/schedules`, `PUT/DELETE /switch/schedules/:id`, `GET /switch/relays` (wpis działający teraz: `scheduleId`) | przekaźniki co minutę i po zapisie |
-| **Ustawienia** (`/settings`) | `GET /switch/relays`, `PUT /switch/relays/:relay` (nazwy), `GET/PUT /device/properties` (`default_on_minutes`), `GET /devices` i `GET /firmware/switch` (karta Sterownik: IP, wersja firmware, aktualizacja) | przy wejściu |
+| **Ustawienia** (`/settings`) | `GET /switch/relays`, `PUT /switch/relays/:relay` (nazwy), `GET/PUT /device/properties` (`default_on_minutes`), `GET /devices` i `GET /firmware/switch` (karta Sterownik: IP, wersja firmware, stan aktualizacji), `POST`/`DELETE /devices/:rootId/firmware-update` („Aktualizuj” / „Anuluj aktualizację”) | przy wejściu; karta Sterownik co 15 s, gdy czeka zlecenie aktualizacji |

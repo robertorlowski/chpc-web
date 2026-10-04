@@ -1,6 +1,7 @@
-// Aktualizacja firmware przez sieć (OTA): oferta z chmury i decyzja, czy ją pobrać. Chmura wysyła
-// ofertę tylko na zlecenie z aplikacji („Aktualizuj”): w odpowiedzi na zgłoszenie (settings.firmware)
-// i na każde zgłoszenie stanu (firmware). Samo pobieranie jest w switch.cpp.
+// Aktualizacja firmware z chmury (OTA, od 1.5.0): oferta i decyzja, czy ją pobrać. Chmura wysyła
+// ofertę tylko na zlecenie z aplikacji („Aktualizuj” w Ustawieniach): w odpowiedzi na zgłoszenie
+// (settings.firmware) i na GET pellet-boiler-pelux200/commands/next (firmware). Ta sama logika co we
+// włączniku (devices/switch/src/ota.hpp); samo pobieranie jest w pellet.cpp.
 #pragma once
 
 #include <ArduinoJson.h>
@@ -11,7 +12,7 @@ struct OtaOffer {
   std::string url;
   // 64 znaki hex, małe litery; obraz bez sumy kontrolnej nie jest pobierany
   std::string sha256;
-  // identyfikator zlecenia (czas kliknięcia „Aktualizuj” w ms); puste u starszego serwera
+  // identyfikator zlecenia (czas kliknięcia „Aktualizuj” w ms)
   std::string request;
 };
 

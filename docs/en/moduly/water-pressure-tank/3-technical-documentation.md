@@ -44,7 +44,7 @@
 | `DELETE /water-pressure-tank/meter/:id` | application | delete; 404 for an unknown or foreign reading |
 | `GET /water-pressure-tank/meter/summary?year=YYYY` | application | `{year, periods, months, flow}`; periods `{from, to, meterLiters, pumpSeconds, estimatedLiters \| null}`, months `{month, meterLiters, estimatedLiters}` (`null` outside the reading range); < 2 readings → empty lists |
 
-Tank settings are saved with the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`) returns `settings`: `{compressor_seconds}` and, when there is an OTA offer, `firmware`.
+Tank settings are saved with the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`) returns `settings`: `{compressor_seconds}` and, when an update was requested in the application ("Aktualizuj" in the "Sterownik" card, `POST /devices/:rootId/firmware-update`, core module), `firmware: {version, url, sha256, request}`. The tank controller is powered only while the pump runs, so it updates at the next pump run, with the compressor off.
 
 Message validation: `runId` — integer ≥ 0; `pumpRunS` — 0 to 24 h; other times (including `manualCompressorS`) ≥ 0.
 

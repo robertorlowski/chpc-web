@@ -44,7 +44,7 @@
 | `DELETE /water-pressure-tank/meter/:id` | aplikacja | usunięcie; 404 dla nieznanego albo cudzego |
 | `GET /water-pressure-tank/meter/summary?year=YYYY` | aplikacja | `{year, periods, months, flow}`; okresy `{from, to, meterLiters, pumpSeconds, estimatedLiters \| null}`, miesiące `{month, meterLiters, estimatedLiters}` (`null` poza zakresem odczytów); < 2 odczytów → puste listy |
 
-Ustawienia hydroforu zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`) zwraca `settings`: `{compressor_seconds}` i, gdy jest oferta OTA, `firmware`.
+Ustawienia hydroforu zapisuje wspólne `PUT /device/properties` (moduł core). Zgłoszenie (`POST /devices/register`) zwraca `settings`: `{compressor_seconds}` i, gdy w aplikacji zlecono aktualizację („Aktualizuj” w karcie „Sterownik”, `POST /devices/:rootId/firmware-update`, moduł core), `firmware: {version, url, sha256, request}`. Hydrofor ma zasilanie tylko w czasie pracy pompy, więc aktualizuje się przy najbliższym uruchomieniu pompy, przy wyłączonym kompresorze.
 
 Walidacja wiadomości: `runId` — liczba całkowita ≥ 0; `pumpRunS` — 0 do 24 h; pozostałe czasy (także `manualCompressorS`) ≥ 0.
 

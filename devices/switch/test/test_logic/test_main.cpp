@@ -150,6 +150,27 @@ void test_ota_offer()
   TEST_ASSERT_FALSE(shouldUpdate(offer, "1.0.0", "1.0.1"));
 }
 
+// Oferta w odpowiedzi na stan (zlecenie „Aktualizuj”): jedna próba na zlecenie, nowe zlecenie = kolejna.
+void test_ota_offer_per_request()
+{
+  JsonDocument document;
+  deserializeJson(document, "{\"relays\":[{\"on\":false,\"mode\":\"schedule\"}],\"firmware\":{\"version\":\"1.1.1\","
+    "\"url\":\"https://x/fw.bin\",\"sha256\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\","
+    "\"request\":\"1759500000000\"}}");
+  OtaOffer offer;
+  TEST_ASSERT_TRUE(parseOtaOffer(document.as<JsonVariantConst>(), offer));
+  TEST_ASSERT_EQUAL_STRING("1.1.1#1759500000000", otaKey(offer).c_str());
+  TEST_ASSERT_TRUE(shouldUpdate(offer, "1.1.0", ""));
+  TEST_ASSERT_TRUE(shouldUpdate(offer, "1.1.0", "1.1.1"));
+  TEST_ASSERT_FALSE(shouldUpdate(offer, "1.1.0", "1.1.1#1759500000000"));
+  offer.request = "1759500099000";
+  TEST_ASSERT_TRUE(shouldUpdate(offer, "1.1.0", "1.1.1#1759500000000"));
+
+  // odpowiedź bez oferty: zlecenia nie ma
+  deserializeJson(document, "{\"relays\":[]}");
+  TEST_ASSERT_FALSE(parseOtaOffer(document.as<JsonVariantConst>(), offer));
+}
+
 int main()
 {
   UNITY_BEGIN();
@@ -164,5 +185,6 @@ int main()
   RUN_TEST(test_mode_body_json);
   RUN_TEST(test_default_minutes_from_settings);
   RUN_TEST(test_ota_offer);
+  RUN_TEST(test_ota_offer_per_request);
   return UNITY_END();
 }

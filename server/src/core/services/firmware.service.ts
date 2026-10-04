@@ -1,9 +1,12 @@
 // Firmware sterowników (OTA): zapis obrazów w bazie, oferta dla sterowników i
 // przycinanie starych wersji. W bazie jest oferowana wersja i jedna poprzednia
 // (powrót bez ponownego wgrywania); starsze pliki są usuwane przy zmianie oferty.
-// Kontrakt ze sterownikiem hydroforu: devices/water-pressure-tank/src/ota.cpp.
+// Oferta trafia do sterownika tylko na zlecenie z aplikacji (przycisk „Aktualizuj”).
+// Kontrakt ze sterownikami: devices/<rodzaj>/src/ota.*.
 import { createHash } from 'crypto';
 import { FirmwareImageModel, FirmwareOfferModel } from '../models/firmware.model';
+import { DeviceModel } from '../models/device.model';
+import { getDeviceTypeModule } from '../device-types';
 import { DeviceType } from '../types';
 
 // Partycja aplikacji OTA ESP32 (0x140000); większy obraz się nie zmieści.
@@ -110,17 +113,66 @@ export async function getFirmwareFile(deviceType: DeviceType, version: string) {
   return FirmwareImageModel.findOne({ deviceType, version }).lean();
 }
 
-// Oferta w odpowiedzi na zgłoszenie sterownika: {version, url, sha256}; brak,
-// gdy aktualizacje są wyłączone albo nie ma pliku. baseUrl to adres serwera
-// widziany przez sterownik (bez końcowego /).
-export async function getFirmwareOffer(deviceType: DeviceType, baseUrl: string) {
+// Oferowany obraz (bez treści) albo nic, gdy aktualizacje są wyłączone albo nie ma pliku.
+async function offeredImage(deviceType: DeviceType) {
   const offer = await FirmwareOfferModel.findOne({ deviceType }).lean();
   if (!offer?.enabled) return undefined;
-  const image = await FirmwareImageModel.findOne({ deviceType, version: offer.version }).select('-data').lean();
+  return (await FirmwareImageModel.findOne({ deviceType, version: offer.version }).select('-data').lean()) ?? undefined;
+}
+
+// --- aktualizacja na żądanie (przycisk „Aktualizuj” w Ustawieniach sterownika) ---
+// Sterownik nie aktualizuje się sam: oferta trafia do niego tylko wtedy, gdy przy urządzeniu jest
+// zlecenie (devices.firmwareUpdate). Zlecenie znika, gdy sterownik zgłosi się z oferowaną wersją.
+
+type FirmwareDevice = {
+  _id: unknown;
+  deviceType: DeviceType;
+  firmwareVersion?: string;
+  firmwareUpdate?: { version: string; requestedAt: Date } | null;
+};
+
+// POST /devices/:rootId/firmware-update: zlecenie aktualizacji do oferowanej wersji.
+export async function requestFirmwareUpdate(rootId: string) {
+  const device = await DeviceModel.findById(rootId).select('deviceType firmwareVersion').lean();
+  if (!device) throw new FirmwareError(404, 'Nie znaleziono urządzenia.');
+  if (!getDeviceTypeModule(device.deviceType).firmwareUpdates) {
+    throw new FirmwareError(400, 'Ten rodzaj sterownika nie ma aktualizacji firmware.');
+  }
+  const image = await offeredImage(device.deviceType);
+  if (!image) throw new FirmwareError(409, 'Brak oferowanej wersji albo aktualizacje są wyłączone.');
+  if (device.firmwareVersion === image.version) throw new FirmwareError(409, 'Sterownik ma już tę wersję.');
+  const firmwareUpdate = { version: image.version, requestedAt: new Date() };
+  await DeviceModel.updateOne({ _id: rootId }, { $set: { firmwareUpdate } });
+  return firmwareUpdate;
+}
+
+// DELETE /devices/:rootId/firmware-update: odwołanie zlecenia (sterownik, który już pobiera, dokończy).
+export async function cancelFirmwareUpdate(rootId: string) {
+  const result = await DeviceModel.updateOne({ _id: rootId }, { $unset: { firmwareUpdate: 1 } });
+  if (result.matchedCount === 0) throw new FirmwareError(404, 'Nie znaleziono urządzenia.');
+}
+
+// Oferta dla sterownika {version, url, sha256, request}, tylko przy zleceniu. request (czas zlecenia
+// w ms) odróżnia kolejne kliknięcia „Aktualizuj”: sterownik próbuje raz na zlecenie (ota.hpp).
+// Sterownik z oferowaną wersją kasuje zlecenie. baseUrl to adres serwera widziany przez sterownik.
+export async function firmwareOfferForDevice(device: FirmwareDevice, baseUrl: string) {
+  if (!device.firmwareUpdate || !getDeviceTypeModule(device.deviceType).firmwareUpdates) return undefined;
+  const image = await offeredImage(device.deviceType);
   if (!image) return undefined;
+  if (device.firmwareVersion === image.version) {
+    await DeviceModel.updateOne({ _id: device._id }, { $unset: { firmwareUpdate: 1 } });
+    return undefined;
+  }
   return {
     version: image.version,
-    url: `${baseUrl}/api/firmware/${deviceType}/${image.version}.bin`,
+    url: `${baseUrl}/api/firmware/${device.deviceType}/${image.version}.bin`,
     sha256: image.sha256,
+    request: String(new Date(device.firmwareUpdate.requestedAt).getTime()),
   };
+}
+
+// Oferta dla sterownika znanego tylko z rootId (odpowiedzi włącznika i pieca).
+export async function firmwareOfferForRoot(rootId: string, baseUrl: string) {
+  const device = await DeviceModel.findById(rootId).select('deviceType firmwareVersion firmwareUpdate').lean();
+  return device ? firmwareOfferForDevice(device as FirmwareDevice, baseUrl) : undefined;
 }

@@ -6,7 +6,7 @@ import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt ipAddress ipSeenAt';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt';
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
 

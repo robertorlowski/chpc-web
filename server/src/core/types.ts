@@ -54,6 +54,8 @@ export interface Device {
   /** wersja firmware zgłoszona przez sterownik przy ostatnim zgłoszeniu (pole version) i kiedy */
   firmwareVersion?: string;
   firmwareSeenAt?: Date;
+  /** zlecenie aktualizacji z aplikacji (wersja, kiedy); oferta idzie do sterownika tylko przy nim */
+  firmwareUpdate?: { version: string; requestedAt: Date };
   /** adres IPv4 sterownika w sieci lokalnej z ostatniego zgłoszenia (pole ip) i kiedy */
   ipAddress?: string;
   ipSeenAt?: Date;
@@ -72,7 +74,8 @@ export interface DeviceTypeModule {
   initialProperties?: DeviceProperties;
   /** ustawienia odsyłane sterownikowi w odpowiedzi na zgłoszenie (pole settings) */
   controllerSettings?: (properties: DeviceProperties) => unknown;
-  /** sterownik aktualizuje firmware przez sieć: odpowiedź na zgłoszenie niesie settings.firmware (core/services/firmware.service.ts) */
+  /** sterownik aktualizuje firmware przez sieć, na zlecenie z aplikacji: odpowiedź na zgłoszenie (i odpowiedzi
+   * włącznika i pieca) niesie wtedy ofertę firmware (core/services/firmware.service.ts) */
   firmwareUpdates?: boolean;
   /** dodatkowe pola zgłoszenia (np. liczba przekaźników włącznika); wołane przy każdym zgłoszeniu */
   onRegister?: (rootId: string, deviceId: string, body: Record<string, unknown>) => Promise<void>;

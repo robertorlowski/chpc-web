@@ -7,7 +7,7 @@
 | File | Role |
 |---|---|
 | `routes.ts` | routes `/pellet-boiler-pelux200/*` |
-| `device-type.ts` | registry entry: default settings of a new boiler (`poll_interval_seconds: 300`) and the `settings` field in the registration reply |
+| `device-type.ts` | registry entry: default settings of a new boiler (`poll_interval_seconds: 300`), the `settings` field in the registration reply and `firmwareUpdates: true` (OTA on an "Aktualizuj" request, from firmware 1.5.0) |
 | `types.ts` | `PelletBoilerPelux200Measurements` (measurement fields), `PelletBoilerPelux200Entry` |
 | `controllers/pellet-boiler-pelux200.controller.ts` | `add` (reply with the polling interval), `last`, `list` (Warsaw day) |
 | `services/pellet-boiler-pelux200.service.ts` | `validateReading`, save, last reading in memory (`lastByRoot`), time range, `getPollIntervalSeconds` |
@@ -19,12 +19,12 @@ No scheduler and no operation service. The module imports only from `core` (`dev
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: Kocioł, Dane, Ustawienia (flame icon; no charts or schedules) |
+| `device-type.tsx` | registry entry: Kocioł, Dane, Ustawienia (flame icon; no charts or schedules); `firmwareUpdates: true` (firmware cog on the tile, page `/firmware/pellet-boiler-pelux200`) and `firmwareUpdateHint` |
 | `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`) |
 | `types.ts` | `PelletBoilerReading` |
 | `pages/Home.tsx` | current data: temperatures, set values, boiler operation, outputs; refresh every 30 s; "Dane nieaktualne" |
 | `pages/Data.tsx` | readings of a chosen day, 12-column table, CSV |
-| `pages/Settings.tsx` | "Odpytywanie pieca [min]" (0.5–60) and the "Sterownik" section (`DeviceEditModal`) |
+| `pages/Settings.tsx` | "Odpytywanie pieca [min]" (0.5–60) and the "Sterownik" section (`DeviceEditModal`, `FirmwareStatus`: firmware version, "Aktualizuj" / "Anuluj aktualizację") |
 | `pages/style.css` | styles of the boiler views |
 | `utils/boiler.ts` | state names 0–11, number and time formats (Warsaw), `isStale`, `readingsToCsv`, `downloadText` |
 
@@ -38,7 +38,7 @@ Settings go through the shared `DeviceRequests` in `core/api.ts` (`/device/prope
 | `GET /pellet-boiler-pelux200/last` | application | the last reading or `{}`; needs `rootId` |
 | `GET /pellet-boiler-pelux200/list?date=YYYY-MM-DD` | application | readings of a Warsaw day, descending by `createdAt`; without `date` — today; a bad format gives 400 (`date: YYYY-MM-DD.`) |
 
-Boiler settings are saved by the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`, `deviceType: "pellet-boiler-pelux200"`) returns `settings: {poll_interval_seconds}`.
+Boiler settings are saved by the shared `PUT /device/properties` (core module). Registration (`POST /devices/register`, `deviceType: "pellet-boiler-pelux200"`) returns `settings: {poll_interval_seconds, firmware?}` (`firmware` only with an update request; the boiler controller reads the offer from `commands/next`, below).
 
 ### Reading fields
 
@@ -84,8 +84,9 @@ The boiler controller is a separate ESP32-C3 SuperMini board with an HW-519 RS-4
 
 - Registration at every start: `POST /devices/register` `{deviceId: SN, deviceType: "pellet-boiler-pelux200", name: "Piec Pellux 200", version, ip}`; reply 201/200 with `rootId` and `settings.poll_interval_seconds`; the Root ID and the interval are kept in NVS (namespace `pel`, keys `root_id`, `poll_s`). A failed registration is retried every 30 s.
 - Sending: `POST /api/pellet-boiler-pelux200/add?deviceId=SN&rootId=…` every `poll_interval_seconds` (without `time`). A failed send is retried after 60 s; 404/409 drop the Root ID and start the registration again.
+- Firmware update (OTA, from firmware 1.5.0): only on an "Aktualizuj" request in Settings (`POST /devices/:rootId/firmware-update`, core module). The controller polls `GET /pellet-boiler-pelux200/commands/next` every 15 s; with a request the reply is `{firmware: {version, url, sha256, request}}` **instead of** a parameter command (parameter commands wait until the update is done). The controller downloads the image when no parameter command or settings read is in progress, checks SHA-256 and restarts; registering with the new version clears the request. Firmware 1.4.0 has no OTA, so 1.5.0 is flashed once over USB or the controller's `/install`.
 - Context: `controllerPaths` in `core/middleware/device-context.ts` contains `/pellet-boiler-pelux200/add` → `pellet-boiler-pelux200`. Details in the [core module](../core/3-technical-documentation.md).
-- Firmware code: `devices/pellet-boiler-pelux200/src/pellet.cpp` (registration, sending, pages), `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; description: [controller README](../../../../devices/pellet-boiler-pelux200/README.md) and [piec-pellux200.md](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (both Polish).
+- Firmware code: `devices/pellet-boiler-pelux200/src/pellet.cpp` (registration, sending, pages, OTA download), `ota.*`, `ecomax_frame.*`, `pellet_telemetry.*`, `bus_polarity.*`; description: [controller README](../../../../devices/pellet-boiler-pelux200/README.md) and [piec-pellux200.md](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (both Polish).
 
 ## Tests
 

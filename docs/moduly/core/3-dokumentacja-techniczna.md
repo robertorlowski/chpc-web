@@ -17,11 +17,11 @@
 | `core/middleware/auth.ts` | `verifyApiKey` — **nieużywane** (wyłączone w `app.ts`) |
 | `core/middleware/mock-response.ts` | pozostałość, nieużywane |
 | `core/models/device.model.ts` | model Mongoose `devices`: schemat urządzenia, `properties`, osadzone harmonogramy i starsze `settings` |
-| `core/controllers/device.controller.ts` | obsługa tras urządzeń; odpowiedź zgłoszenia z `settings` z rejestru |
+| `core/controllers/device.controller.ts` | obsługa tras urządzeń; odpowiedź zgłoszenia z `settings` z rejestru; zlecenie i odwołanie aktualizacji firmware |
 | `core/controllers/meteo.controller.ts` | `GET /temperature` |
 | `core/controllers/firmware.controller.ts` | `/firmware/:rodzaj...`: stan, wgranie pliku, oferta, pobranie; tylko rodzaje z `firmwareUpdates` |
 | `core/models/firmware.model.ts` | `firmware_images` (plik `.bin`, rozmiar, SHA-256) i `firmware_offers` (oferowana i poprzednia wersja, `enabled`) |
-| `core/services/firmware.service.ts` | zapis i walidacja obrazu (nagłówek ESP32, ≤ 1 310 720 B), oferta dla sterownika, przycinanie do bieżącej i jednej poprzedniej wersji |
+| `core/services/firmware.service.ts` | zapis i walidacja obrazu (nagłówek ESP32, ≤ 1 310 720 B), zlecenie aktualizacji (`requestFirmwareUpdate`, `cancelFirmwareUpdate`), oferta dla sterownika tylko przy zleceniu (`firmwareOfferForDevice`, `firmwareOfferForRoot`), przycinanie do bieżącej i jednej poprzedniej wersji |
 | `core/services/device.service.ts` | lista, utworzenie, zgłoszenie, nazwa, domyślny, odczyt i zapis `properties` |
 | `core/services/device-info.service.ts` | typ i `deviceId` urządzenia w pamięci (do rekordów danych modułów) |
 | `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie, `scheduleDayMatches` (czy wpis harmonogramu włącznika dotyczy danej daty) |
@@ -37,7 +37,7 @@
 | `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, ekrany menu, dodatkowe trasy) |
 | `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
 | `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika |
-| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, `properties` |
+| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, `properties`, zlecenie i odwołanie aktualizacji firmware |
 | `core/context/DeviceContext.tsx` | wybrany sterownik (stan + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
 | `core/components/Header.tsx` | menu z rejestru |
 | `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
@@ -45,8 +45,8 @@
 | `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) i akcji (dodaj, usuń, przywróć, wróć, edytuj) |
 | `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Harmonogramach pompy i na stronie firmware |
 | `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; trybik firmware w rogu kafelków rodzajów z `firmwareUpdates` |
-| `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), włączenie oferty; poza kontekstem urządzenia |
-| `core/components/FirmwareStatus.tsx` | wersja firmware sterownika, stan „czeka na aktualizację” i czas zgłoszenia w Ustawieniach sterownika |
+| `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), przełącznik „Aktualizacje włączone/wyłączone” (wyłączone: „Aktualizuj” niedostępne, zlecenia nie są doręczane); poza kontekstem urządzenia |
+| `core/components/FirmwareStatus.tsx` | karta „Sterownik” w Ustawieniach hydroforu, włącznika i pieca: wersja firmware, stan („aktualny” / „dostępna wersja X” / „zlecona do wersji X (czas), czeka na sterownik”), czas zgłoszenia, przycisk „Aktualizuj” (z potwierdzeniem) albo „Anuluj aktualizację” i podpowiedź rodzaju (`firmwareUpdateHint`); przy zleceniu odświeżanie co 15 s |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
 ## API
@@ -79,6 +79,8 @@ Działanie dla ścieżki z mapy:
 | `POST /devices/register` | publiczna | zgłoszenie sterownika `{deviceId, deviceType?, name?, version?, ip?}`; `deviceType` domyślnie `heat_pump`; `ip` tylko IPv4 (inne i `0.0.0.0` pomijane) | 201 nowe, 200 znane (+ `settings` dla rodzajów z `controllerSettings`); 400 brak SN / nieznany typ |
 | `PUT /devices/:rootId` | publiczna | zmiana nazwy `{name}` (pusta dozwolona) | 200; 400; 404 |
 | `PUT /devices/:rootId/default` | publiczna | sterownik domyślny `{isDefault}` (bez pola: ustawia); zdejmuje znacznik z pozostałych | 200; 404 |
+| `POST /devices/:rootId/firmware-update` | publiczna | „Aktualizuj”: zlecenie aktualizacji do oferowanej wersji, zapis `firmwareUpdate {version, requestedAt}`; WebSocket `operation` budzi sterownik | 200 `{version, requestedAt}`; 400 rodzaj bez aktualizacji (pompa); 404; 409 brak oferowanej wersji, aktualizacje wyłączone albo sterownik ma już tę wersję |
+| `DELETE /devices/:rootId/firmware-update` | publiczna | „Anuluj aktualizację”: usunięcie zlecenia (pobieranie, które już trwa, dokończy się) | 200; 404 |
 | `GET /device/properties` | `rootId` | ustawienia urządzenia | 200; 404 |
 | `PUT /device/properties` | `rootId` | zapis całego obiektu ustawień (walidacja schematu Mongoose) | 200; 400 |
 | `GET /temperature` | `rootId` | ostatnia temperatura IMGW (liczba albo `null`) | 200 |
@@ -95,6 +97,7 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
 | `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
+| `firmwareUpdate` | `{version, requestedAt}` | zlecenie aktualizacji z aplikacji („Aktualizuj”); tylko przy nim sterownik dostaje ofertę firmware; usuwane, gdy sterownik zgłosi oferowaną wersję, albo „Anuluj aktualizację” |
 | `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
 | `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600); kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła); włącznik: `default_on_minutes` (pełne minuty 0–10080, 0 = bez limitu, domyślnie 30) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
@@ -112,7 +115,8 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
   type: DeviceType;
   initialProperties?: DeviceProperties;                       // ustawienia nowego urządzenia
   controllerSettings?: (properties: DeviceProperties) => unknown; // pole settings w odpowiedzi na zgłoszenie
-  firmwareUpdates?: boolean;                                  // OTA: settings.firmware w odpowiedzi na zgłoszenie
+  firmwareUpdates?: boolean;                                  // OTA na zlecenie „Aktualizuj”: oferta {version, url, sha256, request}
+                                                              // w settings.firmware zgłoszenia (włącznik: też /switch/state, piec: /commands/next)
   onRegister?: (rootId, deviceId, body) => Promise<void>;     // dodatkowe pola zgłoszenia (włącznik: relays)
 }
 ```
@@ -125,6 +129,8 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
   tileIcon: ReactNode;                                    // ikona kafelka na liście
   views: { path, label, icon, element }[];                // ekrany w kolejności menu; '/' = strona główna
   extraRoutes?: { path, element }[];                      // trasy poza menu (np. /hp pompy)
+  firmwareUpdates?: boolean;                              // trybik firmware na kafelku, karta „Sterownik” z „Aktualizuj”
+  firmwareUpdateHint?: string;                            // kiedy sterownik pobierze firmware (podpowiedź w karcie „Sterownik”)
 }
 ```
 

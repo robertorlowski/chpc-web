@@ -94,7 +94,7 @@ sequenceDiagram
     U->>S: PUT /device/properties (całe properties)
     Note over C: następne uruchomienie pompy
     C->>S: POST /devices/register
-    S-->>C: {rootId, settings: {compressor_seconds, firmware?}}
+    S-->>C: {rootId, settings: {compressor_seconds, firmware?}} (firmware tylko przy zleceniu „Aktualizuj”)
     C->>C: zapis w NVS (czas kompresora pominięty, gdy czeka zmiana z /install)
     Note over C: zmiana czasu na /install sterownika
     C->>S: PUT /water-pressure-tank/settings {compressor_seconds} (co 10 s do skutku)
@@ -109,4 +109,4 @@ sequenceDiagram
 | **Dane → Uruchomienia pompy** | `GET /water-pressure-tank/runs?from=&to=` (miesiąc), CSV w przeglądarce | przy zmianie miesiąca |
 | **Dane → Odczyty wodomierza** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | po zmianie |
 | **Wykres** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (słupki wody, bez przepływu czasu pompy); rok z wodomierzem: `GET /water-pressure-tank/meter/summary?year=` | przy zmianie okresu |
-| **Ustawienia** | `GET/PUT /device/properties` (czas kompresora, walidacja w przeglądarce), `GET /water-pressure-tank/flow` | przy wejściu |
+| **Ustawienia** | `GET/PUT /device/properties` (czas kompresora, walidacja w przeglądarce), `GET /water-pressure-tank/flow`; karta „Sterownik”: `GET /devices`, `GET /firmware/water-pressure-tank`, `POST`/`DELETE /devices/:rootId/firmware-update` („Aktualizuj” / „Anuluj aktualizację”) | przy wejściu; karta „Sterownik” co 15 s, gdy czeka zlecenie aktualizacji |

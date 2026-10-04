@@ -2,7 +2,7 @@
 // osobne listy i osobne wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez północ
 // należy do dnia startu). Działa lista trybu, w którym kocioł jest teraz (z odczytu ustawień). Serwer
 // co minutę wylicza stan i przy jego zmianie zleca kotłowi włącz/wyłącz, zadaną CWU (nr 119 = do)
-// i histerezę (nr 123 = do − od). Harmonogram działa przy „Praca kotła: Włączony” w Ustawieniach. Czerwona kreska: wpis albo ustawienie domyślne, które działa teraz
+// i histerezę (nr 123 = do − od). Harmonogram działa przy „Kocioł: Włączony” w Ustawieniach. Czerwona kreska: wpis albo ustawienie domyślne, które działa teraz
 // (GET /schedules/current, odświeżane co minutę). Wygląd z harmonogramów pompy (te same klasy CSS).
 import '../../heat-pump/pages/Schedules/style.css';
 import './style.css';
@@ -178,7 +178,7 @@ export const PelletBoilerSchedules: React.FC = () => {
             <label>
               Rodzaj
               <select value={form.type} disabled={!!editingId} onChange={(event) => update('type', event.target.value)}>
-                <option value="work">Praca kotła</option>
+                <option value="work">Kocioł włączony / wyłączony</option>
                 <option value="cwu">CWU od–do</option>
               </select>
             </label>
@@ -233,11 +233,11 @@ export const PelletBoilerSchedules: React.FC = () => {
 
         <section className="schedule-card">
           <div className="schedule-list-header">
-            <h3 className="settings-section-title">Praca kotła i CWU</h3>
+            <h3 className="settings-section-title">Kocioł i CWU</h3>
           </div>
           {settings && (
             <div className={settings.enabled ? 'boiler-hint' : 'boiler-error'}>
-              Praca kotła: <b>{settings.enabled ? 'Włączony — według harmonogramu' : 'Wyłączony — harmonogram nie działa'}</b>
+              Kocioł: <b>{settings.enabled ? 'Włączony — według harmonogramu' : 'Wyłączony zdalnie — harmonogram nie działa'}</b>
               {' '}(zmiana w Ustawieniach).
             </div>
           )}
@@ -269,8 +269,8 @@ export const PelletBoilerSchedules: React.FC = () => {
                     <h4>{MODE_LABEL[mode]}{now && <span className="boiler-mode-now"> · działa teraz</span>}</h4>
 
                     <div className="schedule-list-header">
-                      <span className="boiler-schedule-kind">Praca kotła</span>
-                      {!showForm && <IconButton label={`Dodaj pracę kotła: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'work')} />}
+                      <span className="boiler-schedule-kind">Kocioł włączony / wyłączony</span>
+                      {!showForm && <IconButton label={`Dodaj włączenie lub wyłączenie kotła: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'work')} />}
                     </div>
                     <div className="schedule-list">
                       {work.map((schedule) => row(schedule, now && schedule._id === current?.workScheduleId,

@@ -29,6 +29,7 @@ export const switchDeviceType: DeviceTypeView = {
 	tileIcon: <SwitchIcon className="device-selection-icon" />,
 	label: 'Włącznik',
 	firmwareUpdates: true,
+	firmwareUpdateHint: 'Sterownik pobierze firmware w ciągu kilku sekund, gdy wszystkie przekaźniki są wyłączone (od wersji 1.1.0; starsza tylko po restarcie).',
 	views: [
 		{ path: '/', label: 'Włącznik', icon: <SwitchIcon />, element: <SwitchHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <SwitchData /> },

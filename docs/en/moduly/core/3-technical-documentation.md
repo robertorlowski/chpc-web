@@ -17,11 +17,11 @@
 | `core/middleware/auth.ts` | `verifyApiKey` — **unused** (disabled in `app.ts`) |
 | `core/middleware/mock-response.ts` | leftover, unused |
 | `core/models/device.model.ts` | Mongoose model `devices`: device schema, `properties`, embedded schedules and legacy `settings` |
-| `core/controllers/device.controller.ts` | device routes; the registration reply includes `settings` from the registry |
+| `core/controllers/device.controller.ts` | device routes; the registration reply includes `settings` from the registry; firmware update request and its cancellation |
 | `core/controllers/meteo.controller.ts` | `GET /temperature` |
 | `core/controllers/firmware.controller.ts` | `/firmware/:kind...`: state, file upload, offer, download; only kinds with `firmwareUpdates` |
 | `core/models/firmware.model.ts` | `firmware_images` (`.bin` file, size, SHA-256) and `firmware_offers` (offered and previous version, `enabled`) |
-| `core/services/firmware.service.ts` | image validation and storage (ESP32 header, ≤ 1,310,720 B), offer for the controller, pruning to the current and one previous version |
+| `core/services/firmware.service.ts` | image validation and storage (ESP32 header, ≤ 1,310,720 B), update request (`requestFirmwareUpdate`, `cancelFirmwareUpdate`), offer for the controller only with a request (`firmwareOfferForDevice`, `firmwareOfferForRoot`), pruning to the current and one previous version |
 | `core/services/device.service.ts` | list, create, register, name, default, read and write `properties` |
 | `core/services/device-info.service.ts` | device kind and `deviceId` cached in memory (for module data records) |
 | `core/services/calendar.service.ts` | Polish holidays, day of the week in Warsaw, `scheduleDayMatches` (whether a switch schedule entry applies to a given date) |
@@ -37,16 +37,16 @@
 | `core/device-types.tsx` | registry: `DeviceType` → `DeviceTypeView` (tile icon, menu screens, extra routes) |
 | `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
 | `core/http.ts` | API and WebSocket addresses, requests with the selected controller's `rootId` and `deviceId` |
-| `core/api.ts` | `DeviceRequests`: list, name, default, `properties` |
+| `core/api.ts` | `DeviceRequests`: list, name, default, `properties`, firmware update request and cancellation |
 | `core/context/DeviceContext.tsx` | selected controller (state + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
 | `core/components/Header.tsx` | menu from the registry |
 | `core/components/DeviceEditModal.tsx` | "Dane sterownika" popup (rename) |
 | `core/components/Notification.tsx` | short message at the top of the screen |
 | `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) and action icons (add, delete, restore, back, edit) |
 | `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only in the accent colour, a danger variant for deletion, label as tooltip and aria-label); used in the pump Schedules and the firmware page |
-| `core/pages/Devices/` | controller choice screen: tiles, default star, pencil |
-| `core/pages/Firmware/` | `/firmware/:deviceType`: current version with description, previous versions (restore, delete), adding a version with a description in a popup (plus icon on the bar), offer switch; outside the device context |
-| `core/components/FirmwareStatus.tsx` | controller firmware version, "waiting for update" state and report time in the controller Settings |
+| `core/pages/Devices/` | controller choice screen: tiles, default star, pencil; firmware cog in the corner of tiles of kinds with `firmwareUpdates` |
+| `core/pages/Firmware/` | `/firmware/:deviceType`: current version with description, previous versions (restore, delete), adding a version with a description in a popup (plus icon on the bar), the "Aktualizacje włączone/wyłączone" (updates on/off) switch (off: "Aktualizuj" unavailable, requests not delivered); outside the device context |
+| `core/components/FirmwareStatus.tsx` | "Sterownik" card in the Settings of the tank, switch and boiler: firmware version, state ("aktualny" up to date / "dostępna wersja X" version X available / "zlecona do wersji X (time), czeka na sterownik" requested, waiting for the controller), report time, "Aktualizuj" (update, with confirmation) or "Anuluj aktualizację" (cancel update) button and the kind's hint (`firmwareUpdateHint`); refreshed every 15 s while a request is pending |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API
@@ -79,6 +79,8 @@ Paths outside the map (application, `GET`s, `/device/properties`) require `rootI
 | `POST /devices/register` | public | controller registration `{deviceId, deviceType?, name?, version?, ip?}`; `deviceType` defaults to `heat_pump`; `ip` IPv4 only (others and `0.0.0.0` are ignored) | 201 new, 200 known (+ `settings` for kinds with `controllerSettings`); 400 missing SN / unknown kind |
 | `PUT /devices/:rootId` | public | rename `{name}` (empty allowed) | 200; 400; 404 |
 | `PUT /devices/:rootId/default` | public | default controller `{isDefault}` (no field: set); clears the flag on the others | 200; 404 |
+| `POST /devices/:rootId/firmware-update` | public | "Aktualizuj": request an update to the offered version, stores `firmwareUpdate {version, requestedAt}`; a WebSocket `operation` wakes the controller | 200 `{version, requestedAt}`; 400 kind without updates (heat pump); 404; 409 no offered version, updates disabled or the controller already has that version |
+| `DELETE /devices/:rootId/firmware-update` | public | "Anuluj aktualizację": remove the request (a download already in progress completes) | 200; 404 |
 | `GET /device/properties` | `rootId` | device settings | 200; 404 |
 | `PUT /device/properties` | `rootId` | save the whole settings object (Mongoose schema validation) | 200; 400 |
 | `GET /temperature` | `rootId` | latest IMGW temperature (number or `null`) | 200 |
@@ -95,6 +97,7 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `name` | string | user-given name, empty by default |
 | `isDefault` | boolean | default controller, at most one |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
+| `firmwareUpdate` | `{version, requestedAt}` | update request from the application ("Aktualizuj"); only with it does the controller get the firmware offer; removed when the controller reports the offered version, or by "Anuluj aktualizację" |
 | `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
 | `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600); pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller); switch: `default_on_minutes` (whole minutes 0–10080, 0 = no limit, default 30) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
@@ -112,7 +115,8 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
   type: DeviceType;
   initialProperties?: DeviceProperties;                       // settings of a new device
   controllerSettings?: (properties: DeviceProperties) => unknown; // settings field in the registration reply
-  firmwareUpdates?: boolean;                                  // OTA: settings.firmware in the registration reply
+  firmwareUpdates?: boolean;                                  // OTA on an "Aktualizuj" request: offer {version, url, sha256, request}
+                                                              // in the registration settings.firmware (switch: also /switch/state, boiler: /commands/next)
   onRegister?: (rootId, deviceId, body) => Promise<void>;     // extra registration fields (switch: relays)
 }
 ```
@@ -125,6 +129,8 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
   tileIcon: ReactNode;                                    // tile icon on the list
   views: { path, label, icon, element }[];                // screens in menu order; '/' = home page
   extraRoutes?: { path, element }[];                      // routes outside the menu (e.g. the heat pump's /hp)
+  firmwareUpdates?: boolean;                              // firmware cog on the tile, "Sterownik" card with "Aktualizuj"
+  firmwareUpdateHint?: string;                            // when the controller downloads the firmware (hint in the "Sterownik" card)
 }
 ```
 

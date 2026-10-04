@@ -7,9 +7,9 @@
 | File | Role |
 |---|---|
 | `routes.ts` | `/switch/*` routes |
-| `device-type.ts` | registry entry: `initialProperties` (`default_on_minutes: 30`), `controllerSettings` (`{default_on_minutes}` in the registration reply), `firmwareUpdates: true` (OTA), `onRegister` (relays from the `relays` field of the registration) |
+| `device-type.ts` | registry entry: `initialProperties` (`default_on_minutes: 30`), `controllerSettings` (`{default_on_minutes}` in the registration reply), `firmwareUpdates: true` (OTA on an "Aktualizuj" request), `onRegister` (relays from the `relays` field of the registration) |
 | `types.ts` | `RelayMode`, `CommandSource`, `ActivationSource`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation`, `RelayReport`, `RelayCommand`, `timePattern` |
-| `controllers/switch.controller.ts` | route handlers; waking the controller (`sendMessage('operation')`) after a mode or schedule change, `update` for browsers after a state change |
+| `controllers/switch.controller.ts` | route handlers; waking the controller (`sendMessage('operation')`) after a mode or schedule change, `update` for browsers after a state change; firmware offer in the state reply (`firmwareOfferForRoot`) |
 | `services/switch.service.ts` | relays (`ensureRelays`), command (`relayCommand`), state report (`parseStateReport`, `reportState`), history (`recordActivation`), mode (`setRelayMode`), names, list for the application (`listRelays`), activations (`listActivations`) |
 | `services/switch-schedule.service.ts` | schedule windows (`scheduleWindow`, `activeSchedule` with window merging, `nextScheduleStart`), entry validation (`parseSchedule`), create, replace, delete |
 | `models/switch-relay.model.ts` | `switch_relays` collection |
@@ -22,7 +22,7 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: switch icon, menu Włącznik, Dane, Harmonogram, Ustawienia (no chart), `firmwareUpdates: true` |
+| `device-type.tsx` | registry entry: switch icon, menu Włącznik, Dane, Harmonogram, Ustawienia (no chart), `firmwareUpdates: true`, `firmwareUpdateHint` |
 | `api.ts` | `SwitchRequests` |
 | `types.ts` | `RelayMode`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation` |
 | `pages/Home.tsx` | relay cards (state switch, mode description, countdown, offline, Włącz / Wyłącz / Harmonogram, on time), the "Dziś" table; refresh every 5 s and WebSocket `update` |
@@ -36,7 +36,7 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 
 | Method and path | Who | Description |
 |---|---|---|
-| `POST /switch/state` | controller | `{uptimeS?, relays: [{on, changedS}]}` (1–16 relays, `changedS` ≥ 0); `deviceId` alone is enough, 404/409 as in core; reply 200 `{relays: [{on, offAfterS?, mode}]}`; bad data 400 |
+| `POST /switch/state` | controller | `{uptimeS?, relays: [{on, changedS}]}` (1–16 relays, `changedS` ≥ 0); `deviceId` alone is enough, 404/409 as in core; reply 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` only with an "Aktualizuj" request; firmware from 1.1.0 updates from it without a restart); bad data 400 |
 | `PUT /switch/mode` | application, controller | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`; `minutes` only for `timer`, whole 1–10080; `source: "controller"` or a request with `deviceId` only = change from the controller; reply: the relay as in `GET /switch/relays`; 400 bad mode, number, time or unknown relay |
 | `GET /switch/relays` | application | relays: `relay`, `name`, `mode` (an expired timer already as `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (entry active now), `nextStart` |
 | `PUT /switch/relays/:relay` | application | `{name}` (at most 40 characters, empty = "Przekaźnik N"); 404 unknown relay |
@@ -46,7 +46,7 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 | `DELETE /switch/schedules/:id` | application | 200 `{}`; 404; 400 bad id |
 | `GET /switch/activations?date=YYYY-MM-DD[&relay=N]` | application | activations overlapping the day (Warsaw), including those started the day before and ongoing ones, ascending by `onAt`, with `durationS` (up to now for ongoing ones); the application filters by relay itself and does not use `relay` |
 
-The registration (`POST /devices/register`, core module) with `deviceType: "switch"` additionally accepts `relays` (integer 1–16): `onRegister` creates the relays at once. The reply carries `settings: {default_on_minutes, firmware?}`. The setting is stored by the shared `PUT /device/properties` (core module).
+The registration (`POST /devices/register`, core module) with `deviceType: "switch"` additionally accepts `relays` (integer 1–16): `onRegister` creates the relays at once. The reply carries `settings: {default_on_minutes, firmware?}` (`firmware` only with an update request, `POST /devices/:rootId/firmware-update`, core module). The setting is stored by the shared `PUT /device/properties` (core module).
 
 ## Data model
 
