@@ -82,7 +82,13 @@ void OperationController::applyServerPatch(const ServerOperationState &patch)
 
   if (serverModeChanged) {
     modeChanged = true;
-    if (prefs.workMode == WORK_MODE::OFF) scheduleOffSequence();
+    if (prefs.workMode == WORK_MODE::OFF) {
+      // Przejście na OFF wyłącza pompy, chyba że ta sama operacja każe którąś włączyć;
+      // potem w OFF działają ręczne zmiany pomp z aplikacji (CHPC przyjmuje 0x09/0x0A w każdym stanie).
+      if (!accepted.hotPump.present) { desired.hotPump.present = true; desired.hotPump.value = false; }
+      if (!accepted.coldPump.present) { desired.coldPump.present = true; desired.coldPump.value = false; }
+      scheduleOffSequence(desired.hotPump.value, desired.coldPump.value);
+    }
   }
 
   reconcile();
@@ -154,10 +160,10 @@ void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
     // bufor, który nie zaczyna się od jego adresu (np. gdy komenda wpadnie
     // razem z końcówką odpowiedzi DTU). Porównanie: Tmax z max, Tmax − Tmin
     // z max − min, z tolerancją 0,11 °C.
-    if (report.hasTemperatures && mode != WORK_MODE::OFF) {
-      const bool coMode = isCoMode(mode);
-      const double maximum = coMode ? prefs.coMax : prefs.cwuMax;
-      const double delta = maximum - (coMode ? prefs.coMin : prefs.cwuMin);
+    if (report.hasTemperatures) {
+      double maximum;
+      double delta;
+      temperaturesFor(mode, maximum, delta);
       if (maximum <= CHPC_SETPOINT_MAX && reportedDiffers(report.setpoint, maximum))
         lastSetpoint = {};
       if (delta <= CHPC_DELTA_MAX
@@ -234,6 +240,13 @@ bool OperationController::isCoMode(WORK_MODE mode) const
     || mode == WORK_MODE::AUTO_PV;
 }
 
+void OperationController::temperaturesFor(WORK_MODE mode, double &maximum, double &delta) const
+{
+  const bool coMode = isCoMode(mode == WORK_MODE::OFF ? lastHeatingMode : mode);
+  maximum = coMode ? prefs.coMax : prefs.cwuMax;
+  delta = maximum - (coMode ? prefs.coMin : prefs.cwuMin);
+}
+
 // False when nothing decides force yet: the server has not sent it.
 bool OperationController::wantedForce(WORK_MODE mode, bool &force) const
 {
@@ -280,15 +293,17 @@ bool OperationController::scheduleDouble(ServerValue<double> &last, double value
   return true;
 }
 
-void OperationController::scheduleOffSequence()
+// CO i force zawsze wyłączone; pompy według argumentów (lokalny OFF: obie wyłączone,
+// work_mode OFF z chmury: stan żądany po przejściu na OFF).
+void OperationController::scheduleOffSequence(bool hotPump, bool coldPump)
 {
   scheduleBool(lastHpCo, false,
     SERIAL_OPERATION::SET_HP_CO_ON, SERIAL_OPERATION::SET_HP_CO_OFF, true, true);
   scheduleBool(lastScheduled.force, false,
     SERIAL_OPERATION::SET_HP_FORCE_ON, SERIAL_OPERATION::SET_HP_FORCE_OFF, true, true);
-  scheduleBool(lastScheduled.hotPump, false,
+  scheduleBool(lastScheduled.hotPump, hotPump,
     SERIAL_OPERATION::SET_HOT_PUMP_ON, SERIAL_OPERATION::SET_HOT_PUMP_OFF, true, true);
-  scheduleBool(lastScheduled.coldPump, false,
+  scheduleBool(lastScheduled.coldPump, coldPump,
     SERIAL_OPERATION::SET_COLD_PUMP_ON, SERIAL_OPERATION::SET_COLD_PUMP_OFF, true, true);
 }
 
@@ -326,36 +341,41 @@ void OperationController::reconcile()
   if (localMode != ControllerMode::CLOUD || !cloudStateReady) return;
   retryPending = false;
   WORK_MODE mode = prefs.workMode;
-  bool coMode = isCoMode(mode);
 
   scheduleBool(lastHpCo, mode != WORK_MODE::OFF,
     SERIAL_OPERATION::SET_HP_CO_ON, SERIAL_OPERATION::SET_HP_CO_OFF,
     false, mode == WORK_MODE::OFF);
 
-  if (mode != WORK_MODE::OFF) {
-    double minimum = coMode ? prefs.coMin : prefs.cwuMin;
-    double maximum = coMode ? prefs.coMax : prefs.cwuMax;
-    scheduleDouble(lastSetpoint, maximum, SERIAL_OPERATION::SET_T_SETPOINT_CO);
-    scheduleDouble(lastDelta, maximum - minimum, SERIAL_OPERATION::SET_T_DELTA_CO);
-  }
+  // Temperatury także w OFF (CHPC przyjmuje 0x04/0x05 bez zgody na pracę): zmiana z aplikacji
+  // dochodzi od razu, a nie dopiero po wyjściu z OFF.
+  if (mode != WORK_MODE::OFF) lastHeatingMode = mode;
+  double maximum;
+  double delta;
+  temperaturesFor(mode, maximum, delta);
+  scheduleDouble(lastSetpoint, maximum, SERIAL_OPERATION::SET_T_SETPOINT_CO);
+  scheduleDouble(lastDelta, delta, SERIAL_OPERATION::SET_T_DELTA_CO);
 
   if (desired.sumpHeater.present)
     scheduleBool(lastScheduled.sumpHeater, desired.sumpHeater.value,
       SERIAL_OPERATION::SET_SUMP_HEATER_ON, SERIAL_OPERATION::SET_SUMP_HEATER_OFF);
 
+  // W OFF pompy zostają wyłączone, dopóki chmura nie każe ich włączyć (ręcznie z aplikacji).
+  const bool offHotPump = desired.hotPump.present && desired.hotPump.value;
+  const bool offColdPump = desired.coldPump.present && desired.coldPump.value;
+
   if (mode == WORK_MODE::OFF) {
-    scheduleBool(lastScheduled.coldPump, false,
+    scheduleBool(lastScheduled.coldPump, offColdPump,
       SERIAL_OPERATION::SET_COLD_PUMP_ON, SERIAL_OPERATION::SET_COLD_PUMP_OFF,
-      false, true);
+      false, !offColdPump);
   } else if (desired.coldPump.present) {
     scheduleBool(lastScheduled.coldPump, desired.coldPump.value,
       SERIAL_OPERATION::SET_COLD_PUMP_ON, SERIAL_OPERATION::SET_COLD_PUMP_OFF);
   }
 
   if (mode == WORK_MODE::OFF) {
-    scheduleBool(lastScheduled.hotPump, false,
+    scheduleBool(lastScheduled.hotPump, offHotPump,
       SERIAL_OPERATION::SET_HOT_PUMP_ON, SERIAL_OPERATION::SET_HOT_PUMP_OFF,
-      false, true);
+      false, !offHotPump);
     scheduleBool(lastScheduled.force, false,
       SERIAL_OPERATION::SET_HP_FORCE_ON, SERIAL_OPERATION::SET_HP_FORCE_OFF,
       false, true);

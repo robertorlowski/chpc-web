@@ -1,6 +1,6 @@
 // Parser operacji z chmury. Zakresy: co_* i cwu_* 1–50 (zaokrąglane do
 // stopni), working_watt 0–25599, eev_max/min_pulse_open 0–255, eev_setpoint
-// 0–255,99. Ostateczne limity stosuje dopiero CHPC.
+// 0,1–8. Ostateczne limity stosuje dopiero CHPC.
 #include <operation_parser.hpp>
 
 #include <cctype>
@@ -161,7 +161,9 @@ OperationParseResult parseServerOperation(JsonObjectConst document)
     0, 255, true, result.invalidValues);
   readNumber(document, "eev_min_pulse_open", result.state.eevMinPulseOpen,
     0, 255, true, result.invalidValues);
-  readNumber(document, "eev_setpoint", result.state.eevSetpoint, 0, 255.99,
+  // Przegrzanie EEV 0,1–8 °C: CHPC zapisuje je w EEPROM bez sprawdzania (0 = ciecz do sprężarki),
+  // z panelu nie zejdzie poniżej 0,1, a po restarcie wartość powyżej 8 zamienia na domyślną.
+  readNumber(document, "eev_setpoint", result.state.eevSetpoint, 0.1, 8.0,
     false, result.invalidValues);
 
   return result;

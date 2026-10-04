@@ -59,14 +59,19 @@ private:
   // w trybie CLOUD nie wysyła do pompy nic (nie zna work_mode).
   bool cloudStateReady = false;
   bool resyncPending = false;
+  // Ostatni tryb inny niż OFF: w OFF pompa dostaje jego parę temperatur (CO albo CWU),
+  // żeby zmiana z aplikacji doszła od razu. Po starcie sterownika CWU.
+  WORK_MODE lastHeatingMode = WORK_MODE::CWU;
   uint32_t preferenceValidationErrors = 0;
 
   void reconcile();
-  void scheduleOffSequence();
+  void scheduleOffSequence(bool hotPump = false, bool coldPump = false);
   void resetScheduledState();
   void setRelayState(bool coEnabled, bool cwuEnabled);
   void updateRelayState(WORK_MODE mode);
   bool isCoMode(WORK_MODE mode) const;
+  // Para temperatur dla trybu (w OFF: ostatniego trybu grzania): max i max − min.
+  void temperaturesFor(WORK_MODE mode, double &maximum, double &delta) const;
   bool wantedForce(WORK_MODE mode, bool &force) const;
   bool scheduleBool(ServerValue<bool> &last, bool value,
     SERIAL_OPERATION onOperation, SERIAL_OPERATION offOperation,

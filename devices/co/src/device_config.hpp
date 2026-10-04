@@ -19,8 +19,10 @@ struct DeviceConfig {
 
 // Wersja firmware wysyłana w zgłoszeniu (pole version, w chmurze firmwareVersion;
 // karta „Sterownik” w Ustawieniach). Pierwsza numerowana wersja co: 1.0.0 (2026-10-04);
-// 1.1.0: aktualizacja z chmury na zlecenie „Aktualizuj” (OTA, partycje min_spiffs).
-constexpr const char *FW_VERSION = "1.1.0";
+// 1.1.0: aktualizacja z chmury na zlecenie „Aktualizuj” (OTA, partycje min_spiffs);
+// 1.1.1: w work_mode OFF działa ręczne włączenie pompy ciepłej i zimnej z aplikacji, temperatury
+// idą do pompy od razu (para ostatniego trybu grzania), przegrzanie EEV tylko 0,1–8 °C.
+constexpr const char *FW_VERSION = "1.1.1";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

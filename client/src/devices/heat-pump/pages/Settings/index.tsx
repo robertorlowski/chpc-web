@@ -14,7 +14,11 @@ import { ControllerCardTitle } from '../../../../core/components/ControllerCardT
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 
-const RUNNING_LOCK_HINT = "Sprężarka pracuje: pompy działają automatycznie, a wymuszenie pompa przyjmuje tylko w spoczynku";
+// przegrzanie EEV [°C]: z panelu pompy najmniej 0,1, po restarcie CHPC wartość powyżej 8 wraca do domyślnej
+const EEV_SETPOINT_MIN = 0.1;
+const EEV_SETPOINT_MAX = 8;
+
+const RUNNING_LOCK_HINT ="Sprężarka pracuje: pompy działają automatycznie, a wymuszenie pompa przyjmuje tylko w spoczynku";
 
 export const Settings: React.FC = () => {
 	// defaultOperation: stan z serwera; valueOpration: tylko pola zmienione przez użytkownika,
@@ -71,9 +75,14 @@ export const Settings: React.FC = () => {
 	// zatrzymaniu sprężarki blokady zmieniają się dopiero po ponownym otwarciu zakładki
 	const forceEditable = selectedWorkMode !== 'OFF' && !running;
 
+	// przegrzanie EEV: zakres jak w co (operation_parser.cpp); CHPC zapisuje je w EEPROM bez sprawdzania
+	const eevSetpoint = valueOpration.eev_setpoint;
+	const eevSetpointValid = eevSetpoint === undefined
+		|| (Number(eevSetpoint) >= EEV_SETPOINT_MIN && Number(eevSetpoint) <= EEV_SETPOINT_MAX);
+
 	const enableSave = useMemo(() => {
-		return Object.entries(valueOpration).length > 0;
-	}, [valueOpration]);
+		return Object.entries(valueOpration).length > 0 && eevSetpointValid;
+	}, [valueOpration, eevSetpointValid]);
 
 	useEffect( () => {
 		HpRequests.prepareOperation()
@@ -97,7 +106,8 @@ export const Settings: React.FC = () => {
 
 	// Wysyła tylko zmienione pola. Brak walidacji zakresów: co i CHPC po cichu odrzucają wartości
 	// spoza swoich limitów, a faktycznie użyte wartości widać dopiero w telemetrii. Pole wpisane
-	// i wyczyszczone zostaje w zmianach jako "" (EEV temp. jako "0") i też jest wysyłane.
+	// i wyczyszczone zostaje w zmianach jako "" i też jest wysyłane (co je odrzuca); wyjątek: EEV temp.
+	// wyczyszczone znika ze zmian, a poza 0,1–8 °C blokuje zapis.
 	const handleSave = () => {
 		console.log(valueOpration);
 		if ( Object.entries(valueOpration).length == 0 ) {
@@ -203,12 +213,21 @@ export const Settings: React.FC = () => {
 							className="temperature"
 							type="number"
 							name="eev_setpoint"
-							step="any"
+							step="0.1"
+							min={EEV_SETPOINT_MIN}
+							max={EEV_SETPOINT_MAX}
+							title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}
+							aria-invalid={!eevSetpointValid}
 							placeholder={defaultOperation.eev_setpoint}
-							value={ valueOpration.eev_setpoint }
-							onChange={(e) => setValueOperation({...valueOpration, eev_setpoint: !e.currentTarget.value ? "0" : e.currentTarget.value.replace(',', '.')
-							})}
+							value={ valueOpration.eev_setpoint ?? '' }
+							onChange={(e) => {
+								// wyczyszczone pole nie jest wysyłane (dawniej szło "0" = przegrzanie 0 °C w EEPROM pompy)
+								const { eev_setpoint: _cleared, ...rest } = valueOpration;
+								const text = e.currentTarget.value.replace(',', '.');
+								setValueOperation(text ? { ...rest, eev_setpoint: text } : rest);
+							}}
 						/>
+						{!eevSetpointValid && <span className="settings-error-text"> {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C</span>}
 					</div>
 
 					<div style={{ minWidth: '200px' }}>

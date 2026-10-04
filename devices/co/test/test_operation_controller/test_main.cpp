@@ -146,6 +146,62 @@ void testOffHasPriorityAndIsNotRepeated()
   TEST_ASSERT_EQUAL_UINT32(0, sink.count);
 }
 
+void testPumpsCanBeForcedManuallyInOff()
+{
+  RecordingSink sink;
+  OperationController controller(sink);
+  controller.applyServerPatch(modePatch(WORK_MODE::OFF));
+
+  sink.clear();
+  ServerOperationState hot;
+  hot.hotPump.present = true;
+  hot.hotPump.value = true;
+  controller.applyServerPatch(hot);
+  TEST_ASSERT_EQUAL_UINT32(1, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_HOT_PUMP_ON, sink.commands[0].operation);
+
+  // kolejna odpowiedź chmury z tym samym "1" niczego nie powtarza
+  sink.clear();
+  controller.applyServerPatch(hot);
+  TEST_ASSERT_EQUAL_UINT32(0, sink.count);
+
+  ServerOperationState cold;
+  cold.coldPump.present = true;
+  cold.coldPump.value = true;
+  controller.applyServerPatch(cold);
+  TEST_ASSERT_EQUAL_UINT32(1, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_COLD_PUMP_ON, sink.commands[0].operation);
+
+  sink.clear();
+  hot.hotPump.value = false;
+  controller.applyServerPatch(hot);
+  TEST_ASSERT_EQUAL_UINT32(1, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_HOT_PUMP_OFF, sink.commands[0].operation);
+}
+
+void testSwitchToOffKeepsPumpRequestedInSameOperation()
+{
+  RecordingSink sink;
+  OperationController controller(sink);
+  ServerOperationState running = modePatch(WORK_MODE::AUTO);
+  running.coldPump.present = true;
+  running.coldPump.value = true;
+  controller.applyServerPatch(running);
+
+  sink.clear();
+  ServerOperationState off = modePatch(WORK_MODE::OFF);
+  off.hotPump.present = true;
+  off.hotPump.value = true;
+  controller.applyServerPatch(off);
+
+  TEST_ASSERT_EQUAL_UINT32(4, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_HP_CO_OFF, sink.commands[0].operation);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_HP_FORCE_OFF, sink.commands[1].operation);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_HOT_PUMP_ON, sink.commands[2].operation);
+  // zimna była włączona przed OFF, a ta operacja jej nie podaje: wyłączona
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_COLD_PUMP_OFF, sink.commands[3].operation);
+}
+
 void testRelaysFollowServerCoPumpState()
 {
   RecordingSink sink;
@@ -299,6 +355,61 @@ void testOperationParserRejectsInvalidValues()
   TEST_ASSERT_FALSE(parsed.state.workMode.present);
   TEST_ASSERT_FALSE(parsed.state.force.present);
   TEST_ASSERT_FALSE(parsed.state.workingWatt.present);
+}
+
+void testOperationParserLimitsEevSetpoint()
+{
+  // 0 (wyczyszczone pole w aplikacji) dawało przegrzanie 0 °C zapisane w EEPROM CHPC
+  const char *rejected[] = {"{\"eev_setpoint\":\"0\"}", "{\"eev_setpoint\":\"8.5\"}"};
+  for (const char *json : rejected) {
+    JsonDocument document;
+    deserializeJson(document, json);
+    OperationParseResult parsed = parseServerOperation(document.as<JsonObjectConst>());
+    TEST_ASSERT_EQUAL_UINT16(1, parsed.invalidValues);
+    TEST_ASSERT_FALSE(parsed.state.eevSetpoint.present);
+  }
+
+  JsonDocument document;
+  deserializeJson(document, "{\"eev_setpoint\":\"2.5\"}");
+  OperationParseResult parsed = parseServerOperation(document.as<JsonObjectConst>());
+  TEST_ASSERT_TRUE(parsed.state.eevSetpoint.present);
+  TEST_ASSERT_EQUAL_DOUBLE(2.5, parsed.state.eevSetpoint.value);
+}
+
+void testOffSendsTemperaturesOfLastHeatingMode()
+{
+  RecordingSink sink;
+  OperationController controller(sink);
+  ServerOperationState heating = modePatch(WORK_MODE::AUTO);
+  heating.coMin.present = true;
+  heating.coMin.value = 30;
+  heating.coMax.present = true;
+  heating.coMax.value = 40;
+  controller.applyServerPatch(heating);
+  controller.applyServerPatch(modePatch(WORK_MODE::OFF));
+
+  // zmiana temperatur CO w OFF idzie od razu (para ostatniego trybu grzania: A = CO)
+  sink.clear();
+  ServerOperationState temperatures;
+  temperatures.coMin.present = true;
+  temperatures.coMin.value = 32;
+  temperatures.coMax.present = true;
+  temperatures.coMax.value = 45;
+  controller.applyServerPatch(temperatures);
+
+  TEST_ASSERT_EQUAL_UINT32(2, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_T_SETPOINT_CO, sink.commands[0].operation);
+  TEST_ASSERT_EQUAL_DOUBLE(45, sink.commands[0].value);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_T_DELTA_CO, sink.commands[1].operation);
+  TEST_ASSERT_EQUAL_DOUBLE(13, sink.commands[1].value);
+
+  // temperatury CWU w OFF po trybie CO niczego nie wysyłają
+  sink.clear();
+  ServerOperationState cwu;
+  cwu.cwuMax.present = true;
+  cwu.cwuMax.value = 48;
+  controller.applyServerPatch(cwu);
+  TEST_ASSERT_EQUAL_UINT32(0, sink.count);
 }
 
 void testAutoPvChangesForceOnlyAtThresholdTransitions()
@@ -654,17 +765,25 @@ void testDeltaChpcRejectsIsNotSentAgain()
   TEST_ASSERT_EQUAL_UINT32(0, sink.count);
 }
 
-void testTemperaturesAreNotCheckedInOffMode()
+// W OFF pompa trzyma parę ostatniego trybu grzania (po starcie CWU), jak w pozostałych trybach.
+void testTemperaturesAreCheckedInOffMode()
 {
   RecordingSink sink;
   OperationController controller(sink);
   controller.applyServerPatch(temperaturePatch(WORK_MODE::OFF, 35, 45, 25, 48));
 
   sink.clear();
+  HeatPumpReport matching = temperatureReport(48, 25);
+  matching.coOn = false;
+  controller.updateHeatPumpReport(matching);
+  TEST_ASSERT_EQUAL_UINT32(0, sink.count);
+
   HeatPumpReport offReport = temperatureReport(45, 22);
   offReport.coOn = false;
   controller.updateHeatPumpReport(offReport);
-  TEST_ASSERT_EQUAL_UINT32(0, sink.count);
+  TEST_ASSERT_EQUAL_UINT32(1, sink.count);
+  TEST_ASSERT_EQUAL_INT(SERIAL_OPERATION::SET_T_SETPOINT_CO, sink.commands[0].operation);
+  TEST_ASSERT_EQUAL_DOUBLE(48, sink.commands[0].value);
 }
 
 void testReportedTemperatureStringsAreParsed()
@@ -734,6 +853,10 @@ int runAllTests()
   RUN_TEST(testEmptyPatchDoesNotApplyDefaults);
   RUN_TEST(testOnlyChangedServerFieldIsScheduled);
   RUN_TEST(testOffHasPriorityAndIsNotRepeated);
+  RUN_TEST(testPumpsCanBeForcedManuallyInOff);
+  RUN_TEST(testOperationParserLimitsEevSetpoint);
+  RUN_TEST(testOffSendsTemperaturesOfLastHeatingMode);
+  RUN_TEST(testSwitchToOffKeepsPumpRequestedInSameOperation);
   RUN_TEST(testAutoPvChangesForceOnlyAtThresholdTransitions);
   RUN_TEST(testPartialPatchPreservesPreviousServerValues);
   RUN_TEST(testRelaysFollowServerCoPumpState);
@@ -760,7 +883,7 @@ int runAllTests()
   RUN_TEST(testLostSetpointIsSentAgainInCwuMode);
   RUN_TEST(testRoundedTemperaturesAreNotSentAgain);
   RUN_TEST(testDeltaChpcRejectsIsNotSentAgain);
-  RUN_TEST(testTemperaturesAreNotCheckedInOffMode);
+  RUN_TEST(testTemperaturesAreCheckedInOffMode);
   RUN_TEST(testReportedTemperatureStringsAreParsed);
   RUN_TEST(testCopIsCompletedOnlyAfterHeatPumpStops);
   RUN_TEST(testCopBottomEstimateUsesOnlyStartupWindow);

@@ -188,6 +188,26 @@ describe('Schedules and manual operation control', () => {
     });
   });
 
+  it('sends an explicit "0" for manually forced pumps when manual settings are cleared', async () => {
+    // co trzyma ostatnią przysłaną wartość: bez jawnego "0" pompa zostawała wymuszona bez końca
+    await runSchedulerOnce(afterScheduleTime);
+    await request(app).post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ work_mode: 'OFF', hot_pomp: '1', cold_pomp: '0' }).expect(201);
+    expect(getOperationData(rootId)).toMatchObject({ hot_pomp: '1', cold_pomp: '0' });
+
+    await request(app).put(`/api/device/properties?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ work_mode: 'CWU', co_min: '32', co_max: '42', cwu_min: '44', cwu_max: '52' }).expect(200);
+    expect(getOperationData(rootId)).toMatchObject({ hot_pomp: '0' });
+    expect(getOperationData(rootId)).not.toHaveProperty('cold_pomp');
+
+    // "0" trzyma się przebiegów schedulera do pierwszej odpowiedzi /hp/add, potem znika
+    await runSchedulerOnce(afterScheduleTime);
+    expect(getOperationData(rootId)).toMatchObject({ hot_pomp: '0' });
+    clearOperation(rootId);
+    await runSchedulerOnce(afterScheduleTime);
+    expect(getOperationData(rootId)).not.toHaveProperty('hot_pomp');
+  });
+
   it('restores the CO pump when the work mode changes without co_pomp', async () => {
     const setManual = (body: Record<string, string>) => request(app)
       .post(`/api/operation/set?rootId=${rootId}&deviceId=${deviceId}`)

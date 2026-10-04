@@ -16,9 +16,15 @@ const manualOperations = new Map<string, OperationEntry>();
 const cwuLoadingOperations = new Map<string, OperationEntry>();
 // Ręczne force: czy od jego ustawienia telemetria pokazała sprężarkę w spoczynku.
 const manualForceSeenIdle = new Map<string, boolean>();
+// Jawne "0" dla ręcznie włączonych wymuszeń pomp i grzałki po skasowaniu ręcznych nadpisań
+// (clearManualOperation). co trzyma ostatnią przysłaną wartość, więc samo usunięcie klucza
+// zostawiało pompę wymuszoną bez końca. Do pierwszej odpowiedzi /hp/add (clearOperation).
+const releasedOperations = new Map<string, OperationEntry>();
+const RELEASED_ON_CLEAR = ['hot_pomp', 'cold_pomp', 'sump_heater'] as const;
 
 const mergeWithManualOperation = (rootId: string, operation: OperationEntry) => ({
   ...operation,
+  ...(releasedOperations.get(rootId) ?? {}),
   ...(manualOperations.get(rootId) ?? {}),
   ...(cwuLoadingOperations.get(rootId) ?? {}),
 });
@@ -45,6 +51,8 @@ export const getOperationData = (rootId: string) => {
 // odpowiedź niesie pełny stan z nadpisaniem); bez nich jest pusta do przebiegu schedulera.
 export const clearOperation = (rootId: string) => {
   operations.delete(rootId);
+  // jawne "0" po skasowaniu ręcznych wymuszeń poszło w tej odpowiedzi
+  releasedOperations.delete(rootId);
 
   const manualOperation = manualOperations.get(rootId);
   const loading = cwuLoadingOperations.get(rootId);
@@ -158,13 +166,23 @@ export const takeOperationActions = (rootId: string): OperationEntry => {
 
 // Usuwa ręczne nadpisania; scheduler woła to przy przejściu z aktywnego harmonogramu
 // do braku harmonogramu, a zapis ustawień domyślnych przez onPropertiesSaved (device-type.ts).
+// Ręcznie włączone hot_pomp, cold_pomp i sump_heater dostają jawne "0" (releasedOperations).
 export const clearManualOperation = (rootId: string) => {
+  const manualOperation = manualOperations.get(rootId) ?? {};
   manualOperations.delete(rootId);
   manualForceSeenIdle.delete(rootId);
+
+  const released: OperationEntry = { ...(releasedOperations.get(rootId) ?? {}) };
+  for (const key of RELEASED_ON_CLEAR) {
+    if (manualOperation[key] === '1') released[key] = '0';
+  }
+  if (Object.keys(released).length > 0) releasedOperations.set(rootId, released);
 
   const scheduledOperation = scheduledOperations.get(rootId);
   if (scheduledOperation) {
     operations.set(rootId, mergeWithManualOperation(rootId, scheduledOperation));
+  } else if (Object.keys(released).length > 0) {
+    operations.set(rootId, mergeWithManualOperation(rootId, {}));
   } else {
     operations.delete(rootId);
   }
