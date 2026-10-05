@@ -16,11 +16,12 @@ import {
 } from '../services/pellet-boiler-pelux200-command.service';
 import {
   createScheduleEntry, getCurrentSchedule, getScheduleSettings, listScheduleEntries, parseScheduleEntry,
-  parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings,
+  parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings, setManualSeason,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
+import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 
@@ -32,7 +33,11 @@ export async function addPelletBoilerPelux200(req: Request, res: Response) {
 
   try {
     const rootId = req.deviceRootId as string;
-    await addPelletBoilerPelux200Reading(rootId, reading);
+    // tryb „Pompa ciepła”: czy pracuje sprężarka pompy ciepła (stan „Praca” w aplikacji, także w historii)
+    const heatPumpRunning = await heatPumpRunningInHeatPumpMode(rootId);
+    await addPelletBoilerPelux200Reading(rootId, {
+      ...reading, ...(heatPumpRunning !== undefined ? { heat_pump_running: heatPumpRunning } : {}),
+    });
     // ładowanie CWU (pompa CWU w trybie pompy ciepła) zgłaszane pompie ciepła od razu, po odpowiedzi
     void evaluateCwuLoading(rootId).catch((error) => console.error('[pellet cwu] error:', error));
     // rozpalanie w trybie pompy ciepła → nastawy trybu Pellet (bez wyłączania regulatora)
@@ -207,6 +212,19 @@ export async function putPelletBoilerScheduleSettings(req: Request, res: Respons
 // GET /schedules/current: {enabled, state, seasonScheduleId, cwuScheduleId, lastError}
 export async function getPelletBoilerCurrentSchedule(req: Request, res: Response) {
   try {
+    return res.status(200).json(await getCurrentSchedule(req.deviceRootId as string));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+// PUT /season {season: winter | summer}: przycisk Lato / Zima w Ustawieniach w trybie pompy ciepła. Zima uruchamia
+// cykl Zimy (winter-cycle.service.ts), Lato idzie od razu; wybór obowiązuje do zmiany sezonu z harmonogramu.
+export async function putPelletBoilerSeason(req: Request<{}, {}, { season?: unknown }>, res: Response) {
+  const season = req.body?.season;
+  if (season !== 'winter' && season !== 'summer') return res.status(400).json({ message: 'season: winter albo summer.' });
+  try {
+    await setManualSeason(req.deviceRootId as string, season);
     return res.status(200).json(await getCurrentSchedule(req.deviceRootId as string));
   } catch (error) {
     return scheduleError(res, error);

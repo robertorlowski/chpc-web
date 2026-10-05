@@ -21,16 +21,17 @@ import { boilerMode } from './pellet-boiler-pelux200-settings.service';
 // odczyt starszy niż to nie świadczy o ładowaniu (kocioł bez łączności)
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
 
-export type HeatPumpNotifier = (heatPumpRootId: string, active: boolean, since: Date | null) => Promise<{ pumpOff: boolean }>;
+// coPump: pompa CO kotła pracuje (świeży odczyt); pompa ciepła (co od 1.2.0) nie liczy wtedy COP
+export type HeatPumpNotifier = (heatPumpRootId: string, active: boolean, since: Date | null, coPump?: boolean) => Promise<{ pumpOff: boolean }>;
 
 const internalApiUrl = () => process.env.INTERNAL_API_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3001}/api`;
 
 // PUT /hp/cwu-loading pompy ciepła (ten sam serwer, przez HTTP jak każdy klient API).
-export const notifyHeatPump: HeatPumpNotifier = async (heatPumpRootId, active, since) => {
+export const notifyHeatPump: HeatPumpNotifier = async (heatPumpRootId, active, since, coPump) => {
   const response = await fetch(`${internalApiUrl()}/hp/cwu-loading?rootId=${encodeURIComponent(heatPumpRootId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ active, ...(since ? { since: since.toISOString() } : {}) }),
+    body: JSON.stringify({ active, ...(since ? { since: since.toISOString() } : {}), ...(coPump !== undefined ? { co_pump: coPump } : {}) }),
   });
   if (!response.ok) throw new Error(`pompa ciepła: HTTP ${response.status}`);
   const body = await response.json() as { pumpOff?: boolean };
@@ -60,7 +61,7 @@ export async function evaluateCwuLoading(rootId: string, now = new Date(), notif
     state.error = 'Brak pompy ciepła na koncie.';
   } else {
     try {
-      state.heatPumpOff = (await notify(String(pump._id), active, since)).pumpOff;
+      state.heatPumpOff = (await notify(String(pump._id), active, since, fresh && last?.heating_pump === true)).pumpOff;
     } catch (error) {
       state.error = String((error as Error).message ?? error);
     }

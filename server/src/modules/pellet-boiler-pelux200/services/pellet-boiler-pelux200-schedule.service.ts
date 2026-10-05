@@ -17,6 +17,9 @@
 // zewnętrzna z czujnika kotła (outside_temp z ostatniego odczytu) jest poniżej progu (z histerezą SEASON_COLD_HYSTERESIS: działający
 // wpis zostaje do progu + 1 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
 // harmonogram sezonem nie steruje. Zmiany sezonu i CWU idą do kotła jednym zleceniem (createCommands).
+// W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ 40 °C,
+// Lato przy kotle < 30 °C i stojącej pompie CO, w Lecie wymuszanie startu pompy ciepła. Przycisk Lato/Zima
+// w Ustawieniach (tryb pompy ciepła) zapisuje sezon (manualSeason), który wygrywa do zmiany sezonu z harmonogramu.
 // Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C).
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
@@ -31,12 +34,13 @@ import {
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import {
   PelletBoilerCommandChange, PelletBoilerCwuRange, PelletBoilerMode, PelletBoilerProfile, PelletBoilerScheduleEntry,
-  PelletBoilerScheduleSettings, PelletBoilerScheduleState, PelletBoilerSeason,
+  PelletBoilerScheduleSettings, PelletBoilerScheduleState, PelletBoilerManualSeason, PelletBoilerSeason, PelletBoilerWinterCycle,
 } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service';
+import { HeatPumpControl, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 
 export { boilerMode };
@@ -231,10 +235,48 @@ const sameState = (a?: PelletBoilerScheduleState, b?: PelletBoilerScheduleState)
   !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && a.season === b.season
   && !!a.paused === !!b.paused;
 
+// Wartość surowa parametru kotła z ostatniego odczytu ustawień.
+const currentParameter = (settings: PelletBoilerSettingsEntry, index: number) =>
+  buildSettingsView(settings).groups.flatMap((g) => g.parameters).find((p) => p.index === index)?.raw[0];
+
+// Sezon kotła z ostatniego odczytu ustawień (nr 125: 0 zima, 1 lato).
+const boilerSeasonOf = (settings: PelletBoilerSettingsEntry): PelletBoilerSeason | undefined =>
+  SEASONS.find((season) => SEASON_VALUE[season] === currentParameter(settings, SEASON_PARAMETER));
+
+// Sezon z przycisku w Ustawieniach: obowiązuje, dopóki harmonogram nie zmieni swojego sezonu (jak ręczna
+// zmiana w pompie ciepła do końca wpisu); potem znika.
+async function activeManualSeason(rootId: string, scheduled: PelletBoilerSeason | null) {
+  const manual = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('manualSeason')
+    .lean<{ manualSeason?: PelletBoilerManualSeason | null }>())?.manualSeason;
+  if (!manual) return undefined;
+  if ((manual.scheduled ?? null) !== scheduled) {
+    await PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { manualSeason: null } });
+    return undefined;
+  }
+  return manual.season;
+}
+
+// Przycisk Lato / Zima w Ustawieniach w trybie pompy ciepła (PUT /season): sezon zapamiętany przy harmonogramie,
+// od razu przebieg (Lato: zlecenie, Zima: krok cyklu). W trybie Pellet aplikacja zleca nr 125 wprost.
+export async function setManualSeason(rootId: string, season: PelletBoilerSeason, now = new Date(), pump: HeatPumpControl = heatPumpControl) {
+  const settings = await getScheduleSettings(rootId);
+  const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
+  const mode = boilerMode(boiler);
+  if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
+  const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
+  const { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), settings.lastApplied?.seasonScheduleId);
+  const manualSeason: PelletBoilerManualSeason = { season, at: now, scheduled: state.season ?? null };
+  await PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { manualSeason } }, { upsert: true });
+  // Lato od razu, także gdy harmonogram ma już Lato w ostatnim stanie (np. Zima ustawiona na panelu)
+  if (season === 'summer' && boilerSeasonOf(boiler) !== 'summer') {
+    await createCommands(rootId, { changes: [{ kind: 'ecomax', index: SEASON_PARAMETER, value: SEASON_VALUE.summer }] });
+  }
+  await applySchedule(rootId, now, pump);
+}
+
 // Zmiany dla regulatora (sezon i CWU w jednym zleceniu): tylko pola różne od ostatniego odczytu ustawień kotła.
 function changesFor(state: PelletBoilerScheduleState, settings: PelletBoilerSettingsEntry): PelletBoilerCommandChange[] {
-  const parameters = buildSettingsView(settings).groups.flatMap((g) => g.parameters);
-  const current = (index: number) => parameters.find((p) => p.index === index)?.raw[0];
+  const current = (index: number) => currentParameter(settings, index);
   const wanted: PelletBoilerCommandChange[] = [
     ...(state.season ? [{ kind: 'ecomax' as const, index: SEASON_PARAMETER, value: SEASON_VALUE[state.season] }] : []),
     { kind: 'ecomax', index: 119, value: state.cwuTo },
@@ -245,7 +287,7 @@ function changesFor(state: PelletBoilerScheduleState, settings: PelletBoilerSett
 
 // Jeden kocioł: stan harmonogramu i zlecenie zmian, gdy stan się zmienił. Błąd (np. brak odczytu
 // ustawień, wartość poza zakresem regulatora) zostaje w lastError i przebieg powtarza się co minutę.
-export async function applySchedule(rootId: string, now = new Date()) {
+export async function applySchedule(rootId: string, now = new Date(), pump: HeatPumpControl = heatPumpControl) {
   const settings = await getScheduleSettings(rootId);
   const last = settings.lastApplied;
   try {
@@ -263,7 +305,19 @@ export async function applySchedule(rootId: string, now = new Date()) {
     const mode = boilerMode(boiler);
     if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
     const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
-    const { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
+    let { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
+    // sezon z przycisku w Ustawieniach (tryb pompy ciepła) wygrywa do zmiany sezonu z harmonogramu
+    const manual = await activeManualSeason(rootId, state.season ?? null);
+    if (manual) state = { ...state, season: manual };
+    // Tryb pompy ciepła i Zima: sezonem steruje cykl Zimy (winter-cycle.service.ts), więc stan jest bez sezonu
+    // (harmonogram zleca tylko CWU); koniec cyklu = Lato ze zwykłej ścieżki (stan z sezonem różny od ostatniego).
+    if (mode === 'heat-pump' && state.season === 'winter') {
+      const { season: _cycle, ...withoutSeason } = state;
+      state = withoutSeason;
+      await runWinterCycle(rootId, boilerSeasonOf(boiler), now, pump);
+    } else {
+      await stopWinterCycle(rootId);
+    }
     if (sameState(state, last)) {
       // ten sam sezon z innego wpisu (np. kolejne okno): zapamiętuje wpis dla histerezy progu
       if (last && (last.seasonScheduleId ?? null) !== state.seasonScheduleId) {
@@ -369,8 +423,14 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const current = mode
     ? scheduleState(settings, entries, mode, now, outdoor, settings.lastApplied?.seasonScheduleId)
     : { state: null, scheduleId: null, seasonScheduleId: null };
+  // winterCycle: cykl Zimy w trybie pompy ciepła (winter-cycle.service.ts), manualSeason: sezon z przycisku
+  const saved = await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('winterCycle manualSeason')
+    .lean<{ winterCycle?: PelletBoilerWinterCycle | null; manualSeason?: PelletBoilerManualSeason | null }>();
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
-  return { enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor, lastError: settings.lastError ?? null };
+  return {
+    enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
+    winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null, lastError: settings.lastError ?? null,
+  };
 }
 
 // dawne wpisy pracy kotła (type work) nie są pokazywane

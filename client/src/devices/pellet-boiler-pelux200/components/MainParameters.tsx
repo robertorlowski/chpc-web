@@ -10,10 +10,11 @@ import { EditIcon } from '../../../core/components/icons';
 import '../../../core/components/deviceEditModal.css';
 import { PelletBoilerRequests } from '../api';
 import {
-  PelletBoilerChange, PelletBoilerCommand, PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSettings,
-  PelletBoilerReading, PelletBoilerSettings,
+  PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerParameter,
+  PelletBoilerScheduleSettings, PelletBoilerReading, PelletBoilerSettings,
 } from '../types';
-import { formatDateTime, formatNumber, stateName, workModeName } from '../utils/boiler';
+import { WinterCycleStatus } from './WinterCycleStatus';
+import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -389,7 +390,27 @@ export const MainParameters: React.FC = () => {
   // Sezon: Tryb LATO (nr 125), 0 Zima / 1 Lato / 2 Auto (kolejność z PyPlumIO, na kotle niepotwierdzona)
   const summer = findIn(settings ?? null, { kind: 'ecomax', index: 125 });
   const [seasonError, setSeasonError] = useState('');
+  // tryb pompy ciepła: Zimą steruje cykl na serwerze (Zima przy kotle ≥ 40 °C, Lato przy < 30 °C i stojącej
+  // pompie CO); przycisk zapisuje wybrany sezon (PUT /season), a stan cyklu jest w GET /schedules/current
+  const heatPumpMode = workModeName(settings ?? null) === 'Pompa ciepła';
+  const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
+  useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
+  const wantedWinter = heatPumpMode && (current?.manualSeason === 'winter' || !!current?.winterCycle);
   const setSeason = async (value: number, label: string) => {
+    if (heatPumpMode) {
+      const message = value === 0
+        ? 'Przełączyć na Zimę z pompą ciepła? Kocioł przejdzie na Zimę, gdy będzie miał co najmniej 40 °C (do tego czasu pompa ciepła dostaje wymuszenie startu), a wróci na Lato poniżej 30 °C przy stojącej pompie CO.'
+        : 'Przełączyć kocioł na Lato?';
+      if (!window.confirm(message)) return;
+      try {
+        setCurrent(await PelletBoilerRequests.setSeason(value === 0 ? 'winter' : 'summer'));
+        setSeasonError('');
+      } catch {
+        setSeasonError('Nie udało się zmienić sezonu.');
+      }
+      load();
+      return;
+    }
     if (!window.confirm(`Przełączyć kocioł na tryb: ${label}?`)) return;
     const response = await PelletBoilerRequests.postCommands([{ kind: 'ecomax', index: 125, value }]);
     setSeasonError(response?.status === 201 ? '' : await errorMessage(response));
@@ -511,7 +532,7 @@ export const MainParameters: React.FC = () => {
               {regulatorOn === undefined
                 ? <span>brak odczytu</span>
                 : <span className={regulatorOn ? 'boiler-state-on' : 'boiler-state-off'}>{regulatorOn ? 'WŁĄCZONY' : 'WYŁĄCZONY'}</span>}
-              {boilerState !== undefined && <span className="boiler-hint"> ({stateName(boilerState)})</span>}
+              {boilerState !== undefined && <span className="boiler-hint"> ({readingStateName(lastReading)})</span>}
             </div>
             <div className="boiler-profiles">
               <button type="button" className="boiler-profile" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending}
@@ -536,18 +557,23 @@ export const MainParameters: React.FC = () => {
             <div className="boiler-main-title">Sezon</div>
             <div className="boiler-profiles">
               {/* bez Auto (decyzja użytkownika 2026-10-04): tylko Zima i Lato */}
-              {(CHOICES['ecomax:125']).slice(0, 2).map((label, value) => (
-                <button key={label} type="button" disabled={!summer || value < summer.min || value > summer.max}
-                  className={summer?.value === value ? 'boiler-profile-active' : 'boiler-profile'}
-                  onClick={() => summer?.value !== value && setSeason(value, label)}>
-                  {label}
-                </button>
-              ))}
+              {(CHOICES['ecomax:125']).slice(0, 2).map((label, value) => {
+                // tryb pompy ciepła: zaznaczony sezon żądany (Zima w cyklu także wtedy, gdy kocioł czeka na Lecie)
+                const active = heatPumpMode ? (value === 0) === wantedWinter : summer?.value === value;
+                return (
+                  <button key={label} type="button" disabled={!summer || value < summer.min || value > summer.max}
+                    className={active ? 'boiler-profile-active' : 'boiler-profile'}
+                    onClick={() => (heatPumpMode ? !active : summer?.value !== value) && setSeason(value, label)}>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
             <div className="boiler-hint">
               Lato: kocioł grzeje tylko CWU, ogrzewanie CO wyłączone.
               {summer?.value === 2 && ' Teraz kocioł jest w trybie Auto (przełączanie według temperatury zewnętrznej).'}
             </div>
+            {heatPumpMode && <WinterCycleStatus cycle={current?.winterCycle} />}
             {seasonError && <div className="boiler-error">{seasonError}</div>}
           </div>
         )}

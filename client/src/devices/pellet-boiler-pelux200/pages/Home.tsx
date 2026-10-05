@@ -14,7 +14,7 @@ import { FlameIcon, PumpIcon } from '../components/icons';
 import { PelletBoilerAutoPellet, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
   DEFAULT_POLL_SECONDS, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
-  stateName, summerModeName, valveText, workModeName,
+  heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
 
@@ -85,7 +85,7 @@ export const PelletBoilerHome: React.FC = () => {
       <h2 className="boiler-title">
         Kocioł
         {reading?.state !== undefined && (
-          <>: <span className={reading.alarm || reading.state === 8 ? 'boiler-alarm' : ''}>{stateName(reading.state)}</span></>
+          <>: <span className={reading.alarm || reading.state === 8 ? 'boiler-alarm' : heatPumpWorking(reading) ? 'boiler-heat-pump-work' : ''}>{readingStateName(reading)}</span></>
         )}
         {reading?.state !== undefined && (
           <FlameIcon className={`boiler-flame${burning ? ' boiler-flame-on' : ''}`} filled={burning} />

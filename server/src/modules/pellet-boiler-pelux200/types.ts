@@ -56,6 +56,8 @@ export interface PelletBoilerPelux200Measurements {
   mixer2_pump?: boolean;
   mixer2_opening?: boolean;
   mixer2_closing?: boolean;
+  /** tryb „Pompa ciepła”: sprężarka pompy ciepła pracowała przy zapisie odczytu (dopisuje serwer) */
+  heat_pump_running?: boolean;
 }
 
 /** Ustawienia regulatora ze sterownika: surowe dane odpowiedzi (hex), jak /boiler-settings.json. */
@@ -207,7 +209,28 @@ export interface PelletBoilerScheduleSettings {
   cwuLoading?: PelletBoilerCwuLoading;
   /** automatyczne przejście na Pellet (pellet-boiler-pelux200-auto-pellet.service.ts) */
   autoPellet?: PelletBoilerAutoPellet;
+  /** cykl Zimy w trybie pompy ciepła (pellet-boiler-pelux200-winter-cycle.service.ts); null = nie działa */
+  winterCycle?: PelletBoilerWinterCycle | null;
+  /** sezon wybrany przyciskiem w Ustawieniach (tryb pompy ciepła); obowiązuje do zmiany sezonu z harmonogramu */
+  manualSeason?: PelletBoilerManualSeason | null;
 }
+
+/** Cykl Zimy: waiting = Lato, czeka na kocioł ≥ 40 °C; winter = Zima do kotła < 30 °C przy stojącej pompie CO. */
+export type PelletBoilerWinterCycle = {
+  phase: 'waiting' | 'winter';
+  since: Date;
+  /** temperatura kotła (heating_temp) z ostatniego świeżego odczytu [°C] */
+  temperature: number | null;
+  /** ostatnie wymuszenie startu sprężarki pompy ciepła */
+  forcedAt?: Date | null;
+};
+
+export type PelletBoilerManualSeason = {
+  season: PelletBoilerSeason;
+  at: Date;
+  /** sezon z harmonogramu w chwili wyboru (null = harmonogram sezonem nie sterował); jego zmiana kończy wybór */
+  scheduled: PelletBoilerSeason | null;
+};
 
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {
   rootId: string;

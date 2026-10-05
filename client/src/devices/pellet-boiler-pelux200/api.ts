@@ -1,7 +1,7 @@
 import { Requests } from '../../core/http';
 import {
   PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
-  PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSettings,
+  PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
 } from './types';
 
 // Kocioł pelletowy Pellux 200: odczyty ze sterownika (/api/pellet-boiler-pelux200/*);
@@ -54,6 +54,11 @@ export class PelletBoilerRequests {
 
   static getCurrentSchedule(): Promise<PelletBoilerCurrentSchedule | null> {
     return Requests.get('/pellet-boiler-pelux200/schedules/current');
+  }
+
+  // przycisk Lato / Zima w trybie pompy ciepła: Zima przez cykl Zimy na serwerze; rzuca wyjątek przy błędzie
+  static setSeason(season: PelletBoilerSeason): Promise<PelletBoilerCurrentSchedule> {
+    return Requests.put('/pellet-boiler-pelux200/season', { season }) as Promise<PelletBoilerCurrentSchedule>;
   }
 
   static getSchedules(): Promise<PelletBoilerSchedule[] | null> {

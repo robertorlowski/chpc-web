@@ -628,3 +628,8 @@
 .boiler-auto-pellet button {
   flex: 0 0 auto;
 }
+
+/* tryb „Pompa ciepła” i pracująca sprężarka pompy ciepła: stan „Praca” na niebiesko */
+.boiler-heat-pump-work {
+  color: #1481a5;
+}

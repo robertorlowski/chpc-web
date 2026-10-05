@@ -8,11 +8,13 @@ import { resolve } from 'path'
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import app from '../src/core/app'
 import { applySchedule, scheduleState } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { PelletBoilerPelux200Model } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200.model'
+import { PelletBoilerCommandModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-command.model'
+import { heatPumpRunningInHeatPumpMode, runWinterCycle } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-winter-cycle.service'
 
 const TYPE = 'pellet-boiler-pelux200';
 const register = (deviceId: string, deviceType = TYPE) =>
@@ -32,11 +34,11 @@ describe('Kocioł pelletowy Pellux 200', () => {
     await mongoServer.stop();
   });
 
-  it('zgłoszenie tworzy urządzenie z ustawieniem 300 s i odsyła je w settings', async () => {
+  it('zgłoszenie tworzy urządzenie z ustawieniem 60 s i odsyła je w settings', async () => {
     const res = await register('AABBCC000001');
     expect(res.status).toBe(201);
     expect(res.body.deviceType).toBe(TYPE);
-    expect(res.body.settings).toEqual({ poll_interval_seconds: 300 });
+    expect(res.body.settings).toEqual({ poll_interval_seconds: 60 });
 
     const again = await register('AABBCC000001');
     expect(again.status).toBe(200);
@@ -77,7 +79,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
         mixer1_closing: true, mixer3_temp: 20,
       });
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ poll_interval_seconds: 300 });
+    expect(res.body).toEqual({ poll_interval_seconds: 60 });
 
     const doc = await PelletBoilerPelux200Model.findOne({ rootId }).lean() as Record<string, unknown>;
     expect(doc.heating_temp).toBe(63.5);
@@ -317,6 +319,8 @@ describe('Kocioł pelletowy Pellux 200', () => {
   // Kopia ustawień z 2026-10-04: minimalna temperatura kotła 30 °C (tryb pompy ciepła), CWU 40 / histereza 5.
   const archiveHeatPump = JSON.parse(readFileSync(resolve(__dirname,
     '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));
+  // Odczyty kotła z produkcji 2026-10-04 wieczorem (przełączenie na Zimę 22:27) do testu cyklu Zimy.
+  const winterReplay = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/kociol-cykl-zimy-2026-10-04.json'), 'utf-8'));
 
   it('harmonogram: CWU od–do osobno dla trybu, tryb z odczytu ustawień, zlecenia tylko przy zmianie', async () => {
     const sn = 'AABBCC000012';
@@ -414,7 +418,11 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const pending = list.filter((c) => c.status === 'pending').map((c) => [c.index, c.value]);
     expect(pending).toContainEqual([125, nightValue]);
     expect(pending).toContainEqual([119, 43]);
+    // odczyt stanu też o 23:00 (endpoint liczy okno z bieżącego zegara; bez tego test przechodził tylko w nocy)
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-05T21:00:30Z'));
     const current = (await request(app).get(api('schedules/current'))).body;
+    vi.useRealTimers();
     expect(current.seasonScheduleId).toBe(created._id);
     expect(current.state.season).toBe(night);
     // temperatura zewnętrzna z czujnika kotła (ostatni odczyt), bez czujnika null
@@ -423,6 +431,131 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await request(app).get(api('schedules/current'))).body.outdoorTemperature).toBe(4.5);
     // ten sam czujnik to temperatura zewnętrzna serwera (t_out pompy ciepła, GET /temperature)
     expect((await request(app).get(`/api/temperature?rootId=${rootId}`)).body.temperature).toBe(4.5);
+  });
+
+  it('cykl Zimy w trybie pompy ciepła: Zima przy kotle ≥ 40 °C, Lato przy < 30 °C i stojącej pompie CO, wymuszanie startu pompy', async () => {
+    const sn = 'AABBCC000014';
+    const { rootId } = (await register(sn)).body;
+    await register('AABBCC0000F4', 'heat_pump');
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const reading = (heating_temp: number, heating_pump: boolean) =>
+      request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, heating_temp, heating_pump }).expect(201);
+    const seasonCommands = async () => ((await request(app).get(`/api/pellet-boiler-pelux200/commands?rootId=${rootId}`)).body as
+      { _id: string; index: number; value: number; status: string }[]).filter((c) => c.index === 125);
+    const forced: string[] = [];
+    const pump = { running: async () => false, force: async (id: string) => { forced.push(id); } };
+    const t0 = new Date();
+    const at = (minutes: number) => new Date(t0.getTime() + minutes * 60_000);
+
+    // Lato, kocioł 35 °C: czekanie i wymuszenie startu pompy ciepła, najwyżej co 10 min
+    await reading(35, false);
+    expect((await runWinterCycle(rootId, 'summer', at(0), pump)).phase).toBe('waiting');
+    await runWinterCycle(rootId, 'summer', at(5), pump);
+    expect(forced).toHaveLength(1);
+    await runWinterCycle(rootId, 'summer', at(10), pump);
+    expect(forced).toHaveLength(2);
+    // sprężarka pracuje: bez wymuszenia
+    await runWinterCycle(rootId, 'summer', at(25), { ...pump, running: async () => true });
+    expect(forced).toHaveLength(2);
+    expect(await seasonCommands()).toEqual([]);
+
+    // kocioł 40 °C: Zima (jedno zlecenie, kolejne kroki czekają na jego wynik)
+    await reading(40, true);
+    await runWinterCycle(rootId, 'summer', new Date(), pump);
+    await runWinterCycle(rootId, 'summer', new Date(), pump);
+    const winter = await seasonCommands();
+    expect(winter.map((c) => [c.value, c.status])).toEqual([[0, 'pending']]);
+    await PelletBoilerCommandModel.updateOne({ _id: winter[0]._id }, { $set: { status: 'done' } });
+
+    // Zima: woda stygnie, pompa CO pracuje — zostaje; poniżej 30 °C i pompa CO stoi — Lato
+    await reading(28, true);
+    expect((await runWinterCycle(rootId, 'winter', new Date(), pump)).phase).toBe('winter');
+    expect(await seasonCommands()).toHaveLength(1);
+    await reading(28, false);
+    await runWinterCycle(rootId, 'winter', new Date(), pump);
+    expect((await seasonCommands()).map((c) => c.value)).toContain(1);
+  });
+
+  it('cykl Zimy na prawdziwych odczytach kotła z 2026-10-04 (Lato do 22:27, potem Zima)', async () => {
+    // fixture: test/fixtures/kociol-cykl-zimy-2026-10-04.json (czas, temperatura kotła, pompa CO; bez identyfikatorów)
+    const sn = 'AABBCC000016';
+    const { rootId } = (await register(sn)).body;
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const forced: Date[] = [];
+    const decisions: { t: string; temp: number; pump: boolean; season: string; action: string }[] = [];
+    const winterFrom = new Date(winterReplay.zimaOd);
+    vi.useFakeTimers({ toFake: ['Date'] });
+
+    for (const reading of winterReplay.odczyty as { t: string; heating_temp: number; heating_pump: boolean }[]) {
+      const at = new Date(reading.t);
+      // odczyt przez API z zegarem ustawionym na czas z nagrania (serwer trzyma ostatni odczyt w pamięci)
+      vi.setSystemTime(at);
+      await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`)
+        .send({ state: 5, heating_temp: reading.heating_temp, heating_pump: reading.heating_pump }).expect(201);
+      const season = at < winterFrom ? 'summer' : 'winter';
+      const now = new Date(at.getTime() + 30_000);
+      const before = await PelletBoilerCommandModel.countDocuments({ rootId });
+      const forcedBefore = forced.length;
+      await runWinterCycle(rootId, season, now, { running: async () => false, force: async () => { forced.push(now); } });
+      const created = await PelletBoilerCommandModel.find({ rootId }).sort({ _id: 1 }).skip(before).lean();
+      // kocioł potwierdza zlecenie (sezon w odczycie zostaje jak w nagraniu)
+      await PelletBoilerCommandModel.updateMany({ rootId, status: 'pending' }, { $set: { status: 'done' } });
+      const action = created.length ? (created[0].value === 0 ? 'Zima' : 'Lato') : forced.length > forcedBefore ? 'start pompy' : '';
+      decisions.push({ t: reading.t, temp: reading.heating_temp, pump: reading.heating_pump, season, action });
+    }
+    vi.useRealTimers();
+
+    // zasada na każdym odczycie: Lato ≥ 40 °C → Zima; Zima < 30 °C przy stojącej pompie CO → Lato
+    for (const d of decisions) {
+      if (d.season === 'summer' && d.temp >= 40) expect(d.action, d.t).toBe('Zima');
+      else if (d.season === 'winter' && d.temp < 30 && !d.pump) expect(d.action, d.t).toBe('Lato');
+      else expect(['', 'start pompy'], d.t).toContain(d.action);
+    }
+    // Lato poniżej 40 °C (od 21:46): wymuszenie startu pompy ciepła, najwyżej co 10 min
+    expect(forced.length).toBeGreaterThan(0);
+    forced.slice(1).forEach((time, i) => expect(time.getTime() - forced[i].getTime()).toBeGreaterThanOrEqual(10 * 60_000));
+    expect(decisions.find((d) => d.action === 'start pompy')?.t).toBe('2026-10-04T19:46:18.800Z');
+    // Zima: przy pracującej pompie CO kocioł stygnie 39 → 31 °C bez zmiany; pierwsze Lato o 22:39 (29,99 °C, pompa CO stoi)
+    expect(decisions.filter((d) => d.season === 'winter' && d.pump).every((d) => d.action === '')).toBe(true);
+    expect(decisions.find((d) => d.action === 'Lato')?.t).toBe('2026-10-04T20:39:01.975Z');
+  }, 60_000);  // całe nagranie przez API: kilkaset odczytów, dłużej niż domyślne 5 s
+
+  it('praca sprężarki pompy ciepła tylko w trybie pompy ciepła (stan „Praca” w aplikacji)', async () => {
+    const sn = 'AABBCC000017';
+    const { rootId } = (await register(sn)).body;
+    await register('AABBCC0000F7', 'heat_pump');
+    const pump = (running: boolean | null) => ({ running: async () => running, force: async () => undefined });
+
+    // bez odczytu ustawień nie wiadomo, który tryb: brak
+    expect(await heatPumpRunningInHeatPumpMode(rootId, pump(true))).toBeUndefined();
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    expect(await heatPumpRunningInHeatPumpMode(rootId, pump(true))).toBe(true);
+    expect(await heatPumpRunningInHeatPumpMode(rootId, pump(false))).toBe(false);
+    // pompa bez świeżych danych
+    expect(await heatPumpRunningInHeatPumpMode(rootId, pump(null))).toBeUndefined();
+    // tryb Pellet (kopia z 3.10)
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+    expect(await heatPumpRunningInHeatPumpMode(rootId, pump(true))).toBeUndefined();
+  });
+
+  it('przycisk Lato / Zima w trybie pompy ciepła: Zima przez cykl, walidacja', async () => {
+    const sn = 'AABBCC000015';
+    const { rootId } = (await register(sn)).body;
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, heating_temp: 35, heating_pump: false }).expect(201);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const settings = (await request(app).get(api('schedule-settings'))).body;
+    await request(app).put(api('schedule-settings')).send({ ...settings, enabled: true }).expect(200);
+
+    expect((await request(app).put(api('season')).send({ season: 'jesień' })).status).toBe(400);
+    const current = (await request(app).put(api('season')).send({ season: 'winter' }).expect(200)).body;
+    expect(current.manualSeason).toBe('winter');
+    // kocioł 35 °C: cykl czeka (sezon w kotle z odczytu ustawień; przy Zimie w kotle faza „winter”)
+    expect(current.winterCycle).toMatchObject({ temperature: 35 });
+
+    const summer = (await request(app).put(api('season')).send({ season: 'summer' }).expect(200)).body;
+    expect(summer.manualSeason).toBe('summer');
+    expect(summer.winterCycle).toBeNull();
   });
 
   it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {

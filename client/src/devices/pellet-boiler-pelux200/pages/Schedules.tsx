@@ -16,6 +16,7 @@ import Notification from '../../../core/components/Notification';
 import { IconButton } from '../../../core/components/IconButton';
 import { EditIcon, PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { PelletBoilerRequests } from '../api';
+import { WinterCycleStatus } from '../components/WinterCycleStatus';
 import {
   PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason,
 } from '../types';
@@ -293,6 +294,7 @@ export const PelletBoilerSchedules: React.FC = () => {
           )}
           <div>Temperatura na zewnątrz: <b>{typeof outdoor === 'number' ? `${outdoor.toFixed(1)} °C` : '---'}</b></div>
           {current && !current.mode && <div className="boiler-hint">Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.</div>}
+          <WinterCycleStatus cycle={current?.winterCycle} />
           {schedules === null || settings === null ? <p>Ładowanie...</p> : (
             <form className="schedule-groups" onSubmit={saveSettings}>
               {MODES.map((mode) => {

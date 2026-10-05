@@ -51,6 +51,9 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
     cwuLoading: { type: Schema.Types.Mixed },
     // automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (komunikat do „OK”)
     autoPellet: { type: Schema.Types.Mixed },
+    // cykl Zimy w trybie pompy ciepła (pellet-boiler-pelux200-winter-cycle.service.ts) i sezon z przycisku
+    winterCycle: { type: Schema.Types.Mixed },
+    manualSeason: { type: Schema.Types.Mixed },
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200_schedule_settings', minimize: false }
 );

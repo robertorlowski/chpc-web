@@ -48,6 +48,8 @@ export type PelletBoilerReading = {
   mixer2_pump?: boolean;
   mixer2_opening?: boolean;
   mixer2_closing?: boolean;
+  /** tryb „Pompa ciepła”: sprężarka pompy ciepła pracowała przy zapisie odczytu (dopisuje serwer) */
+  heat_pump_running?: boolean;
 };
 
 /** Parametr regulatora z GET /pellet-boiler-pelux200/settings (rozkodowany na serwerze). */
@@ -146,7 +148,20 @@ export type PelletBoilerCurrentSchedule = {
   seasonScheduleId?: string | null;
   /** temperatura zewnętrzna z czujnika kotła; null bez świeżego pomiaru */
   outdoorTemperature?: number | null;
+  /** cykl Zimy w trybie pompy ciepła; null = nie działa */
+  winterCycle?: PelletBoilerWinterCycle | null;
+  /** sezon wybrany przyciskiem w Ustawieniach (do zmiany sezonu z harmonogramu) */
+  manualSeason?: PelletBoilerSeason | null;
   lastError: string | null;
+};
+
+/** Cykl Zimy (tryb pompy ciepła): waiting = Lato, czeka na kocioł ≥ 40 °C (wymuszając start pompy ciepła);
+ *  winter = Zima do kotła < 30 °C przy stojącej pompie CO. */
+export type PelletBoilerWinterCycle = {
+  phase: 'waiting' | 'winter';
+  since: string;
+  temperature: number | null;
+  forcedAt?: string | null;
 };
 
 /** Ostatni odczyt ustawień regulatora; {} (brak readAt), gdy sterownik jeszcze ich nie wysłał. */

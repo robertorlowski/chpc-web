@@ -1,0 +1,281 @@
+{
+ "opis": "Odczyty kotła Pellux 200 z produkcji 2026-10-04 21:00–00:50 (czas polski), tylko czas (UTC), temperatura kotła i pompa CO. Tryb Pompa ciepła; o 22:27:15 kocioł przełączony na Zimę (zlecenie z harmonogramu sezonu), wcześniej Lato. Do testu cyklu Zimy (pellet-boiler-pelux200-winter-cycle.service.ts).",
+ "zimaOd": "2026-10-04T20:27:15Z",
+ "odczyty": [
+  {
+   "t": "2026-10-04T19:01:12.897Z",
+   "heating_temp": 40.554,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:06:14.004Z",
+   "heating_temp": 40.495,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:11:13.966Z",
+   "heating_temp": 40.432,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:16:14.069Z",
+   "heating_temp": 40.368,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:21:14.964Z",
+   "heating_temp": 40.289,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:26:15.449Z",
+   "heating_temp": 40.218,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:31:16.407Z",
+   "heating_temp": 40.157,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:36:17.141Z",
+   "heating_temp": 40.096,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:41:17.869Z",
+   "heating_temp": 40.033,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:46:18.800Z",
+   "heating_temp": 39.949,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:51:19.156Z",
+   "heating_temp": 39.883,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T19:56:19.279Z",
+   "heating_temp": 39.822,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:01:20.245Z",
+   "heating_temp": 39.76,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:06:21.134Z",
+   "heating_temp": 39.699,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:11:21.149Z",
+   "heating_temp": 39.638,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:16:22.356Z",
+   "heating_temp": 39.577,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:21:22.701Z",
+   "heating_temp": 39.516,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:26:23.253Z",
+   "heating_temp": 39.467,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:27:22.883Z",
+   "heating_temp": 39.455,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T20:32:23.614Z",
+   "heating_temp": 38.266,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T20:37:24.316Z",
+   "heating_temp": 31.54,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T20:39:01.975Z",
+   "heating_temp": 29.997,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:44:02.337Z",
+   "heating_temp": 28.29,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:49:02.948Z",
+   "heating_temp": 28.032,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:54:03.850Z",
+   "heating_temp": 28.006,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T20:59:04.830Z",
+   "heating_temp": 28.111,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:04:04.594Z",
+   "heating_temp": 28.126,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:09:05.893Z",
+   "heating_temp": 28.155,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:14:05.853Z",
+   "heating_temp": 27.971,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:19:06.388Z",
+   "heating_temp": 27.849,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:24:06.656Z",
+   "heating_temp": 27.788,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:29:07.497Z",
+   "heating_temp": 27.788,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:34:07.496Z",
+   "heating_temp": 29.499,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:34:24.236Z",
+   "heating_temp": 30.031,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T21:39:06.596Z",
+   "heating_temp": 29.997,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:44:07.340Z",
+   "heating_temp": 28.653,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:44:52.028Z",
+   "heating_temp": 30.04,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T21:49:52.279Z",
+   "heating_temp": 30.059,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T21:50:00.990Z",
+   "heating_temp": 29.967,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:52:54.895Z",
+   "heating_temp": 28.919,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T21:55:11.703Z",
+   "heating_temp": 30.048,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:00:12.343Z",
+   "heating_temp": 30.722,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:02:15.261Z",
+   "heating_temp": 29.995,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T22:03:15.935Z",
+   "heating_temp": 29.811,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T22:08:16.058Z",
+   "heating_temp": 33.936,
+   "heating_pump": false
+  },
+  {
+   "t": "2026-10-04T22:10:20.961Z",
+   "heating_temp": 39.177,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:13:01.291Z",
+   "heating_temp": 43.054,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:13:11.648Z",
+   "heating_temp": 43.222,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:18:12.455Z",
+   "heating_temp": 36.187,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:23:12.496Z",
+   "heating_temp": 32.096,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:28:13.259Z",
+   "heating_temp": 31.819,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:33:14.203Z",
+   "heating_temp": 32.186,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:38:14.400Z",
+   "heating_temp": 32.613,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:43:15.330Z",
+   "heating_temp": 33.041,
+   "heating_pump": true
+  },
+  {
+   "t": "2026-10-04T22:48:16.005Z",
+   "heating_temp": 33.442,
+   "heating_pump": true
+  }
+ ]
+}

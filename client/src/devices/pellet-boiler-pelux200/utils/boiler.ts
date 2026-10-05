@@ -3,16 +3,25 @@ import { PelletBoilerParameter, PelletBoilerReading, PelletBoilerSettings } from
 
 const TIME_ZONE = 'Europe/Warsaw';
 
-export const DEFAULT_POLL_SECONDS = 300;
+// odczyt kotła co minutę (domyślne poll_interval_seconds od 2026-10-05)
+export const DEFAULT_POLL_SECONDS = 60;
 
-// Nazwy stanów 0..11 z regulatora ecoMAX.
+// Nazwy stanów 0..11 z regulatora ecoMAX (5 = „Postój”, jak na panelu ecoMAX).
 export const BOILER_STATE_NAMES = [
-  'Wyłączony', 'Stabilizacja', 'Rozpalanie', 'Praca', 'Nadzór', 'Pauza',
+  'Wyłączony', 'Stabilizacja', 'Rozpalanie', 'Praca', 'Nadzór', 'Postój',
   'Czuwanie', 'Wygaszanie', 'Alarm', 'Ręczny', 'Rozszczelnianie', 'Inny',
 ];
 
 export const stateName = (state?: number) =>
   state === undefined ? '---' : (BOILER_STATE_NAMES[state] ?? `Stan ${state}`);
+
+// Tryb „Pompa ciepła” i pracująca sprężarka pompy ciepła (heat_pump_running z serwera): „Praca” zamiast stanu
+// regulatora (zwykle Postój), poza stanem Wyłączony i Alarm (decyzja użytkownika 2026-10-05).
+export const heatPumpWorking = (reading?: Pick<PelletBoilerReading, 'state' | 'heat_pump_running'> | null) =>
+  !!reading?.heat_pump_running && reading.state !== undefined && reading.state !== 0 && reading.state !== 8;
+
+export const readingStateName = (reading?: Pick<PelletBoilerReading, 'state' | 'heat_pump_running'> | null) =>
+  heatPumpWorking(reading) ? 'Praca' : stateName(reading?.state);
 
 export const formatNumber = (value: number | undefined, digits = 1) =>
   value === undefined || value === null ? '---' : value.toLocaleString('pl-PL', { maximumFractionDigits: digits });
@@ -94,7 +103,7 @@ export const READING_COLUMNS: ReadingColumn[] = [
   { key: 'createdAt', header: 'Czas', csvHeader: 'Czas', main: true,
     cell: (r) => formatTime(r.createdAt), csv: (r) => formatDateTime(r.createdAt) },
   { key: 'state', header: 'Stan', csvHeader: 'Stan', main: true,
-    cell: (r) => stateName(r.state), csv: (r) => stateName(r.state) },
+    cell: (r) => readingStateName(r), csv: (r) => readingStateName(r) },
   temp('heating_temp', 'Kocioł', 'Kocioł', true),
   temp('heating_target', 'Kocioł zad.', 'Kocioł zadana', true),
   temp('water_heater_temp', 'CWU', 'CWU', true),

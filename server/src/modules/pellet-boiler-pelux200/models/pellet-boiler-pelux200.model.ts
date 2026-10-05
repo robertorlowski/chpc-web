@@ -50,6 +50,9 @@ const PelletBoilerPelux200Schema = new Schema<PelletBoilerPelux200Entry>(
     mixer2_pump: flag,
     mixer2_opening: flag,
     mixer2_closing: flag,
+    // tryb „Pompa ciepła”: sprężarka pompy ciepła pracowała przy zapisie odczytu (serwer, nie sterownik pieca);
+    // aplikacja pokazuje wtedy stan „Praca” zamiast stanu regulatora
+    heat_pump_running: flag,
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200' }
 );
