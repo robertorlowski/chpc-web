@@ -933,6 +933,11 @@ void pollCloudCommand(uint32_t nowMs)
     }
     return;
   }
+  // Regulator wyłączony albo bez komunikacji (brak odczytu młodszego niż READING_MAX_AGE_MS): nie
+  // pobieramy zleceń, więc czekają w kolejce w chmurze i wykonają się po włączeniu kotła. Do 1.6.2
+  // pobrane zlecenie kończyło się po 2 min błędem „brak okna ecoNET” (2026-10-05 17:06–17:17,
+  // kocioł bez zasilania). Oferta OTA też przychodzi z commands/next, więc przy wyłączonym kotle czeka.
+  if (!readingFresh()) return;
   if (!commandPollDue && lastCommandPollMs != 0 && nowMs - lastCommandPollMs < CLOUD_COMMAND_POLL_MS) return;
   commandPollDue = false;
   lastCommandPollMs = nowMs;
