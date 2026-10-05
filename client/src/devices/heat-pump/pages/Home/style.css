@@ -85,9 +85,10 @@
 	display: flex;
 }
 
+/* „T: 47.1” na środku karty (dawniej do prawej, gdy obok były przełączniki „CO pompa” / „CWU pompa”) */
 .heat.body {
 	display: flex;
-	justify-content: flex-end;
+	justify-content: center;
 }
 
 .heat.table {
@@ -113,16 +114,26 @@
 	width: 20px;
 }
 
-/* sygnalizacja błędu sterownika (ostatnie 24 h): dzwonek na środku miejsca przed "T:" */
+/* sygnalizacja błędu sterownika (ostatnie 24 h): dzwonek tuż przed "T:", poza osią środka,
+   żeby nie przesuwał wyśrodkowanej temperatury */
 td.label.hp-temp-label {
   display: flex;
   align-items: center;
+  position: relative;
+}
+
+.hp-page td.label.hp-temp-label {
+  width: auto;
+  min-width: 0;
 }
 
 .hp-bell-slot {
-  flex: 1;
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-right: 8px;
   display: flex;
-  justify-content: center;
   align-items: center;
 }
 
