@@ -59,7 +59,10 @@ const HpEntrySchema = new Schema<HpEntry>(
     cwu_pomp: { type: Boolean },
     pv_power: { type: Boolean },
     schedule_on: { type: Boolean },
+    // co od 1.2.0: work_mode MANUAL / AUTO / OFF i temp_min / temp_max; starsze: M / A / CWU / OFF i pary co_* / cwu_*
     work_mode: { type: String },
+    temp_min: { type: Number },
+    temp_max: { type: Number },
     co_min: { type: String },
     co_max: { type: String },
     cwu_min: { type: String },

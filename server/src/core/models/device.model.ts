@@ -9,15 +9,18 @@ import { SettingsEntrySchema } from '../../modules/heat-pump/models/settings.mod
 // Ustawienia wszystkich rodzajów sterowników w jednym polu properties.
 const DevicePropertiesSchema = new Schema<DeviceProperties>(
   {
+    // pompa ciepła: tryb pracy i temperatura od–do; M, A, CWU i pary co_*/cwu_* to dawne ustawienia
+    temp_min: { type: String },
+    temp_max: { type: String },
     co_min: { type: String },
     co_max: { type: String },
     cwu_min: { type: String },
     cwu_max: { type: String },
     work_mode: {
       type: String,
-      enum: ['M', 'A', 'CWU', 'OFF'],
+      enum: ['MANUAL', 'AUTO', 'OFF', 'M', 'A', 'CWU'],
       // domyślna wartość dopisuje się także hydroforowi, który jej nie używa
-      default: 'CWU',
+      default: 'MANUAL',
     },
     // hydrofor
     compressor_seconds: { type: Number, min: 1, max: 3600 },

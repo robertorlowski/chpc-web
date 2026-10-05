@@ -130,7 +130,7 @@ export async function getDeviceProperties(rootId: string): Promise<DevicePropert
 }
 
 // $set całego properties: pominięte klucze znikają (poza wartościami domyślnymi
-// schematu, np. work_mode = CWU).
+// schematu, np. work_mode = MANUAL).
 export async function updateDeviceProperties(rootId: string, properties: DeviceProperties): Promise<DeviceProperties> {
   const device = await DeviceModel.findByIdAndUpdate(
     rootId,

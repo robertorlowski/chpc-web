@@ -29,8 +29,7 @@ constexpr uint8_t TFT_CS_PIN = 13;
 constexpr uint8_t TFT_MOSI_PIN = 14;
 constexpr uint8_t TFT_CLOCK_PIN = 27;
 constexpr uint8_t TFT_RESET_PIN = 0;
-constexpr uint8_t RELAY_HP_CWU_PIN = 25;
-constexpr uint8_t RELAY_HP_CO_PIN = 26;
+// GPIO25/26 (dawne przekaźniki CO/CWU) wolne od 1.2.0.
 // Zasilanie modułów, ustawiane na HIGH w setup().
 constexpr uint8_t POWER_PIN = 18;
 // Przycisk trybu, aktywny stanem wysokim, z zewnętrznym rezystorem.

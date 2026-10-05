@@ -5,7 +5,7 @@
 #include <hardware_config.hpp>
 
 // Typy domenowe wspólne dla firmware i testów: odczyt PV, komendy RS-485,
-// tryby pracy z chmury (WORK_MODE) i tryb sterownika z przycisku.
+// tryby pracy z chmury (WORK_MODE), tryb sterownika z przycisku i ustawienia z chmury.
 
 // One entry per microinverter port, in the order the DTU reports them.
 struct PvPanel {
@@ -65,31 +65,38 @@ enum SERIAL_OPERATION {
   SET_EEV_SETPOINT,
 };
 
-// work_mode z chmury: M, A, PV, CWU, OFF (json_converters.hpp).
+// Tryb pracy z chmury (od 1.2.0): MANUAL (ręczny), AUTO (harmonogram), OFF. Dla co oba tryby pracy
+// znaczą to samo (grzanie z temperaturą od–do), różnią się tylko opisem na ekranie; harmonogram liczy
+// serwer. Dawne wartości (M, A, CWU, PV) parser zamienia na MANUAL / AUTO (operation_parser.cpp).
 enum WORK_MODE : int16_t {
   MANUAL,
   AUTO,
-  AUTO_PV,
-  CWU,
   OFF
 };
 
-// Lokalny tryb sterownika (przycisk GPIO5, NVS „mode”); tylko CLOUD stosuje
-// operacje z chmury. Wartości liczbowe są zapisane w NVS: nie zmieniać kolejności.
+// Lokalny tryb sterownika (przycisk GPIO5, NVS „mode”): OFF → CLOUD → MANUAL → OFF. Tylko CLOUD stosuje
+// operacje z chmury; MANUAL (ręczny lokalnie) grzeje na ostatniej temperaturze od–do z chmury. Wartości
+// liczbowe są zapisane w NVS: nie zmieniać kolejności (dawne 3 = MANUAL_CWU czytane jako MANUAL).
 enum class ControllerMode : uint8_t {
   OFF,
   CLOUD,
-  MANUAL_CO,
-  MANUAL_CWU,
+  MANUAL,
 };
 
 // Ustawienia z chmury trzymane tylko w RAM; po restarcie obowiązują te
-// wartości domyślne do pierwszej operacji z serwera.
+// wartości domyślne do pierwszej operacji z serwera. Konfiguracja pompy (pv_force, pv_dtu, tank_liters)
+// pochodzi z definicji sterownika w aplikacji (okno „Dane sterownika”), cop_pause z odczytu kotła.
 struct DeviceSettings {
   WORK_MODE workMode = WORK_MODE::OFF;
-  double coMin = 35.0;
-  double coMax = 45.0;
-  double cwuMin = 40.0;
-  double cwuMax = 47.0;
+  double tempMin = 35.0;
+  double tempMax = 45.0;
+  // wymuszenie startu przy produkcji PV ≥ progu (dawny tryb PV)
+  bool pvForce = false;
+  // panele Hoymiles przez DTU: bez nich sterownik nie odpytuje DTU
+  bool pvDtu = true;
+  // pojemność zbiornika [l] do szacunku COP
+  double tankLiters = 300.0;
+  // pompa CO kotła pracuje (podłączenie CO): woda odpływa ze zbiornika, COP nie jest liczony
+  bool copPause = false;
   ControllerMode controllerMode = ControllerMode::CLOUD;
 };

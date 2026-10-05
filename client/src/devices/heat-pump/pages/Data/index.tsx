@@ -16,9 +16,11 @@ import { fetchData, formatDateYMD } from '../../utils/utils';
 import { errorDescription } from '../../utils/errors';
 import { ClipLoader } from 'react-spinners';
 
-// A (harmonogram) i M (ręczny) to dla użytkownika to samo grzanie CO; CWU, OFF i PV bez zmian.
+// co od 1.2.0: MANUAL / AUTO / OFF = ręczny / automatyczny / OFF. Starsze rekordy: A i M (grzanie CO) = CO,
+// CWU, OFF i PV bez zmian (decyzja 2026-10-04: dawnych kodów nie przerabiać).
+const WORK_MODE_LABELS: Record<string, string> = { MANUAL: 'ręczny', AUTO: 'automatyczny', OFF: 'OFF', A: 'CO', M: 'CO' };
 const formatDataWorkMode = (workMode?: string): string => (
-  workMode === 'A' || workMode === 'M' ? 'CO' : workMode || '---'
+  (workMode && WORK_MODE_LABELS[workMode]) || workMode || '---'
 );
 
 const columns: ColumnDef<THPL>[] = [

@@ -7,7 +7,7 @@
 #include <domain_types.hpp>
 
 // Sprzęt ESP32: ekran ST7735 (128×160, pionowo), RTC DS3231, NTP, Wi-Fi
-// z AP HP-CO-setup, przekaźniki i odpowiedź na magistrali RS-485.
+// z AP HP-CO-setup i odpowiedź na magistrali RS-485.
 // Wszystko wywołuje main.cpp.
 
 // Start ekranu i Wi-Fi (do 10 s czekania), potem NTP; false = brak czasu.
@@ -15,7 +15,7 @@ bool initializeDevice(RTC_DS3231 &rtc, Adafruit_ST7735 &display);
 // Ustawia RTC na czas warszawski z pl.pool.ntp.org (CET/CEST liczone lokalnie).
 bool synchronizeClock(RTC_DS3231 &rtc);
 void displayStatus(Adafruit_ST7735 &display, const String &text, int line = 0);
-// Ekran trybu: źródło (LOCAL/CLOUD/MANUAL), tryb, IP i adres AP.
+// Ekran trybu: źródło (LOCAL/CLOUD), tryb (RECZNY/AUTO/OFF), IP i adres AP.
 void displayControllerMode(Adafruit_ST7735 &display,
   ControllerMode controllerMode, WORK_MODE workMode);
 // Ekran główny (układ opisany w CLAUDE.md, punkt 13, „Ekran”).
@@ -29,8 +29,5 @@ void renderDashboard(Adafruit_ST7735 &display,
 bool stationOnline();
 bool accessPointEnabled();
 void setAccessPointEnabled(bool enabled);
-// Po zmianie stanu przekaźnika ekran jest inicjowany ponownie (initR), a
-// main.cpp zaraz go odrysowuje.
-void writeRelayOutput(Adafruit_ST7735 &display, uint8_t pin, uint8_t value);
 // Odpowiedź `co` (adres 0x10) na magistrali: tekst JSON zakończony CRLF.
 void writeSerialResponse(const String &text);

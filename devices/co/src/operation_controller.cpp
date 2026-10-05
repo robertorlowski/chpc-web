@@ -1,6 +1,7 @@
-// Zamiana stanu z chmury na komendy RS-485 do CHPC i stan przekaźników
-// CO/CWU. Kontrakt operacji: CLAUDE.md, punkt 7; semantyka trybów:
-// docs/server-driven-refactor-2026-09-20.md, punkt 6.
+// Zamiana stanu z chmury na komendy RS-485 do CHPC. Kontrakt operacji: CLAUDE.md, punkt 7;
+// semantyka trybów: docs/server-driven-refactor-2026-09-20.md, punkt 6. Od 1.2.0 tryb pracy
+// MANUAL / AUTO / OFF i jedna temperatura od–do (bez podziału CO/CWU i bez przekaźników),
+// wymuszenie przy produkcji PV według konfiguracji pompy (pv_force).
 #include <operation_controller.hpp>
 
 #include <cmath>
@@ -47,28 +48,21 @@ void OperationController::applyServerPatch(const ServerOperationState &patch)
   accepted.restart = {};
   if (!hasServerOperationValues(accepted)) return;
 
-
   DeviceSettings nextPreferences = prefs;
   if (accepted.workMode.present) nextPreferences.workMode = accepted.workMode.value;
-  if (accepted.coMin.present) nextPreferences.coMin = accepted.coMin.value;
-  if (accepted.coMax.present) nextPreferences.coMax = accepted.coMax.value;
-  if (accepted.cwuMin.present) nextPreferences.cwuMin = accepted.cwuMin.value;
-  if (accepted.cwuMax.present) nextPreferences.cwuMax = accepted.cwuMax.value;
+  if (accepted.tempMin.present) nextPreferences.tempMin = accepted.tempMin.value;
+  if (accepted.tempMax.present) nextPreferences.tempMax = accepted.tempMax.value;
+  if (accepted.pvForce.present) nextPreferences.pvForce = accepted.pvForce.value;
+  if (accepted.pvDtu.present) nextPreferences.pvDtu = accepted.pvDtu.value;
+  if (accepted.tankLiters.present) nextPreferences.tankLiters = accepted.tankLiters.value;
+  if (accepted.copPause.present) nextPreferences.copPause = accepted.copPause.value;
 
-  if (nextPreferences.coMin > nextPreferences.coMax) {
+  if (nextPreferences.tempMin > nextPreferences.tempMax) {
     preferenceValidationErrors++;
-    if (accepted.coMin.present) accepted.coMin.present = false;
-    if (accepted.coMax.present) accepted.coMax.present = false;
-    nextPreferences.coMin = prefs.coMin;
-    nextPreferences.coMax = prefs.coMax;
-  }
-
-  if (nextPreferences.cwuMin > nextPreferences.cwuMax) {
-    preferenceValidationErrors++;
-    if (accepted.cwuMin.present) accepted.cwuMin.present = false;
-    if (accepted.cwuMax.present) accepted.cwuMax.present = false;
-    nextPreferences.cwuMin = prefs.cwuMin;
-    nextPreferences.cwuMax = prefs.cwuMax;
+    accepted.tempMin.present = false;
+    accepted.tempMax.present = false;
+    nextPreferences.tempMin = prefs.tempMin;
+    nextPreferences.tempMax = prefs.tempMax;
   }
 
   if (!hasServerOperationValues(accepted)) return;
@@ -104,7 +98,6 @@ void OperationController::setControllerMode(ControllerMode mode)
 
   switch (localMode) {
     case ControllerMode::OFF:
-      setRelayState(false, false);
       scheduleOffSequence();
       break;
 
@@ -113,12 +106,10 @@ void OperationController::setControllerMode(ControllerMode mode)
       if (cloudStateReady) reconcile();
       break;
 
-    case ControllerMode::MANUAL_CO:
-      setRelayState(true, true);
-      break;
-
-    case ControllerMode::MANUAL_CWU:
-      setRelayState(false, false);
+    case ControllerMode::MANUAL:
+      // grzanie na ostatniej temperaturze od–do z chmury, bez wymuszenia z chmury
+      resetScheduledState();
+      reconcile();
       break;
   }
 }
@@ -126,8 +117,7 @@ void OperationController::setControllerMode(ControllerMode mode)
 void OperationController::updatePv(const PV &newPv)
 {
   pv = newPv;
-  if (localMode == ControllerMode::CLOUD
-    && cloudStateReady && prefs.workMode == WORK_MODE::AUTO_PV) reconcile();
+  if (localMode == ControllerMode::CLOUD && cloudStateReady && prefs.pvForce) reconcile();
 }
 
 void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
@@ -140,12 +130,12 @@ void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
     if (resync || report.coOn || report.force) scheduleOffSequence();
     return;
   }
-  if (localMode != ControllerMode::CLOUD || !cloudStateReady) return;
+  if (!controlling()) return;
 
   if (resync) {
     resetScheduledState();
   } else {
-    WORK_MODE mode = prefs.workMode;
+    WORK_MODE mode = effectiveMode();
     // HP.CO (zgoda na start sprężarki, 0x0C) ma być 1 w każdym trybie poza OFF.
     if (report.coOn != (mode != WORK_MODE::OFF)) lastHpCo = {};
 
@@ -158,12 +148,11 @@ void OperationController::updateHeatPumpReport(const HeatPumpReport &report)
     // CHPC on the limits of the previous mode for good.
     // Ramki giną, bo CHPC czyta z magistrali do 49 bajtów naraz i odrzuca
     // bufor, który nie zaczyna się od jego adresu (np. gdy komenda wpadnie
-    // razem z końcówką odpowiedzi DTU). Porównanie: Tmax z max, Tmax − Tmin
-    // z max − min, z tolerancją 0,11 °C.
+    // razem z końcówką odpowiedzi DTU). Porównanie: Tmax z do, Tmax − Tmin
+    // z do − od, z tolerancją 0,11 °C. Także w OFF (temperatura dochodzi od razu).
     if (report.hasTemperatures) {
-      double maximum;
-      double delta;
-      temperaturesFor(mode, maximum, delta);
+      const double maximum = prefs.tempMax;
+      const double delta = prefs.tempMax - prefs.tempMin;
       if (maximum <= CHPC_SETPOINT_MAX && reportedDiffers(report.setpoint, maximum))
         lastSetpoint = {};
       if (delta <= CHPC_DELTA_MAX
@@ -182,7 +171,7 @@ void OperationController::heatPumpLost()
 void OperationController::tick()
 {
   if (!retryPending) return;
-  if (localMode == ControllerMode::CLOUD && cloudStateReady) reconcile();
+  if (controlling()) reconcile();
   if (localMode == ControllerMode::OFF) {
     retryPending = false;
     scheduleOffSequence();
@@ -204,23 +193,6 @@ const ServerOperationState &OperationController::serverState() const
   return desired;
 }
 
-bool OperationController::coRelay() const
-{
-  return coRelayState;
-}
-
-bool OperationController::cwuRelay() const
-{
-  return cwuRelayState;
-}
-
-bool OperationController::takeRelayChanged()
-{
-  bool changed = relayChanged;
-  relayChanged = false;
-  return changed;
-}
-
 bool OperationController::takeModeChanged()
 {
   bool changed = modeChanged;
@@ -233,34 +205,40 @@ uint32_t OperationController::preferenceValidationErrorCount() const
   return preferenceValidationErrors;
 }
 
-bool OperationController::isCoMode(WORK_MODE mode) const
+bool OperationController::controlling() const
 {
-  return mode == WORK_MODE::MANUAL
-    || mode == WORK_MODE::AUTO
-    || mode == WORK_MODE::AUTO_PV;
+  return localMode == ControllerMode::MANUAL
+    || (localMode == ControllerMode::CLOUD && cloudStateReady);
 }
 
-void OperationController::temperaturesFor(WORK_MODE mode, double &maximum, double &delta) const
+WORK_MODE OperationController::effectiveMode() const
 {
-  const bool coMode = isCoMode(mode == WORK_MODE::OFF ? lastHeatingMode : mode);
-  maximum = coMode ? prefs.coMax : prefs.cwuMax;
-  delta = maximum - (coMode ? prefs.coMin : prefs.cwuMin);
+  return localMode == ControllerMode::MANUAL ? WORK_MODE::MANUAL : prefs.workMode;
 }
 
-// False when nothing decides force yet: the server has not sent it.
+// False when nothing decides force yet. OFF: never. Wymuszenie PV (pv_force w konfiguracji pompy):
+// produkcja ≥ progu wymusza start; poza tym force z chmury (lokalny MANUAL go nie używa).
 bool OperationController::wantedForce(WORK_MODE mode, bool &force) const
 {
   if (mode == WORK_MODE::OFF) {
     force = false;
     return true;
   }
-  if (mode == WORK_MODE::AUTO_PV) {
-    force = pv.pv_power && pv.total_power >= pvForceThreshold;
+  if (localMode == ControllerMode::MANUAL) return false;
+  const bool pvWanted = prefs.pvForce && pv.pv_power && pv.total_power >= pvForceThreshold;
+  if (pvWanted) {
+    force = true;
     return true;
   }
-  if (!desired.force.present) return false;
-  force = desired.force.value;
-  return true;
+  if (desired.force.present) {
+    force = desired.force.value;
+    return true;
+  }
+  if (prefs.pvForce) {
+    force = false;
+    return true;
+  }
+  return false;
 }
 
 bool OperationController::scheduleBool(ServerValue<bool> &last, bool value,
@@ -315,32 +293,15 @@ void OperationController::resetScheduledState()
   lastDelta = {};
 }
 
-void OperationController::setRelayState(bool coEnabled, bool cwuEnabled)
-{
-  if (coRelayState == coEnabled && cwuRelayState == cwuEnabled) return;
-  coRelayState = coEnabled;
-  cwuRelayState = cwuEnabled;
-  relayChanged = true;
-}
-
-void OperationController::updateRelayState(WORK_MODE mode)
-{
-  // Both local relays are driven as one. The server's co_pomp only matters
-  // while the work mode actually heats CO; otherwise the pair stays off.
-  const bool enabled = isCoMode(mode)
-    && (!desired.coPump.present || desired.coPump.value);
-
-  setRelayState(enabled, enabled);
-}
-
 // Porównuje stan żądany z ostatnio wysłanym i kolejkuje różnice w stałej
 // kolejności: CO on/off, T zadana (0x04), delta (0x05), grzałka, pompy, force,
 // moc, EEV. W work_mode OFF komendy wyłączające idą kolejką priorytetową.
+// Lokalny MANUAL: CO, temperatury i pompy, bez force z chmury.
 void OperationController::reconcile()
 {
-  if (localMode != ControllerMode::CLOUD || !cloudStateReady) return;
+  if (!controlling()) return;
   retryPending = false;
-  WORK_MODE mode = prefs.workMode;
+  WORK_MODE mode = effectiveMode();
 
   scheduleBool(lastHpCo, mode != WORK_MODE::OFF,
     SERIAL_OPERATION::SET_HP_CO_ON, SERIAL_OPERATION::SET_HP_CO_OFF,
@@ -348,12 +309,8 @@ void OperationController::reconcile()
 
   // Temperatury także w OFF (CHPC przyjmuje 0x04/0x05 bez zgody na pracę): zmiana z aplikacji
   // dochodzi od razu, a nie dopiero po wyjściu z OFF.
-  if (mode != WORK_MODE::OFF) lastHeatingMode = mode;
-  double maximum;
-  double delta;
-  temperaturesFor(mode, maximum, delta);
-  scheduleDouble(lastSetpoint, maximum, SERIAL_OPERATION::SET_T_SETPOINT_CO);
-  scheduleDouble(lastDelta, delta, SERIAL_OPERATION::SET_T_DELTA_CO);
+  scheduleDouble(lastSetpoint, prefs.tempMax, SERIAL_OPERATION::SET_T_SETPOINT_CO);
+  scheduleDouble(lastDelta, prefs.tempMax - prefs.tempMin, SERIAL_OPERATION::SET_T_DELTA_CO);
 
   if (desired.sumpHeater.present)
     scheduleBool(lastScheduled.sumpHeater, desired.sumpHeater.value,
@@ -407,6 +364,4 @@ void OperationController::reconcile()
   if (desired.eevSetpoint.present)
     scheduleDouble(lastScheduled.eevSetpoint, desired.eevSetpoint.value,
       SERIAL_OPERATION::SET_EEV_SETPOINT);
-
-  updateRelayState(mode);
 }

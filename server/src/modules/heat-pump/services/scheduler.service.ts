@@ -2,37 +2,40 @@
 // heat_pump wylicza operację z harmonogramów i ustawień domyślnych i zapisuje ją w
 // operation.service. Niczego nie wysyła: sterownik co odbierze operację w odpowiedzi
 // na najbliższe /hp/add. Wszystkie porównania czasu w Europe/Warsaw.
+// Tryb pracy (properties.work_mode): ręczny — zawsze ustawienia domyślne, automatyczny —
+// harmonogram, a poza wpisami ustawienia domyślne, OFF — pompa wyłączona. Tłumaczenie na
+// kontrakt co (podłączenie CWU / CO): pump-mode.service.ts.
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   HpEntry,
   OperationEntry,
+  PumpWorkMode,
   ScheduleEntry,
   ScheduleType,
   WeekDay,
 } from '../types';
-import { DeviceType } from '../../../core/types';
+import { DeviceType, PumpConnection } from '../../../core/types';
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
 import { getHpLastData } from './hp.service';
-import { clearManualOperation, replaceOperationData, switchManualWorkMode } from './operation.service';
+import { clearManualOperation, replaceOperationData } from './operation.service';
 import { syncCwuLoading } from './cwu-loading.service';
+import { heatingOperation, offOperation, pumpTemperatures, pumpWorkMode } from './pump-mode.service';
 import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/services/calendar.service';
 import { TIME_ZONE } from '../../../core/time';
 
 export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 
-// Stan z poprzedniego przebiegu, tylko w pamięci: po restarcie serwera nie widać ani
-// zakończenia harmonogramu, ani zmiany dnia z pierwszego przebiegu.
+// Stan z poprzedniego przebiegu, tylko w pamięci: po restarcie serwera nie widać
+// zakończenia harmonogramu z pierwszego przebiegu.
 const previousScheduleState = new Map<string, boolean>();
-const previousSchedulerDay = new Map<string, string>();
 
-// Tryb pracy z ustawień harmonogramu wybiera rodzaj harmonogramów, które działają:
-// A (CO Harmonogram) -> CO, CWU (CWU Harmonogram) -> CWU, pozostałe -> żaden.
-// OFF działa w obu trybach harmonogramu jako przerwa.
-export function scheduleTypesForWorkMode(workMode: string | undefined): ScheduleType[] {
-  if (workMode === 'A') return [ScheduleType.CO, ScheduleType.OFF];
-  if (workMode === 'CWU') return [ScheduleType.CWU, ScheduleType.OFF];
-  return [];
+// Harmonogram działa tylko w trybie automatycznym: wszystkie wpisy (praca i przerwa OFF).
+export function scheduleTypesForWorkMode(workMode: PumpWorkMode): ScheduleType[] {
+  return workMode === 'AUTO' ? Object.values(ScheduleType) : [];
 }
+
+// Podłączenie z definicji pompy; bez definicji CWU (tak pompa pracowała do 2026-10-05).
+const connectionOf = (device: DeviceDocument): PumpConnection => device.pumpConfig?.connection ?? 'cwu';
 
 function toMinutes(value: string): number {
   const [hour, minute] = value.split(':').map(Number);
@@ -79,12 +82,12 @@ function isScheduleActive(schedule: ScheduleEntry, now: Date): boolean {
   return current >= start || current < end;
 }
 
-// Data jednorazowa ma pierwszeństwo przed harmonogramem cyklicznym, a przerwa OFF przed CO/CWU.
+// Data jednorazowa ma pierwszeństwo przed harmonogramem cyklicznym, a przerwa OFF przed pracą.
 function scheduleScore(schedule: ScheduleEntry): number {
   return (schedule.date ? 10 : 0) + (schedule.type === ScheduleType.OFF ? 1 : 0);
 }
 
-// Jeden wpis z nakładających się: data > cykliczny, przerwa OFF > CO/CWU,
+// Jeden wpis z nakładających się: data > cykliczny, przerwa OFF > praca,
 // potem późniejszy startTime, na końcu _id.
 function getActiveSchedule(
   schedules: ScheduleEntry[],
@@ -104,86 +107,40 @@ function getActiveSchedule(
     })[0];
 }
 
-function stringValue(value: unknown): string | undefined {
-  return value === undefined || value === null ? undefined : String(value);
+// Operacja bez harmonogramu: tryb i temperatura od–do z properties (pump-mode.service.ts).
+// Zawsze force "0" i nigdy co_pomp (stan pomp CO zostaje w sterowniku). Tryb nie z telemetrii:
+// sterownik raportuje w niej tryb dostany od serwera, więc serwer odsyłałby mu jego własny stan.
+function getDefaultOperation(device: DeviceDocument, lastData: HpEntry): OperationEntry {
+  const properties = device.properties ?? {};
+  const { min, max } = pumpTemperatures(properties, connectionOf(device), lastData);
+  return pumpWorkMode(properties.work_mode) === 'OFF'
+    ? offOperation(min, max)
+    : heatingOperation(connectionOf(device), min, max);
 }
 
-// Operacja bez harmonogramu: temperatury z properties, a gdy ich brak — z ostatniej
-// telemetrii. Zawsze force "0" i nigdy co_pomp (stan pomp CO zostaje w sterowniku).
-function getDefaultOperation(
+// Wpis harmonogramu -> operacja: przerwa OFF wyłącza pompę (force "0"), praca (także dawne
+// wpisy CO i CWU) grzeje z temperaturami wpisu; brakująca temperatura z ustawień domyślnych.
+function scheduleToOperation(
+  schedule: ScheduleEntry,
   device: DeviceDocument,
   lastData: HpEntry,
 ): OperationEntry {
-  const properties = device.properties ?? {};
-
-  return {
-    // Nie z telemetrii: sterownik raportuje w niej tryb dostany od serwera (po
-    // restarcie domyślne OFF), więc serwer odsyłałby mu jego własny stan.
-    work_mode: properties.work_mode ?? 'CWU',
-    force: '0',
-    co_min: stringValue(properties.co_min) ?? stringValue(lastData.co_min),
-    co_max: stringValue(properties.co_max) ?? stringValue(lastData.co_max),
-    cwu_min: stringValue(properties.cwu_min) ?? stringValue(lastData.cwu_min),
-    cwu_max: stringValue(properties.cwu_max) ?? stringValue(lastData.cwu_max),
-  };
-}
-
-// Poza harmonogramem włączona pompa grzeje CWU, także w trybie CO Harmonogram.
-// M (ręczny) i OFF zostają bez zmian.
-function withoutSchedule(defaultOperation: OperationEntry): OperationEntry {
-  return defaultOperation.work_mode === 'A'
-    ? { ...defaultOperation, work_mode: 'CWU' }
-    : defaultOperation;
-}
-
-// Harmonogram -> operacja: OFF wyłącza (force "0"), CO daje A, CWU daje CWU.
-// Brakujące temperatury wpisu biorą się z operacji domyślnej, każda osobno.
-function scheduleToOperation(
-  schedule: ScheduleEntry,
-  defaultOperation: OperationEntry,
-): OperationEntry {
-  const force = schedule.forceStart ? '1' : '0';
-  switch (schedule.type) {
-    case ScheduleType.OFF:
-      return {
-        ...defaultOperation,
-        work_mode: 'OFF',
-        force: '0',
-      };
-
-    case ScheduleType.CO:
-      return {
-        ...defaultOperation,
-        work_mode: 'A',
-        force,
-        co_min: schedule.minTemperature === undefined
-          ? defaultOperation.co_min
-          : String(schedule.minTemperature),
-        co_max: schedule.maxTemperature === undefined
-          ? defaultOperation.co_max
-          : String(schedule.maxTemperature),
-      };
-
-    case ScheduleType.CWU:
-      return {
-        ...defaultOperation,
-        work_mode: 'CWU',
-        force,
-        cwu_min: schedule.minTemperature === undefined
-          ? defaultOperation.cwu_min
-          : String(schedule.minTemperature),
-        cwu_max: schedule.maxTemperature === undefined
-          ? defaultOperation.cwu_max
-          : String(schedule.maxTemperature),
-      };
-  }
+  const defaults = pumpTemperatures(device.properties ?? {}, connectionOf(device), lastData);
+  if (schedule.type === ScheduleType.OFF) return offOperation(defaults.min, defaults.max);
+  return heatingOperation(
+    connectionOf(device),
+    schedule.minTemperature === undefined ? defaults.min : String(schedule.minTemperature),
+    schedule.maxTemperature === undefined ? defaults.max : String(schedule.maxTemperature),
+    schedule.forceStart ? '1' : '0',
+  );
 }
 
 // Harmonogram, który działa teraz (dla zakładki Harmonogramy); null = obowiązuje ustawienie domyślne.
+// work_mode: tryb pracy aplikacji (MANUAL, AUTO, OFF), także dla dawnych wartości w bazie.
 export async function getCurrentSchedule(
   rootId: string,
   now = new Date(),
-): Promise<{ scheduleId: string | null; work_mode: string }> {
+): Promise<{ scheduleId: string | null; work_mode: PumpWorkMode }> {
   const device = await DeviceModel.findById(rootId)
     .select('schedules properties')
     .lean<DeviceDocument>();
@@ -192,7 +149,7 @@ export async function getCurrentSchedule(
     throw new Error(`Configuration with ID not found: ${rootId}`);
   }
 
-  const workMode = device.properties?.work_mode ?? 'CWU';
+  const workMode = pumpWorkMode(device.properties?.work_mode);
   const activeSchedule = getActiveSchedule(
     device.schedules ?? [],
     scheduleTypesForWorkMode(workMode),
@@ -210,30 +167,16 @@ export async function getCurrentSchedule(
 export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): Promise<void> {
   const devices = await DeviceModel
     .find({ deviceType: DeviceType.HP, ...(onlyRootId ? { _id: onlyRootId } : {}) })
-    .select('_id schedules properties deviceType deviceId')
+    .select('_id schedules properties pumpConfig deviceType deviceId')
     .lean<DeviceDocument[]>();
 
   for (const device of devices) {
     const rootId = String(device._id);
 
-    // Po północy (Warszawa) tryb ręczny M wraca na automatyczny A: w ustawieniach
-    // harmonogramu i w ręcznym nadpisaniu. Pierwszy przebieg po starcie serwera nie przełącza.
-    const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
-    const previousDay = previousSchedulerDay.get(rootId);
-    previousSchedulerDay.set(rootId, today);
-    if (previousDay && previousDay !== today) {
-      if (device.properties?.work_mode === 'M') {
-        await DeviceModel.updateOne({ _id: device._id }, { 'properties.work_mode': 'A' });
-        device.properties.work_mode = 'A';
-      }
-      switchManualWorkMode(rootId, 'M', 'A');
-    }
-
     const lastData = await getHpLastData(rootId);
-    const defaultOperation = getDefaultOperation(device, lastData);
     const activeSchedule = getActiveSchedule(
       device.schedules ?? [],
-      scheduleTypesForWorkMode(stringValue(defaultOperation.work_mode)),
+      scheduleTypesForWorkMode(pumpWorkMode(device.properties?.work_mode)),
       now,
     );
 
@@ -247,8 +190,8 @@ export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): P
     previousScheduleState.set(rootId, hasActiveSchedule);
 
     const operation = activeSchedule
-      ? scheduleToOperation(activeSchedule, defaultOperation)
-      : withoutSchedule(defaultOperation);
+      ? scheduleToOperation(activeSchedule, device, lastData)
+      : getDefaultOperation(device, lastData);
 
     // Sterownik pobiera OperationEntry przy zapisie telemetrii.
     // Scheduler celowo nie wysyła powiadomienia przez WebSocket.

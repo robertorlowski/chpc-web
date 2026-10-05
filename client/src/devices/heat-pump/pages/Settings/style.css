@@ -193,3 +193,27 @@ button:disabled {
 .settings-error-lines {
   white-space: pre-line;
 }
+
+/* tryb pracy (Ręczny / Automat. / OFF) w jednej linii z etykietą */
+.settings-mode-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin: 0.3rem 0;
+}
+
+.settings input.temperature.settings-watt {
+  width: 4.5rem;
+}
+
+.settings-field-error {
+  margin: 0 0 0.3rem;
+}
+
+/* telefon: tryb pracy może zejść pod etykietę (reguła wiersza „etykieta + pola” wyżej nie zawija) */
+@media (max-width: 560px) {
+  .settings .resource > div.settings-mode-row {
+    flex-wrap: wrap !important;
+  }
+}

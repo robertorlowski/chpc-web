@@ -128,15 +128,16 @@ const HP: React.FC = () => {
               <div>
                 <span>Tryb pracy </span>
                 <span className="field">
+                  {/* co od 1.2.0: MANUAL / AUTO / OFF; starsze co: M, A, PV, CWU */}
                   {_data?.work_mode === 'OFF'
                     ? 'OFF'
-                    : _data?.work_mode === 'A'
+                    : _data?.work_mode === 'A' || _data?.work_mode === 'AUTO'
                     ? 'automatyczny'
                     : _data?.work_mode === 'PV'
                     ? 'automatyczny z PV'
                     : _data?.work_mode === 'CWU'
                     ? 'CWU'
-                    : _data?.work_mode === 'M'
+                    : _data?.work_mode === 'M' || _data?.work_mode === 'MANUAL'
                     ? 'ręczny'
                     : '---'}
                 </span>
@@ -161,26 +162,7 @@ const HP: React.FC = () => {
                   </tr>
                 </tbody>
               </table>
-              <table className="heat table">
-                <tbody>
-                  <tr className="left">
-                    <td className="label">CO pompa:</td>
-                    <td>
-                      {_data?.co_pomp === undefined ? '---' : (
-                        <img title="CO pump" src={_data?.co_pomp ? swith_on : swith_off} />
-                      )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="label">CWU pompa:</td>
-                    <td>
-                      {_data?.cwu_pomp === undefined ? '---' : (
-                        <img title="CWU pump" src={_data.cwu_pomp ? swith_on : swith_off} />
-                      )}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {/* przełączniki „CO pompa” / „CWU pompa” usunięte 2026-10-05: co od 1.2.0 nie ma przekaźników CO/CWU */}
             </div>
             <div className="heat footer">
               <div>

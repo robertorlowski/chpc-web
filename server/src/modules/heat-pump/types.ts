@@ -6,12 +6,19 @@ import type { DeviceType } from '../../core/types';
 // HH:mm dla startTime/endTime harmonogramu
 export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-// Tryb pracy pompy (properties.work_mode i operacja): M — ręczny CO (po północy
-// wraca na A), A — CO z harmonogramem, CWU — CWU z harmonogramem, OFF — wyłączona.
-// Sterownik co przyjmuje też PV, którego serwer nie wysyła.
+// Tryb pracy w operacji dla sterownika co (kontrakt co 1.1.x): M — CO, A — CO z harmonogramem,
+// CWU — CWU, OFF — wyłączona. co przyjmuje też PV, którego serwer nie wysyła. Dawne wartości
+// properties.work_mode (do 2026-10-05) — czytane jako PumpWorkMode (pump-mode.service.ts).
 export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
 
+// Tryb pracy pompy w aplikacji (properties.work_mode): ręczny = zawsze ustawienia domyślne,
+// automatyczny = harmonogram, a poza wpisami ustawienia domyślne, OFF = pompa wyłączona.
+export type PumpWorkMode = 'MANUAL' | 'AUTO' | 'OFF';
+
+// Rodzaj wpisu harmonogramu: HEAT — praca pompy, OFF — przerwa. CO i CWU to wpisy sprzed
+// 2026-10-05 (osobne listy CO i CWU); scheduler traktuje je jak HEAT.
 export enum ScheduleType {
+  HEAT = 'heat',
   CWU = 'cwu',
   CO = 'co',
   OFF = 'off',
@@ -154,6 +161,9 @@ export interface HpEntry {
   pv_power?: boolean,
   schedule_on?: boolean,
   work_mode?: String,
+  // co od 1.2.0 zamiast par co_* i cwu_*
+  temp_min?: number,
+  temp_max?: number,
   co_min?: String,
   co_max?: String,
   cwu_min?: String,
@@ -188,9 +198,13 @@ export interface SettingsEntry {
 // wartości to napisy ("0"/"1", "45"). co zamienia zmienione wartości na komendy
 // RS-485 do CHPC i pamięta ostatnią przysłaną: brak klucza nie przywraca domyślnej.
 // error_reset i restart to akcje jednorazowe (takeOperationActions).
+// temp_min / temp_max: temperatura od–do aplikacji — tylko formularz Ustawień (GET /operation,
+// POST /operation/set); do co idą jako co_* i cwu_* (pump-mode.service.ts).
 export interface OperationEntry {
   force?: String,
   work_mode?: String,
+  temp_min?: String,
+  temp_max?: String,
   co_pomp?: String,
   sump_heater?: String,
   cold_pomp?: String,
@@ -204,5 +218,10 @@ export interface OperationEntry {
   eev_min_pulse_open?: String,
   error_reset?: String,
   restart?: String,
-  eev_setpoint?: String
+  eev_setpoint?: String,
+  // tylko odpowiedź dla co od 1.2.0 (controller-contract.service.ts): konfiguracja pompy i przerwa w COP
+  pv_force?: String,
+  pv_dtu?: String,
+  tank_liters?: String,
+  cop_pause?: String
 }

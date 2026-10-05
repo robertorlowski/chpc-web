@@ -7,7 +7,7 @@
 
 // Konwertery ArduinoJson dla typów domenowych: pola PV i panels[] dla
 // POST /api/pv/add, `time` w formacie "YYYY.MM.DD HH:MM:SS" (czas polski),
-// work_mode (M/A/PV/CWU/OFF) i controller_mode. Zmiana nazwy pola tutaj
+// work_mode (MANUAL/AUTO/OFF, od 1.2.0) i controller_mode (OFF/CLOUD/MANUAL). Zmiana nazwy pola tutaj
 // to zmiana kontraktu z chpc-web (schemat Mongo i typy klienta).
 
 namespace ArduinoJson {
@@ -89,10 +89,8 @@ struct Converter<WORK_MODE> {
   static bool toJson(const WORK_MODE workMode, JsonVariant destination)
   {
     switch (workMode) {
-      case MANUAL: return destination.set("M");
-      case AUTO: return destination.set("A");
-      case AUTO_PV: return destination.set("PV");
-      case CWU: return destination.set("CWU");
+      case MANUAL: return destination.set("MANUAL");
+      case AUTO: return destination.set("AUTO");
       case OFF: return destination.set("OFF");
     }
     return destination.set("");
@@ -111,8 +109,7 @@ struct Converter<ControllerMode> {
     switch (mode) {
       case ControllerMode::OFF: return destination.set("OFF");
       case ControllerMode::CLOUD: return destination.set("CLOUD");
-      case ControllerMode::MANUAL_CO: return destination.set("MANUAL_CO");
-      case ControllerMode::MANUAL_CWU: return destination.set("MANUAL_CWU");
+      case ControllerMode::MANUAL: return destination.set("MANUAL");
     }
     return destination.set("");
   }
@@ -128,10 +125,12 @@ struct Converter<DeviceSettings> {
   static bool toJson(const DeviceSettings &source, JsonVariant destination)
   {
     destination["work_mode"] = source.workMode;
-    destination["co_min"] = source.coMin;
-    destination["co_max"] = source.coMax;
-    destination["cwu_min"] = source.cwuMin;
-    destination["cwu_max"] = source.cwuMax;
+    destination["temp_min"] = source.tempMin;
+    destination["temp_max"] = source.tempMax;
+    destination["pv_force"] = source.pvForce;
+    destination["pv_dtu"] = source.pvDtu;
+    destination["tank_liters"] = source.tankLiters;
+    destination["cop_pause"] = source.copPause;
     return true;
   }
 

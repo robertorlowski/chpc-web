@@ -11,6 +11,10 @@ import { getTemperature } from '../../../core/services/meteo.service'
 import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../../core/time'
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service'
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller'
+import { DeviceDocument, DeviceModel } from '../../../core/models/device.model'
+import { toControllerOperation } from '../services/controller-contract.service'
+import { pumpWorkMode } from '../services/pump-mode.service'
+import { getBoilerCoPump } from '../services/cwu-loading.service'
 
 interface THpClear {
   clear?: Boolean
@@ -267,8 +271,17 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     const outdoor = getTemperature();
     // oferta OTA {version, url, sha256, request} tylko przy zleceniu „Aktualizuj” (co od 1.1.0)
     const firmware = await firmwareOfferForRoot(rootId, serverBaseUrl(req));
+    // co od 1.2.0: work_mode MANUAL / AUTO / OFF, temp_min / temp_max i konfiguracja pompy
+    // (controller-contract.service.ts); starsze co dostaje operację bez zmian
+    const device = await DeviceModel.findById(rootId).select('firmwareVersion properties pumpConfig').lean<DeviceDocument>();
+    const controllerOperation = toControllerOperation(operation, {
+      firmwareVersion: device?.firmwareVersion,
+      pumpMode: pumpWorkMode(device?.properties?.work_mode),
+      pumpConfig: device?.pumpConfig,
+      boilerCoPump: getBoilerCoPump(rootId),
+    });
     return res.status(201).json({
-      operation: operation,
+      operation: controllerOperation,
       ...(typeof outdoor === 'number' && Number.isFinite(outdoor) ? { t_out: outdoor } : {}),
       ...(firmware ? { firmware } : {}),
     });

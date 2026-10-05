@@ -42,6 +42,19 @@ export async function setCwuLoading(rootId: string, active: boolean, since: Date
   return { changed: wasActive !== active, status: statusOf(rootId, entry, now) };
 }
 
+// Pompa CO kotła (zgłaszana razem z ładowaniem CWU): co od 1.2.0 nie liczy wtedy COP (cop_pause,
+// controller-contract.service.ts). Tylko w pamięci; bez zgłoszenia przez CWU_LOADING_TTL_MS = nie pracuje.
+const boilerCoPump = new Map<string, { active: boolean; at: number }>();
+
+export function setBoilerCoPump(rootId: string, active: boolean, now = new Date()) {
+  boilerCoPump.set(rootId, { active, at: now.getTime() });
+}
+
+export function getBoilerCoPump(rootId: string, now = new Date()): boolean {
+  const entry = boilerCoPump.get(rootId);
+  return !!entry && entry.active && now.getTime() - entry.at < CWU_LOADING_TTL_MS;
+}
+
 // Stan dla ekranu głównego pompy (GET /hp/cwu-loading).
 export async function getCwuLoading(rootId: string, now = new Date()) {
   return statusOf(rootId, await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>(), now);

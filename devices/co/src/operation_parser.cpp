@@ -1,6 +1,9 @@
-// Parser operacji z chmury. Zakresy: co_* i cwu_* 1–50 (zaokrąglane do
+// Parser operacji z chmury. Zakresy: temp_min/temp_max 1–50 (zaokrąglane do
 // stopni), working_watt 0–25599, eev_max/min_pulse_open 0–255, eev_setpoint
-// 0,1–8. Ostateczne limity stosuje dopiero CHPC.
+// 0,1–8, tank_liters 20–2000. Ostateczne limity stosuje dopiero CHPC.
+// Zgodność ze starszym serwerem (do 1.1.x): work_mode M / CWU / PV = MANUAL, A = AUTO; bez temp_min /
+// temp_max temperatura z pary cwu_* (tryb CWU) albo co_* (pozostałe). co_pomp jest pomijane (przekaźników
+// CO/CWU już nie ma).
 #include <operation_parser.hpp>
 
 #include <cctype>
@@ -94,11 +97,15 @@ void readBoolean(JsonObjectConst document, const char *key,
 bool parseWorkMode(const char *text, WORK_MODE &result)
 {
   if (text == nullptr) return false;
-  if (strcmp(text, "M") == 0) { result = WORK_MODE::MANUAL; return true; }
-  if (strcmp(text, "A") == 0) { result = WORK_MODE::AUTO; return true; }
-  if (strcmp(text, "PV") == 0) { result = WORK_MODE::AUTO_PV; return true; }
-  if (strcmp(text, "CWU") == 0) { result = WORK_MODE::CWU; return true; }
+  if (strcmp(text, "MANUAL") == 0) { result = WORK_MODE::MANUAL; return true; }
+  if (strcmp(text, "AUTO") == 0) { result = WORK_MODE::AUTO; return true; }
   if (strcmp(text, "OFF") == 0) { result = WORK_MODE::OFF; return true; }
+  // dawny kontrakt (serwer sprzed 1.2.0)
+  if (strcmp(text, "M") == 0 || strcmp(text, "CWU") == 0 || strcmp(text, "PV") == 0) {
+    result = WORK_MODE::MANUAL;
+    return true;
+  }
+  if (strcmp(text, "A") == 0) { result = WORK_MODE::AUTO; return true; }
   return false;
 }
 
@@ -136,15 +143,19 @@ OperationParseResult parseServerOperation(JsonObjectConst document)
 
   readWorkMode(document, "work_mode", result.state.workMode,
     result.invalidValues);
-  readNumber(document, "co_min", result.state.coMin, 1, 50, true,
+  readNumber(document, "temp_min", result.state.tempMin, 1, 50, true,
     result.invalidValues);
-  readNumber(document, "co_max", result.state.coMax, 1, 50, true,
+  readNumber(document, "temp_max", result.state.tempMax, 1, 50, true,
     result.invalidValues);
-  readNumber(document, "cwu_min", result.state.cwuMin, 1, 50, true,
-    result.invalidValues);
-  readNumber(document, "cwu_max", result.state.cwuMax, 1, 50, true,
-    result.invalidValues);
-  readBoolean(document, "co_pomp", result.state.coPump, result.invalidValues);
+  // starszy serwer: para według dawnego trybu (CWU → cwu_*, inne → co_*)
+  if (!result.state.tempMin.present && !result.state.tempMax.present) {
+    const bool cwu = document["work_mode"].is<const char *>()
+      && strcmp(document["work_mode"].as<const char *>(), "CWU") == 0;
+    readNumber(document, cwu ? "cwu_min" : "co_min", result.state.tempMin, 1, 50, true,
+      result.invalidValues);
+    readNumber(document, cwu ? "cwu_max" : "co_max", result.state.tempMax, 1, 50, true,
+      result.invalidValues);
+  }
   readBoolean(document, "sump_heater", result.state.sumpHeater,
     result.invalidValues);
   readBoolean(document, "cold_pomp", result.state.coldPump,
@@ -155,6 +166,11 @@ OperationParseResult parseServerOperation(JsonObjectConst document)
   readBoolean(document, "error_reset", result.state.errorReset,
     result.invalidValues);
   readBoolean(document, "restart", result.state.restart, result.invalidValues);
+  readBoolean(document, "pv_force", result.state.pvForce, result.invalidValues);
+  readBoolean(document, "pv_dtu", result.state.pvDtu, result.invalidValues);
+  readBoolean(document, "cop_pause", result.state.copPause, result.invalidValues);
+  readNumber(document, "tank_liters", result.state.tankLiters, 20, 2000, true,
+    result.invalidValues);
   readNumber(document, "working_watt", result.state.workingWatt, 0, 25599,
     true, result.invalidValues);
   readNumber(document, "eev_max_pulse_open", result.state.eevMaxPulseOpen,

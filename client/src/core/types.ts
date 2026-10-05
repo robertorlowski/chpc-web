@@ -1,5 +1,5 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
-import type { WorkMode } from '../devices/heat-pump/types';
+import type { PumpWorkMode, WorkMode } from '../devices/heat-pump/types';
 
 // Typy części wspólnej: urządzenie i jego ustawienia oraz opis rodzaju sterownika dla rejestru
 // (device-types.tsx). Odpowiadają dokumentom kolekcji devices (GET /api/devices, /api/device/properties).
@@ -29,12 +29,15 @@ export enum WeekDay {
 
 // Ustawienia urządzenia (properties): jedno pole dla wszystkich rodzajów sterowników.
 export type DeviceProperties = {
-  // pompa ciepła
+  // pompa ciepła: tryb pracy i temperatura od–do poza harmonogramem; M/A/CWU i pary co_*/cwu_*
+  // to dawne ustawienia (do 2026-10-05), serwer czyta je, gdy brak nowych
+  work_mode?: PumpWorkMode | WorkMode;
+  temp_min?: string;
+  temp_max?: string;
   co_min?: string;
   co_max?: string;
   cwu_min?: string;
   cwu_max?: string;
-  work_mode?: WorkMode;
   // hydrofor
   compressor_seconds?: number;
   // kocioł pelletowy: co ile sterownik odpytuje piec, 30–3600 s (domyślnie 300)

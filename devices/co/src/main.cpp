@@ -4,6 +4,8 @@
 // z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
 // HP-CO-setup i odpowiada na zapytania innych urządzeń do adresu 0x10.
 // Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
+// Od 1.2.0 tryb pracy MANUAL / AUTO / OFF z jedną temperaturą od–do, bez przekaźników CO/CWU,
+// przycisk OFF → CLOUD → MANUAL (ręczny lokalnie), konfiguracja pompy z chmury (PV, zbiornik).
 // Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
 // na osobnej płytce (devices/pellet-boiler-pelux200).
 #include <Arduino.h>
@@ -24,8 +26,8 @@
 #include <serial_bus.hpp>
 #include <telemetry.hpp>
 
-// Próg mocy PV [W]: od niego `pv_power` = true, a w work_mode PV kontroler
-// wymusza start sprężarki (force), żeby zużyć nadwyżkę z paneli.
+// Próg mocy PV [W]: od niego `pv_power` = true, a przy wymuszeniu PV z konfiguracji pompy (pv_force)
+// kontroler wymusza start sprężarki (force), żeby zużyć nadwyżkę z paneli.
 constexpr int64_t HP_FORCE_ON = 2000;
 // Odczyt CHPC i telemetria: co 10 s przy pracy sprężarki (HPS > 0), co 30 s
 // w spoczynku (CLAUDE.md, punkt 13).
@@ -154,8 +156,6 @@ void setup()
   Wire.begin();
   rtc.begin();
 
-  pinMode(RELAY_HP_CWU_PIN, OUTPUT);
-  pinMode(RELAY_HP_CO_PIN, OUTPUT);
   pinMode(POWER_PIN, OUTPUT);
   pinMode(CONTROL_BUTTON_PIN, INPUT);
 
@@ -273,11 +273,8 @@ void refreshTelemetry()
 {
   rtcTime = rtc.now(); // Get current time from RTC
   const DeviceSettings &prefs = operationController.preferences();
-  bool coPump = operationController.coRelay();
-  bool cwuPump = operationController.cwuRelay();
 
-  telemetry.updateSnapshot(rtcTime, coPump, cwuPump,
-    operationController.controllerMode(), prefs);
+  telemetry.updateSnapshot(rtcTime, operationController.controllerMode(), prefs);
   telemetry.updateSerialDiagnostics(
     serialBus.queueOverflowCount(), serialBus.readTimeoutCount(),
     serialBus.receiveOverflowCount(), pvCrcErrors, hpJsonErrors, pvFrameErrors);
@@ -299,9 +296,8 @@ ControllerMode nextControllerMode(ControllerMode currentMode)
 {
   switch (currentMode) {
     case ControllerMode::OFF: return ControllerMode::CLOUD;
-    case ControllerMode::CLOUD: return ControllerMode::MANUAL_CO;
-    case ControllerMode::MANUAL_CO: return ControllerMode::MANUAL_CWU;
-    case ControllerMode::MANUAL_CWU: return ControllerMode::OFF;
+    case ControllerMode::CLOUD: return ControllerMode::MANUAL;
+    case ControllerMode::MANUAL: return ControllerMode::OFF;
   }
   return ControllerMode::CLOUD;
 }
@@ -392,7 +388,9 @@ ControllerMode loadControllerMode()
     static_cast<uint8_t>(ControllerMode::CLOUD));
   devicePreferences.end();
 
-  return stored <= static_cast<uint8_t>(ControllerMode::MANUAL_CWU)
+  // dawne MANUAL_CO (2) i MANUAL_CWU (3) to teraz jeden tryb ręczny lokalnie
+  if (stored == 3) return ControllerMode::MANUAL;
+  return stored <= static_cast<uint8_t>(ControllerMode::MANUAL)
     ? static_cast<ControllerMode>(stored) : ControllerMode::CLOUD;
 }
 
@@ -416,6 +414,11 @@ void scheduleNextDeviceRead()
 // once the first block is actually queued.
 void schedulePvRead()
 {
+  // bez paneli przez DTU (konfiguracja pompy, pv_dtu) magistrala nie odpytuje DTU
+  if (!operationController.preferences().pvDtu) {
+    lastPvReadAt = millis();
+    return;
+  }
   if (!serialBus.enqueue(SERIAL_OPERATION::GET_PV_DATA_1)) return;
   lastPvReadAt = millis();
   pvDataProcessor.reset();
@@ -490,6 +493,8 @@ void processSerialInput()
     serialBus.completeRead();
     hpReadOutstanding = false;
     HeatPumpDataUpdate update;
+    const DeviceSettings &prefs = operationController.preferences();
+    heatPumpDataProcessor.configure(prefs.tankLiters, prefs.copPause);
     if (!heatPumpDataProcessor.processFrame(inData, length, update)) {
       hpJsonErrors++;
     } else {
@@ -563,8 +568,6 @@ void respondToSerialRequest(char operation)
   writeSerialResponse(data);
 }
 
-// TODO(server): Scheduler must perform the MANUAL -> AUTO transition.
-// This firmware applies only work_mode changes received from the server.
 // Uwaga: poza trybem CLOUD operacja jest pomijana w całości, także akcje
 // jednorazowe error_reset i restart (serwer wysyła je tylko raz).
 void applyServerOperation(JsonObjectConst operation)
@@ -578,27 +581,17 @@ void applyServerOperation(JsonObjectConst operation)
   applyControllerOutputs();
 }
 
-// Po zmianie trybu lub przekaźników: ustawia GPIO25/26, pokazuje na 3 s
-// ekran trybu i odświeża pola sterownika w telemetrii.
+// Po zmianie trybu: pokazuje na 3 s ekran trybu i odświeża pola sterownika w telemetrii.
 void applyControllerOutputs()
 {
-  bool modeChanged = operationController.takeModeChanged();
-  bool relayChanged = operationController.takeRelayChanged();
-  if (!modeChanged && !relayChanged) return;
+  if (!operationController.takeModeChanged()) return;
 
   const DeviceSettings &prefs = operationController.preferences();
-
-  if (relayChanged) {
-    writeRelayOutput(tft, RELAY_HP_CO_PIN, operationController.coRelay());
-    writeRelayOutput(tft, RELAY_HP_CWU_PIN, operationController.cwuRelay());
-  }
-
   displayControllerMode(tft,
     operationController.controllerMode(), prefs.workMode);
   holdModeScreen();
 
-  telemetry.updateControllerState(operationController.coRelay(),
-    operationController.cwuRelay(), operationController.controllerMode(), prefs);
+  telemetry.updateControllerState(operationController.controllerMode(), prefs);
 }
 
 

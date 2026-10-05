@@ -1,7 +1,9 @@
 // Obsługa sprzętu ESP32: ekran ST7735 (ekran trybu i główny), RTC DS3231
-// z synchronizacją NTP, start Wi-Fi w trybie AP+STA, włączanie AP HP-CO-setup,
-// przekaźniki CO/CWU i zapis odpowiedzi na magistralę.
+// z synchronizacją NTP, start Wi-Fi w trybie AP+STA, włączanie AP HP-CO-setup
+// i zapis odpowiedzi na magistralę (przekaźniki CO/CWU usunięte w 1.2.0).
 #include <device_io.hpp>
+
+#include <cstring>
 
 #include <Fonts/FreeSans9pt7b.h>
 #include <NTPClient.h>
@@ -148,23 +150,19 @@ void displayControllerMode(Adafruit_ST7735 &display,
   display.setTextColor(ST77XX_YELLOW);
   display.clearWriteError();
 
+  // czcionka ekranu nie ma polskich liter: RECZNY zamiast RĘCZNY
   const char *source = "CLOUD";
   const char *mode = "";
   if (controllerMode == ControllerMode::OFF) {
     source = "LOCAL";
     mode = "OFF";
-  } else if (controllerMode == ControllerMode::MANUAL_CO) {
-    source = "MANUAL";
-    mode = "CO";
-  } else if (controllerMode == ControllerMode::MANUAL_CWU) {
-    source = "MANUAL";
-    mode = "CWU";
+  } else if (controllerMode == ControllerMode::MANUAL) {
+    source = "LOCAL";
+    mode = "RECZNY";
   } else {
     switch (workMode) {
-      case MANUAL: mode = "MANUAL"; break;
+      case MANUAL: mode = "RECZNY"; break;
       case AUTO: mode = "AUTO"; break;
-      case CWU: mode = "CWU"; break;
-      case AUTO_PV: mode = "AUTO PV"; break;
       case OFF: mode = "OFF"; break;
     }
   }
@@ -213,24 +211,13 @@ void setAccessPointEnabled(bool enabled)
   }
 }
 
-void writeRelayOutput(Adafruit_ST7735 &display, uint8_t pin, uint8_t value)
-{
-  uint8_t previous = digitalRead(pin);
-  digitalWrite(pin, value);
-  if (previous != value) {
-    display.initR(INITR_BLACKTAB);
-    display.setRotation(0);
-    display.setTextWrap(false);
-  }
-}
-
 void renderDashboard(Adafruit_ST7735 &display,
   const DateTime &rtcTime, const JsonDocument &telemetry,
   ControllerMode controllerMode, WORK_MODE workMode, const PV &pv,
   bool pvTemperatureCurrent, const DeviceSettings &settings,
   float outdoorTemperature, bool outdoorCurrent)
 {
-  // Nad niebieską linią (y = 23): data, godzina, tryb (L-/M-/C-…), moc PV
+  // Nad niebieską linią (y = 23): data, godzina, tryb (C-RECZ, C-AUTO, C-OFF, L-RECZ, OFF), moc PV
   // i produkcja dziś, temperatura falowników. Między liniami: duże T (Ttarget),
   // „F” przy wymuszeniu, T. zew. Pod linią y = 70: szczegóły pompy.
   display.fillScreen(ST77XX_BLACK);
@@ -239,23 +226,19 @@ void renderDashboard(Adafruit_ST7735 &display,
   display.setCursor(0, 3);
   display.printf("%04d.%02d.%02d %02d:%02d", rtcTime.year(), rtcTime.month(),
     rtcTime.day(), rtcTime.hour(), rtcTime.minute());
-  display.setCursor(110, 3);
-
+  // tryb do prawej krawędzi (czcionka 6 px na znak): C = z chmury, L = lokalnie (przycisk)
+  const char *modeLabel = "C-OFF";
   if (controllerMode == ControllerMode::OFF) {
-    display.printf("L-OFF");
-  } else if (controllerMode == ControllerMode::MANUAL_CO) {
-    display.printf("M-CO");
-  } else if (controllerMode == ControllerMode::MANUAL_CWU) {
-    display.printf("M-CWU");
-  } else {
-    switch (workMode) {
-      case MANUAL: display.printf("C-M"); break;
-      case AUTO: display.printf("C-A"); break;
-      case AUTO_PV: display.printf("C-PV"); break;
-      case CWU: display.printf("C-CWU"); break;
-      case OFF: display.printf("C-OFF"); break;
-    }
+    modeLabel = "OFF";
+  } else if (controllerMode == ControllerMode::MANUAL) {
+    modeLabel = "L-RECZ";
+  } else if (workMode == MANUAL) {
+    modeLabel = "C-RECZ";
+  } else if (workMode == AUTO) {
+    modeLabel = "C-AUTO";
   }
+  display.setCursor(display.width() - static_cast<int16_t>(strlen(modeLabel)) * 6, 3);
+  display.print(modeLabel);
 
   display.drawLine(0, 23, 420, 23, ST77XX_BLUE);
   display.setCursor(0, 13);
@@ -314,10 +297,8 @@ void renderDashboard(Adafruit_ST7735 &display,
   int row = 6;
   displayRow(display, row++, 0, "   T.HP:",
     jsonValueToString(hp["Tmin"]) + "/" + jsonValueToString(hp["Tmax"]));
-  displayRow(display, row++, 0, "   T.CO:",
-    String(settings.coMin, 0) + "/" + String(settings.coMax, 0));
-  displayRow(display, row++, 0, "  T.CWU:",
-    String(settings.cwuMin, 0) + "/" + String(settings.cwuMax, 0));
+  displayRow(display, row++, 0, "T.od-do:",
+    String(settings.tempMin, 0) + "/" + String(settings.tempMax, 0));
 
   displayRow(display, row, 0, "T.be:", jsonValueToString(hp["Tbe"]));
   displayRow(display, row++, 1, "T.ae:", jsonValueToString(hp["Tae"]));

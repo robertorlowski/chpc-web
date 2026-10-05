@@ -14,8 +14,8 @@ class Telemetry {
 public:
   Telemetry();
 
-  // Czas, przekaźniki i ustawienia; wołane przy każdym cyklu odczytu.
-  void updateSnapshot(const DateTime &time, bool coPump, bool cwuPump,
+  // Czas, tryb i temperatura od–do; wołane przy każdym cyklu odczytu.
+  void updateSnapshot(const DateTime &time,
     ControllerMode controllerMode, const DeviceSettings &settings);
   void updateSerialDiagnostics(uint32_t queueOverflow, uint32_t readTimeout,
     uint32_t receiveOverflow, uint32_t pvCrcError, uint32_t hpJsonError,
@@ -24,10 +24,10 @@ public:
     uint32_t webSocketDisconnect, uint32_t responseParseError);
   void updateOperationDiagnostics(uint32_t operationValidationError,
     uint32_t preferenceValidationError);
-  // Nowy odczyt CHPC i pola COP (t_min/t_max w trakcie cyklu, cop* po końcu).
+  // Nowy odczyt CHPC i pola COP (t_min/t_max i cop* w trakcie cyklu i po końcu).
   void updateHeatPump(const HeatPumpDataUpdate &update);
   // Jak updateSnapshot, ale bez czasu; wołane od razu po zmianie trybu.
-  void updateControllerState(bool coPump, bool cwuPump,
+  void updateControllerState(
     ControllerMode controllerMode, const DeviceSettings &settings);
 
   bool heatPumpRunning() const;
@@ -35,4 +35,5 @@ public:
 
 private:
   JsonDocument data;
+  void writeCop(const CopEstimate &estimate);
 };

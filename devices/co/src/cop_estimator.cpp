@@ -6,7 +6,7 @@
 #include <cmath>
 
 constexpr double CopEstimator::WATER_HEAT_CAPACITY_WH_PER_L_K;
-constexpr double CopEstimator::TANK_VOLUME_LITERS;
+constexpr double CopEstimator::DEFAULT_TANK_VOLUME_LITERS;
 constexpr uint32_t CopEstimator::BOTTOM_ESTIMATE_WINDOW_SECONDS;
 
 namespace {
@@ -17,9 +17,14 @@ double tankAverageTemperature(double top, double middle, double bottom)
 }
 }
 
+void CopEstimator::setTankLiters(double liters)
+{
+  if (std::isfinite(liters) && liters >= 20.0 && liters <= 2000.0) tankLiters_ = liters;
+}
+
 CopCycleEvent CopEstimator::update(bool heatPumpRunning,
   double topTemperature, double middleTemperature,
-  double electricalEnergyWh, uint32_t cycleDurationSeconds)
+  double electricalEnergyWh, uint32_t cycleDurationSeconds, bool paused)
 {
   if (!std::isfinite(topTemperature) || !std::isfinite(middleTemperature)) {
     return CopCycleEvent::NONE;
@@ -33,6 +38,8 @@ CopCycleEvent CopEstimator::update(bool heatPumpRunning,
       endTopTemperature_ = topTemperature;
       endMiddleTemperature_ = middleTemperature;
       electricalEnergyWh_ = std::max(electricalEnergyWh_, electricalEnergyWh);
+      // Start cyklu = najniższa temperatura środka: na początku pracy woda się miesza i chwilowo stygnie.
+      startMiddleTemperature_ = std::min(startMiddleTemperature_, middleTemperature);
 
       // Dół zbiornika nie ma czujnika: jego temperaturę przybliża najniższe
       // Tho z pierwszych 60 s cyklu.
@@ -40,6 +47,9 @@ CopCycleEvent CopEstimator::update(bool heatPumpRunning,
         startBottomTemperature_ = std::min(startBottomTemperature_, topTemperature);
       }
     }
+    // pompa CO kotła pracuje: ciepło odpływa ze zbiornika, cykl nie ma wyniku do końca
+    if (paused) paused_ = true;
+    computeEstimate();
 
     wasRunning_ = true;
     return started ? CopCycleEvent::STARTED : CopCycleEvent::NONE;
@@ -48,7 +58,13 @@ CopCycleEvent CopEstimator::update(bool heatPumpRunning,
   wasRunning_ = false;
   if (!cycleActive_) return CopCycleEvent::NONE;
 
-  completeCycle(topTemperature, middleTemperature, electricalEnergyWh);
+  // The last running sample protects the endpoint against cooling immediately
+  // after the compressor stops.
+  endTopTemperature_ = std::max(endTopTemperature_, topTemperature);
+  endMiddleTemperature_ = std::max(endMiddleTemperature_, middleTemperature);
+  electricalEnergyWh_ = std::max(electricalEnergyWh_, electricalEnergyWh);
+  if (paused) paused_ = true;
+  computeEstimate();
   cycleActive_ = false;
   return CopCycleEvent::COMPLETED;
 }
@@ -57,6 +73,7 @@ void CopEstimator::startCycle(double topTemperature, double middleTemperature,
   double electricalEnergyWh)
 {
   cycleActive_ = true;
+  paused_ = false;
   startTopTemperature_ = topTemperature;
   startMiddleTemperature_ = middleTemperature;
   startBottomTemperature_ = topTemperature;
@@ -64,18 +81,13 @@ void CopEstimator::startCycle(double topTemperature, double middleTemperature,
   endMiddleTemperature_ = middleTemperature;
   electricalEnergyWh_ = std::max(0.0, electricalEnergyWh);
   estimate_ = {};
-
+  estimate_.startMiddleTemperature = startMiddleTemperature_;
+  estimate_.endMiddleTemperature = endMiddleTemperature_;
+  estimate_.startBottomTemperature = startBottomTemperature_;
 }
 
-void CopEstimator::completeCycle(double topTemperature,
-  double middleTemperature, double electricalEnergyWh)
+void CopEstimator::computeEstimate()
 {
-  // The last running sample protects the endpoint against cooling immediately
-  // after the compressor stops.
-  endTopTemperature_ = std::max(endTopTemperature_, topTemperature);
-  endMiddleTemperature_ = std::max(endMiddleTemperature_, middleTemperature);
-  electricalEnergyWh_ = std::max(electricalEnergyWh_, electricalEnergyWh);
-
   const double startAverage = tankAverageTemperature(startTopTemperature_,
     startMiddleTemperature_, startBottomTemperature_);
 
@@ -98,15 +110,13 @@ void CopEstimator::completeCycle(double topTemperature,
   estimate_.endMiddleTemperature = endMiddleTemperature_;
   estimate_.startBottomTemperature = startBottomTemperature_;
 
-  if (!std::isfinite(electricalEnergyWh_) || electricalEnergyWh_ <= 0.0
+  if (paused_ || !std::isfinite(electricalEnergyWh_) || electricalEnergyWh_ <= 0.0
     || maximumDelta <= 0.0) {
     return;
   }
 
-  const double minimumHeatWh = WATER_HEAT_CAPACITY_WH_PER_L_K
-    * TANK_VOLUME_LITERS * minimumDelta;
-  const double maximumHeatWh = WATER_HEAT_CAPACITY_WH_PER_L_K
-    * TANK_VOLUME_LITERS * maximumDelta;
+  const double minimumHeatWh = WATER_HEAT_CAPACITY_WH_PER_L_K * tankLiters_ * minimumDelta;
+  const double maximumHeatWh = WATER_HEAT_CAPACITY_WH_PER_L_K * tankLiters_ * maximumDelta;
 
   estimate_.minimum = minimumHeatWh / electricalEnergyWh_;
   estimate_.maximum = maximumHeatWh / electricalEnergyWh_;

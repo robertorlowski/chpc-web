@@ -5,6 +5,8 @@
 // Struktury operacji z chmury (klucze obiektu `operation` z odpowiedzi
 // /api/hp/add, CLAUDE.md, punkt 7) i raport stanu CHPC. `present` odróżnia
 // brak pola w częściowej operacji od jawnego 0/false.
+// Od 1.2.0: jedna temperatura od–do (temp_min, temp_max) zamiast par co_* i cwu_*,
+// tryb MANUAL / AUTO / OFF, konfiguracja pompy (pv_force, pv_dtu, tank_liters) i cop_pause.
 
 template <typename T>
 struct ServerValue {
@@ -14,11 +16,8 @@ struct ServerValue {
 
 struct ServerOperationState {
   ServerValue<WORK_MODE> workMode;
-  ServerValue<double> coMin;
-  ServerValue<double> coMax;
-  ServerValue<double> cwuMin;
-  ServerValue<double> cwuMax;
-  ServerValue<bool> coPump;
+  ServerValue<double> tempMin;
+  ServerValue<double> tempMax;
   ServerValue<bool> sumpHeater;
   ServerValue<bool> coldPump;
   ServerValue<bool> hotPump;
@@ -27,6 +26,10 @@ struct ServerOperationState {
   ServerValue<double> eevMaxPulseOpen;
   ServerValue<double> eevMinPulseOpen;
   ServerValue<double> eevSetpoint;
+  ServerValue<bool> pvForce;
+  ServerValue<bool> pvDtu;
+  ServerValue<double> tankLiters;
+  ServerValue<bool> copPause;
   // One-shot actions: executed when received, never merged into the kept state.
   ServerValue<bool> errorReset;
   ServerValue<bool> restart;
@@ -48,11 +51,8 @@ struct HeatPumpReport {
 inline bool hasServerOperationValues(const ServerOperationState &state)
 {
   return state.workMode.present
-    || state.coMin.present
-    || state.coMax.present
-    || state.cwuMin.present
-    || state.cwuMax.present
-    || state.coPump.present
+    || state.tempMin.present
+    || state.tempMax.present
     || state.sumpHeater.present
     || state.coldPump.present
     || state.hotPump.present
@@ -61,6 +61,10 @@ inline bool hasServerOperationValues(const ServerOperationState &state)
     || state.eevMaxPulseOpen.present
     || state.eevMinPulseOpen.present
     || state.eevSetpoint.present
+    || state.pvForce.present
+    || state.pvDtu.present
+    || state.tankLiters.present
+    || state.copPause.present
     || state.errorReset.present
     || state.restart.present;
 }
@@ -75,11 +79,8 @@ inline void mergeServerOperation(
   ServerOperationState &target, const ServerOperationState &patch)
 {
   mergeServerValue(target.workMode, patch.workMode);
-  mergeServerValue(target.coMin, patch.coMin);
-  mergeServerValue(target.coMax, patch.coMax);
-  mergeServerValue(target.cwuMin, patch.cwuMin);
-  mergeServerValue(target.cwuMax, patch.cwuMax);
-  mergeServerValue(target.coPump, patch.coPump);
+  mergeServerValue(target.tempMin, patch.tempMin);
+  mergeServerValue(target.tempMax, patch.tempMax);
   mergeServerValue(target.sumpHeater, patch.sumpHeater);
   mergeServerValue(target.coldPump, patch.coldPump);
   mergeServerValue(target.hotPump, patch.hotPump);
@@ -88,4 +89,8 @@ inline void mergeServerOperation(
   mergeServerValue(target.eevMaxPulseOpen, patch.eevMaxPulseOpen);
   mergeServerValue(target.eevMinPulseOpen, patch.eevMinPulseOpen);
   mergeServerValue(target.eevSetpoint, patch.eevSetpoint);
+  mergeServerValue(target.pvForce, patch.pvForce);
+  mergeServerValue(target.pvDtu, patch.pvDtu);
+  mergeServerValue(target.tankLiters, patch.tankLiters);
+  mergeServerValue(target.copPause, patch.copPause);
 }

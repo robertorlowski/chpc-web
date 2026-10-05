@@ -14,6 +14,12 @@ double jsonDouble(JsonVariantConst value)
 }
 }
 
+void HeatPumpDataProcessor::configure(double tankLiters, bool pause)
+{
+  copEstimator.setTankLiters(tankLiters);
+  copPause = pause;
+}
+
 bool HeatPumpDataProcessor::processFrame(const uint8_t *data, size_t length,
   HeatPumpDataUpdate &update)
 {
@@ -41,7 +47,7 @@ void HeatPumpDataProcessor::updateCop(JsonObject hp, HeatPumpDataUpdate &update)
     jsonDouble(hp["lt_hp_on"]));
 
   CopCycleEvent event = copEstimator.update(running, topTemperature,
-    middleTemperature, electricalEnergyWh, cycleDurationSeconds);
+    middleTemperature, electricalEnergyWh, cycleDurationSeconds, copPause);
 
   if (event == CopCycleEvent::STARTED) {
     update.copState = CopDataState::STARTED;
@@ -52,6 +58,7 @@ void HeatPumpDataProcessor::updateCop(JsonObject hp, HeatPumpDataUpdate &update)
   if (copEstimator.cycleActive()) {
     update.copState = CopDataState::ACTIVE;
     update.currentMiddleTemperature = copEstimator.currentMiddleTemperature();
+    update.copEstimate = copEstimator.estimate();
     return;
   }
 

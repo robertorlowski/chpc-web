@@ -1,5 +1,7 @@
 // Budowa dokumentu telemetrii pompy (POST /api/hp/add). Klucze są kontraktem
 // z chpc-web; liczniki diagnostyczne serwer odbiera, ale nie zapisuje w bazie.
+// Od 1.2.0: work_mode MANUAL / AUTO / OFF, temp_min / temp_max zamiast par co_* i cwu_*,
+// bez co_pomp i cwu_pomp (przekaźniki usunięte), COP na bieżąco w trakcie pracy.
 #include <telemetry.hpp>
 
 #include <cmath>
@@ -12,18 +14,11 @@ Telemetry::Telemetry()
 }
 
 // PV is not part of it: PvTelemetry goes to pv/add on its own schedule.
-void Telemetry::updateSnapshot(const DateTime &time, bool coPump, bool cwuPump,
+void Telemetry::updateSnapshot(const DateTime &time,
   ControllerMode controllerMode, const DeviceSettings &settings)
 {
   data["time"] = time;
-  data["co_pomp"] = coPump;
-  data["cwu_pomp"] = cwuPump;
-  data["controller_mode"] = controllerMode;
-  data["work_mode"] = settings.workMode;
-  data["co_min"] = settings.coMin;
-  data["co_max"] = settings.coMax;
-  data["cwu_min"] = settings.cwuMin;
-  data["cwu_max"] = settings.cwuMax;
+  updateControllerState(controllerMode, settings);
 }
 
 void Telemetry::updateSerialDiagnostics(uint32_t queueOverflow,
@@ -54,6 +49,20 @@ void Telemetry::updateOperationDiagnostics(
   data["preference_validation_error"] = preferenceValidationError;
 }
 
+// Pola COP z wyniku; bez wyniku (np. pracowała pompa CO kotła) są usuwane.
+void Telemetry::writeCop(const CopEstimate &estimate)
+{
+  if (!estimate.valid) {
+    data.remove("cop");
+    data.remove("cop_min");
+    data.remove("cop_max");
+    return;
+  }
+  data["cop_min"] = std::round(estimate.minimum * 100.0) / 100.0;
+  data["cop_max"] = std::round(estimate.maximum * 100.0) / 100.0;
+  data["cop"] = std::round(estimate.estimated * 100.0) / 100.0;
+}
+
 void Telemetry::updateHeatPump(const HeatPumpDataUpdate &update)
 {
   data["HP"] = update.hp;
@@ -68,8 +77,11 @@ void Telemetry::updateHeatPump(const HeatPumpDataUpdate &update)
       data.remove("cop_bottom_start");
       break;
 
+    // w trakcie pracy: t_min = najniższa temperatura środka w cyklu, COP bieżący
     case CopDataState::ACTIVE:
+      data["t_min"] = update.copEstimate.startMiddleTemperature;
       data["t_max"] = update.currentMiddleTemperature;
+      writeCop(update.copEstimate);
       break;
 
     case CopDataState::COMPLETED: {
@@ -77,15 +89,7 @@ void Telemetry::updateHeatPump(const HeatPumpDataUpdate &update)
       data["t_min"] = estimate.startMiddleTemperature;
       data["t_max"] = estimate.endMiddleTemperature;
       data["cop_bottom_start"] = estimate.startBottomTemperature;
-      if (!estimate.valid) {
-        data.remove("cop");
-        data.remove("cop_min");
-        data.remove("cop_max");
-        break;
-      }
-      data["cop_min"] = std::round(estimate.minimum * 100.0) / 100.0;
-      data["cop_max"] = std::round(estimate.maximum * 100.0) / 100.0;
-      data["cop"] = std::round(estimate.estimated * 100.0) / 100.0;
+      writeCop(estimate);
       break;
     }
 
@@ -94,13 +98,13 @@ void Telemetry::updateHeatPump(const HeatPumpDataUpdate &update)
   }
 }
 
-void Telemetry::updateControllerState(bool coPump, bool cwuPump,
+void Telemetry::updateControllerState(
   ControllerMode controllerMode, const DeviceSettings &settings)
 {
-  data["co_pomp"] = coPump;
-  data["cwu_pomp"] = cwuPump;
   data["controller_mode"] = controllerMode;
   data["work_mode"] = settings.workMode;
+  data["temp_min"] = settings.tempMin;
+  data["temp_max"] = settings.tempMax;
 }
 
 bool Telemetry::heatPumpRunning() const

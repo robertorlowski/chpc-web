@@ -54,9 +54,9 @@ a{color:#4db6a0}
 <a href="/telemetry.json">JSON</a> &middot;
 <a href="/pv.json">PV JSON</a></footer>
 </div><script>
-var L={co_pomp:"Pompa CO",cwu_pomp:"Pompa CWU",pv_power:"Produkcja PV",
-controller_mode:"Tryb",work_mode:"Praca",co_min:"CO min",co_max:"CO max",
-cwu_min:"CWU min",cwu_max:"CWU max",t_min:"T pocz.",t_max:"T konc.",
+var L={pv_power:"Produkcja PV",
+controller_mode:"Tryb",work_mode:"Praca",temp_min:"T od",temp_max:"T do",
+t_min:"T pocz.",t_max:"T konc.",
 cop:"COP",cop_min:"COP min",cop_max:"COP max",cop_bottom_start:"T dolu",
 total_power:"Moc",total_prod_today:"Dziś",total_prod:"Razem",time:"Odczyt",
 temperature:"Temp.",Tho:"T góra",Ttarget:"T środek",Tmin:"T min",Tmax:"T max",
@@ -73,8 +73,8 @@ var DIAG=["cloud_http_status","cloud_request_error","websocket_disconnect",
 "cloud_response_parse_error","serial_queue_overflow","serial_read_timeout",
 "serial_receive_overflow","pv_crc_error","hp_json_error","pv_frame_error",
 "operation_validation_error","preference_validation_error"];
-var MAIN=["controller_mode","work_mode","co_pomp","cwu_pomp",
-"co_min","co_max","cwu_min","cwu_max"];
+var MAIN=["controller_mode","work_mode",
+"temp_min","temp_max"];
 var COP=["t_min","t_max","cop","cop_min","cop_max","cop_bottom_start"];
 function lab(k){return L[k]||k}
 function val(v){

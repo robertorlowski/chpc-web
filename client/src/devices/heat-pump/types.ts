@@ -16,11 +16,27 @@ export type SettingsEntry  = {
   cwu_settings?: TimeSlot[]
 };
 
-// M — CO ręcznie (po północy scheduler zmienia na A), A — CO Harmonogram, CWU — CWU Harmonogram,
-// OFF — wyłączona. Telemetria może zawierać też 'PV' (tryb lokalny co), którego serwer nie wysyła.
+// Tryb sterownika co w telemetrii: M — CO, A — CO z harmonogramem, CWU, OFF; może być też 'PV'
+// (tryb lokalny co). Dawne wartości properties.work_mode (do 2026-10-05).
 export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
 
+// Tryb pracy pompy w aplikacji (properties.work_mode, GET /operation, /schedules/current):
+// ręczny = ustawienia domyślne, automatyczny = harmonogram (poza wpisami ustawienia domyślne), OFF.
+export type PumpWorkMode = 'MANUAL' | 'AUTO' | 'OFF';
+
+export const PUMP_WORK_MODE_LABELS: Record<PumpWorkMode, string> = {
+  MANUAL: 'Ręczny',
+  AUTO: 'Automatyczny',
+  OFF: 'OFF',
+};
+
+// Dawne wartości properties.work_mode czytane jak serwer (pump-mode.service.ts).
+export const pumpWorkMode = (value?: string): PumpWorkMode =>
+  value === 'AUTO' || value === 'A' || value === 'CWU' ? 'AUTO' : value === 'OFF' ? 'OFF' : 'MANUAL';
+
+// Wpis harmonogramu: HEAT — praca, OFF — przerwa; CO i CWU to wpisy sprzed 2026-10-05 (działają jak praca).
 export enum ScheduleType {
+  HEAT = 'heat',
   CWU = 'cwu',
   CO = 'co',
   OFF = 'off',
@@ -47,7 +63,7 @@ export type ScheduleEntry = {
 // GET /schedules/current: scheduleId = null oznacza, że obowiązuje ustawienie domyślne
 export type CurrentSchedule = {
   scheduleId: string | null;
-  work_mode: string;
+  work_mode: PumpWorkMode;
 };
 
 // Pole HP telemetrii: JSON z CHPC (StatsSerial) przekazany przez co bez zmian. Flagi (HPS, F, CO,
@@ -145,10 +161,13 @@ export type HpEntry = {
 }
 
 // Operacja dla sterownika co: wszystkie wartości są napisami ("0"/"1", "45"). error_reset i restart
-// to akcje jednorazowe (POST /operation/action), a nie pola operacji ręcznej.
+// to akcje jednorazowe (POST /operation/action), a nie pola operacji ręcznej. Formularz Ustawień
+// (GET /operation, POST /operation/set) używa work_mode aplikacji (MANUAL, AUTO, OFF) i temp_min/temp_max.
 export type OperationEntry = {
   force?: string,
   work_mode?: string,
+  temp_min?: string,
+  temp_max?: string,
   co_pomp?: string,
   sump_heater?: string,
   cold_pomp?: string,

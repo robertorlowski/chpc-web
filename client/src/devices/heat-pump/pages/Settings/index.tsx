@@ -4,7 +4,8 @@
 // a nie ostatnio wysłane ustawienie. Stan jest wczytywany tylko przy wejściu na stronę.
 import './style.css';
 import { HpRequests } from '../../api';
-import { HpEntry, OperationEntry } from '../../types';
+import { HpEntry, OperationEntry, pumpWorkMode } from '../../types';
+import { WorkModeSwitch } from '../../components/WorkModeSwitch';
 import { useEffect, useMemo, useState } from 'react';
 import Notification from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
@@ -67,9 +68,8 @@ export const Settings: React.FC = () => {
 	};
 
 	
-	// co włącza przekaźniki CO/CWU tylko w trybach CO; w CWU i OFF co_pomp nic nie zmienia
-	const selectedWorkMode = valueOpration.work_mode || defaultOperation.work_mode;
-	const coPompEditable = selectedWorkMode === 'M' || selectedWorkMode === 'A';
+	// tryb pracy urządzenia (ręczny / automatyczny / OFF): zmiana tutaj = zmiana w Harmonogramie
+	const selectedWorkMode = pumpWorkMode(valueOpration.work_mode || defaultOperation.work_mode);
 	// w OFF co zawsze wysyła do pompy force 0; w czasie pracy CHPC ignoruje force
 	// running pochodzi z telemetrii przy wejściu na stronę i nie odświeża się; po starcie lub
 	// zatrzymaniu sprężarki blokady zmieniają się dopiero po ponownym otwarciu zakładki
@@ -80,9 +80,28 @@ export const Settings: React.FC = () => {
 	const eevSetpointValid = eevSetpoint === undefined
 		|| (Number(eevSetpoint) >= EEV_SETPOINT_MIN && Number(eevSetpoint) <= EEV_SETPOINT_MAX);
 
+	// temperatura od–do jak na serwerze (pump-mode.service.ts): 1–50 °C, od ≤ do (z wartością pompy dla pola niezmienionego)
+	const temperatureProblem = useMemo(() => {
+		const changed = [valueOpration.temp_min, valueOpration.temp_max].filter((value) => value !== undefined);
+		if (changed.some((value) => !Number.isFinite(Number(value)) || Number(value) < 1 || Number(value) > 50)) {
+			return 'Temperatura: 1–50 °C.';
+		}
+		const min = Number(valueOpration.temp_min ?? defaultOperation.temp_min);
+		const max = Number(valueOpration.temp_max ?? defaultOperation.temp_max);
+		return changed.length > 0 && Number.isFinite(min) && Number.isFinite(max) && min > max
+			? 'Temperatura od nie może być wyższa niż do.'
+			: '';
+	}, [valueOpration, defaultOperation]);
+
+	// pole wyczyszczone znika ze zmian (nie idzie jako "" ani "0")
+	const setOptional = (field: keyof OperationEntry, value: string) => {
+		const { [field]: _cleared, ...rest } = valueOpration;
+		setValueOperation(value.trim() ? { ...rest, [field]: value.trim() } : rest);
+	};
+
 	const enableSave = useMemo(() => {
-		return Object.entries(valueOpration).length > 0 && eevSetpointValid;
-	}, [valueOpration, eevSetpointValid]);
+		return Object.entries(valueOpration).length > 0 && eevSetpointValid && !temperatureProblem;
+	}, [valueOpration, eevSetpointValid, temperatureProblem]);
 
 	useEffect( () => {
 		HpRequests.prepareOperation()
@@ -104,13 +123,12 @@ export const Settings: React.FC = () => {
 		window.setTimeout(() => setSaveNotice(''), 3000);
 	};
 
-	// Wysyła tylko zmienione pola. Brak walidacji zakresów: co i CHPC po cichu odrzucają wartości
-	// spoza swoich limitów, a faktycznie użyte wartości widać dopiero w telemetrii. Pole wpisane
-	// i wyczyszczone zostaje w zmianach jako "" i też jest wysyłane (co je odrzuca); wyjątek: EEV temp.
-	// wyczyszczone znika ze zmian, a poza 0,1–8 °C blokuje zapis.
+	// Wysyła tylko zmienione pola (POST /operation/set): tryb pracy zapisuje serwer w ustawieniach
+	// urządzenia (jak Harmonogram, ręczne ustawienia znikają), temperatury i reszta idą od razu na pompę
+	// jako ustawienie ręczne. Temperatura 1–50 °C i przegrzanie EEV 0,1–8 °C są sprawdzane tutaj; limity
+	// mocy i EEV stosują dopiero co i CHPC, a faktycznie użyte wartości widać w telemetrii.
 	const handleSave = () => {
-		console.log(valueOpration);
-		if ( Object.entries(valueOpration).length == 0 ) {
+		if (Object.entries(valueOpration).length == 0) {
 			return;
 		}
 
@@ -118,26 +136,12 @@ export const Settings: React.FC = () => {
 			setError( response?.status === 201 ? false : true );
 			if (response?.status === 201) {
 				showSaveNotice();
-				// telemetria pokaże zmianę dopiero po 10-30 s; bez tego pola wracają do starych wartości
-				// zmiana trybu bez co_pomp: serwer przywraca "1", a co włącza pompy tylko w trybach CO
+				// telemetria pokaże zmianę dopiero po kilku sekundach; bez tego pola wracają do starych wartości
 				const saved = {...defaultOperation, ...valueOpration};
-				if (valueOpration.work_mode) {
-					const coMode = valueOpration.work_mode === 'M' || valueOpration.work_mode === 'A';
-					saved.co_pomp = coMode ? (valueOpration.co_pomp ?? "1") : "0";
-					if (valueOpration.work_mode === 'OFF') saved.force = "0";
-				}
+				if (valueOpration.work_mode === 'OFF') saved.force = "0";
 				setDefaultOperation(saved);
 			}
 			setValueOperation({});
-			// tylko do konsoli (podgląd operacji czekającej na co)
-			HpRequests.getOperation()
-				.then((resp) => {
-					console.log(resp)
-				})
-				.catch((err) => {
-					console.log(err);
-				}
-			);
 		});
 	}
 
@@ -148,126 +152,45 @@ export const Settings: React.FC = () => {
 			<section>
 				<div className="resource">
 					<h3 className="settings-section-title">Ustaw</h3>
-					<div style={{ minWidth: '200px' }}>
+					<div className="settings-mode-row">
 						<span className="label">Tryb pracy:</span>
-						<select
-							name="work_mode"
-							className="dict-select"
-							onChange={(e) => setValueOperation( {...valueOpration, work_mode: e.currentTarget.value})}
-							value={ !!valueOpration.work_mode ? valueOpration.work_mode : defaultOperation.work_mode }
-						>
-							<option value="M">CO</option>
-							<option value="A">CO Harmonogram</option>
-							<option value="CWU">CWU Harmonogram</option>
-							<option value="OFF">OFF</option>
-						</select>
-					</div>
-
-					<h3 className="settings-section-title">Aktualne ustawienia temperatur</h3>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>Temperatura CWU:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="cwu_min"
-							placeholder={defaultOperation.cwu_min}
-							value={valueOpration.cwu_min}
-							onChange={(e) => setValueOperation({...valueOpration, cwu_min: e.currentTarget.value})}
-						/>
-						<input
-							className="temperature"
-							type="number"
-							name="cwu_max"
-							placeholder={defaultOperation.cwu_max}
-							value={valueOpration.cwu_max}
-							onChange={(e) => setValueOperation({...valueOpration, cwu_max: e.currentTarget.value})}
-						/>
-					</div>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>Temperatura CO:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="co_min"
-							placeholder={defaultOperation.co_min}
-							value={valueOpration.co_min}
-							onChange={(e) => setValueOperation({...valueOpration, co_min: e.currentTarget.value})}
-						/>
-						<input
-							className="temperature"
-							type="number"
-							name="co_max"
-							placeholder={defaultOperation.co_max}
-							value={valueOpration.co_max}
-							onChange={(e) => setValueOperation({...valueOpration, co_max: e.currentTarget.value})}
-						/>
-					</div>
-
-					<h3 className="settings-section-title">Aktualne ustawienia HP</h3>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>EEV temp.:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="eev_setpoint"
-							step="0.1"
-							min={EEV_SETPOINT_MIN}
-							max={EEV_SETPOINT_MAX}
-							title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}
-							aria-invalid={!eevSetpointValid}
-							placeholder={defaultOperation.eev_setpoint}
-							value={ valueOpration.eev_setpoint ?? '' }
-							onChange={(e) => {
-								// wyczyszczone pole nie jest wysyłane (dawniej szło "0" = przegrzanie 0 °C w EEPROM pompy)
-								const { eev_setpoint: _cleared, ...rest } = valueOpration;
-								const text = e.currentTarget.value.replace(',', '.');
-								setValueOperation(text ? { ...rest, eev_setpoint: text } : rest);
+						<WorkModeSwitch
+							short
+							value={selectedWorkMode}
+							onChange={(mode) => {
+								// tryb zapisany = tryb urządzenia; ten sam wybór co w danych nie jest wysyłany
+								const { work_mode: _previous, ...rest } = valueOpration;
+								setValueOperation(mode === pumpWorkMode(defaultOperation.work_mode) ? rest : { ...rest, work_mode: mode });
 							}}
 						/>
-						{!eevSetpointValid && <span className="settings-error-text"> {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C</span>}
 					</div>
 
 					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>EEV max pulse:</span>
+						<span className="label" style={{ width: '160px' }}>Temperatura od / do:</span>
 						<input
 							className="temperature"
 							type="number"
-							name="eev_max_pulse_open"
-							placeholder= {defaultOperation.eev_max_pulse_open}
-							value={ valueOpration.eev_max_pulse_open }
-							onChange={(e) => setValueOperation({...valueOpration, eev_max_pulse_open: e.currentTarget.value})}
+							name="temp_min"
+							aria-label="Temperatura od"
+							aria-invalid={!!temperatureProblem}
+							placeholder={defaultOperation.temp_min}
+							value={valueOpration.temp_min ?? ''}
+							onChange={(e) => setOptional('temp_min', e.currentTarget.value)}
 						/>
-					</div>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>EEV min pulse:</span>
 						<input
 							className="temperature"
 							type="number"
-							name="eev_min_pulse_open"
-							min={25}
-							placeholder= {defaultOperation.eev_min_pulse_open}
-							value={ valueOpration.eev_min_pulse_open }
-							onChange={(e) => setValueOperation({...valueOpration, eev_min_pulse_open: e.currentTarget.value})}
+							name="temp_max"
+							aria-label="Temperatura do"
+							aria-invalid={!!temperatureProblem}
+							placeholder={defaultOperation.temp_max}
+							value={valueOpration.temp_max ?? ''}
+							onChange={(e) => setOptional('temp_max', e.currentTarget.value)}
 						/>
+						<span> °C</span>
 					</div>
+					{temperatureProblem && <p className="settings-error-text settings-field-error">{temperatureProblem}</p>}
 
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }} title="Maksymalna moc sprężarki; 1001-4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy [W]:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="working_watt"
-							placeholder= {defaultOperation.working_watt}
-							value={ valueOpration.working_watt }
-							onChange={(e) => setValueOperation({...valueOpration, working_watt: e.currentTarget.value})}
-						/>
-					</div>
-
-					<h3 className="settings-section-title">Uruchom</h3>
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Wymuszenie pracy:</span>
 						<input
@@ -284,16 +207,14 @@ export const Settings: React.FC = () => {
 					</div>
 
 					<div style={{ minWidth: '240px' }}>
-						<span className="label">Pompy CO/CWU:</span>
+						<span className="label">Pompa ciepłej wody:</span>
 						<input
-							title={coPompEditable
-								? "Pompy CO/CWU (sterownik przełącza obie razem)"
-								: "Tylko w trybach CO; w CWU i OFF sterownik trzyma pompy wyłączone"}
 							type="checkbox"
-							name="coPomp"
-							disabled={!coPompEditable}
-							checked={(valueOpration.co_pomp ?? defaultOperation.co_pomp) === "1"}
-							onChange={(e) => setValueOperation({...valueOpration, co_pomp: e.target.checked ? "1" : "0" })}
+							name="hotPomp"
+							title={running ? RUNNING_LOCK_HINT : "Pompa ciepłej wody"}
+							disabled={running}
+							checked={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"}
+							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
 						/>
 					</div>
 
@@ -309,29 +230,58 @@ export const Settings: React.FC = () => {
 						/>
 					</div>
 
-					<div style={{ minWidth: '240px' }}>
-						<span className="label">Pompa ciepłej wody:</span>
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }} title="Maksymalna moc sprężarki; 1001-4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy [W]:</span>
 						<input
-							type="checkbox"
-							name="hotPomp"
-							title={running ? RUNNING_LOCK_HINT : "Pompa ciepłej wody"}
-							disabled={running}
-							checked={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"}
-							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
+							className="temperature settings-watt"
+							type="number"
+							name="working_watt"
+							placeholder= {defaultOperation.working_watt}
+							value={ valueOpration.working_watt ?? '' }
+							onChange={(e) => setOptional('working_watt', e.currentTarget.value)}
 						/>
 					</div>
-{/* 
-					<div style={{ minWidth: '240px' }}>
-						<span className="label">Grzałka krateru:</span>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>EEV min / max:</span>
 						<input
-							title="Grzałka krateru"
-							name="sumpHeater"
-							type="checkbox"
-							placeholder= {defaultOperation.sump_heater}
-							checked={ valueOpration.sump_heater ==="1" }
-							onChange={(e) => setValueOperation({...valueOpration, sump_heater: e.target.checked ? "1" : "0" })}
+							className="temperature"
+							type="number"
+							name="eev_min_pulse_open"
+							aria-label="EEV min"
+							min={25}
+							placeholder= {defaultOperation.eev_min_pulse_open}
+							value={ valueOpration.eev_min_pulse_open ?? '' }
+							onChange={(e) => setOptional('eev_min_pulse_open', e.currentTarget.value)}
 						/>
-					</div> */}
+						<input
+							className="temperature"
+							type="number"
+							name="eev_max_pulse_open"
+							aria-label="EEV max"
+							placeholder= {defaultOperation.eev_max_pulse_open}
+							value={ valueOpration.eev_max_pulse_open ?? '' }
+							onChange={(e) => setOptional('eev_max_pulse_open', e.currentTarget.value)}
+						/>
+					</div>
+
+					<div style={{ minWidth: '200px' }}>
+						<span className="label" style={{ width: '160px' }}>Przegrzanie EEV:</span>
+						<input
+							className="temperature"
+							type="number"
+							name="eev_setpoint"
+							step="0.1"
+							min={EEV_SETPOINT_MIN}
+							max={EEV_SETPOINT_MAX}
+							title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}
+							aria-invalid={!eevSetpointValid}
+							placeholder={defaultOperation.eev_setpoint}
+							value={ valueOpration.eev_setpoint ?? '' }
+							onChange={(e) => setOptional('eev_setpoint', e.currentTarget.value.replace(',', '.'))}
+						/>
+						{!eevSetpointValid && <span className="settings-error-text"> {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C</span>}
+					</div>
 					<div className='header3'>
 					<p>
 						<span className={error ? `error show` : `error hide`}>

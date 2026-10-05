@@ -4,7 +4,7 @@ import { clearManualOperation, getManualOperationData, setOperationData } from '
 import { runSchedulerOnce } from './services/scheduler.service';
 
 // Opis rodzaju „pompa ciepła” (heat_pump) dla rejestru core/device-types.ts.
-// Pompa ciepła: ustawienia domyślne dostaje od schematu (work_mode = CWU),
+// Pompa ciepła: ustawienia domyślne dostaje od schematu (work_mode = MANUAL),
 // a operacje odbiera w odpowiedzi na /hp/add, nie przy zgłoszeniu.
 // OTA od firmware co 1.1.0: oferta na zlecenie „Aktualizuj” w odpowiedzi /hp/add (hp.controller.ts).
 export const heatPumpDeviceType: DeviceTypeModule = {

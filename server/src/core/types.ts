@@ -1,4 +1,4 @@
-import type { ScheduleEntry, SettingsEntry, WorkMode } from '../modules/heat-pump/types';
+import type { PumpWorkMode, ScheduleEntry, SettingsEntry, WorkMode } from '../modules/heat-pump/types';
 
 // Typy części wspólnej: urządzenie, jego ustawienia i opis rodzaju sterownika.
 
@@ -30,13 +30,16 @@ export enum WeekDay {
 // Ustawienia urządzenia (pole properties). Jedno pole w bazie dla wszystkich
 // rodzajów sterowników; każdy rodzaj używa swojej części.
 export interface DeviceProperties {
-  // pompa ciepła: wartości domyślne operacji (scheduler, getDefaultOperation);
-  // temperatury jako napisy, bo tak idą do sterownika w operacji
+  // pompa ciepła: tryb pracy (ręczny / automatyczny / OFF) i temperatura od–do poza harmonogramem
+  // (scheduler, pump-mode.service.ts); temperatury jako napisy, bo tak idą do sterownika w operacji.
+  // co_* i cwu_* oraz work_mode M/A/CWU to dawne ustawienia (do 2026-10-05), czytane, gdy brak nowych.
+  work_mode?: PumpWorkMode | WorkMode;
+  temp_min?: String;
+  temp_max?: String;
   co_min?: String;
   co_max?: String;
   cwu_min?: String;
   cwu_max?: String;
-  work_mode?: WorkMode;
   // hydrofor
   compressor_seconds?: number;
   // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600

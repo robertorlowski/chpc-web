@@ -1,4 +1,4 @@
-/* Harmonogramy pompy: ustawienia domyślne, formularz i lista; czerwone podkreślenie działających grup i czerwona kreska pozycji działającej teraz. */
+/* Harmonogram pompy: tryb pracy i ustawienia domyślne, formularz wpisu i jedna lista; czerwona kreska pozycji działającej teraz. */
 .schedules-page {
   width: min(1100px, 96vw);
   padding: 0rem 0 2rem;
@@ -249,6 +249,60 @@
 
 .schedule-error {
   color: #b00020;
+}
+
+/* tryb pracy: przyciski od lewej na komputerze, na środku na telefonie */
+.schedule-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.schedule-defaults-resource .schedule-mode-row span.label {
+  min-width: 0;
+}
+
+.schedule-hint {
+  margin: 0.2rem 0 0.4rem;
+  color: #5b5b5b;
+  font-size: 0.85rem;
+}
+
+.schedule-defaults-title {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.95rem;
+}
+
+.schedule-defaults-resource .settings-default-temperatures label.label {
+  min-width: 0;
+}
+
+/* rodzaj wpisu (Praca / Przerwa) w formularzu */
+.schedule-form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* wpis wyłączony: przygaszony */
+.schedule-row-disabled {
+  opacity: 0.55;
+}
+
+.schedule-row-default {
+  margin-top: 0.5rem;
+  padding-right: 0.3rem;
+}
+
+@media (max-width: 560px) {
+  .schedule-mode-switch {
+    flex: 1 1 100%;
+    display: flex;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 720px) {
