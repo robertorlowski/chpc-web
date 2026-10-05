@@ -147,6 +147,36 @@ void testNoFlowStopsAbovePowerLimitSwitch() {
   sim::flow_adc = 0;
 }
 
+// Pompa zimna zasilona z wyjścia gorącej (2026-10-05): obie pompy ~1200 VA na przekładniku.
+// Ręczna pompa gorąca i wybieg pompy gorącej po zatrzymaniu sprężarki to nie zacięty przekaźnik.
+void testPumpsOnSharedSupplyAreNotRelayFault() {
+  setTemp("Tho", 20.0);  // Tho > Ttarget + delta trzyma pompę gorącą po zatrzymaniu: tu ma się wyłączyć
+  TEST_ASSERT_TRUE(waitUntil([] { return !hotPump() && !coldPump(); }, 90000, 1000) >= 0);
+  sim::power_w = [] { return compressor() ? compressorWatts : (hotPump() ? 1200.0 : 0.0); };
+  sendFrame(0x09, 1);  // ręczna pompa gorąca (i zimna na tym samym wyjściu)
+  runMs(20000);
+  TEST_ASSERT_TRUE(hotPump());
+  TEST_ASSERT_FALSE(coldPump());
+  TEST_ASSERT_EQUAL_DOUBLE(lastSeq, jsonNumber(query(), "ERRn"));
+  sendFrame(0x09, 0);
+  runMs(15000);  // okno RMS jeszcze chwilę pokazuje moc pomp: to też nie może dać błędu
+  TEST_ASSERT_FALSE(hotPump());
+  TEST_ASSERT_EQUAL_DOUBLE(lastSeq, jsonNumber(query(), "ERRn"));
+
+  // wybieg: zimna stoi po 10 s, gorąca chodzi do 60 s po zatrzymaniu
+  startCompressor();
+  setTemp("Ttarget", 31.0);
+  TEST_ASSERT_TRUE(waitUntil([] { return !compressor(); }, 5 * 60 * 1000UL) >= 0);
+  setTemp("Ttarget", 27.0);
+  runMs(30000, 1000);
+  TEST_ASSERT_TRUE(hotPump());
+  TEST_ASSERT_FALSE(coldPump());
+  TEST_ASSERT_EQUAL_DOUBLE(lastSeq, jsonNumber(query(), "ERRn"));
+  TEST_ASSERT_FALSE(hot_pomp_on || cold_pomp_on);
+  TEST_ASSERT_TRUE(waitUntil([] { return !hotPump(); }, 60000, 1000) >= 0);
+  useDefaultPower();
+}
+
 void testStuckCompressorRelayIsReportedOnce() {
   offWatts = 1500.0;  // pobór mocy mimo wyłączonej sprężarki
   sim::tx.clear();
@@ -189,6 +219,7 @@ int main() {
   RUN_TEST(testLowSumpTemperatureAfterStart);
   RUN_TEST(testNoFlowIgnoredAtDefaultPowerLimit);
   RUN_TEST(testNoFlowStopsAbovePowerLimitSwitch);
+  RUN_TEST(testPumpsOnSharedSupplyAreNotRelayFault);
   RUN_TEST(testStuckCompressorRelayIsReportedOnce);
   RUN_TEST(testLostSensorStopsControlAndRecovers);
   return UNITY_END();

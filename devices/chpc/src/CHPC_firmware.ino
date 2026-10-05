@@ -28,13 +28,13 @@
 //             start_force, co_on, error_count, INPUT_TYPE_* (menu), ERR_* (stan wewnętrzny),
 //             ERRC_* (kody zdarzeń w JSON), pomiar mocy
 //   ~571      funkcje: ReadVcc, DEBUG_LOG, LCD (PrintS_and_D, Print_D), zmiana nastaw przyciskami,
-//             EEPROM, FindAddr (wykrywanie czujników), GetT/Get_Temperatures, EEV (eevise),
+//             EEPROM, FindAddr (wykrywanie czujników), GetT/Get_Temperatures, EEV (eevise, EEV_floor),
 //             halifise (przekaźniki), reportError/stopOnError/stopByTemperature, softRestart
 //   ~1152     setup(): przekaźniki wyłączone, LCD, EEPROM albo wykrywanie czujników, pierwszy pomiar
 //   ~1312     loop(): próbka mocy (RMS), krok EEV, przeciążenie (ERRC 2), wejście przepływu,
 //   ~1389     loop: RS-485 (komendy 0x01–0x11), blokada po 5 błędach,
 //   ~1511     loop: przyciski i menu, wyświetlacz 1602 (+ ochrona przepływu, ERRC 3),
-//   ~1732     loop: cykl kontrolny co 1 s: czujniki, EEV, grzałka karteru, pauza startowa,
+//   ~1732     loop: cykl kontrolny co 1 s: czujniki, EEV (zamknięcie w postoju, łagodny start), grzałka karteru, pauza startowa,
 //             termostat, pompy, ochrona przed mrozem, zabezpieczenia, przekaźnik, energia cyklu
 //   ~2132     StatsSerial(): odpowiedź JSON na 0x01 (kontrakt z co i chpc-web)
 // Kontrakt z łańcuchem chpc-web (co ⇄ RS-485): ramki [0x41][cmd][d1][d2][0xFF], klucze JSON
@@ -145,6 +145,17 @@ int EEV_MINWORKPOS = xEEV_MINWORKPOS;
 #define EEV_HYSTERESIS 0.2  //05
 //must be less than EEV_PRECISE_START,
 //ex: target difference = 4.0, hysteresis = 0.1, when difference in range 4.0..4.1 no EEV pulses will be done;
+//Zawór w postoju: po EEV_REST_CLOSE_MILLIS od zatrzymania (ciśnienia już wyrównane) zamknięty do zera,
+//żeby ciekły czynnik nie spływał ze skraplacza do parownika i sprężarki; gdy warunki startu są spełnione,
+//otwiera się do pozycji oczekiwania (kilka sekund) i trzyma ją EEV_PRESTART_HOLD_MILLIS od ostatniego spełnienia.
+#define EEV_REST_CLOSE_MILLIS 300000
+#define EEV_PRESTART_HOLD_MILLIS 60000
+//Łagodny start: przez EEV_SOFTSTART_MILLIS od startu sprężarki zawór zaczyna z pozycji oczekiwania
+//i przy mokrej parze może zejść do EEV_SOFTSTART_MIN (albo do EEV_MINWORKPOS, gdy jest niższe),
+//bo po długim postoju parownik jest zalany i przegrzanie przez pierwsze minuty jest bliskie zera lub ujemne
+//(telemetria 26.09-05.10). Po tym czasie dolną granicą znów jest EEV_MINWORKPOS.
+#define EEV_SOFTSTART_MILLIS 60000  //1 min (decyzja 2026-10-05)
+#define EEV_SOFTSTART_MIN 40
 #define EEV_CLOSEEVERY 86400000
 //86400000: EEV will be closed (calibrated) every 24 hours, done while HP is NOT working
 #define EEV_TARGET_TEMP_DIFF 1.0
@@ -431,6 +442,8 @@ bool EEV_adonotcare = 0;
 const unsigned char EEV_steps[4] = { 0b1010, 0b0110, 0b0101, 0b1001 };
 char EEV_cur_step = 0;
 bool EEV_fast = 0;
+int EEV_floor = xEEV_MINWORKPOS;          //najniższa pozycja w pracy: EEV_MINWORKPOS, niżej w czasie łagodnego startu
+unsigned long millis_eev_prestart = 0;    //ostatnie spełnienie warunków startu (zawór otwarty do pozycji oczekiwania)
 
 //main cycle vars
 unsigned long millis_prev = 0;
@@ -439,6 +452,7 @@ unsigned long millis_cycle = 1000;
 
 unsigned long millis_last_heatpump_on = 0;
 unsigned long millis_last_heatpump_off = 0;
+unsigned long millis_last_pump_on = 0;  //ostatni cykl z włączonym wyjściem którejś pompy (ERRC_RELAY)
 unsigned long millis_tbe_ok = 0;  //ostatnia chwila pracy z Tbe >= T_BEFORE_EVAPORATOR_MIN (albo postoju)
 unsigned long last_power = 0;
 unsigned long last_power_milis = 0;
@@ -653,7 +667,6 @@ void dbgText(const __FlashStringHelper *ev, const String &s) {
 void dbgEev(void) {
   dbgKV(F("pos"), EEV_cur_pos);
   dbgKV(F("ap"), EEV_apulses);
-  dbgKV(F("calib"), EEV_adonotcare);
 }
 
 void dbgLoop(void) {
@@ -676,9 +689,7 @@ void dbgLoop(void) {
     dbg_prev_rel = r;
     dbgHead(F("rel"));
     dbgKV(F("hp"), r & 1);
-    dbgKV(F("hot"), (r >> 1) & 1);
-    dbgKV(F("cold"), (r >> 2) & 1);
-    dbgKV(F("sump"), (r >> 3) & 1);
+    dbgKV(F("r"), r);  //bity: 0 sprężarka, 1 pompa gorąca, 2 pompa zimna, 3 grzałka karteru (oszczędność Flash)
     dbgEnd();
   }
 #ifdef EEV_SUPPORT
@@ -704,7 +715,6 @@ void dbgLoop(void) {
     dbgEev();
 #endif
     dbgKV(F("err"), errorcode);
-    dbgKV(F("menu"), input_type % INPUT_TYPES);
     dbgEnd();
   }
 }
@@ -1016,12 +1026,17 @@ void off_EEV() {  //1 = do not take care of position
 }
 #endif
 
+//Wyjścia przekaźników ze stanów automatyki i wymuszeń. Zapisuje też ostatnią chwilę z włączoną
+//którąkolwiek pompą (millis_last_pump_on), od której liczy się zwłoka ERRC_RELAY.
 void halifise(void) {
 #ifdef BOARD_TYPE_G
+  bool hot = hotside_circle_state || hot_pomp_on || frost_protect;
+  bool cold = coldside_circle_state || cold_pomp_on;
+  if (hot || cold) millis_last_pump_on = millis_now;
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state || sump_heater_on);
-  digitalWrite(RELAY_HOTSIDE_CIRCLE, hotside_circle_state || hot_pomp_on || frost_protect);
+  digitalWrite(RELAY_HOTSIDE_CIRCLE, hot);
   digitalWrite(RELAY_HEATPUMP, heatpump_state);
-  digitalWrite(RELAY_COLDSIDE_CIRCLE, coldside_circle_state || cold_pomp_on);
+  digitalWrite(RELAY_COLDSIDE_CIRCLE, cold);
   digitalWrite(RELAY_4WAY_VALVE, 0);
 #endif
 }
@@ -1057,7 +1072,7 @@ void eevise(void) {
       }
 
       if (EEV_apulses < 0) {
-        if ((EEV_cur_pos - 1 >= EEV_MINWORKPOS) || (EEV_adonotcare == 1)) {
+        if ((EEV_cur_pos - 1 >= EEV_floor) || (EEV_adonotcare == 1)) {
           EEV_cur_pos -= 1;
           EEV_cur_step -= 1;
           EEV_apulses += 1;
@@ -1090,7 +1105,6 @@ void reportError(uint8_t code) {
 #ifdef DEBUG_LOG
   dbgHead(F("err"));
   dbgKV(F("code"), code);
-  dbgKV(F("n"), err_seq);
   dbgEnd();
 #endif
 }
@@ -1303,8 +1317,6 @@ void setup(void) {
   dbgHead(F("boot"));
   dbgKV(F("sens"), used_sensors);
   dbgKV(F("EEVmin"), EEV_MINWORKPOS);
-  dbgKV(F("EEVmax"), EEV_MAXPULSES_OPEN);
-  dbgKV(F("co"), co_on);
   dbgEnd();
 #endif
 }
@@ -1794,16 +1806,32 @@ void loop(void) {
 
 //-------------- EEV cycle
 //Przy pracy (moc > ~914 W) utrzymuje przegrzanie Tae-Tbe na T_EEV_setpoint w granicach
-//EEV_MINWORKPOS..EEV_MAXPULSES_OPEN (0x0F/0x0D); w spoczynku pozycja oczekiwania i kalibracja co 24 h.
+//EEV_floor..EEV_MAXPULSES_OPEN (0x0F/0x0D); w spoczynku pozycja oczekiwania (po EEV_REST_CLOSE_MILLIS
+//zero, przed startem znów pozycja oczekiwania) i kalibracja co 24 h.
 #ifdef EEV_SUPPORT
+    //pozycja w postoju i dolna granica w pracy (łagodny start); EEV_ONLY: sprężarką steruje ktoś inny,
+    //więc zawór nie jest zamykany w postoju, a granica to zawsze EEV_MINWORKPOS
+    int eev_wait = EEV_OPEN_AFTER_CLOSE;
+    EEV_floor = EEV_MINWORKPOS;
+#ifndef EEV_ONLY
+    if (heatpump_state == 0 && (unsigned long)(millis_now - millis_last_heatpump_off) > EEV_REST_CLOSE_MILLIS
+        && (unsigned long)(millis_now - millis_eev_prestart) > EEV_PRESTART_HOLD_MILLIS) {
+      eev_wait = 0;
+    }
+    if (heatpump_state == 1 && (unsigned long)(millis_now - millis_last_heatpump_on) < EEV_SOFTSTART_MILLIS) {
+      EEV_floor = (EEV_MINWORKPOS < EEV_SOFTSTART_MIN) ? EEV_MINWORKPOS : EEV_SOFTSTART_MIN;
+    }
+#endif
     //v1.1 algo
     if (errorcode == 0 && async_wattage > c_wattage_max_min && EEV_cur_pos > 0) {
-      T_EEV_dt = fabs(Tae.T - Tbe.T);
+      //przegrzanie ze znakiem: Tae < Tbe = mokra para na wyjściu parownika (ciecz do sprężarki), zawór
+      //się przymyka (dawniej fabs() robiło z -0,6 K przegrzanie +0,6 K i zawór się otwierał)
+      T_EEV_dt = Tae.T - Tbe.T;
    
       //zawor otwarty
       //czekamy 1min na unormowanie ciśnienia i temperatur
       if ( //(unsigned long)(millis_now - millis_last_heatpump_on) > MINCYKLE_CHECK && 
-          EEV_cur_pos >= EEV_MINWORKPOS ) {
+          EEV_cur_pos >= EEV_floor ) {
         if (EEV_apulses >= 0 ) {
           //jełsi temperatura przegrzania < 4.0 to zamykaj zawór, NORMALNIE
           if (T_EEV_dt < T_EEV_setpoint) {  //too
@@ -1884,7 +1912,7 @@ void loop(void) {
 
       } else if (errorcode != 0 || async_wattage < c_wattage_max_min) {  //err or sleep
         
-        if (EEV_cur_pos > 0 && EEV_cur_pos > EEV_OPEN_AFTER_CLOSE) {           //waiting pos. set
+        if (EEV_cur_pos > 0 && EEV_cur_pos > eev_wait) {           //waiting pos. set (eev_wait 0 = domknięcie w postoju)
           //PrintS(F("EEV: 11 close before open"));
           EEV_apulses = -(EEV_cur_pos + EEV_CLOSE_ADD_PULSES);
           EEV_adonotcare = 1;
@@ -1894,20 +1922,21 @@ void loop(void) {
       off_EEV();
     }
 
-    if (EEV_apulses == 0 && async_wattage < c_wattage_max_min && EEV_cur_pos < EEV_OPEN_AFTER_CLOSE) {
+    if (EEV_apulses == 0 && async_wattage < c_wattage_max_min && EEV_cur_pos < eev_wait) {
       //PrintS(F("EEV: 12 full close"));
-      if (EEV_OPEN_AFTER_CLOSE != 0) {  //full close protection
-        EEV_apulses = EEV_OPEN_AFTER_CLOSE - EEV_cur_pos;
+      if (eev_wait != 0) {  //full close protection; przed startem otwarcie z zera trwa ok. 3,5 s
+        EEV_apulses = eev_wait - EEV_cur_pos;
         EEV_adonotcare = 1;
         EEV_fast = 1;
       }
       off_EEV();
     }
     
-    if (async_wattage >= c_wattage_max_min && EEV_cur_pos < EEV_MINWORKPOS) {
+    //w czasie łagodnego startu zawór zostaje na pozycji oczekiwania (>= EEV_floor), potem do EEV_MINWORKPOS
+    if (async_wattage >= c_wattage_max_min && EEV_cur_pos < EEV_floor) {
       //PrintS(F("EEV: 13 open to work"));
-      if (EEV_MINWORKPOS != 0 && EEV_MINWORKPOS > EEV_cur_pos) {  //full close protection
-        EEV_apulses = (EEV_MINWORKPOS - EEV_cur_pos) + 1;
+      {  //EEV_floor >= EEV_MINWORKPOS_LOW (25), więc nigdy 0
+        EEV_apulses = (EEV_floor - EEV_cur_pos) + 1;
         //EEV_apulses = (EEV_MAXPULSES_OPEN - EEV_cur_pos);
         EEV_adonotcare = 0;
         EEV_fast = 1;
@@ -1950,16 +1979,22 @@ void loop(void) {
     //process_heatpump:
     //Start: co_on, brak błędu, EEV po kalibracji, postój >= 20 min, Tsump 5..85, Tae > -2, Tbc < 70,
     //Tci/Tco > -2 oraz Ttarget < T max - delta (albo < T max - 3 przy start_force).
-    if (  //start dopiero po zakończeniu kalibracji/domykania EEV
-      (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
+    //Zawór domknięty w postoju otwiera się po spełnieniu warunków (millis_eev_prestart, cykl EEV),
+    //a sprężarka rusza dopiero, gdy stoi na pozycji oczekiwania.
+    if (
+      (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
 
         (Ttarget.T < (T_setpoint - T_delta) && ((T_setpoint - T_delta) < T_setpoint) && co_on == 1) || (Ttarget.T < (T_setpoint - T_delta_force) && co_on == 1 && start_force == 1)
         )
       && ((Tae.e == 1 && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) && ((Tbc.e == 1 && Tbc.T < cT_before_condenser_max) || (Tbc.e ^ 1)) && ((Tci.e == 1 && Tci.T > cT_cold_min) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T > cT_cold_min) || (Tco.e ^ 1))) {
-      last_power = 0;
-      millis_last_heatpump_on = millis_now;
-      last_power_milis = millis_now;
-      heatpump_state = 1;
+      millis_eev_prestart = millis_now;
+      //start dopiero po zakończeniu kalibracji/domykania/otwierania EEV
+      if ((EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0)) {
+        last_power = 0;
+        millis_last_heatpump_on = millis_now;
+        last_power_milis = millis_now;
+        heatpump_state = 1;
+      }
     }
 
     //stop if
@@ -2094,8 +2129,13 @@ void loop(void) {
     //prevent error - zepsuty przekaźnik
     //ERRC_RELAY: moc > ~914 W przy sprężarce wyłączonej od > 10 s. Włącza ręczne wymuszenia obu pomp,
     //które zostają także po ustaniu usterki (do zmiany przez 0x09/0x0A, menu albo restartu).
+    //Sprawdzane tylko, gdy wyjścia obu pomp (automatyka, wymuszenie, ochrona przed mrozem, jak w halifise())
+    //są wyłączone od > 10 s: przekładnik mierzy całe zasilanie, a pompy (u nas zimna zasilona z wyjścia
+    //gorącej, razem ~1200 VA) przekraczają próg 914 W; 10 s to zapas na okno RMS, które po wyłączeniu
+    //pomp jeszcze chwilę pokazuje ich moc. Gdy pompy chodzą, reakcja na błąd i tak niczego nie zmienia.
+    //millis_last_pump_on ustawia halifise() (wołane w każdym cyklu), gdy któraś pompa jest włączona.
     if (async_wattage > c_wattage_max_min && heatpump_state == 0 && (millis_now - millis_last_heatpump_off) > 10000
-        && (coldside_circle_state == 0 || hotside_circle_state == 0)) {
+        && (millis_now - millis_last_pump_on) > 10000) {
       hot_pomp_on = 1;
       cold_pomp_on = 1;
       heatpump_state = 0;

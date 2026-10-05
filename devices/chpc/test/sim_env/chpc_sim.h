@@ -125,9 +125,9 @@ inline void resetGlobalsLikeReboot() {
   hot_pomp_on = cold_pomp_on = sump_heater_on = false;
   start_force = 0;
   error_count = 0; err_last = 0; err_seq = 0; errorcode = ERR_OK; relay_fault = false;
-  millis_prev = millis_last_heatpump_on = millis_last_heatpump_off = 0;
+  millis_prev = millis_last_heatpump_on = millis_last_heatpump_off = millis_last_pump_on = 0;
   millis_displ_update = millis_notification = millis_lasteesave = 0;
-  millis_eev_last_close = millis_eev_last_on = millis_eev_last_step = 0;
+  millis_eev_last_close = millis_eev_last_on = millis_eev_last_step = millis_eev_prestart = 0;
   _1st_start_sleeped = 0; first_full_open = true;
   EEV_cur_pos = 0; EEV_apulses = 0; EEV_fast = 0; EEV_adonotcare = 0;
   sim::boot_us = sim::now_us;
