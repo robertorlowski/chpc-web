@@ -24,8 +24,9 @@ struct DeviceConfig {
 // idą do pompy od razu (para ostatniego trybu grzania), przegrzanie EEV tylko 0,1–8 °C;
 // 1.2.0: tryb MANUAL / AUTO / OFF z jedną temperaturą od–do (bez CO/CWU), bez przekaźników,
 // przycisk OFF → CLOUD → RĘCZNY, konfiguracja pompy z chmury (wymuszenie PV, DTU, zbiornik),
-// COP na bieżąco i bez wyniku przy pracy pompy CO kotła.
-constexpr const char *FW_VERSION = "1.2.0";
+// COP na bieżąco i bez wyniku przy pracy pompy CO kotła;
+// 1.2.1: ekran: jedna wyśrodkowana linia „T: od - do” (Tmin–Tmax z pompy) zamiast T.HP i T.od-do.
+constexpr const char *FW_VERSION = "1.2.1";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

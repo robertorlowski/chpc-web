@@ -133,5 +133,5 @@ For every compressor cycle (`HPS` 0→1→0) `cop_estimator` computes the heat d
 - Row 1: date, time, mode (`L-OFF`, `M-CO`, `M-CWU`, `C-M`, `C-A`, `C-PV`, `C-CWU`, `C-OFF`).
 - Row 2: `P:` PV power/production today, `T:` inverter temperature (`--` at zero power or a reading older than 5 min).
 - Middle: a yellow "F" when forced; the big `T:` = `HP.Ttarget` — red when `ERRc` > 0, yellow while the compressor runs, white otherwise; `T. zew:` (outdoor) from the cloud (`--` after 30 min without a new value).
-- Bottom: `T.HP` Tmin/Tmax, `T.CO`, `T.CWU`, `Tbe/Tae`, `Tsump/Tho`, EEV, power, pump state.
+- Bottom: centred `T:` Tmin - Tmax from the pump (what CHPC has set; since 1.2.1, before that `T.HP` and `T.od-do`), below it `T.be/T.ae`, `T.hp/T.ho` (Tsump/Tho), `E.ev/E.dt`, `E.ps/Watt`, `HC.s/CC.s` (pumps).
 - Mode screen (3 s after a button press): source, mode, IP, `AP: <ip>` or `AP: off`.

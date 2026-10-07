@@ -294,11 +294,19 @@ void renderDashboard(Adafruit_ST7735 &display,
   display.drawLine(0, 70, 420, 70, ST77XX_BLUE);
   display.setTextSize(1);
 
-  int row = 6;
-  displayRow(display, row++, 0, "   T.HP:",
-    jsonValueToString(hp["Tmin"]) + "/" + jsonValueToString(hp["Tmax"]));
-  displayRow(display, row++, 0, "T.od-do:",
-    String(settings.tempMin, 0) + "/" + String(settings.tempMax, 0));
+  // Only what CHPC reports as set (Tmin–Tmax from its telemetry), not what
+  // `co` wants to send: a mismatch then shows as a stale value, not a second line.
+  // Same font as "T. zew:" (GFX font: y is the baseline), centred; takes the
+  // place of the rows 6 and 7 of the 5x7 font, so the rest starts at row 7.
+  {
+    const String tMin = jsonValueToString(hp["Tmin"]);
+    const String tMax = jsonValueToString(hp["Tmax"]);
+    const String range = "T: " + ((tMin != "" && tMax != "") ? tMin + " - " + tMax : String("--"));
+    display.setFont(&FreeSans9pt7b);
+    printCentered(display, range.c_str(), 86);
+    display.setFont(nullptr);
+  }
+  int row = 7;
 
   displayRow(display, row, 0, "T.be:", jsonValueToString(hp["Tbe"]));
   displayRow(display, row++, 1, "T.ae:", jsonValueToString(hp["Tae"]));
