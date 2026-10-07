@@ -116,6 +116,10 @@ function AppContent() {
 				{!isDeviceSelection && <header className="app-header">
 					<Header />
 				</header>}
+				{/* /devices: sam pasek w kolorze menu (bez pozycji menu, bo nie wybrano sterownika) */}
+				{location.pathname === '/devices' && <header className="app-header app-header-plain">
+					<span>Sterowniki</span>
+				</header>}
 
 				<main className="app-main">
 				<Routes>
@@ -126,7 +130,8 @@ function AppContent() {
 					))}
 				</Routes>
 				</main>
-				<DeviceFooter />
+				{/* na /devices własna stopka z zajętością bazy; „Aktywne urządzenie” prowadzi tutaj, więc jej nie ma */}
+				{location.pathname !== '/devices' && <DeviceFooter />}
 			</div>
 		</DeviceGuard>
 );

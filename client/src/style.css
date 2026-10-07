@@ -319,3 +319,10 @@ body .settings.fill-page > section > .resource:first-child {
 		width: 100vw;
 	}
 }
+
+/* /devices: sam pasek w kolorze menu z nazwą strony (bez pozycji menu) */
+header.app-header-plain {
+	color: #fff;
+	padding: 0.5rem 0.75rem;
+	font-weight: 600;
+}

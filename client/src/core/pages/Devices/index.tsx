@@ -1,15 +1,38 @@
 // Strona /devices: kafelki sterowników (GET /api/devices), wybór sterownika, gwiazdka sterownika
 // domyślnego (PUT /api/devices/:rootId/default) i ołówek otwierający popup „Dane sterownika”.
-// Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce.
+// Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce. Na dole własna stopka: lewa część
+// wolna (zarezerwowana na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
-import { Device } from '../../types';
+import { DatabaseStats, Device } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { SettingsIcon } from '../../components/icons';
 import { deviceLabel, useDevice } from '../../context/DeviceContext';
 import './style.css';
+
+const MB = 1024 * 1024;
+const megabytes = (bytes: number) => (bytes / MB).toLocaleString('pl-PL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+// próg ostrzeżenia o zapełnieniu bazy (żółty tekst)
+const DATABASE_WARNING_PERCENT = 80;
+
+// Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0; „nie odpowiada”, gdy serwer nie ma połączenia.
+function DatabaseUsage() {
+  const [stats, setStats] = useState<DatabaseStats | null | undefined>(undefined);
+  useEffect(() => { DeviceRequests.getDatabaseStats().then(setStats); }, []);
+  if (stats === undefined) return <span className="devices-footer-db">Baza danych: …</span>;
+  if (!stats?.ok) return <span className="devices-footer-db devices-footer-db-error">Baza danych: nie odpowiada</span>;
+  const percent = Math.round((stats.usedBytes / stats.limitBytes) * 100);
+  return (
+    <span className={`devices-footer-db${percent >= DATABASE_WARNING_PERCENT ? ' devices-footer-db-warning' : ''}`}
+      title={`Dane ${megabytes(stats.dataBytes)} MB, indeksy ${megabytes(stats.indexBytes)} MB; ${stats.collections} kolekcji, ${stats.documents.toLocaleString('pl-PL')} dokumentów; odpowiedź bazy ${stats.pingMs} ms`}>
+      <span className="devices-footer-db-dot" aria-hidden="true" />
+      Baza danych: <strong>{megabytes(stats.usedBytes)} MB</strong> z {megabytes(stats.limitBytes)} MB ({percent} %),
+      wolne {megabytes(Math.max(stats.limitBytes - stats.usedBytes, 0))} MB
+    </span>
+  );
+}
 
 // Sterowniki rejestrują się same (POST /api/devices/register), więc tu można je tylko wybrać i nazwać.
 export const Devices: React.FC = () => {
@@ -123,6 +146,12 @@ export const Devices: React.FC = () => {
       </section>
 
       {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
+
+      <footer className="device-footer devices-footer">
+        {/* lewa część zarezerwowana na później (plan 2026-10-04) */}
+        <span />
+        <DatabaseUsage />
+      </footer>
     </main>
   );
 };

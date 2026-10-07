@@ -83,6 +83,19 @@ export type PumpConfig = {
 // Pola okna „Dane sterownika” poza nazwą (PUT /devices/:rootId), zależne od rodzaju.
 export type DeviceDefinition = { pumpConfig?: PumpConfig };
 
+// GET /api/devices/db-stats (stopka strony /devices): zajętość bazy (dane + indeksy) względem limitu
+// planu Atlas M0 (512 MB) i odpowiedź bazy na ping; ok = false albo brak odpowiedzi = baza nie działa.
+export type DatabaseStats = {
+  ok: boolean;
+  usedBytes: number;
+  dataBytes: number;
+  indexBytes: number;
+  limitBytes: number;
+  collections: number;
+  documents: number;
+  pingMs: number;
+};
+
 // Część okna „Dane sterownika” dla rodzaju sterownika: zmiany zgłasza przez onChange,
 // a null blokuje zapis (pole z błędem, opis w komponencie).
 export type DeviceDefinitionFieldsProps = {

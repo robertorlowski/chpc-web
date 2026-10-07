@@ -157,3 +157,45 @@
   height: 1.2rem;
   fill: #fff;
 }
+
+/* Stopka /devices (ten sam pasek co „Aktywne urządzenie”): lewa część wolna, po prawej zajętość bazy. */
+.devices-footer {
+  justify-content: space-between;
+}
+
+.devices-footer-db {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 0.35rem;
+  text-align: right;
+}
+
+/* zielona kropka: baza odpowiada */
+.devices-footer-db-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #7ee08a;
+}
+
+.devices-footer-db-warning,
+.devices-footer-db-warning strong {
+  color: #ffe082;
+}
+
+.devices-footer-db-error {
+  color: #ffccbc;
+  font-weight: bold;
+}
+
+/* miejsce na stałą stopkę pod kafelkami */
+.device-selection {
+  padding-bottom: 4rem;
+}
+
+@media (max-width: 560px) {
+  .devices-footer-db {
+    font-size: 0.85rem;
+  }
+}
