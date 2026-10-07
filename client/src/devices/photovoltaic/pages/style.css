@@ -1,0 +1,338 @@
+/* Fotowoltaika: karty jak w Ustawieniach pompy (.settings > section > .resource) */
+.settings.pv-page > section > .resource,
+.settings.pv-page > section > .resource:first-child {
+  width: min(560px, calc(100vw - 2rem));
+  box-sizing: border-box;
+}
+
+.pv-page .settings-section-title {
+  margin-bottom: 0.5rem;
+}
+
+.pv-on {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.pv-bad {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.pv-hint {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.pv-summary {
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+/* bieżąca moc i kafelki produkcji */
+.pv-now {
+  text-align: center;
+}
+
+.pv-now-power {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: #e0a100;
+  line-height: 1.1;
+}
+
+.pv-now-caption {
+  color: #555;
+  margin-bottom: 0.6rem;
+}
+
+.pv-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.pv-tiles > div {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.4rem 0.2rem;
+}
+
+.pv-tiles strong {
+  font-size: 1.05rem;
+}
+
+.pv-tiles span {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.pv-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pv-row .label {
+  min-width: 10rem;
+}
+
+.pv-row code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* panele: nazwa, pasek mocy, moc, stan */
+.pv-inverter {
+  margin-top: 0.6rem;
+}
+
+.pv-inverter-title {
+  font-weight: 600;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.pv-panel {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr) 4.6rem 7.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  font-size: 0.92rem;
+}
+
+.pv-panel-bar {
+  height: 0.7rem;
+  background: #e4e4e4;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pv-panel-bar > span {
+  display: block;
+  height: 100%;
+  background: #e0a100;
+}
+
+.pv-panel-power {
+  text-align: right;
+  font-weight: 600;
+}
+
+.pv-panel-state {
+  font-size: 0.82rem;
+  color: #555;
+}
+
+.pv-panel-produces .pv-panel-state {
+  color: #2e7d32;
+}
+
+.pv-panel-offline .pv-panel-state,
+.pv-panel-alarm .pv-panel-state {
+  color: #b00020;
+  font-weight: 600;
+}
+
+/* wykresy i pasek narzędzi */
+.pv-chart {
+  width: 100%;
+  height: 320px;
+}
+
+.pv-chart-small {
+  height: 200px;
+}
+
+.pv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.pv-toolbar button {
+  margin-left: 0;
+}
+
+.pv-toolbar .pv-toolbar-end {
+  margin-left: auto;
+}
+
+.pv-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.pv-page input,
+.pv-page select {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 32px;
+  padding: 0 0.4rem;
+  box-sizing: border-box;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.pv-page input[type='radio'],
+.pv-page input[type='checkbox'] {
+  min-height: 0;
+}
+
+.pv-total {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.pv-views,
+.pv-day-views {
+  margin: 0.4rem 0;
+}
+
+/* pasek produkcji w tabeli dni miesiąca */
+.pv-table .pv-col-bar {
+  width: 40%;
+}
+
+.pv-table .pv-col-bar .pv-panel-bar {
+  display: block;
+}
+
+.pv-check {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+/* tabela danych we własnym kontenerze: przewija się tylko ona, nie strona */
+.pv-table-scroll {
+  overflow-x: auto;
+}
+
+.pv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.pv-table th,
+.pv-table td {
+  padding: 0.25rem 0.4rem;
+  text-align: right;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
+}
+
+.pv-table th:first-child,
+.pv-table td:first-child {
+  text-align: left;
+}
+
+.pv-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* lista parametrów (zwijana) */
+.pv-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pv-group summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.pv-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pv-parameter {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #e4e4e4;
+  overflow-wrap: anywhere;
+}
+
+.pv-parameter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pv-parameter-label {
+  font-weight: 600;
+}
+
+.pv-parameter-status {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.pv-parameter-description {
+  font-size: 0.9rem;
+}
+
+.pv-parameter-rating {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #555;
+}
+
+@media (max-width: 560px) {
+  body .settings.pv-page > section > .resource,
+  body .settings.pv-page > section > .resource:first-child {
+    width: 100vw;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .pv-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-panel {
+    grid-template-columns: 3.2rem minmax(0, 1fr) 4.2rem;
+  }
+
+  .pv-panel-state {
+    grid-column: 2 / 4;
+  }
+
+  .pv-row .label {
+    min-width: 8.5rem;
+  }
+
+  .pv-chart {
+    height: 260px;
+  }
+
+  .pv-table {
+    font-size: 0.8rem;
+  }
+}

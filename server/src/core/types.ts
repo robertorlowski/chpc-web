@@ -9,6 +9,8 @@ export enum DeviceType {
   WATER_PRESSURE_TANK = 'water-pressure-tank',
   PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
   SWITCH = 'switch',
+  // instalacja PV (DTU Hoymiles czytane przez sterownik co); urządzenie zakłada serwer
+  PHOTOVOLTAIC = 'photovoltaic',
 }
 
 // Dni harmonogramu (pompa ciepła i włącznik); ten sam kontrakt w kliencie (zmieniać razem).

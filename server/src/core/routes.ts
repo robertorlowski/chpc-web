@@ -13,6 +13,7 @@ import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
 import pelletBoilerPelux200Routes from '../modules/pellet-boiler-pelux200/routes'
 import switchRoutes from '../modules/switch/routes'
+import photovoltaicRoutes from '../modules/photovoltaic/routes'
 
 // Trasy /api: wspólne (urządzenia, temperatura zewnętrzna) i moduły rodzajów sterowników.
 const router = express.Router()
@@ -49,5 +50,6 @@ router.use(heatPumpRoutes)
 router.use(waterPressureTankRoutes)
 router.use(pelletBoilerPelux200Routes)
 router.use(switchRoutes)
+router.use(photovoltaicRoutes)
 
 export default router

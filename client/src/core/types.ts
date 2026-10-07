@@ -10,6 +10,7 @@ export enum DeviceType {
   WATER_PRESSURE_TANK = 'water-pressure-tank',
   PELLET_BOILER_PELUX200 = 'pellet-boiler-pelux200',
   SWITCH = 'switch',
+  PHOTOVOLTAIC = 'photovoltaic',
 }
 
 // Dni harmonogramu (pompa ciepła i włącznik); wartości ujemne to grupy dni, DAYS_OFF obejmuje

@@ -5,6 +5,8 @@ import { HpEntry, PvEntry, PvMetrics } from '../types';
 import { PvEntryModel } from '../models/pv.model';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
+import { registerDevice } from '../../../core/services/device.service';
+import { DeviceType } from '../../../core/types';
 
 // Odczyt PV starszy niż ten limit nie opisuje już chwili pomiaru HP: nie
 // trafia do rekordu hp (addHp) ani do bieżącej telemetrii (GET /hp).
@@ -52,8 +54,18 @@ export const addPvData = async (rootId: string, data: PvEntry) => {
   }, pvKey);
   const stored = doc as unknown as PvEntry;
   lastPvDataByRoot.set(rootId, stored);
+  await ensurePhotovoltaicDevice(device.deviceId);
   return stored;
 };
+
+// Urządzenie „Fotowoltaika” (moduł photovoltaic) o tym samym SN co sterownik co: zakładane przy
+// pierwszym odczycie PV, raz na proces (DTU czyta co, więc fotowoltaika nie zgłasza się sama).
+const photovoltaicEnsured = new Set<string>();
+async function ensurePhotovoltaicDevice(deviceId: string) {
+  if (photovoltaicEnsured.has(deviceId)) return;
+  await registerDevice(DeviceType.PHOTOVOLTAIC, deviceId, 'Fotowoltaika');
+  photovoltaicEnsured.add(deviceId);
+}
 
 // Po restarcie serwera pamięć podręczna jest pusta, więc pierwszy odczyt
 // sięga do bazy.
