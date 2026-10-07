@@ -208,9 +208,25 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const boiler = res.body.groups.find((group: { key: string }) => group.key === 'boiler');
     expect(boiler.label).toBe('Kocioł: temperatury i histerezy');
 
-    expect(res.body.mixers).toHaveLength(1);
+    // mieszacz 1 z odczytu; mieszacz 2 (regulator podaje same FF) zakładany: zadana 20–40 °C, reszta z zakresów mieszacza 1
+    expect(res.body.mixers).toHaveLength(2);
     expect(res.body.mixers[0].mixer).toBe(1);
     expect(res.body.mixers[0].parameters[0]).toMatchObject({ name: 'mixer_target_temp', value: 40 });
+    const assumed = res.body.mixers[1];
+    expect(assumed).toMatchObject({ mixer: 2, assumed: true });
+    expect(assumed.parameters.map((p: { index: number }) => p.index)).toEqual([0, 4, 5, 6]);
+    expect(assumed.parameters[0]).toMatchObject({ name: 'mixer_target_temp', min: 20, max: 40, unknown: true });
+    expect(assumed.parameters[1]).toMatchObject({ name: 'weather_control', min: 0, max: 1, unknown: true });
+    expect(assumed.parameters[3]).toMatchObject({ name: 'heating_curve_shift', min: -20, max: 20, unknown: true });
+
+    // zlecenie dla mieszacza 2: zakres 20–40, bez poprzedniej wartości
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0 }).expect(201);
+    const commands = `/api/pellet-boiler-pelux200/commands?rootId=${rootId}`;
+    expect((await request(app).post(commands).send({ changes: [{ kind: 'mixer', mixer: 2, index: 0, value: 45 }] })).status).toBe(400);
+    const created = await request(app).post(commands).send({ changes: [{ kind: 'mixer', mixer: 2, index: 0, value: 30 }, { kind: 'mixer', mixer: 2, index: 4, value: 1 }] });
+    expect(created.status).toBe(201);
+    expect(created.body[0]).toMatchObject({ kind: 'mixer', mixer: 2, index: 0, value: 30, label: 'Temperatura zadana mieszacza' });
+    expect(created.body[0].previous).toBeUndefined();
   });
 
   it('ustawienia: 400 bez parametrów kotła, dla złego hex i nie-napisu', async () => {

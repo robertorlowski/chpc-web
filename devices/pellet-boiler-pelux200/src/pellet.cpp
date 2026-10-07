@@ -526,6 +526,14 @@ void startParameterSet(uint32_t)
   const bool known = mixer == BoilerParameterWriter::NO_MIXER
     ? ecomaxParameterValues(boilerSettings, index, current, min, max)
     : mixerParameterValues(boilerSettings, mixer, index, current, min, max);
+  // Mieszacz, którego nastaw regulator nie podaje (u nas mieszacz 2: same FF w 0xB2, choć pracuje): od 1.8.1 zapis
+  // bez zakresu z odczytu — zakres sprawdza serwer (zadana 20–40 °C, reszta jak mieszacz 1), wyniku nie da się
+  // odczytać (decyzja użytkownika 2026-10-08).
+  if (!known && mixer != BoilerParameterWriter::NO_MIXER && boilerSettings.has(1) && !mixerReported(boilerSettings, mixer)) {
+    parameterWriter.start(index, value, mixer);
+    logf("parametr %s: → %u, regulator nie podaje nastaw tego mieszacza — wysyłam bez zakresu z odczytu", name.c_str(), value);
+    return;
+  }
   if (!known) {
     logf("parametr %s: brak w odczycie ustawień (najpierw „p”), nie zmieniam", name.c_str());
     finishParameterSet(false, "brak parametru w odczycie ustawień sterownika");

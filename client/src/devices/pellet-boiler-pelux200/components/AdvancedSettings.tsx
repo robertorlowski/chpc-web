@@ -108,7 +108,7 @@ export const AdvancedSettings: React.FC = () => {
                   ))}</ul>
                 </details>
               ))}
-              {settings.mixers?.map((mixer) => (
+              {settings.mixers?.filter((mixer) => !mixer.assumed).map((mixer) => (
                 <details key={`mixer-${mixer.mixer}`} className="boiler-group">
                   <summary>Mieszacz {mixer.mixer} <span className="boiler-hint">({mixer.parameters.length})</span></summary>
                   <ul>{mixer.parameters.map((p) => (

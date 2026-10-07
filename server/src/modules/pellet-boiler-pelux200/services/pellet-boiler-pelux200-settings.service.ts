@@ -145,6 +145,26 @@ export function boilerMode(settings: PelletBoilerSettingsEntry | null): PelletBo
   return minimum === undefined ? null : minimum < 50 ? 'heat-pump' : 'pellet';
 }
 
+// Mieszacz 2: regulator podaje w 0xB2 same FF, choć mieszacz pracuje (zadana w SensorData). Od 2026-10-08
+// aplikacja i tak pozwala go zmieniać (decyzja użytkownika): zadana 20–40 °C, sterowanie pogodowe, krzywa
+// i przesunięcie z zakresami mieszacza 1. Wartości nieznane (unknown); sterownik od firmware 1.8.1 wysyła
+// zmianę bez zakresu z odczytu, wyniku nie da się odczytać.
+const ASSUMED_MIXER = 2;
+const ASSUMED_TARGET_RANGE: [number, number] = [20, 40];
+const ASSUMED_INDEXES = [0, 4, 5, 6];
+const DEFAULT_RANGES: Record<number, [number, number]> = { 4: [0, 1], 5: [1, 40], 6: [0, 40] };
+
+function withAssumedMixer(mixers: PelletBoilerSettingsView['mixers']): PelletBoilerSettingsView['mixers'] {
+  if (mixers.some((m) => m.mixer === ASSUMED_MIXER)) return mixers;
+  const first = mixers.find((m) => m.mixer === 1);
+  const parameters = ASSUMED_INDEXES.map((index) => {
+    const [min, max] = index === 0 ? ASSUMED_TARGET_RANGE
+      : ((first?.parameters.find((p) => p.index === index)?.raw.slice(1, 3) as [number, number] | undefined) ?? DEFAULT_RANGES[index]);
+    return { ...parameter(index, [min, min, max], MIXER_PARAMETERS[index]), unknown: true };
+  });
+  return [...mixers, { mixer: ASSUMED_MIXER, parameters, assumed: true }].sort((a, b) => a.mixer - b.mixer);
+}
+
 export function buildSettingsView(entry: PelletBoilerSettingsEntry): PelletBoilerSettingsView {
   const parameters = entry.ecomax_parameters ? decodeEcomaxParameters(entry.ecomax_parameters) : [];
   const groupOf = (p: PelletBoilerParameter) => (p.index < ECOMAX_PARAMETERS.length ? ECOMAX_PARAMETERS[p.index].group : 'other');
@@ -155,7 +175,7 @@ export function buildSettingsView(entry: PelletBoilerSettingsEntry): PelletBoile
     readAt: entry.readAt,
     deviceId: entry.deviceId,
     groups,
-    mixers: entry.mixer_parameters ? decodeMixerParameters(entry.mixer_parameters) : [],
+    mixers: entry.mixer_parameters ? withAssumedMixer(decodeMixerParameters(entry.mixer_parameters)) : [],
     schedules: entry.schedules ? decodeSchedules(entry.schedules) : [],
   };
 }

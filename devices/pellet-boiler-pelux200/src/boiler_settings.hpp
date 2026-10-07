@@ -97,6 +97,10 @@ size_t buildSetScheduleData(const BoilerSettingsReader &reader, uint8_t schedule
   size_t outSize);
 constexpr size_t SET_SCHEDULE_DATA_SIZE = 4 + SCHEDULE_WEEK_SIZE;
 
+// Czy regulator podaje nastawy mieszacza `mixer` (od 0) w odpowiedzi 0xB2: false, gdy wszystkie są nieużywane
+// (FF) albo mieszacza nie ma w odpowiedzi. U nas mieszacz 2 ma same FF, choć pracuje (od 1.8.1 zapis bez zakresu).
+bool mixerReported(const BoilerSettingsReader &reader, uint8_t mixer);
+
 constexpr uint8_t ECOMAX_FRAME_SET_PARAMETER = 0x33;
 constexpr uint8_t ECOMAX_FRAME_SET_PARAMETER_RESPONSE = 0xB3;
 constexpr uint8_t ECOMAX_FRAME_SET_MIXER_PARAMETER = 0x34;

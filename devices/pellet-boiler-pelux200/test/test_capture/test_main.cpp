@@ -187,6 +187,10 @@ void testSettingsExchangeMatchesRecording()
   TEST_ASSERT_EQUAL_UINT8(50, max);
   TEST_ASSERT_FALSE(mixerParameterValues(reader, 1, 0, value, min, max));
   TEST_ASSERT_FALSE(mixerParameterValues(reader, 9, 0, value, min, max));
+  // mieszacz 1 podany, mieszacz 2 same FF (1.8.1: zapis mieszacza 2 bez zakresu z odczytu), mieszacza 9 nie ma
+  TEST_ASSERT_TRUE(mixerReported(reader, 0));
+  TEST_ASSERT_FALSE(mixerReported(reader, 1));
+  TEST_ASSERT_FALSE(mixerReported(reader, 9));
   TEST_ASSERT_FALSE(ecomaxParameterValues(reader, 200, value, min, max));  // poza odpowiedzią
 
   // harmonogramy (1.8.0): czyszczenie kotła (nr 4) włączone, 07:00–21:30 każdego dnia; CO (0) wyłączony

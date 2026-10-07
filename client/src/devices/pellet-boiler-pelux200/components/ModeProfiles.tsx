@@ -39,7 +39,7 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
         for (const key of PROFILE_ROWS) {
           const parameter = findParameter(settings, key);
           const raw = loaded.profiles[mode]?.[key];
-          if (parameter && raw !== undefined) form[mode][key] = String(fromRaw(parameter, raw)).replace('.', ',');
+          if (parameter && raw !== undefined) form[mode][key] = String(fromRaw(parameter, raw));
         }
       }
       setValues(form);

@@ -91,6 +91,20 @@ bool ecomaxParameterValues(const BoilerSettingsReader &reader, uint8_t index, ui
   return true;
 }
 
+bool mixerReported(const BoilerSettingsReader &reader, uint8_t mixer)
+{
+  if (!reader.has(1)) return false;
+  const uint8_t *data = reader.data(1);
+  const size_t length = reader.length(1);
+  if (length < 4 || mixer >= data[3]) return false;
+  const uint8_t count = data[2];
+  for (uint8_t index = 0; index < count; index++) {
+    const size_t at = 4 + 3 * (static_cast<size_t>(mixer) * count + index);
+    if (at + 3 <= length && usedTriple(data + at)) return true;
+  }
+  return false;
+}
+
 bool mixerParameterValues(const BoilerSettingsReader &reader, uint8_t mixer, uint8_t index, uint8_t &value,
   uint8_t &min, uint8_t &max)
 {

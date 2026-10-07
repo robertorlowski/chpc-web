@@ -97,13 +97,16 @@ export interface PelletBoilerParameter {
   min: number;
   max: number;
   raw: [number, number, number];
+  /** wartość nieznana: regulator nie podaje tej nastawy (mieszacz 2); value i raw[0] to wtedy minimum */
+  unknown?: boolean;
 }
 
 export interface PelletBoilerSettingsView {
   readAt: Date;
   deviceId?: string;
   groups: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
-  mixers: { mixer: number; parameters: PelletBoilerParameter[] }[];
+  /** assumed: regulator nie podaje nastaw mieszacza (u nas mieszacz 2), parametry z ASSUMED_MIXER (wartość nieznana) */
+  mixers: { mixer: number; parameters: PelletBoilerParameter[]; assumed?: boolean }[];
   /** przełączniki harmonogramów regulatora z odpowiedzi 0xB6 (godzin nie pokazujemy) */
   schedules: PelletBoilerScheduleSwitch[];
 }

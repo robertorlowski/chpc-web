@@ -82,6 +82,8 @@ export type PelletBoilerParameter = {
   min: number;
   max: number;
   raw: [number, number, number];
+  /** wartość nieznana: regulator nie podaje tej nastawy (mieszacz 2); value i raw[0] to wtedy minimum */
+  unknown?: boolean;
 };
 
 /** Zmiana parametru dla regulatora: kotła (0x33) albo mieszacza (0x34), wartość surowa (bajt). */
@@ -179,7 +181,8 @@ export type PelletBoilerWinterCycle = {
 export type PelletBoilerSettings = {
   readAt?: string;
   groups?: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
-  mixers?: { mixer: number; parameters: PelletBoilerParameter[] }[];
+  /** assumed: regulator nie podaje nastaw mieszacza (mieszacz 2), parametry zakładane, wartości nieznane */
+  mixers?: { mixer: number; parameters: PelletBoilerParameter[]; assumed?: boolean }[];
   /** przełączniki harmonogramów regulatora (4 = czyszczenie kotła); godziny ustawia się na panelu */
   schedules?: { index: number; name: string; label: string; enabled: boolean }[];
 };

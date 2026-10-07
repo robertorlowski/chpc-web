@@ -56,7 +56,7 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
   if (!(await isBoilerResponding(rootId))) throw new CommandError(NOT_RESPONDING_MESSAGE, 409);
   const settings = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
 
-  const valid: (PelletBoilerCommandChange & { previous: number; label?: string })[] = [];
+  const valid: (PelletBoilerCommandChange & { previous?: number; label?: string })[] = [];
   // Zakres zadanej zależy od innego parametru: zadana kotła (98) od min/max kotła (99/100),
   // zadana mieszacza (0) od jego min/max (1/2). Gdy zlecenie zmienia też granicę (wcześniej
   // w kolejności), zadana jest sprawdzana z nową granicą — regulator dostaje granicę pierwszą.
@@ -99,7 +99,8 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
     if (change.value < min || change.value > max) {
       throw new CommandError(`${parameter.label ?? parameter.name ?? change.index}: wartość poza zakresem regulatora.`);
     }
-    valid.push({ ...change, previous: parameter.raw[0], label: parameter.label ?? parameter.name ?? undefined, ...waitOff });
+    // mieszacz 2 (nastawy nieznane): bez poprzedniej wartości
+    valid.push({ ...change, ...(parameter.unknown ? {} : { previous: parameter.raw[0] }), label: parameter.label ?? parameter.name ?? undefined, ...waitOff });
   }
 
   // zastępowane są tylko wcześniejsze zlecenia: w jednym zleceniu „wyłącz … włącz” oba zostają

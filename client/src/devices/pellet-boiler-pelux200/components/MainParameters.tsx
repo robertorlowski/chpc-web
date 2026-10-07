@@ -26,14 +26,19 @@ export type Item ={ kind: 'ecomax' | 'mixer'; mixer?: number; index: number };
 // Grupa „Głównych parametrów”: na liście tylko temperatura zadana (pierwszy element), ołówek otwiera
 // panel ze wszystkimi parametrami grupy. min/max: numery granic zadanej (kolejność wysyłki).
 // cleanSchedule: w grupie także przełącznik harmonogramu czyszczenia (Kocioł; zlecenie schedule, firmware od 1.8.0)
-type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean };
+// weather: mieszacz ze sterowaniem pogodowym (nr 4 Tak/Nie); krzywa (nr 5) i przesunięcie (nr 6) tylko przy „Tak”,
+// zadana (nr 0) jest wtedy liczona z krzywej (decyzja użytkownika 2026-10-08)
+type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean; weather?: boolean };
 const ecomax = (indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'ecomax', index }));
-const mixerItems = (mixer: number): Item[] => [0, 1, 2, 4, 6].map((index) => ({ kind: 'mixer', mixer, index }));
+const mixerItems = (mixer: number, indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'mixer', mixer, index }));
+const WEATHER_SWITCH = 4;
+const WEATHER_FIELDS = [5, 6];
 const SECTIONS: Section[] = [
   { title: 'Kocioł', items: ecomax([98, 99, 17, 101, 105]), min: 99, cleanSchedule: true },
   { title: 'CWU', items: ecomax([119, 123, 122]) },
-  { title: 'Mieszacz 1 (grzejniki)', items: mixerItems(1), min: 1, max: 2 },
-  { title: 'Mieszacz 2', items: mixerItems(2), min: 1, max: 2 },
+  { title: 'Mieszacz 1 (grzejniki)', items: mixerItems(1, [0, 1, 2, 4, 5, 6]), min: 1, max: 2, weather: true },
+  // mieszacz 2: regulator nie podaje nastaw (same FF), serwer zakłada zadaną 20–40 °C i zakresy mieszacza 1
+  { title: 'Mieszacz 2', items: mixerItems(2, [0, 4, 5, 6]), weather: true },
 ];
 
 // Mieszacz bez nastaw w odczycie ustawień (mieszacz 2: regulator podaje same FF): zadana z ostatniego
@@ -62,6 +67,8 @@ function ReadOnlyMixerTarget({ item, reading }: { item: Item; reading: PelletBoi
 export const CHOICES: Record<string, string[]> = {
   'ecomax:122': ['Wyłączony', 'Priorytet', 'Bez priorytetu'],
   'ecomax:125': ['Zima', 'Lato', 'Auto'],
+  // sterowanie pogodowe mieszacza (nr 4): Nie / Tak (decyzja użytkownika 2026-10-08)
+  'mixer:4': ['Nie', 'Tak'],
 };
 export const choicesOf = (item: Item, parameter: PelletBoilerParameter) =>
   CHOICES[`${item.kind}:${item.index}`] ?? (parameter.kind === 'switch' ? ['wył.', 'wł.'] : null);
@@ -153,7 +160,7 @@ export const EditPanel: React.FC<{
   item: Item; parameter: PelletBoilerParameter; onClose: () => void; onSent: () => void;
 }> = ({ item, parameter, onClose, onSent }) => {
   const choices = choicesOf(item, parameter);
-  const [value, setValue] = useState(String(parameter.value).replace('.', ','));
+  const [value, setValue] = useState(String(parameter.value));
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   // parametr serwisowy („Tylko serwis”, „Nie ruszać”): zapis dopiero po zaznaczeniu potwierdzenia
@@ -234,7 +241,8 @@ const GroupEditPanel: React.FC<{
     .map((item) => ({ item, parameter: findIn(settings, item) }))
     .filter((field): field is { item: Item; parameter: PelletBoilerParameter } => !!field.parameter);
   const [values, setValues] = useState<Record<number, string>>(
-    () => Object.fromEntries(fields.map(({ item, parameter }) => [item.index, String(parameter.value).replace('.', ',')])));
+    () => Object.fromEntries(fields.map(({ item, parameter }) =>
+      [item.index, parameter.unknown ? '' : String(parameter.value)])));
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -250,7 +258,14 @@ const GroupEditPanel: React.FC<{
   }, [onClose]);
 
   const numberOf = (index: number) => Number((values[index] ?? '').replace(',', '.'));
-  const changed = fields.filter(({ item, parameter }) => toRaw(parameter, numberOf(item.index)) !== parameter.raw[0]);
+  // sterowanie pogodowe: krzywa i przesunięcie tylko przy „Tak”, zadana wtedy liczona z krzywej
+  const weatherOn = !!section.weather && values[WEATHER_SWITCH] === '1';
+  const hidden = (index: number) => !!section.weather && WEATHER_FIELDS.includes(index) && !weatherOn;
+  // nastawa nieznana (mieszacz 2): zmieniona, gdy coś wpisano
+  const changed = fields.filter(({ item, parameter }) => !hidden(item.index) && (parameter.unknown
+    ? (values[item.index] ?? '') !== ''
+    : toRaw(parameter, numberOf(item.index)) !== parameter.raw[0]));
+  const assumed = fields.some(({ parameter }) => parameter.unknown);
   const service = changed.some(({ parameter }) => ratingClass(parameter.rating) === 'boiler-rating-service');
 
   const send = async (event: FormEvent) => {
@@ -293,10 +308,18 @@ const GroupEditPanel: React.FC<{
       <form className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-group-title"
         onClick={(event) => event.stopPropagation()} onSubmit={send}>
         <h2 id="boiler-group-title">{section.title}</h2>
+        {assumed && (
+          <div className="boiler-hint">
+            Regulator nie podaje nastaw tego mieszacza: puste pole = bez zmiany. Zmiana idzie bez potwierdzenia
+            wartości — sprawdź ją na panelu kotła.
+          </div>
+        )}
         {fields.map(({ item, parameter }) => {
+          if (hidden(item.index)) return null;
           const choices = choicesOf(item, parameter);
           const value = values[item.index];
           const set = (next: string) => setValues({ ...values, [item.index]: next });
+          const fromCurve = weatherOn && item.index === 0 && section.weather;
           return (
             <div key={item.index} className="boiler-group-field">
               <label>
@@ -306,14 +329,17 @@ const GroupEditPanel: React.FC<{
                 </span>
                 {choices ? (
                   <select value={value} onChange={(event) => set(event.currentTarget.value)}>
+                    {parameter.unknown && <option value="">— nieznane —</option>}
                     {choices.map((label, index) => index >= parameter.min && index <= parameter.max
                       && <option key={label} value={String(index)}>{label}</option>)}
                   </select>
                 ) : (
-                  <input type="number" inputMode="decimal" step={parameter.step ?? 1} value={value}
+                  <input type="number" inputMode="decimal" step={parameter.step ?? 1} value={value} disabled={fromCurve}
+                    placeholder={parameter.unknown ? 'nieznana' : undefined}
                     onChange={(event) => set(event.currentTarget.value)} />
                 )}
               </label>
+              {fromCurve && <div className="boiler-hint">Przy sterowaniu pogodowym zadaną liczy regulator z krzywej.</div>}
               <details className="boiler-hint">
                 <summary>zakres {display(item, parameter, parameter.min)} – {display(item, parameter, parameter.max)}</summary>
                 {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
@@ -522,6 +548,13 @@ export const MainParameters: React.FC = () => {
   const currentMode = workModeName(settings ?? null);
   const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === CLEAN_SCHEDULE);
   const cleanPending = commands.find((command) => command.kind === 'schedule' && (command.status === 'pending' || command.status === 'sent'));
+  const shownValue = (item: Item, parameter: PelletBoilerParameter) => {
+    if (!parameter.unknown) return display(item, parameter, parameter.value);
+    const target = item.kind === 'mixer' && item.index === 0
+      ? lastReading?.[`mixer${item.mixer}_target` as keyof PelletBoilerReading]
+      : undefined;
+    return typeof target === 'number' ? display(item, parameter, target) : '?';
+  };
   const labelOf = (change: PelletBoilerChange) => {
     const parameter = findIn(settings ?? null, change);
     const where = change.kind === 'mixer' ? `Mieszacz ${change.mixer}: ` : '';
@@ -623,7 +656,7 @@ export const MainParameters: React.FC = () => {
               {parameter ? (
                 <div className="boiler-main-row">
                   <span className="boiler-main-label">{parameter.label ?? parameter.name}</span>
-                  <span className="boiler-parameter-value">{display(item, parameter, parameter.value)}</span>
+                  <span className="boiler-parameter-value">{shownValue(item, parameter)}</span>
                   <IconButton label={`Zmień: ${section.title}`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
                 </div>
               ) : (
@@ -637,6 +670,33 @@ export const MainParameters: React.FC = () => {
                   <span className="boiler-parameter-value">{cleanSchedule.enabled ? 'Tak' : 'Nie'}</span>
                   <IconButton label={`Zmień: ${cleanSchedule.label}`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
                 </div>
+              )}
+              {section.weather && parameter && (() => {
+                // sterowanie pogodowe mieszacza: Tak/Nie, przy „Tak” krzywa i przesunięcie (nastawy nieznane: „?”)
+                const at = (index: number) => findIn(settings, { kind: 'mixer', mixer: item.mixer, index });
+                const weather = at(WEATHER_SWITCH);
+                if (!weather) return null;
+                const curve = at(5);
+                const shift = at(6);
+                const on = !weather.unknown && weather.value === 1;
+                const mixerItem = (index: number): Item => ({ kind: 'mixer', mixer: item.mixer, index });
+                return (
+                  <>
+                    <div className="boiler-main-row">
+                      <span className="boiler-main-label">Sterowanie pogodowe</span>
+                      <span className="boiler-parameter-value">{weather.unknown ? '?' : on ? 'Tak' : 'Nie'}</span>
+                      <IconButton label={`Zmień: ${section.title}, sterowanie pogodowe`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
+                    </div>
+                    {on && curve && shift && (
+                      <div className="boiler-hint">
+                        Krzywa {shownValue(mixerItem(5), curve)} · przesunięcie {shownValue(mixerItem(6), shift)}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              {settings?.mixers?.find((m) => m.mixer === item.mixer)?.assumed && item.kind === 'mixer' && (
+                <div className="boiler-hint">Zadana z odczytu pracy kotła. Regulator nie podaje nastaw tego mieszacza — zmiany bez potwierdzenia, sprawdź na panelu.</div>
               )}
               {section.cleanSchedule && cleanPending && (
                 <div className="boiler-hint">{cleanPending.value ? 'Włączenie' : 'Wyłączenie'} harmonogramu czyszczenia czeka na sterownik.</div>
