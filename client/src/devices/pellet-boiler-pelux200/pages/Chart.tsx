@@ -2,7 +2,9 @@
 // co interwał odpytywania sterownika). Domyślnie CO (obieg grzejników = mieszacz 1) i CWU; kocioł,
 // mieszacz 2 i temperatura zewnętrzna do włączenia przełącznikami. Dane pobierane przy wejściu
 // i zmianie daty, bez odświeżania cyklicznego. Karta na całe okno (useFillHeight, klasa fill-page):
-// wykres wypełnia miejsce między wyborem dnia a przełącznikami serii.
+// wykres wypełnia miejsce między wyborem dnia a przełącznikami serii. Oś X to czas (liczba ms), nie kolejne
+// odczyty: od 2026-10-07 serwer nie zapisuje identycznych odczytów (seria = rekord początkowy i końcowy, nowy
+// co najwyżej co 10 min), więc odstępy między punktami są nierówne.
 import { useEffect, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
@@ -21,8 +23,8 @@ const SERIES: { key: SeriesKey; label: string; color: string; visible: boolean }
   { key: 'outside_temp', label: 'Zewnętrzna', color: '#777777', visible: false },
 ];
 
-const timeLabel = (iso?: string) =>
-  iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
+const timeLabel = (ms: number) =>
+  Number.isFinite(ms) ? new Date(ms).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
 
 export const PelletBoilerChart: React.FC = () => {
   const cardRef = useFillHeight<HTMLDivElement>();
@@ -37,8 +39,8 @@ export const PelletBoilerChart: React.FC = () => {
   }, [date]);
 
   // serwer zwraca malejąco, wykres idzie od rana
-  const data = [...(readings ?? [])].reverse().map((r) => ({
-    time: timeLabel(r.createdAt),
+  const data = [...(readings ?? [])].reverse().filter((r) => r.createdAt).map((r) => ({
+    time: new Date(r.createdAt as string).getTime(),
     ...Object.fromEntries(SERIES.map((series) => [series.key, r[series.key]])),
   }));
 
@@ -60,9 +62,10 @@ export const PelletBoilerChart: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" interval="preserveStartEnd" minTickGap={24} />
+                  <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']}
+                    tickFormatter={timeLabel} minTickGap={24} />
                   <YAxis width={44} unit="°" domain={['auto', 'auto']} />
-                  <Tooltip formatter={(value, name) => [formatTemp(Number(value)), SERIES.find((s) => s.key === name)?.label ?? name]} />
+                  <Tooltip labelFormatter={(value) => timeLabel(Number(value))} formatter={(value, name) => [formatTemp(Number(value)), SERIES.find((s) => s.key === name)?.label ?? name]} />
                   {SERIES.filter((series) => visible[series.key]).map((series) => (
                     <Line key={series.key} type="monotone" dataKey={series.key} stroke={series.color}
                       strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />

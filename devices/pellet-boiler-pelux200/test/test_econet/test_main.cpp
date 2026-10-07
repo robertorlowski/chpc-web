@@ -10,6 +10,10 @@
 #include "../../src/boiler_settings.cpp"
 #include "../../src/ecomax_frame.cpp"
 #include "../../src/econet.cpp"
+#include <bus_watch.hpp>
+#include "../../src/bus_watch.cpp"
+#include <alerts_log.hpp>
+#include "../../src/alerts_log.cpp"
 
 namespace {
 typedef std::vector<uint8_t> Bytes;
@@ -405,11 +409,146 @@ void testControlWriter()
   TEST_ASSERT_FALSE(writer.busy());
 }
 
+// StartMaster bajt w bajt jak PyPlumIO: 68 0A 00 45 56 30 05 19 BCC 16, BCC = XOR = 0x5D.
+void testStartMasterFrame()
+{
+  uint8_t out[16];
+  TEST_ASSERT_EQUAL_UINT32(10, buildStartMasterFrame(out, sizeof(out)));
+  const uint8_t expected[] = {0x68, 0x0A, 0x00, 0x45, 0x56, 0x30, 0x05, 0x19, 0x5D, 0x16};
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected, out, sizeof(expected));
+}
+
+EcomaxFrame watchFrame(uint8_t type, uint8_t sender = ECOMAX_ADDRESS_ECOMAX, uint8_t recipient = ECONET_ADDRESS)
+{
+  EcomaxFrame frame;
+  frame.type = type;
+  frame.sender = sender;
+  frame.recipient = recipient;
+  return frame;
+}
+
+// Po 30 s bez ramki StartMaster; ponownie po każdych kolejnych 30 s ciszy; ramka kończy ciszę (zdarzenie).
+void testSilenceStartMaster()
+{
+  BusSilenceWatch watch;
+  watch.begin(1000);
+  // normalny ruch co 2 s: nigdy
+  for (uint32_t t = 1000; t < 60000; t += 2000) {
+    TEST_ASSERT_FALSE(watch.startMasterDue(t));
+    watch.onFrame(watchFrame(ECOMAX_FRAME_CHECK_DEVICE), t);
+  }
+  watch.onFrame(watchFrame(0x35, ECOMAX_ADDRESS_ECOMAX, ECOMAX_ADDRESS_BROADCAST), 60000);
+  TEST_ASSERT_FALSE(watch.startMasterDue(89999));
+  TEST_ASSERT_TRUE(watch.startMasterDue(90000));
+  watch.onStartMasterSent(90000);
+  TEST_ASSERT_FALSE(watch.startMasterDue(119999));
+  TEST_ASSERT_TRUE(watch.startMasterDue(120000));
+  watch.onStartMasterSent(120000);
+  TEST_ASSERT_EQUAL_UINT32(2, watch.startMasterTotal());
+  // regulator odzywa się 4 s po drugiej StartMaster
+  watch.onFrame(watchFrame(ECOMAX_FRAME_CHECK_DEVICE), 124000);
+  TEST_ASSERT_FALSE(watch.startMasterDue(124000));
+  TEST_ASSERT_EQUAL_UINT32(1, watch.eventCount());
+  const BusSilenceWatch::Event &event = watch.event(0);
+  TEST_ASSERT_EQUAL(BusSilenceWatch::EventKind::SILENCE, event.kind);
+  TEST_ASSERT_EQUAL_UINT32(60000, event.atMs);
+  TEST_ASSERT_EQUAL_UINT32(64000, event.durationMs);
+  TEST_ASSERT_EQUAL_UINT16(2, event.startMasterSent);
+  TEST_ASSERT_TRUE(event.wokeAfterStartMaster);
+  // historia przed ciszą: 8 ostatnich ramek, ostatnia to SensorData
+  TEST_ASSERT_EQUAL_UINT8(BusSilenceWatch::HISTORY, event.beforeCount);
+  TEST_ASSERT_EQUAL_HEX8(0x35, event.before[BusSilenceWatch::HISTORY - 1].type);
+}
+
+// Cisza zakończona bez naszej ramki (np. w czasie blokady EconetGuard) i obce ramki 0x18 / 0x19.
+void testSilenceEventsAndMasterFrames()
+{
+  BusSilenceWatch watch;
+  watch.begin(0);
+  watch.onFrame(watchFrame(ECOMAX_FRAME_STOP_MASTER, 0x50, ECOMAX_ADDRESS_ECOMAX), 1000);
+  watch.onFrame(watchFrame(ECOMAX_FRAME_CHECK_DEVICE), 50000);
+  TEST_ASSERT_EQUAL_UINT32(2, watch.eventCount());
+  TEST_ASSERT_EQUAL(BusSilenceWatch::EventKind::MASTER_FRAME, watch.event(0).kind);
+  TEST_ASSERT_EQUAL_HEX8(0x18, watch.event(0).type);
+  TEST_ASSERT_EQUAL_HEX8(0x50, watch.event(0).sender);
+  TEST_ASSERT_EQUAL(BusSilenceWatch::EventKind::SILENCE, watch.event(1).kind);
+  TEST_ASSERT_EQUAL_UINT16(0, watch.event(1).startMasterSent);
+  TEST_ASSERT_FALSE(watch.event(1).wokeAfterStartMaster);
+  // pierścień: najwyżej EVENTS zdarzeń, od najstarszego
+  for (uint32_t i = 0; i < 20; i++) watch.onFrame(watchFrame(ECOMAX_FRAME_START_MASTER, 0x51), 60000 + i);
+  TEST_ASSERT_EQUAL_UINT32(BusSilenceWatch::EVENTS, watch.eventCount());
+  TEST_ASSERT_EQUAL_UINT32(60010, watch.event(0).atMs);
+}
+
+// Odpowiedź 0xBD od panelu (0x50) do wszystkich: [łącznie, pierwszy, liczba] + liczba × 9 B.
+Bytes alertsResponse(uint8_t total, uint8_t first, uint8_t count)
+{
+  Bytes data = {total, first, count};
+  for (uint8_t i = 0; i < count; i++) {
+    const uint32_t from = 1000u * (first + i), to = (first + i == 0) ? ECOMAX_ALERT_ONGOING : from + 60;
+    data.push_back(static_cast<uint8_t>(first + i == 3 ? 8 : 0));
+    for (int b = 0; b < 4; b++) data.push_back(static_cast<uint8_t>(from >> (8 * b)));
+    for (int b = 0; b < 4; b++) data.push_back(static_cast<uint8_t>(to >> (8 * b)));
+  }
+  return data;
+}
+
+// Zapytanie 0x3D [pierwszy, 10] do regulatora, strony po 10 wpisów, koniec po ostatniej; brak odpowiedzi = koniec po 3 próbach.
+void testAlertsLogPaging()
+{
+  AlertsLogReader reader;
+  uint8_t out[32];
+  TEST_ASSERT_EQUAL_UINT32(0, reader.nextRequest(0, out, sizeof(out)));
+  TEST_ASSERT_FALSE(reader.complete());
+  reader.start();
+  TEST_ASSERT_EQUAL_UINT32(12, reader.nextRequest(0, out, sizeof(out)));
+  TEST_ASSERT_EQUAL_HEX8(0x45, out[3]);
+  TEST_ASSERT_EQUAL_HEX8(0x3D, out[7]);
+  TEST_ASSERT_EQUAL_UINT8(0, out[8]);
+  TEST_ASSERT_EQUAL_UINT8(10, out[9]);
+  TEST_ASSERT_EQUAL_UINT32(0, reader.nextRequest(10, out, sizeof(out)));  // czeka na odpowiedź
+  Bytes page = alertsResponse(15, 0, 10);
+  EcomaxFrame frame;
+  frame.type = ECOMAX_FRAME_ALERTS_RESPONSE;
+  frame.sender = 0x50;
+  frame.recipient = ECOMAX_ADDRESS_BROADCAST;
+  frame.data = page.data();
+  frame.dataLength = page.size();
+  TEST_ASSERT_TRUE(reader.onResponse(frame, 100));
+  TEST_ASSERT_TRUE(reader.busy());
+  TEST_ASSERT_EQUAL_UINT32(12, reader.nextRequest(200, out, sizeof(out)));
+  TEST_ASSERT_EQUAL_UINT8(10, out[8]);
+  Bytes last = alertsResponse(15, 10, 5);
+  frame.data = last.data();
+  frame.dataLength = last.size();
+  reader.onResponse(frame, 300);
+  TEST_ASSERT_FALSE(reader.busy());
+  TEST_ASSERT_TRUE(reader.complete());
+  TEST_ASSERT_EQUAL_UINT32(15, reader.entries());
+  TEST_ASSERT_EQUAL_UINT32(ECOMAX_ALERT_ONGOING, reader.entry(0).to);
+  TEST_ASSERT_EQUAL_UINT8(8, reader.entry(3).code);
+  const uint32_t revision = reader.revision();
+  reader.onResponse(frame, 400);  // ta sama strona jeszcze raz: bez zmiany
+  TEST_ASSERT_EQUAL_UINT32(revision, reader.revision());
+  // bez panelu: 3 próby po 4 s i koniec odczytu
+  reader.start();
+  for (uint32_t t = 1000; t < 1000 + 3 * AlertsLogReader::TIMEOUT_MS + 3; t += AlertsLogReader::TIMEOUT_MS + 1) {
+    reader.nextRequest(t, out, sizeof(out));
+    reader.update(t + AlertsLogReader::TIMEOUT_MS);
+  }
+  TEST_ASSERT_FALSE(reader.busy());
+  TEST_ASSERT_EQUAL_UINT32(1, reader.failed());
+}
+
 int main(int, char **)
 {
   UNITY_BEGIN();
   RUN_TEST(testMixerParameterWriter);
   RUN_TEST(testControlWriter);
+  RUN_TEST(testStartMasterFrame);
+  RUN_TEST(testAlertsLogPaging);
+  RUN_TEST(testSilenceStartMaster);
+  RUN_TEST(testSilenceEventsAndMasterFrames);
   RUN_TEST(testDeviceAvailableAnswersCheckDevice);
   RUN_TEST(testProgramVersionAnswer);
   RUN_TEST(testNoAnswerForOtherRecipientSenderOrType);

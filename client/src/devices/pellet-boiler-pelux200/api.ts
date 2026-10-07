@@ -1,6 +1,6 @@
 import { Requests } from '../../core/http';
 import {
-  PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
+  PelletBoilerAlerts, PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
   PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
 } from './types';
 
@@ -10,6 +10,11 @@ export class PelletBoilerRequests {
   // ostatni odczyt; serwer zwraca {} przy braku danych, get null przy błędzie
   static getLast(): Promise<PelletBoilerReading | null> {
     return Requests.get('/pellet-boiler-pelux200/last');
+  }
+
+  // dziennik alarmów z panelu kotła; null przy błędzie
+  static getAlerts(): Promise<PelletBoilerAlerts | null> {
+    return Requests.get('/pellet-boiler-pelux200/alerts');
   }
 
   // niepotwierdzone automatyczne przejście na Pellet (rozpalanie w trybie pompy ciepła) albo null

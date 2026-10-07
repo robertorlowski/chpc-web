@@ -13,6 +13,7 @@ import { formatDateTime, formatNumber } from '../utils/boiler';
 import { COMMANDS_CHANGED, EditPanel, Item, ratingClass } from './MainParameters';
 import { ADVANCED_SETTINGS_EDIT } from '../config';
 import { ModeProfiles } from './ModeProfiles';
+import { useLastReading } from '../utils/useLastReading';
 
 const formatValue = (parameter: PelletBoilerParameter, value: number) => {
   if (parameter.kind === 'switch' && parameter.min === 0 && parameter.max === 1) return value ? 'wł.' : 'wył.';
@@ -20,14 +21,14 @@ const formatValue = (parameter: PelletBoilerParameter, value: number) => {
   return `${formatNumber(value, 2)}${unit}`;
 };
 
-const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void }> = ({ parameter, onEdit }) => (
+const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void; disabled?: boolean }> = ({ parameter, onEdit, disabled }) => (
   <li className="boiler-parameter">
     <div className="boiler-parameter-head">
       <span className="boiler-parameter-label">{parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}</span>
       <span className="boiler-parameter-value">
         {parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}
         {parameter.name && ADVANCED_SETTINGS_EDIT && (
-          <IconButton label={`Zmień: ${parameter.label ?? parameter.name}`} icon={<EditIcon />} onClick={onEdit} />
+          <IconButton label={`Zmień: ${parameter.label ?? parameter.name}`} icon={<EditIcon />} disabled={disabled} onClick={onEdit} />
         )}
       </span>
     </div>
@@ -42,6 +43,8 @@ const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => v
 );
 
 export const AdvancedSettings: React.FC = () => {
+  // kocioł nie przesyła danych: ołówki zmian nieaktywne (jak w MainParameters)
+  const { responding } = useLastReading();
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState<PelletBoilerSettings | null | undefined>(undefined);
   const [editing, setEditing] = useState<{ item: Item; parameter: PelletBoilerParameter } | null>(null);
@@ -96,7 +99,7 @@ export const AdvancedSettings: React.FC = () => {
                   <summary>{group.label} <span className="boiler-hint">({group.parameters.length})</span></summary>
                   <ul>{group.parameters.map((p) => (
                     <ParameterRow key={p.index} parameter={p}
-                      onEdit={() => setEditing({ item: { kind: 'ecomax', index: p.index }, parameter: p })} />
+                      disabled={!responding} onEdit={() => setEditing({ item: { kind: 'ecomax', index: p.index }, parameter: p })} />
                   ))}</ul>
                 </details>
               ))}
@@ -105,7 +108,7 @@ export const AdvancedSettings: React.FC = () => {
                   <summary>Mieszacz {mixer.mixer} <span className="boiler-hint">({mixer.parameters.length})</span></summary>
                   <ul>{mixer.parameters.map((p) => (
                     <ParameterRow key={p.index} parameter={p}
-                      onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />
+                      disabled={!responding} onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />
                   ))}</ul>
                 </details>
               ))}

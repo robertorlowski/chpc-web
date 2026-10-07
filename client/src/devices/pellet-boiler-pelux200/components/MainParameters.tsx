@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { WinterCycleStatus } from './WinterCycleStatus';
 import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
+import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -418,15 +419,20 @@ export const MainParameters: React.FC = () => {
   };
 
   // Regulator jak na panelu: „Włącz regulator” / „Wyłącz regulator” wysyłają zlecenie control (ramka 0x3B,
-  // firmware od 1.4.0). Stan pokazuje ostatni odczyt kotła (wyłączony = stan 0 albo 7, wygaszanie), nie
+  // firmware od 1.4.0). Stan pokazuje ostatni odczyt kotła (wyłączony = tylko stan 0), nie
   // ustawienie w aplikacji. Wyłączenie zatrzymuje też harmonogram CWU, włączenie go wznawia
   // (schedule-settings.enabled; sam harmonogram regulatora nie przełącza). Przycisk jest aktywny, gdy
   // regulator albo harmonogram nie jest w żądanym stanie: kocioł włączony z panelu przy stojącym
   // harmonogramie — „Włącz regulator” tylko uruchamia harmonogram (bez zlecenia do kotła).
-  const [lastReading, setLastReading] = useState<PelletBoilerReading | null>(null);
-  useEffect(() => { PelletBoilerRequests.getLast().then((last) => setLastReading(last ?? null)); }, [commands]);
+  // ostatni odczyt co 30 s i po zmianie listy zleceń; offline = kocioł nie przesyła danych: przyciski zmian
+  // (tryb pracy, regulator, sezon, ołówki parametrów) nieaktywne, bo serwer i tak odrzuci zlecenie (409)
+  const { reading: lastReading, setReading: setLastReading, responding } = useLastReading(commands);
+  const offline = !responding;
   const boilerState = lastReading?.state;
-  const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0 && boilerState !== 7;
+  // wyłączony tylko stan 0: wygaszanie (7) bywa przy włączonym regulatorze (kocioł osiągnął temperaturę,
+  // potem postój), a po „Wyłącz regulator” trwa do stanu 0 — wtedy WŁĄCZONY (Wygaszanie) też jest prawdą
+  // (uwaga użytkownika 2026-10-05: „regulator jest włączony, tylko trwa wygaszanie”)
+  const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0;
   const controlPending = commands.find((command) => command.kind === 'control' && (command.status === 'pending' || command.status === 'sent'));
   const [workError, setWorkError] = useState('');
   const setWork = async (on: boolean) => {
@@ -502,9 +508,10 @@ export const MainParameters: React.FC = () => {
     <>
       <div className="resource">
         <h3 className="settings-section-title">Tryb pracy</h3>
+        {offline && <div className="boiler-error">{NOT_RESPONDING_TEXT}</div>}
         <div className="boiler-profiles">
           {profiles.map((item) => (
-            <button key={item.key} type="button" disabled={!ready || !scheduleSettings || modeChangePending}
+            <button key={item.key} type="button" disabled={!ready || !scheduleSettings || modeChangePending || offline}
               className={currentMode === item.label ? 'boiler-profile-active' : 'boiler-profile'}
               onClick={() => openProfile(item)}>
               {item.label}
@@ -521,6 +528,7 @@ export const MainParameters: React.FC = () => {
 
       </div>
 
+
       <div className="resource">
         <h3 className="settings-section-title">Główne parametry</h3>
         {settings === undefined && <div>Wczytywanie…</div>}
@@ -535,11 +543,11 @@ export const MainParameters: React.FC = () => {
               {boilerState !== undefined && <span className="boiler-hint"> ({readingStateName(lastReading)})</span>}
             </div>
             <div className="boiler-profiles">
-              <button type="button" className="boiler-profile" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending}
+              <button type="button" className="boiler-profile" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending || offline}
                 onClick={() => setWork(true)}>
                 Włącz regulator
               </button>
-              <button type="button" className="boiler-profile" disabled={(regulatorOn === false && !scheduleSettings.enabled) || !!controlPending}
+              <button type="button" className="boiler-profile" disabled={(regulatorOn === false && !scheduleSettings.enabled) || !!controlPending || offline}
                 onClick={() => setWork(false)}>
                 Wyłącz regulator
               </button>
@@ -561,7 +569,7 @@ export const MainParameters: React.FC = () => {
                 // tryb pompy ciepła: zaznaczony sezon żądany (Zima w cyklu także wtedy, gdy kocioł czeka na Lecie)
                 const active = heatPumpMode ? (value === 0) === wantedWinter : summer?.value === value;
                 return (
-                  <button key={label} type="button" disabled={!summer || value < summer.min || value > summer.max}
+                  <button key={label} type="button" disabled={!summer || value < summer.min || value > summer.max || offline}
                     className={active ? 'boiler-profile-active' : 'boiler-profile'}
                     onClick={() => (heatPumpMode ? !active : summer?.value !== value) && setSeason(value, label)}>
                     {label}
@@ -587,7 +595,7 @@ export const MainParameters: React.FC = () => {
                 <div className="boiler-main-row">
                   <span className="boiler-main-label">{parameter.label ?? parameter.name}</span>
                   <span className="boiler-parameter-value">{display(item, parameter, parameter.value)}</span>
-                  <IconButton label={`Zmień: ${section.title}`} icon={<EditIcon />} onClick={() => setEditing(section)} />
+                  <IconButton label={`Zmień: ${section.title}`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
                 </div>
               ) : (
                 <ReadOnlyMixerTarget item={item} reading={lastReading} />

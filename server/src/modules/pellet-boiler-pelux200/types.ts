@@ -53,6 +53,8 @@ export interface PelletBoilerPelux200Measurements {
   mixer1_closing?: boolean;
   mixer2_temp?: number;
   mixer2_target?: number;
+  /** liczba aktywnych alarmów kotła (firmware pieca od 1.7.0) */
+  alerts_active?: number;
   mixer2_pump?: boolean;
   mixer2_opening?: boolean;
   mixer2_closing?: boolean;

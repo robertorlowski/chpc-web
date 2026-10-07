@@ -222,6 +222,12 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const next = () => request(app).get(`/api/pellet-boiler-pelux200/commands/next?deviceId=${sn}`);
     const result = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/commands/result?deviceId=${sn}`).send(body);
 
+    // kocioł nie przesyła danych (brak odczytu): 409, także włącz/wyłącz
+    const noReading = await request(app).post(commands).send({ changes: [{ kind: 'control', index: 0, value: 1 }] });
+    expect(noReading.status).toBe(409);
+    expect(noReading.body.message).toMatch(/nie przesyła danych/);
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0 }).expect(201);
+    expect((await request(app).get(`/api/pellet-boiler-pelux200/last?rootId=${rootId}`)).body.responding).toBe(true);
     // bez odczytu ustawień nie ma zakresów: 400
     expect((await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 119, value: 50 }] })).status).toBe(400);
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
@@ -272,6 +278,13 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const history = (await request(app).get(commands)).body.slice(2);
     expect(history.map((c: { status: string }) => c.status)).toEqual(['error', 'done', 'replaced']);
     expect(history[0].error).toBe('brak potwierdzenia 0xB3');
+
+    // odczyt starszy niż 3 odstępy odpytywania (60 s, najmniej 3 min): kocioł milczy, 409 i responding: false
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Date.now() + 3 * 60_000 + 1000));
+    expect((await request(app).get(`/api/pellet-boiler-pelux200/last?rootId=${rootId}`)).body.responding).toBe(false);
+    expect((await request(app).post(commands).send({ changes: [{ kind: 'ecomax', index: 119, value: 50 }] })).status).toBe(409);
+    vi.useRealTimers();
   });
 
   it('zmiana trybu przy wyłączonym kotle: wyłącz, nastawy czekają na stan 0, na końcu włącz', async () => {
@@ -501,7 +514,8 @@ describe('Kocioł pelletowy Pellux 200', () => {
       // kocioł potwierdza zlecenie (sezon w odczycie zostaje jak w nagraniu)
       await PelletBoilerCommandModel.updateMany({ rootId, status: 'pending' }, { $set: { status: 'done' } });
       const action = created.length ? (created[0].value === 0 ? 'Zima' : 'Lato') : forced.length > forcedBefore ? 'start pompy' : '';
-      decisions.push({ t: reading.t, temp: reading.heating_temp, pump: reading.heating_pump, season, action });
+      // serwer zapisuje temperatury z dokładnością 0,1 °C (roundTemperatures), więc reguły sprawdzamy na nich
+      decisions.push({ t: reading.t, temp: Math.round(reading.heating_temp * 10) / 10, pump: reading.heating_pump, season, action });
     }
     vi.useRealTimers();
 
@@ -515,10 +529,87 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(forced.length).toBeGreaterThan(0);
     forced.slice(1).forEach((time, i) => expect(time.getTime() - forced[i].getTime()).toBeGreaterThanOrEqual(10 * 60_000));
     expect(decisions.find((d) => d.action === 'start pompy')?.t).toBe('2026-10-04T19:46:18.800Z');
-    // Zima: przy pracującej pompie CO kocioł stygnie 39 → 31 °C bez zmiany; pierwsze Lato o 22:39 (29,99 °C, pompa CO stoi)
+    // Zima: przy pracującej pompie CO kocioł stygnie 39 → 31 °C bez zmiany; pierwsze Lato o 22:44 (28,3 °C, pompa CO stoi).
+    // Do 2026-10-07 o 22:39 (29,997 °C); po zaokrągleniu do 0,1 °C to 30,0 °C, czyli jeszcze nie „poniżej 30”.
     expect(decisions.filter((d) => d.season === 'winter' && d.pump).every((d) => d.action === '')).toBe(true);
-    expect(decisions.find((d) => d.action === 'Lato')?.t).toBe('2026-10-04T20:39:01.975Z');
+    expect(decisions.find((d) => d.action === 'Lato')?.t).toBe('2026-10-04T20:44:02.337Z');
   }, 60_000);  // całe nagranie przez API: kilkaset odczytów, dłużej niż domyślne 5 s
+
+  it('zapis bez identycznych odczytów: temperatury 0,1 °C, porównanie 0,5 °C, rekord końcowy przesuwany, okno 10 min', async () => {
+    const sn = 'AABBCC000018';
+    const { rootId } = (await register(sn)).body;
+    const add = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(body).expect(201);
+    const docs = () => PelletBoilerPelux200Model.find({ rootId }).sort({ createdAt: 1 }).lean<Record<string, unknown>[]>();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const t0 = new Date('2026-10-07T10:00:00Z').getTime();
+    vi.setSystemTime(t0);
+
+    // zapis z dokładnością 0,1 °C
+    await add({ state: 0, heating_temp: 50.90883, water_heater_temp: 40.04 });
+    expect((await docs())[0]).toMatchObject({ heating_temp: 50.9, water_heater_temp: 40 });
+
+    // ten sam stan (różnica < 0,5 °C): drugi odczyt to rekord końcowy, trzeci go przesuwa
+    vi.setSystemTime(t0 + 60_000);
+    await add({ state: 0, heating_temp: 50.93, water_heater_temp: 40.1 });
+    vi.setSystemTime(t0 + 120_000);
+    await add({ state: 0, heating_temp: 50.95, water_heater_temp: 40.12 });
+    let list = await docs();
+    expect(list).toHaveLength(2);
+    expect(new Date(list[1].createdAt as Date).getTime()).toBe(t0 + 120_000);
+    expect(list[1]).toMatchObject({ heating_temp: 51, water_heater_temp: 40.1 });
+    // ostatni odczyt ma aktualny czas: kocioł „odpowiada”, aplikacja dostaje najnowsze wartości
+    const last = (await request(app).get(`/api/pellet-boiler-pelux200/last?rootId=${rootId}`)).body;
+    expect(new Date(last.createdAt).getTime()).toBe(t0 + 120_000);
+    expect(last.responding).toBe(true);
+
+    // po 10 min od początku okna rekord końcowy zostaje, a następny identyczny odczyt zakłada nowy
+    vi.setSystemTime(t0 + 10 * 60_000 + 1000);
+    await add({ state: 0, heating_temp: 50.9, water_heater_temp: 40.1 });
+    list = await docs();
+    expect(list).toHaveLength(3);
+    expect(new Date(list[1].createdAt as Date).getTime()).toBe(t0 + 120_000);
+
+    // zmiana stanu: zawsze nowy rekord
+    vi.setSystemTime(t0 + 11 * 60_000);
+    await add({ state: 2, heating_temp: 50.9, water_heater_temp: 40.1 });
+    expect(await docs()).toHaveLength(4);
+    vi.useRealTimers();
+  });
+
+  it('dziennik alarmów: czas ecoMAX, pierwsze przesłanie jako historia, alarm trwający i jego koniec', async () => {
+    const sn = 'AABBCC000019';
+    const { rootId } = (await register(sn)).body;
+    const post = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/alerts?deviceId=${sn}`).send(body);
+    const list = async () => (await request(app).get(`/api/pellet-boiler-pelux200/alerts?rootId=${rootId}`)).body;
+    // sekundy ecoMAX od 2000-01-01, miesiąc 31 dni, rok 12 × 31 dni
+    const ecomax = (y: number, m: number, d: number, h: number, mi: number) =>
+      ((((y - 2000) * 372 + (m - 1) * 31 + (d - 1)) * 24 + h) * 60 + mi) * 60;
+    const stb = { i: 1, code: 19, from: ecomax(2025, 12, 16, 20, 37), to: ecomax(2025, 12, 16, 20, 39) };
+    const oldPower = { i: 2, code: 0, from: ecomax(2018, 1, 1, 12, 3), to: ecomax(2018, 1, 1, 12, 48) };
+
+    expect((await post({ total: 2, alerts: [{ i: 0, code: 300, from: 1, to: null }] })).status).toBe(400);
+    expect((await post({ total: 2, alerts: [stb, oldPower] })).body).toEqual({ saved: 2, initial: true });
+    let view = await list();
+    expect(view.alerts).toHaveLength(2);
+    // 16.12.2025 20:37 czasu polskiego (zima, UTC+1) = 19:37 UTC
+    expect(view.alerts[0]).toMatchObject({ code: 19, from: '2025-12-16T19:37:00.000Z', to: '2025-12-16T19:39:00.000Z',
+      active: false, uncertain: false, initial: true });
+    expect(view.alerts[1]).toMatchObject({ code: 0, uncertain: true });
+
+    // nowy alarm trwa (brak paliwa, to = null): na górze listy, nie jest historią
+    const fuel = { i: 0, code: 8, from: ecomax(2026, 10, 7, 6, 12), to: null };
+    expect((await post({ total: 3, alerts: [fuel, stb, oldPower] })).body.initial).toBe(false);
+    view = await list();
+    expect(view.alerts[0]).toMatchObject({ code: 8, active: true, initial: false, to: null });
+    // koniec alarmu w kolejnym przesłaniu: ten sam wpis (kod + początek), uzupełniony koniec
+    await post({ total: 3, alerts: [{ ...fuel, to: ecomax(2026, 10, 7, 7, 0) }, stb, oldPower] }).expect(201);
+    view = await list();
+    expect(view.alerts).toHaveLength(3);
+    expect(view.alerts.find((a: { code: number }) => a.code === 8)).toMatchObject({ active: false, to: '2026-10-07T05:00:00.000Z' });
+    // liczba aktywnych alarmów w odczycie
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0, alerts_active: 1 }).expect(201);
+    expect((await request(app).get(`/api/pellet-boiler-pelux200/last?rootId=${rootId}`)).body.alerts_active).toBe(1);
+  });
 
   it('praca sprężarki pompy ciepła tylko w trybie pompy ciepła (stan „Praca” w aplikacji)', async () => {
     const sn = 'AABBCC000017';

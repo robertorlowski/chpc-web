@@ -22,6 +22,7 @@ const controllerPaths = new Map<string, DeviceType>([
   ['/pellet-boiler-pelux200/add', DeviceType.PELLET_BOILER_PELUX200],
   // ustawienia regulatora wysyła sterownik, a czyta aplikacja (z rootId)
   ['/pellet-boiler-pelux200/settings', DeviceType.PELLET_BOILER_PELUX200],
+  ['/pellet-boiler-pelux200/alerts', DeviceType.PELLET_BOILER_PELUX200],
   // zlecenia zmiany parametrów odbiera i potwierdza sterownik pieca
   ['/pellet-boiler-pelux200/commands/next', DeviceType.PELLET_BOILER_PELUX200],
   ['/pellet-boiler-pelux200/commands/result', DeviceType.PELLET_BOILER_PELUX200],

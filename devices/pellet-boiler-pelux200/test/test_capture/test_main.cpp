@@ -13,6 +13,10 @@
 #include "../../src/boiler_settings.cpp"
 #include "../../src/ecomax_frame.cpp"
 #include "../../src/econet.cpp"
+#include <bus_watch.hpp>
+#include "../../src/bus_watch.cpp"
+#include <alerts_log.hpp>
+#include "../../src/alerts_log.cpp"
 
 namespace {
 typedef std::vector<uint8_t> Bytes;
@@ -223,6 +227,53 @@ void testGuardSeesNoForeignEconet()
 
 // Sterowanie ręczne z panelu (docs/kociol-ustawienia.md, punkt 1b): SensorData ma stan 9,
 // a w części mieszaczy (ramka 196 B, bajt 162) bit 0 = pompa mieszacza 1 — w nagraniu i 1, i 0.
+// Normalna praca (cztery nagrania, w tym zapis parametru): ani razu nie ma 30 s ciszy, więc sterownik nie wysłałby
+// StartMaster (0x19); w nagraniach nie ma też żadnej ramki 0x18/0x19.
+void testNoStartMasterDuringNormalTraffic()
+{
+  load();
+  for (const std::vector<Recorded> *source : {&recording, &manualRecording, &setRecording, &mixerRecording}) {
+    BusSilenceWatch watch;
+    EcomaxFrameParser parser;
+    watch.begin(source->front().ms);
+    uint32_t previous = source->front().ms;
+    for (const Recorded &entry : *source) {
+      if (entry.tx) continue;
+      // pliki sklejone z kilku nagrań: czas liczy się od nowa (np. 512 s → 65 s), obserwacja też
+      if (entry.ms < previous) watch.begin(entry.ms);
+      previous = entry.ms;
+      TEST_ASSERT_FALSE(watch.startMasterDue(entry.ms));
+      EcomaxFrame frame;
+      if (!parseRecorded(entry, parser, frame) || frame.sender == ECONET_ADDRESS) continue;
+      watch.onFrame(frame, entry.ms);
+    }
+    TEST_ASSERT_EQUAL_UINT32(0, watch.eventCount());
+  }
+}
+
+// Dziennik alarmów z nagrania bez panelu (2026-10-03): eSTER pyta (0x3D), panel odpowiada wszystkim (0xBD) po 10 wpisów.
+// Czytnik zapisuje cudze odpowiedzi: 100 wpisów, wpis 83 = kod 19 (STB podajnika) 16.12.2025 20:37–20:39.
+void testAlertsLogFromRecording()
+{
+  std::vector<Recorded> noPanel;
+  loadFile("test/fixtures/kociol-2026-10-03-bez-panelu.txt", noPanel);
+  AlertsLogReader reader;
+  EcomaxFrameParser parser;
+  for (const Recorded &entry : noPanel) {
+    if (entry.tx) continue;
+    for (uint8_t byte : entry.frame) parser.feed(byte);
+    EcomaxFrame frame;
+    while (parser.next(frame)) reader.onResponse(frame, entry.ms);
+  }
+  TEST_ASSERT_TRUE(reader.complete());
+  TEST_ASSERT_EQUAL_UINT8(100, reader.total());
+  TEST_ASSERT_EQUAL_UINT8(19, reader.entry(83).code);
+  // 16.12.2025 20:37 w kalendarzu ecoMAX: rok 25 × 372 dni, 11 miesięcy × 31 dni, 15 dni (sekundy od 2000-01-01)
+  const uint32_t from = ((25u * 372 + 11 * 31 + 15) * 24 + 20) * 3600 + 37 * 60;
+  TEST_ASSERT_UINT32_WITHIN(59, from, reader.entry(83).from);
+  TEST_ASSERT_EQUAL_UINT8(0, reader.entry(0).code);
+}
+
 void testManualControlRecording()
 {
   size_t frames = 0, manual = 0, pumpOn = 0, pumpOff = 0;
@@ -330,6 +381,8 @@ int main(int, char **)
   RUN_TEST(testSettingsExchangeMatchesRecording);
   RUN_TEST(testCheckDeviceAnswersMatchRecording);
   RUN_TEST(testGuardSeesNoForeignEconet);
+  RUN_TEST(testNoStartMasterDuringNormalTraffic);
+  RUN_TEST(testAlertsLogFromRecording);
   RUN_TEST(testManualControlRecording);
   RUN_TEST(testMixerValvesRecording);
   RUN_TEST(testParameterChangeRecording);

@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
 import { FlameIcon, PumpIcon } from '../components/icons';
+import { AlertsBanner } from '../components/Alerts';
 import { PelletBoilerAutoPellet, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
   DEFAULT_POLL_SECONDS, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
@@ -96,6 +97,7 @@ export const PelletBoilerHome: React.FC = () => {
         {empty && <div className="resource">Brak danych od sterownika</div>}
         {reading && !empty && (
           <>
+            <AlertsBanner />
             {autoPellet && (
               <div className="resource boiler-auto-pellet" role="alert">
                 <span>

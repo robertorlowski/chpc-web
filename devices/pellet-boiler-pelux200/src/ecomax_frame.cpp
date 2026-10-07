@@ -173,10 +173,13 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
     || !reader.optionalU8(out.waterHeaterTarget)
     || !reader.optionalU8(out.waterHeaterStatus)) return true;
 
-  // Założenie (niezweryfikowane): bajt licznika alertów jest osobny, a po nim
-  // następuje dokładnie tyle bajtów alertów.
+  // Liczba aktywnych alarmów i po niej tyle bajtów (kody), jak PyPlumIO (sensor_data.py:
+  // offset += pending_alerts + 1). Od 1.7.0 liczba trafia do odczytu (alerts_active).
   uint8_t alerts;
-  if (!reader.u8(alerts) || !reader.skip(alerts)) return true;
+  if (!reader.u8(alerts)) return true;
+  out.pendingAlerts.present = true;
+  out.pendingAlerts.value = alerts;
+  if (!reader.skip(alerts)) return true;
 
   uint8_t fuel;
   if (!reader.u8(fuel)) return true;

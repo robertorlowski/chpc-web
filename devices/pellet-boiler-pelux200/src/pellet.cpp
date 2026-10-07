@@ -39,6 +39,8 @@
 
 #include <boiler_settings.hpp>
 #include <bus_polarity.hpp>
+#include <bus_watch.hpp>
+#include <alerts_log.hpp>
 #include <ecomax_frame.hpp>
 #include <econet.hpp>
 #include <firmware.hpp>
@@ -114,6 +116,11 @@ uint32_t sensorFrames = 0;
 // ecoNET (etap 2): osłona adresu 0x56, stan sieci zgłaszany regulatorowi (aktualizowany
 // w tick()), zapytania pominięte w czasie nasłuchu albo blokady.
 EconetGuard guard;
+// cisza regulatora i StartMaster (bus_watch.hpp, od 1.7.0); zmieniane w busTask, czytane przez strony pod stateLock
+BusSilenceWatch silenceWatch;
+// polaryzacja zapisana w NVS po pierwszej poprawnej ramce: przy ciszy zaraz po starcie (brak ramek, więc
+// polarity.confirmed() = false) wiadomo, jak nadawać StartMaster
+bool polarityKnown = false;
 EconetNetworkInfo networkInfo;
 uint32_t econetSkipped = 0;
 bool econetAllowed = false;
@@ -121,6 +128,17 @@ bool econetAllowed = false;
 // Odczyt ustawień kotła (etap 3): zlecany flagą (start, konsola), wykonywany w busTask.
 BoilerSettingsReader boilerSettings;
 volatile bool boilerSettingsRequested = true;
+// Dziennik alarmów z panelu (alerts_log.hpp, od 1.7.0): odczyt po starcie (po ustawieniach), co ALERTS_EVERY_MS
+// i przy zmianie liczby aktywnych alarmów w SensorData; kompletny dziennik po każdej zmianie idzie do chmury.
+AlertsLogReader alertsLog;
+volatile bool alertsRequested = true;
+constexpr uint32_t ALERTS_EVERY_MS = 60UL * 60 * 1000;
+uint32_t alertsStartedMs = 0;
+int16_t lastPendingAlerts = -1;
+uint32_t alertsUploadedRevision = 0;
+uint32_t nextAlertsUploadMs = 0;
+// które zapytanie poszło w bieżącym oknie (do cofnięcia, gdy magistrala zajęta)
+enum class QuerySource : uint8_t { NONE, WRITER, SETTINGS, ALERTS };
 // koniec odczytu z parametrami kotła → wysyłka do chmury w tick() (sendSettings)
 volatile bool settingsUploadPending = false;
 
@@ -320,6 +338,7 @@ void loadConfig()
   rootId = preferences.getString(KEY_ROOT_ID, "");
   pollSeconds = preferences.getUShort(KEY_POLL_SECONDS, DEFAULT_POLL_SECONDS);
   polarity = BusPolarity(preferences.getBool(KEY_INVERTED, false));
+  polarityKnown = preferences.isKey(KEY_INVERTED);
 }
 
 // --- magistrala ecoMAX ---
@@ -479,17 +498,32 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
   // Zapytanie o ustawienia tylko za odpowiedzią na CheckDevice (regulator oddał nam magistralę).
   size_t queryLength = 0;
   uint8_t query[ECONET_MAX_FRAME];
+  QuerySource source = QuerySource::NONE;
   if (frame.type == ECOMAX_FRAME_CHECK_DEVICE) {
     startParameterSet(nowMs);
     if (parameterWriter.busy()) {
       queryLength = parameterWriter.nextRequest(nowMs, query, sizeof(query));
+      source = QuerySource::WRITER;
     } else {
       if (boilerSettingsRequested && !boilerSettings.busy()) {
         boilerSettingsRequested = false;
         boilerSettings.start();
         logf("ustawienia kotła: początek odczytu");
       }
-      queryLength = boilerSettings.nextRequest(nowMs, query, sizeof(query));
+      if (boilerSettings.busy()) {
+        queryLength = boilerSettings.nextRequest(nowMs, query, sizeof(query));
+        source = QuerySource::SETTINGS;
+      } else {
+        // dziennik alarmów dopiero po ustawieniach (kolejność jak przy starcie panelu)
+        if (alertsRequested && !alertsLog.busy()) {
+          alertsRequested = false;
+          alertsStartedMs = nowMs;
+          alertsLog.start();
+          logf("alarmy: początek odczytu dziennika");
+        }
+        queryLength = alertsLog.nextRequest(nowMs, query, sizeof(query));
+        source = QuerySource::ALERTS;
+      }
     }
   }
   vTaskDelay(pdMS_TO_TICKS(ECONET_REPLY_DELAY_MS));
@@ -506,8 +540,9 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
   // gdy ktoś w tym czasie nadaje, zapytanie czeka na następne CheckDevice.
   vTaskDelay(pdMS_TO_TICKS(SETTINGS_QUERY_GAP_MS));
   if (Serial1.available() > 0) {
-    if (parameterWriter.busy()) parameterWriter.cancelRequest();
-    else boilerSettings.cancelRequest();
+    if (source == QuerySource::WRITER) parameterWriter.cancelRequest();
+    else if (source == QuerySource::SETTINGS) boilerSettings.cancelRequest();
+    else if (source == QuerySource::ALERTS) alertsLog.cancelRequest();
     return;
   }
   Serial1.write(query, queryLength);
@@ -517,6 +552,47 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
       static_cast<unsigned>(queryLength));
   }
   guard.onTransmitted(query, queryLength, millis(), parser.rejectedCount());
+}
+
+// Ramka od innego urządzenia niż my: koniec ewentualnej ciszy (wpis do logu) i obce 0x18 / 0x19 (bus_watch.hpp).
+void watchFrame(const EcomaxFrame &frame, uint32_t nowMs)
+{
+  const bool wasSilent = silenceWatch.silent(nowMs);
+  const bool masterFrame = frame.type == ECOMAX_FRAME_STOP_MASTER || frame.type == ECOMAX_FRAME_START_MASTER;
+  portENTER_CRITICAL(&stateLock);
+  silenceWatch.onFrame(frame, nowMs);
+  portEXIT_CRITICAL(&stateLock);
+  if (wasSilent) {
+    // zdarzenie ciszy jest ostatnie, a przy ramce 0x18 / 0x19 przedostatnie (onFrame dopisuje je po ciszy)
+    const BusSilenceWatch::Event &silence = silenceWatch.event(silenceWatch.eventCount() - (masterFrame ? 2 : 1));
+    logf("magistrala: koniec ciszy po %lu s, StartMaster wysłane %u, regulator odezwał się po naszej ramce: %s",
+      static_cast<unsigned long>(silence.durationMs / 1000), static_cast<unsigned>(silence.startMasterSent),
+      silence.wokeAfterStartMaster ? "tak" : "nie");
+  }
+  if (masterFrame) {
+    logf("magistrala: ramka %s (0x%02x) od 0x%02x do 0x%02x",
+      frame.type == ECOMAX_FRAME_STOP_MASTER ? "StopMaster" : "StartMaster", frame.type, frame.sender, frame.recipient);
+  }
+}
+
+// Po każdych BusSilenceWatch::SILENCE_MS bez ramki od innego urządzenia: StartMaster do regulatora, jak PyPlumIO.
+// Tylko przy znanej polaryzacji i gdy EconetGuard pozwala nadawać (minuta nasłuchu, brak obcego ecoNET i kolizji).
+void sendStartMasterIfSilent(uint32_t nowMs)
+{
+  if (!silenceWatch.startMasterDue(nowMs)) return;
+  if (!(polarity.confirmed() || polarityKnown) || !guard.mayTransmit(nowMs)) return;
+  uint8_t frame[16];
+  const size_t length = buildStartMasterFrame(frame, sizeof(frame));
+  if (length == 0) return;
+  Serial1.write(frame, length);
+  captureFrame("TX", frame, length);
+  guard.onTransmitted(frame, length, millis(), parser.rejectedCount());
+  portENTER_CRITICAL(&stateLock);
+  silenceWatch.onStartMasterSent(nowMs);
+  const unsigned sent = silenceWatch.startMasterInSilence();
+  portEXIT_CRITICAL(&stateLock);
+  logf("magistrala: cisza %lu s — StartMaster (0x19) do regulatora, %u. w tej ciszy",
+    static_cast<unsigned long>(silenceWatch.silenceMs(nowMs) / 1000), sent);
 }
 
 // Bajty z UART1 do parsera; każda poprawna ramka potwierdza polaryzację, SensorData to odczyt.
@@ -547,6 +623,12 @@ void readBus(uint32_t nowMs)
           frame.type, frame.sender, frame.recipient, static_cast<unsigned>(frame.dataLength));
       }
       recordFrameKind(frame);
+      if (frame.sender != ECONET_ADDRESS) watchFrame(frame, nowMs);
+      if (frame.type == ECOMAX_FRAME_ALERTS_RESPONSE) {
+        portENTER_CRITICAL(&stateLock);
+        alertsLog.onResponse(frame, nowMs);
+        portEXIT_CRITICAL(&stateLock);
+      }
       handleEconet(frame, nowMs);
       if (!isSensorDataFrame(frame)) continue;
       EcomaxSensorData decoded;
@@ -557,9 +639,17 @@ void readBus(uint32_t nowMs)
       readingAtMs = nowMs;
       sensorFrames++;
       portEXIT_CRITICAL(&stateLock);
+      if (decoded.pendingAlerts.present && decoded.pendingAlerts.value != lastPendingAlerts) {
+        if (lastPendingAlerts >= 0) {
+          logf("alarmy: aktywnych %d → %u, czytam dziennik", lastPendingAlerts, decoded.pendingAlerts.value);
+          alertsRequested = true;
+        }
+        lastPendingAlerts = decoded.pendingAlerts.value;
+      }
     }
   }
   guard.update(millis(), parser.rejectedCount());
+  sendStartMasterIfSilent(nowMs);
   const bool writing = parameterWriter.busy();
   parameterWriter.update(millis());
   if (writing && parameterWriter.result() == BoilerParameterWriter::Result::FAILED) {
@@ -568,6 +658,16 @@ void readBus(uint32_t nowMs)
       static_cast<unsigned>(BoilerParameterWriter::ATTEMPTS));
     finishParameterSet(false, "regulator nie potwierdził zmiany — sprawdź wartość na panelu");
     boilerSettingsRequested = true;
+  }
+  const uint32_t alertsFailed = alertsLog.failed();
+  const bool alertsWasBusy = alertsLog.busy();
+  alertsLog.update(millis());
+  if (alertsLog.failed() != alertsFailed) logf("alarmy: brak odpowiedzi na zapytanie o dziennik (bez panelu?)");
+  if (alertsWasBusy && !alertsLog.busy() && alertsLog.complete()) {
+    logf("alarmy: dziennik %u wpisów", static_cast<unsigned>(alertsLog.entries()));
+  }
+  if (!alertsLog.busy() && !alertsRequested && alertsStartedMs != 0 && nowMs - alertsStartedMs >= ALERTS_EVERY_MS) {
+    alertsRequested = true;
   }
   const int8_t settingsItem = boilerSettings.current();
   const uint32_t settingsFailed = boilerSettings.failed();
@@ -801,6 +901,37 @@ void sendSettings(uint32_t nowMs)
     static_cast<unsigned>(body.length()));
   if (ok) settingsUploadPending = false;
   else nextSettingsUploadMs = nowMs + SETTINGS_RETRY_MS;
+}
+
+// Dziennik alarmów do chmury po każdej zmianie (od 1.7.0): POST pellet-boiler-pelux200/alerts
+// {total, alerts: [{i, code, from, to}]}, czasy surowe (sekundy ecoMAX od 2000-01-01, to = null, gdy trwa) —
+// przelicza serwer. Błąd ponawia po SETTINGS_RETRY_MS i nie kasuje Root ID (starszy serwer bez endpointu).
+void sendAlerts(uint32_t nowMs)
+{
+  JsonDocument document;
+  AlertEntry copy[AlertsLogReader::MAX_ENTRIES];
+  portENTER_CRITICAL(&stateLock);
+  const uint32_t revision = alertsLog.revision();
+  const uint8_t total = alertsLog.total();
+  const size_t count = alertsLog.entries();
+  for (size_t i = 0; i < count; i++) copy[i] = alertsLog.entry(i);
+  portEXIT_CRITICAL(&stateLock);
+  document["total"] = total;
+  JsonArray list = document["alerts"].to<JsonArray>();
+  for (size_t i = 0; i < count; i++) {
+    JsonObject item = list.add<JsonObject>();
+    item["i"] = i;
+    item["code"] = copy[i].code;
+    item["from"] = copy[i].from;
+    if (copy[i].to == ECOMAX_ALERT_ONGOING) item["to"] = nullptr;
+    else item["to"] = copy[i].to;
+  }
+  String body;
+  serializeJson(document, body);
+  const bool ok = post(requestUrl("pellet-boiler-pelux200/alerts"), body);
+  logf("alarmy do chmury: %s (HTTP %d, %u wpisów)", ok ? "OK" : "błąd", lastHttpStatus, static_cast<unsigned>(count));
+  if (ok) alertsUploadedRevision = revision;
+  else nextAlertsUploadMs = nowMs + SETTINGS_RETRY_MS;
 }
 
 // Ostatni świeży odczyt do chmury. 404/409: Root ID nieaktualny, zgłoszenie od nowa.
@@ -1295,6 +1426,10 @@ void tick(uint32_t nowMs)
     sendReading(nowMs, reading);
   }
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
+  if (!alertsLog.busy() && alertsLog.complete() && alertsLog.revision() != alertsUploadedRevision
+    && static_cast<int32_t>(nowMs - nextAlertsUploadMs) >= 0) {
+    sendAlerts(nowMs);
+  }
   pollCloudCommand(nowMs);
   tryFirmwareUpdate();
 }
@@ -1345,6 +1480,11 @@ bus.innerHTML='Bajty: <b>'+s.bytes+'</b>, ramki: <b>'+s.frames+'</b> (SensorData
 +'Sygnał: <b>'+(s.inverted?'odwrócony':'normalny')+'</b>'+(s.confirmed?'':' <small>(dobierany)</small>')
 +'<br>ecoNET (0x56): <b>'+s.econet+'</b><br><small>odpowiedzi '+s.econetTx+', echo '+s.econetEcho
 +', obce ramki '+s.econetForeign+', kolizje '+s.econetCollisions+'</small>'
++'<br>Cisza regulatora: '+(s.silenceS?'<b class="bad">trwa '+s.silenceS+' s</b>':'<b class="on">brak</b>')
++', StartMaster wysłane: '+s.startMasterSent
++((s.busEvents||[]).length?'<br><small>'+s.busEvents.map(e=>e.kind=='silence'
+?Math.round(e.agoS/60)+' min temu: cisza '+e.durationS+' s, StartMaster '+e.startMasterSent+(e.woke?', obudził':'')+' (przed: '+e.before+')'
+:Math.round(e.agoS/60)+' min temu: '+e.kind+' '+e.frame).join('<br>')+'</small>':'')
 +'<br>Ustawienia kotła: <b>'+s.settingsRead+'/5</b>'+(s.settingsBusy?' (odczyt trwa)':'')
 +' <a href="/boiler-settings.json" download>pobierz</a>'
 +'<br><small>Odbiór GPIO21, nadawanie GPIO20, 115200 bodów</small>';
@@ -1398,6 +1538,41 @@ void handleState()
   state["frames"] = validFrames;
   state["sensorFrames"] = sensorFrames;
   state["rejected"] = parser.rejectedCount();
+  // cisza regulatora i StartMaster (od 1.7.0): bieżąca cisza, licznik i ostatnie zdarzenia
+  {
+    JsonArray events = state["busEvents"].to<JsonArray>();
+    portENTER_CRITICAL(&stateLock);
+    const uint32_t silence = silenceWatch.silenceMs(now);
+    const uint32_t startMasters = silenceWatch.startMasterTotal();
+    const size_t count = silenceWatch.eventCount();
+    BusSilenceWatch::Event copy[BusSilenceWatch::EVENTS];
+    for (size_t i = 0; i < count; i++) copy[i] = silenceWatch.event(i);
+    portEXIT_CRITICAL(&stateLock);
+    state["silenceS"] = silence / 1000;
+    state["startMasterSent"] = startMasters;
+    for (size_t i = count; i-- > 0;) {
+      const BusSilenceWatch::Event &e = copy[i];
+      JsonObject item = events.add<JsonObject>();
+      item["agoS"] = (now - e.atMs) / 1000;
+      if (e.kind == BusSilenceWatch::EventKind::SILENCE) {
+        item["kind"] = "silence";
+        item["durationS"] = e.durationMs / 1000;
+        item["startMasterSent"] = e.startMasterSent;
+        item["woke"] = e.wokeAfterStartMaster;
+        char before[BusSilenceWatch::HISTORY * 10 + 1] = "";
+        size_t used = 0;
+        for (uint8_t k = 0; k < e.beforeCount; k++) {
+          used += snprintf(before + used, sizeof(before) - used, "%s%02x@%02x", k ? " " : "", e.before[k].type, e.before[k].sender);
+        }
+        item["before"] = before;
+      } else {
+        item["kind"] = e.type == ECOMAX_FRAME_STOP_MASTER ? "StopMaster" : "StartMaster";
+        char text[24];
+        snprintf(text, sizeof(text), "0x%02x->0x%02x", e.sender, e.recipient);
+        item["frame"] = text;
+      }
+    }
+  }
   state["inverted"] = polarity.inverted();
   state["confirmed"] = polarity.confirmed();
   state["wifi"] = WiFi.status() == WL_CONNECTED;
@@ -1577,6 +1752,7 @@ void setup()
   esp_task_wdt_add(nullptr);
   startBus();
   guard.begin(millis());
+  silenceWatch.begin(millis());
   xTaskCreate(busTask, "bus", BUS_TASK_STACK, nullptr, BUS_TASK_PRIORITY, nullptr);
   startNetwork();
 }

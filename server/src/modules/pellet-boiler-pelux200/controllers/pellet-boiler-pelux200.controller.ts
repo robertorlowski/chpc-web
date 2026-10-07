@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   addPelletBoilerPelux200Reading, getPelletBoilerPelux200Last, getPelletBoilerPelux200Range,
-  getPollIntervalSeconds, validateReading,
+  getPollIntervalSeconds, readingResponding, validateReading,
 } from '../services/pellet-boiler-pelux200.service';
 import {
   getPelletBoilerSettingsView, savePelletBoilerSettings, validateSettingsUpload,
@@ -19,6 +19,8 @@ import {
   parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings, setManualSeason,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
+import { PelletBoilerPelux200Entry } from '../types';
+import { AlertsError, listAlerts, saveAlerts, validateAlertsUpload } from '../services/pellet-boiler-pelux200-alert.service';
 import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
@@ -82,8 +84,11 @@ export async function getPelletBoilerCwuLoading(req: Request, res: Response) {
 
 export async function getPelletBoilerPelux200(req: Request, res: Response) {
   try {
-    const last = await getPelletBoilerPelux200Last(req.deviceRootId as string);
-    return res.status(200).json(last ?? {});
+    const rootId = req.deviceRootId as string;
+    const last = await getPelletBoilerPelux200Last(rootId) as (PelletBoilerPelux200Entry & { createdAt?: Date }) | undefined;
+    if (!last) return res.status(200).json({});
+    // responding: czy kocioł odpowiada (aplikacja blokuje wtedy przyciski zmian, createCommands → 409)
+    return res.status(200).json({ ...last, responding: readingResponding(last.createdAt, await getPollIntervalSeconds(rootId)) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });
@@ -134,7 +139,7 @@ export async function getPelletBoilerPelux200List(req: Request, res: Response) {
 // --- zmiana parametrów z aplikacji (pellet-boiler-pelux200-command.service.ts) ---
 
 const commandError = (res: Response, error: unknown) => {
-  if (error instanceof CommandError) return res.status(400).json({ message: error.message });
+  if (error instanceof CommandError) return res.status(error.status).json({ message: error.message });
   console.error(error);
   return res.status(500).json({ message: String(error) });
 };
@@ -266,5 +271,29 @@ export async function deletePelletBoilerSchedule(req: Request<{ id: string }>, r
     return removed ? res.status(200).json({}) : res.status(404).json({ message: 'Nie znaleziono harmonogramu.' });
   } catch {
     return res.status(400).json({ message: 'Nieprawidłowy identyfikator harmonogramu.' });
+  }
+}
+
+// --- dziennik alarmów (od firmware pieca 1.7.0, pellet-boiler-pelux200-alert.service.ts) ---
+
+// POST /alerts (sterownik, wystarczy ?deviceId=): {total, alerts: [{i, code, from, to | null}]} → 201 {saved, initial}.
+export async function addPelletBoilerPelux200Alerts(req: Request, res: Response) {
+  try {
+    const upload = validateAlertsUpload(req.body);
+    return res.status(201).json(await saveAlerts(req.deviceRootId as string, upload));
+  } catch (error) {
+    if (error instanceof AlertsError) return res.status(400).json({ message: error.message });
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// GET /alerts (aplikacja): {readAt, alerts: [{code, from, to, active, uncertain, initial}]}, trwające na górze.
+export async function getPelletBoilerPelux200Alerts(req: Request, res: Response) {
+  try {
+    return res.status(200).json(await listAlerts(req.deviceRootId as string));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
   }
 }

@@ -5,6 +5,8 @@ import type { WeekDay } from '../../core/types';
 
 export type PelletBoilerReading = {
   createdAt?: string;
+  /** GET /last: czy kocioł przesyła dane (odczyt młodszy niż 3 odstępy odpytywania, najmniej 3 min) */
+  responding?: boolean;
   /** stan kotła 0..11 (BOILER_STATE_NAMES) */
   state?: number;
   // temperatury [°C]
@@ -45,6 +47,8 @@ export type PelletBoilerReading = {
   mixer1_closing?: boolean;
   mixer2_temp?: number;
   mixer2_target?: number;
+  /** liczba aktywnych alarmów kotła (firmware pieca od 1.7.0) */
+  alerts_active?: number;
   mixer2_pump?: boolean;
   mixer2_opening?: boolean;
   mixer2_closing?: boolean;
@@ -187,3 +191,17 @@ export type PelletBoilerAutoPellet = {
   changes: number;
   error?: string;
 };
+
+// Dziennik alarmów z panelu kotła (GET /pellet-boiler-pelux200/alerts, firmware pieca od 1.7.0).
+export type PelletBoilerAlert = {
+  code: number;
+  from: string;
+  /** null = alarm trwa (albo trwał przy ostatnim przesłaniu) */
+  to: string | null;
+  active: boolean;
+  /** data z nieustawionego zegara regulatora (rok < 2020, np. po zaniku zasilania) */
+  uncertain: boolean;
+  /** z pierwszego przesłania dziennika (historia sprzed wdrożenia): na liście tak, na pasku nie */
+  initial: boolean;
+};
+export type PelletBoilerAlerts = { readAt: string | null; alerts: PelletBoilerAlert[] };

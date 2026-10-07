@@ -633,3 +633,143 @@
 .boiler-heat-pump-work {
   color: #1481a5;
 }
+
+/* Alarmy kotła (components/Alerts.tsx): karta w Ustawieniach (cała jest odnośnikiem), pasek na stronie głównej,
+   strona /alarms z tabelą; na telefonie wiersze tabeli jako karty. */
+.boiler-alerts-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.boiler-alerts-card:hover {
+  outline: 2px solid #1481a5;
+}
+
+.boiler-alerts-card-title {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.boiler-alert-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-left: 4px solid #b00020;
+  color: #b00020;
+  text-decoration: none;
+}
+
+.boiler-alerts-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* strzałka „wstecz” na wysokości tekstu: tytuł bez własnych odstępów (h2 ma globalnie padding-top i marginesy),
+   odstęp od menu i od karty daje cały nagłówek, a align-items: center wyrównuje oba elementy do wspólnego środka */
+.boiler-alerts-header {
+  margin: 1.4rem 0 0.9rem;
+}
+
+.boiler-alerts-header h2 {
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.boiler-alerts-header > button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.boiler-alerts-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.boiler-alerts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.boiler-alerts-table th,
+.boiler-alerts-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.boiler-alert-active td {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.boiler-alert-uncertain td {
+  color: #777;
+}
+
+.boiler-alert-badge {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  background: #b00020;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .boiler-alerts-table thead {
+    display: none;
+  }
+
+  .boiler-alerts-table tr {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 0 0.4rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .boiler-alerts-table td {
+    border: none;
+    padding: 0;
+  }
+
+  /* nazwa w pierwszym wierszu, pod nią od – do i czas */
+  .boiler-alerts-table td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .boiler-alerts-table td:nth-child(2)::after {
+    content: ' –';
+  }
+
+  .boiler-alerts-table td:last-child::before {
+    content: '(';
+  }
+
+  .boiler-alerts-table td:last-child::after {
+    content: ')';
+  }
+}
+
+/* strona /alarms na komputerze szersza niż karty Ustawień, daty i czas trwania bez zawijania (uwaga użytkownika
+   2026-10-07); na telefonie bez zmian (pełna szerokość, wiersze jako karty) */
+@media (min-width: 561px) {
+  .settings.boiler-page.boiler-alerts-page > section > .resource {
+    width: min(820px, calc(100vw - 2rem));
+  }
+
+  .boiler-alerts-table td:not(:first-child),
+  .boiler-alerts-table th:not(:first-child) {
+    white-space: nowrap;
+  }
+}

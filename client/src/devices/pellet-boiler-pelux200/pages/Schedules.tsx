@@ -12,7 +12,7 @@ import '../../heat-pump/pages/Schedules/style.css';
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { WeekDay } from '../../../core/types';
-import Notification from '../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { IconButton } from '../../../core/components/IconButton';
 import { EditIcon, PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { PelletBoilerRequests } from '../api';
@@ -77,7 +77,8 @@ export const PelletBoilerSchedules: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [settingsError, setSettingsError] = useState('');
-  const [notice, setNotice] = useState('');
+  // przyciski zapisu nieaktywne w trakcie zapisu i dopóki widać komunikat (useSaveNotice)
+  const { notice, showNotice, run, busy } = useSaveNotice();
 
   const loadCurrent = () => PelletBoilerRequests.getCurrentSchedule().then(setCurrent);
   const loadAll = () => {
@@ -91,36 +92,48 @@ export const PelletBoilerSchedules: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
-  const showNotice = (text: string) => {
-    setNotice(text);
-    window.setTimeout(() => setNotice(''), 3000);
+  // Pola CWU „Poza harmonogramem” trzymają wpisany tekst (cwuDrafts), a liczbę do ustawień biorą tylko
+  // z niepustego wpisu: dawniej Number('') = 0 i pola nie dało się wyczyścić (uwaga użytkownika 2026-10-05).
+  const [cwuDrafts, setCwuDrafts] = useState<Record<string, string>>({});
+  const draftKey = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo') => `${mode}.${field}`;
+  const cwuInput = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo') =>
+    cwuDrafts[draftKey(mode, field)] ?? String(settings?.defaults[mode][field] ?? '');
+  const setDefault = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo' | 'season', value: string) => {
+    if (!settings) return;
+    if (field !== 'season') {
+      setCwuDrafts((old) => ({ ...old, [draftKey(mode, field)]: value }));
+      if (value.trim() === '' || !Number.isFinite(Number(value))) return;
+    }
+    setSettings({
+      ...settings,
+      defaults: {
+        ...settings.defaults,
+        [mode]: { ...settings.defaults[mode], [field]: field === 'season' ? value : Number(value) },
+      },
+    });
   };
-
-  const setDefault = (mode: PelletBoilerMode, field: 'cwuFrom' | 'cwuTo' | 'season', value: string) => settings && setSettings({
-    ...settings,
-    defaults: {
-      ...settings.defaults,
-      [mode]: { ...settings.defaults[mode], [field]: field === 'season' ? value : Number(value) },
-    },
-  });
 
   const saveSettings = async (event: FormEvent) => {
     event.preventDefault();
     if (!settings) return;
+    if (Object.values(cwuDrafts).some((value) => value.trim() === '')) {
+      return setSettingsError('CWU: wpisz temperaturę „od” i „do”.');
+    }
     if (MODES.some((mode) => settings.defaults[mode].cwuFrom >= settings.defaults[mode].cwuTo)) {
       return setSettingsError('CWU: „od” musi być mniejsze niż „do”.');
     }
     if (settings.defaults['heat-pump'].cwuTo > cwuMax('heat-pump')) {
       return setSettingsError(`Pompa ciepła: CWU najwyżej ${cwuMax('heat-pump')} °C.`);
     }
-    try {
+    await run(async () => { try {
       setSettings(await PelletBoilerRequests.saveScheduleSettings(settings));
+      setCwuDrafts({});
       setSettingsError('');
       loadCurrent();
       showNotice('Ustawienia harmonogramu zapisane.');
     } catch {
       setSettingsError('Nie udało się zapisać (CWU od–do: 10–80 °C, liczby całkowite).');
-    }
+    } });
   };
 
   const resetForm = () => {
@@ -277,7 +290,7 @@ export const PelletBoilerSchedules: React.FC = () => {
               Aktywny
             </label>
             <div className="schedule-form-actions">
-              <button type="submit" disabled={saving}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
+              <button type="submit" disabled={saving || busy}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
               <button type="button" className="schedule-cancel" onClick={resetForm}>{editingId ? 'Anuluj' : 'Zamknij'}</button>
             </div>
             {error && <p className="schedule-error">{error}</p>}
@@ -354,9 +367,9 @@ export const PelletBoilerSchedules: React.FC = () => {
                       </div>
                       {!settings.defaults[mode].season && <div className="boiler-hint">Bez wyboru harmonogram nie zmienia trybu pracy poza wpisami.</div>}
                       <span className="schedule-fields">
-                        <label>CWU od [°C]<input type="number" min={10} max={cwuMax(mode)} value={settings.defaults[mode].cwuFrom}
+                        <label>CWU od [°C]<input type="number" min={10} max={cwuMax(mode)} value={cwuInput(mode, 'cwuFrom')}
                           onChange={(event) => setDefault(mode, 'cwuFrom', event.target.value)} /></label>
-                        <label>CWU do [°C]<input type="number" min={10} max={cwuMax(mode)} value={settings.defaults[mode].cwuTo}
+                        <label>CWU do [°C]<input type="number" min={10} max={cwuMax(mode)} value={cwuInput(mode, 'cwuTo')}
                           onChange={(event) => setDefault(mode, 'cwuTo', event.target.value)} /></label>
                       </span>
                     </div>
@@ -373,7 +386,7 @@ export const PelletBoilerSchedules: React.FC = () => {
               {current?.lastError && <div className="boiler-error">Ostatni błąd: {current.lastError}</div>}
               {settingsError && <div className="boiler-error">{settingsError}</div>}
               <div className="schedule-form-actions">
-                <button type="submit">Zapisz ustawienia</button>
+                <button type="submit" disabled={busy}>Zapisz ustawienia</button>
               </div>
             </form>
           )}

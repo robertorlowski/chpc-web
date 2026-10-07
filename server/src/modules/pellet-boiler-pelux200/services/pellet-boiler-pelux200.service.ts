@@ -7,6 +7,7 @@ import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { DeviceModel } from '../../../core/models/device.model';
 import { sendMessage } from '../../../core/websocket';
 import { setOutdoorTemperature } from '../../../core/services/meteo.service';
+import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
 
 export const DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
@@ -16,6 +17,8 @@ const NUMBER_FIELDS = [
   'water_heater_target', 'heating_status', 'water_heater_status', 'fuel_level', 'fan_power',
   'boiler_load', 'boiler_power', 'fuel_consumption', 'lambda_level',
   'mixer1_temp', 'mixer1_target', 'mixer2_temp', 'mixer2_target',
+  // liczba aktywnych alarmów kotła (SensorData, firmware pieca od 1.7.0)
+  'alerts_active',
 ] as const;
 const BOOLEAN_FIELDS = [
   'fan', 'feeder', 'heating_pump', 'water_heater_pump', 'circulation_pump', 'lighter', 'alarm',
@@ -44,15 +47,32 @@ export function validateReading(body: unknown): PelletBoilerPelux200Measurements
 
 const lastByRoot = new Map<string, PelletBoilerPelux200Entry>();
 
+// Temperatury (pola *_temp) zapisywane z dokładnością 0,1 °C: sterownik podaje je z 5 miejscami po przecinku
+// (np. 50.90883), co nic nie wnosi (decyzja użytkownika 2026-10-07).
+const isTemperature = (key: string) => key.endsWith('_temp');
+export function roundTemperatures(reading: PelletBoilerPelux200Measurements): PelletBoilerPelux200Measurements {
+  const result: Record<string, number | boolean> = { ...reading };
+  for (const [key, value] of Object.entries(result)) {
+    if (isTemperature(key) && typeof value === 'number') result[key] = Math.round(value * 10) / 10;
+  }
+  return result as PelletBoilerPelux200Measurements;
+}
+
+// Zapis bez identycznych powtórzeń (core/services/plateau-writer.service.ts): temperatury porównywane
+// po zaokrągleniu do 0,5 °C (decyzja użytkownika 2026-10-07), pozostałe pola dokładnie.
+const writeReading = createPlateauWriter(PelletBoilerPelux200Model);
+const readingKey = (cast: Record<string, unknown>) => comparisonKey(cast, [], { test: isTemperature, step: 0.5 });
+
 export async function addPelletBoilerPelux200Reading(
   rootId: string,
-  reading: PelletBoilerPelux200Measurements,
+  measured: PelletBoilerPelux200Measurements,
 ) {
+  const reading = roundTemperatures(measured);
   const device = await getDeviceInfo(rootId);
-  const doc = await PelletBoilerPelux200Model.create({
+  const { doc } = await writeReading(rootId, {
     ...reading, rootId, deviceType: device.deviceType, deviceId: device.deviceId,
-  });
-  lastByRoot.set(rootId, doc.toObject() as PelletBoilerPelux200Entry);
+  }, readingKey);
+  lastByRoot.set(rootId, doc as unknown as PelletBoilerPelux200Entry);
   // czujnik zewnętrzny kotła = temperatura zewnętrzna całego serwera (pompa ciepła: t_out, ekran co)
   if (typeof reading.outside_temp === 'number') setOutdoorTemperature(reading.outside_temp, new Date());
   sendMessage('update', rootId);
@@ -87,4 +107,20 @@ export const getPelletBoilerPelux200Range = (rootId: string, start: Date, end: D
 export async function getPollIntervalSeconds(rootId: string): Promise<number> {
   const device = await DeviceModel.findById(rootId).select('properties').lean();
   return device?.properties?.poll_interval_seconds ?? DEFAULT_POLL_INTERVAL_SECONDS;
+}
+
+// Kocioł odpowiada, gdy ostatni odczyt jest młodszy niż RESPONDING_INTERVALS odstępów odpytywania
+// (najmniej RESPONDING_MIN_MS). Sterownik pieca wysyła odczyt tylko przy działającej komunikacji
+// z regulatorem, więc brak świeżego odczytu = regulator milczy na magistrali (2026-10-05 16:48–17:25
+// i 17:28–17:37 przy zasilonym kotle, 0 bajtów; wcześniej regulator bez zasilania) albo przerwany
+// przewód. Ta sama zasada co „Dane nieaktualne” w aplikacji (utils/boiler.ts isStale).
+export const RESPONDING_INTERVALS = 3;
+export const RESPONDING_MIN_MS = 3 * 60 * 1000;
+
+export const readingResponding = (createdAt: Date | string | undefined, pollSeconds: number, now = Date.now()) =>
+  !!createdAt && now - new Date(createdAt).getTime() <= Math.max(RESPONDING_INTERVALS * pollSeconds * 1000, RESPONDING_MIN_MS);
+
+export async function isBoilerResponding(rootId: string, now = Date.now()): Promise<boolean> {
+  const last = await getPelletBoilerPelux200Last(rootId) as (PelletBoilerPelux200Entry & { createdAt?: Date }) | undefined;
+  return readingResponding(last?.createdAt, await getPollIntervalSeconds(rootId), now);
 }

@@ -50,6 +50,7 @@ void fillPelletJson(JsonDocument &document, const EcomaxSensorData &data)
     (data.outputs & ECOMAX_OUT_CIRCULATION_PUMP) != 0;
   document["lighter"] = (data.outputs & ECOMAX_OUT_LIGHTER) != 0;
   document["alarm"] = (data.outputs & ECOMAX_OUT_ALARM) != 0;
+  setU8(document, "alerts_active", data.pendingAlerts);
 
   // Mieszacze 1 i 2 (więcej instalacja nie ma): mixer1_temp, mixer1_target, mixer1_pump,
   // mixer1_opening, mixer1_closing; niepodłączony mieszacz jest pomijany.

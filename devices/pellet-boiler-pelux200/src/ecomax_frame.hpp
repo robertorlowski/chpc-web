@@ -93,6 +93,8 @@ struct EcomaxSensorData {
   EcomaxTemperature temperatures[ECOMAX_TEMPERATURE_COUNT];
   EcomaxU8 heatingTarget, heatingStatus, waterHeaterTarget, waterHeaterStatus;
   EcomaxU8 fuelLevel;
+  // liczba aktywnych alarmów (pending_alerts w PyPlumIO; od 1.7.0 wysyłana jako alerts_active)
+  EcomaxU8 pendingAlerts;
   EcomaxFloat fanPower;
   EcomaxU8 boilerLoad;
   EcomaxFloat boilerPower, fuelConsumption;

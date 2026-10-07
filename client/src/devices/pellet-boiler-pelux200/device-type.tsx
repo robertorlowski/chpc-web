@@ -9,6 +9,7 @@ import { PelletBoilerData } from './pages/Data';
 import { PelletBoilerChart } from './pages/Chart';
 import { PelletBoilerSchedules } from './pages/Schedules';
 import { PelletBoilerSettings } from './pages/Settings';
+import { PelletBoilerAlertsPage } from './components/Alerts';
 
 // Kocioł pelletowy: podgląd, dane z dnia, wykres temperatur, harmonogram (sezon, CWU od–do) i ustawienia.
 export const pelletBoilerDeviceType: DeviceTypeView = {
@@ -27,4 +28,6 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <PelletBoilerSchedules /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <PelletBoilerSettings /> },
 	],
+	// lista alarmów: wejście z karty „Alarmy” w Ustawieniach, bez pozycji w menu
+	extraRoutes: [{ path: '/alarms', element: <PelletBoilerAlertsPage /> }],
 };

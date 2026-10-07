@@ -4,7 +4,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
-import Notification from '../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
@@ -13,6 +13,7 @@ import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
 import { AdvancedSettings } from '../components/AdvancedSettings';
 import { MainParameters } from '../components/MainParameters';
+import { AlertsCard } from '../components/Alerts';
 import './style.css';
 
 // interwał w minutach w formularzu, w sekundach w ustawieniach (30–3600 s = 0,5–60 min)
@@ -25,7 +26,8 @@ export const PelletBoilerSettings: React.FC = () => {
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [minutes, setMinutes] = useState('');
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  // przycisk „Zapisz” nieaktywny w trakcie zapisu i dopóki widać komunikat (useSaveNotice)
+  const { notice, showNotice, run, busy } = useSaveNotice();
   const [editingDevice, setEditingDevice] = useState(false);
 
   useEffect(() => {
@@ -44,17 +46,16 @@ export const PelletBoilerSettings: React.FC = () => {
       return setError('Odpytywanie pieca: od 0,5 do 60 minut.');
     }
     setError('');
-    try {
+    await run(async () => { try {
       const saved = await DeviceRequests.updateDeviceProperties({
         ...properties,
         poll_interval_seconds: Math.round(value * 60),
       });
       setProperties(saved);
-      setNotice('Zapisano. Sterownik pobierze nową wartość przy następnym wysłaniu danych.');
-      window.setTimeout(() => setNotice(''), 4000);
+      showNotice('Zapisano. Sterownik pobierze nową wartość przy następnym wysłaniu danych.', 4000);
     } catch {
       setError('Nie udało się zapisać ustawień.');
-    }
+    } });
   };
 
   return (
@@ -62,6 +63,8 @@ export const PelletBoilerSettings: React.FC = () => {
       <Notification message={notice} />
       <h2>Ustawienia</h2>
       <section>
+        {/* alarmy kotła na górze (firmware pieca od 1.7.0): karta prowadzi na /alarms */}
+        <AlertsCard />
         <MainParameters />
 
         <form className="resource boiler-form" onSubmit={save}>
@@ -74,7 +77,7 @@ export const PelletBoilerSettings: React.FC = () => {
           <div className="boiler-hint">Co ile sterownik odczytuje piec i wysyła dane (0,5–60 min).</div>
           {error && <div className="boiler-error">{error}</div>}
           <div className="boiler-actions">
-            <button type="submit" disabled={properties === null}>Zapisz</button>
+            <button type="submit" disabled={properties === null || busy}>Zapisz</button>
           </div>
         </form>
 

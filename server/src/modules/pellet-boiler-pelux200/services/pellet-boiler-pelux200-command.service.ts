@@ -11,7 +11,7 @@ import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-comma
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerCommandChange, PelletBoilerCommandEntry, PelletBoilerParameter } from '../types';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
-import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
+import { getPelletBoilerPelux200Last, isBoilerResponding } from './pellet-boiler-pelux200.service';
 import { sendMessage } from '../../../core/websocket';
 
 // najwięcej zmian w jednym zleceniu (przełącznik trybu pracy ma kilka)
@@ -23,7 +23,14 @@ export const WAIT_OFF_MAX_MS = 60 * 60 * 1000;
 // historia pokazywana w aplikacji
 const RECENT_LIMIT = 20;
 
-export class CommandError extends Error {}
+// status: kod HTTP dla aplikacji (400 błędne zlecenie, 409 kocioł nie odpowiada)
+export class CommandError extends Error {
+  constructor(message: string, readonly status = 400) {
+    super(message);
+  }
+}
+
+export const NOT_RESPONDING_MESSAGE = 'Kocioł nie przesyła danych — zmiana niemożliwa.';
 
 const isInteger = (value: unknown, min: number, max: number): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
@@ -38,11 +45,15 @@ function findParameter(entry: PelletBoilerSettingsEntry, change: PelletBoilerCom
 
 // Sprawdza i zapisuje zmiany w podanej kolejności (kolejność ma znaczenie, np. minimum przed
 // zadaną). Wcześniejsze oczekujące zlecenie tego samego parametru dostaje status „replaced”.
+// Gdy kocioł nie odpowiada (isBoilerResponding), nic nie jest zapisywane (409): zlecenie nie czeka
+// godzinami w kolejce (decyzja 2026-10-05). Harmonogram i cykl Zimy dostają ten błąd w lastError
+// i ponawiają przebieg co minutę, więc zmienią ustawienia sami po powrocie kotła.
 export async function createCommands(rootId: string, body: unknown): Promise<PelletBoilerCommandEntry[]> {
   const changes = (body as { changes?: unknown })?.changes;
   if (!Array.isArray(changes) || changes.length === 0 || changes.length > MAX_CHANGES) {
     throw new CommandError(`changes: od 1 do ${MAX_CHANGES} zmian`);
   }
+  if (!(await isBoilerResponding(rootId))) throw new CommandError(NOT_RESPONDING_MESSAGE, 409);
   const settings = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
 
   const valid: (PelletBoilerCommandChange & { previous: number; label?: string })[] = [];
