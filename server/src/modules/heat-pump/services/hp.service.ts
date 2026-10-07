@@ -1,6 +1,7 @@
 // Telemetria pompy: zapis (addHpData z POST /hp/add), wykrywanie zdarzeń błędów CHPC,
 // ostatni błąd i odczyty kolekcji hp. Trzyma w pamięci ostatnią telemetrię i listę
 // dni z danymi per rootId (do restartu serwera); scheduler też czyta stąd ostatnie dane.
+import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
 import { HpEntry } from '../types';
 import { sendMessage } from '../../../core/websocket';
 import { HpEntryModel } from '../models/hp.model';
@@ -159,6 +160,11 @@ export const getHpLastError = async (rootId: string, now = new Date()) => {
   return doc ?? {};
 };
 
+// Zapis bez identycznych powtórzeń (core/services/plateau-writer.service.ts). Porównanie pomija czas ze
+// sterownika, t_out (serwer) oraz lt_hp_on i lt_pow (w pracy i tak rosną, więc seria to w praktyce postój).
+const writeHp = createPlateauWriter(HpEntryModel);
+const hpKey = (cast: Record<string, unknown>) => comparisonKey(cast, ['time', 't_out', 'lt_hp_on', 'lt_pow']);
+
 // Zapis rekordu hp: dopisuje t_out (czujnik kotła), rootId, rodzaj, deviceId i ewentualny
 // error_code, aktualizuje pamięć podręczną i wysyła WebSocket "update" do klienta.
 export const addHpData = async (rootId: string, data :HpEntry) => {
@@ -180,7 +186,7 @@ export const addHpData = async (rootId: string, data :HpEntry) => {
   // pamięć podręczna przed zapisem: surowe dane, także pola, które schemat pominie
   lastDataByRoot.set(rootId, dataWithRoot);
 
-  const doc = await HpEntryModel.create(dataWithRoot);
+  const { doc } = await writeHp(rootId, dataWithRoot as unknown as Record<string, unknown>, hpKey);
 
   const cachedDates = availableDatesByRoot.get(rootId);
   if (cachedDates) {

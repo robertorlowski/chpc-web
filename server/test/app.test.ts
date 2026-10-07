@@ -61,6 +61,34 @@ describe('API with MongoDB', () => {
     await mongoServer.stop();
   });
 
+  it('returns database usage for the /devices footer without rootId', async () => {
+    const response = await request(app).get('/api/devices/db-stats')
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({ ok: true, limitBytes: 512 * 1024 * 1024 })
+    expect(response.body.usedBytes).toBe(response.body.dataBytes + response.body.indexBytes)
+    expect(response.body.usedBytes).toBeGreaterThan(0)
+  })
+
+  it('stores identical idle telemetry as a start and a moving end record (plateau writer)', async () => {
+    const device = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'test-hp-plateau', schedules: [] })
+    const id = String(device._id)
+    const telemetry = (time: string, Ttarget: number) => ({
+      time, work_mode: 'MANUAL', HP: { Ttarget, Tbe: 10.1, HPS: 0, Watts: 20, lt_hp_on: 120, lt_pow: 50 },
+    })
+    const add = (body: object) => request(app).post(`/api/hp/add?rootId=${id}&deviceId=test-hp-plateau`).send(body).expect(201)
+    await add(telemetry('2026.10.07 10:00:00', 40.5))
+    await add(telemetry('2026.10.07 10:00:30', 40.5))
+    await add(telemetry('2026.10.07 10:01:00', 40.5))
+    let records = await HpEntryModel.find({ rootId: id }).sort({ createdAt: 1 }).lean()
+    expect(records).toHaveLength(2)
+    // rekord końcowy niesie czas ostatniego odczytu ze sterownika
+    expect(records[1].time).toBe('2026.10.07 10:01:00')
+    // zmiana temperatury: nowy rekord
+    await add(telemetry('2026.10.07 10:01:30', 40.6))
+    records = await HpEntryModel.find({ rootId: id }).lean()
+    expect(records).toHaveLength(3)
+  })
+
   it('returns the latest HP data for the selected device', async () => {
     const response = await request(app)
       .get(`/api/hp?rootId=${rootId}&deviceId=${deviceId}`);

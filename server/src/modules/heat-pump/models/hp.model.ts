@@ -49,7 +49,8 @@ const HpMetricsSchema = new Schema<HpMetrics>(
 // Zapytania idą po rootId + createdAt (timestamps).
 const HpEntrySchema = new Schema<HpEntry>(
   {
-    rootId: { type: String, required: true, index: true },
+    // bez osobnego indeksu: zapytania po rootId obsługuje złożony {rootId, createdAt} (niżej)
+    rootId: { type: String, required: true },
     deviceType: { type: String, enum: Object.values(DeviceType), required: true },
     deviceId: { type: String, required: true, index: true },
     HP: { type: HpMetricsSchema },
@@ -76,6 +77,12 @@ const HpEntrySchema = new Schema<HpEntry>(
   },
   { timestamps: true, _id: true, collection: 'hp' }
 );
+// Indeksy (2026-10-07): {rootId, createdAt} dla danych jednego urządzenia (dzień, zakres, ostatni odczyt);
+// {createdAt} dla monthly-summary (baza M0 sortuje w pamięci najwyżej 32 MB, bez indeksu rok się nie mieści).
+// Na produkcji {createdAt} był założony ręcznie, a {rootId, createdAt} brakowało (dodany 2026-10-07);
+// pojedynczy {rootId} usunięty tego samego dnia jako zbędny.
+HpEntrySchema.index({ rootId: 1, createdAt: -1 });
+HpEntrySchema.index({ createdAt: -1 });
 
 export type HpEntryDoc = InferSchemaType<typeof HpEntrySchema>;
 export const HpEntryModel = model<HpEntryDoc>('HpEntry', HpEntrySchema);

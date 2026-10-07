@@ -4,6 +4,7 @@
 import { HpEntry, PvEntry, PvMetrics } from '../types';
 import { PvEntryModel } from '../models/pv.model';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
+import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
 
 // Odczyt PV starszy niż ten limit nie opisuje już chwili pomiaru HP: nie
 // trafia do rekordu hp (addHp) ani do bieżącej telemetrii (GET /hp).
@@ -29,9 +30,15 @@ const toSummary = (entry: PvEntry): PvSummary => {
   return { PV, pv_power: entry.pv_power };
 };
 
+// Zapis bez identycznych powtórzeń (core/services/plateau-writer.service.ts), głównie noc: porównanie
+// pomija czas ze sterownika, temperatury (falowniki, porty) porównuje po zaokrągleniu do 0,5 °C.
+const writePv = createPlateauWriter(PvEntryModel);
+const pvKey = (cast: Record<string, unknown>) =>
+  comparisonKey(cast, ['time'], { test: (key) => key === 'temperature', step: 0.5 });
+
 export const addPvData = async (rootId: string, data: PvEntry) => {
   const device = await getDeviceInfo(rootId);
-  const doc = await PvEntryModel.create({
+  const { doc } = await writePv(rootId, {
     time: data.time,
     total_power: data.total_power,
     total_prod: data.total_prod,
@@ -42,8 +49,8 @@ export const addPvData = async (rootId: string, data: PvEntry) => {
     rootId,
     deviceType: device.deviceType,
     deviceId: device.deviceId,
-  });
-  const stored = doc.toObject() as PvEntry;
+  }, pvKey);
+  const stored = doc as unknown as PvEntry;
   lastPvDataByRoot.set(rootId, stored);
   return stored;
 };
