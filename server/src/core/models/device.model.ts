@@ -85,6 +85,11 @@ const DeviceSchema = new Schema<DeviceDocument>(
       }, { _id: false }),
       default: undefined,
     },
+    // kocioł pelletowy: powiązana pompa ciepła (Root ID urządzenia heat_pump albo null), walidacja w device.service.ts
+    boilerConfig: {
+      type: new Schema({ heatPumpRootId: { type: String, default: null } }, { _id: false }),
+      default: undefined,
+    },
     // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },

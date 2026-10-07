@@ -12,16 +12,14 @@
 // Moduły nie importują siebie nawzajem: stan i wymuszenie pompy ciepła idą przez API serwera (GET /hp,
 // POST /operation/set), jak ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts).
 import { fromZonedTime } from 'date-fns-tz';
-import { DeviceModel } from '../../../core/models/device.model';
 import { TIME_ZONE } from '../../../core/time';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
-import { boilerMode } from './pellet-boiler-pelux200-settings.service';
-import { DeviceType } from '../../../core/types';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerSeason, PelletBoilerWinterCycle } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
+import { effectiveBoilerMode, linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
 
 export const WINTER_FROM = 40;
 export const SUMMER_BELOW = 30;
@@ -114,14 +112,14 @@ export async function runWinterCycle(
   return cycle;
 }
 
-// Wymuszenie startu sprężarki pompy ciepła (jedyna pompa heat_pump na koncie), gdy stoi albo nie wiadomo.
+// Wymuszenie startu sprężarki powiązanej pompy ciepła (definicja kotła), gdy stoi albo nie wiadomo.
 async function forcePumpIfDue(rootId: string, cycle: PelletBoilerWinterCycle, now: Date, pump: HeatPumpControl) {
   if (cycle.forcedAt && now.getTime() - cycle.forcedAt.getTime() < FORCE_REPEAT_MS) return;
-  const heatPump = await DeviceModel.findOne({ deviceType: DeviceType.HP }).select('_id').lean();
+  const heatPump = await linkedHeatPumpRootId(rootId);
   if (!heatPump) return;
   try {
-    if (await pump.running(String(heatPump._id))) return;
-    await pump.force(String(heatPump._id));
+    if (await pump.running(heatPump)) return;
+    await pump.force(heatPump);
     cycle.forcedAt = now;
     console.log(`[pellet zima] ${rootId} kocioł ${cycle.temperature} °C < ${WINTER_FROM} — wymuszam start sprężarki pompy ciepła`);
   } catch (error) {
@@ -133,11 +131,11 @@ async function forcePumpIfDue(rootId: string, cycle: PelletBoilerWinterCycle, no
 // undefined: tryb Pellet, brak pompy ciepła albo jej świeżych danych.
 export async function heatPumpRunningInHeatPumpMode(rootId: string, pump: HeatPumpControl = heatPumpControl) {
   const settings = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
-  if (boilerMode(settings) !== 'heat-pump') return undefined;
-  const heatPump = await DeviceModel.findOne({ deviceType: DeviceType.HP }).select('_id').lean();
+  if ((await effectiveBoilerMode(rootId, settings)) !== 'heat-pump') return undefined;
+  const heatPump = await linkedHeatPumpRootId(rootId);
   if (!heatPump) return undefined;
   try {
-    return (await pump.running(String(heatPump._id))) ?? undefined;
+    return (await pump.running(heatPump)) ?? undefined;
   } catch {
     return undefined;
   }

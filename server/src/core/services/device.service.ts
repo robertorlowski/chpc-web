@@ -1,12 +1,12 @@
 
 // Operacje na kolekcji devices dla device.controller: tworzenie, zgłoszenie
 // sterownika, nazwa, definicja pompy, sterownik domyślny i ustawienia (properties).
-import { DeviceProperties, DeviceType, PumpConfig } from '../types';
+import { BoilerConfig, DeviceProperties, DeviceType, PumpConfig } from '../types';
 import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
 
 // Pojemność zbiornika pompy [l], pełne litry.
 const TANK_LITERS_MIN = 20;
@@ -27,6 +27,18 @@ export function parsePumpConfig(value: unknown): PumpConfig {
     throw new Error('pumpConfig.pvDtu i pumpConfig.pvForce: true albo false.');
   }
   return { connection: config.connection, tankLiters, pvDtu: config.pvDtu, pvForce: config.pvDtu && config.pvForce };
+}
+
+// Definicja kotła z okna „Dane sterownika”: Root ID istniejącej pompy ciepła albo null (bez pompy).
+export async function parseBoilerConfig(value: unknown): Promise<BoilerConfig> {
+  const id = (value ?? {} as Record<string, unknown>) as Record<string, unknown>;
+  const heatPumpRootId = id.heatPumpRootId ?? null;
+  if (heatPumpRootId === null) return { heatPumpRootId: null };
+  if (typeof heatPumpRootId !== 'string' || !/^[0-9a-f]{24}$/i.test(heatPumpRootId)
+    || !(await DeviceModel.exists({ _id: heatPumpRootId, deviceType: DeviceType.HP }))) {
+    throw new Error('boilerConfig.heatPumpRootId: Root ID pompy ciepła albo null.');
+  }
+  return { heatPumpRootId };
 }
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;
@@ -100,12 +112,16 @@ export async function setDefaultDevice(rootId: string, isDefault: boolean): Prom
 // Okno „Dane sterownika”: nazwa i (tylko pompa ciepła) definicja pompy.
 export async function updateDeviceData(
   rootId: string,
-  data: { name?: string; pumpConfig?: PumpConfig },
+  data: { name?: string; pumpConfig?: PumpConfig; boilerConfig?: BoilerConfig },
 ): Promise<DeviceDocument> {
-  if (data.pumpConfig) {
+  if (data.pumpConfig || data.boilerConfig) {
     const existing = await DeviceModel.findById(rootId).select('deviceType').lean<DeviceDocument>();
     if (!existing) throw new Error('Device not found.');
-    if (existing.deviceType !== DeviceType.HP) throw new Error('pumpConfig: tylko pompa ciepła.');
+    if (data.pumpConfig && existing.deviceType !== DeviceType.HP) throw new Error('pumpConfig: tylko pompa ciepła.');
+    if (data.boilerConfig) {
+      if (existing.deviceType !== DeviceType.PELLET_BOILER_PELUX200) throw new Error('boilerConfig: tylko kocioł pelletowy.');
+      await getDeviceTypeModule(existing.deviceType).checkDefinition?.(rootId, { boilerConfig: data.boilerConfig });
+    }
   }
   const device = await DeviceModel.findByIdAndUpdate(
     rootId,

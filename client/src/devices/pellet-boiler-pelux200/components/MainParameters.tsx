@@ -16,6 +16,7 @@ import {
 import { WinterCycleStatus } from './WinterCycleStatus';
 import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
 import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
+import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -413,7 +414,10 @@ export const MainParameters: React.FC = () => {
   const [seasonError, setSeasonError] = useState('');
   // tryb pompy ciepła: Zimą steruje cykl na serwerze (Zima przy kotle ≥ 40 °C, Lato przy < 30 °C i stojącej
   // pompie CO); przycisk zapisuje wybrany sezon (PUT /season), a stan cyklu jest w GET /schedules/current
-  const heatPumpMode = workModeName(settings ?? null) === 'Pompa ciepła';
+  // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: bez sekcji „Tryb pracy”
+  // i bez cyklu Zimy (serwer też traktuje kocioł jak Pellet).
+  const heatPumpLinked = useHeatPumpLinked();
+  const heatPumpMode = !!heatPumpLinked && workModeName(settings ?? null) === 'Pompa ciepła';
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
   useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
   const wantedWinter = heatPumpMode && (current?.manualSeason === 'winter' || !!current?.winterCycle);
@@ -528,6 +532,7 @@ export const MainParameters: React.FC = () => {
 
   return (
     <>
+      {heatPumpLinked && (
       <div className="resource">
         <h3 className="settings-section-title">Tryb pracy</h3>
         {offline && <div className="boiler-error">{NOT_RESPONDING_TEXT}</div>}
@@ -549,10 +554,12 @@ export const MainParameters: React.FC = () => {
         {modeBlocked && <div className="boiler-error">{modeBlocked}</div>}
 
       </div>
+      )}
 
 
       <div className="resource">
         <h3 className="settings-section-title">Główne parametry</h3>
+        {!heatPumpLinked && offline && <div className="boiler-error">{NOT_RESPONDING_TEXT}</div>}
         {settings === undefined && <div>Wczytywanie…</div>}
         {settings !== undefined && !ready && <div>Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</div>}
         {scheduleSettings && (

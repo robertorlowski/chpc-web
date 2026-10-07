@@ -10,6 +10,7 @@ import { PelletBoilerChart } from './pages/Chart';
 import { PelletBoilerSchedules } from './pages/Schedules';
 import { PelletBoilerSettings } from './pages/Settings';
 import { PelletBoilerAlertsPage } from './components/Alerts';
+import { BoilerConfigFields } from './components/BoilerConfigFields';
 
 // Kocioł pelletowy: podgląd, dane z dnia, wykres temperatur, harmonogram (sezon, CWU od–do) i ustawienia.
 export const pelletBoilerDeviceType: DeviceTypeView = {
@@ -21,6 +22,8 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 	),
 	label: 'Piec Pellux 200',
 	firmwareUpdates: true,
+	// okno „Dane sterownika”: powiązana pompa ciepła (bez niej kocioł tylko na pellecie)
+	DefinitionFields: BoilerConfigFields,
 	views: [
 		{ path: '/', label: 'Kocioł', icon: <FlameIcon />, element: <PelletBoilerHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <PelletBoilerData /> },

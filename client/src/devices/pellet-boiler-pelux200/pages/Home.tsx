@@ -18,6 +18,7 @@ import {
   heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
+import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
 const REFRESH_MS = 30_000;
 
@@ -100,6 +101,8 @@ export const PelletBoilerHome: React.FC = () => {
   const empty = reading !== null && !reading.createdAt;
   const stale = !!reading?.createdAt && isStale(reading.createdAt, pollSeconds);
   const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === 4);
+  // bez powiązanej pompy ciepła kocioł pracuje tylko na pellecie: bez „Praca: Pompa ciepła / Pellet”
+  const heatPumpLinked = useHeatPumpLinked();
   // „Wybór termostatu” (nr 111): 0 = termostat nie wpływa na kocioł (u nas wyłączony, 2026-10-07)
   const thermostatMode = settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === 111);
   const burning = isBurning(reading?.state);
@@ -142,7 +145,7 @@ export const PelletBoilerHome: React.FC = () => {
             )}
             <div className="resource boiler-status">
               <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
-              <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>
+              {heatPumpLinked && <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>}
               <Pump label="Pompa CO" on={reading.heating_pump} />
               <Pump label="Pompa CWU" on={reading.water_heater_pump} />
             </div>

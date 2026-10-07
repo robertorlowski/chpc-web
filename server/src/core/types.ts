@@ -62,6 +62,15 @@ export interface PumpConfig {
   pvForce: boolean;
 }
 
+// Definicja kotła pelletowego (okno „Dane sterownika”): pompa ciepła, z którą kocioł pracuje w trybie
+// „Pompa ciepła”. null = bez pompy ciepła: kocioł pracuje tylko na pellecie, aplikacja nie pokazuje trybu pracy.
+export interface BoilerConfig {
+  heatPumpRootId: string | null;
+}
+
+// Zapis definicji odrzucony przez moduł rodzaju (np. usunięcie pompy ciepła przy trybie „Pompa ciepła”): 409.
+export class DefinitionConflictError extends Error {}
+
 export interface Device {
   deviceType: DeviceType;
   deviceId: string;
@@ -78,6 +87,8 @@ export interface Device {
   ipSeenAt?: Date;
   /** pompa ciepła: podłączenie, zbiornik i fotowoltaika; brak = jeszcze nie ustawione (PUMP_CONFIG_DEFAULTS) */
   pumpConfig?: PumpConfig;
+  /** kocioł pelletowy: powiązana pompa ciepła; brak pola = jeszcze nie ustawione (uzupełniane przy starcie serwera) */
+  boilerConfig?: BoilerConfig;
   // pompa ciepła: starsze ustawienia czasowe i harmonogramy
   settings?: SettingsEntry;
   schedules?: ScheduleEntry[];
@@ -100,4 +111,6 @@ export interface DeviceTypeModule {
   onRegister?: (rootId: string, deviceId: string, body: Record<string, unknown>) => Promise<void>;
   /** wołane po zapisie ustawień urządzenia (PUT /device/properties), np. pompa kasuje ręczne nadpisania */
   onPropertiesSaved?: (rootId: string) => Promise<void>;
+  /** sprawdzenie definicji przed zapisem (okno „Dane sterownika”); DefinitionConflictError = 409 */
+  checkDefinition?: (rootId: string, definition: { boilerConfig?: BoilerConfig }) => Promise<void>;
 }

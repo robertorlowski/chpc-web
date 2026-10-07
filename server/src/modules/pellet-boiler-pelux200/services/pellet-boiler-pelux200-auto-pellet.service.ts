@@ -15,7 +15,8 @@ import { PelletBoilerAutoPellet, PelletBoilerCommandChange } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { getScheduleSettings } from './pellet-boiler-pelux200-schedule.service';
-import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
+import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
+import { effectiveBoilerMode } from './pellet-boiler-pelux200-heat-pump-link.service';
 
 const KINDLING = 2;
 // odczyt starszy niż to nie wyzwala przejścia (np. zaległy odczyt po powrocie łączności)
@@ -69,7 +70,7 @@ export async function checkAutoPellet(rootId: string, now = new Date()) {
   ]);
   const readingAt = last ? new Date((last as { createdAt?: Date }).createdAt ?? 0) : null;
   if (last?.state !== KINDLING || !readingAt || now.getTime() - readingAt.getTime() > READING_MAX_AGE_MS) return null;
-  if (!settings || boilerMode(settings) !== 'heat-pump') return null;
+  if (!settings || (await effectiveBoilerMode(rootId, settings)) !== 'heat-pump') return null;
   if (await getAutoPellet(rootId)) return null;
   const { profiles } = await getScheduleSettings(rootId);
   // przejście już w drodze: zadana albo minimum kotła z wartością trybu Pellet czeka na kocioł

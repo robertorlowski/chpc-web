@@ -20,6 +20,7 @@ import { WinterCycleStatus } from '../components/WinterCycleStatus';
 import {
   PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason,
 } from '../types';
+import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
 const weekDays = [
   ['Poniedziałek', WeekDay.MONDAY], ['Wtorek', WeekDay.TUESDAY], ['Środa', WeekDay.WEDNESDAY],
@@ -70,6 +71,10 @@ export const PelletBoilerSchedules: React.FC = () => {
   const [settings, setSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
   const [schedules, setSchedules] = useState<PelletBoilerSchedule[] | null>(null);
+  // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: jedna lista wpisów (Pellet),
+  // bez sekcji „Pompa ciepła”, nagłówka trybu i wyboru trybu we wpisie.
+  const heatPumpLinked = useHeatPumpLinked();
+  const visibleModes = heatPumpLinked ? MODES : MODES.filter((mode) => mode === 'pellet');
   const [form, setForm] = useState(emptyForm);
   const [useDate, setUseDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -229,12 +234,14 @@ export const PelletBoilerSchedules: React.FC = () => {
                 <option value="cwu">CWU</option>
               </select>
             </label>
-            <label>
-              Dla trybu kotła
-              <select value={form.mode} onChange={(event) => update('mode', event.target.value)}>
-                {MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
-              </select>
-            </label>
+            {heatPumpLinked && (
+              <label>
+                Dla trybu kotła
+                <select value={form.mode} onChange={(event) => update('mode', event.target.value)}>
+                  {MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
+                </select>
+              </label>
+            )}
             <label className="schedule-toggle">
               <input type="checkbox" checked={useDate} onChange={(event) => setUseDate(event.target.checked)} />
               Data jednorazowa
@@ -308,9 +315,9 @@ export const PelletBoilerSchedules: React.FC = () => {
           <div>Temperatura na zewnątrz: <b>{typeof outdoor === 'number' ? `${outdoor.toFixed(1)} °C` : '---'}</b></div>
           {current && !current.mode && <div className="boiler-hint">Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.</div>}
           <WinterCycleStatus cycle={current?.winterCycle} />
-          {schedules === null || settings === null ? <p>Ładowanie...</p> : (
+          {schedules === null || settings === null || heatPumpLinked === undefined ? <p>Ładowanie...</p> : (
             <form className="schedule-groups" onSubmit={saveSettings}>
-              {MODES.map((mode) => {
+              {visibleModes.map((mode) => {
                 const seasons = schedules.filter((s) => s.mode === mode && s.type === 'season');
                 const cwu = schedules.filter((s) => s.mode === mode && (s.type ?? 'cwu') === 'cwu');
                 const now = running(mode);
@@ -334,9 +341,11 @@ export const PelletBoilerSchedules: React.FC = () => {
                 return (
                   <section key={mode} className="schedule-group">
                     {/* tryb kotła z odczytu ustawień (nr 99), niezależnie od harmonogramu: WŁĄCZONA niebieski, drugi WYŁĄCZONY czerwony */}
-                    <h4>{MODE_LABEL[mode]} · <span className={current?.mode === mode ? 'boiler-state-on' : 'boiler-state-off'}>
-                      {mode === 'heat-pump' ? (current?.mode === mode ? 'WŁĄCZONA' : 'WYŁĄCZONA') : (current?.mode === mode ? 'WŁĄCZONY' : 'WYŁĄCZONY')}
-                    </span></h4>
+                    {heatPumpLinked && (
+                      <h4>{MODE_LABEL[mode]} · <span className={current?.mode === mode ? 'boiler-state-on' : 'boiler-state-off'}>
+                        {mode === 'heat-pump' ? (current?.mode === mode ? 'WŁĄCZONA' : 'WYŁĄCZONA') : (current?.mode === mode ? 'WŁĄCZONY' : 'WYŁĄCZONY')}
+                      </span></h4>
+                    )}
 
                     <div className="schedule-list-header">
                       <span className="boiler-schedule-kind">Tryb pracy (Lato / Zima)</span>
@@ -378,7 +387,7 @@ export const PelletBoilerSchedules: React.FC = () => {
               })}
               {current?.enabled && current.state && (
                 <div className="boiler-hint">
-                  Teraz ({MODE_LABEL[current.state.mode]}): {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
+                  Teraz{heatPumpLinked ? ` (${MODE_LABEL[current.state.mode]})` : ''}: {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
                   CWU {cwuText(current.state.cwuFrom, current.state.cwuTo)}.
                   {' '}Zmiany z obu harmonogramów idą do kotła jednym zleceniem przy przejściu między wpisami; ręczna zmiana zostaje do następnego przejścia.
                 </div>

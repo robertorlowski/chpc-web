@@ -42,6 +42,7 @@ import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service';
 import { HeatPumpControl, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
+import { effectiveBoilerMode, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
 
 export { boilerMode };
 
@@ -261,7 +262,7 @@ async function activeManualSeason(rootId: string, scheduled: PelletBoilerSeason 
 export async function setManualSeason(rootId: string, season: PelletBoilerSeason, now = new Date(), pump: HeatPumpControl = heatPumpControl) {
   const settings = await getScheduleSettings(rootId);
   const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
-  const mode = boilerMode(boiler);
+  const mode = await effectiveBoilerMode(rootId, boiler);
   if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
   const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
   const { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), settings.lastApplied?.seasonScheduleId);
@@ -302,7 +303,7 @@ export async function applySchedule(rootId: string, now = new Date(), pump: Heat
       return;
     }
     const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
-    const mode = boilerMode(boiler);
+    const mode = await effectiveBoilerMode(rootId, boiler);
     if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
     const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
     let { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
@@ -369,7 +370,10 @@ export async function runPelletBoilerSchedulerOnce(now = new Date()) {
 
 export function startPelletBoilerScheduler(): NodeJS.Timeout {
   let running = false;
+  // kotły sprzed powiązania z pompą ciepła dostają ją raz, przed pierwszym przebiegiem
+  const migrated = migrateBoilerDefinitions().catch((error) => console.error('[pellet] powiązanie z pompą ciepła:', error));
   const tick = async () => {
+    await migrated;
     if (running) return;
     running = true;
     try {
@@ -417,7 +421,7 @@ export async function saveScheduleSettings(rootId: string, input: Omit<PelletBoi
 export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const settings = await getScheduleSettings(rootId);
   const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
-  const mode = boilerMode(boiler);
+  const mode = await effectiveBoilerMode(rootId, boiler);
   const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
   const outdoor = await boilerOutdoorTemperature(rootId, now);
   const current = mode

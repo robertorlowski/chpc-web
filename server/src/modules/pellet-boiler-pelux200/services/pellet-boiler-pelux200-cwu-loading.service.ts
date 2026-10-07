@@ -5,18 +5,16 @@
 // od razu po jej przełączeniu).
 // Moduły nie importują siebie nawzajem: stan idzie do pompy przez API serwera (PUT /hp/cwu-loading,
 // INTERNAL_API_URL albo http://127.0.0.1:PORT/api), co minutę (scheduler kotła) i po każdym odczycie
-// kotła; pompa bez odświeżenia przez 15 min sama kończy ładowanie. Pompa ciepła to na razie jedyna
-// pompa (heat_pump) na koncie — powiązanie kotła z wybraną pompą jest do zrobienia później.
+// kotła; pompa bez odświeżenia przez 15 min sama kończy ładowanie. Pompa ciepła to pompa powiązana
+// z kotłem w jego definicji (heat-pump-link.service.ts); bez niej ładowania nie ma.
 // Stan dla ekranu głównego kotła (z informacją, że pompa ciepła jest wyłączona) jest w ustawieniach
 // harmonogramu (pole cwuLoading), GET /pellet-boiler-pelux200/cwu-loading.
-import { DeviceModel } from '../../../core/models/device.model';
-import { DeviceType } from '../../../core/types';
 import { sendMessage } from '../../../core/websocket';
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerCwuLoading } from '../types';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
-import { boilerMode } from './pellet-boiler-pelux200-settings.service';
+import { effectiveBoilerMode, linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
 
 // odczyt starszy niż to nie świadczy o ładowaniu (kocioł bez łączności)
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
@@ -52,11 +50,12 @@ export async function evaluateCwuLoading(rootId: string, now = new Date(), notif
   ]);
   const readingAt = last ? new Date((last as { createdAt?: Date }).createdAt ?? 0) : null;
   const fresh = !!readingAt && now.getTime() - readingAt.getTime() < READING_MAX_AGE_MS;
-  const active = boilerMode(settings) === 'heat-pump' && fresh && last?.water_heater_pump === true;
+  const active = (await effectiveBoilerMode(rootId, settings)) === 'heat-pump' && fresh && last?.water_heater_pump === true;
   const since = active ? (saved.active && saved.since ? new Date(saved.since) : readingAt ?? now) : null;
 
   const state: PelletBoilerCwuLoading = { active, since, heatPumpOff: false };
-  const pump = await DeviceModel.findOne({ deviceType: DeviceType.HP }).select('_id').lean();
+  const pumpRootId = await linkedHeatPumpRootId(rootId);
+  const pump = pumpRootId ? { _id: pumpRootId } : null;
   if (!pump) {
     state.error = 'Brak pompy ciepła na koncie.';
   } else {

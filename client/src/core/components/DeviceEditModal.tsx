@@ -55,9 +55,11 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
     try {
       // pusta nazwa jest dozwolona (wraca wyświetlanie deviceId); onSaved dostaje całe urządzenie
       const updated = await DeviceRequests.updateDevice(device.rootId, { name: name.trim(), ...definition });
-      onSaved({ ...device, name: updated.name, pumpConfig: updated.pumpConfig });
-    } catch {
-      setError('Nie udało się zapisać danych sterownika.');
+      onSaved({ ...device, name: updated.name, pumpConfig: updated.pumpConfig, boilerConfig: updated.boilerConfig });
+    } catch (caught) {
+      // 409: serwer odrzucił definicję z powodem (np. kocioł w trybie „Pompa ciepła” przy odłączaniu pompy)
+      const failure = caught as { status?: number; serverMessage?: string };
+      setError(failure.status === 409 && failure.serverMessage ? failure.serverMessage : 'Nie udało się zapisać danych sterownika.');
     } finally {
       setSaving(false);
     }

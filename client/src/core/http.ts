@@ -163,7 +163,9 @@ export class Requests {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // kod i komunikat serwera dla wywołującego (np. 409 w oknie „Dane sterownika”); treść błędu bez zmian
+      const body = await response.json().catch(() => null);
+      throw Object.assign(new Error(`HTTP error! status: ${response.status}`), { status: response.status, serverMessage: body?.message });
     }
 
     return response.json();

@@ -65,8 +65,13 @@ export type Device = {
   ipSeenAt?: string;
   // pompa ciepła: definicja z okna „Dane sterownika”; brak = jeszcze nie ustawiona
   pumpConfig?: PumpConfig;
+  // kocioł pelletowy: powiązana pompa ciepła (null = kocioł tylko na pellecie)
+  boilerConfig?: BoilerConfig;
   properties?: DeviceProperties;
 };
+
+// Definicja kotła pelletowego (kontrakt z serwerem, core/types.ts): pompa ciepła trybu „Pompa ciepła”.
+export type BoilerConfig = { heatPumpRootId: string | null };
 
 // Definicja pompy ciepła (kontrakt z serwerem, core/types.ts): podłączenie, zbiornik i fotowoltaika.
 export type PumpConnection = 'cwu' | 'co';
@@ -81,7 +86,7 @@ export type PumpConfig = {
 };
 
 // Pola okna „Dane sterownika” poza nazwą (PUT /devices/:rootId), zależne od rodzaju.
-export type DeviceDefinition = { pumpConfig?: PumpConfig };
+export type DeviceDefinition = { pumpConfig?: PumpConfig; boilerConfig?: BoilerConfig };
 
 // GET /api/devices/db-stats (stopka strony /devices): zajętość bazy (dane + indeksy) względem limitu
 // planu Atlas M0 (512 MB) i odpowiedź bazy na ping; ok = false albo brak odpowiedzi = baza nie działa.

@@ -82,6 +82,7 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
   it('kocioł: ładowanie = tryb pompy ciepła i pompa CWU, zgłaszane pompie przez API', async () => {
     const sn = 'AABBCC0000B1';
     const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
     const reading = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(body).expect(201);
     const boiler = () => request(app).get(`/api/pellet-boiler-pelux200/cwu-loading?rootId=${boilerRoot}`);
 
@@ -108,6 +109,7 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
   it('rozpalanie w trybie pompy ciepła: nastawy Pellet bez wyłączania, komunikat do „OK”', async () => {
     const sn = 'AABBCC0000B3';
     const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
     const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
     const reading = (state: number) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state }).expect(201);
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
@@ -142,6 +144,7 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
   it('tryb pompy ciepła: CWU najwyżej 45 °C, zmiana z panelu wraca do harmonogramu', async () => {
     const sn = 'AABBCC0000B2';
     const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
     const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
     const base = { dayOfWeek: -1, startTime: '05:00', endTime: '06:00' };
     expect((await request(app).post(api('schedules')).send({ ...base, mode: 'heat-pump', cwuFrom: 40, cwuTo: 46 })).status).toBe(400);

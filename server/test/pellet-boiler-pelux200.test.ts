@@ -15,10 +15,20 @@ import { applySchedule, scheduleState } from '../src/modules/pellet-boiler-pelux
 import { PelletBoilerPelux200Model } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200.model'
 import { PelletBoilerCommandModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-command.model'
 import { heatPumpRunningInHeatPumpMode, runWinterCycle } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-winter-cycle.service'
+import { migrateBoilerDefinitions } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-heat-pump-link.service'
+import { DeviceModel } from '../src/core/models/device.model'
 
 const TYPE = 'pellet-boiler-pelux200';
 const register = (deviceId: string, deviceType = TYPE) =>
   request(app).post('/api/devices/register').send({ deviceId, deviceType, name: 'Kocioł' });
+
+// Kocioł powiązany z pompą ciepła (definicja kotła, od 2026-10-08): tryb „Pompa ciepła” działa tylko z pompą.
+const registerWithHeatPump = async (deviceId: string, pumpId = `${deviceId.slice(0, 10)}EE`) => {
+  const res = await register(deviceId);
+  const pump = (await register(pumpId, 'heat_pump')).body.rootId as string;
+  await request(app).put(`/api/devices/${res.body.rootId}`).send({ boilerConfig: { heatPumpRootId: pump } }).expect(200);
+  return res;
+};
 
 describe('Kocioł pelletowy Pellux 200', () => {
   let mongoServer: MongoMemoryServer;
@@ -366,7 +376,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
 
   it('harmonogram: CWU od–do osobno dla trybu, tryb z odczytu ustawień, zlecenia tylko przy zmianie', async () => {
     const sn = 'AABBCC000012';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn)).body;
     const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
     const commands = async () => (await request(app).get(api('commands'))).body as { kind: string; index: number; value: number; status: string }[];
     // kocioł w postoju (stan 5) — włączony, więc „włącz” nie jest zlecane
@@ -429,7 +439,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
 
   it('harmonogram sezonu: Lato/Zima (nr 125) w oknie razem z CWU jednym zleceniem, próg temperatury z histerezą', async () => {
     const sn = 'AABBCC000013';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn)).body;
     const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
     await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5 }).expect(201);
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
@@ -477,7 +487,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
 
   it('cykl Zimy w trybie pompy ciepła: Zima przy kotle ≥ 40 °C, Lato przy < 30 °C i stojącej pompie CO, wymuszanie startu pompy', async () => {
     const sn = 'AABBCC000014';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn, 'AABBCC0000F4')).body;
     await register('AABBCC0000F4', 'heat_pump');
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
     const reading = (heating_temp: number, heating_pump: boolean) =>
@@ -521,7 +531,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
   it('cykl Zimy na prawdziwych odczytach kotła z 2026-10-04 (Lato do 22:27, potem Zima)', async () => {
     // fixture: test/fixtures/kociol-cykl-zimy-2026-10-04.json (czas, temperatura kotła, pompa CO; bez identyfikatorów)
     const sn = 'AABBCC000016';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn)).body;
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
     const forced: Date[] = [];
     const decisions: { t: string; temp: number; pump: boolean; season: string; action: string }[] = [];
@@ -665,9 +675,49 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await request(app).get(`/api/pellet-boiler-pelux200/fuel?rootId=${rootId}&period=week&date=2026-10-07`)).status).toBe(400);
   });
 
+  it('powiązanie z pompą ciepła: nowy kocioł bez pompy, walidacja, blokada w trybie pompy, bez pompy tryb Pellet', async () => {
+    const sn = 'AABBCC0000F9';
+    const { rootId } = (await register(sn)).body;
+    const devices = async () => (await request(app).get('/api/devices')).body as { rootId: string; boilerConfig?: { heatPumpRootId: string | null } }[];
+    const boiler = async () => (await devices()).find((d) => d.rootId === rootId);
+    // nowy kocioł: bez pompy ciepła
+    expect((await boiler())?.boilerConfig).toEqual({ heatPumpRootId: null });
+    const put = (body: object, id = rootId) => request(app).put(`/api/devices/${id}`).send(body);
+    const pump = (await register('AABBCC0000FA', 'heat_pump')).body.rootId as string;
+    // walidacja: tylko Root ID pompy ciepła, tylko dla kotła
+    expect((await put({ boilerConfig: { heatPumpRootId: rootId } })).status).toBe(400);
+    expect((await put({ boilerConfig: { heatPumpRootId: 'xyz' } })).status).toBe(400);
+    expect((await put({ boilerConfig: { heatPumpRootId: null } }, pump)).status).toBe(400);
+    expect((await put({ boilerConfig: { heatPumpRootId: pump } })).status).toBe(200);
+    expect((await boiler())?.boilerConfig).toEqual({ heatPumpRootId: pump });
+
+    // kocioł w trybie „Pompa ciepła” (nr 99 < 50 °C): odłączenie pompy zablokowane (409)
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0 }).expect(201);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const current = async () => (await request(app).get(`/api/pellet-boiler-pelux200/schedules/current?rootId=${rootId}`)).body;
+    expect((await current()).mode).toBe('heat-pump');
+    const blocked = await put({ boilerConfig: { heatPumpRootId: null } });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.message).toMatch(/zmień tryb pracy na Pellet/);
+    expect((await boiler())?.boilerConfig).toEqual({ heatPumpRootId: pump });
+
+    // w trybie Pellet odłączenie przechodzi; gdyby potem ustawiono nr 99 < 50 °C na panelu, kocioł i tak działa jak Pellet
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+    expect((await put({ boilerConfig: { heatPumpRootId: null } })).status).toBe(200);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    expect((await current()).mode).toBe('pellet');
+    expect(await heatPumpRunningInHeatPumpMode(rootId, { running: async () => true, force: async () => {} })).toBeUndefined();
+
+    // kocioł sprzed powiązania (bez boilerConfig) dostaje przy starcie serwera pierwszą pompę ciepła na koncie
+    await DeviceModel.updateOne({ _id: rootId }, { $unset: { boilerConfig: 1 } });
+    await migrateBoilerDefinitions();
+    const first = await DeviceModel.findOne({ deviceType: 'heat_pump' }).sort({ createdAt: 1 }).select('_id').lean();
+    expect((await boiler())?.boilerConfig).toEqual({ heatPumpRootId: String(first?._id) });
+  });
+
   it('praca sprężarki pompy ciepła tylko w trybie pompy ciepła (stan „Praca” w aplikacji)', async () => {
     const sn = 'AABBCC000017';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn, 'AABBCC0000F7')).body;
     await register('AABBCC0000F7', 'heat_pump');
     const pump = (running: boolean | null) => ({ running: async () => running, force: async () => undefined });
 
@@ -685,7 +735,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
 
   it('przycisk Lato / Zima w trybie pompy ciepła: Zima przez cykl, walidacja', async () => {
     const sn = 'AABBCC000015';
-    const { rootId } = (await register(sn)).body;
+    const { rootId } = (await registerWithHeatPump(sn)).body;
     const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
     await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, heating_temp: 35, heating_pump: false }).expect(201);
     await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
