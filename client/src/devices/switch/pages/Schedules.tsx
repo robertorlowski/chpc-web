@@ -7,7 +7,7 @@ import '../../heat-pump/pages/Schedules/style.css';
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { WeekDay } from '../../../core/types';
-import Notification from '../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { IconButton } from '../../../core/components/IconButton';
 import { EditIcon, PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { SwitchRequests } from '../api';
@@ -50,7 +50,8 @@ export const SwitchSchedules: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  // noticeBusy: komunikat widoczny, przycisk zapisu nieaktywny do jego zniknięcia (useSaveNotice)
+  const { notice, showNotice, busy: noticeBusy } = useSaveNotice();
 
   const loadRelays = () => SwitchRequests.getRelays().then((result) => result && setRelays(result));
   const loadSchedules = () => SwitchRequests.getSchedules().then((result) => setSchedules(result ?? []));
@@ -88,8 +89,7 @@ export const SwitchSchedules: React.FC = () => {
       resetForm();
       loadSchedules();
       loadRelays();
-      setNotice('Harmonogram zapisany.');
-      window.setTimeout(() => setNotice(''), 3000);
+      showNotice('Harmonogram zapisany.');
     } catch {
       setError('Nie udało się zapisać harmonogramu.');
     } finally {
@@ -174,7 +174,7 @@ export const SwitchSchedules: React.FC = () => {
               Aktywny
             </label>
             <div className="schedule-form-actions">
-              <button type="submit" disabled={saving}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
+              <button type="submit" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
               <button type="button" className="schedule-cancel" onClick={resetForm}>{editingId ? 'Anuluj' : 'Zamknij'}</button>
             </div>
             {error && <p className="schedule-error">{error}</p>}

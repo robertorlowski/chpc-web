@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
-import Notification from '../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
@@ -20,7 +20,8 @@ export const SwitchSettings: React.FC = () => {
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [defaultMinutes, setDefaultMinutes] = useState('30');
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  // przycisk zapisu nieaktywny w trakcie zapisu i dopóki widać komunikat (useSaveNotice)
+  const { notice, showNotice, run, busy } = useSaveNotice();
   const [editingDevice, setEditingDevice] = useState(false);
 
   useEffect(() => {
@@ -34,11 +35,6 @@ export const SwitchSettings: React.FC = () => {
     });
   }, []);
 
-  const showNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(''), 3000);
-  };
-
   // Nazwy zmienione względem wczytanych; domyślny czas — całe properties ($set na serwerze).
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -50,7 +46,7 @@ export const SwitchSettings: React.FC = () => {
       return setError('Nazwa przekaźnika: najwyżej 40 znaków.');
     }
     setError('');
-    try {
+    await run(async () => { try {
       const changed = (relays ?? []).filter((relay) => (names[relay.relay] ?? '').trim() !== relay.name);
       await Promise.all(changed.map((relay) => SwitchRequests.renameRelay(relay.relay, (names[relay.relay] ?? '').trim())));
       if (minutes !== properties?.default_on_minutes) {
@@ -60,7 +56,7 @@ export const SwitchSettings: React.FC = () => {
       showNotice('Zapisano.');
     } catch {
       setError('Nie udało się zapisać ustawień.');
-    }
+    } });
   };
 
   return (
@@ -91,7 +87,7 @@ export const SwitchSettings: React.FC = () => {
           <div className="switch-hint switch-form-hint">Domyślny dla „Włącz”; 0 = bez limitu czasu.</div>
           {error && <div className="switch-error">{error}</div>}
           <div className="switch-form-actions">
-            <button type="submit" disabled={relays === null || properties === null}>Zapisz</button>
+            <button type="submit" disabled={relays === null || properties === null || busy}>Zapisz</button>
           </div>
         </form>
 

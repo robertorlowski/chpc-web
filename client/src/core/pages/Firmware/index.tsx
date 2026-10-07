@@ -8,7 +8,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FirmwareRequests } from '../../api';
 import { DeviceType, FirmwareImage, FirmwareSummary } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
-import Notification from '../../components/Notification';
+import Notification, { useSaveNotice } from '../../components/Notification';
 import { IconButton } from '../../components/IconButton';
 import { BackIcon, PlusIcon, RestoreIcon, TrashIcon } from '../../components/icons';
 import '../../components/firmwareStatus.css';
@@ -40,12 +40,9 @@ export const Firmware: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-
-  const say = (message: string) => {
-    setNotice(message);
-    setTimeout(() => setNotice(''), 4000);
-  };
+  // przyciski zmian nieaktywne, dopóki widać komunikat o poprzedniej zmianie (useSaveNotice)
+  const { notice, showNotice, busy: noticeBusy } = useSaveNotice(4000);
+  const say = (message: string) => showNotice(message);
 
   // Powrót do poprzedniej strony; po wejściu wprost z adresu (bez historii aplikacji) na listę sterowników.
   // idx to licznik wpisów historii ustawiany przez React Router (BrowserRouter).
@@ -191,9 +188,9 @@ export const Firmware: React.FC = () => {
               <div className="firmware-text">{image.description || 'Bez opisu.'}</div>
             </div>
             <div className="firmware-version-actions">
-              <IconButton label={`Przywróć wersję ${image.version}`} icon={<RestoreIcon />}
+              <IconButton label={`Przywróć wersję ${image.version}`} icon={<RestoreIcon />} disabled={noticeBusy}
                 onClick={() => run(() => FirmwareRequests.update(type, { version: image.version }), `Oferowana wersja: ${image.version}.`)} />
-              <IconButton variant="danger" label={`Usuń wersję ${image.version}`} icon={<TrashIcon />} onClick={() => remove(image)} />
+              <IconButton variant="danger" label={`Usuń wersję ${image.version}`} icon={<TrashIcon />} disabled={noticeBusy} onClick={() => remove(image)} />
             </div>
           </div>
         ))}
@@ -229,7 +226,7 @@ export const Firmware: React.FC = () => {
             {error && <p className="device-modal-error" role="alert">{error}</p>}
             <div className="device-modal-actions">
               <button type="button" className="device-modal-cancel" onClick={closeAdd}>Anuluj</button>
-              <button type="submit" disabled={busy || !file || !version.trim() || file.size > MAX_FIRMWARE_BYTES}>
+              <button type="submit" disabled={busy || noticeBusy || !file || !version.trim() || file.size > MAX_FIRMWARE_BYTES}>
                 {busy ? 'Wgrywam…' : 'Wgraj'}
               </button>
             </div>

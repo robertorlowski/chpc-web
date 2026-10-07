@@ -10,7 +10,7 @@ import { DeviceRequests } from '../../../../core/api';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { CurrentSchedule, PumpWorkMode, pumpWorkMode, ScheduleEntry, ScheduleType, WeekDay } from '../../types';
 import { DeviceProperties } from '../../../../core/types';
-import Notification from '../../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../../core/components/Notification';
 import { IconButton } from '../../../../core/components/IconButton';
 import { EditIcon, PlusIcon, TrashIcon } from '../../../../core/components/icons';
 import { WORK_MODE_HINTS, WorkModeSwitch } from '../../components/WorkModeSwitch';
@@ -89,15 +89,13 @@ export const Schedules: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [defaultError, setDefaultError] = useState('');
-  const [saveNotice, setSaveNotice] = useState('');
+  // noticeBusy: komunikat widoczny, przyciski zapisu nieaktywne do jego zniknięcia (useSaveNotice)
+  const { notice: saveNotice, showNotice, busy: noticeBusy } = useSaveNotice();
   const [currentSchedule, setCurrentSchedule] = useState<CurrentSchedule | null>(null);
   // zapisany tryb (nie bieżący wybór przycisków) decyduje, czy harmonogram działa
   const savedMode = pumpWorkMode(properties?.work_mode);
 
-  const showSaveNotice = () => {
-    setSaveNotice('Dane zostały zapisane.');
-    window.setTimeout(() => setSaveNotice(''), 3000);
-  };
+  const showSaveNotice = () => showNotice('Dane zostały zapisane.');
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -298,7 +296,7 @@ export const Schedules: React.FC = () => {
             </div>
             {defaultError && <p className="schedule-error">{defaultError}</p>}
             <div className="settings-section-actions">
-              <button type="button" disabled={defaultSaving || !properties} onClick={handleSaveDefaultProperties}>
+              <button type="button" disabled={defaultSaving || noticeBusy || !properties} onClick={handleSaveDefaultProperties}>
                 {defaultSaving ? 'Zapisywanie...' : 'Zapisz'}
               </button>
             </div>
@@ -363,7 +361,7 @@ export const Schedules: React.FC = () => {
           {error && <p className="schedule-error">{error}</p>}
           <div className="schedule-form-actions">
             <button type="button" className="schedule-cancel" onClick={resetForm}>Anuluj</button>
-            <button type="submit" disabled={saving}>{saving ? 'Zapisywanie...' : 'Zapisz'}</button>
+            <button type="submit" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie...' : 'Zapisz'}</button>
           </div>
         </form>}
 

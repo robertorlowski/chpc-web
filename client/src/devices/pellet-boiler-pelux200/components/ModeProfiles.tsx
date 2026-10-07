@@ -4,6 +4,7 @@
 // to ustawienia aplikacji, nie regulatora; regulator sprawdzi zakres przy przełączeniu trybu.
 import { FormEvent, useEffect, useState } from 'react';
 import { PelletBoilerRequests } from '../api';
+import { useSaveNotice } from '../../../core/components/Notification';
 import { PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSettings, PelletBoilerSettings } from '../types';
 import { COMMANDS_CHANGED, PROFILE_ROWS, choicesOf, display, itemOfKey } from './MainParameters';
 
@@ -26,7 +27,8 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
   // wartości formularza w jednostkach (tekst), klucz: tryb → parametr
   const [values, setValues] = useState<Record<PelletBoilerMode, Record<string, string>> | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  // komunikat w karcie (nie Notification); przycisk nieaktywny w trakcie zapisu i dopóki go widać
+  const { notice, showNotice, run, busy } = useSaveNotice();
 
   useEffect(() => {
     PelletBoilerRequests.getScheduleSettings().then((loaded) => {
@@ -58,16 +60,15 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
         profiles[mode][key] = toRaw(parameter, number);
       }
     }
-    try {
+    await run(async () => { try {
       const saved = await PelletBoilerRequests.saveScheduleSettings({ ...schedule, profiles });
       setSchedule(saved);
       setError('');
-      setNotice('Zapisano nastawy trybów.');
-      window.setTimeout(() => setNotice(''), 3000);
+      showNotice('Zapisano nastawy trybów.');
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
     } catch {
       setError('Nie udało się zapisać nastaw.');
-    }
+    } });
   };
 
   if (!values) return <div className="boiler-hint">Wczytywanie nastaw trybów…</div>;
@@ -114,7 +115,7 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
       </div>
       {error && <div className="boiler-error">{error}</div>}
       {notice && <div className="boiler-hint">{notice}</div>}
-      <div className="boiler-actions"><button type="submit">Zapisz nastawy</button></div>
+      <div className="boiler-actions"><button type="submit" disabled={busy}>Zapisz nastawy</button></div>
     </form>
   );
 };

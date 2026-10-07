@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
-import Notification from '../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
@@ -23,7 +23,8 @@ export const WaterPressureTankSettings: React.FC = () => {
   const [compressor, setCompressor] = useState('');
   const [flow, setFlow] = useState<WaterFlow | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  // przycisk zapisu nieaktywny w trakcie zapisu i dopóki widać komunikat (useSaveNotice)
+  const { notice, showNotice, run, busy } = useSaveNotice();
   const [editingDevice, setEditingDevice] = useState(false);
 
   useEffect(() => {
@@ -43,14 +44,13 @@ export const WaterPressureTankSettings: React.FC = () => {
       return setError('Czas pracy kompresora: pełne sekundy od 1 do 3600.');
     }
     setError('');
-    try {
+    await run(async () => { try {
       const saved = await DeviceRequests.updateDeviceProperties({ ...properties, compressor_seconds: seconds });
       setProperties(saved);
-      setNotice('Zapisano. Sterownik pobierze ustawienia przy następnym uruchomieniu pompy.');
-      window.setTimeout(() => setNotice(''), 4000);
+      showNotice('Zapisano. Sterownik pobierze ustawienia przy następnym uruchomieniu pompy.', 4000);
     } catch {
       setError('Nie udało się zapisać ustawień.');
-    }
+    } });
   };
 
   return (
@@ -67,7 +67,7 @@ export const WaterPressureTankSettings: React.FC = () => {
           </label>
           {error && <div className="water-error">{error}</div>}
           <div className="water-actions">
-            <button type="submit" disabled={properties === null}>Zapisz</button>
+            <button type="submit" disabled={properties === null || busy}>Zapisz</button>
           </div>
         </form>
 

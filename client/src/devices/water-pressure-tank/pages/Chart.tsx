@@ -39,6 +39,9 @@ export const WaterPressureTankChart: React.FC = () => {
   const cardRef = useFillHeight<HTMLDivElement>(360);
   const [period, setPeriod] = useState<WaterSummaryPeriod>('day');
   const [date, setDate] = useState(todayWarsaw());
+  // rok wpisywany w polu (tekst): dawniej pole trzymało rok z daty i zmianę przyjmowało tylko przy 4 cyfrach,
+  // więc nie dało się skasować cyfry i wpisać nowego roku (2026-10-05); null = rok z wybranej daty
+  const [yearText, setYearText] = useState<string | null>(null);
   const [summary, setSummary] = useState<WaterSummary | null>(null);
   const [showMeter, setShowMeter] = useState(false);
   const [meter, setMeter] = useState<WaterMeterSummary | null>(null);
@@ -107,8 +110,13 @@ export const WaterPressureTankChart: React.FC = () => {
                 onChange={(event) => event.currentTarget.value && setDate(`${event.currentTarget.value}-01`)} />
             )}
             {period === 'year' && (
-              <input type="number" min={2020} max={2100} value={date.slice(0, 4)}
-                onChange={(event) => event.currentTarget.value.length === 4 && setDate(`${event.currentTarget.value}-01-01`)} />
+              <input type="number" min={2020} max={2100} value={yearText ?? date.slice(0, 4)}
+                onChange={(event) => {
+                  const text = event.currentTarget.value;
+                  setYearText(text);
+                  if (/^d{4}$/.test(text)) setDate(`${text}-01-01`);
+                }}
+                onBlur={() => setYearText(null)} />
             )}
           </div>
 

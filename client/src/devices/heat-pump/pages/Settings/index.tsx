@@ -7,7 +7,7 @@ import { HpRequests } from '../../api';
 import { HpEntry, OperationEntry, pumpWorkMode } from '../../types';
 import { WorkModeSwitch } from '../../components/WorkModeSwitch';
 import { useEffect, useMemo, useState } from 'react';
-import Notification from '../../../../core/components/Notification';
+import Notification, { useSaveNotice } from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../../core/components/DeviceAddress';
 import { FirmwareStatus } from '../../../../core/components/FirmwareStatus';
@@ -26,7 +26,8 @@ export const Settings: React.FC = () => {
 	// bo operacja ręczna nadpisuje harmonogram wyłącznie w przekazanych polach
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
 	const [valueOpration, setValueOperation] = useState<OperationEntry>({});
-	const [saveNotice, setSaveNotice] = useState('');
+	// komunikat po wysłaniu; przyciski wysyłania nieaktywne w trakcie i dopóki widać komunikat
+	const { notice: saveNotice, showNotice, run, busy } = useSaveNotice();
 	const [error, setError] = useState<boolean>(false);
 	const { device, selectDevice } = useDevice();
 	const [editingDevice, setEditingDevice] = useState(false);
@@ -50,14 +51,11 @@ export const Settings: React.FC = () => {
 
 	// akcja jednorazowa: serwer budzi co przez WebSocket, więc dociera do pompy w kilka sekund
 	const runAction = (action: 'error_reset' | 'restart', notice: string) => {
-		HpRequests.runOperationAction(action).then(response => {
+		run(() => HpRequests.runOperationAction(action).then(response => {
 			const ok = response?.status === 201;
 			setError(!ok);
-			if (ok) {
-				setSaveNotice(notice);
-				window.setTimeout(() => setSaveNotice(''), 4000);
-			}
-		});
+			if (ok) showNotice(notice, 4000);
+		}));
 	};
 
 	const handleRestart = () => {
@@ -118,10 +116,7 @@ export const Settings: React.FC = () => {
 		);
 	}, []);
 
-	const showSaveNotice = () => {
-		setSaveNotice('Polecenie wysłane do sterownika.');
-		window.setTimeout(() => setSaveNotice(''), 3000);
-	};
+	const showSaveNotice = () => showNotice('Polecenie wysłane do sterownika.');
 
 	// Wysyła tylko zmienione pola (POST /operation/set): tryb pracy zapisuje serwer w ustawieniach
 	// urządzenia (jak Harmonogram, ręczne ustawienia znikają), temperatury i reszta idą od razu na pompę
@@ -132,7 +127,7 @@ export const Settings: React.FC = () => {
 			return;
 		}
 
-		HpRequests.setOperation(valueOpration).then(response => {
+		run(() => HpRequests.setOperation(valueOpration).then(response => {
 			setError( response?.status === 201 ? false : true );
 			if (response?.status === 201) {
 				showSaveNotice();
@@ -142,7 +137,7 @@ export const Settings: React.FC = () => {
 				setDefaultOperation(saved);
 			}
 			setValueOperation({});
-		});
+		}));
 	}
 
 	return (
@@ -292,7 +287,7 @@ export const Settings: React.FC = () => {
 					<button
 						className="settings-change"
 						data-action="send-operation"
-						disabled ={!enableSave}
+						disabled ={!enableSave || busy}
 						onClick={handleSave}>
 						Zmień
 					</button>
@@ -315,7 +310,7 @@ export const Settings: React.FC = () => {
 					</div>
 					<div className="settings-error-actions">
 						<button
-							disabled={!isLocked(errorCount)}
+							disabled={!isLocked(errorCount) || busy}
 							title={isLocked(errorCount)
 								? 'Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej'
 								: 'Sterownik nie jest zablokowany'}
@@ -324,6 +319,7 @@ export const Settings: React.FC = () => {
 						</button>
 						<button
 							title="Uruchamia sterownik od nowa (przerwa startowa ok. 90 s)"
+							disabled={busy}
 							onClick={handleRestart}>
 							Restart sterownika
 						</button>
