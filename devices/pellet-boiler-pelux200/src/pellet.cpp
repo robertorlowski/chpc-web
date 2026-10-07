@@ -51,6 +51,7 @@
 #include <ota.hpp>
 #include <pellet_telemetry.hpp>
 #include <secrets.h>
+#include <service_password.hpp>
 
 namespace {
 
@@ -62,6 +63,8 @@ constexpr const char *KEY_POLL_SECONDS = "poll_s";
 constexpr const char *KEY_INVERTED = "bus_inv";
 // licznik spalonego pelletu [g] (fuel_meter.hpp, od 1.7.1)
 constexpr const char *KEY_FUEL_GRAMS = "fuel_g";
+// hasło serwisowe regulatora (od 1.8.0, service_password.hpp): tylko NVS i /install
+constexpr const char *KEY_SERVICE_PASSWORD = "svc_pw";
 // klucz oferty OTA (wersja#zlecenie, ota.hpp), po której pobraniu sterownik się zrestartował
 constexpr const char *KEY_OTA_TRIED = "ota_tried";
 
@@ -154,8 +157,15 @@ uint32_t alertsStartedMs = 0;
 int16_t lastPendingAlerts = -1;
 uint32_t alertsUploadedRevision = 0;
 uint32_t nextAlertsUploadMs = 0;
+// Hasło serwisowe (od 1.8.0): odczyt na żądanie z /install (servicePasswordRequested), odpowiedź w busTask,
+// zapis w NVS w tick() (servicePasswordSavePending). Hasło nie trafia na konsolę ani do chmury.
+ServicePasswordReader servicePasswordReader;
+volatile bool servicePasswordRequested = false;
+volatile bool servicePasswordSavePending = false;
+String servicePassword;
+uint32_t servicePasswordAtMs = 0;
 // które zapytanie poszło w bieżącym oknie (do cofnięcia, gdy magistrala zajęta)
-enum class QuerySource : uint8_t { NONE, WRITER, SETTINGS, ALERTS };
+enum class QuerySource : uint8_t { NONE, WRITER, SETTINGS, PASSWORD, ALERTS };
 // koniec odczytu z parametrami kotła → wysyłka do chmury w tick() (sendSettings)
 volatile bool settingsUploadPending = false;
 
@@ -206,6 +216,11 @@ bool capturing()
 void captureFrame(const char *direction, const uint8_t *bytes, size_t length)
 {
   if (!capturing()) return;
+  // hasło serwisowe (0xBA) nigdy na konsolę: sam nagłówek, dane ukryte
+  if (length > 7 && isServicePasswordFrame(bytes[7])) {
+    Serial.printf("# RAW %lu %s ramka 0xBA (hasło serwisowe) pominięta\n", static_cast<unsigned long>(millis()), direction);
+    return;
+  }
   Serial.printf("RAW %lu %s ", static_cast<unsigned long>(millis()), direction);
   for (size_t index = 0; index < length; index++) Serial.printf("%02x", bytes[index]);
   Serial.println();
@@ -271,7 +286,8 @@ void recordFrameKind(const EcomaxFrame &frame)
   portEXIT_CRITICAL(&stateLock);
   if (!added) return;
   char hex[3 * 48 + 1] = {};
-  const size_t shown = frame.dataLength < 48 ? frame.dataLength : 48;
+  // hasło serwisowe (0xBA): bez danych
+  const size_t shown = isServicePasswordFrame(frame.type) ? 0 : frame.dataLength < 48 ? frame.dataLength : 48;
   for (size_t index = 0; index < shown; index++) snprintf(hex + index * 3, 4, "%02x ", frame.data[index]);
   Serial.printf("[%7lu] ramka nowa: typ 0x%02x od 0x%02x (typ nadawcy 0x%02x, wersja %u) do 0x%02x, dane %u B: %s\n",
     static_cast<unsigned long>(millis()), frame.type, frame.sender, frame.senderType, frame.version, frame.recipient,
@@ -364,6 +380,7 @@ void loadConfig()
   polarity = BusPolarity(preferences.getBool(KEY_INVERTED, false));
   polarityKnown = preferences.isKey(KEY_INVERTED);
   lastSavedFuelGrams = preferences.getDouble(KEY_FUEL_GRAMS, 0);
+  servicePassword = preferences.getString(KEY_SERVICE_PASSWORD, "");
   fuelMeter.begin(lastSavedFuelGrams);
 }
 
@@ -587,6 +604,15 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
       if (boilerSettings.busy()) {
         queryLength = boilerSettings.nextRequest(nowMs, query, sizeof(query));
         source = QuerySource::SETTINGS;
+      } else if (servicePasswordRequested || servicePasswordReader.busy()) {
+        // hasło serwisowe na żądanie z /install, przed dziennikiem alarmów
+        if (servicePasswordRequested && !servicePasswordReader.busy()) {
+          servicePasswordRequested = false;
+          servicePasswordReader.start();
+          logf("hasło serwisowe: odczyt");
+        }
+        queryLength = servicePasswordReader.nextRequest(nowMs, query, sizeof(query));
+        source = QuerySource::PASSWORD;
       } else {
         // dziennik alarmów dopiero po ustawieniach (kolejność jak przy starcie panelu)
         if (alertsRequested && !alertsLog.busy()) {
@@ -616,6 +642,7 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
   if (Serial1.available() > 0) {
     if (source == QuerySource::WRITER) parameterWriter.cancelRequest();
     else if (source == QuerySource::SETTINGS) boilerSettings.cancelRequest();
+    else if (source == QuerySource::PASSWORD) servicePasswordReader.cancelRequest();
     else if (source == QuerySource::ALERTS) alertsLog.cancelRequest();
     return;
   }
@@ -698,6 +725,10 @@ void readBus(uint32_t nowMs)
       }
       recordFrameKind(frame);
       if (frame.sender != ECONET_ADDRESS) watchFrame(frame, nowMs);
+      if (frame.type == ECOMAX_FRAME_PASSWORD_RESPONSE && servicePasswordReader.onResponse(frame)) {
+        servicePasswordSavePending = true;
+        logf("hasło serwisowe: odczytane (pokazywane tylko na /install)");
+      }
       if (frame.type == ECOMAX_FRAME_ALERTS_RESPONSE) {
         portENTER_CRITICAL(&stateLock);
         alertsLog.onResponse(frame, nowMs);
@@ -756,6 +787,9 @@ void readBus(uint32_t nowMs)
     ownWriteConfirmed = true;
     ownWriteConfirmedMs = nowMs;
   }
+  const uint32_t passwordFailed = servicePasswordReader.failed();
+  servicePasswordReader.update(millis());
+  if (servicePasswordReader.failed() != passwordFailed) logf("hasło serwisowe: brak odpowiedzi regulatora");
   const uint32_t alertsFailed = alertsLog.failed();
   const bool alertsWasBusy = alertsLog.busy();
   alertsLog.update(millis());
@@ -1555,6 +1589,19 @@ void tick(uint32_t nowMs)
   }
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
   saveFuel(nowMs, false);
+  if (servicePasswordSavePending) {
+    servicePasswordSavePending = false;
+    char text[ServicePasswordReader::MAX_LENGTH + 1];
+    portENTER_CRITICAL(&stateLock);
+    memcpy(text, servicePasswordReader.text(), sizeof(text));
+    portEXIT_CRITICAL(&stateLock);
+    text[sizeof(text) - 1] = '\0';
+    servicePasswordAtMs = nowMs;
+    if (servicePassword != text) {
+      servicePassword = text;
+      preferences.putString(KEY_SERVICE_PASSWORD, servicePassword);
+    }
+  }
   if (!alertsLog.busy() && alertsLog.complete() && alertsLog.revision() != alertsUploadedRevision
     && static_cast<int32_t>(nowMs - nextAlertsUploadMs) >= 0) {
     sendAlerts(nowMs);
@@ -1791,6 +1838,19 @@ void handleInstall()
   if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
   page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
   page += "<p><button type=\"submit\">Wgraj</button></p></form>";
+  // Hasło serwisowe regulatora tylko na żądanie (?service=1): nowy odczyt z kotła i ostatnie zapisane hasło
+  page += "<div class=\"card\"><h2>Hasło serwisowe regulatora</h2>";
+  if (server.arg("service") == "1") {
+    servicePasswordRequested = true;
+    page += "<div>Hasło: <b>" + (servicePassword.length() ? htmlEscape(servicePassword) : String("---")) + "</b></div>";
+    page += servicePasswordAtMs
+      ? "<div><small>Odczytane z kotła " + String((millis() - servicePasswordAtMs) / 1000) + " s temu.</small></div>"
+      : String("<div><small>Zapisane wcześniej w sterowniku; trwa odczyt z kotła — odśwież stronę za kilka sekund.</small></div>");
+    page += "<p><a href=\"/install\">Ukryj</a></p>";
+  } else {
+    page += "<p><a href=\"/install?service=1\">Pokaż hasło serwisowe</a></p>";
+  }
+  page += "</div>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
   page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div>";

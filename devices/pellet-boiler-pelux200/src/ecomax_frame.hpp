@@ -109,6 +109,11 @@ struct EcomaxSensorData {
   bool valid = false;  // przeczytano przynajmniej state i outputs
   uint8_t state = 0;
   uint32_t outputs = 0;
+  // output_flags (PyPlumIO: bity 0x04/0x08/0x10/0x800 = flagi pomp CO/CWU/cyrkulacji/solarnej). W nagraniach
+  // z 2026-10-03 zawsze 0x6f — jak bity wyjść bez cyrkulacji, której u nas nie ma, więc raczej wyjścia
+  // skonfigurowane niż „pompa czeka”. Od 1.8.0 wysyłane surowo (output_flags) do sprawdzenia przy pracy kotła.
+  bool outputFlagsPresent = false;
+  uint32_t outputFlags = 0;
   // Kolejność: heating, feeder, water_heater, outside, return, exhaust,
   // optical, upper_buffer, lower_buffer.
   EcomaxTemperature temperatures[ECOMAX_TEMPERATURE_COUNT];

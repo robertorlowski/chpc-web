@@ -54,6 +54,8 @@ const PelletBoilerPelux200Schema = new Schema<PelletBoilerPelux200Entry>(
     // termostat pokojowy eSTER: temperatura w pokoju i zadana (firmware pieca od 1.8.0)
     room_temp: number,
     room_target_temp: number,
+    // surowe output_flags z SensorData (firmware pieca od 1.8.0); aplikacja ich nie pokazuje
+    output_flags: number,
     mixer2_pump: flag,
     mixer2_opening: flag,
     mixer2_closing: flag,

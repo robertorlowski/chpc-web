@@ -117,6 +117,8 @@ void testSensorDataFromBoiler()
     TEST_ASSERT_TRUE(decodeSensorData(frame.data, frame.dataLength, data));
     TEST_ASSERT_TRUE(data.valid);
     TEST_ASSERT_EQUAL_UINT8(0, data.state);
+    TEST_ASSERT_TRUE(data.outputFlagsPresent);
+    TEST_ASSERT_EQUAL_HEX32(0x6F, data.outputFlags);  // stałe w nagraniach (wyjścia bez cyrkulacji)
     TEST_ASSERT_TRUE(data.heatingTarget.present);
     TEST_ASSERT_EQUAL_UINT8(67, data.heatingTarget.value);
     TEST_ASSERT_EQUAL_UINT8(55, data.waterHeaterTarget.value);

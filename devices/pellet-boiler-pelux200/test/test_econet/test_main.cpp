@@ -12,6 +12,8 @@
 #include "../../src/econet.cpp"
 #include <bus_watch.hpp>
 #include "../../src/bus_watch.cpp"
+#include <service_password.hpp>
+#include "../../src/service_password.cpp"
 #include <alerts_log.hpp>
 #include "../../src/alerts_log.cpp"
 
@@ -410,6 +412,50 @@ void testControlWriter()
 }
 
 // StartMaster bajt w bajt jak PyPlumIO: 68 0A 00 45 56 30 05 19 BCC 16, BCC = XOR = 0x5D.
+void testServicePassword()
+{
+  ServicePasswordReader reader;
+  uint8_t out[ECONET_MAX_FRAME];
+  TEST_ASSERT_EQUAL_UINT32(0, reader.nextRequest(0, out, sizeof(out)));  // bez start() nic
+  reader.start();
+  const size_t length = reader.nextRequest(1000, out, sizeof(out));
+  // 0x3A bez danych do regulatora: 68 0A 00 45 56 30 05 3A BCC 16
+  const uint8_t head[8] = {0x68, 0x0A, 0x00, 0x45, 0x56, 0x30, 0x05, 0x3A};
+  TEST_ASSERT_EQUAL_UINT32(10, length);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(head, out, 8);
+  TEST_ASSERT_EQUAL_UINT32(0, reader.nextRequest(1100, out, sizeof(out)));  // czeka na odpowiedź
+
+  EcomaxFrame frame{};
+  frame.sender = ECOMAX_ADDRESS_ECOMAX;
+  frame.recipient = 0x56;
+  frame.type = ECOMAX_FRAME_PASSWORD_RESPONSE;
+  static uint8_t bad[] = {0x00, 'a', 0x07};  // znak sterujący: odrzucone
+  frame.data = bad;
+  frame.dataLength = sizeof(bad);
+  TEST_ASSERT_FALSE(reader.onResponse(frame));
+  static uint8_t good[] = {0x04, '0', '0', '0', '1'};  // pierwszy bajt pomijany, jak PyPlumIO message[1:]
+  frame.data = good;
+  frame.dataLength = sizeof(good);
+  TEST_ASSERT_TRUE(reader.onResponse(frame));
+  TEST_ASSERT_TRUE(reader.has());
+  TEST_ASSERT_EQUAL_STRING("0001", reader.text());
+  TEST_ASSERT_FALSE(reader.busy());
+  TEST_ASSERT_TRUE(isServicePasswordFrame(0xBA));
+  TEST_ASSERT_FALSE(isServicePasswordFrame(0x3A));
+
+  // bez odpowiedzi: 3 próby co TIMEOUT_MS, potem koniec i failed()
+  reader.start();
+  uint32_t now = 10000;
+  for (uint8_t attempt = 0; attempt < ServicePasswordReader::ATTEMPTS; attempt++) {
+    TEST_ASSERT_EQUAL_UINT32(10, reader.nextRequest(now, out, sizeof(out)));
+    now += ServicePasswordReader::TIMEOUT_MS;
+    reader.update(now);
+  }
+  TEST_ASSERT_FALSE(reader.busy());
+  TEST_ASSERT_EQUAL_UINT32(1, reader.failed());
+  TEST_ASSERT_EQUAL_STRING("0001", reader.text());  // poprzednie hasło zostaje
+}
+
 void testFrameVersionWatch()
 {
   FrameVersionWatch watch;
@@ -569,6 +615,7 @@ int main(int, char **)
   UNITY_BEGIN();
   RUN_TEST(testMixerParameterWriter);
   RUN_TEST(testControlWriter);
+  RUN_TEST(testServicePassword);
   RUN_TEST(testFrameVersionWatch);
   RUN_TEST(testStartMasterFrame);
   RUN_TEST(testAlertsLogPaging);

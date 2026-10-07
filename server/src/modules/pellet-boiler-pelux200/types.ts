@@ -58,6 +58,8 @@ export interface PelletBoilerPelux200Measurements {
   mixer2_target?: number;
   /** liczba aktywnych alarmów kotła (firmware pieca od 1.7.0) */
   alerts_active?: number;
+  /** surowe output_flags z SensorData (firmware pieca od 1.8.0), bez pokazywania w aplikacji */
+  output_flags?: number;
   /** narastający licznik spalonego pelletu [kg] (firmware pieca od 1.7.1) */
   fuel_burned_kg?: number;
   mixer2_pump?: boolean;

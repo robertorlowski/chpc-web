@@ -161,10 +161,10 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
     }
   }
 
-  uint32_t ignored;
   if (!reader.u8(out.state) || !reader.u32(out.outputs)) return false;
   out.valid = true;
-  if (!reader.u32(ignored)) return true;  // output_flags, pomijane
+  if (!reader.u32(out.outputFlags)) return true;
+  out.outputFlagsPresent = true;
 
   uint8_t count;
   if (!reader.u8(count)) return true;

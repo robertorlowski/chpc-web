@@ -51,6 +51,8 @@ void fillPelletJson(JsonDocument &document, const EcomaxSensorData &data)
   document["lighter"] = (data.outputs & ECOMAX_OUT_LIGHTER) != 0;
   document["alarm"] = (data.outputs & ECOMAX_OUT_ALARM) != 0;
   setU8(document, "alerts_active", data.pendingAlerts);
+  // surowe output_flags (od 1.8.0, ecomax_frame.hpp): tylko zapis, do sprawdzenia, czy zmieniają się przy pracy
+  if (data.outputFlagsPresent) document["output_flags"] = data.outputFlags;
   // termostat pokojowy 1 (eSTER, od 1.8.0): temperatura w pokoju i zadana; brak termostatu = brak pól
   if (data.thermostats[0].present) {
     document["room_temp"] = data.thermostats[0].currentTemp;
