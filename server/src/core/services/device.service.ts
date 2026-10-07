@@ -29,16 +29,22 @@ export function parsePumpConfig(value: unknown): PumpConfig {
   return { connection: config.connection, tankLiters, pvDtu: config.pvDtu, pvForce: config.pvDtu && config.pvForce };
 }
 
-// Definicja kotła z okna „Dane sterownika”: Root ID istniejącej pompy ciepła albo null (bez pompy).
+// Definicja kotła z okna „Dane sterownika”: Root ID istniejącej pompy ciepła albo null (bez pompy),
+// połączenie z kotłem (rs485 / econet300) i adres IPv4 modułu ecoNET300 (wymagany przy econet300).
+const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 export async function parseBoilerConfig(value: unknown): Promise<BoilerConfig> {
-  const id = (value ?? {} as Record<string, unknown>) as Record<string, unknown>;
-  const heatPumpRootId = id.heatPumpRootId ?? null;
-  if (heatPumpRootId === null) return { heatPumpRootId: null };
-  if (typeof heatPumpRootId !== 'string' || !/^[0-9a-f]{24}$/i.test(heatPumpRootId)
-    || !(await DeviceModel.exists({ _id: heatPumpRootId, deviceType: DeviceType.HP }))) {
+  const config = (value ?? {}) as Record<string, unknown>;
+  const heatPumpRootId = config.heatPumpRootId ?? null;
+  if (heatPumpRootId !== null && (typeof heatPumpRootId !== 'string' || !/^[0-9a-f]{24}$/i.test(heatPumpRootId)
+    || !(await DeviceModel.exists({ _id: heatPumpRootId, deviceType: DeviceType.HP })))) {
     throw new Error('boilerConfig.heatPumpRootId: Root ID pompy ciepła albo null.');
   }
-  return { heatPumpRootId };
+  const connection = config.connection ?? 'rs485';
+  if (connection !== 'rs485' && connection !== 'econet300') throw new Error('boilerConfig.connection: rs485 albo econet300.');
+  const econetIp = typeof config.econetIp === 'string' && config.econetIp.trim() ? config.econetIp.trim() : null;
+  if (econetIp !== null && !IPV4.test(econetIp)) throw new Error('boilerConfig.econetIp: adres IPv4.');
+  if (connection === 'econet300' && !econetIp) throw new Error('boilerConfig.econetIp: wymagany przy połączeniu ecoNET300.');
+  return { heatPumpRootId: heatPumpRootId as string | null, connection, econetIp };
 }
 
 const initialProperties = (deviceType: DeviceType) => getDeviceTypeModule(deviceType).initialProperties;

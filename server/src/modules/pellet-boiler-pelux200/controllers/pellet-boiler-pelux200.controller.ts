@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   addPelletBoilerPelux200Reading, getPelletBoilerPelux200Last, getPelletBoilerPelux200Range,
-  getPollIntervalSeconds, readingResponding, validateReading,
+  getControllerReply, getPollIntervalSeconds, readingResponding, validateReading,
 } from '../services/pellet-boiler-pelux200.service';
 import {
   getPelletBoilerSettingsView, savePelletBoilerSettings, validateSettingsUpload,
@@ -45,7 +45,7 @@ export async function addPelletBoilerPelux200(req: Request, res: Response) {
     void evaluateCwuLoading(rootId).catch((error) => console.error('[pellet cwu] error:', error));
     // rozpalanie w trybie pompy ciepła → nastawy trybu Pellet (bez wyłączania regulatora)
     void checkAutoPellet(rootId).catch((error) => console.error('[pellet auto] error:', error));
-    return res.status(201).json({ poll_interval_seconds: await getPollIntervalSeconds(rootId) });
+    return res.status(201).json(await getControllerReply(rootId));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });

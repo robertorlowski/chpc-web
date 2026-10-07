@@ -52,6 +52,7 @@
 #include <pellet_telemetry.hpp>
 #include <secrets.h>
 #include <service_password.hpp>
+#include <econet300.hpp>
 
 namespace {
 
@@ -65,6 +66,11 @@ constexpr const char *KEY_INVERTED = "bus_inv";
 constexpr const char *KEY_FUEL_GRAMS = "fuel_g";
 // hasło serwisowe regulatora (od 1.8.0, service_password.hpp): tylko NVS i /install
 constexpr const char *KEY_SERVICE_PASSWORD = "svc_pw";
+// połączenie z kotłem (od 1.9.0, econet300.hpp): rs485 / econet300 i adres modułu z chmury, login i hasło z /install
+constexpr const char *KEY_CONNECTION = "conn";
+constexpr const char *KEY_ECONET_IP = "eco_ip";
+constexpr const char *KEY_ECONET_USER = "eco_user";
+constexpr const char *KEY_ECONET_PASS = "eco_pass";
 // klucz oferty OTA (wersja#zlecenie, ota.hpp), po której pobraniu sterownik się zrestartował
 constexpr const char *KEY_OTA_TRIED = "ota_tried";
 
@@ -164,6 +170,25 @@ volatile bool servicePasswordRequested = false;
 volatile bool servicePasswordSavePending = false;
 String servicePassword;
 uint32_t servicePasswordAtMs = 0;
+// Połączenie przez ecoNET300 (od 1.9.0, econet300.hpp): wybór z chmury (connection, econet_ip w odpowiedzi na
+// zgłoszenie i odczyt), login i hasło modułu tylko z /install (NVS, fabrycznie admin/admin). W tym trybie busTask
+// nie nadaje na RS-485 i nie bierze SensorData z magistrali, a loop() co ECONET_POLL_MS czyta regParams; nastawy
+// (zadana kotła i CWU) po zmianie wersji danych modułu albo co ECONET_EDITS_MS. Zlecenia: nr 98 i 119, włącz/wyłącz.
+volatile bool econetMode = false;
+String econetIp;
+String econetUser = "admin";
+String econetPass = "admin";
+String econetUid;
+WiFiClient econetClient;
+constexpr uint32_t ECONET_POLL_MS = 15000;
+constexpr uint32_t ECONET_EDITS_MS = 10UL * 60 * 1000;
+constexpr uint16_t ECONET_TIMEOUT_MS = 4000;
+uint32_t econetLastPollMs = 0;
+uint32_t econetLastEditsMs = 0;
+bool econetEditsDue = true;
+int econetLastStatus = 0;
+uint32_t econetOkAtMs = 0;
+long econetDataVersion = -1;
 // które zapytanie poszło w bieżącym oknie (do cofnięcia, gdy magistrala zajęta)
 enum class QuerySource : uint8_t { NONE, WRITER, SETTINGS, PASSWORD, ALERTS };
 // koniec odczytu z parametrami kotła → wysyłka do chmury w tick() (sendSettings)
@@ -381,6 +406,10 @@ void loadConfig()
   polarityKnown = preferences.isKey(KEY_INVERTED);
   lastSavedFuelGrams = preferences.getDouble(KEY_FUEL_GRAMS, 0);
   servicePassword = preferences.getString(KEY_SERVICE_PASSWORD, "");
+  econetMode = preferences.getString(KEY_CONNECTION, "rs485") == "econet300";
+  econetIp = preferences.getString(KEY_ECONET_IP, "");
+  econetUser = preferences.getString(KEY_ECONET_USER, "admin");
+  econetPass = preferences.getString(KEY_ECONET_PASS, "admin");
   fuelMeter.begin(lastSavedFuelGrams);
 }
 
@@ -688,6 +717,7 @@ void watchFrame(const EcomaxFrame &frame, uint32_t nowMs)
 // Tylko przy znanej polaryzacji i gdy EconetGuard pozwala nadawać (minuta nasłuchu, brak obcego ecoNET i kolizji).
 void sendStartMasterIfSilent(uint32_t nowMs)
 {
+  if (econetMode) return;
   if (!silenceWatch.startMasterDue(nowMs)) return;
   if (!(polarity.confirmed() || polarityKnown) || !guard.mayTransmit(nowMs)) return;
   uint8_t frame[16];
@@ -742,8 +772,9 @@ void readBus(uint32_t nowMs)
         alertsLog.onResponse(frame, nowMs);
         portEXIT_CRITICAL(&stateLock);
       }
-      handleEconet(frame, nowMs);
-      if (!isSensorDataFrame(frame)) continue;
+      if (!econetMode) handleEconet(frame, nowMs);
+      // ecoNET300 (od 1.9.0): odczyt z modułu przez sieć, magistrala tylko do diagnostyki
+      if (econetMode || !isSensorDataFrame(frame)) continue;
       EcomaxSensorData decoded;
       if (!decodeSensorData(frame.data, frame.dataLength, decoded)) continue;
       portENTER_CRITICAL(&stateLock);
@@ -961,6 +992,24 @@ void applyPollSeconds(JsonVariantConst value)
   logf("chmura: interwał wysyłki %u s", static_cast<unsigned>(pollSeconds));
 }
 
+// Połączenie z kotłem z settings zgłoszenia albo z odpowiedzi na odczyt (od 1.9.0): connection rs485 / econet300,
+// econet_ip. Zmiana działa od razu, bez restartu (busTask sprawdza econetMode przy każdej ramce).
+void applyConnection(JsonVariantConst settings)
+{
+  if (!settings["connection"].is<const char *>()) return;
+  const bool econet = strcmp(settings["connection"].as<const char *>(), "econet300") == 0;
+  const String ip = settings["econet_ip"] | "";
+  if (econet == econetMode && ip == econetIp) return;
+  econetIp = ip;
+  preferences.putString(KEY_ECONET_IP, ip);
+  preferences.putString(KEY_CONNECTION, econet ? "econet300" : "rs485");
+  econetMode = econet;
+  econetEditsDue = true;
+  econetDataVersion = -1;
+  econetUid = "";
+  logf("połączenie z kotłem: %s %s", econet ? "ecoNET300" : "RS-485", econet ? ip.c_str() : "");
+}
+
 // Zgłoszenie przy starcie (i po 404/409): rootId i interwał wysyłki.
 void registerDevice()
 {
@@ -988,6 +1037,7 @@ void registerDevice()
     stopWebSocket();
   }
   applyPollSeconds(reply["settings"]["poll_interval_seconds"]);
+  applyConnection(reply["settings"]);
   registeredThisBoot = true;
   if (!webSocketStarted) startWebSocket();
   logf("zgłoszenie: OK (HTTP %d), rootId %s, interwał %u s", lastHttpStatus, rootId.c_str(),
@@ -1115,7 +1165,10 @@ void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
     // zlecenia czekające na stan kotła (zmiana trybu po wyłączeniu) mogą być już do wysłania
     commandPollDue = true;
     JsonDocument reply;
-    if (!deserializeJson(reply, response)) applyPollSeconds(reply["poll_interval_seconds"]);
+    if (!deserializeJson(reply, response)) {
+      applyPollSeconds(reply["poll_interval_seconds"]);
+      applyConnection(reply.as<JsonVariantConst>());
+    }
     nextPostMs = nowMs + pollSeconds * 1000UL;
     return;
   }
@@ -1213,6 +1266,8 @@ void sendCommandResult()
   readingDue = true;
 }
 
+void econetExecute(const String &kind, int index, int value);
+
 void pollCloudCommand(uint32_t nowMs)
 {
   if (cloudCommandActive) {
@@ -1264,6 +1319,10 @@ void pollCloudCommand(uint32_t nowMs)
   if ((!isMixer && !isControl && !isSchedule && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
     || (isMixer && (mixer < 1 || mixer > ECOMAX_MIXER_MAX))) {
     finishParameterSet(false, "nieprawidłowe zlecenie");
+    return;
+  }
+  if (econetMode) {
+    econetExecute(kind, index, value);
     return;
   }
   parameterSetIndex = static_cast<uint8_t>(index);
@@ -1573,6 +1632,119 @@ void updateNetworkInfo()
 
 // Co 1 s: AP, stan sieci dla ecoNET, zgłoszenie (co 30 s do skutku), wysyłka świeżego
 // odczytu co pollSeconds.
+// GET http://<econetIp>/econet/<path> z Basic Auth modułu (osobny klient, nie ten od chmury).
+bool econetGet(const String &path, String &response)
+{
+  if (econetIp.isEmpty() || WiFi.status() != WL_CONNECTED) return false;
+  HTTPClient client;
+  client.setConnectTimeout(ECONET_TIMEOUT_MS);
+  client.setTimeout(ECONET_TIMEOUT_MS);
+  if (!client.begin(econetClient, "http://" + econetIp + "/econet/" + path)) return false;
+  client.setAuthorization(econetUser.c_str(), econetPass.c_str());
+  econetLastStatus = client.GET();
+  const bool ok = econetLastStatus == 200;
+  if (ok) response = client.getString();
+  client.end();
+  return ok;
+}
+
+// UID modułu z sysParams (zapytania rm… go wymagają); raz na połączenie.
+const String &econetModuleUid()
+{
+  if (!econetUid.isEmpty()) return econetUid;
+  String body;
+  if (!econetGet("sysParams", body)) return econetUid;
+  JsonDocument filter;
+  filter["uid"] = true;
+  JsonDocument document;
+  if (!deserializeJson(document, body, DeserializationOption::Filter(filter))) econetUid = document["uid"] | "";
+  return econetUid;
+}
+
+// Zadana kotła i CWU z zakresem (rmCurrentDataParamsEdits) jako odpowiedź 0xB1 do chmury: aplikacja pokazuje
+// tylko te dwie nastawy, a serwer sprawdza z nimi zakres zleceń.
+void econetSendEdits(uint32_t nowMs)
+{
+  const String &uid = econetModuleUid();
+  String body;
+  if (!econetGet(uid.isEmpty() ? String("rmCurrentDataParamsEdits") : "rmCurrentDataParamsEdits?uid=" + uid, body)) return;
+  JsonDocument document;
+  if (deserializeJson(document, body)) return;
+  static char hex[3 * 2 + 3 * 120 * 2 + 1];
+  const uint8_t found = econetSettingsHex(document["data"], hex, sizeof(hex));
+  econetLastEditsMs = nowMs;
+  if (found == 0) {
+    logf("ecoNET300: brak zadanej kotła i CWU w rmCurrentDataParamsEdits");
+    return;
+  }
+  JsonDocument payload;
+  payload["ecomax_parameters"] = hex;
+  String json;
+  serializeJson(payload, json);
+  const bool ok = post(requestUrl("pellet-boiler-pelux200/settings"), json);
+  if (ok) econetEditsDue = false;
+  logf("ecoNET300: nastawy (%u) do chmury: %s (HTTP %d)", found, ok ? "OK" : "błąd", lastHttpStatus);
+}
+
+// Odczyt z ecoNET300 co ECONET_POLL_MS: regParams.curr → ten sam odczyt co z magistrali (latest, licznik pelletu).
+void econetPoll(uint32_t nowMs)
+{
+  if (econetLastPollMs != 0 && nowMs - econetLastPollMs < ECONET_POLL_MS) return;
+  econetLastPollMs = nowMs;
+  String body;
+  if (!econetGet("regParams", body)) {
+    static int lastLogged = 0;
+    if (econetLastStatus != lastLogged) logf("ecoNET300 %s: brak odczytu (HTTP %d)", econetIp.c_str(), econetLastStatus);
+    lastLogged = econetLastStatus;
+    return;
+  }
+  JsonDocument filter;
+  filter["curr"] = true;
+  filter["settingsVer"] = true;
+  filter["currentDataParamsEditsVer"] = true;
+  JsonDocument document;
+  if (deserializeJson(document, body, DeserializationOption::Filter(filter))) return;
+  EcomaxSensorData decoded;
+  if (!econetToSensorData(document["curr"], decoded)) return;
+  const uint32_t at = millis();
+  portENTER_CRITICAL(&stateLock);
+  latest = decoded;
+  hasReading = true;
+  readingAtMs = at;
+  fuelMeter.onSensorData(decoded.fuelConsumption, at);
+  portEXIT_CRITICAL(&stateLock);
+  econetOkAtMs = at;
+  // wersja danych modułu jak tabela wersji z magistrali: zmiana = nastawy od nowa
+  const long version = (document["settingsVer"] | 0L) * 1000L + (document["currentDataParamsEditsVer"] | 0L);
+  if (version != econetDataVersion) econetEditsDue = true;
+  econetDataVersion = version;
+  if (econetEditsDue || nowMs - econetLastEditsMs >= ECONET_EDITS_MS) econetSendEdits(nowMs);
+}
+
+// Zlecenie z aplikacji przez ecoNET300: zadana kotła (98) i CWU (119) przez rmCurrNewParam, włącz/wyłącz przez
+// newParam BOILER_CONTROL (niesprawdzone na naszym module); inne — błąd. Wynik od razu, potem odczyt i nastawy.
+void econetExecute(const String &kind, int index, int value)
+{
+  String path;
+  if (kind == "control") {
+    path = "newParam?newParamName=BOILER_CONTROL&newParamValue=" + String(value);
+  } else if (kind == "ecomax" && econetEditKey(static_cast<uint8_t>(index))) {
+    path = String("rmCurrNewParam?newParamKey=") + econetEditKey(static_cast<uint8_t>(index)) + "&newParamValue=" + String(value);
+  } else {
+    logf("zlecenie z aplikacji: %s nr %d niedostępne przez ecoNET300", kind.c_str(), index);
+    finishParameterSet(false, "niedostępne przy połączeniu ecoNET300");
+    return;
+  }
+  String body;
+  JsonDocument reply;
+  const bool ok = econetGet(path, body) && !deserializeJson(reply, body) && econetWriteOk(reply.as<JsonVariantConst>());
+  logf("ecoNET300: %s → %s (HTTP %d)", path.c_str(), ok ? "OK" : "odrzucone", econetLastStatus);
+  finishParameterSet(ok, ok ? nullptr : "ecoNET300 nie przyjął zmiany");
+  econetEditsDue = true;
+  econetLastPollMs = 0;
+  readingDue = true;
+}
+
 void tick(uint32_t nowMs)
 {
   updateAccessPoint(nowMs);
@@ -1583,10 +1755,11 @@ void tick(uint32_t nowMs)
     if (lastRegisterAttemptMs == 0 || nowMs - lastRegisterAttemptMs >= REGISTER_RETRY_MS) registerDevice();
     if (!registeredThisBoot) return;
   }
+  if (econetMode) econetPoll(nowMs);
   EcomaxSensorData reading;
   const bool fresh = freshReading(reading);
   const bool changed = fresh && lastSentSignature != 0 && readingSignature(reading) != lastSentSignature;
-  if (fresh) requestSettingsWhenChanged(nowMs, reading);
+  if (fresh && !econetMode) requestSettingsWhenChanged(nowMs, reading);
   if (fresh && (readingDue || changed) && nowMs - lastImmediatePostMs >= IMMEDIATE_POST_MIN_MS) {
     lastImmediatePostMs = nowMs;
     readingDue = false;
@@ -1812,6 +1985,101 @@ bool authorized()
   return false;
 }
 
+// /install/econet (POST): login i hasło modułu ecoNET300 (puste hasło = bez zmian), tylko w NVS.
+void handleEconetCredentials()
+{
+  if (!authorized()) return;
+  const String user = server.arg("eco_user");
+  const String password = server.arg("eco_pass");
+  if (user.length()) {
+    econetUser = user;
+    preferences.putString(KEY_ECONET_USER, user);
+  }
+  if (password.length()) {
+    econetPass = password;
+    preferences.putString(KEY_ECONET_PASS, password);
+  }
+  econetUid = "";
+  econetLastPollMs = 0;
+  server.sendHeader("Location", "/install", true);
+  server.send(303, "text/plain", "");
+}
+
+// Strumień odpowiedzi ecoNET300 do przeglądarki z maskowaniem haseł i kluczy (JsonSecretMasker), porcjami.
+class EconetDumpSink : public Stream {
+public:
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  size_t write(uint8_t c) override
+  {
+    char out[8];
+    const size_t count = masker_.feed(static_cast<char>(c), out);
+    for (size_t i = 0; i < count; i++) {
+      buffer_[length_++] = out[i];
+      if (length_ == sizeof(buffer_)) flush();
+    }
+    return 1;
+  }
+  void flush()
+  {
+    if (length_) server.sendContent(buffer_, length_);
+    length_ = 0;
+    esp_task_wdt_reset();
+  }
+
+private:
+  JsonSecretMasker masker_;
+  char buffer_[512];
+  size_t length_ = 0;
+};
+
+// /install/econet-dump: wszystkie znane zapytania ecoNET300 w jednym pliku JSON {"<zapytanie>": <odpowiedź>} do
+// dopasowania parametrów na wizycie przy kotle (docs/econet300-api/README.md). Tylko odczyty (GET).
+void handleEconetDump()
+{
+  if (!authorized()) return;
+  if (econetIp.isEmpty()) {
+    server.send(400, "text/plain; charset=utf-8", "Brak adresu ecoNET300 — ustaw go w aplikacji (Dane sterownika).");
+    return;
+  }
+  const String uid = econetModuleUid();
+  const String q = "?uid=" + uid + "&lang=pl";
+  const String paths[] = {
+    "sysParams", "regParams", "regParamsData", "editParams", "rmCurrentDataParams" + q,
+    "rmCurrentDataParamsEdits?uid=" + uid, "rmParamsData?uid=" + uid, "rmParamsNames" + q, "rmParamsDescs" + q,
+    "rmParamsEnums" + q, "rmParamsUnitsNames" + q, "rmStructure" + q, "rmCatsNames" + q, "rmAlarmsNames" + q,
+    "rmAlarms", "rmLocksNames" + q, "rmExistingLangs?uid=" + uid};
+  server.sendHeader("Content-Disposition", "attachment; filename=econet300.json");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "application/json", "");
+  server.sendContent(String("{\"_firmware\": \"") + FW_VERSION + "\", \"_uid_known\": " + (uid.isEmpty() ? "false" : "true"));
+  for (const String &path : paths) {
+    const String name = path.substring(0, path.indexOf('?') < 0 ? path.length() : path.indexOf('?'));
+    server.sendContent(",\n\"" + name + "\": ");
+    HTTPClient client;
+    client.setConnectTimeout(ECONET_TIMEOUT_MS);
+    client.setTimeout(8000);
+    int status = -1;
+    if (client.begin(econetClient, "http://" + econetIp + "/econet/" + path)) {
+      client.setAuthorization(econetUser.c_str(), econetPass.c_str());
+      status = client.GET();
+    }
+    if (status == 200) {
+      EconetDumpSink sink;
+      client.writeToStream(&sink);
+      sink.flush();
+    } else {
+      server.sendContent("{\"_http\": " + String(status) + "}");
+    }
+    client.end();
+    esp_task_wdt_reset();
+  }
+  server.sendContent("\n}\n");
+  server.sendContent("");
+  logf("ecoNET300: pobrano odpowiedzi modułu (/install/econet-dump)");
+}
+
 // /install: Wi-Fi, ręczne wgranie firmware (z chmury: „Aktualizuj” w aplikacji), dane sterownika.
 void handleInstall()
 {
@@ -1847,6 +2115,20 @@ void handleInstall()
   page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
   page += "<p><button type=\"submit\">Wgraj</button></p></form>";
   // Hasło serwisowe regulatora tylko na żądanie (?service=1): nowy odczyt z kotła i ostatnie zapisane hasło
+  // Połączenie z kotłem (od 1.9.0): wybór i adres ustawia się w aplikacji (Dane sterownika), tu login i hasło
+  // modułu ecoNET300 i pobranie jego odpowiedzi (hasła zamaskowane) do analizy
+  page += "<form method=\"post\" action=\"/install/econet\" class=\"card\"><h2>Połączenie z kotłem</h2>";
+  page += "<div>Tryb: <b>" + String(econetMode ? "ecoNET300 (Wi-Fi)" : "RS-485") + "</b>"
+    + (econetIp.length() ? " · ecoNET300: <b>" + htmlEscape(econetIp) + "</b>" : String("")) + "</div>";
+  if (econetMode) {
+    page += "<div><small>Ostatni odczyt z modułu: " + (econetOkAtMs ? String((millis() - econetOkAtMs) / 1000) + " s temu" : String("brak"))
+      + ", HTTP " + String(econetLastStatus) + "</small></div>";
+  }
+  page += "<label>Login ecoNET300<input name=\"eco_user\" value=\"" + htmlEscape(econetUser) + "\"></label>";
+  page += "<label>Hasło ecoNET300 <small>(puste = bez zmian)</small><input name=\"eco_pass\" type=\"password\"></label>";
+  page += "<p><button type=\"submit\">Zapisz</button></p>";
+  if (econetIp.length()) page += "<p><a href=\"/install/econet-dump\">Pobierz odpowiedzi ecoNET300 (JSON, hasła ukryte)</a></p>";
+  page += "</form>";
   page += "<div class=\"card\"><h2>Hasło serwisowe regulatora</h2>";
   if (server.arg("service") == "1") {
     servicePasswordRequested = true;
@@ -1927,6 +2209,8 @@ void startNetwork()
   server.on("/boiler-settings.json", HTTP_GET, handleBoilerSettings);
   server.on("/install", handleInstall);
   server.on("/install/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareUpload);
+  server.on("/install/econet", HTTP_POST, handleEconetCredentials);
+  server.on("/install/econet-dump", HTTP_GET, handleEconetDump);
   server.onNotFound(handleRoot);
   server.begin();
 }

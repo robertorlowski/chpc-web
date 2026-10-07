@@ -34,7 +34,7 @@ const toPublicDevice = (device: DeviceDocument) => ({
 
 // Ustawienia, które sterownik pobiera w odpowiedzi na zgłoszenie (tylko rodzaje, które je mają).
 const controllerSettings = (device: DeviceDocument) =>
-  getDeviceTypeModule(device.deviceType).controllerSettings?.(device.properties ?? {});
+  getDeviceTypeModule(device.deviceType).controllerSettings?.(device.properties ?? {}, device);
 
 export async function getProperties(req: Request, res: Response) {
   try {

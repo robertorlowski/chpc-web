@@ -16,7 +16,7 @@ import {
 import { WinterCycleStatus } from './WinterCycleStatus';
 import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
 import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
-import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
+import { useBoilerConnection, useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -443,6 +443,8 @@ export const MainParameters: React.FC = () => {
   // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: bez sekcji „Tryb pracy”
   // i bez cyklu Zimy (serwer też traktuje kocioł jak Pellet).
   const heatPumpLinked = useHeatPumpLinked();
+  // połączenie przez ecoNET300 (definicja kotła): płytka podaje tylko zadaną kotła i CWU
+  const connection = useBoilerConnection();
   const heatPumpMode = !!heatPumpLinked && workModeName(settings ?? null) === 'Pompa ciepła';
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
   useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
@@ -593,6 +595,12 @@ export const MainParameters: React.FC = () => {
       <div className="resource">
         <h3 className="settings-section-title">Główne parametry</h3>
         {!heatPumpLinked && offline && <div className="boiler-error">{NOT_RESPONDING_TEXT}</div>}
+        {connection === 'econet300' && (
+          <div className="boiler-hint">
+            Połączenie przez ecoNET300: do zmiany są zadana kotła, zadana CWU i włączenie regulatora. Sezon, tryb pracy,
+            mieszacze i harmonogram czyszczenia będą dostępne po dopasowaniu parametrów modułu (na razie przez RS-485).
+          </div>
+        )}
         {settings === undefined && <div>Wczytywanie…</div>}
         {settings !== undefined && !ready && <div>Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</div>}
         {scheduleSettings && (
