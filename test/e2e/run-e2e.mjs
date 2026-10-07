@@ -193,29 +193,53 @@ async function main() {
   browser = await chromium.launch({ channel: 'msedge' });
   page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   page.on('dialog', (d) => d.accept());
+  // sterownik domyślny z bazy (DeviceGuard, raz na sesję) nie może przejąć wyboru testowej pompy
+  await page.addInitScript(() => sessionStorage.setItem('chpc.defaultApplied', '1'));
 
-  // 1. Rejestracja nowego sterownika przez interfejs
-  await openPage('/', 'form.device-add');
-  await shot('01-rejestracja-pusta');
-  await page.fill('input[name="deviceId"]', DEVICE_ID);
-  await page.fill('input[name="name"]', DEVICE_NAME);
-  await page.click('form.device-add button[type="submit"]');
-  await page.waitForSelector('.device-created code', { timeout: 10000 }).catch(() => {});
-  rootId = (await page.textContent('.device-created code').catch(() => '') ?? '').trim();
-  check('Rejestracja: formularz dodaje sterownik i pokazuje rootId', /^[0-9a-f]{24}$/.test(rootId), rootId);
-  await shot('02-rejestracja-dodany');
-  await page.fill('input[name="deviceId"]', DEVICE_ID);
-  await page.click('form.device-add button[type="submit"]');
-  await page.waitForSelector('.device-selection-error', { timeout: 5000 }).catch(() => {});
-  const dupError = await page.textContent('.device-selection-error').catch(() => '');
-  check('Rejestracja: duplikat identyfikatora odrzucony z komunikatem', /już istnieje/.test(dupError ?? ''), dupError);
-  await page.click('.device-created .device-open');
-  await page.waitForURL('**/hp', { timeout: 10000 });
-  check('Rejestracja: przejście do nowego sterownika', page.url().endsWith('/hp'));
+  // 1. Zgłoszenie nowego sterownika (jak co przy starcie: POST /devices/register z SN), nazwa w oknie
+  //    „Dane sterownika” i wybór kafelka w /devices. Klient nie ma formularza dodawania (od 2026-09-25).
+  const register = () => fetch(`${API}/devices/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId: DEVICE_ID, deviceType: 'heat_pump', version: 'e2e', ip: '192.168.1.250' }),
+  });
+  const reg = await register();
+  const regBody = await reg.json();
+  rootId = regBody.rootId ?? '';
+  check('Zgłoszenie: nowy sterownik dostaje rootId (201)', reg.status === 201 && /^[0-9a-f]{24}$/.test(rootId), `${reg.status} ${rootId}`);
+  const again = await register();
+  const againBody = await again.json();
+  check('Zgłoszenie: ponowne zgłoszenie zwraca ten sam rootId (200)', again.status === 200 && againBody.rootId === rootId, `${again.status} ${againBody.rootId}`);
+  await openPage('/devices', '.device-list');
+  check('Urządzenia: kafelek nowego sterownika z SN', await page.isVisible(`.device-card:has-text("${DEVICE_ID}")`));
+  await shot('01-urzadzenia-nowy-sterownik');
+  await page.click(`button[aria-label="Edytuj dane sterownika ${DEVICE_ID}"]`);
+  await page.waitForSelector('.device-modal input[name="name"]', { timeout: 10000 });
+  await page.fill('.device-modal input[name="name"]', DEVICE_NAME);
+  await page.waitForSelector('.device-modal button[type="submit"]:not([disabled])', { timeout: 10000 });
+  await page.click('.device-modal button[type="submit"]');
+  await page.waitForSelector('.device-modal', { state: 'detached', timeout: 10000 }).catch(() => {});
+  const named = (await (await fetch(`${API}/devices`)).json()).find((d) => d.rootId === rootId);
+  check('Urządzenia: nazwa nadana w oknie „Dane sterownika”', named?.name === DEVICE_NAME && named?.deviceId === DEVICE_ID, named?.name);
+  await shot('02-urzadzenia-nazwa');
+  await page.click(`.device-card:has-text("${DEVICE_NAME}") .device-choose`);
+  await page.waitForURL((url) => !url.pathname.startsWith('/devices'), { timeout: 10000 });
+  const selected = await page.evaluate(() => JSON.parse(localStorage.getItem('chpc.selectedDevice') ?? '{}').rootId);
+  check('Urządzenia: wybór kafelka otwiera nowy sterownik', selected === rootId, `${selected} ${page.url()}`);
 
-  // 2. Wartości domyślne urządzenia (tryb CO automatyczny, 25..30 °C) i pierwsza operacja harmonogramu
-  const props = await http('PUT', '/device/properties', { work_mode: 'A', co_min: '25', co_max: '30', cwu_min: '40', cwu_max: '47' });
+  // 2. Wartości domyślne urządzenia (tryb automatyczny, temperatura od–do 25..30 °C) i pierwsza operacja
+  //    harmonogramu. Od etapu 2 pompy (pump-mode.service.ts) jedna para temp_min/temp_max, a tryb dla co wynika
+  //    z podłączenia pompy (domyślnie CWU → work_mode CWU, obie pary co_* i cwu_* z tej samej temperatury);
+  //    wersja „e2e” ze zgłoszenia nie jest semver, więc serwer odsyła dawny kontrakt (controller-contract.service.ts).
+  const props = await http('PUT', '/device/properties', { work_mode: 'AUTO', temp_min: '25', temp_max: '30' });
   check('Ustawienia domyślne urządzenia zapisane', props.status === 200, JSON.stringify(props.body));
+  // tryb A bez aktywnego harmonogramu grzeje CWU (withoutSchedule), więc test potrzebuje wpisu CO trwającego teraz:
+  // od godziny wstecz do 6 h naprzód (czas warszawski, okno może przechodzić przez północ), temperatury domyślne
+  const hhmm = (offsetMs) => new Date(Date.now() + offsetMs)
+    .toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit', hour12: false });
+  const schedule = await http('POST', '/schedules', {
+    type: 'co', enabled: true, dayOfWeek: -1, startTime: hhmm(-3600e3), endTime: hhmm(6 * 3600e3), forceStart: false,
+  });
+  check('Harmonogram CO na czas testu zapisany', schedule.status < 300, `${schedule.status} ${JSON.stringify(schedule.body).slice(0, 120)}`);
 
   // 3. Start sterownika: wykrywanie czujników, przerwa 90 s, pierwsze odczyty
   await bridge.cmd('boot');
@@ -230,9 +254,9 @@ async function main() {
   for (let k = 0; k < 40 && !gotSchedule; k++) {
     await new Promise((r) => setTimeout(r, 2000));
     await coCycle();
-    gotSchedule = prefs.work_mode === 'A' && Number(lastHp.Tmax) === 30;
+    gotSchedule = prefs.work_mode === 'CWU' && Number(lastHp.Tmax) === 30;
   }
-  check('Harmonogram -> co -> chpc: tryb A i T max 30 °C w sterowniku', gotSchedule, `Tmax=${lastHp.Tmax} Tmin=${lastHp.Tmin} work_mode=${prefs.work_mode}`);
+  check('Harmonogram -> co -> chpc: praca (CWU) i T max 30 °C w sterowniku', gotSchedule, `Tmax=${lastHp.Tmax} Tmin=${lastHp.Tmin} work_mode=${prefs.work_mode}`);
   check('Harmonogram -> chpc: T min 25 °C (delta 5)', Number(lastHp.Tmin) === 25, `Tmin=${lastHp.Tmin}`);
 
   // 4. Cykl grzania: start poniżej T min, zatrzymanie powyżej T max, COP po zakończeniu cyklu
@@ -279,7 +303,9 @@ async function main() {
   const lastError = await http('GET', '/hp/last-error');
   check('Błąd: serwer zapisał przeciążenie (error_code 2)', lastError.body?.error_code === 2, JSON.stringify(lastError.body));
   await openPage('/hp', '.heat');
-  check('Błąd: dzwonek na widoku głównym', await page.isVisible('.hp-error-bell'));
+  // dwa dzwonki (telefon i komputer), widoczny jest jeden; ostatni błąd ładuje się po danych
+  const bell = await page.waitForSelector('.hp-error-bell >> visible=true', { timeout: 10000 }).catch(() => null);
+  check('Błąd: dzwonek na widoku głównym', bell !== null);
   await shot('05-widok-glowny-dzwonek');
   await openPage('/settings', '.settings-errors');
   const errText = await page.textContent('.settings-errors');
