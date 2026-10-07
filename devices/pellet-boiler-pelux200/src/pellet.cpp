@@ -21,6 +21,9 @@
 // odczyt ustawień (zmiany z panelu w chmurze); zapis parametru zawsze (bez pomijania według kopii
 // ustawień płytki) i na ustawieniach nie starszych niż SETTINGS_FRESH_MS (2026-10-04: kopia sprzed zmiany
 // na panelu kazała pominąć zapis CWU 42 przy 45 na kotle).
+// Od 1.7.2 zmiany ustawień z panelu wykrywa tabela wersji z SensorData (FrameVersionWatch, jak PyPlumIO): pełny
+// odczyt ustawień zaraz po zmianie wersji 0x31/0x32/0x36/0x38/0x5C, dziennik alarmów po zmianie 0x3D; odczyt
+// okresowy rzadziej, co 60 min, tylko jako zabezpieczenie.
 // Przy kotle nikt nie naciśnie resetu, więc sterownik restartuje się sam: watchdog pętli
 // (WATCHDOG_S) i po WIFI_RESTART_AFTER_MS bez Wi-Fi (2026-10-03 płytka raz zawisła bez restartu);
 // wcześniej co 2 min ponowne łączenie bez restartu. Przyczyna restartu programowego w NVS.
@@ -125,6 +128,13 @@ uint32_t lastFuelSaveMs = 0;
 double lastSavedFuelGrams = 0;
 // cisza regulatora i StartMaster (bus_watch.hpp, od 1.7.0); zmieniane w busTask, czytane przez strony pod stateLock
 BusSilenceWatch silenceWatch;
+// zmiany z panelu po tabeli wersji SensorData (od 1.7.2, bus_watch.hpp); tylko busTask
+FrameVersionWatch versionWatch;
+// Nasz zapis też podbija wersję 0x38; ponowny odczyt po nim i tak jest zlecony, więc zmiana wersji w OWN_WRITE_MS
+// po potwierdzeniu zapisu nie zleca drugiego.
+constexpr uint32_t OWN_WRITE_MS = 15000;
+uint32_t ownWriteConfirmedMs = 0;
+bool ownWriteConfirmed = false;
 // polaryzacja zapisana w NVS po pierwszej poprawnej ramce: przy ciszy zaraz po starcie (brak ramek, więc
 // polarity.confirmed() = false) wiadomo, jak nadawać StartMaster
 bool polarityKnown = false;
@@ -297,7 +307,8 @@ uint32_t lastImmediatePostMs = 0;
 // Ustawienia kotła: koniec ostatniego pełnego odczytu (busTask), podpis zadanych z ostatniego świeżego
 // odczytu; zmiana zadanej (np. na panelu) albo SETTINGS_REFRESH_MS bez odczytu = odczyt ustawień od nowa.
 constexpr uint32_t SETTINGS_FRESH_MS = 60000;
-constexpr uint32_t SETTINGS_REFRESH_MS = 10UL * 60 * 1000;
+// od 1.7.2 zmiany z panelu wykrywa tabela wersji (FrameVersionWatch); odczyt okresowy już tylko jako zabezpieczenie
+constexpr uint32_t SETTINGS_REFRESH_MS = 60UL * 60 * 1000;
 constexpr uint32_t SETTINGS_TRIGGER_MIN_MS = 60000;
 volatile uint32_t settingsReadDoneMs = 0;
 uint32_t lastTargetsSignature = 0;
@@ -479,6 +490,8 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
       parameterName(parameterWriter.mixer(), parameterWriter.index()).c_str(), parameterWriter.value());
     finishParameterSet(true, nullptr);
     boilerSettingsRequested = true;
+    ownWriteConfirmed = true;
+    ownWriteConfirmedMs = nowMs;
     return;
   }
   const int8_t item = boilerSettings.current();
@@ -649,6 +662,21 @@ void readBus(uint32_t nowMs)
       sensorFrames++;
       fuelMeter.onSensorData(decoded.fuelConsumption, nowMs);
       portEXIT_CRITICAL(&stateLock);
+      uint8_t refresh = versionWatch.onTable(decoded.frameVersions, decoded.frameVersionCount);
+      if ((refresh & FrameVersionWatch::REFRESH_SETTINGS) && ownWriteConfirmed && nowMs - ownWriteConfirmedMs < OWN_WRITE_MS) {
+        logf("ramka 0x%02x wersja %u → %u po naszym zapisie, odczyt już zlecony", versionWatch.changedType(),
+          static_cast<unsigned>(versionWatch.oldVersion()), static_cast<unsigned>(versionWatch.newVersion()));
+        refresh &= ~FrameVersionWatch::REFRESH_SETTINGS;
+      }
+      if (refresh) {
+        logf("zmiana na panelu: ramka 0x%02x wersja %u → %u, %s", versionWatch.changedType(),
+          static_cast<unsigned>(versionWatch.oldVersion()), static_cast<unsigned>(versionWatch.newVersion()),
+          (refresh & FrameVersionWatch::REFRESH_SETTINGS) && (refresh & FrameVersionWatch::REFRESH_ALERTS)
+            ? "czytam ustawienia i alarmy"
+            : (refresh & FrameVersionWatch::REFRESH_SETTINGS) ? "czytam ustawienia" : "czytam alarmy");
+        if (refresh & FrameVersionWatch::REFRESH_SETTINGS) boilerSettingsRequested = true;
+        if (refresh & FrameVersionWatch::REFRESH_ALERTS) alertsRequested = true;
+      }
       if (decoded.pendingAlerts.present && decoded.pendingAlerts.value != lastPendingAlerts) {
         if (lastPendingAlerts >= 0) {
           logf("alarmy: aktywnych %d → %u, czytam dziennik", lastPendingAlerts, decoded.pendingAlerts.value);
@@ -1038,7 +1066,7 @@ void requestSettingsWhenChanged(uint32_t nowMs, const EcomaxSensorData &reading)
     || stale) {
     lastSettingsTriggerMs = nowMs;
     boilerSettingsRequested = true;
-    logf("ustawienia kotła: %s, odczyt od nowa", targetsChanged ? "zmiana zadanej" : "co 10 min");
+    logf("ustawienia kotła: %s, odczyt od nowa", targetsChanged ? "zmiana zadanej" : "co 60 min");
   }
 }
 

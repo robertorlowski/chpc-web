@@ -148,8 +148,18 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
 
   // SensorDataMessage w PyPlumIO: najpierw FrameVersionsStructure (liczba wpisów i po 3 bajty:
   // typ ramki + uint16 wersji), dopiero potem dane czujników (sprawdzone z kodem PyPlumIO 2026-10-03).
+  // od 1.7.2 tabela jest odczytywana (FrameVersionWatch w bus_watch.hpp): zmiana wersji = zmiana z panelu
   uint8_t versions;
-  if (!reader.u8(versions) || !reader.skip(static_cast<size_t>(versions) * 3)) return false;
+  if (!reader.u8(versions)) return false;
+  for (uint8_t i = 0; i < versions; i++) {
+    uint8_t type, low, high;
+    if (!reader.u8(type) || !reader.u8(low) || !reader.u8(high)) return false;
+    if (out.frameVersionCount < ECOMAX_MAX_FRAME_VERSIONS) {
+      EcomaxFrameVersion &entry = out.frameVersions[out.frameVersionCount++];
+      entry.type = type;
+      entry.version = static_cast<uint16_t>(low | (high << 8));
+    }
+  }
 
   uint32_t ignored;
   if (!reader.u8(out.state) || !reader.u32(out.outputs)) return false;

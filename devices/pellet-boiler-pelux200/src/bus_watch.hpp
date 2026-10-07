@@ -76,5 +76,32 @@ private:
   size_t eventNext_ = 0;
 };
 
+// Zmiany ustawień z panelu po tabeli wersji z SensorData (od 1.7.2), jak PyPlumIO (devices/__init__.py,
+// on_event_frame_versions): wersja typu ramki rośnie przy każdej zmianie jego danych, więc jej zmiana = odczyt od nowa.
+// Typy ustawień (0x31 parametry kotła, 0x32 mieszaczy, 0x36 harmonogramy, 0x38 zmiany parametrów — PyPlumIO czyta
+// wtedy 0x31, 0x5C termostaty) → pełny odczyt ustawień; 0x3D → dziennik alarmów. Pierwsza tabela po starcie tylko
+// zapamiętuje wersje (odczyt startowy i tak jest). Typ, który zniknął z tabeli (np. przy odłączonym panelu),
+// zachowuje ostatnią wersję; pojawienie się typu z inną wersją też jest zmianą.
+class FrameVersionWatch {
+public:
+  static constexpr uint8_t REFRESH_SETTINGS = 1;
+  static constexpr uint8_t REFRESH_ALERTS = 2;
+  static constexpr size_t TYPES = 24;
+
+  // Zwraca maskę REFRESH_*; changedType/oldVersion/newVersion opisują pierwszą zmianę (do logu).
+  uint8_t onTable(const EcomaxFrameVersion *versions, uint8_t count);
+  uint8_t changedType() const { return changedType_; }
+  uint16_t oldVersion() const { return oldVersion_; }
+  uint16_t newVersion() const { return newVersion_; }
+
+private:
+  bool initialized_ = false;
+  EcomaxFrameVersion known_[TYPES];
+  size_t knownCount_ = 0;
+  uint8_t changedType_ = 0;
+  uint16_t oldVersion_ = 0;
+  uint16_t newVersion_ = 0;
+};
+
 // Ramka StartMaster od ecoNET (0x56) do regulatora (0x45), bez danych: 68 0A 00 45 56 30 05 19 BCC 16 (jak PyPlumIO).
 size_t buildStartMasterFrame(uint8_t *out, size_t outSize);

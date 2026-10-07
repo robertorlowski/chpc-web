@@ -68,6 +68,46 @@ void BusSilenceWatch::push(const Event &event)
   if (eventCount_ < EVENTS) eventCount_++;
 }
 
+namespace {
+uint8_t refreshFor(uint8_t type)
+{
+  switch (type) {
+    case 0x31: case 0x32: case 0x36: case 0x38: case 0x5C: return FrameVersionWatch::REFRESH_SETTINGS;
+    case 0x3D: return FrameVersionWatch::REFRESH_ALERTS;
+    default: return 0;
+  }
+}
+}
+
+uint8_t FrameVersionWatch::onTable(const EcomaxFrameVersion *versions, uint8_t count)
+{
+  uint8_t refresh = 0;
+  bool described = false;
+  for (uint8_t i = 0; i < count; i++) {
+    const EcomaxFrameVersion &entry = versions[i];
+    size_t index = 0;
+    while (index < knownCount_ && known_[index].type != entry.type) index++;
+    const bool known = index < knownCount_;
+    if (initialized_ && (!known || known_[index].version != entry.version)) {
+      const uint8_t action = refreshFor(entry.type);
+      if (action && !described) {
+        described = true;
+        changedType_ = entry.type;
+        oldVersion_ = known ? known_[index].version : 0;
+        newVersion_ = entry.version;
+      }
+      refresh |= action;
+    }
+    if (known) {
+      known_[index].version = entry.version;
+    } else if (knownCount_ < TYPES) {
+      known_[knownCount_++] = entry;
+    }
+  }
+  initialized_ = true;
+  return refresh;
+}
+
 size_t buildStartMasterFrame(uint8_t *out, size_t outSize)
 {
   return buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_START_MASTER, nullptr, 0, out, outSize);

@@ -373,6 +373,64 @@ void testParameterChangeRecording()
   TEST_ASSERT_TRUE(sensorAfter);
 }
 
+// Zmiany z panelu po tabeli wersji (1.7.2): przy zwykłej pracy żadnego odczytu, zmiana parametrów z panelu
+// (0x38 2 → 3 → 4 w nagraniu sterowania ręcznego) = odczyt ustawień; włączenie regulatora bez panelu i z nim
+// (nagranie bez panelu) = odczyty po starcie i zmiana dziennika alarmów (0x3D).
+struct VersionTriggers {
+  int settings = 0;
+  int alerts = 0;
+  uint8_t lastType = 0;
+  uint16_t lastOld = 0, lastNew = 0;
+};
+
+VersionTriggers versionTriggers(const std::vector<Recorded> &entries)
+{
+  FrameVersionWatch watch;
+  VersionTriggers result;
+  for (const Recorded &entry : entries) {
+    if (entry.tx) continue;
+    EcomaxFrameParser parser;
+    EcomaxFrame frame;
+    if (!parseRecorded(entry, parser, frame) || !isSensorDataFrame(frame)) continue;
+    EcomaxSensorData data;
+    TEST_ASSERT_TRUE(decodeSensorData(frame.data, frame.dataLength, data));
+    TEST_ASSERT_TRUE(data.frameVersionCount > 0);
+    const uint8_t refresh = watch.onTable(data.frameVersions, data.frameVersionCount);
+    if (refresh & FrameVersionWatch::REFRESH_SETTINGS) result.settings++;
+    if (refresh & FrameVersionWatch::REFRESH_ALERTS) result.alerts++;
+    if (refresh) {
+      result.lastType = watch.changedType();
+      result.lastOld = watch.oldVersion();
+      result.lastNew = watch.newVersion();
+    }
+  }
+  return result;
+}
+
+void testFrameVersionsRecordings()
+{
+  std::vector<Recorded> noPanel;
+  loadFile("test/fixtures/kociol-2026-10-03-bez-panelu.txt", noPanel);
+
+  VersionTriggers normal = versionTriggers(recording);
+  TEST_ASSERT_EQUAL_INT(0, normal.settings);
+  TEST_ASSERT_EQUAL_INT(0, normal.alerts);
+  VersionTriggers mixers = versionTriggers(mixerRecording);
+  TEST_ASSERT_EQUAL_INT(0, mixers.settings);
+  TEST_ASSERT_EQUAL_INT(0, mixers.alerts);
+
+  VersionTriggers manual = versionTriggers(manualRecording);
+  TEST_ASSERT_EQUAL_INT(2, manual.settings);
+  TEST_ASSERT_EQUAL_INT(0, manual.alerts);
+  TEST_ASSERT_EQUAL_HEX8(0x38, manual.lastType);
+  TEST_ASSERT_EQUAL_UINT16(3, manual.lastOld);
+  TEST_ASSERT_EQUAL_UINT16(4, manual.lastNew);
+
+  VersionTriggers restarts = versionTriggers(noPanel);
+  TEST_ASSERT_EQUAL_INT(10, restarts.settings);
+  TEST_ASSERT_EQUAL_INT(3, restarts.alerts);
+}
+
 int main(int, char **)
 {
   UNITY_BEGIN();
@@ -386,5 +444,6 @@ int main(int, char **)
   RUN_TEST(testManualControlRecording);
   RUN_TEST(testMixerValvesRecording);
   RUN_TEST(testParameterChangeRecording);
+  RUN_TEST(testFrameVersionsRecordings);
   return UNITY_END();
 }

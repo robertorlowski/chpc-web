@@ -84,6 +84,14 @@ struct EcomaxMixer {
 
 // Pola z flagą `present`: ramka urwana w środku daje tylko to, co zdążono
 // poprawnie odczytać.
+// Tabela wersji z początku SensorData (PyPlumIO FrameVersionsStructure): typ ramki i licznik zmian jej danych
+// (np. 0x38 rośnie przy każdej zmianie parametrów kotła, 0x3D przy zmianie dziennika alarmów); od 1.7.2.
+constexpr uint8_t ECOMAX_MAX_FRAME_VERSIONS = 24;
+struct EcomaxFrameVersion {
+  uint8_t type = 0;
+  uint16_t version = 0;
+};
+
 struct EcomaxSensorData {
   bool valid = false;  // przeczytano przynajmniej state i outputs
   uint8_t state = 0;
@@ -93,6 +101,8 @@ struct EcomaxSensorData {
   EcomaxTemperature temperatures[ECOMAX_TEMPERATURE_COUNT];
   EcomaxU8 heatingTarget, heatingStatus, waterHeaterTarget, waterHeaterStatus;
   EcomaxU8 fuelLevel;
+  EcomaxFrameVersion frameVersions[ECOMAX_MAX_FRAME_VERSIONS];
+  uint8_t frameVersionCount = 0;
   // liczba aktywnych alarmów (pending_alerts w PyPlumIO; od 1.7.0 wysyłana jako alerts_active)
   EcomaxU8 pendingAlerts;
   EcomaxFloat fanPower;

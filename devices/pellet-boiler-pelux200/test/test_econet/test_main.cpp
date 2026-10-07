@@ -410,6 +410,30 @@ void testControlWriter()
 }
 
 // StartMaster bajt w bajt jak PyPlumIO: 68 0A 00 45 56 30 05 19 BCC 16, BCC = XOR = 0x5D.
+void testFrameVersionWatch()
+{
+  FrameVersionWatch watch;
+  EcomaxFrameVersion table[] = {{0x56, 100}, {0x38, 2}, {0x3D, 500}};
+  // pierwsza tabela tylko zapamiętuje wersje
+  TEST_ASSERT_EQUAL_UINT8(0, watch.onTable(table, 3));
+  TEST_ASSERT_EQUAL_UINT8(0, watch.onTable(table, 3));
+  // 0x56 (dane panelu) zmienia się stale i nie jest ustawieniem
+  table[0].version = 101;
+  TEST_ASSERT_EQUAL_UINT8(0, watch.onTable(table, 3));
+  table[1].version = 3;
+  TEST_ASSERT_EQUAL_UINT8(FrameVersionWatch::REFRESH_SETTINGS, watch.onTable(table, 3));
+  TEST_ASSERT_EQUAL_HEX8(0x38, watch.changedType());
+  TEST_ASSERT_EQUAL_UINT16(2, watch.oldVersion());
+  TEST_ASSERT_EQUAL_UINT16(3, watch.newVersion());
+  // typ, którego nie ma w tabeli, zachowuje wersję: powrót z tą samą to nie zmiana
+  TEST_ASSERT_EQUAL_UINT8(0, watch.onTable(table, 2));
+  TEST_ASSERT_EQUAL_UINT8(0, watch.onTable(table, 3));
+  // nowy typ ustawień po starcie i zmiana dziennika alarmów naraz
+  EcomaxFrameVersion next[] = {{0x56, 101}, {0x38, 3}, {0x3D, 501}, {0x5C, 7}};
+  TEST_ASSERT_EQUAL_UINT8(FrameVersionWatch::REFRESH_SETTINGS | FrameVersionWatch::REFRESH_ALERTS, watch.onTable(next, 4));
+  TEST_ASSERT_EQUAL_HEX8(0x3D, watch.changedType());
+}
+
 void testStartMasterFrame()
 {
   uint8_t out[16];
@@ -545,6 +569,7 @@ int main(int, char **)
   UNITY_BEGIN();
   RUN_TEST(testMixerParameterWriter);
   RUN_TEST(testControlWriter);
+  RUN_TEST(testFrameVersionWatch);
   RUN_TEST(testStartMasterFrame);
   RUN_TEST(testAlertsLogPaging);
   RUN_TEST(testSilenceStartMaster);
