@@ -10,11 +10,11 @@
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
-import { FlameIcon, PumpIcon } from '../components/icons';
+import { FlameIcon, PumpIcon, ValveIcon } from '../components/icons';
 import { AlertsBanner } from '../components/Alerts';
 import { PelletBoilerAutoPellet, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
-  DEFAULT_POLL_SECONDS, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
+  DEFAULT_POLL_SECONDS, todayWarsaw, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
   heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
@@ -34,11 +34,24 @@ const Pump: React.FC<{ label: string; on?: boolean }> = ({ label, on }) => (
   </span>
 );
 
-// hysteresis: zadana „od–do” (od = zadana − histereza: tu kocioł rozpala / zaczyna się ładowanie CWU)
+// Zawór mieszacza jak pompa: ikona (strzałka = kierunek ruchu) i słowo „zawór”, pełny stan w podpowiedzi;
+// w ruchu niebieski jak pracująca pompa, w spoczynku szary.
+const Valve: React.FC<{ opening?: boolean; closing?: boolean }> = ({ opening, closing }) => {
+  const movement = opening ? 'opening' : closing ? 'closing' : undefined;
+  return (
+    <span className={`boiler-pump${movement ? ' boiler-pump-on' : ''}`} title={`zawór: ${valveText(opening, closing)}`}>
+      <ValveIcon className="boiler-pump-icon" movement={movement} />
+      zawór
+    </span>
+  );
+};
+
+// hysteresis: zadana „od–do” (od = zadana − histereza: tu kocioł rozpala / zaczyna się ładowanie CWU);
+// wide: kafelek na pół rzędu (mieszacze: dwa wypełniają rząd pod kotłem, CWU i pelletem)
 const Tile: React.FC<{
-  title: string; current?: number; target?: number; hysteresis?: number; children?: React.ReactNode;
-}> = ({ title, current, target, hysteresis, children }) => (
-  <div className="boiler-tile">
+  title: string; current?: number; target?: number; hysteresis?: number; wide?: boolean; children?: React.ReactNode;
+}> = ({ title, current, target, hysteresis, wide, children }) => (
+  <div className={wide ? 'boiler-tile boiler-tile-wide' : 'boiler-tile'}>
     <div className="boiler-tile-title">{title}</div>
     <div className="boiler-tile-current">{formatTemp(current)}</div>
     <div className="boiler-tile-target">
@@ -56,6 +69,8 @@ export const PelletBoilerHome: React.FC = () => {
   const [pollSeconds, setPollSeconds] = useState(DEFAULT_POLL_SECONDS);
   const [cwuLoading, setCwuLoading] = useState<PelletBoilerCwuLoading | null>(null);
   const [autoPellet, setAutoPellet] = useState<PelletBoilerAutoPellet | null>(null);
+  // spalony pellet dziś i w tym miesiącu (licznik ze sterownika, firmware pieca od 1.7.1)
+  const [fuel, setFuel] = useState<{ today: number | null; month: number | null }>({ today: null, month: null });
   const acknowledge = async () => {
     await PelletBoilerRequests.acknowledgeAutoPellet();
     setAutoPellet(await PelletBoilerRequests.getAutoPellet());
@@ -70,6 +85,12 @@ export const PelletBoilerHome: React.FC = () => {
       PelletBoilerRequests.getLast().then((result) => result && setReading(result));
       PelletBoilerRequests.getCwuLoading().then(setCwuLoading);
       PelletBoilerRequests.getAutoPellet().then(setAutoPellet);
+      const today = todayWarsaw();
+      Promise.all([PelletBoilerRequests.getFuel('day', today), PelletBoilerRequests.getFuel('month', today)])
+        .then(([day, month]) => setFuel({
+          today: day?.counterKg !== null && day?.counterKg !== undefined ? day.totalKg : null,
+          month: month?.counterKg !== null && month?.counterKg !== undefined ? month.totalKg : null,
+        }));
     };
     load();
     const timer = window.setInterval(load, REFRESH_MS);
@@ -125,22 +146,33 @@ export const PelletBoilerHome: React.FC = () => {
 
             <div className="resource">
               <div className="boiler-tiles">
-                <Tile title="Kocioł" current={reading.heating_temp} target={reading.heating_target}
+                {/* bez licznika pelletu (firmware przed 1.7.1) kocioł i CWU dzielą rząd na pół */}
+                <Tile title="Kocioł" wide={fuel.today === null} current={reading.heating_temp} target={reading.heating_target}
                   hysteresis={findParameter(settings, 17)?.value} />
-                <Tile title="CWU" current={reading.water_heater_temp} target={reading.water_heater_target}
+                <Tile title="CWU" wide={fuel.today === null} current={reading.water_heater_temp} target={reading.water_heater_target}
                   hysteresis={findParameter(settings, 123)?.value} />
+                {/* spalony pellet jak kafelek CWU: dziś duża liczba, pod nią miesiąc (licznik ze sterownika od 1.7.1) */}
+                {fuel.today !== null && (
+                  <div className="boiler-tile boiler-fuel-tile">
+                    <div className="boiler-tile-title">Spalony pellet dziś</div>
+                    <div className="boiler-fuel-values">
+                      <span className="boiler-tile-current">{formatNumber(fuel.today)} kg</span>
+                      <span className="boiler-tile-target">w miesiącu {formatNumber(fuel.month ?? 0)} kg</span>
+                    </div>
+                  </div>
+                )}
                 {hasMixers && (
                   <>
-                    <Tile title="Mieszacz 1 (grzejniki)" current={reading.mixer1_temp} target={reading.mixer1_target}>
+                    <Tile title="Mieszacz 1 (grzejniki)" wide current={reading.mixer1_temp} target={reading.mixer1_target}>
                       <div className="boiler-tile-extra">
                         <Pump label="pompa" on={reading.mixer1_pump} />
-                        <span>zawór {valveText(reading.mixer1_opening, reading.mixer1_closing)}</span>
+                        <Valve opening={reading.mixer1_opening} closing={reading.mixer1_closing} />
                       </div>
                     </Tile>
-                    <Tile title="Mieszacz 2" current={reading.mixer2_temp} target={reading.mixer2_target}>
+                    <Tile title="Mieszacz 2" wide current={reading.mixer2_temp} target={reading.mixer2_target}>
                       <div className="boiler-tile-extra">
                         <Pump label="pompa" on={reading.mixer2_pump} />
-                        <span>zawór {valveText(reading.mixer2_opening, reading.mixer2_closing)}</span>
+                        <Valve opening={reading.mixer2_opening} closing={reading.mixer2_closing} />
                       </div>
                     </Tile>
                   </>

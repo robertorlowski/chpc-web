@@ -1,4 +1,4 @@
-// Ikony kotła pelletowego: płomień (menu, kafelek, palenie) i pompa (stan pomp na stronie głównej).
+// Ikony kotła pelletowego: płomień (menu, kafelek, palenie), pompa i zawór mieszacza (strona główna).
 // Kolor bierze się z `currentColor`, więc o stanie (np. niebieska pompa w pracy) decyduje CSS.
 
 // dwa języki płomienia, żeby ikona nie przypominała kropli hydroforu
@@ -16,5 +16,15 @@ export const PumpIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
     <path d="M8 6.5L19 12L8 17.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
+// Zawór mieszacza: symbol zaworu ze schematów (dwa trójkąty stykające się wierzchołkami) i strzałka ruchu:
+// w górę = otwiera, w dół = zamyka, bez strzałki = stoi (od 2026-10-07 zamiast słów na stronie głównej).
+export const ValveIcon: React.FC<{ className?: string; movement?: 'opening' | 'closing' }> = ({ className, movement }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M3 9.5L12 14.5L3 19.5Z M21 9.5L12 14.5L21 19.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    {movement === 'opening' && <path d="M12 9V2.5M9 5.5L12 2.5L15 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+    {movement === 'closing' && <path d="M12 2.5V9M9 6L12 9L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
   </svg>
 );
