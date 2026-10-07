@@ -8,7 +8,7 @@ import { PelletBoilerCommandEntry } from '../types';
 const PelletBoilerCommandSchema = new Schema<PelletBoilerCommandEntry>(
   {
     rootId: { type: String, required: true },
-    kind: { type: String, enum: ['ecomax', 'mixer', 'control'], required: true },
+    kind: { type: String, enum: ['ecomax', 'mixer', 'control', 'schedule'], required: true },
     /** numer mieszacza od 1 (tylko kind = mixer) */
     mixer: { type: Number },
     index: { type: Number, required: true },

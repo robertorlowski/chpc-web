@@ -209,7 +209,7 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
 
   // Dalej kolejność jak w PyPlumIO (structures/sensor_data.py): termostat, wersje modułów,
   // sonda lambda, czujniki termostatów, czujniki mieszaczy.
-  if (!reader.skip(1)) return true;  // thermostat
+  if (!reader.optionalU8(out.thermostatByte)) return true;  // thermostat
   for (uint8_t module = 0; module < 6; module++) {  // A, B, C, ecoLAMBDA, ecoSTER, panel
     uint8_t first;
     if (!reader.u8(first)) return true;
@@ -223,7 +223,20 @@ bool decodeSensorData(const uint8_t *data, size_t length, EcomaxSensorData &out)
   if (!reader.u8(contacts)) return true;
   if (contacts != 0xFF) {
     uint8_t thermostats;
-    if (!reader.u8(thermostats) || !reader.skip(static_cast<size_t>(thermostats) * 9)) return true;
+    if (!reader.u8(thermostats)) return true;
+    for (uint8_t i = 0; i < thermostats; i++) {
+      uint8_t state;
+      EcomaxFloat current, target;
+      if (!reader.u8(state) || !reader.f32(current) || !reader.f32(target)) return true;
+      if (i >= ECOMAX_THERMOSTAT_MAX || !current.present || !target.present || target.value <= 0) continue;
+      EcomaxThermostat &thermostat = out.thermostats[i];
+      thermostat.present = true;
+      thermostat.state = state;
+      thermostat.currentTemp = current.value;
+      thermostat.targetTemp = target.value;
+      thermostat.contacts = contacts & (1u << i);
+      thermostat.schedule = contacts & (1u << (i + 3));
+    }
   }
 
   uint8_t mixers;

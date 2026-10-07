@@ -51,6 +51,11 @@ void fillPelletJson(JsonDocument &document, const EcomaxSensorData &data)
   document["lighter"] = (data.outputs & ECOMAX_OUT_LIGHTER) != 0;
   document["alarm"] = (data.outputs & ECOMAX_OUT_ALARM) != 0;
   setU8(document, "alerts_active", data.pendingAlerts);
+  // termostat pokojowy 1 (eSTER, od 1.8.0): temperatura w pokoju i zadana; brak termostatu = brak pól
+  if (data.thermostats[0].present) {
+    document["room_temp"] = data.thermostats[0].currentTemp;
+    document["room_target_temp"] = data.thermostats[0].targetTemp;
+  }
 
   // Mieszacze 1 i 2 (więcej instalacja nie ma): mixer1_temp, mixer1_target, mixer1_pump,
   // mixer1_opening, mixer1_closing; niepodłączony mieszacz jest pomijany.

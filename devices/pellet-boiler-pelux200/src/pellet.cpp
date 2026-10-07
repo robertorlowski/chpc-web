@@ -171,6 +171,12 @@ volatile uint8_t parameterSetIndex = 0;
 volatile uint8_t parameterSetValue = 0;
 volatile uint8_t parameterSetMixer = BoilerParameterWriter::NO_MIXER;
 // zlecenie z aplikacji: od odebrania do odesłania wyniku; wynik ustawia busTask
+// Harmonogram (od 1.8.0): po wysłaniu 0x37 wynik pokazuje ponowny odczyt harmonogramów (finishSettingsRead);
+// przy niezgodności jeszcze jeden odczyt, potem błąd.
+bool scheduleVerifyPending = false;
+uint8_t scheduleVerifyIndex = 0;
+uint8_t scheduleVerifyValue = 0;
+uint8_t scheduleVerifyReads = 0;
 volatile bool cloudCommandActive = false;
 volatile bool cloudResultReady = false;
 bool cloudResultOk = false;
@@ -387,11 +393,37 @@ const char *econetStateText(uint32_t nowMs)
 }
 
 // Koniec odczytu ustawień (busTask): wpis na konsoli i zlecenie wysyłki do chmury.
+void finishParameterSet(bool ok, const char *error);
+
 void finishSettingsRead()
 {
   settingsReadDoneMs = millis();
   logf("ustawienia kotła: koniec odczytu (bez odpowiedzi: %lu)", static_cast<unsigned long>(boilerSettings.failed()));
   if (boilerSettings.has(0)) settingsUploadPending = true;
+  if (!scheduleVerifyPending) return;
+  uint8_t enabled;
+  if (scheduleSwitch(boilerSettings, scheduleVerifyIndex, enabled) && enabled == scheduleVerifyValue) {
+    scheduleVerifyPending = false;
+    logf("harmonogram nr %u: odczyt potwierdza %s", scheduleVerifyIndex, enabled ? "włączony" : "wyłączony");
+    finishParameterSet(true, nullptr);
+  } else if (scheduleVerifyReads++ < 1) {
+    boilerSettingsRequested = true;
+    logf("harmonogram nr %u: odczyt jeszcze bez zmiany, czytam ponownie", scheduleVerifyIndex);
+  } else {
+    scheduleVerifyPending = false;
+    logf("harmonogram nr %u: regulator nie zmienił przełącznika", scheduleVerifyIndex);
+    finishParameterSet(false, "regulator nie zmienił harmonogramu — sprawdź na panelu");
+  }
+}
+
+// Harmonogram wysłany (potwierdzony 0xB7 albo bez odpowiedzi): odczyt ustawień rozstrzyga wynik.
+void verifySchedule(uint8_t schedule, uint8_t value)
+{
+  scheduleVerifyPending = true;
+  scheduleVerifyIndex = schedule;
+  scheduleVerifyValue = value;
+  scheduleVerifyReads = 0;
+  boilerSettingsRequested = true;
 }
 
 // Odpowiedź z ustawieniami: jedna linia „SETTINGS <nazwa> <ms> <hex>” na konsoli.
@@ -421,6 +453,11 @@ String parameterName(uint8_t mixer, uint8_t index)
 {
   char text[32];
   if (mixer == BoilerParameterWriter::CONTROL) return String("włącz/wyłącz regulator");
+  if (mixer == BoilerParameterWriter::SCHEDULE) {
+    if (index == SCHEDULE_BOILER_CLEAN) return String("harmonogram czyszczenia");
+    snprintf(text, sizeof(text), "harmonogram nr %u", index);
+    return String(text);
+  }
   if (mixer == BoilerParameterWriter::NO_MIXER) snprintf(text, sizeof(text), "kocioł nr %u", index);
   else snprintf(text, sizeof(text), "mieszacz %u nr %u", mixer + 1, index);
   return String(text);
@@ -452,6 +489,20 @@ void startParameterSet(uint32_t)
     parameterSetRequested = true;
     boilerSettingsRequested = true;
     logf("parametr %s: najpierw świeży odczyt ustawień", name.c_str());
+    return;
+  }
+  // harmonogram: tydzień i parametr ze świeżego odczytu bez zmian, zmienia się tylko przełącznik
+  if (mixer == BoilerParameterWriter::SCHEDULE) {
+    uint8_t data[SET_SCHEDULE_DATA_SIZE];
+    uint8_t current;
+    if (value > 1 || !scheduleSwitch(boilerSettings, index, current)
+      || buildSetScheduleData(boilerSettings, index, value, data, sizeof(data)) == 0) {
+      logf("%s: brak w odczycie ustawień albo wartość inna niż 0/1, nie zmieniam", name.c_str());
+      finishParameterSet(false, value > 1 ? "harmonogram: wartość 0 albo 1" : "brak harmonogramu w odczycie ustawień");
+      return;
+    }
+    parameterWriter.startSchedule(index, value, data, sizeof(data));
+    logf("%s: %s → %s, wysyłam", name.c_str(), current ? "włączony" : "wyłączony", value ? "włączony" : "wyłączony");
     return;
   }
   uint8_t current, min, max;
@@ -488,7 +539,8 @@ void handleEconet(const EcomaxFrame &frame, uint32_t nowMs)
   if (parameterWriter.onResponse(frame)) {
     logf("parametr %s = %u: regulator potwierdził, czytam ustawienia od nowa",
       parameterName(parameterWriter.mixer(), parameterWriter.index()).c_str(), parameterWriter.value());
-    finishParameterSet(true, nullptr);
+    if (parameterWriter.isSchedule()) verifySchedule(parameterWriter.index(), parameterWriter.value());
+    else finishParameterSet(true, nullptr);
     boilerSettingsRequested = true;
     ownWriteConfirmed = true;
     ownWriteConfirmedMs = nowMs;
@@ -696,6 +748,13 @@ void readBus(uint32_t nowMs)
       static_cast<unsigned>(BoilerParameterWriter::ATTEMPTS));
     finishParameterSet(false, "regulator nie potwierdził zmiany — sprawdź wartość na panelu");
     boilerSettingsRequested = true;
+  }
+  if (writing && parameterWriter.result() == BoilerParameterWriter::Result::UNCONFIRMED) {
+    logf("%s: bez odpowiedzi 0xB7, sprawdzam odczytem",
+      parameterName(parameterWriter.mixer(), parameterWriter.index()).c_str());
+    verifySchedule(parameterWriter.index(), parameterWriter.value());
+    ownWriteConfirmed = true;
+    ownWriteConfirmedMs = nowMs;
   }
   const uint32_t alertsFailed = alertsLog.failed();
   const bool alertsWasBusy = alertsLog.busy();
@@ -1117,7 +1176,10 @@ void pollCloudCommand(uint32_t nowMs)
   if (cloudCommandActive) {
     if (!cloudResultReady && !parameterWriter.busy() && nowMs - cloudCommandAtMs >= CLOUD_COMMAND_TIMEOUT_MS) {
       parameterSetRequested = false;
-      finishParameterSet(false, "brak odczytu ustawień albo okna ecoNET — zmiana nie wysłana");
+      const bool verifying = scheduleVerifyPending;
+      scheduleVerifyPending = false;
+      finishParameterSet(false, verifying ? "harmonogram wysłany, ale brak odczytu, który go potwierdza — sprawdź na panelu"
+                                          : "brak odczytu ustawień albo okna ecoNET — zmiana nie wysłana");
     }
     if (cloudResultReady && nowMs - lastCommandPollMs >= 2000) {
       lastCommandPollMs = nowMs;
@@ -1152,18 +1214,20 @@ void pollCloudCommand(uint32_t nowMs)
   const int value = document["value"] | -1;
   const bool isMixer = kind == "mixer";
   const bool isControl = kind == "control";
+  const bool isSchedule = kind == "schedule";
   cloudCommandId = id;
   cloudResultReady = false;
   cloudCommandActive = true;
   cloudCommandAtMs = nowMs;
-  if ((!isMixer && !isControl && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
+  if ((!isMixer && !isControl && !isSchedule && kind != "ecomax") || index < 0 || index > 255 || value < 0 || value > 255
     || (isMixer && (mixer < 1 || mixer > ECOMAX_MIXER_MAX))) {
     finishParameterSet(false, "nieprawidłowe zlecenie");
     return;
   }
   parameterSetIndex = static_cast<uint8_t>(index);
   parameterSetValue = static_cast<uint8_t>(value);
-  parameterSetMixer = isControl ? BoilerParameterWriter::CONTROL
+  parameterSetMixer = isSchedule ? BoilerParameterWriter::SCHEDULE
+    : isControl                 ? BoilerParameterWriter::CONTROL
     : isMixer                   ? static_cast<uint8_t>(mixer - 1)
                                 : BoilerParameterWriter::NO_MIXER;
   parameterSetRequested = true;
@@ -1841,6 +1905,12 @@ void loop()
         unsigned mixer, index, value;
         if (cloudCommandActive) {
           logf("konsola: trwa zlecenie z aplikacji, spróbuj za chwilę");
+        } else if (sscanf(consoleLine, "sched %u %u", &index, &value) == 2 && index < 256 && value <= 1) {
+          parameterSetMixer = BoilerParameterWriter::SCHEDULE;
+          parameterSetIndex = static_cast<uint8_t>(index);
+          parameterSetValue = static_cast<uint8_t>(value);
+          parameterSetRequested = true;
+          logf("harmonogram nr %u → %s: zlecone, czekam na okno ecoNET", index, value ? "włączony" : "wyłączony");
         } else if (sscanf(consoleLine, "setm %u %u %u", &mixer, &index, &value) == 3 && mixer >= 1
           && mixer <= ECOMAX_MIXER_MAX && index < 256 && value < 256) {
           parameterSetMixer = static_cast<uint8_t>(mixer - 1);
@@ -1855,7 +1925,7 @@ void loop()
           parameterSetRequested = true;
           logf("parametr kotła nr %u → %u: zlecone, czekam na okno ecoNET", index, value);
         } else {
-          logf("konsola: nieznane polecenie „%s” (set <nr> <wartość>, setm <mieszacz> <nr> <wartość>)", consoleLine);
+          logf("konsola: nieznane polecenie „%s” (set <nr> <wartość>, setm <mieszacz> <nr> <wartość>, sched <nr> <0|1>)", consoleLine);
         }
       } else if (consoleLength + 1 < sizeof(consoleLine)) {
         consoleLine[consoleLength++] = static_cast<char>(command);

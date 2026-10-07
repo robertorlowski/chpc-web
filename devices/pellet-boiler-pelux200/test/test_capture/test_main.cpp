@@ -132,6 +132,12 @@ void testSensorDataFromBoiler()
     TEST_ASSERT_EQUAL_UINT8(40, data.mixers[0].target);
     TEST_ASSERT_EQUAL_UINT8(27, data.mixers[1].target);
     TEST_ASSERT_FLOAT_WITHIN(10.0f, 20.0f, data.mixers[0].temperature);
+    // termostat 1 (eSTER, 1.8.0): pokój 20,7 °C, zadana 20 °C, styk rozwarty; termostatu 2 i 3 brak
+    TEST_ASSERT_TRUE(data.thermostats[0].present);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 20.7f, data.thermostats[0].currentTemp);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 20.0f, data.thermostats[0].targetTemp);
+    TEST_ASSERT_FALSE(data.thermostats[0].contacts);
+    TEST_ASSERT_FALSE(data.thermostats[1].present);
     decoded++;
   }
   TEST_ASSERT_TRUE(decoded > 100);
@@ -180,6 +186,48 @@ void testSettingsExchangeMatchesRecording()
   TEST_ASSERT_FALSE(mixerParameterValues(reader, 1, 0, value, min, max));
   TEST_ASSERT_FALSE(mixerParameterValues(reader, 9, 0, value, min, max));
   TEST_ASSERT_FALSE(ecomaxParameterValues(reader, 200, value, min, max));  // poza odpowiedzią
+
+  // harmonogramy (1.8.0): czyszczenie kotła (nr 4) włączone, 07:00–21:30 każdego dnia; CO (0) wyłączony
+  uint8_t enabled = 0xFF;
+  TEST_ASSERT_TRUE(scheduleSwitch(reader, SCHEDULE_BOILER_CLEAN, enabled));
+  TEST_ASSERT_EQUAL_UINT8(1, enabled);
+  TEST_ASSERT_TRUE(scheduleSwitch(reader, 0, enabled));
+  TEST_ASSERT_EQUAL_UINT8(0, enabled);
+  TEST_ASSERT_FALSE(scheduleSwitch(reader, 3, enabled));  // praca kotła: nie ma w odpowiedzi
+  // ramka 0x37 wyłączająca czyszczenie: [1, 4, 0, parametr 0] + tydzień bez zmian (00 03 FF FF FF E0 na dzień)
+  uint8_t data[SET_SCHEDULE_DATA_SIZE];
+  TEST_ASSERT_EQUAL_UINT32(SET_SCHEDULE_DATA_SIZE, buildSetScheduleData(reader, SCHEDULE_BOILER_CLEAN, 0, data, sizeof(data)));
+  const uint8_t head[4] = {1, 4, 0, 0};
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(head, data, 4);
+  const uint8_t day[6] = {0x00, 0x03, 0xFF, 0xFF, 0xFF, 0xE0};
+  for (int d = 0; d < 7; d++) TEST_ASSERT_EQUAL_HEX8_ARRAY(day, data + 4 + d * 6, 6);
+  TEST_ASSERT_EQUAL_UINT32(0, buildSetScheduleData(reader, 3, 0, data, sizeof(data)));
+
+  BoilerParameterWriter writer;
+  TEST_ASSERT_TRUE(writer.startSchedule(SCHEDULE_BOILER_CLEAN, 0, data, sizeof(data)));
+  TEST_ASSERT_TRUE(writer.isSchedule());
+  TEST_ASSERT_FALSE(writer.isMixer());
+  uint8_t frame[ECONET_MAX_FRAME];
+  const size_t length = writer.nextRequest(1000, frame, sizeof(frame));
+  TEST_ASSERT_EQUAL_UINT32(10 + SET_SCHEDULE_DATA_SIZE, length);
+  const uint8_t frameHead[8] = {0x68, 10 + SET_SCHEDULE_DATA_SIZE, 0x00, 0x45, 0x56, 0x30, 0x05, 0x37};
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(frameHead, frame, 8);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(data, frame + 8, SET_SCHEDULE_DATA_SIZE);
+  TEST_ASSERT_EQUAL_HEX8(0x16, frame[length - 1]);
+  // bez 0xB7: jedna wysyłka, potem UNCONFIRMED (wynik sprawdza odczyt), bez ponawiania
+  writer.update(1000 + BoilerParameterWriter::TIMEOUT_MS);
+  TEST_ASSERT_FALSE(writer.busy());
+  TEST_ASSERT_TRUE(writer.result() == BoilerParameterWriter::Result::UNCONFIRMED);
+  TEST_ASSERT_EQUAL_UINT32(0, writer.nextRequest(6000, frame, sizeof(frame)));
+  // z 0xB7: potwierdzone
+  TEST_ASSERT_TRUE(writer.startSchedule(SCHEDULE_BOILER_CLEAN, 1, data, sizeof(data)));
+  writer.nextRequest(7000, frame, sizeof(frame));
+  EcomaxFrame response{};
+  response.sender = ECOMAX_ADDRESS_ECOMAX;
+  response.recipient = 0x56;
+  response.type = ECOMAX_FRAME_SET_SCHEDULE_RESPONSE;
+  TEST_ASSERT_TRUE(writer.onResponse(response));
+  TEST_ASSERT_TRUE(writer.result() == BoilerParameterWriter::Result::CONFIRMED);
 }
 
 // Na każde nagrane CheckDevice budujemy odpowiedź tego samego typu i adresu co nagrana.

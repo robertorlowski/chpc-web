@@ -40,6 +40,9 @@ export type PelletBoilerReading = {
   lighter?: boolean;
   alarm?: boolean;
   // mieszacze 1 (grzejniki) i 2 od firmware 1.2.0; brak pól = niepodłączony albo starszy firmware
+  /** termostat pokojowy eSTER: temperatura w pokoju i zadana (firmware pieca od 1.8.0) */
+  room_temp?: number;
+  room_target_temp?: number;
   mixer1_temp?: number;
   mixer1_target?: number;
   mixer1_pump?: boolean;
@@ -83,8 +86,8 @@ export type PelletBoilerParameter = {
 
 /** Zmiana parametru dla regulatora: kotła (0x33) albo mieszacza (0x34), wartość surowa (bajt). */
 export type PelletBoilerChange = {
-  /** control: włącz (1) / wyłącz (0) regulator */
-  kind: 'ecomax' | 'mixer' | 'control';
+  /** control: włącz (1) / wyłącz (0) regulator; schedule: harmonogram nr index włącz (1) / wyłącz (0) */
+  kind: 'ecomax' | 'mixer' | 'control' | 'schedule';
   /** numer mieszacza od 1 */
   mixer?: number;
   index: number;
@@ -177,6 +180,8 @@ export type PelletBoilerSettings = {
   readAt?: string;
   groups?: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
   mixers?: { mixer: number; parameters: PelletBoilerParameter[] }[];
+  /** przełączniki harmonogramów regulatora (4 = czyszczenie kotła); godziny ustawia się na panelu */
+  schedules?: { index: number; name: string; label: string; enabled: boolean }[];
 };
 
 /** Ładowanie CWU w trybie pompy ciepła (GET /pellet-boiler-pelux200/cwu-loading); pompa ciepła grzeje wtedy 47–49 °C. */

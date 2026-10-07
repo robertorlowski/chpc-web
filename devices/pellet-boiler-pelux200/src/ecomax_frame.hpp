@@ -82,6 +82,19 @@ struct EcomaxMixer {
   uint8_t status = 0;
 };
 
+// Termostat pokojowy (eSTER/ecoSTER) z SensorData, jak _decode_thermostat_sensors w PyPlumIO (od 1.8.0):
+// stan, temperatura w pokoju i zadana; contacts = styk termostatu (bit n bajtu styków), schedule = praca według
+// harmonogramu termostatu (bit n + 3). Wpis bez temperatury (NaN) albo z zadaną ≤ 0 = termostat niepodłączony.
+constexpr uint8_t ECOMAX_THERMOSTAT_MAX = 3;
+struct EcomaxThermostat {
+  bool present = false;
+  uint8_t state = 0;
+  float currentTemp = 0.0f;
+  float targetTemp = 0.0f;
+  bool contacts = false;
+  bool schedule = false;
+};
+
 // Pola z flagą `present`: ramka urwana w środku daje tylko to, co zdążono
 // poprawnie odczytać.
 // Tabela wersji z początku SensorData (PyPlumIO FrameVersionsStructure): typ ramki i licznik zmian jej danych
@@ -109,6 +122,9 @@ struct EcomaxSensorData {
   EcomaxU8 boilerLoad;
   EcomaxFloat boilerPower, fuelConsumption;
   EcomaxMixer mixers[ECOMAX_MIXER_MAX];  // indeks 0 = mieszacz 1
+  // bajt „thermostat” z SensorData (znaczenie w PyPlumIO nieopisane), 0xFF/brak = nie odczytano
+  EcomaxU8 thermostatByte;
+  EcomaxThermostat thermostats[ECOMAX_THERMOSTAT_MAX];  // indeks 0 = termostat 1
 };
 
 // Bity `outputs`.

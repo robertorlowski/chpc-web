@@ -43,6 +43,9 @@ export interface PelletBoilerPelux200Measurements {
   alarm?: boolean;
   // mieszacze 1 (grzejniki) i 2 od firmware 1.2.0; brak pól = mieszacz niepodłączony
   /** temperatura obiegu mieszacza [°C] */
+  /** termostat pokojowy eSTER: temperatura w pokoju i zadana (firmware pieca od 1.8.0) */
+  room_temp?: number;
+  room_target_temp?: number;
   mixer1_temp?: number;
   /** zadana mieszacza [°C] */
   mixer1_target?: number;
@@ -99,12 +102,22 @@ export interface PelletBoilerSettingsView {
   deviceId?: string;
   groups: { key: string; label: string; parameters: PelletBoilerParameter[] }[];
   mixers: { mixer: number; parameters: PelletBoilerParameter[] }[];
+  /** przełączniki harmonogramów regulatora z odpowiedzi 0xB6 (godzin nie pokazujemy) */
+  schedules: PelletBoilerScheduleSwitch[];
+}
+
+/** Harmonogram regulatora: numer jak w PyPlumIO (4 = czyszczenie kotła), włączony albo nie. */
+export interface PelletBoilerScheduleSwitch {
+  index: number;
+  name: string;
+  label: string;
+  enabled: boolean;
 }
 
 /** Zmiana parametru z aplikacji: parametr kotła (0x33) albo mieszacza (0x34), wartość surowa. */
 export interface PelletBoilerCommandChange {
-  /** control: włącz (1) / wyłącz (0) regulator, index 0 */
-  kind: 'ecomax' | 'mixer' | 'control';
+  /** control: włącz (1) / wyłącz (0) regulator, index 0; schedule: harmonogram nr index włącz (1) / wyłącz (0), ramka 0x37 (firmware od 1.8.0) */
+  kind: 'ecomax' | 'mixer' | 'control' | 'schedule';
   /** numer mieszacza od 1 (kind = mixer) */
   mixer?: number;
   index: number;

@@ -847,3 +847,17 @@
     gap: 0 1.25rem;
   }
 }
+
+/* „Pozostałe” na stronie głównej: etykieta w jednej linii (np. „Temperatura pokojowa” przy 360 px),
+   zawija się najwyżej wartość */
+.boiler-other > div:has(> span.label) {
+  display: flex;
+  align-items: baseline;
+}
+.boiler-other span.label {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  /* najdłuższa etykieta („Temperatura pokojowa:”) i odstęp, wartości w jednej kolumnie */
+  min-width: 10.4rem;
+  margin-right: 0.3rem;
+}

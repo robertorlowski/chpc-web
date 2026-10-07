@@ -110,6 +110,52 @@ bool mixerParameterValues(const BoilerSettingsReader &reader, uint8_t mixer, uin
   return true;
 }
 
+namespace {
+const uint8_t *scheduleEntry(const BoilerSettingsReader &reader, uint8_t schedule)
+{
+  if (!reader.has(3)) return nullptr;
+  const uint8_t *data = reader.data(3);
+  const size_t length = reader.length(3);
+  if (length < 3) return nullptr;
+  const uint8_t count = data[2];
+  for (size_t entry = 0; entry < count; entry++) {
+    const size_t at = 3 + entry * SCHEDULE_ENTRY_SIZE;
+    if (at + SCHEDULE_ENTRY_SIZE > length) return nullptr;
+    if (data[at] == schedule) return data + at;
+  }
+  return nullptr;
+}
+}
+
+bool scheduleSwitch(const BoilerSettingsReader &reader, uint8_t schedule, uint8_t &enabled)
+{
+  const uint8_t *entry = scheduleEntry(reader, schedule);
+  if (!entry) return false;
+  enabled = entry[1];
+  return true;
+}
+
+size_t buildSetScheduleData(const BoilerSettingsReader &reader, uint8_t schedule, uint8_t enabled, uint8_t *out,
+  size_t outSize)
+{
+  const uint8_t *entry = scheduleEntry(reader, schedule);
+  if (!entry || outSize < SET_SCHEDULE_DATA_SIZE) return 0;
+  out[0] = 1;
+  out[1] = schedule;
+  out[2] = enabled;
+  out[3] = entry[2];  // wartość parametru (min i max nie idą)
+  memcpy(out + 4, entry + 5, SCHEDULE_WEEK_SIZE);
+  return SET_SCHEDULE_DATA_SIZE;
+}
+
+bool BoilerParameterWriter::startSchedule(uint8_t schedule, uint8_t enabled, const uint8_t *data, size_t length)
+{
+  if (length != SET_SCHEDULE_DATA_SIZE || !start(schedule, enabled, SCHEDULE)) return false;
+  memcpy(scheduleData, data, length);
+  scheduleLength = length;
+  return true;
+}
+
 bool BoilerParameterWriter::start(uint8_t index, uint8_t value, uint8_t mixer)
 {
   if (pending) return false;
@@ -130,7 +176,9 @@ size_t BoilerParameterWriter::nextRequest(uint32_t nowMs, uint8_t *out, size_t o
   // włącz/wyłącz regulator (PyPlumIO)
   const uint8_t boilerData[2] = {parameterIndex, parameterValue};
   const uint8_t mixerData[3] = {mixerIndex, parameterIndex, parameterValue};
-  const size_t length = isControl()
+  const size_t length = isSchedule()
+    ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_SCHEDULE, scheduleData, scheduleLength, out, outSize)
+    : isControl()
     ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_CONTROL, &parameterValue, 1, out, outSize)
     : isMixer()
     ? buildEconetFrame(ECOMAX_ADDRESS_ECOMAX, ECOMAX_FRAME_SET_MIXER_PARAMETER, mixerData, 3, out, outSize)
@@ -153,7 +201,8 @@ bool BoilerParameterWriter::onResponse(const EcomaxFrame &frame)
 {
   if (!pending || !awaiting || frame.sender != ECOMAX_ADDRESS_ECOMAX) return false;
   if (frame.recipient != ECONET_ADDRESS && frame.recipient != ECOMAX_ADDRESS_BROADCAST) return false;
-  const uint8_t expected = isControl() ? ECOMAX_FRAME_CONTROL_RESPONSE
+  const uint8_t expected = isSchedule() ? ECOMAX_FRAME_SET_SCHEDULE_RESPONSE
+    : isControl()                       ? ECOMAX_FRAME_CONTROL_RESPONSE
     : isMixer()                         ? ECOMAX_FRAME_SET_MIXER_PARAMETER_RESPONSE
                                         : ECOMAX_FRAME_SET_PARAMETER_RESPONSE;
   if (frame.type != expected) return false;
@@ -167,6 +216,12 @@ void BoilerParameterWriter::update(uint32_t nowMs)
 {
   if (!pending || !awaiting || nowMs - sentMs < TIMEOUT_MS) return;
   awaiting = false;
+  // harmonogram bez ponawiania: regulator może nie odpowiadać na 0x37 (PyPlumIO nie czeka)
+  if (isSchedule()) {
+    pending = false;
+    lastResult = Result::UNCONFIRMED;
+    return;
+  }
   if (attempts >= ATTEMPTS) {
     pending = false;
     lastResult = Result::FAILED;

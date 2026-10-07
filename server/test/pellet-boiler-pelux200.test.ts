@@ -287,6 +287,35 @@ describe('Kocioł pelletowy Pellux 200', () => {
     vi.useRealTimers();
   });
 
+  it('harmonogram czyszczenia: przełącznik z odczytu 0xB6, zlecenie schedule do sterownika, walidacja', async () => {
+    const sn = 'AABBCC000019';
+    const { rootId } = (await register(sn)).body;
+    const commands = `/api/pellet-boiler-pelux200/commands?rootId=${rootId}`;
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0 }).expect(201);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+
+    // kopia z 2026-10-03: włączony tylko harmonogram czyszczenia (nr 4)
+    const view = (await request(app).get(`/api/pellet-boiler-pelux200/settings?rootId=${rootId}`)).body;
+    expect(view.schedules).toEqual([
+      { index: 0, name: 'heating', label: 'Harmonogram CO', enabled: false },
+      { index: 1, name: 'water_heater', label: 'Harmonogram CWU', enabled: false },
+      { index: 4, name: 'boiler_clean', label: 'Harmonogram czyszczenia', enabled: true },
+      { index: 6, name: 'mixer_1', label: 'Harmonogram mieszacza 1', enabled: false },
+      { index: 7, name: 'mixer_2', label: 'Harmonogram mieszacza 2', enabled: false },
+    ]);
+
+    const bad = async (change: object) =>
+      expect((await request(app).post(commands).send({ changes: [change] })).status).toBe(400);
+    await bad({ kind: 'schedule', index: 4, value: 2 });
+    await bad({ kind: 'schedule', index: 3, value: 0 });  // praca kotła: nie ma w odczycie
+
+    const created = await request(app).post(commands).send({ changes: [{ kind: 'schedule', index: 4, value: 0 }] });
+    expect(created.status).toBe(201);
+    expect(created.body[0]).toMatchObject({ kind: 'schedule', index: 4, value: 0, previous: 1, label: 'Harmonogram czyszczenia' });
+    const taken = (await request(app).get(`/api/pellet-boiler-pelux200/commands/next?deviceId=${sn}`)).body;
+    expect(taken).toMatchObject({ kind: 'schedule', mixer: 0, index: 4, value: 0 });
+  });
+
   it('zmiana trybu przy wyłączonym kotle: wyłącz, nastawy czekają na stan 0, na końcu włącz', async () => {
     const sn = 'AABBCC000013';
     const { rootId } = (await register(sn)).body;

@@ -4,7 +4,7 @@
 import {
   ECOMAX_PARAMETER_GROUPS, ECOMAX_PARAMETERS, EcomaxParameterDefinition, MIXER_PARAMETERS,
 } from '../ecomax-parameters';
-import { PelletBoilerMode, PelletBoilerParameter, PelletBoilerSettingsRaw, PelletBoilerSettingsView } from '../types';
+import { PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSwitch, PelletBoilerSettingsRaw, PelletBoilerSettingsView } from '../types';
 import {
   PelletBoilerSettingsEntry, PelletBoilerSettingsModel,
 } from '../models/pellet-boiler-pelux200-settings.model';
@@ -95,6 +95,34 @@ export function decodeEcomaxParameters(hex: string): PelletBoilerParameter[] {
     triple ? [parameter(first + i, triple, ECOMAX_PARAMETERS[first + i])] : []);
 }
 
+// Harmonogramy regulatora (odpowiedź 0xB6, jak SchedulesStructure w PyPlumIO): [?, pierwszy, liczba] +
+// liczba × (nr, przełącznik 0/1, parametr 3 B, 42 B tygodnia). Tylko przełącznik — godziny ustawia się na panelu.
+export const SCHEDULE_NAMES = [
+  'heating', 'water_heater', 'circulation_pump', 'boiler_work', 'boiler_clean', 'hear_exchanger_clean',
+  'mixer_1', 'mixer_2', 'mixer_3', 'mixer_4', 'mixer_5',
+];
+const SCHEDULE_LABELS: Record<string, string> = {
+  heating: 'Harmonogram CO', water_heater: 'Harmonogram CWU', circulation_pump: 'Harmonogram cyrkulacji',
+  boiler_work: 'Harmonogram pracy kotła', boiler_clean: 'Harmonogram czyszczenia',
+  hear_exchanger_clean: 'Harmonogram czyszczenia wymiennika', mixer_1: 'Harmonogram mieszacza 1',
+  mixer_2: 'Harmonogram mieszacza 2',
+};
+const SCHEDULE_ENTRY_SIZE = 47;
+
+export function decodeSchedules(hex: string): PelletBoilerScheduleSwitch[] {
+  const data = bytes(hex);
+  if (data.length < 3) return [];
+  const result: PelletBoilerScheduleSwitch[] = [];
+  for (let entry = 0; entry < data[2]; entry++) {
+    const at = 3 + entry * SCHEDULE_ENTRY_SIZE;
+    if (at + SCHEDULE_ENTRY_SIZE > data.length) break;
+    const index = data[at];
+    const name = SCHEDULE_NAMES[index] ?? `schedule_${index}`;
+    result.push({ index, name, label: SCHEDULE_LABELS[name] ?? `Harmonogram nr ${index}`, enabled: data[at + 1] === 1 });
+  }
+  return result;
+}
+
 export function decodeMixerParameters(hex: string): { mixer: number; parameters: PelletBoilerParameter[] }[] {
   const data = bytes(hex);
   if (data.length < 4) return [];
@@ -128,6 +156,7 @@ export function buildSettingsView(entry: PelletBoilerSettingsEntry): PelletBoile
     deviceId: entry.deviceId,
     groups,
     mixers: entry.mixer_parameters ? decodeMixerParameters(entry.mixer_parameters) : [],
+    schedules: entry.schedules ? decodeSchedules(entry.schedules) : [],
   };
 }
 

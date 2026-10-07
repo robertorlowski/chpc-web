@@ -24,11 +24,12 @@ export type Item ={ kind: 'ecomax' | 'mixer'; mixer?: number; index: number };
 
 // Grupa „Głównych parametrów”: na liście tylko temperatura zadana (pierwszy element), ołówek otwiera
 // panel ze wszystkimi parametrami grupy. min/max: numery granic zadanej (kolejność wysyłki).
-type Section = { title: string; items: Item[]; min?: number; max?: number };
+// cleanSchedule: w grupie także przełącznik harmonogramu czyszczenia (Kocioł; zlecenie schedule, firmware od 1.8.0)
+type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean };
 const ecomax = (indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'ecomax', index }));
 const mixerItems = (mixer: number): Item[] => [0, 1, 2, 4, 6].map((index) => ({ kind: 'mixer', mixer, index }));
 const SECTIONS: Section[] = [
-  { title: 'Kocioł', items: ecomax([98, 99, 17, 101, 105]), min: 99 },
+  { title: 'Kocioł', items: ecomax([98, 99, 17, 101, 105]), min: 99, cleanSchedule: true },
   { title: 'CWU', items: ecomax([119, 123, 122]) },
   { title: 'Mieszacz 1 (grzejniki)', items: mixerItems(1), min: 1, max: 2 },
   { title: 'Mieszacz 2', items: mixerItems(2), min: 1, max: 2 },
@@ -100,6 +101,8 @@ const STANDBY_STATES = [5, 6];
 const PROFILE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
 
 const CONTROL_LABEL = (value: number) => (value ? 'Kocioł → włączony' : 'Kocioł → wyłączony');
+// harmonogram czyszczenia kotła w regulatorze (nr 4 w PyPlumIO); godziny ustawia się na panelu
+const CLEAN_SCHEDULE = 4;
 
 const STATUS_TEXT: Record<PelletBoilerCommand['status'], string> = {
   pending: 'czeka na sterownik',
@@ -109,9 +112,9 @@ const STATUS_TEXT: Record<PelletBoilerCommand['status'], string> = {
   replaced: 'zastąpione nowszą zmianą',
 };
 
-// parametr z odczytu ustawień; polecenie włącz/wyłącz (kind control) nie jest parametrem
+// parametr z odczytu ustawień; polecenie włącz/wyłącz (kind control) i harmonogram (schedule) nie są parametrami
 const findIn = (settings: PelletBoilerSettings | null, item: { kind: string; mixer?: number; index: number }) =>
-  item.kind === 'control' ? undefined
+  item.kind === 'control' || item.kind === 'schedule' ? undefined
   : item.kind === 'ecomax'
     ? settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === item.index)
     : settings?.mixers?.find((m) => m.mixer === item.mixer)?.parameters.find((p) => p.index === item.index);
@@ -234,6 +237,10 @@ const GroupEditPanel: React.FC<{
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  // harmonogram czyszczenia (Kocioł): Tak/Nie, wysyłany po parametrach, gdy zmieniony
+  const schedule = section.cleanSchedule ? settings.schedules?.find((entry) => entry.index === CLEAN_SCHEDULE) : undefined;
+  const [scheduleOn, setScheduleOn] = useState(schedule?.enabled ?? false);
+  const scheduleChanged = !!schedule && scheduleOn !== schedule.enabled;
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -247,7 +254,7 @@ const GroupEditPanel: React.FC<{
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
-    if (changed.length === 0) return onClose();
+    if (changed.length === 0 && !scheduleChanged) return onClose();
     const target = section.items[0].index;
     for (const { item, parameter } of changed) {
       const number = numberOf(item.index);
@@ -268,8 +275,10 @@ const GroupEditPanel: React.FC<{
     };
     const ordered = [...changed].sort((a, b) => rank(a) - rank(b));
     setSending(true);
-    const response = await PelletBoilerRequests.postCommands(
-      ordered.map(({ item, parameter }) => ({ ...item, value: toRaw(parameter, numberOf(item.index)) })));
+    const response = await PelletBoilerRequests.postCommands([
+      ...ordered.map(({ item, parameter }): PelletBoilerChange => ({ ...item, value: toRaw(parameter, numberOf(item.index)) })),
+      ...(scheduleChanged ? [{ kind: 'schedule', index: CLEAN_SCHEDULE, value: scheduleOn ? 1 : 0 } as PelletBoilerChange] : []),
+    ]);
     setSending(false);
     if (response?.status === 201) {
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
@@ -312,6 +321,17 @@ const GroupEditPanel: React.FC<{
             </div>
           );
         })}
+        {schedule && (
+          <div className="boiler-group-field">
+            <label>
+              <span>{schedule.label}</span>
+              <select value={scheduleOn ? '1' : '0'} onChange={(event) => setScheduleOn(event.currentTarget.value === '1')}>
+                <option value="1">Tak</option>
+                <option value="0">Nie</option>
+              </select>
+            </label>
+          </div>
+        )}
         <div className="boiler-hint">
           Wysyłane są tylko zmienione pola. Sterownik przekaże je regulatorowi po kolei w ciągu
           ok. 15–30 s każde (także przy pracującym kotle).
@@ -496,6 +516,8 @@ export const MainParameters: React.FC = () => {
 
   const ready = settings && settings.readAt;
   const currentMode = workModeName(settings ?? null);
+  const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === CLEAN_SCHEDULE);
+  const cleanPending = commands.find((command) => command.kind === 'schedule' && (command.status === 'pending' || command.status === 'sent'));
   const labelOf = (change: PelletBoilerChange) => {
     const parameter = findIn(settings ?? null, change);
     const where = change.kind === 'mixer' ? `Mieszacz ${change.mixer}: ` : '';
@@ -600,6 +622,18 @@ export const MainParameters: React.FC = () => {
               ) : (
                 <ReadOnlyMixerTarget item={item} reading={lastReading} />
               )}
+              {/* Harmonogram czyszczenia (od firmware 1.8.0): zmiana w panelu grupy (zlecenie schedule, ramka 0x37;
+                  w regulatorze zmienia się tylko przełącznik, godziny zostają); stan z ostatniego odczytu ustawień */}
+              {section.cleanSchedule && cleanSchedule && (
+                <div className="boiler-main-row">
+                  <span className="boiler-main-label">{cleanSchedule.label}</span>
+                  <span className="boiler-parameter-value">{cleanSchedule.enabled ? 'Tak' : 'Nie'}</span>
+                  <IconButton label={`Zmień: ${cleanSchedule.label}`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
+                </div>
+              )}
+              {section.cleanSchedule && cleanPending && (
+                <div className="boiler-hint">{cleanPending.value ? 'Włączenie' : 'Wyłączenie'} harmonogramu czyszczenia czeka na sterownik.</div>
+              )}
             </div>
           );
         })}
@@ -619,9 +653,13 @@ export const MainParameters: React.FC = () => {
           <ul className="boiler-commands">
             {recent.map((command) => {
               const control = command.kind === 'control';
-              const { name, parameter } = control ? { name: '', parameter: undefined } : labelOf(command);
+              const schedule = command.kind === 'schedule';
+              const { name, parameter } = control ? { name: '', parameter: undefined }
+                : schedule ? { name: command.label ?? `Harmonogram nr ${command.index}`, parameter: undefined }
+                : labelOf(command);
               const item: Item = { kind: command.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: command.mixer, index: command.index };
-              const value = parameter ? display(item, parameter, fromRaw(parameter, command.value)) : String(command.value);
+              const value = parameter ? display(item, parameter, fromRaw(parameter, command.value))
+                : schedule ? (command.value ? 'Tak' : 'Nie') : String(command.value);
               return (
                 <li key={command._id}>
                   <span>{control ? <strong>{CONTROL_LABEL(command.value)}</strong> : <>{name} → <strong>{value}</strong></>}</span>

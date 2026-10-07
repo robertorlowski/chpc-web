@@ -78,8 +78,16 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
       valid.push({ kind, index: 0, value: raw.value, previous: 1 - raw.value, label: raw.value ? 'Włącz kocioł' : 'Wyłącz kocioł', ...waitOff });
       continue;
     }
-    if (kind !== 'ecomax' && kind !== 'mixer') throw new CommandError('kind: ecomax, mixer albo control');
+    if (kind !== 'ecomax' && kind !== 'mixer' && kind !== 'schedule') throw new CommandError('kind: ecomax, mixer, control albo schedule');
     if (!settings) throw new CommandError('Brak odczytu ustawień kotła — sterownik jeszcze ich nie wysłał.');
+    // włącz (1) / wyłącz (0) harmonogram regulatora (ramka 0x37, firmware od 1.8.0): godziny zostają z odczytu
+    if (kind === 'schedule') {
+      if (raw.value !== 0 && raw.value !== 1) throw new CommandError('schedule: value 0 (wyłącz) albo 1 (włącz)');
+      const schedule = buildSettingsView(settings).schedules.find((s) => s.index === raw.index);
+      if (!schedule) throw new CommandError(`Harmonogramu nr ${String(raw.index)} nie ma w odczycie ustawień kotła.`);
+      valid.push({ kind, index: schedule.index, value: raw.value, previous: schedule.enabled ? 1 : 0, label: schedule.label, ...waitOff });
+      continue;
+    }
     if (!isInteger(raw.index, 0, 255) || !isInteger(raw.value, 0, 255)) throw new CommandError('index i value: liczby 0–255');
     if (kind === 'mixer' && !isInteger(raw.mixer, 1, 5)) throw new CommandError('mixer: numer 1–5');
     const change: PelletBoilerCommandChange = {

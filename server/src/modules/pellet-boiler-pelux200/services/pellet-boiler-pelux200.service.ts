@@ -21,6 +21,8 @@ const NUMBER_FIELDS = [
   'alerts_active',
   // narastający licznik spalonego pelletu [kg] (fuel_meter.hpp, firmware pieca od 1.7.1)
   'fuel_burned_kg',
+  // termostat pokojowy eSTER: temperatura w pokoju i zadana (firmware pieca od 1.8.0)
+  'room_temp', 'room_target_temp',
 ] as const;
 const BOOLEAN_FIELDS = [
   'fan', 'feeder', 'heating_pump', 'water_heater_pump', 'circulation_pump', 'lighter', 'alarm',

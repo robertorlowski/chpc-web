@@ -123,6 +123,8 @@ export const READING_COLUMNS: ReadingColumn[] = [
   flag('heating_pump', 'Pompa CO', true),
   flag('water_heater_pump', 'Pompa CWU', true),
   temp('outside_temp', 'Zewn.', 'Zewnętrzna', true),
+  temp('room_temp', 'Pokój', 'Pokój (eSTER)'),
+  temp('room_target_temp', 'Pokój zad.', 'Pokój zadana (eSTER)'),
   temp('feeder_temp', 'T podajn.', 'Temperatura podajnika'),
   temp('optical_temp', 'Optyczny', 'Czujnik optyczny'),
   temp('upper_buffer_temp', 'Bufor góra', 'Bufor góra'),

@@ -51,6 +51,9 @@ const PelletBoilerPelux200Schema = new Schema<PelletBoilerPelux200Entry>(
     alerts_active: number,
     // narastający licznik spalonego pelletu [kg] (firmware pieca od 1.7.1)
     fuel_burned_kg: number,
+    // termostat pokojowy eSTER: temperatura w pokoju i zadana (firmware pieca od 1.8.0)
+    room_temp: number,
+    room_target_temp: number,
     mixer2_pump: flag,
     mixer2_opening: flag,
     mixer2_closing: flag,

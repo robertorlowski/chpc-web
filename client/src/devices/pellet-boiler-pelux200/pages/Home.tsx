@@ -99,6 +99,9 @@ export const PelletBoilerHome: React.FC = () => {
 
   const empty = reading !== null && !reading.createdAt;
   const stale = !!reading?.createdAt && isStale(reading.createdAt, pollSeconds);
+  const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === 4);
+  // „Wybór termostatu” (nr 111): 0 = termostat nie wpływa na kocioł (u nas wyłączony, 2026-10-07)
+  const thermostatMode = settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === 111);
   const burning = isBurning(reading?.state);
   const hasMixers = reading?.mixer1_temp !== undefined || reading?.mixer2_temp !== undefined;
 
@@ -181,13 +184,21 @@ export const PelletBoilerHome: React.FC = () => {
               {!hasMixers && <div className="boiler-hint">Mieszacze pojawią się po wgraniu firmware 1.2.0 na sterownik.</div>}
             </div>
 
-            <div className="resource">
+            <div className="resource boiler-other">
               <h3 className="settings-section-title">Pozostałe</h3>
               <Row label="Zewnętrzna">{formatTemp(reading.outside_temp)}</Row>
+              {/* termostat pokojowy eSTER (firmware pieca od 1.8.0): pokój i zadana; czy steruje kotłem — nr 111 */}
+              <Row label="Temperatura pokojowa">
+                {formatTemp(reading.room_temp)}
+                {reading.room_target_temp !== undefined && <span className="boiler-hint"> (zadana {formatTemp(reading.room_target_temp)})</span>}
+              </Row>
+              <Row label="Termostat">{thermostatMode === undefined ? '---' : thermostatMode.raw[0] === 0 ? 'sterowanie wyłączone' : 'sterowanie włączone'}</Row>
               <Row label="Poziom paliwa">{formatPercent(reading.fuel_level)}</Row>
               <Row label="Wentylator">{formatPercent(reading.fan_power)}</Row>
               <Row label="Moc">{reading.boiler_power === undefined ? '---' : `${formatNumber(reading.boiler_power)} kW`}</Row>
               <Row label="Cyrkulacja">{reading.circulation_pump === undefined ? '---' : reading.circulation_pump ? 'pracuje' : 'stoi'}</Row>
+              {/* przełącznik harmonogramu czyszczenia (nr 4) z ostatniego odczytu ustawień; zmiana w Ustawieniach */}
+              <Row label="Czyszczenie">{cleanSchedule === undefined ? '---' : cleanSchedule.enabled ? 'tak' : 'nie'}</Row>
               <Row label="Alarm">
                 <span className={reading.alarm ? 'boiler-alarm' : ''}>
                   {reading.alarm === undefined ? '---' : reading.alarm ? 'tak' : 'nie'}
