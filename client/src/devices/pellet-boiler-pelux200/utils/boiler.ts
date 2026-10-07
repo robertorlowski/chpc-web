@@ -132,6 +132,8 @@ export const READING_COLUMNS: ReadingColumn[] = [
   value('boiler_load', 'Obciąż. %', 'Obciążenie [%]', 0),
   value('boiler_power', 'Moc kW', 'Moc [kW]'),
   value('fuel_consumption', 'Zużycie kg/h', 'Zużycie paliwa [kg/h]', 2),
+  // spalony pellet od poprzedniego wiersza (licznik ze sterownika, firmware pieca od 1.7.1; withFuelDelta)
+  value('fuel_delta_kg', 'Pellet kg', 'Spalony pellet od poprzedniego odczytu [kg]', 3),
   value('lambda_level', 'Lambda %', 'Lambda [%]'),
   flag('fan', 'Wentylator'),
   flag('feeder', 'Podajnik'),
@@ -146,6 +148,16 @@ export const readingsToCsv = (readings: PelletBoilerReading[]) => {
   const rows = readings.map((r) => READING_COLUMNS.map((column) => column.csv(r)).join(';'));
   return [header.join(';'), ...rows].join('\n');
 };
+
+// Przyrost licznika pelletu względem starszego odczytu (lista malejąco po czasie, jak z serwera); spadek licznika
+// (nowa płytka) = cały nowy stan, jak na serwerze. Bez licznika w którymś z odczytów pole zostaje puste.
+export const withFuelDelta = (readings: PelletBoilerReading[]): PelletBoilerReading[] =>
+  readings.map((reading, index) => {
+    const older = readings[index + 1];
+    if (reading.fuel_burned_kg === undefined || older?.fuel_burned_kg === undefined) return reading;
+    const delta = reading.fuel_burned_kg >= older.fuel_burned_kg ? reading.fuel_burned_kg - older.fuel_burned_kg : reading.fuel_burned_kg;
+    return { ...reading, fuel_delta_kg: Math.round(delta * 1000) / 1000 };
+  });
 
 export const downloadText = (content: string, fileName: string) => {
   const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' }));

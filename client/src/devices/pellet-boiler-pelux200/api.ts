@@ -1,6 +1,6 @@
 import { Requests } from '../../core/http';
 import {
-  PelletBoilerAlerts, PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
+  PelletBoilerAlerts, PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerFuel, PelletBoilerFuelPeriod, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
   PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
 } from './types';
 
@@ -10,6 +10,11 @@ export class PelletBoilerRequests {
   // ostatni odczyt; serwer zwraca {} przy braku danych, get null przy błędzie
   static getLast(): Promise<PelletBoilerReading | null> {
     return Requests.get('/pellet-boiler-pelux200/last');
+  }
+
+  // spalony pellet w godzinach dnia, dniach miesiąca albo miesiącach roku; null przy błędzie
+  static getFuel(period: PelletBoilerFuelPeriod, date: string): Promise<PelletBoilerFuel | null> {
+    return Requests.get(`/pellet-boiler-pelux200/fuel?period=${period}&date=${date}`);
   }
 
   // dziennik alarmów z panelu kotła; null przy błędzie

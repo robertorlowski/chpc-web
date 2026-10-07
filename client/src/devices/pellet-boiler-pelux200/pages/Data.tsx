@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useFillHeight } from '../../../core/components/useFillHeight';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerReading } from '../types';
-import { READING_COLUMNS, downloadText, readingsToCsv, todayWarsaw } from '../utils/boiler';
+import { READING_COLUMNS, downloadText, readingsToCsv, todayWarsaw, withFuelDelta } from '../utils/boiler';
 import './style.css';
 
 export const PelletBoilerData: React.FC = () => {
@@ -18,7 +18,7 @@ export const PelletBoilerData: React.FC = () => {
 
   useEffect(() => {
     setReadings(null);
-    PelletBoilerRequests.getList(date).then((result) => setReadings(result ?? []));
+    PelletBoilerRequests.getList(date).then((result) => setReadings(withFuelDelta(result ?? [])));
   }, [date]);
 
   const columns = READING_COLUMNS.filter((column) => showAll || column.main);

@@ -6,7 +6,7 @@ import {
   getPelletBoilerScheduleSettings, putPelletBoilerScheduleSettings, getPelletBoilerCurrentSchedule,
   getPelletBoilerSchedules, postPelletBoilerSchedule, putPelletBoilerSchedule, deletePelletBoilerSchedule,
   getPelletBoilerCwuLoading, getPelletBoilerAutoPellet, acknowledgePelletBoilerAutoPellet, putPelletBoilerSeason,
-  addPelletBoilerPelux200Alerts, getPelletBoilerPelux200Alerts,
+  addPelletBoilerPelux200Alerts, getPelletBoilerPelux200Alerts, getPelletBoilerPelux200Fuel,
 } from './controllers/pellet-boiler-pelux200.controller'
 
 // Kocioł pelletowy Pellux 200: zapis odczytu (sterownik pieca), ostatni odczyt, lista dnia
@@ -38,6 +38,8 @@ router.post('/pellet-boiler-pelux200/auto-pellet/ack', acknowledgePelletBoilerAu
 // dziennik alarmów z panelu kotła: sterownik przesyła (POST, samym deviceId), aplikacja czyta (GET)
 router.post('/pellet-boiler-pelux200/alerts', addPelletBoilerPelux200Alerts)
 router.get('/pellet-boiler-pelux200/alerts', getPelletBoilerPelux200Alerts)
+// spalony pellet w okresach (licznik ze sterownika, firmware pieca od 1.7.1)
+router.get('/pellet-boiler-pelux200/fuel', getPelletBoilerPelux200Fuel)
 router.get('/pellet-boiler-pelux200/schedules', getPelletBoilerSchedules)
 router.post('/pellet-boiler-pelux200/schedules', postPelletBoilerSchedule)
 router.put('/pellet-boiler-pelux200/schedules/:id', putPelletBoilerSchedule)

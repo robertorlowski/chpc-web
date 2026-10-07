@@ -21,6 +21,7 @@ import {
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 import { PelletBoilerPelux200Entry } from '../types';
 import { AlertsError, listAlerts, saveAlerts, validateAlertsUpload } from '../services/pellet-boiler-pelux200-alert.service';
+import { FuelPeriod, fuelWindow, getFuelSummary } from '../services/pellet-boiler-pelux200-fuel.service';
 import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
@@ -292,6 +293,20 @@ export async function addPelletBoilerPelux200Alerts(req: Request, res: Response)
 export async function getPelletBoilerPelux200Alerts(req: Request, res: Response) {
   try {
     return res.status(200).json(await listAlerts(req.deviceRootId as string));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// GET /fuel?period=day|month|year&date=YYYY-MM-DD: spalony pellet [kg] w godzinach dnia, dniach miesiąca albo
+// miesiącach roku (pellet-boiler-pelux200-fuel.service.ts) → {period, date, buckets: [{key, kg}], totalKg, counterKg}.
+export async function getPelletBoilerPelux200Fuel(req: Request, res: Response) {
+  const window = fuelWindow(req.query.period, req.query.date);
+  if (!window) return res.status(400).json({ message: 'Podaj period=day|month|year i date=YYYY-MM-DD.' });
+  try {
+    const result = await getFuelSummary(req.deviceRootId as string, req.query.period as FuelPeriod, window.from, window.to, window.buckets);
+    return res.status(200).json({ period: req.query.period, date: req.query.date, ...result });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: String(error) });

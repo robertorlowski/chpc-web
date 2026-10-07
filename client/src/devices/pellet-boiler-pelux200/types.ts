@@ -49,6 +49,10 @@ export type PelletBoilerReading = {
   mixer2_target?: number;
   /** liczba aktywnych alarmów kotła (firmware pieca od 1.7.0) */
   alerts_active?: number;
+  /** narastający licznik spalonego pelletu [kg] (firmware pieca od 1.7.1) */
+  fuel_burned_kg?: number;
+  /** tylko w kliencie (zakładka Dane): przyrost licznika od poprzedniego odczytu [kg] */
+  fuel_delta_kg?: number;
   mixer2_pump?: boolean;
   mixer2_opening?: boolean;
   mixer2_closing?: boolean;
@@ -205,3 +209,13 @@ export type PelletBoilerAlert = {
   initial: boolean;
 };
 export type PelletBoilerAlerts = { readAt: string | null; alerts: PelletBoilerAlert[] };
+
+// Spalony pellet w okresie (GET /pellet-boiler-pelux200/fuel, firmware pieca od 1.7.1).
+export type PelletBoilerFuelPeriod = 'day' | 'month' | 'year';
+export type PelletBoilerFuel = {
+  period: PelletBoilerFuelPeriod;
+  date: string;
+  buckets: { key: number; kg: number }[];
+  totalKg: number;
+  counterKg: number | null;
+};

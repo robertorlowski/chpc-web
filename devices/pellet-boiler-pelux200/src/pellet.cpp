@@ -41,6 +41,7 @@
 #include <bus_polarity.hpp>
 #include <bus_watch.hpp>
 #include <alerts_log.hpp>
+#include <fuel_meter.hpp>
 #include <ecomax_frame.hpp>
 #include <econet.hpp>
 #include <firmware.hpp>
@@ -56,6 +57,8 @@ constexpr const char *KEY_WIFI_PASSWORD = "wifi_pass";
 constexpr const char *KEY_ROOT_ID = "root_id";
 constexpr const char *KEY_POLL_SECONDS = "poll_s";
 constexpr const char *KEY_INVERTED = "bus_inv";
+// licznik spalonego pelletu [g] (fuel_meter.hpp, od 1.7.1)
+constexpr const char *KEY_FUEL_GRAMS = "fuel_g";
 // klucz oferty OTA (wersja#zlecenie, ota.hpp), po której pobraniu sterownik się zrestartował
 constexpr const char *KEY_OTA_TRIED = "ota_tried";
 
@@ -116,6 +119,10 @@ uint32_t sensorFrames = 0;
 // ecoNET (etap 2): osłona adresu 0x56, stan sieci zgłaszany regulatorowi (aktualizowany
 // w tick()), zapytania pominięte w czasie nasłuchu albo blokady.
 EconetGuard guard;
+// spalony pellet (fuel_meter.hpp, od 1.7.1): zmieniany w busTask przy SensorData, czytany pod stateLock
+FuelMeter fuelMeter;
+uint32_t lastFuelSaveMs = 0;
+double lastSavedFuelGrams = 0;
 // cisza regulatora i StartMaster (bus_watch.hpp, od 1.7.0); zmieniane w busTask, czytane przez strony pod stateLock
 BusSilenceWatch silenceWatch;
 // polaryzacja zapisana w NVS po pierwszej poprawnej ramce: przy ciszy zaraz po starcie (brak ramek, więc
@@ -339,6 +346,8 @@ void loadConfig()
   pollSeconds = preferences.getUShort(KEY_POLL_SECONDS, DEFAULT_POLL_SECONDS);
   polarity = BusPolarity(preferences.getBool(KEY_INVERTED, false));
   polarityKnown = preferences.isKey(KEY_INVERTED);
+  lastSavedFuelGrams = preferences.getDouble(KEY_FUEL_GRAMS, 0);
+  fuelMeter.begin(lastSavedFuelGrams);
 }
 
 // --- magistrala ecoMAX ---
@@ -638,6 +647,7 @@ void readBus(uint32_t nowMs)
       hasReading = true;
       readingAtMs = nowMs;
       sensorFrames++;
+      fuelMeter.onSensorData(decoded.fuelConsumption, nowMs);
       portEXIT_CRITICAL(&stateLock);
       if (decoded.pendingAlerts.present && decoded.pendingAlerts.value != lastPendingAlerts) {
         if (lastPendingAlerts >= 0) {
@@ -937,10 +947,33 @@ void sendAlerts(uint32_t nowMs)
 // Ostatni świeży odczyt do chmury. 404/409: Root ID nieaktualny, zgłoszenie od nowa.
 uint32_t readingSignature(const EcomaxSensorData &reading);
 
+// Stan licznika pelletu do odczytu (kg, 3 miejsca), od 1.7.1.
+double fuelKilograms()
+{
+  portENTER_CRITICAL(&stateLock);
+  const double grams = fuelMeter.grams();
+  portEXIT_CRITICAL(&stateLock);
+  return static_cast<double>(static_cast<int64_t>(grams + 0.5)) / 1000.0;
+}
+
+// Licznik pelletu do NVS co FuelMeter::SAVE_EVERY_MS (gdy przybył co najmniej 1 g) i przed restartem (force).
+void saveFuel(uint32_t nowMs, bool force)
+{
+  if (!force && nowMs - lastFuelSaveMs < FuelMeter::SAVE_EVERY_MS) return;
+  lastFuelSaveMs = nowMs;
+  portENTER_CRITICAL(&stateLock);
+  const double grams = fuelMeter.grams();
+  portEXIT_CRITICAL(&stateLock);
+  if (grams - lastSavedFuelGrams < 1.0) return;
+  preferences.putDouble(KEY_FUEL_GRAMS, grams);
+  lastSavedFuelGrams = grams;
+}
+
 void sendReading(uint32_t nowMs, const EcomaxSensorData &reading)
 {
   JsonDocument document;
   fillPelletJson(document, reading);
+  document["fuel_burned_kg"] = fuelKilograms();
   String body;
   serializeJson(document, body);
   String response;
@@ -1233,9 +1266,12 @@ void applyTxPower()
 }
 
 // Restart programowy z zapisem przyczyny w NVS (widać ją po starcie na konsoli i stronie /).
+void saveFuel(uint32_t nowMs, bool force);
+
 void restartWithReason(const char *reason)
 {
   logf("restart: %s", reason);
+  saveFuel(millis(), true);
   preferences.putString(KEY_RESTART_REASON, reason);
   delay(100);
   ESP.restart();
@@ -1426,6 +1462,7 @@ void tick(uint32_t nowMs)
     sendReading(nowMs, reading);
   }
   if (settingsUploadPending && static_cast<int32_t>(nowMs - nextSettingsUploadMs) >= 0) sendSettings(nowMs);
+  saveFuel(nowMs, false);
   if (!alertsLog.busy() && alertsLog.complete() && alertsLog.revision() != alertsUploadedRevision
     && static_cast<int32_t>(nowMs - nextAlertsUploadMs) >= 0) {
     sendAlerts(nowMs);
@@ -1521,6 +1558,7 @@ void handleState()
   if (have) {
     JsonDocument reading;
     fillPelletJson(reading, last);
+    reading["fuel_burned_kg"] = fuelKilograms();
     state["reading"] = reading;
     state["stateName"] = last.state < 12 ? STATE_NAMES[last.state] : "?";
     state["ageS"] = (now - at) / 1000;

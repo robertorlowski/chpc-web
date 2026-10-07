@@ -19,6 +19,8 @@ const NUMBER_FIELDS = [
   'mixer1_temp', 'mixer1_target', 'mixer2_temp', 'mixer2_target',
   // liczba aktywnych alarmów kotła (SensorData, firmware pieca od 1.7.0)
   'alerts_active',
+  // narastający licznik spalonego pelletu [kg] (fuel_meter.hpp, firmware pieca od 1.7.1)
+  'fuel_burned_kg',
 ] as const;
 const BOOLEAN_FIELDS = [
   'fan', 'feeder', 'heating_pump', 'water_heater_pump', 'circulation_pump', 'lighter', 'alarm',

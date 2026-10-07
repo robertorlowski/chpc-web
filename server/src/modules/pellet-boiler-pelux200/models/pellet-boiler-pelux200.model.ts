@@ -49,6 +49,8 @@ const PelletBoilerPelux200Schema = new Schema<PelletBoilerPelux200Entry>(
     mixer2_target: number,
     // liczba aktywnych alarmów (firmware pieca od 1.7.0)
     alerts_active: number,
+    // narastający licznik spalonego pelletu [kg] (firmware pieca od 1.7.1)
+    fuel_burned_kg: number,
     mixer2_pump: flag,
     mixer2_opening: flag,
     mixer2_closing: flag,
