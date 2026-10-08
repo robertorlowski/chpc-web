@@ -31,6 +31,11 @@ export function formatWhen(date: Date, now = new Date()): string {
   return `${dayOfMonth}.${month} ${warsawTime(date)}`;
 }
 
+// Brak łączności albo telemetrii: do godziny to uwaga (pomarańczowa, bo sterownik zwykle wraca sam po restarcie
+// albo chwilowym zaniku Wi-Fi), po godzinie błąd (czerwony).
+export const OFFLINE_ERROR_AFTER_MS = 60 * 60 * 1000;
+export const offlineLevel = (ageMs: number): 'warn' | 'err' => (ageMs > OFFLINE_ERROR_AFTER_MS ? 'err' : 'warn');
+
 // „5 min”, „2 h”, „3 dni” — jak długo trwa brak danych
 export function formatAge(ms: number): string {
   const minutes = Math.max(1, Math.round(ms / 60000));

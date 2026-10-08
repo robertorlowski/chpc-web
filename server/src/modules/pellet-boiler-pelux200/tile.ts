@@ -1,9 +1,9 @@
 // Kafelek kotła Pellux 200 na stronie /devices (GET /devices/summary): stan regulatora, temperatura kotła
 // i CWU z zadanymi, tryb pracy, poziom pelletu i moc. Błąd (czerwony): aktywny alarm regulatora albo brak
-// odczytu dłużej niż 3 odstępy odpytywania. Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
+// odczytu dłużej niż godzinę (od 3 odstępów odpytywania do godziny to uwaga, pomarańczowa). Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
 // zlecenie zmiany parametru zakończone błędem w ciągu doby.
 import { Device, DeviceTile } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit, formatWhen } from '../../core/services/tile-format';
+import { formatAge, formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
 import { PelletBoilerCommandModel } from './models/pellet-boiler-pelux200-command.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from './models/pellet-boiler-pelux200-settings.model';
 import { listAlerts } from './services/pellet-boiler-pelux200-alert.service';
@@ -45,9 +45,10 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
   let note: DeviceTile['note'];
   let chip = last.state === undefined ? '---' : STATE_NAMES[last.state] ?? `Stan ${last.state}`;
   if (!responding) {
-    level = 'err';
+    const age = now.getTime() - at.getTime();
+    level = offlineLevel(age); // do godziny uwaga, potem błąd
     chip = 'Brak odczytu';
-    note = { level: 'err', text: `Brak odczytu z kotła od ${formatAge(now.getTime() - at.getTime())}` };
+    note = { level, text: `Brak odczytu z kotła od ${formatAge(age)}` };
   } else if (alarm) {
     level = 'err';
     chip = 'ALARM';

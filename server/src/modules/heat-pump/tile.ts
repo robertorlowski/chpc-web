@@ -1,9 +1,9 @@
 // Kafelek pompy ciepła na stronie /devices (GET /devices/summary): stan sprężarki, temperatura zbiornika,
 // zakres temperatur, moc i tryb pracy. Błąd (czerwony): blokada po 5 błędach, aktywny błąd albo brak
-// telemetrii dłużej niż 2 min (co wysyła co 10–30 s). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
+// telemetrii dłużej niż godzinę (od 2 min do godziny to uwaga, pomarańczowa; co wysyła co 10–30 s). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
 // który już ustąpił.
 import { Device, DeviceTile } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit, formatWhen } from '../../core/services/tile-format';
+import { formatAge, formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
 import { errorDescription } from './error-codes';
 import { ERROR_LOCK_LIMIT, getHpLastData, getHpLastError } from './services/hp.service';
 import { HpEntry } from './types';
@@ -39,9 +39,9 @@ export async function heatPumpTile(rootId: string, _device: Device, now = new Da
   let note: DeviceTile['note'];
   let chip = running ? 'Sprężarka pracuje' : 'Postój';
   if (age > OFFLINE_AFTER_MS) {
-    level = 'err';
+    level = offlineLevel(age); // do godziny uwaga, potem błąd
     chip = 'Brak łączności';
-    note = { level: 'err', text: `Brak telemetrii od ${formatAge(age)}` };
+    note = { level, text: `Brak telemetrii od ${formatAge(age)}` };
   } else if (locked) {
     level = 'err';
     chip = 'Zablokowana';

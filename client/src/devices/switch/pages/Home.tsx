@@ -1,6 +1,6 @@
 // Widok główny włącznika (/): dla każdego przekaźnika stan (przełącznik jak „CO pompa”), tryb,
-// odliczanie do końca włączenia, przyciski Włącz / Wyłącz / Harmonogram i czas włączenia pod nimi
-// („Włącz” na ten czas, 0 h 0 min = bez limitu; PUT /switch/mode)
+// odliczanie do końca włączenia, przyciski „Włącz teraz” i „Włącz wg harmonogramu” (na środku), czas włączenia
+// pod nimi i szeroki „Wyłącz” na dole („Włącz teraz” na ten czas, 0 h 0 min = bez limitu; PUT /switch/mode)
 // oraz dzisiejsze włączenia (GET /switch/activations). Dane odświeża WebSocket „update” (zmiana stanu
 // zgłoszona przez sterownik) i odpytywanie co 5 s (tryb timer i harmonogram zmieniają się z czasem).
 import { useEffect, useState } from 'react';
@@ -64,11 +64,9 @@ const RelayCard: React.FC<{
       <div className="switch-actions">
         <button type="button" disabled={busy || !timeValid}
           className={relay.mode === 'on' || relay.mode === 'timer' ? 'switch-active' : ''}
-          onClick={turnOn}>Włącz</button>
-        <button type="button" disabled={busy} className={`switch-stop${relay.mode === 'off' ? ' switch-active' : ''}`}
-          onClick={() => onMode('off')}>Wyłącz</button>
+          onClick={turnOn}>Włącz teraz</button>
         <button type="button" disabled={busy || relay.mode === 'schedule'} className="switch-secondary"
-          onClick={() => onMode('schedule')}>Harmonogram</button>
+          onClick={() => onMode('schedule')}>Włącz wg harmonogramu</button>
       </div>
       <div className="switch-timer">
         <span>Czas włączenia</span>
@@ -78,8 +76,12 @@ const RelayCard: React.FC<{
           onChange={(event) => setMinutes(event.currentTarget.value)} /> min
       </div>
       <div className="switch-hint">
-        {!timeValid ? 'Najwyżej 7 dni (168 h).' : timerMinutes === 0 ? '0 h 0 min: „Włącz” bez limitu czasu.' : '0 h 0 min = bez limitu czasu.'}
+        {!timeValid ? 'Najwyżej 7 dni (168 h).' : timerMinutes === 0 ? '0 h 0 min: „Włącz teraz” bez limitu czasu.' : '0 h 0 min = bez limitu czasu.'}
       </div>
+      {/* „Wyłącz” na dole karty, na całą szerokość */}
+      <button type="button" disabled={busy}
+        className={`switch-stop switch-stop-wide${relay.mode === 'off' ? ' switch-active' : ''}`}
+        onClick={() => onMode('off')}>Wyłącz</button>
     </div>
   );
 };

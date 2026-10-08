@@ -59,12 +59,9 @@
 .switch-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
-}
-
-.switch-actions button {
-  margin-left: 0;
 }
 
 button.switch-stop {
@@ -253,5 +250,32 @@ button.switch-active {
 
   .switch-page .switch-form .switch-form-hint {
     margin-left: calc(9.5rem + 15px);
+  }
+}
+
+/* „Wyłącz” na dole karty: na całą szerokość */
+.switch-page button.switch-stop-wide {
+  display: block;
+  width: 100%;
+  margin: 0.9rem 0 0;
+}
+
+/* „Włącz teraz” i „Włącz wg harmonogramu”: po 50 % szerokości karty (z odstępem), w jednej linii także na telefonie */
+.switch-actions {
+  flex-wrap: nowrap;
+}
+
+.switch-page .switch-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0; /* globalny margines przycisków przesuwał pierwszy przycisk względem „Wyłącz” */
+}
+
+@media (max-width: 560px) {
+  .switch-page .switch-actions button {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+    font-size: 0.9rem;
+    line-height: 1.15;
   }
 }

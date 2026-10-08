@@ -2,15 +2,34 @@
    na telefonie jeden pod drugim na całą szerokość ekranu. Kafelek: pasek stanu po lewej (zielony / pomarańczowy /
    czerwony z ramką / szary), nazwa, chip ze stanem, kluczowe wartości, błąd lub ostrzeżenie i stopka;
    ołówek edycji i trybik firmware w prawym dolnym rogu, w trybie „Zmień kolejność” strzałki. */
+/* globalny main centruje zawartość w pionie: lista ma zaczynać się tuż pod paskiem u góry */
+.app-main:has(.device-selection) {
+  align-items: flex-start;
+}
+
 .device-selection {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start; /* globalny main ma space-around: bez tego zawartość wisi w pionowym środku */
   width: min(1180px, 96vw);
   min-height: calc(100vh - 6rem);
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 2rem 0 4rem; /* miejsce na stałą stopkę pod kafelkami */
+  padding: 3.4rem 0 4rem; /* miejsce na stałą stopkę pod kafelkami */
+}
+
+/* tytuł „Lista urządzeń” niewidoczny (pasek u góry mówi, gdzie jesteśmy); zostaje dla czytników ekranu */
+.device-selection h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .device-list {
@@ -377,20 +396,7 @@
   .device-selection {
     width: 100%;
     min-height: 0;
-    padding: 0 0 2.6rem;
-  }
-
-  /* na telefonie bez widocznego tytułu „Lista urządzeń” (pasek u góry mówi, gdzie jesteśmy); zostaje dla czytników ekranu */
-  .device-selection h1 {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    padding: 1.9rem 0 2.6rem;
   }
 
   .device-list {

@@ -347,6 +347,7 @@ header.app-header-plain {
 	color: #fff;
 	padding: 0.5rem 0.75rem;
 	font-weight: 600;
+	font-size: 1.3rem; /* tytuł strony „Lista sterowników” */
 }
 
 /* zakładka Dane pompy na całe okno (fill-page, useFillHeight): data stoi w miejscu, a pod nią .data-body:

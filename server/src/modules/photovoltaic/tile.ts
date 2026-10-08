@@ -1,11 +1,11 @@
 // Kafelek fotowoltaiki na stronie /devices (GET /devices/summary): moc teraz, produkcja dziś i liczba
 // pracujących paneli. Błąd (czerwony): alarm panelu (alarm_code ≠ 0) albo brak odczytów DTU dłużej niż 3 min
-// w ciągu dnia, czyli sterownik co odłączony (od 6:00 do 20:00 w Warszawie; w nocy brak odczytów nie jest
-// błędem). Ostrzeżenie (pomarańczowy): panel nie działa (offline). Słabsza produkcja panelu (np. zacienienie)
+// w ciągu dnia dłużej niż godzinę, czyli sterownik co odłączony (do godziny uwaga, pomarańczowa; dzień to
+// 6:00–20:00 w Warszawie, w nocy brak odczytów nie jest błędem, a rano liczy się od 6:00). Ostrzeżenie (pomarańczowy): panel nie działa (offline). Słabsza produkcja panelu (np. zacienienie)
 // niczego nie zgłasza.
 import { Device, DeviceTile, TileFact } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit } from '../../core/services/tile-format';
-import { TIME_ZONE } from '../../core/time';
+import { formatAge, formatTemperature, formatUnit, offlineLevel } from '../../core/services/tile-format';
+import { TIME_ZONE, warsawDayBoundsUTC } from '../../core/time';
 import { getCurrentView } from './services/photovoltaic.service';
 
 export const DAY_START_HOUR = 6;
@@ -16,12 +16,19 @@ const isDaytime = (now: Date) => {
   return hour >= DAY_START_HOUR && hour < DAY_END_HOUR;
 };
 
+// Od kiedy liczy się brak odczytów: nocą DTU milczy, więc rano wiek liczy się od początku dnia (6:00),
+// a nie od ostatniego wieczornego odczytu.
+const silenceAge = (readAt: Date, now: Date) => {
+  const today = now.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
+  const dayStart = new Date(warsawDayBoundsUTC(today).startUTC.getTime() + DAY_START_HOUR * 3600 * 1000);
+  return now.getTime() - Math.max(readAt.getTime(), dayStart.getTime());
+};
+
 export async function photovoltaicTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
   const view = await getCurrentView(rootId, now);
   if (!view.readAt) return { level: 'off', chip: 'Brak danych' };
 
   const readAt = new Date(view.readAt);
-  const age = now.getTime() - readAt.getTime();
   const panels = view.panels;
   const producing = panels.filter((panel) => panel.state === 'produces');
   const alarmed = panels.filter((panel) => panel.state === 'alarm');
@@ -31,9 +38,10 @@ export async function photovoltaicTile(rootId: string, _device: Device, now = ne
   let note: DeviceTile['note'];
   let chip = (view.power ?? 0) > 0 ? 'Produkuje' : 'Nie produkuje';
   if (view.stale && isDaytime(now)) {
-    level = 'err';
+    const silent = silenceAge(readAt, now);
+    level = offlineLevel(silent); // do godziny uwaga, potem błąd
     chip = 'Brak danych';
-    note = { level: 'err', text: `Brak odczytów z DTU od ${formatAge(age)} (sprawdź sterownik co)` };
+    note = { level, text: `Brak odczytów z DTU od ${formatAge(silent)} (sprawdź sterownik co)` };
   } else if (alarmed.length > 0) {
     level = 'err';
     note = { level: 'err', text: alarmed.length === 1 ? `Alarm panelu ${alarmed[0].key} (kod ${alarmed[0].alarm_code})` : `Alarm na ${alarmed.length} panelach` };

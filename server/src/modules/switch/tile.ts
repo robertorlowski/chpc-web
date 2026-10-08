@@ -1,9 +1,9 @@
 // Kafelek włącznika na stronie /devices (GET /devices/summary): przekaźniki ze stanem i opisem trybu.
-// Błąd (czerwony): sterownik offline (żaden przekaźnik bez zgłoszenia od 60 s). Ostrzeżenie (pomarańczowy):
+// Offline (żaden przekaźnik bez zgłoszenia od 60 s): do godziny uwaga (pomarańczowa), potem błąd (czerwony). Ostrzeżenie (pomarańczowy):
 // przekaźnik w trybie „Wyłączony”, który blokuje istniejący harmonogram, albo włączony bez limitu czasu
 // dłużej niż doba.
 import { Device, DeviceTile, TileRelay } from '../../core/types';
-import { formatWhen, warsawTime } from '../../core/services/tile-format';
+import { formatWhen, offlineLevel, warsawTime } from '../../core/services/tile-format';
 import { SwitchScheduleModel } from './models/switch-schedule.model';
 import { listRelays } from './services/switch.service';
 
@@ -55,8 +55,9 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
   let level: DeviceTile['level'] = 'ok';
   let note: DeviceTile['note'];
   if (!online) {
-    level = 'err';
-    note = { level: 'err', text: lastSeen ? `Sterownik offline od ${formatWhen(lastSeen, now)}` : 'Sterownik jeszcze się nie zgłosił' };
+    // do godziny uwaga (płytka zwykle wraca sama), potem błąd; brak jakiegokolwiek zgłoszenia to od razu błąd
+    level = lastSeen ? offlineLevel(now.getTime() - lastSeen.getTime()) : 'err';
+    note = { level, text: lastSeen ? `Sterownik offline od ${formatWhen(lastSeen, now)}` : 'Sterownik jeszcze się nie zgłosił' };
   } else {
     const blocked = await Promise.all(relays.filter((relay) => relay.mode === 'off').map(async (relay) =>
       (await SwitchScheduleModel.countDocuments({ rootId, relay: relay.relay, enabled: true })) > 0 ? relay : null));
