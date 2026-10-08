@@ -1,6 +1,7 @@
 // Kafelek pompy ciepła na stronie /devices (GET /devices/summary): stan sprężarki, temperatura zbiornika,
 // zakres temperatur, moc i tryb pracy. Błąd (czerwony): blokada po 5 błędach, aktywny błąd albo brak
-// telemetrii dłużej niż godzinę (od 2 min do godziny to uwaga, pomarańczowa; co wysyła co 10–30 s). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
+// telemetrii dłużej niż godzinę (od 5 min do godziny to uwaga, pomarańczowa; co wysyła co 10–30 s, a po utracie
+// odpowiedzi CHPC przestaje wysyłać pole HP, więc telemetria przestaje być zapisywana). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
 // który już ustąpił.
 import { Device, DeviceTile } from '../../core/types';
 import { formatAge, formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
@@ -8,7 +9,7 @@ import { errorDescription } from './error-codes';
 import { ERROR_LOCK_LIMIT, getHpLastData, getHpLastError } from './services/hp.service';
 import { HpEntry } from './types';
 
-export const OFFLINE_AFTER_MS = 2 * 60 * 1000;
+export const OFFLINE_AFTER_MS = 5 * 60 * 1000;
 
 // jak „Tryb pracy” w widoku głównym pompy (co od 1.2.0: MANUAL / AUTO / OFF; starsze: M, A, PV, CWU)
 export function modeLabel(workMode?: string): string {

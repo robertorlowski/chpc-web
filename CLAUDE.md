@@ -224,7 +224,7 @@ To jest główny moment przekazania wyliczonej operacji do sterownika. Scheduler
 
 ### Treść telemetrii wysyłanej przez `co`
 
-`co` wysyła `POST /api/hp/add?deviceId=<SN>&rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Wysyła też wtedy, gdy CHPC nie odpowiada i `HP` jest puste: serwer nie zapisuje takiej telemetrii, ale odsyła operację, więc sterownik zna `work_mode` przy odłączonej pompie. Treść:
+`co` wysyła `POST /api/hp/add?deviceId=<SN>&rootId=<id>` co 10 s, gdy sprężarka pracuje, i co 30 s w spoczynku. Komunikat WebSocket `operation` powoduje wcześniejszą wysyłkę. Wysyła też wtedy, gdy CHPC nie odpowiada i `HP` jest puste: serwer nie zapisuje takiej telemetrii, ale odsyła operację, więc sterownik zna `work_mode` przy odłączonej pompie. `HP` jest czyszczone dopiero po **3 kolejnych odczytach bez odpowiedzi** CHPC (`HeatPumpLinkWatch`, `co` od 1.2.2; ok. 90 s w spoczynku, 30 s przy pracy sprężarki); wcześniej `co` w kółko wysyłał ostatni udany odczyt, więc po wyłączeniu sterownika pompy aplikacja pokazywała stare temperatury jako aktualne (produkcja 2026-10-08: 6 godzin identycznych wartości). Kafelek pompy na liście pokazuje „Brak łączności” po 5 min bez zapisanej telemetrii (uwaga, po godzinie błąd). Treść:
 
 - `HP` — JSON z CHPC (`StatsSerial()`), przekazany bez zmian;
 - `time` w formacie `"YYYY.MM.DD HH:MM:SS"` (z kropkami, czas polski);

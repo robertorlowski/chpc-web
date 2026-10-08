@@ -107,6 +107,11 @@ void Telemetry::updateControllerState(
   data["temp_max"] = settings.tempMax;
 }
 
+void Telemetry::clearHeatPump()
+{
+  data["HP"].to<JsonObject>();
+}
+
 bool Telemetry::heatPumpRunning() const
 {
   return data["HP"]["HPS"].as<int>() > 0;

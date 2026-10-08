@@ -26,6 +26,9 @@ public:
     uint32_t preferenceValidationError);
   // Nowy odczyt CHPC i pola COP (t_min/t_max i cop* w trakcie cyklu i po końcu).
   void updateHeatPump(const HeatPumpDataUpdate &update);
+  // CHPC przestał odpowiadać (HeatPumpLinkWatch): pole HP puste, żeby stare temperatury nie szły do chmury jako
+  // aktualne. Serwer takiej telemetrii nie zapisuje, a odsyła operację jak zwykle.
+  void clearHeatPump();
   // Jak updateSnapshot, ale bez czasu; wołane od razu po zmianie trybu.
   void updateControllerState(
     ControllerMode controllerMode, const DeviceSettings &settings);

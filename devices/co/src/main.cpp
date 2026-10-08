@@ -17,6 +17,7 @@
 #include <device_io.hpp>
 #include <hardware_config.hpp>
 #include <heat_pump_data_processor.hpp>
+#include <hp_link_watch.hpp>
 #include <json_converters.hpp>
 #include <operation_controller.hpp>
 #include <operation_parser.hpp>
@@ -113,6 +114,8 @@ bool modeScreenShown = false;
 unsigned long modeScreenAt = 0;
 bool pvFollowUpPending = false;
 bool hpReadOutstanding = false;
+// Odczyty CHPC bez odpowiedzi z rzędu: po kilku HP w telemetrii jest czyszczone (hp_link_watch.hpp).
+HeatPumpLinkWatch hpLinkWatch;
 bool readAfterCommandPending = false;
 unsigned long lastControlCommandAt = 0;
 bool readAfterCommandDone = false;
@@ -406,7 +409,12 @@ void scheduleNextDeviceRead()
   if (!serialBus.enqueue(SERIAL_OPERATION::GET_HP_DATA)) return;
   // The previous read got no answer: CHPC is disconnected or restarting
   // and may have missed commands, so it gets the whole state once back.
-  if (hpReadOutstanding) operationController.heatPumpLost();
+  if (hpReadOutstanding) {
+    operationController.heatPumpLost();
+    // CHPC milczy kilka odczytów z rzędu (np. wyłączony sterownik pompy): bez tego stare temperatury szłyby
+    // do chmury jako aktualne
+    if (hpLinkWatch.onReadScheduled(true)) telemetry.clearHeatPump();
+  }
   hpReadOutstanding = true;
 }
 
@@ -492,6 +500,7 @@ void processSerialInput()
   if (pendingRead == PendingRead::HP) {
     serialBus.completeRead();
     hpReadOutstanding = false;
+    hpLinkWatch.onResponse();
     HeatPumpDataUpdate update;
     const DeviceSettings &prefs = operationController.preferences();
     heatPumpDataProcessor.configure(prefs.tankLiters, prefs.copPause);
