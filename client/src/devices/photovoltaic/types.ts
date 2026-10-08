@@ -29,8 +29,8 @@ export type PvCurrent = {
   power?: number;
   todayWh?: number;
   totalWh?: number;
-  yearWh?: number;
-  yearFrom?: string;
+  monthWh?: number;
+  monthFrom?: string;
   temperature?: number;
   panels: PvPanel[];
   panelsAvailable: boolean;

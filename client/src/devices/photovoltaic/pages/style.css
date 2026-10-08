@@ -149,6 +149,12 @@
   height: 200px;
 }
 
+/* wykres na całe okno (fill-page, useFillHeight): wysokość z miejsca w karcie */
+.fill-page .pv-chart {
+  height: auto;
+  min-height: 180px;
+}
+
 .pv-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -332,7 +338,48 @@
     height: 260px;
   }
 
+  .fill-page .pv-chart {
+    height: auto;
+  }
+
   .pv-table {
     font-size: 0.8rem;
   }
+}
+
+/* „Moc paneli”: wybór paneli pogrupowany według mikrofalowników (sterowników) */
+.pv-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  margin: 0.2rem 0 0.5rem;
+}
+
+.pv-picker-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.7rem;
+  padding: 0.3rem 0.6rem;
+  background: #fff;
+  border: 1px solid #d5dfe6;
+  border-radius: 6px;
+}
+
+.pv-picker-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.pv-picker-title {
+  font-weight: 600;
+}
+
+.pv-picker-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
 }

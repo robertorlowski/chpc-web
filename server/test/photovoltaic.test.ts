@@ -34,7 +34,7 @@ describe('Fotowoltaika', () => {
   it('pierwszy odczyt PV zakłada urządzenie „Fotowoltaika” z tym samym SN', async () => {
     const res = await request(app).post(`/api/pv/add?deviceId=${SN}`).send({
       time: '2026.09.26 12:00:00', total_power: 1500, total_prod: 1_000_000, total_prod_today: 4000, temperature: 35,
-      panels: [panel('114400000001', 1, 300), panel('114400000001', 2, 0, { link: 0 }), panel('116400000002', 1, 0)],
+      panels: [panel('114400000001', 1, 300), panel('114400000001', 2, 0, { link: 0, temperature: 0 }), panel('116400000002', 1, 0)],
     });
     expect(res.status).toBe(201);
     const devices = (await request(app).get('/api/devices')).body as { rootId: string; deviceType: string; deviceId: string; name: string }[];
@@ -43,12 +43,13 @@ describe('Fotowoltaika', () => {
     pvRootId = pv!.rootId;
   });
 
-  it('/current: moc, produkcja, rok od pierwszego odczytu, stany paneli', async () => {
+  it('/current: moc, produkcja, miesiąc od pierwszego odczytu, stany paneli', async () => {
     const res = await request(app).get(`/api/photovoltaic/current?rootId=${pvRootId}`);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ power: 1500, todayWh: 4000, totalWh: 1_000_000, temperature: 35, panelsAvailable: true });
+    expect(res.body).toMatchObject({ power: 1500, todayWh: 4000, totalWh: 1_000_000, temperature: 30, panelsAvailable: true });
+    // temperatura = najniższa z działających portów: port bez łącza podaje 0 °C, które nie jest temperaturą
     // licznik na początku dnia pierwszego odczytu: 1 000 000 − 4000
-    expect(res.body.yearWh).toBe(4000);
+    expect(res.body.monthWh).toBe(4000);
     expect(res.body.panels.map((p: { key: string; state: string }) => `${p.key}:${p.state}`))
       .toEqual(['114400000001-1:produces', '114400000001-2:offline', '116400000002-1:idle']);
   });

@@ -39,9 +39,20 @@ export async function sourceRootId(rootId: string): Promise<string | null> {
   return heatPump ? String(heatPump._id) : null;
 }
 
+// Temperatura instalacji: najniższa z portów, które odpowiadają. Mikrofalownik bez łącza (wieczorem, w nocy) podaje 0 °C,
+// a to nie jest temperatura, więc taki port jest pomijany; bez żadnego odpowiadającego portu temperatury nie ma.
+const pvTemperature = (doc: Record<string, any>): number | undefined => {
+  const reported = Array.isArray(doc.panels) ? doc.panels.filter((p: RawPanel) => typeof p.temperature === 'number') : [];
+  if (reported.length === 0) return doc.temperature;
+  const online = reported
+    .filter((p: RawPanel) => (p.link === undefined || p.link === 1) && typeof p.temperature === 'number' && p.temperature > 0)
+    .map((p: RawPanel) => p.temperature as number);
+  return online.length ? Math.min(...online) : undefined;
+};
+
 // Rekord pv albo hp → jedna postać próbki.
 const fromPv = (doc: Record<string, any>): Sample => ({
-  at: doc.createdAt, power: doc.total_power, temperature: doc.temperature,
+  at: doc.createdAt, power: doc.total_power, temperature: pvTemperature(doc),
   todayWh: doc.total_prod_today, totalWh: doc.total_prod, panels: doc.panels,
 });
 const fromHp = (doc: Record<string, any>): Sample => ({
@@ -72,9 +83,9 @@ async function latest(src: string) {
   return hp ? fromHp(hp) : undefined;
 }
 
-// Pierwszy odczyt w roku z licznikiem całkowitym — punkt odniesienia produkcji rocznej.
-async function firstInYear(src: string, year: number) {
-  const { startUTC } = warsawDayBoundsUTC(`${year}-01-01`);
+// Pierwszy odczyt w miesiącu (YYYY-MM) z licznikiem całkowitym — punkt odniesienia produkcji miesięcznej.
+async function firstInMonth(src: string, month: string) {
+  const { startUTC } = warsawDayBoundsUTC(`${month}-01`);
   const match = { rootId: src, createdAt: { $gte: startUTC } };
   const [pv, hp] = await Promise.all([
     pvCollection().find({ ...match, total_prod: { $gt: 0 } }).sort({ createdAt: 1 }).limit(1).next(),
@@ -84,13 +95,40 @@ async function firstInYear(src: string, year: number) {
   return pv ? fromPv(pv) : undefined;
 }
 
+// Licznik dzienny DTU spada do 0 dla mikrofalownika, który wieczorem przestał odpowiadać (produkcja dnia „znika”),
+// więc produkcja dziś to największy licznik z dnia ostatniego odczytu: łączny i każdego portu.
+async function applyDayMaximum(src: string, last: Sample): Promise<Sample> {
+  if (!last.panels) return last;
+  const { startUTC } = warsawDayBoundsUTC(warsawDate(last.at));
+  const match = { rootId: src, createdAt: { $gte: startUTC, $lte: last.at } };
+  const [total] = await pvCollection()
+    .aggregate([{ $match: match }, { $group: { _id: null, today: { $max: '$total_prod_today' } } }])
+    .toArray();
+  const ports = await pvCollection()
+    .aggregate([
+      { $match: match },
+      { $unwind: '$panels' },
+      { $group: { _id: { serial: '$panels.serial', port: '$panels.port' }, today: { $max: '$panels.prod_today' } } },
+    ])
+    .toArray();
+  const byPort = new Map(ports.map((p) => [`${p._id.serial}-${p._id.port}`, p.today as number | undefined]));
+  return {
+    ...last,
+    todayWh: Math.max(last.todayWh ?? 0, total?.today ?? 0),
+    panels: last.panels.map((panel) => {
+      const max = byPort.get(panelKey(panel));
+      return max === undefined ? panel : { ...panel, prod_today: Math.max(panel.prod_today ?? 0, max) };
+    }),
+  };
+}
+
 export async function getCurrentView(rootId: string, now = new Date()): Promise<PvCurrentView> {
   const src = await sourceRootId(rootId);
-  const last = src ? await latest(src) : undefined;
-  if (!src || !last) return { stale: true, panels: [], panelsAvailable: false };
-  const year = Number(warsawDate(last.at).slice(0, 4));
-  const base = await firstInYear(src, year);
-  // licznik na początku dnia pierwszego odczytu = licznik − produkcja tego dnia do odczytu
+  const latestSample = src ? await latest(src) : undefined;
+  if (!src || !latestSample) return { stale: true, panels: [], panelsAvailable: false };
+  const last = await applyDayMaximum(src, latestSample);
+  const base = await firstInMonth(src, warsawDate(last.at).slice(0, 7));
+  // licznik na początku miesiąca = licznik pierwszego odczytu miesiąca − produkcja dnia do tego odczytu
   const baseTotal = base?.totalWh !== undefined ? base.totalWh - (base.todayWh ?? 0) : undefined;
   return {
     readAt: last.at.toISOString(),
@@ -98,8 +136,8 @@ export async function getCurrentView(rootId: string, now = new Date()): Promise<
     power: last.power,
     todayWh: last.todayWh,
     totalWh: last.totalWh,
-    yearWh: last.totalWh !== undefined && baseTotal !== undefined ? last.totalWh - baseTotal : undefined,
-    yearFrom: base ? warsawDate(base.at) : undefined,
+    monthWh: last.totalWh !== undefined && baseTotal !== undefined ? last.totalWh - baseTotal : undefined,
+    monthFrom: base ? warsawDate(base.at) : undefined,
     temperature: last.temperature,
     panels: toPanels(last.panels),
     panelsAvailable: (last.panels?.length ?? 0) > 0,

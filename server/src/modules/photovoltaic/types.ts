@@ -32,9 +32,9 @@ export interface PvCurrentView {
   power?: number;
   todayWh?: number;
   totalWh?: number;
-  yearWh?: number;
-  /** od kiedy liczona produkcja roczna (pierwszy odczyt w roku; dane od 2026-05-08) */
-  yearFrom?: string;
+  monthWh?: number;
+  /** od kiedy liczona produkcja miesięczna (dzień pierwszego odczytu w miesiącu) */
+  monthFrom?: string;
   temperature?: number;
   panels: PvPanel[];
   /** czy są szczegóły paneli (od 2026-09-26) */

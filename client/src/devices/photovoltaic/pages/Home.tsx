@@ -1,4 +1,4 @@
-// Widok główny fotowoltaiki (/): bieżąca moc i temperatura, produkcja dziś / w roku / całkowita,
+// Widok główny fotowoltaiki (/): bieżąca moc i temperatura, produkcja dziś / w tym miesiącu / całkowita,
 // krzywa mocy z dzisiaj oraz panele pogrupowane po mikrofalownikach z mocą i stanem (produkuje,
 // bez produkcji, brak łączności, alarm). GET /photovoltaic/current i /day, odświeżanie co 60 s.
 import { useEffect, useState } from 'react';
@@ -42,7 +42,6 @@ export const PhotovoltaicHome: React.FC = () => {
   const maxPanelPower = Math.max(1, ...panels.map((p) => p.power ?? 0),
     ...(day?.panels ?? []).flatMap((p) => p.points.map((point) => point.power)));
   const dayTitle = day && day.date !== todayWarsaw() ? `Moc ${formatDay(day.date)}` : 'Moc dzisiaj';
-  const yearFromJanuary = current?.yearFrom?.endsWith('-01-01');
   const status = !current?.readAt ? '' : current.stale ? 'dane nieaktualne'
     : (current.power ?? 0) > 0 ? 'produkuje' : 'bez produkcji';
   const chartData = (day?.points ?? []).map((p) => ({ label: formatTime(p.t), moc: p.power }));
@@ -65,8 +64,8 @@ export const PhotovoltaicHome: React.FC = () => {
               <div className="pv-tiles">
                 <div><strong>{formatEnergy(current.todayWh)}</strong><span>dziś</span></div>
                 <div>
-                  <strong>{formatEnergy(current.yearWh)}</strong>
-                  <span>w roku{!yearFromJanuary && current.yearFrom ? ` (od ${formatDay(current.yearFrom)})` : ''}</span>
+                  <strong>{formatEnergy(current.monthWh)}</strong>
+                  <span>w tym miesiącu</span>
                 </div>
                 <div><strong>{formatEnergy(current.totalWh)}</strong><span>łącznie</span></div>
                 <div><strong>{formatTemp(current.temperature)}</strong><span>temperatura</span></div>

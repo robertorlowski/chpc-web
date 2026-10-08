@@ -1,13 +1,17 @@
 // Zakładka Wykres fotowoltaiki (/chart), jak w Hoymiles S-Miles Cloud: Dzień — krzywa mocy
 // (przedziały 5 min, opcjonalnie każdy panel osobno), Miesiąc — produkcja w dniach, Rok — w
-// miesiącach, Całość — w latach. GET /photovoltaic/day i /photovoltaic/summary.
+// miesiącach, Całość — w latach. GET /photovoltaic/day i /photovoltaic/summary. Karta na całe okno (useFillHeight,
+// klasa fill-page): wykres wypełnia wolne miejsce, jak na wykresach pompy ciepła, hydroforu i pieca.
+// „Moc paneli”: panele do pokazania wybiera się polami wyboru, pogrupowanymi według mikrofalowników (sterowników);
+// domyślnie widoczne są panele pierwszego mikrofalownika, bo wszystkie 10 krzywych naraz jest nieczytelne.
 import { useEffect, useState } from 'react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import { useFillHeight } from '../../../core/components/useFillHeight';
 import { PhotovoltaicRequests } from '../api';
 import { PvDay, PvSummary, PvSummaryPeriod } from '../types';
-import { formatDay, formatEnergy, formatPower, formatTime, panelName, todayWarsaw } from '../utils/pv';
+import { formatDay, formatEnergy, formatPower, formatTime, panelName, shortSerial, todayWarsaw } from '../utils/pv';
 import './style.css';
 
 type Period = 'day' | PvSummaryPeriod;
@@ -27,10 +31,13 @@ const bucketLabel = (period: PvSummaryPeriod, key: string) =>
   period === 'month' ? String(Number(key.slice(8, 10))) : period === 'year' ? MONTHS[Number(key.slice(5, 7)) - 1] : key;
 
 export const PhotovoltaicChart: React.FC = () => {
+  const cardRef = useFillHeight<HTMLDivElement>(360);
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(todayWarsaw());
   // dzień: cała instalacja, moc każdego panelu albo produkcja paneli (słupki do porównania)
   const [dayView, setDayView] = useState<'total' | 'power' | 'energy'>('total');
+  // wybrane panele (klucze serial-port) w widoku „Moc paneli”; null = domyślnie pierwszy mikrofalownik
+  const [selectedPanels, setSelectedPanels] = useState<Set<string> | null>(null);
   const [day, setDay] = useState<PvDay | null | undefined>(undefined);
   const [summary, setSummary] = useState<PvSummary | null | undefined>(undefined);
 
@@ -70,6 +77,26 @@ export const PhotovoltaicChart: React.FC = () => {
   const averageWh = panelEnergy.length ? panelEnergy.reduce((sum, p) => sum + p.energyWh, 0) / panelEnergy.length : 0;
   const hasPanels = !!day?.panels.length;
   const view = hasPanels ? dayView : 'total';
+
+  // panele pogrupowane według mikrofalowników (numer seryjny), z kolorem krzywej stałym niezależnie od wyboru
+  const inverters = (() => {
+    const groups = new Map<string, { key: string; port: number; color: string }[]>();
+    (day?.panels ?? []).forEach((panel, index) => {
+      const list = groups.get(panel.serial) ?? [];
+      list.push({ key: panel.key, port: panel.port, color: COLORS[index % COLORS.length] });
+      groups.set(panel.serial, list);
+    });
+    return [...groups].sort((a, b) => a[0].localeCompare(b[0])).map(([serial, panels]) => ({ serial, panels }));
+  })();
+  const allKeys = new Set(inverters.flatMap((inverter) => inverter.panels.map((panel) => panel.key)));
+  const shown = new Set(
+    selectedPanels ? [...selectedPanels].filter((key) => allKeys.has(key)) : (inverters[0]?.panels.map((panel) => panel.key) ?? []),
+  );
+  const togglePanels = (keys: string[], on: boolean) => {
+    const next = new Set(shown);
+    keys.forEach((key) => (on ? next.add(key) : next.delete(key)));
+    setSelectedPanels(next);
+  };
   const summaryData = (summary?.buckets ?? []).map((b) => ({
     label: period === 'day' ? b.key : bucketLabel(period as PvSummaryPeriod, b.key),
     kwh: Math.round(b.energyWh / 100) / 10,
@@ -80,10 +107,10 @@ export const PhotovoltaicChart: React.FC = () => {
   }));
 
   return (
-    <div className="settings pv-page">
+    <div className="settings pv-page fill-page">
       <h2>Produkcja energii</h2>
       <section>
-        <div className="resource">
+        <div className="resource" ref={cardRef}>
           <div className="pv-toolbar">
             <div className="pv-periods" role="radiogroup" aria-label="Okres">
               {PERIODS.map((item) => (
@@ -110,7 +137,33 @@ export const PhotovoltaicChart: React.FC = () => {
 
           {period === 'day' && (
             <>
-              <div className="pv-chart">
+              {view === 'power' && hasPanels && (
+                <div className="pv-picker" role="group" aria-label="Panele na wykresie">
+                  {inverters.map((inverter) => {
+                    const keys = inverter.panels.map((panel) => panel.key);
+                    const count = keys.filter((key) => shown.has(key)).length;
+                    return (
+                      <div key={inverter.serial} className="pv-picker-group">
+                        <label className="pv-picker-title">
+                          <input type="checkbox" checked={count === keys.length}
+                            ref={(element) => { if (element) element.indeterminate = count > 0 && count < keys.length; }}
+                            onChange={(event) => togglePanels(keys, event.currentTarget.checked)} />
+                          Mikrofalownik {shortSerial(inverter.serial)}
+                        </label>
+                        {inverter.panels.map((panel) => (
+                          <label key={panel.key} className="pv-picker-port">
+                            <input type="checkbox" checked={shown.has(panel.key)}
+                              onChange={(event) => togglePanels([panel.key], event.currentTarget.checked)} />
+                            <span className="pv-picker-swatch" style={{ background: panel.color }} />
+                            port {panel.port}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="pv-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   {view === 'energy' ? (
                     <BarChart data={panelEnergy}>
@@ -133,9 +186,9 @@ export const PhotovoltaicChart: React.FC = () => {
                       <YAxis width={56} tickFormatter={(value: number) => formatPower(value)} />
                       <Tooltip formatter={(value, name) => [formatPower(Number(value)), panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))]} />
                       <Legend formatter={(name) => panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))} />
-                      {day!.panels.map((panel, index) => (
+                      {day!.panels.map((panel, index) => (shown.has(panel.key) ? (
                         <Line key={panel.key} type="monotone" dataKey={panel.key} dot={false} stroke={COLORS[index % COLORS.length]} isAnimationActive={false} />
-                      ))}
+                      ) : null))}
                     </LineChart>
                   ) : (
                     <AreaChart data={dayData}>
@@ -176,7 +229,7 @@ export const PhotovoltaicChart: React.FC = () => {
 
           {period !== 'day' && (
             <>
-              <div className="pv-chart">
+              <div className="pv-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={summaryData}>
                     <CartesianGrid strokeDasharray="3 3" />
