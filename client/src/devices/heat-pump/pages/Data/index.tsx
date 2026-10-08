@@ -15,6 +15,7 @@ import DateDict from '../../components/DateDict';
 import { fetchData, formatDateYMD } from '../../utils/utils';
 import { errorDescription } from '../../utils/errors';
 import { ClipLoader } from 'react-spinners';
+import { useFillHeight } from '../../../../core/components/useFillHeight';
 
 // co od 1.2.0: MANUAL / AUTO / OFF = ręczny / automatyczny / OFF. Starsze rekordy: A i M (grzanie CO) = CO,
 // CWU, OFF i PV bez zmian (decyzja 2026-10-04: dawnych kodów nie przerabiać).
@@ -23,8 +24,22 @@ const formatDataWorkMode = (workMode?: string): string => (
   (workMode && WORK_MODE_LABELS[workMode]) || workMode || '---'
 );
 
+// opisy skrótów kolumn: tooltip po najechaniu na nagłówek (title)
+const COLUMN_HINTS: Record<string, string> = {
+  'Watts': 'moc pobierana przez pompę [W]',
+  'PV': 'moc instalacji fotowoltaicznej [W]',
+  'EEV': 'pozycja zaworu rozprężnego (EEV pozycja)',
+  'ΔT': 'EEV dt, różnica temperatur zaworu rozprężnego',
+  'T. be': 'temperatura przed parownikiem [°C]',
+  'T. ae': 'temperatura za parownikiem [°C]',
+  'T. ho': 'temperatura wody wychodzącej [°C]',
+  'T. target': 'temperatura czujnika w środku zbiornika [°C]',
+  'T. sump': 'temperatura karteru sprężarki [°C]',
+  'T. out': 'temperatura zewnętrzna [°C]',
+};
+
 const columns: ColumnDef<THPL>[] = [
-  { header: 'Data', accessorKey: 'time', minSize: 100, size: 100},
+  { header: 'Czas', accessorKey: 'time', minSize: 100, size: 100},
   {
     header: 'Praca',
     accessorKey: 'work_mode',
@@ -49,6 +64,8 @@ export const HeatPumpTable: React.FC = () => {
 	const [selectedDate, setSelectedDate] = useState<string>( formatDateYMD( new Date()));
 	const [allData, setAllData] = useState<boolean>(false);
 	const [downloading, setDownloading] = useState(false);
+	// strona na całe okno: data i przyciski stoją w miejscu, przewija się tabela z przyklejonym nagłówkiem (style.css)
+	const pageRef = useFillHeight<HTMLDivElement>();
 
 	// CSV dla Excela z polskimi ustawieniami: separator ';', przecinek dziesiętny (w napisach zamieniana
 	// jest tylko pierwsza kropka), flagi jako 1/0, time bez zmian. Kolumny z kluczy pierwszego
@@ -127,7 +144,7 @@ export const HeatPumpTable: React.FC = () => {
 	if (error) return <p>Błąd: {error}</p>;
 
   return (
-    <div className="data-page" style={{ overflowX: 'auto', padding: '16px' }}>
+    <div className="data-page fill-page" ref={pageRef} style={{ padding: '16px' }}>
     	<h3>
 	    	<label htmlFor="date-select">Dane na dzień: &nbsp; </label>
     		<DateDict id="date-select" initValue={selectedDate} onDateChange={e => setSelectedDate(e)} />
@@ -141,7 +158,9 @@ export const HeatPumpTable: React.FC = () => {
 			)	
 		}
 
-		<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+		<div className="data-body">
+		<div className="data-main">
+		<div className="data-toolbar">
 			<label>
 			<input
 				title="Wszystkie dane"
@@ -158,12 +177,11 @@ export const HeatPumpTable: React.FC = () => {
 			<button type="button" disabled={downloading} onClick={handleDownloadCsv} style={{ padding: '6px 10px'}}>{downloading ? 'Pobieranie…' : 'Pobierz dane'}</button>
 		</div>
 	
-		<div className="data-layout">
+		<div className="data-scroll">
 		<table className="data-table" style={{
 			borderCollapse: 'separate',
 			borderSpacing: 0,
 			borderRadius: '10px',
-			overflow: 'hidden',
 			boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
 			fontFamily: 'Segoe UI, sans-serif',
 			fontSize: '14px',
@@ -175,6 +193,7 @@ export const HeatPumpTable: React.FC = () => {
 			{headerGroup.headers.map(header => (
 				<th
 				key={header.id}
+				title={COLUMN_HINTS[String(header.column.columnDef.header)]}
 				style={
 						header.index == 0 ? {
 						padding: '9px 9px',
@@ -276,19 +295,8 @@ export const HeatPumpTable: React.FC = () => {
 		))}
 		</tbody>
 	</table>
-		{/* legenda skrótów kolumn: na dużym ekranie obok tabeli, na telefonie pod nią (style.css, .data-layout) */}
-		<dl className="data-legend">
-			<dt>Watts</dt><dd>moc pobierana przez pompę [W]</dd>
-			<dt>PV</dt><dd>moc instalacji fotowoltaicznej [W]</dd>
-			<dt>EEV</dt><dd>pozycja zaworu rozprężnego (EEV pozycja)</dd>
-			<dt>ΔT</dt><dd>EEV dt, różnica temperatur zaworu rozprężnego</dd>
-			<dt>T. be</dt><dd>temperatura przed parownikiem [°C]</dd>
-			<dt>T. ae</dt><dd>temperatura za parownikiem [°C]</dd>
-			<dt>T. ho</dt><dd>temperatura wody wychodzącej [°C]</dd>
-			<dt>T. target</dt><dd>temperatura czujnika w środku zbiornika [°C]</dd>
-			<dt>T. sump</dt><dd>temperatura karteru sprężarki [°C]</dd>
-			<dt>T. out</dt><dd>temperatura zewnętrzna [°C]</dd>
-		</dl>
+		</div>
+		</div>
 		</div>
 	</div>
   );
