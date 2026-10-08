@@ -166,7 +166,7 @@ export type TileIcon =
   'thermo' | 'target' | 'bolt' | 'sliders' | 'sun' | 'drop' | 'timer' | 'repeat' | 'flame' | 'tap'
   | 'pellet' | 'power' | 'battery' | 'panel' | 'bubbles' | 'waves';
 export type TileFact = { icon: TileIcon; value: string; label?: string };
-export type TileRelay = { name: string; on: boolean; text: string };
+export type TileRelay = { name: string; on: boolean; text: string; detail?: string };
 export type DeviceTile = {
   level: TileLevel;
   chip: string;

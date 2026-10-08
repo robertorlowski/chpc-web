@@ -120,6 +120,28 @@ header a:hover {
 	background-color: #0008;
 }
 
+/* strzałka powrotu do listy urządzeń w kółku, bez napisu: kreska zamiast wypełnienia (ikona akcji) */
+header nav a.nav-back {
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	margin: auto 0.5rem auto 0.5rem;
+	padding: 0;
+	border-radius: 50%;
+	background-color: #fff3;
+}
+
+header nav a.nav-back:hover {
+	background-color: #fff6;
+}
+
+header nav a.nav-back svg {
+	fill: none;
+	stroke: #fff;
+	stroke-width: 2;
+	padding-right: 0;
+}
+
 header nav a svg  {
     display: flex;
     flex-direction: row;
@@ -412,4 +434,6 @@ header.app-header-plain {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 3rem; /* wysokość z trybikiem, żeby pasek nie rósł, gdy trybik pojawia się po załadowaniu listy */
 }

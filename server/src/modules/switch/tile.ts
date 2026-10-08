@@ -1,5 +1,5 @@
 // Kafelek włącznika na stronie /devices (GET /devices/summary): przekaźniki ze stanem i opisem trybu.
-// Błąd (czerwony): sterownik offline (żaden przekaźnik bez zgłoszenia od 30 s). Ostrzeżenie (pomarańczowy):
+// Błąd (czerwony): sterownik offline (żaden przekaźnik bez zgłoszenia od 60 s). Ostrzeżenie (pomarańczowy):
 // przekaźnik w trybie „Wyłączony”, który blokuje istniejący harmonogram, albo włączony bez limitu czasu
 // dłużej niż doba.
 import { Device, DeviceTile, TileRelay } from '../../core/types';
@@ -11,12 +11,29 @@ export const UNLIMITED_ON_WARNING_MS = 24 * 3600 * 1000;
 
 type Relay = Awaited<ReturnType<typeof listRelays>>[number];
 
-function relayText(relay: Relay, now: Date): string {
-  if (relay.mode === 'off') return 'wyłączony ręcznie';
-  if (relay.mode === 'on') return relay.on ? 'wł. bez limitu czasu' : 'włączanie…';
-  if (relay.on) return `wł. do ${warsawTime(new Date(relay.until ?? now))}${relay.mode === 'schedule' ? ' · harmonogram' : ''}`;
-  if (relay.mode === 'schedule' && relay.nextStart) return `wył. · następne ${formatWhen(new Date(relay.nextStart), now)}`;
-  return relay.mode === 'schedule' ? 'wył. · harmonogram' : 'wył.';
+// Opis przekaźnika: kiedy się wyłączy, kiedy włączy według harmonogramu i jak jest w trybie ręcznym.
+// Przy jednym przekaźniku (solo) pełnym zdaniem, bez nazwy, a tryb w drugiej linii (detail):
+// „Włączony do 15:00” + „Harmonogram włączony”, „Włączy się jutro 06:00” + „Harmonogram włączony”,
+// „Włączony do 15:00” + „Tryb ręczny”; przy kilku przekaźnikach krótko, obok nazwy, bez drugiej linii.
+function relayText(relay: Relay, now: Date, solo: boolean): { text: string; detail?: string } {
+  const until = warsawTime(new Date(relay.until ?? now));
+  switch (relay.mode) {
+    case 'off':
+      return solo ? { text: 'Wyłączony ręcznie', detail: 'Harmonogram zablokowany' } : { text: 'wyłączony ręcznie' };
+    case 'on':
+      if (!relay.on) return { text: solo ? 'Włączanie…' : 'włączanie…' };
+      return solo ? { text: 'Włączony bez limitu czasu', detail: 'Tryb ręczny' } : { text: 'wł. ręcznie bez limitu' };
+    case 'timer':
+      if (!relay.on) return { text: solo ? 'Włączanie…' : 'włączanie…' };
+      return solo ? { text: `Włączony do ${until}`, detail: 'Tryb ręczny' } : { text: `wł. ręcznie do ${until}` };
+    default:
+      if (relay.on) return solo ? { text: `Włączony do ${until}`, detail: 'Harmonogram włączony' } : { text: `wł. do ${until} · harmonogram` };
+      if (relay.nextStart) {
+        const when = formatWhen(new Date(relay.nextStart), now);
+        return solo ? { text: `Włączy się ${when}`, detail: 'Harmonogram włączony' } : { text: `wył. · następne ${when}` };
+      }
+      return solo ? { text: 'Wyłączony', detail: 'Brak wpisów w harmonogramie' } : { text: 'wył. · harmonogram' };
+  }
 }
 
 export async function switchTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
@@ -28,10 +45,11 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
   const online = relays.some((relay) => relay.online);
   const name = (relay: Relay) => relay.name || `Przekaźnik ${relay.relay}`;
 
+  const solo = relays.length === 1;
   const tiles: TileRelay[] = relays.map((relay) => ({
-    name: name(relay),
+    name: solo ? '' : name(relay),
     on: online && relay.on,
-    text: online ? relayText(relay, now) : 'stan nieznany',
+    ...(online ? relayText(relay, now, solo) : { text: solo ? 'Stan nieznany' : 'stan nieznany' }),
   }));
 
   let level: DeviceTile['level'] = 'ok';

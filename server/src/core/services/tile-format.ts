@@ -21,11 +21,12 @@ const warsawDay = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: T
 export const warsawTime = (date: Date) =>
   date.toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' });
 
-// „dziś 14:32”, „wczoraj 21:14”, w pozostałych przypadkach „08.10 09:12”
+// „dziś 14:32”, „wczoraj 21:14”, „jutro 06:00”, w pozostałych przypadkach „08.10 09:12”
 export function formatWhen(date: Date, now = new Date()): string {
   const day = warsawDay(date);
   if (day === warsawDay(now)) return `dziś ${warsawTime(date)}`;
   if (day === warsawDay(new Date(now.getTime() - 24 * 3600 * 1000))) return `wczoraj ${warsawTime(date)}`;
+  if (day === warsawDay(new Date(now.getTime() + 24 * 3600 * 1000))) return `jutro ${warsawTime(date)}`;
   const [, month, dayOfMonth] = day.split('-');
   return `${dayOfMonth}.${month} ${warsawTime(date)}`;
 }

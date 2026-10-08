@@ -138,7 +138,14 @@ export type TileIcon =
 
 export interface TileFact { icon: TileIcon; value: string; label?: string }
 
-export interface TileRelay { name: string; on: boolean; text: string }
+/** name pusta przy jednym przekaźniku: kafelek ma już nazwę sterownika, więc pokazuje tylko opis */
+export interface TileRelay {
+  name: string;
+  on: boolean;
+  text: string;
+  /** druga, mniejsza linia pod opisem (przy jednym przekaźniku: tryb, np. „Harmonogram włączony”) */
+  detail?: string;
+}
 
 export interface DeviceTile {
   /** kolor paska kafelka: ok (zielony), warn (pomarańczowy), err (czerwony, z ramką), off (szary) */

@@ -18,7 +18,7 @@ export type SwitchRelay = {
   on: boolean;
   changedAt: string | null;
   lastSeenAt: string | null;
-  /** sterownik zgłosił się w ciągu 30 s */
+  /** sterownik zgłosił się w ciągu 60 s */
   online: boolean;
   /** stan, który chmura wysyła sterownikowi */
   desiredOn: boolean;

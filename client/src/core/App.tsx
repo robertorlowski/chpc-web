@@ -111,7 +111,7 @@ function AppContent() {
 				</header>}
 				{/* /devices: sam pasek w kolorze menu (bez pozycji menu, bo nie wybrano sterownika) */}
 				{location.pathname === '/devices' && <header className="app-header app-header-plain">
-					<span>Sterowniki</span>
+					<span>Lista sterowników</span>
 					{/* miejsce na przyciski strony (trybik „Zmień kolejność” wstawia tu pages/Devices) */}
 					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 				</header>}

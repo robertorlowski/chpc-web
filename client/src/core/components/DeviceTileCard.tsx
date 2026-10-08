@@ -32,9 +32,43 @@ const Fact = ({ fact, big, noIcon }: { fact: TileFact; big?: boolean; noIcon?: b
   </span>
 );
 
-export function DeviceTileCard({ deviceType, name, tile, now }: {
-  deviceType: DeviceType; name: string; tile?: DeviceTile; now: number;
+// Duszek: szare, pulsujące bloki w miejscu wartości (kafelek ma tę samą wysokość co gotowy, więc nic nie skacze).
+// Bez nazwy (lista urządzeń jeszcze się nie załadowała) szkielet ma też nagłówek.
+function TileSkeleton({ withHead }: { withHead: boolean }) {
+  return (
+    <>
+      {withHead && (
+        <span className="tile-head">
+          <span className="skeleton skeleton-icon" />
+          <span className="skeleton skeleton-title" />
+        </span>
+      )}
+      <span className="skeleton skeleton-main" />
+      <span className="skeleton skeleton-row" />
+      <span className="skeleton skeleton-foot" />
+    </>
+  );
+}
+
+export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
+  deviceType?: DeviceType; name?: string; tile?: DeviceTile; now: number;
+  /** dane kafelka jeszcze się ładują: zamiast wartości duszek; bez name szkielet całego kafelka */
+  loading?: boolean;
 }) {
+  if (loading && !tile) {
+    return (
+      <span className="tile tile-off tile-loading" aria-busy="true">
+        {name && deviceType ? (
+          <span className="tile-head">
+            <span className="tile-type-icon"><Pictogram name={TYPE_ICONS[deviceType] ?? 'waves'} /></span>
+            <strong className="tile-name">{name}</strong>
+          </span>
+        ) : null}
+        <TileSkeleton withHead={!name} />
+      </span>
+    );
+  }
+  if (!deviceType || name === undefined) return null;
   const foot = tile?.foot ?? (tile?.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '');
   return (
     <span className={`tile tile-${tile?.level ?? 'off'}`}>
@@ -47,10 +81,11 @@ export function DeviceTileCard({ deviceType, name, tile, now }: {
       {tile?.relays && (
         <span className="tile-relays">
           {tile.relays.map((relay) => (
-            <span key={relay.name} className="tile-relay">
+            <span key={relay.name || 'solo'} className={`tile-relay${relay.name ? '' : ' solo'}`}>
               <span className={`tile-relay-dot${relay.on ? ' on' : ''}`} />
-              <b>{relay.name}</b>
+              {relay.name ? <b>{relay.name}</b> : null}
               <small>{relay.text}</small>
+              {relay.detail ? <small className="tile-relay-detail">{relay.detail}</small> : null}
             </span>
           ))}
         </span>

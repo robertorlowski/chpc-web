@@ -51,11 +51,13 @@ export async function waterPressureTankTile(rootId: string, _device: Device, now
     running: running && level !== 'err',
     main: { icon: 'drop', value: liters === null ? '---' : formatUnit(liters, 'l'), label: 'dziś' },
     main2: { icon: 'drop', value: monthLiters === null ? '---' : formatUnit(monthLiters, 'l'), label: 'miesiąc' },
-    side: [
+    // dwie liczby obok siebie (dziś / miesiąc) zajmują prawie całą szerokość kafelka, więc czas pompy i
+    // uruchomienia idą do osobnego wiersza pod nimi (pierwsza wartość po lewej, ostatnia po prawej)
+    row: [
       { icon: 'timer', value: formatDuration(seconds), label: 'pompa' },
       { icon: 'repeat', value: String(runs.length), label: 'uruchomień' },
+      ...(running && last.compressorRunning ? [{ icon: 'bubbles' as const, value: 'wł.', label: 'kompresor' }] : []),
     ],
-    row: running && last.compressorRunning ? [{ icon: 'bubbles', value: 'wł.', label: 'kompresor' }] : undefined,
     note,
     foot: `ostatnie uruchomienie ${formatWhen(new Date(last.pumpStart), now)}`,
   };

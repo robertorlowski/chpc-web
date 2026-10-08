@@ -22,7 +22,8 @@ const megabytes = (bytes: number) => (bytes / MB).toLocaleString('pl-PL', { maxi
 // próg ostrzeżenia o zapełnieniu bazy (żółty tekst)
 const DATABASE_WARNING_PERCENT = 80;
 
-// Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0; „nie odpowiada”, gdy serwer nie ma połączenia.
+// Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0 jako procent („Baza danych 44%”), szczegóły w
+// podpowiedzi po najechaniu; „nie odpowiada”, gdy serwer nie ma połączenia.
 function DatabaseUsage() {
   const [stats, setStats] = useState<DatabaseStats | null | undefined>(undefined);
   useEffect(() => { DeviceRequests.getDatabaseStats().then(setStats); }, []);
@@ -31,10 +32,9 @@ function DatabaseUsage() {
   const percent = Math.round((stats.usedBytes / stats.limitBytes) * 100);
   return (
     <span className={`devices-footer-db${percent >= DATABASE_WARNING_PERCENT ? ' devices-footer-db-warning' : ''}`}
-      title={`Dane ${megabytes(stats.dataBytes)} MB, indeksy ${megabytes(stats.indexBytes)} MB; ${stats.collections} kolekcji, ${stats.documents.toLocaleString('pl-PL')} dokumentów; odpowiedź bazy ${stats.pingMs} ms`}>
+      title={`Zajęte ${megabytes(stats.usedBytes)} MB z ${megabytes(stats.limitBytes)} MB, wolne ${megabytes(Math.max(stats.limitBytes - stats.usedBytes, 0))} MB. Dane ${megabytes(stats.dataBytes)} MB, indeksy ${megabytes(stats.indexBytes)} MB; ${stats.collections} kolekcji, ${stats.documents.toLocaleString('pl-PL')} dokumentów; odpowiedź bazy ${stats.pingMs} ms`}>
       <span className="devices-footer-db-dot" aria-hidden="true" />
-      Baza danych: <strong>{megabytes(stats.usedBytes)} MB</strong> z {megabytes(stats.limitBytes)} MB ({percent} %),
-      wolne {megabytes(Math.max(stats.limitBytes - stats.usedBytes, 0))} MB
+      Baza danych {percent}%
     </span>
   );
 }
@@ -60,6 +60,21 @@ export function tileName(device: Device, all: Device[]): string {
 // miejsce w górnym pasku (App.tsx), do którego strona wstawia trybik „Zmień kolejność”
 export const DEVICES_HEADER_ACTIONS_ID = 'devices-header-actions';
 
+// liczba kafelków z poprzedniej wizyty: tyle duszków pokazuje strona, zanim przyjdzie lista (localStorage może
+// być niedostępny, więc każdy odczyt i zapis jest w try/catch)
+const DEVICE_COUNT_KEY = 'chpc.deviceCount';
+const rememberedDeviceCount = (): number => {
+  try {
+    const count = Number(localStorage.getItem(DEVICE_COUNT_KEY));
+    return Number.isInteger(count) && count > 0 && count <= 12 ? count : 3;
+  } catch {
+    return 3;
+  }
+};
+const rememberDeviceCount = (count: number) => {
+  try { localStorage.setItem(DEVICE_COUNT_KEY, String(count)); } catch { /* bez zapamiętania */ }
+};
+
 // odświeżanie stanu kafelków i wieku danych w stopce kafelka
 const TILES_REFRESH_MS = 30 * 1000;
 
@@ -69,6 +84,9 @@ export const Devices: React.FC = () => {
   const { clearDevice, selectDevice } = useDevice();
   const [devices, setDevices] = useState<Device[]>([]);
   const [tiles, setTiles] = useState<DeviceTiles>({});
+  // do czasu pierwszej odpowiedzi kafelki pokazują duszki (stała wysokość, bez „rozszerzania się” po załadowaniu)
+  const [devicesLoaded, setDevicesLoaded] = useState(false);
+  const [tilesLoaded, setTilesLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Device | null>(null);
@@ -80,13 +98,22 @@ export const Devices: React.FC = () => {
 
   const loadDevices = () => {
     DeviceRequests.getDevices()
-      .then((list) => list ? setDevices(list) : setError('Nie udało się pobrać urządzeń.'))
-      .catch(() => setError('Nie udało się pobrać urządzeń.'));
+      .then((list) => {
+        if (list) {
+          setDevices(list);
+          rememberDeviceCount(list.length);
+        } else {
+          setError('Nie udało się pobrać urządzeń.');
+        }
+      })
+      .catch(() => setError('Nie udało się pobrać urządzeń.'))
+      .finally(() => setDevicesLoaded(true));
   };
 
   const loadTiles = () => {
     DeviceRequests.getDeviceTiles().then((result) => {
       if (result) setTiles(result);
+      setTilesLoaded(true);
       setNow(Date.now());
     });
   };
@@ -145,7 +172,7 @@ export const Devices: React.FC = () => {
 
   return (
     <main className="device-selection">
-      <h1>Wybierz urządzenie</h1>
+      <h1>Lista urządzeń</h1>
       {/* trybik w górnym pasku włącza tryb „Zmień kolejność” (przy co najmniej dwóch sterownikach) */}
       {headerSlot && devices.length > 1 && createPortal(
         <button type="button" className={`header-gear${reordering ? ' active' : ''}`} disabled={reordering}
@@ -169,7 +196,7 @@ export const Devices: React.FC = () => {
           return (
             <div key={device.rootId} className={`device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}`}>
               <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(device)}>
-                <DeviceTileCard deviceType={device.deviceType} name={label} tile={tile} now={now} />
+                <DeviceTileCard deviceType={device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} />
               </button>
               {reordering ? (
                 <div className="device-reorder-arrows">
@@ -212,7 +239,14 @@ export const Devices: React.FC = () => {
             </div>
           );
         })}
-        {devices.length === 0 && !error && (
+        {!devicesLoaded && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
+          <div key={`skeleton-${index}`} className="device-card">
+            <div className="device-choose" aria-hidden="true">
+              <DeviceTileCard now={now} loading />
+            </div>
+          </div>
+        ))}
+        {devicesLoaded && devices.length === 0 && !error && (
           <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
         )}
       </section>
