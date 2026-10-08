@@ -106,7 +106,7 @@ stateDiagram-v2
 
 ## Online
 
-A relay is **online** when the controller reported within 30 s (`lastSeenAt`). The application then shows the normal state, and without a report — "Sterownik offline od …". "Czeka na sterownik…" means the controller is online but its state (`on`) does not match the command (`desiredOn`) yet.
+A relay is **online** when the controller reported within 5 min (`lastSeenAt`). The application then shows the normal state, and without a report — "Sterownik offline od …". "Czeka na sterownik…" means the controller is online but its state (`on`) does not match the command (`desiredOn`) yet.
 
 ## Number of relays
 

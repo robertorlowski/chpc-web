@@ -22,6 +22,15 @@ export function ageLabel(ms: number): string {
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} dni`;
 }
 
+// Kolor chipu: „Online” zielony (niebieski przy pracy: sprężarka, palenie, produkcja), „Offline” pomarańczowy do godziny,
+// potem czerwony (szary, gdy brak danych jest normalny, np. PV w nocy); inne napisy (hydrofor) według poziomu kafelka.
+function chipClass(tile: DeviceTile): string {
+  if (tile.running) return 'run';
+  if (tile.chip === 'Online') return 'ok';
+  if (tile.chip === 'Offline' && tile.level === 'ok') return 'off';
+  return tile.level;
+}
+
 const Fact = ({ fact, big, noIcon }: { fact: TileFact; big?: boolean; noIcon?: boolean }) => (
   <span className={`tile-fact${big ? ' big' : ''}`}>
     {!noIcon && <span className="tile-fact-icon"><Pictogram name={fact.icon} /></span>}
@@ -77,7 +86,7 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
       <span className="tile-head">
         <span className="tile-type-icon"><Pictogram name={TYPE_ICONS[deviceType] ?? 'waves'} /></span>
         <strong className="tile-name">{name}</strong>
-        {tile && <span className={`tile-chip${tile.running ? ' run' : ` ${tile.level}`}`}>{tile.chip}</span>}
+        {tile && <span className={`tile-chip ${chipClass(tile)}`}>{tile.chip}</span>}
       </span>
 
       {tile?.relays && (

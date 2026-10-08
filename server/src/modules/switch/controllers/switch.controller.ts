@@ -56,7 +56,7 @@ export async function putSwitchMode(req: Request, res: Response) {
 }
 
 // GET /switch/relays — przekaźniki dla aplikacji: stan ze sterownika, tryb, koniec włączenia,
-// wpis harmonogramu działający teraz, najbliższe włączenie i online (zgłoszenie w ciągu 30 s).
+// wpis harmonogramu działający teraz, najbliższe włączenie i online (zgłoszenie w ciągu 5 min).
 export async function getSwitchRelays(req: Request, res: Response) {
   try {
     return res.status(200).json(await listRelays(req.deviceRootId as string));

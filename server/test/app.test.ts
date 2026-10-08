@@ -447,7 +447,7 @@ describe('API with MongoDB', () => {
 
     const lostFor10min = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 10 * 60 * 1000));
     expect(lostFor10min?.level).toBe('warn');
-    expect(lostFor10min?.chip).toBe('Brak łączności');
+    expect(lostFor10min?.chip).toBe('Offline');
     expect(lostFor10min?.main?.value).toBe('---');
     expect(lostFor10min?.side).toEqual([]);
 

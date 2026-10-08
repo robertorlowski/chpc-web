@@ -15,8 +15,8 @@ import {
   PvCurrentView, PvDayPoint, PvDayView, PvPanel, PvSummaryBucket, PvSummaryView,
 } from '../types';
 
-// odczyt starszy = moc i stany paneli nieaktualne (DTU czytane co 60 s; jak PV_MAX_AGE_MS pompy)
-export const STALE_AFTER_MS = 3 * 60 * 1000;
+// odczyt starszy = moc i stany paneli nieaktualne (DTU czytane co 60 s)
+export const STALE_AFTER_MS = 5 * 60 * 1000;
 const BUCKET_MS = 5 * 60 * 1000;
 
 type RawPanel = Omit<PvPanel, 'key' | 'state'>;

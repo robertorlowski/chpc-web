@@ -137,32 +137,6 @@ export const PhotovoltaicChart: React.FC = () => {
 
           {period === 'day' && (
             <>
-              {view === 'power' && hasPanels && (
-                <div className="pv-picker" role="group" aria-label="Panele na wykresie">
-                  {inverters.map((inverter) => {
-                    const keys = inverter.panels.map((panel) => panel.key);
-                    const count = keys.filter((key) => shown.has(key)).length;
-                    return (
-                      <div key={inverter.serial} className="pv-picker-group">
-                        <label className="pv-picker-title">
-                          <input type="checkbox" checked={count === keys.length}
-                            ref={(element) => { if (element) element.indeterminate = count > 0 && count < keys.length; }}
-                            onChange={(event) => togglePanels(keys, event.currentTarget.checked)} />
-                          Mikrofalownik {shortSerial(inverter.serial)}
-                        </label>
-                        {inverter.panels.map((panel) => (
-                          <label key={panel.key} className="pv-picker-port">
-                            <input type="checkbox" checked={shown.has(panel.key)}
-                              onChange={(event) => togglePanels([panel.key], event.currentTarget.checked)} />
-                            <span className="pv-picker-swatch" style={{ background: panel.color }} />
-                            port {panel.port}
-                          </label>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
               <div className="pv-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   {view === 'energy' ? (
@@ -215,6 +189,32 @@ export const PhotovoltaicChart: React.FC = () => {
                   </label>
                 ))}
               </div>
+              {view === 'power' && hasPanels && (
+                <div className="pv-picker" role="group" aria-label="Panele na wykresie">
+                  {inverters.map((inverter) => {
+                    const keys = inverter.panels.map((panel) => panel.key);
+                    const count = keys.filter((key) => shown.has(key)).length;
+                    return (
+                      <div key={inverter.serial} className="pv-picker-group">
+                        <label className="pv-picker-title">
+                          <input type="checkbox" checked={count === keys.length}
+                            ref={(element) => { if (element) element.indeterminate = count > 0 && count < keys.length; }}
+                            onChange={(event) => togglePanels(keys, event.currentTarget.checked)} />
+                          Mikrofalownik {shortSerial(inverter.serial)}
+                        </label>
+                        {inverter.panels.map((panel) => (
+                          <label key={panel.key} className="pv-picker-port">
+                            <input type="checkbox" checked={shown.has(panel.key)}
+                              onChange={(event) => togglePanels([panel.key], event.currentTarget.checked)} />
+                            <span className="pv-picker-swatch" style={{ background: panel.color }} />
+                            port {panel.port}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {day && !hasPanels && dayData.length > 0 && (
                 <div className="pv-hint">Brak szczegółów paneli z tego dnia (są od 26.09.2026).</div>
               )}

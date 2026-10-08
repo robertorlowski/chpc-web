@@ -3,7 +3,7 @@
 // odczytu dłużej niż godzinę (od 3 odstępów odpytywania do godziny to uwaga, pomarańczowa). Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
 // zlecenie zmiany parametru zakończone błędem w ciągu doby.
 import { Device, DeviceTile } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
+import { formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
 import { PelletBoilerCommandModel } from './models/pellet-boiler-pelux200-command.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from './models/pellet-boiler-pelux200-settings.model';
 import { listAlerts } from './services/pellet-boiler-pelux200-alert.service';
@@ -11,11 +11,6 @@ import { effectiveBoilerMode } from './services/pellet-boiler-pelux200-heat-pump
 import { getPelletBoilerPelux200Last, getPollIntervalSeconds, readingResponding } from './services/pellet-boiler-pelux200.service';
 import { PelletBoilerPelux200Entry } from './types';
 
-// stany regulatora 0..11 (jak BOILER_STATE_NAMES w kliencie, utils/boiler.ts)
-const STATE_NAMES = [
-  'Wyłączony', 'Stabilizacja', 'Rozpalanie', 'Praca', 'Nadzór', 'Postój',
-  'Czuwanie', 'Wygaszanie', 'Alarm', 'Ręczny', 'Rozszczelnianie', 'Inny',
-];
 // stany z płomieniem (jak w kliencie): stabilizacja, rozpalanie, praca, nadzór, wygaszanie
 const FLAME_STATES = new Set([1, 2, 3, 4, 7]);
 export const LOW_FUEL_PERCENT = 15;
@@ -43,15 +38,14 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
 
   let level: DeviceTile['level'] = 'ok';
   let note: DeviceTile['note'];
-  let chip = last.state === undefined ? '---' : STATE_NAMES[last.state] ?? `Stan ${last.state}`;
+  // chip: Online / Offline (jak na wszystkich kafelkach); palenie = niebieski chip (running)
+  let chip = 'Online';
   if (!responding) {
     const age = now.getTime() - at.getTime();
     level = offlineLevel(age); // do godziny uwaga, potem błąd
-    chip = 'Brak odczytu';
-    note = { level, text: `Brak odczytu z kotła od ${formatAge(age)}` };
+    chip = 'Offline';
   } else if (alarm) {
     level = 'err';
-    chip = 'ALARM';
     const code = activeAlerts[0]?.code;
     note = { level: 'err', text: `Regulator zgłasza alarm kotła${code !== undefined ? ` (kod ${code})` : ''}` };
   } else if (typeof last.fuel_level === 'number' && last.fuel_level < LOW_FUEL_PERCENT) {

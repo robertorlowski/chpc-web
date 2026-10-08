@@ -59,7 +59,7 @@ The registration (`POST /devices/register`, core module) with `deviceType: "swit
 | `mode`, `until` | mode `schedule` \| `on` \| `timer` \| `off` (default `schedule`); `until` — end of `timer` mode |
 | `modeSource`, `modeChangedAt` | who set the mode and when (`app` \| `controller`) |
 | `on`, `changedAt` | state reported by the controller and the moment it changed (`now − changedS`) |
-| `lastSeenAt` | last state report (online < 30 s) |
+| `lastSeenAt` | last state report (online < 5 min) |
 | `createdAt`, `updatedAt` | write timestamps |
 
 **`switch_schedules`** — schedule entries: `rootId`, `relay`, `enabled`, `dayOfWeek` (`WeekDay`), `date`, `startTime`, `endTime` (`HH:mm`); index `{rootId, relay}`. A separate collection rather than `devices.schedules`: an entry has a relay number and none of the pump fields (type, temperatures, force).
@@ -74,7 +74,7 @@ The registration (`POST /devices/register`, core module) with `deviceType: "swit
 |---|---|---|
 | `MAX_RELAYS` | 16 | `switch.service.ts` (firmware: 8) |
 | `MAX_TIMER_MINUTES` | 10080 (7 days) | `switch.service.ts`, `properties` schema, firmware `MAX_ON_MINUTES` |
-| `OFFLINE_AFTER_MS` | 30 s | `switch.service.ts` |
+| `OFFLINE_AFTER_MS` | 5 min | `switch.service.ts` |
 | `BOOT_MARGIN_S` | 5 s (margin when detecting a restart and a new activation) | `switch.service.ts` |
 | `nextStart` search | 8 days | `switch-schedule.service.ts` |
 | window merging | at most 16 steps | `activeSchedule` |

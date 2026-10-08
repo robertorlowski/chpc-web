@@ -15,8 +15,8 @@ import { activeSchedule, nextScheduleStart } from './switch-schedule.service';
 export const MAX_RELAYS = 16;
 // „Włącz na…”: od 1 min do 7 dni
 export const MAX_TIMER_MINUTES = 7 * 24 * 60;
-// sterownik zgłasza się co 5 s; po 60 s ciszy aplikacja i kafelek pokazują „offline” (do 2026-10-08: 30 s)
-export const OFFLINE_AFTER_MS = 60 * 1000;
+// sterownik zgłasza się co 5 s; po 5 min ciszy aplikacja i kafelek pokazują „offline” (do 2026-10-08: 30 s, potem 60 s)
+export const OFFLINE_AFTER_MS = 5 * 60 * 1000;
 // stan, który sterownik ma od startu, przy wyłączeniu po restarcie: koniec włączenia
 // jest nieznany (utrata zasilania), więc przyjmujemy ostatnie zgłoszenie
 const BOOT_MARGIN_S = 5;

@@ -106,7 +106,7 @@ stateDiagram-v2
 
 ## Online
 
-Przekaźnik jest **online**, gdy sterownik zgłosił się w ciągu 30 s (`lastSeenAt`). Aplikacja pokazuje wtedy normalny stan, a bez zgłoszenia — „Sterownik offline od …”. „Czeka na sterownik…” oznacza, że sterownik jest online, ale jego stan (`on`) jeszcze nie odpowiada poleceniu (`desiredOn`).
+Przekaźnik jest **online**, gdy sterownik zgłosił się w ciągu 5 min (`lastSeenAt`). Aplikacja pokazuje wtedy normalny stan, a bez zgłoszenia — „Sterownik offline od …”. „Czeka na sterownik…” oznacza, że sterownik jest online, ale jego stan (`on`) jeszcze nie odpowiada poleceniu (`desiredOn`).
 
 ## Liczba przekaźników
 

@@ -74,7 +74,7 @@ Zgłoszenie (`POST /devices/register`, moduł core) z `deviceType: "switch"` prz
 |---|---|---|
 | `MAX_RELAYS` | 16 | `switch.service.ts` (firmware: 8) |
 | `MAX_TIMER_MINUTES` | 10080 (7 dni) | `switch.service.ts`, schemat `properties`, firmware `MAX_ON_MINUTES` |
-| `OFFLINE_AFTER_MS` | 30 s | `switch.service.ts` |
+| `OFFLINE_AFTER_MS` | 5 min | `switch.service.ts` |
 | `BOOT_MARGIN_S` | 5 s (zapas przy rozpoznaniu restartu i nowego włączenia) | `switch.service.ts` |
 | szukanie `nextStart` | 8 dni | `switch-schedule.service.ts` |
 | łączenie okien | najwyżej 16 kroków | `activeSchedule` |

@@ -14,6 +14,13 @@ import { forgetDeviceInfo, getDeviceInfo } from '../../../core/services/device-i
 // Ostatnia telemetria w postaci, w jakiej przyszła (z polami spoza schematu, bez
 // createdAt); po restarcie odtwarzana z bazy przy pierwszym odczycie.
 const lastDataByRoot = new Map<string, HpEntry>();
+
+// Ostatnie POST /hp/add od sterownika co, także bez odczytu z CHPC (puste HP nie jest zapisywane). Pozwala odróżnić
+// brak łączności ze sterownikiem od wyłączonej pompy (CHPC). Tylko w pamięci: po restarcie serwera do pierwszego
+// zgłoszenia co (najdalej 30 s) czasu kontaktu nie ma.
+const lastContactByRoot = new Map<string, Date>();
+export const markHpContact = (rootId: string, at = new Date()) => { lastContactByRoot.set(rootId, at); };
+export const getHpContactAt = (rootId: string): Date | undefined => lastContactByRoot.get(rootId);
 // Dni z danymi (YYYY.MM.DD, Warszawa); addHpData dopisuje dzień tylko do już wczytanego zbioru.
 const availableDatesByRoot = new Map<string, Set<string>>();
 

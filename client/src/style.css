@@ -347,7 +347,7 @@ header.app-header-plain {
 	color: #fff;
 	padding: 0.5rem 0.75rem;
 	font-weight: 600;
-	font-size: 1rem; /* jak etykiety menu na stronach sterownika */
+	font-size: 1.25rem; /* tytuł strony „Lista sterowników” większy niż etykiety menu */
 }
 
 /* zakładka Dane pompy na całe okno (fill-page, useFillHeight): data stoi w miejscu, a pod nią .data-body:
@@ -437,4 +437,16 @@ header.app-header-plain {
 	justify-content: space-between;
 	box-sizing: border-box;
 	min-height: 40px; /* jak menu na stronach sterownika (padding 8 px + wiersz 24 px); trybik 32 px mieści się bez zmiany wysokości */
+}
+
+/* „Offline od …” na górze ekranu sterownika (core/components/OfflineBanner) */
+.offline-banner {
+	margin: 0 0 0.6rem;
+	padding: 0.5rem 0.75rem;
+	border-radius: 8px;
+	font-size: 0.9rem;
+	line-height: 1.3;
+	background: #fff6f5;
+	border: 1px solid #f3cfcc;
+	color: #a32a24;
 }

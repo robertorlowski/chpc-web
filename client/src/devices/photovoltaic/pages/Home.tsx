@@ -10,6 +10,7 @@ import {
   warsawDay,
 } from '../utils/pv';
 import './style.css';
+import { OfflineBanner } from '../../../core/components/OfflineBanner';
 
 const REFRESH_MS = 60_000;
 
@@ -42,8 +43,7 @@ export const PhotovoltaicHome: React.FC = () => {
   const maxPanelPower = Math.max(1, ...panels.map((p) => p.power ?? 0),
     ...(day?.panels ?? []).flatMap((p) => p.points.map((point) => point.power)));
   const dayTitle = day && day.date !== todayWarsaw() ? `Moc ${formatDay(day.date)}` : 'Moc dzisiaj';
-  const status = !current?.readAt ? '' : current.stale ? 'dane nieaktualne'
-    : (current.power ?? 0) > 0 ? 'produkuje' : 'bez produkcji';
+  const status = !current?.readAt || current.stale ? '' : (current.power ?? 0) > 0 ? 'produkuje' : 'bez produkcji';
   const chartData = (day?.points ?? []).map((p) => ({ label: formatTime(p.t), moc: p.power }));
 
   return (
@@ -59,6 +59,7 @@ export const PhotovoltaicHome: React.FC = () => {
         {current?.readAt && (
           <>
             <div className="resource pv-now">
+              {current.stale && <OfflineBanner since={current.readAt} />}
               <div className="pv-now-power">{formatPower(current.power)}</div>
               <div className="pv-now-caption">moc bieżąca paneli (DC)</div>
               <div className="pv-tiles">
@@ -72,7 +73,6 @@ export const PhotovoltaicHome: React.FC = () => {
               </div>
               <div className="pv-hint">
                 Odczyt: {formatDateTime(current.readAt)}
-                {current.stale && <span className="pv-bad"> — dane nieaktualne (brak odczytu od ponad 3 min)</span>}
               </div>
             </div>
 

@@ -2,7 +2,7 @@
 // oraz odczyty dla klienta: bieżący stan, dni z danymi, dane dnia, podsumowanie
 // energii i kosztów G12w, ostatni błąd. Dane w kolekcji hp (models/hp.model.ts).
 import { Request, Response } from 'express'
-import { addHpData, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
+import { addHpData, getHpContactAt, markHpContact, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../types'
 import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/hp.model'
@@ -50,7 +50,9 @@ export async function getHp(req: Request, res: Response) {
     const result = await getHpLastData(rootId)
     // PV nie przychodzi już z telemetrią HP; bieżący odczyt dołącza serwer.
     const pv = await getFreshPvSummary(rootId);
-    return res.status(200).send(pv ? { ...result, ...pv } : result)
+    // contactAt: ostatnie zgłoszenie co (także bez odczytu z CHPC) — ekran pompy odróżnia brak łączności od wyłączonej pompy
+    const contactAt = getHpContactAt(rootId)?.toISOString();
+    return res.status(200).send({ ...result, ...(pv ?? {}), ...(contactAt ? { contactAt } : {}) })
   } catch (error) {
     console.log(error)
     return res.status(500).send({ message: error })
@@ -242,6 +244,7 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
 
   try {
     const rootId = req.deviceRootId as string;
+    markHpContact(rootId);
     // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
     const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
     // Bez ręcznych nadpisań operacja znika do następnego przebiegu schedulera (co 60 s),

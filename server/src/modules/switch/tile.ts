@@ -1,5 +1,5 @@
 // Kafelek włącznika na stronie /devices (GET /devices/summary): przekaźniki ze stanem i opisem trybu.
-// Offline (żaden przekaźnik bez zgłoszenia od 60 s): do godziny uwaga (pomarańczowa), potem błąd (czerwony). Ostrzeżenie (pomarańczowy):
+// Offline (żaden przekaźnik bez zgłoszenia od 5 min): do godziny uwaga (pomarańczowa), potem błąd (czerwony). Ostrzeżenie (pomarańczowy):
 // przekaźnik w trybie „Wyłączony”, który blokuje istniejący harmonogram, albo włączony bez limitu czasu
 // dłużej niż doba.
 import { Device, DeviceTile, TileRelay } from '../../core/types';
@@ -78,10 +78,12 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
 
   let level: DeviceTile['level'] = 'ok';
   let note: DeviceTile['note'];
+  let offlineChip = 'Online';
   if (!online) {
     // do godziny uwaga (płytka zwykle wraca sama), potem błąd; brak jakiegokolwiek zgłoszenia to od razu błąd
     level = lastSeen ? offlineLevel(now.getTime() - lastSeen.getTime()) : 'err';
-    note = { level, text: lastSeen ? `Sterownik offline od ${formatWhen(lastSeen, now)}` : 'Sterownik jeszcze się nie zgłosił' };
+    offlineChip = 'Offline';
+    if (!lastSeen) note = { level, text: 'Sterownik jeszcze się nie zgłosił' };
   } else {
     const blocked = await Promise.all(relays.filter((relay) => relay.mode === 'off').map(async (relay) =>
       (await SwitchScheduleModel.countDocuments({ rootId, relay: relay.relay, enabled: true })) > 0 ? relay : null));
@@ -101,7 +103,7 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
     const view = online ? soloView(relays[0], now) : { value: '---', label: 'stan nieznany', mode: '' };
     return {
       level,
-      chip: online ? 'Online' : 'Offline',
+      chip: offlineChip,
       main: { icon: 'power', value: view.value, label: view.label },
       row: view.mode ? [{ icon: 'sliders', value: view.mode }] : undefined,
       note,
@@ -111,7 +113,7 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
 
   return {
     level,
-    chip: online ? 'Online' : 'Offline',
+    chip: offlineChip,
     relays: tiles,
     note,
     updatedAt: lastSeen?.toISOString(),

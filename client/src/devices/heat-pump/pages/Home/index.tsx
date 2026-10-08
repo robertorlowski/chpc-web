@@ -14,12 +14,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import swith_on from '../../../../assets/swith_on.svg';
 import swith_off from '../../../../assets/swith_off.svg';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
-import { ageLabel } from '../../../../core/components/DeviceTileCard';
+import { OfflineBanner } from '../../../../core/components/OfflineBanner';
 
 // Telemetria starsza niż to jest nieaktualna (jak „Brak łączności” na kafelku listy): od 5 min uwaga, po godzinie błąd;
 // wartości z pompy są wtedy ukryte.
 const STALE_AFTER_MS = 5 * 60 * 1000;
-const STALE_ERROR_AFTER_MS = 60 * 60 * 1000;
 
 // Stany _data, _hp i _pv to cała odpowiedź GET /hp oraz jej pola HP i PV; _lastError z /hp/last-error.
 const HP: React.FC = () => {
@@ -32,10 +31,14 @@ const HP: React.FC = () => {
   const [cwuLoading, setCwuLoading] = useState<HpCwuLoading | null>(null);
   const ws = useRef<WebSocket | null>(null);
 
-  // Wiek ostatniego zapisanego odczytu: odświeżany co 30 s, bo dane bez łączności nie przychodzą po WebSocket.
+  // Wiek ostatniego zapisanego odczytu i kontakt z co: co 30 s zegar i ponowne pobranie GET /hp, bo bez odczytów
+  // z pompy WebSocket „update” nie przychodzi.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+      HpRequests.getCoData().then((resp) => { setData(resp); setHP(resp?.HP); setPV(resp?.PV); }).catch(() => undefined);
+    }, 30_000);
     return () => window.clearInterval(timer);
   }, []);
   const readAt = _data?.createdAt ? new Date(_data.createdAt).getTime() : undefined;
@@ -44,6 +47,9 @@ const HP: React.FC = () => {
   // Nieaktualny odczyt nie jest pokazywany jako stan pompy: temperatury, moc i pompy to „---”, a nad danymi jest komunikat
   // „Dane nieaktualne” z godziną ostatniego odczytu. PV i temperatura zewnętrzna idą z innych źródeł i zostają.
   const _hp = stale ? null : _hpLast;
+  // co zgłasza się co 10–30 s także przy wyłączonej pompie (HP puste): świeży kontakt = pompa (CHPC) nie odpowiada
+  const contactAt = _data?.contactAt ? new Date(_data.contactAt).getTime() : NaN;
+  const coResponding = !Number.isNaN(contactAt) && now - contactAt <= STALE_AFTER_MS;
 
   // Nagłówek według podłączenia pompy z okna „Dane sterownika” (pumpConfig.connection): „CWU” albo „CO”;
   // bez zapisanej definicji „CWU”, bo to wartość, którą okno „Dane sterownika” pokazuje jako wybraną
@@ -156,9 +162,7 @@ const HP: React.FC = () => {
         )}
         <div className="resource">
           {stale && dataAge !== undefined && (
-            <div className={`hp-stale ${dataAge > STALE_ERROR_AFTER_MS ? 'err' : 'warn'}`} role="alert">
-              <strong>Brak łączności</strong> ze sterownikiem od {ageLabel(dataAge)}.
-            </div>
+            <OfflineBanner since={readAt} now={now} detail={coResponding ? 'sterownik działa, pompa (CHPC) nie odpowiada.' : 'brak łączności ze sterownikiem.'} />
           )}
           <div className={`heet${stale ? ' hp-stale-data' : ''}`}>
             <div className="heat head">

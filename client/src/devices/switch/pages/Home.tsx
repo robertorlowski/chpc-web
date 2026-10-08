@@ -16,6 +16,7 @@ import {
 import swith_on from '../../../assets/swith_on.svg';
 import swith_off from '../../../assets/swith_off.svg';
 import './style.css';
+import { OfflineBanner } from '../../../core/components/OfflineBanner';
 
 const REFRESH_MS = 5_000;
 
@@ -49,9 +50,7 @@ const RelayCard: React.FC<{
       </div>
       <div className={`switch-mode${mode.danger ? ' switch-mode-danger' : ''}`}>{mode.text}</div>
       {!relay.online && (
-        <div className="switch-offline">
-          Sterownik offline{relay.lastSeenAt ? ` od ${formatMoment(relay.lastSeenAt)}` : ' (jeszcze się nie zgłosił)'}
-        </div>
+        <OfflineBanner since={relay.lastSeenAt ?? undefined} now={now} detail={relay.lastSeenAt ? undefined : 'sterownik jeszcze się nie zgłosił.'} />
       )}
       {relay.on !== relay.desiredOn && relay.online && (
         <div className="switch-hint">Czeka na sterownik…</div>

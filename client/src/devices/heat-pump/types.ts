@@ -146,6 +146,8 @@ export type HpEntry = {
   time: string,
   /** czas zapisu odczytu na serwerze (ISO); ekran Home liczy z niego wiek danych („Dane nieaktualne”) */
   createdAt?: string,
+  /** GET /hp: ostatnie zgłoszenie sterownika co (także bez odczytu z CHPC), ISO; tylko w pamięci serwera */
+  contactAt?: string,
   co_pomp: boolean,
   cwu_pomp?: boolean,
   pv_power: boolean,

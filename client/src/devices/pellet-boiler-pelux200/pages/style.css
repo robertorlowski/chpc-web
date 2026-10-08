@@ -861,3 +861,9 @@
   min-width: 10.4rem;
   margin-right: 0.3rem;
 }
+
+/* „Offline od …” w panelu trybu i pomp: cała szerokość, nad elementami panelu */
+.boiler-status .offline-banner {
+  flex-basis: 100%;
+  margin: 0;
+}

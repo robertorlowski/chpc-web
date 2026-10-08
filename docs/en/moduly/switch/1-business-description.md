@@ -30,7 +30,7 @@ The user interface is in Polish; the screenshots show it as is.
 
 | Phone | Description |
 |---|---|
-| ![Main view on a phone](../../../moduly/switch/img/glowny-telefon.png) | On a phone (360 px) the cards are full width and the menu shows icons only. When a relay is on for a time or within a schedule window, a large countdown to switch-off is shown under the mode description. When the controller has not reported for more than 30 s, the card shows "Sterownik offline od …" (controller offline since …), and when the relay state does not match the command yet — "Czeka na sterownik…" (waiting for the controller). |
+| ![Main view on a phone](../../../moduly/switch/img/glowny-telefon.png) | On a phone (360 px) the cards are full width and the menu shows icons only. When a relay is on for a time or within a schedule window, a large countdown to switch-off is shown under the mode description. When the controller has not reported for more than 5 min, the card shows "Sterownik offline od …" (controller offline since …), and when the relay state does not match the command yet — "Czeka na sterownik…" (waiting for the controller). |
 
 ![Data](../../../moduly/switch/img/dane.png)
 
@@ -83,4 +83,4 @@ The same choice is on the controller's own page (local network), so the switch c
 | **Schedule window** | an entry "day + from–to"; a window across midnight belongs to the day it starts on |
 | **Activation** | one period from switching a relay on to switching it off in the history |
 | **Approximate time** (≈) | the end of an activation was estimated because the controller lost power or connectivity |
-| **Offline** | the controller has not reported for more than 30 s |
+| **Offline** | the controller has not reported for more than 5 min |

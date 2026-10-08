@@ -28,7 +28,7 @@ Pierwszy włącznik działa od 2026-10-03 i steruje grzałką bojlera (przekaźn
 
 | Telefon | Opis |
 |---|---|
-| ![Widok główny na telefonie](img/glowny-telefon.png) | Na telefonie (360 px) karty mają pełną szerokość, a menu pokazuje same ikony. Przy włączeniu na czas albo w oknie harmonogramu pod opisem trybu jest duże odliczanie do wyłączenia. Gdy sterownik nie zgłasza się dłużej niż 30 s, karta pokazuje „Sterownik offline od …”, a gdy stan przekaźnika jeszcze nie odpowiada poleceniu — „Czeka na sterownik…”. |
+| ![Widok główny na telefonie](img/glowny-telefon.png) | Na telefonie (360 px) karty mają pełną szerokość, a menu pokazuje same ikony. Przy włączeniu na czas albo w oknie harmonogramu pod opisem trybu jest duże odliczanie do wyłączenia. Gdy sterownik nie zgłasza się dłużej niż 5 min, karta pokazuje „Sterownik offline od …”, a gdy stan przekaźnika jeszcze nie odpowiada poleceniu — „Czeka na sterownik…”. |
 
 ![Dane](img/dane.png)
 

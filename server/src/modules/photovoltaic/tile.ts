@@ -1,10 +1,10 @@
 // Kafelek fotowoltaiki na stronie /devices (GET /devices/summary): moc teraz, produkcja dziś i liczba
-// pracujących paneli. Błąd (czerwony): alarm panelu (alarm_code ≠ 0) albo brak odczytów DTU dłużej niż 3 min
+// pracujących paneli. Błąd (czerwony): alarm panelu (alarm_code ≠ 0) albo brak odczytów DTU dłużej niż 5 min
 // w ciągu dnia dłużej niż godzinę, czyli sterownik co odłączony (do godziny uwaga, pomarańczowa; dzień to
 // 6:00–20:00 w Warszawie, w nocy brak odczytów nie jest błędem, a rano liczy się od 6:00). Ostrzeżenie (pomarańczowy): panel nie działa (offline). Słabsza produkcja panelu (np. zacienienie)
 // niczego nie zgłasza.
 import { Device, DeviceTile, TileFact } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit, offlineLevel } from '../../core/services/tile-format';
+import { formatTemperature, formatUnit, offlineLevel } from '../../core/services/tile-format';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../core/time';
 import { getCurrentView } from './services/photovoltaic.service';
 
@@ -36,12 +36,12 @@ export async function photovoltaicTile(rootId: string, _device: Device, now = ne
 
   let level: DeviceTile['level'] = 'ok';
   let note: DeviceTile['note'];
-  let chip = (view.power ?? 0) > 0 ? 'Produkuje' : 'Nie produkuje';
+  // chip: Online / Offline (jak na wszystkich kafelkach); w nocy brak odczytu to tylko szary „Offline” bez uwagi
+  let chip = view.stale ? 'Offline' : 'Online';
   if (view.stale && isDaytime(now)) {
     const silent = silenceAge(readAt, now);
     level = offlineLevel(silent); // do godziny uwaga, potem błąd
-    chip = 'Brak danych';
-    note = { level, text: `Brak odczytów z DTU od ${formatAge(silent)} (sprawdź sterownik co)` };
+    note = { level, text: 'Brak odczytów z DTU (sprawdź sterownik co)' };
   } else if (alarmed.length > 0) {
     level = 'err';
     note = { level: 'err', text: alarmed.length === 1 ? `Alarm panelu ${alarmed[0].key} (kod ${alarmed[0].alarm_code})` : `Alarm na ${alarmed.length} panelach` };

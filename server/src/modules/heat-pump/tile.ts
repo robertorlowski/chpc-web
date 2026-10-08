@@ -5,7 +5,7 @@
 // który już ustąpił.
 import { Device, DeviceTile } from '../../core/types';
 import {
-  formatAge, formatNumber, formatTemperature, formatUnit, formatWhen, offlineLevel, toNumber,
+  formatNumber, formatTemperature, formatUnit, formatWhen, offlineLevel, toNumber,
 } from '../../core/services/tile-format';
 import { errorDescription } from './error-codes';
 import { ERROR_LOCK_LIMIT, getHpLastData, getHpLastError } from './services/hp.service';
@@ -40,14 +40,13 @@ export async function heatPumpTile(rootId: string, _device: Device, now = new Da
 
   let level: DeviceTile['level'] = 'ok';
   let note: DeviceTile['note'];
-  let chip = running ? 'Sprężarka pracuje' : 'Postój';
+  // chip: Online / Offline (jak na wszystkich kafelkach); praca sprężarki = niebieski chip (running)
+  let chip = 'Online';
   if (age > OFFLINE_AFTER_MS) {
     level = offlineLevel(age); // do godziny uwaga, potem błąd
-    chip = 'Brak łączności';
-    note = { level, text: `Brak telemetrii od ${formatAge(age)}` };
+    chip = 'Offline';
   } else if (locked) {
     level = 'err';
-    chip = 'Zablokowana';
     note = { level: 'err', text: `Blokada po ${ERROR_LOCK_LIMIT} błędach.${code ? ` Ostatni: ${code} ${errorDescription(code)}` : ''}` };
   } else if (errorCount > 0 && code) {
     level = 'err';

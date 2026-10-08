@@ -19,6 +19,7 @@ import {
 } from '../utils/boiler';
 import './style.css';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
+import { OfflineBanner } from '../../../core/components/OfflineBanner';
 
 const REFRESH_MS = 30_000;
 
@@ -144,6 +145,8 @@ export const PelletBoilerHome: React.FC = () => {
               </div>
             )}
             <div className="resource boiler-status">
+              {/* brak odczytu: czerwony pasek „Offline od …” w górnym panelu (nad trybem i pompami) */}
+              {stale && <OfflineBanner since={reading?.createdAt} />}
               <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
               {heatPumpLinked && <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>}
               <Pump label="Pompa CO" on={reading.heating_pump} />
@@ -208,7 +211,6 @@ export const PelletBoilerHome: React.FC = () => {
                 </span>
               </Row>
               <Row label="Ostatni odczyt">{formatDateTime(reading.createdAt)}</Row>
-              {stale && <div className="boiler-stale">Dane nieaktualne</div>}
             </div>
           </>
         )}
