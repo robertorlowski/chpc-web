@@ -17,6 +17,7 @@ vi.mock('../src/core/services/meteo.service', () => ({
 import app from '../src/core/app'
 import { DeviceModel } from '../src/core/models/device.model'
 import { assignDefaultPumpConfigs } from '../src/core/services/device.service'
+import { heatPumpTile } from '../src/modules/heat-pump/tile'
 import { HpEntryModel } from '../src/modules/heat-pump/models/hp.model'
 import { SettingsEntryModel } from '../src/modules/heat-pump/models/settings.model'
 import { DeviceType } from '../src/core/types'
@@ -420,6 +421,38 @@ describe('API with MongoDB', () => {
     expect(tile.level).not.toBe('off');
     expect(tile.main.value).toContain('41,5');
     expect(tile.updatedAt).toBeTruthy();
+  });
+
+  it('shows the heat pump tile when CHPC numbers arrive as strings (raw cache)', async () => {
+    const posted = await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: '47.3', Tmin: '38.0', Tmax: '45.0', Watts: '1500', HPS: 1 }, work_mode: 'AUTO', time: '2026.10.08 12:30:00' });
+    expect(posted.status).toBe(201);
+
+    const tile = (await request(app).get('/api/devices/summary')).body[rootId];
+    expect(tile.main.value).toBe('47,3 °C');
+    expect(tile.side[0].value).toBe('38–45 °C');
+    expect(tile.side[1].value).toContain('1500');
+    expect(tile.running).toBe(true);
+  });
+
+  it('does not show old heat pump values on the tile once the link is lost (> 5 min)', async () => {
+    await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: '50.8', Tmin: '40.0', Tmax: '47.0', Watts: '20', HPS: 0 }, work_mode: 'OFF', time: '2026.10.08 12:40:00' });
+
+    const fresh = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 60 * 1000));
+    expect(fresh?.main?.value).toBe('50,8 °C');
+    expect(fresh?.level).toBe('ok');
+
+    const lostFor10min = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 10 * 60 * 1000));
+    expect(lostFor10min?.level).toBe('warn');
+    expect(lostFor10min?.chip).toBe('Brak łączności');
+    expect(lostFor10min?.main?.value).toBe('---');
+    expect(lostFor10min?.side).toEqual([]);
+
+    const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));
+    expect(lostFor2h?.level).toBe('err');
   });
 
   it('returns settings for the selected device', async () => {

@@ -144,6 +144,8 @@ export type HpEntry = {
   HP: HpMetrics,
   PV: PvMetrics,
   time: string,
+  /** czas zapisu odczytu na serwerze (ISO); ekran Home liczy z niego wiek danych („Dane nieaktualne”) */
+  createdAt?: string,
   co_pomp: boolean,
   cwu_pomp?: boolean,
   pv_power: boolean,

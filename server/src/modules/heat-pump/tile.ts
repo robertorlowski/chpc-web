@@ -4,7 +4,9 @@
 // odpowiedzi CHPC przestaje wysyłać pole HP, więc telemetria przestaje być zapisywana). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
 // który już ustąpił.
 import { Device, DeviceTile } from '../../core/types';
-import { formatAge, formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
+import {
+  formatAge, formatNumber, formatTemperature, formatUnit, formatWhen, offlineLevel, toNumber,
+} from '../../core/services/tile-format';
 import { errorDescription } from './error-codes';
 import { ERROR_LOCK_LIMIT, getHpLastData, getHpLastError } from './services/hp.service';
 import { HpEntry } from './types';
@@ -56,16 +58,22 @@ export async function heatPumpTile(rootId: string, _device: Device, now = new Da
   }
 
   const side = [];
-  if (hp.Tmin !== undefined && hp.Tmax !== undefined) {
-    side.push({ icon: 'target' as const, value: `${hp.Tmin}–${hp.Tmax} °C`, label: 'min–max' });
+  // bez łączności stare wartości z pompy nie są pokazywane: zbiornik „---”, brak zakresu temperatur i mocy
+  const live = !(age > OFFLINE_AFTER_MS);
+  // pamięć podręczna trzyma surową telemetrię (liczby jako napisy), baza liczby: oba warianty przez toNumber
+  const tmin = toNumber(hp.Tmin);
+  const tmax = toNumber(hp.Tmax);
+  if (live && tmin !== undefined && tmax !== undefined) {
+    side.push({ icon: 'target' as const, value: `${formatNumber(tmin, 1)}–${formatNumber(tmax, 1)} °C`, label: 'min–max' });
   }
-  if (running && hp.Watts !== undefined) side.push({ icon: 'bolt' as const, value: formatUnit(hp.Watts, 'W'), label: '' });
+  const watts = toNumber(hp.Watts);
+  if (live && running && watts !== undefined) side.push({ icon: 'bolt' as const, value: formatUnit(watts, 'W'), label: '' });
 
   return {
     level,
     chip,
     running: running && level !== 'err',
-    main: { icon: 'thermo', value: formatTemperature(hp.Ttarget), label: 'zbiornik' },
+    main: { icon: 'thermo', value: live ? formatTemperature(toNumber(hp.Ttarget)) : '---', label: 'zbiornik' },
     side,
     row: [{ icon: 'sliders', value: modeLabel(last.work_mode as string | undefined), label: '' }],
     note,

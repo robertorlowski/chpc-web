@@ -69,7 +69,9 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
     );
   }
   if (!deviceType || name === undefined) return null;
-  const foot = tile?.foot ?? (tile?.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '');
+  // stopka: własny tekst rodzaju (np. „ostatnie uruchomienie …” hydroforu) i „dane sprzed …”, gdy znany jest czas danych
+  const age = tile?.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '';
+  const footLines = [tile?.foot, age].filter((line): line is string => !!line);
   return (
     <span className={`tile tile-${tile?.level ?? 'off'}`}>
       <span className="tile-head">
@@ -115,7 +117,9 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
         </span>
       )}
 
-      {foot && <span className="tile-foot">{foot}</span>}
+      {footLines.length > 0 && (
+        <span className="tile-foot">{footLines.map((line) => <span key={line}>{line}</span>)}</span>
+      )}
     </span>
   );
 }

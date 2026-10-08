@@ -171,6 +171,7 @@ export const Devices: React.FC = () => {
   };
 
   return (
+    <>
     <main className="device-selection">
       <h1>Lista urządzeń</h1>
       {/* trybik w górnym pasku włącza tryb „Zmień kolejność” (przy co najmniej dwóch sterownikach) */}
@@ -250,14 +251,16 @@ export const Devices: React.FC = () => {
           <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
         )}
       </section>
+    </main>
 
-      {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
+    {/* poza <main>: tam obowiązuje skala 0,9, a okno i stopka mają mieć zwykły rozmiar */}
+    {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
 
       <footer className="device-footer devices-footer">
         {/* lewa część zarezerwowana na później (plan 2026-10-04) */}
         <span />
         <DatabaseUsage />
       </footer>
-    </main>
+    </>
   );
 };

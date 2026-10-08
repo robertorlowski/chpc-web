@@ -1,7 +1,17 @@
-/* Lista sterowników (/devices): kafelki o stałej szerokości 360 px obok siebie (zawijane do kolejnych wierszy),
-   na telefonie jeden pod drugim na całą szerokość ekranu. Kafelek: pasek stanu po lewej (zielony / pomarańczowy /
+/* Lista sterowników (/devices): na komputerze strona w skali 0,9 (jak przeglądarka przy 90 %), kafelki o szerokości
+   300–340 px obok siebie (4 w wierszu na typowym ekranie, zawijane i wyśrodkowane), na telefonie jeden pod drugim
+   na całą szerokość ekranu. Kafelek: pasek stanu po lewej (zielony / pomarańczowy /
    czerwony z ramką / szary), nazwa, chip ze stanem, kluczowe wartości, błąd lub ostrzeżenie i stopka;
    ołówek edycji i trybik firmware w prawym dolnym rogu, w trybie „Zmień kolejność” strzałki. */
+/* komputer: zawartość listy (kafelki) w skali 0,9, żeby przy 100 % przeglądarki wyglądała jak przy 90 % i mieściła
+   4 kafelki w poziomie; górny i dolny pasek zostają w normalnym rozmiarze (jak na stronach sterownika);
+   telefon bez skalowania */
+@media (min-width: 561px) {
+  .device-selection {
+    zoom: 0.9;
+  }
+}
+
 /* globalny main centruje zawartość w pionie: lista ma zaczynać się tuż pod paskiem u góry */
 .app-main:has(.device-selection) {
   align-items: flex-start;
@@ -12,8 +22,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start; /* globalny main ma space-around: bez tego zawartość wisi w pionowym środku */
-  width: min(1180px, 96vw);
-  min-height: calc(100vh - 6rem);
+  flex: 0 1 auto; /* globalny main ma flex: auto i rozciągał listę na całą szerokość okna */
+  width: min(1560px, calc(100% - 2rem)); /* 1 rem światła z lewej i prawej strony, na bardzo szerokim ekranie lista się nie rozciąga */
+  /* bez wymuszonej wysokości okna: z min-height 100vh strona przewijała się zawsze (o ok. 23 px), nawet z jednym kafelkiem */
   box-sizing: border-box;
   margin: 0 auto;
   padding: 3.4rem 0 4rem; /* miejsce na stałą stopkę pod kafelkami */
@@ -37,17 +48,18 @@
   flex-wrap: wrap;
   justify-content: center;
   align-items: stretch;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
   margin: 1rem 0 0;
 }
 
+/* kafelki rosną równo od 300 do 340 px: w wierszu mieści się tyle, ile się da (4 przy ok. 1380 px), ostatni wiersz
+   zostaje wyśrodkowany */
 .device-card {
   position: relative;
-  flex: 0 0 360px;
-  width: 360px;
+  flex: 1 1 300px;
   min-width: 0;
-  max-width: 100%;
+  max-width: 340px;
 }
 
 .device-list .device-choose {
@@ -279,6 +291,15 @@
 
 .tile-note-icon .pictogram { width: 100%; height: 100%; }
 
+.tile-foot > span {
+  display: block;
+}
+
+/* stopka przypięta do dołu kafelka: w wierszu wszystkie stopki (i przyciski w rogu) są na jednej wysokości */
+.tile .tile-foot {
+  margin-top: auto;
+}
+
 .tile-foot {
   min-height: 1.6rem; /* miejsce na przyciski w prawym dolnym rogu */
   padding-right: 4.5rem;
@@ -422,6 +443,7 @@
   .device-card {
     flex: none;
     width: 100%;
+    max-width: none;
   }
 
   /* delikatnie zaokrąglone rogi */
@@ -442,6 +464,8 @@
 /* Stopka /devices (ten sam pasek co „Aktywne urządzenie”): lewa część wolna, po prawej zajętość bazy. */
 .devices-footer {
   justify-content: space-between;
+  /* wysokość jak stopka „Aktywne urządzenie” na stronach sterownika (przycisk 2 rem + odstępy i obramowanie) */
+  min-height: calc(2rem + 0.4rem + 1px);
 }
 
 .devices-footer-db {
@@ -480,8 +504,8 @@
 .header-gear {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 24px;
+  height: 24px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -492,8 +516,8 @@
 }
 
 .header-gear svg {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.2rem;
+  height: 1.2rem;
   fill: currentColor;
 }
 

@@ -239,3 +239,29 @@ td.label.hp-temp-label {
   color: #b00020;
   font-weight: 600;
 }
+
+/* komunikat „Dane nieaktualne” (brak łączności ze sterownikiem) nad danymi, same dane wyszarzone */
+.hp-stale {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.hp-stale.warn {
+  background: #fffaf2;
+  border: 1px solid #f6dcb8;
+  color: #8a4500;
+}
+
+.hp-stale.err {
+  background: #fff6f5;
+  border: 1px solid #f3cfcc;
+  color: #a32a24;
+}
+
+.hp-stale-data .heat.body,
+.hp-stale-data .heat.footer {
+  opacity: 0.55;
+}

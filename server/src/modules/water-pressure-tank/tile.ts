@@ -60,5 +60,7 @@ export async function waterPressureTankTile(rootId: string, _device: Device, now
     ],
     note,
     foot: `ostatnie uruchomienie ${formatWhen(new Date(last.pumpStart), now)}`,
+    // ostatnie zgłoszenie sterownika: klient pisze pod „ostatnie uruchomienie” także „dane sprzed …”
+    updatedAt: new Date(last.lastSeenAt ?? last.pumpEnd).toISOString(),
   };
 }

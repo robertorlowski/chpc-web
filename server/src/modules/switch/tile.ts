@@ -36,6 +36,30 @@ function relayText(relay: Relay, now: Date, solo: boolean): { text: string; deta
   }
 }
 
+// Włącznik z jednym przekaźnikiem w układzie kafelka pompy: duża wartość („Włączony”) z podpisem (do kiedy / kiedy się włączy)
+// i wiersz z trybem („Harmonogram włączony”, „Tryb ręczny”, „Harmonogram zablokowany”).
+function soloView(relay: Relay, now: Date): { value: string; label: string; mode: string } {
+  const until = warsawTime(new Date(relay.until ?? now));
+  switch (relay.mode) {
+    case 'off':
+      return { value: 'Wyłączony', label: 'ręcznie', mode: 'Harmonogram zablokowany' };
+    case 'on':
+      return relay.on
+        ? { value: 'Włączony', label: 'bez limitu czasu', mode: 'Tryb ręczny' }
+        : { value: 'Włączanie…', label: '', mode: 'Tryb ręczny' };
+    case 'timer':
+      return relay.on
+        ? { value: 'Włączony', label: `do ${until}`, mode: 'Tryb ręczny' }
+        : { value: 'Włączanie…', label: '', mode: 'Tryb ręczny' };
+    default:
+      if (relay.on) return { value: 'Włączony', label: `do ${until}`, mode: 'Harmonogram włączony' };
+      if (relay.nextStart) {
+        return { value: 'Wyłączony', label: `włączy się ${formatWhen(new Date(relay.nextStart), now)}`, mode: 'Harmonogram włączony' };
+      }
+      return { value: 'Wyłączony', label: 'brak wpisów', mode: 'Brak wpisów w harmonogramie' };
+  }
+}
+
 export async function switchTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
   const relays = await listRelays(rootId, now);
   if (relays.length === 0) return { level: 'off', chip: 'Brak danych' };
@@ -71,6 +95,18 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
       level = 'warn';
       note = { level: 'warn', text: `${name(unlimited)}: włączony bez limitu czasu od ponad doby` };
     }
+  }
+
+  if (solo) {
+    const view = online ? soloView(relays[0], now) : { value: '---', label: 'stan nieznany', mode: '' };
+    return {
+      level,
+      chip: online ? 'Online' : 'Offline',
+      main: { icon: 'power', value: view.value, label: view.label },
+      row: view.mode ? [{ icon: 'sliders', value: view.mode }] : undefined,
+      note,
+      updatedAt: lastSeen?.toISOString(),
+    };
   }
 
   return {

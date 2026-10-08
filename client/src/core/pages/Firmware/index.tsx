@@ -169,7 +169,7 @@ export const Firmware: React.FC = () => {
               <input type="checkbox" checked={summary?.enabled ?? false}
                 onChange={(event) => run(() => FirmwareRequests.update(type, { enabled: event.currentTarget.checked }))} />
               <span>{summary?.enabled
-                ? 'Aktualizacje włączone: sterownik pobiera tę wersję po „Aktualizuj” w jego Ustawieniach'
+                ? 'Aktualizacje włączone'
                 : 'Aktualizacje wyłączone: „Aktualizuj” jest niedostępne, sterowniki niczego nie pobiorą'}</span>
             </label>
           </>

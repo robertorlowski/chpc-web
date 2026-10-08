@@ -1,6 +1,16 @@
 // Formaty tekstów kafelków sterowników (GET /devices/summary): liczby po polsku, czasy w Warszawie.
 import { TIME_ZONE } from '../time';
 
+// Liczby z surowej telemetrii CHPC są napisami („50.8”): zamiana na liczbę, undefined dla pustych i nieliczbowych.
+export const toNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+export const formatNumber = (value: number, digits = 0) =>
+  value.toLocaleString('pl-PL', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+
 const number = (value: number, digits = 0) =>
   value.toLocaleString('pl-PL', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
 
