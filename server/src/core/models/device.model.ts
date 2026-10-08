@@ -63,6 +63,8 @@ const DeviceSchema = new Schema<DeviceDocument>(
       trim: true,
     },
     isDefault: { type: Boolean, default: false },
+    // miejsce kafelka na liście /devices (0 = pierwszy), ustawiane w trybie „Zmień kolejność”; brak = na końcu, po nazwie
+    sortOrder: { type: Number },
     // wersja firmware ze zgłoszenia sterownika (strona /firmware); starsze sterowniki jej nie wysyłają
     firmwareVersion: { type: String, trim: true },
     firmwareSeenAt: { type: Date },

@@ -1,6 +1,7 @@
 // Opis rodzaju „hydrofor” (water-pressure-tank) dla rejestru core/device-types.ts:
 // ustawienia nowego urządzenia i ustawienia odsyłane sterownikowi przy zgłoszeniu.
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
+import { waterPressureTankTile } from './tile';
 
 // Ustawienia nowego hydroforu: tylko czas pracy kompresora (wodę liczy serwer
 // z czasu pracy pompy i odczytów wodomierza).
@@ -15,6 +16,7 @@ export const DEFAULT_WATER_PRESSURE_TANK_PROPERTIES: DeviceProperties = {
 export const waterPressureTankDeviceType: DeviceTypeModule = {
   type: DeviceType.WATER_PRESSURE_TANK,
   initialProperties: DEFAULT_WATER_PRESSURE_TANK_PROPERTIES,
+  tile: waterPressureTankTile,
   // oferta firmware (wersja, adres, SHA-256) jest dopisywana do settings przy zgłoszeniu
   firmwareUpdates: true,
   controllerSettings: (properties) => ({

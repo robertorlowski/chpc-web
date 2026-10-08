@@ -1,161 +1,385 @@
-/* Lista sterowników (/devices): kafelki obok siebie, na telefonie jeden pod drugim; gwiazdka domyślnego i ołówek edycji w rogach. */
+/* Lista sterowników (/devices): kafelki o stałej szerokości 360 px obok siebie (zawijane do kolejnych wierszy),
+   na telefonie jeden pod drugim na całą szerokość ekranu. Kafelek: pasek stanu po lewej (zielony / pomarańczowy /
+   czerwony z ramką / szary), nazwa, chip ze stanem, kluczowe wartości, błąd lub ostrzeżenie i stopka;
+   ołówek edycji i trybik firmware w prawym dolnym rogu, w trybie „Zmień kolejność” strzałki. */
 .device-selection {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(960px, 92vw);
+  width: min(1180px, 96vw);
   min-height: calc(100vh - 6rem);
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 2rem 0 1rem;
+  padding: 2rem 0 4rem; /* miejsce na stałą stopkę pod kafelkami */
 }
 
-/* kafelki obok siebie, zawijane do kolejnego wiersza; na telefonie jeden pod drugim */
 .device-list {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: stretch;
-  gap: 1rem;
+  gap: 14px;
   width: 100%;
   margin: 1rem 0 0;
 }
 
-/* kafelek sterownika: przycisk wyboru i mała ikonka edycji w prawym górnym rogu */
 .device-card {
   position: relative;
-  flex: 0 1 15rem;
-  min-width: 12rem;
+  flex: 0 0 360px;
+  width: 360px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .device-list .device-choose {
-  display: grid;
-  gap: 0.35rem;
-  justify-items: center;
-  align-content: center;
+  display: block;
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 1.75rem 1rem 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #263238;
+  text-align: left;
   font-size: 1rem;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
-@media (max-width: 560px) {
-  .device-list {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .device-list .device-card {
-    flex: none;
-    width: min(20rem, 100%);
-  }
+.device-list .device-choose:hover:not(:disabled),
+.device-list .device-choose:focus-visible {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
 }
 
-.device-selection-icon {
-  width: 3rem;
-  height: 3rem;
+.device-list .device-choose:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
-.device-list .device-choose small {
-  font-size: 0.7rem;
-  color: #e3f2fd;
-  overflow-wrap: anywhere;
-}
-
-.device-list .device-choose strong {
-  font-size: 1.2rem;
-  overflow-wrap: anywhere;
-}
-
-.device-list .device-edit {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin: 0;
-  padding: 0;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.device-list .device-edit:hover,
-.device-list .device-edit:focus-visible {
-  background-color: rgba(255, 255, 255, 0.4);
-}
-
-.device-edit svg {
-  width: 1.1rem;
-  height: 1.1rem;
+/* błąd: czerwona ramka wokół całego kafelka */
+.device-card.has-error .device-choose {
+  box-shadow: 0 0 0 2px #c62828, 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .device-selection-error {
-  color: #b00020;
+  color: #ef6c00;
+  font-weight: bold;
   margin: 0;
 }
 
+/* ---- zawartość kafelka (core/components/DeviceTileCard.tsx) ---- */
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 12px 14px 12px 12px;
+  border-left: 6px solid #1481a5; /* kolor przycisków i paska aplikacji */
+  border-radius: 12px;
+}
 
-/* gwiazdka „sterownik domyślny” w lewym górnym rogu kafelka */
-.device-list .device-default {
-  position: absolute;
-  top: 0.35rem;
-  left: 0.35rem;
-  display: grid;
-  place-items: center;
+.tile-warn { border-left-color: #ef6c00; }
+.tile-err { border-left-color: #c62828; }
+.tile-off { border-left-color: #78909c; }
+
+.tile-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tile-type-icon {
+  display: inline-flex;
+  flex: none;
   width: 2rem;
   height: 2rem;
-  margin: 0;
-  padding: 0;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
 }
 
-.device-default svg {
-  width: 1.2rem;
-  height: 1.2rem;
+.tile-type-icon .pictogram { width: 100%; height: 100%; }
+
+.tile-name {
+  font-size: 1.1rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.tile-chip {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #e1f1f6;
+  color: #0f6a88;
+}
+
+.tile-chip.warn { background: #fff3e0; color: #ef6c00; }
+.tile-chip.err { background: #fdecea; color: #c62828; }
+.tile-chip.off { background: #eceff1; color: #78909c; }
+
+/* „teraz pracuje”: niebieski chip z pulsującą kropką */
+/* pracuje: pełne tło w kolorze aplikacji, odróżnia się od jasnego chipa „ok” */
+.tile-chip.run { background: #1481a5; color: #fff; }
+.tile-chip.run::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: tile-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tile-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+.tile-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+/* wiersz bez wartości głównej: pierwsza wartość po lewej, ostatnia po prawej */
+.tile-facts-row { justify-content: space-between; }
+
+/* wartość główna po lewej, pozostałe w prawej kolumnie wyrównane do prawej */
+.tile-facts-main {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+}
+
+/* wartość główna i druga obok niej (np. woda dziś i w miesiącu) */
+.tile-main-pair {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 10px;
+}
+
+.tile-main-sep {
+  color: #90a4ae;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  align-self: flex-start; /* na wysokości liczb, nie środka bloku z podpisem */
+}
+
+.tile-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tile-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tile-fact-icon {
+  display: inline-flex;
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.tile-fact-icon .pictogram { width: 100%; height: 100%; }
+.tile-fact-text { display: inline-flex; align-items: baseline; gap: 6px; }
+.tile-fact b { font-size: 1.15rem; }
+.tile-fact small { color: #607d8b; font-size: 0.78rem; }
+.tile-fact.big .tile-fact-icon { width: 1.5rem; height: 1.5rem; }
+/* wartość główna: etykieta pod liczbą, żeby kafelek mieścił się w 360 px */
+.tile-fact.big .tile-fact-text { flex-direction: column; align-items: flex-start; gap: 0; }
+.tile-fact.big b { font-size: 1.6rem; line-height: 1.1; }
+.tile-fact.big small { font-size: 0.8rem; }
+
+/* włącznik: przekaźniki */
+.tile-relays { display: flex; flex-direction: column; gap: 6px; }
+
+.tile-relay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tile-relay-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #b0bec5;
+}
+
+.tile-relay-dot.on { background: #1481a5; }
+.tile-relay b { font-size: 1.05rem; }
+.tile-relay small { margin-left: auto; color: #607d8b; font-size: 0.82rem; text-align: right; }
+
+/* błąd albo ostrzeżenie: jasne tło z cienką ramką */
+.tile-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.tile-note.warn { background: #fffaf2; color: #8a4500; border: 1px solid #f6dcb8; }
+.tile-note.err { background: #fff6f5; color: #a32a24; border: 1px solid #f3cfcc; font-weight: 600; }
+
+.tile-note-icon {
+  display: inline-flex;
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.tile-note-icon .pictogram { width: 100%; height: 100%; }
+
+.tile-foot {
+  min-height: 1.6rem; /* miejsce na przyciski w prawym dolnym rogu */
+  padding-right: 4.5rem;
+  color: #607d8b;
+  font-size: 0.72rem;
+  line-height: 1.6rem;
+}
+
+.pictogram {
   fill: none;
-  stroke: #fff;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.device-default.active svg {
-  fill: #ffd54f;
-  stroke: #ffd54f;
-}
-
-.device-list .device-default:hover,
-.device-list .device-default:focus-visible {
-  background-color: rgba(255, 255, 255, 0.4);
-}
-
-/* trybik „firmware sterownika” w prawym dolnym rogu kafelka (tylko rodzaje z aktualizacją przez sieć) */
-.device-list .device-firmware {
+/* ---- ołówek edycji i trybik firmware w prawym dolnym rogu kafelka ---- */
+.device-tools {
   position: absolute;
-  bottom: 0.35rem;
-  right: 0.35rem;
+  right: 0.5rem;
+  bottom: 0.4rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.device-list .device-edit,
+.device-list .device-firmware {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.8rem;
+  height: 1.8rem;
   margin: 0;
   padding: 0;
+  border: 0;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(96, 125, 139, 0.12);
+  color: #607d8b;
 }
 
+.device-list .device-edit:hover,
+.device-list .device-edit:focus-visible,
 .device-list .device-firmware:hover,
 .device-list .device-firmware:focus-visible {
-  background-color: rgba(255, 255, 255, 0.4);
+  background-color: rgba(96, 125, 139, 0.28);
 }
 
-/* SettingsIcon z menu jest wypełniony i bez koloru: biały jak pozostałe ikony kafelka */
+.device-edit svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+/* SettingsIcon z menu jest wypełniony i bez koloru */
 .device-firmware svg {
-  width: 1.2rem;
-  height: 1.2rem;
-  fill: #fff;
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: #607d8b;
+}
+
+/* ---- tryb „Zmień kolejność”: pasek nad kafelkami i strzałki na kafelku ---- */
+.device-reorder-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.device-reorder-bar span {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.device-card.reordering .tile {
+  padding-bottom: 3rem; /* miejsce na strzałki */
+}
+
+.device-reorder-arrows {
+  position: absolute;
+  inset: auto 0.5rem 0.4rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.device-list .device-move {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+
+.device-move:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.device-move .pictogram {
+  width: 1.4rem;
+  height: 1.4rem;
+  stroke-width: 2.4;
+}
+
+/* telefon: kafelki jeden pod drugim na całą szerokość ekranu, od krawędzi do krawędzi; strzałki góra / dół */
+@media (max-width: 560px) {
+  .device-selection {
+    width: 100%;
+  }
+
+  .device-list {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .device-card {
+    flex: none;
+    width: 100%;
+  }
+
+  .device-list .device-choose,
+  .tile {
+    border-radius: 0;
+  }
+
+  .device-card.has-error .device-choose {
+    box-shadow: inset 0 0 0 2px #c62828;
+  }
+
+  .device-move .pictogram {
+    transform: rotate(90deg);
+  }
 }
 
 /* Stopka /devices (ten sam pasek co „Aktywne urządzenie”): lewa część wolna, po prawej zajętość bazy. */
@@ -189,13 +413,35 @@
   font-weight: bold;
 }
 
-/* miejsce na stałą stopkę pod kafelkami */
-.device-selection {
-  padding-bottom: 4rem;
-}
-
 @media (max-width: 560px) {
   .devices-footer-db {
     font-size: 0.85rem;
   }
+}
+
+/* trybik „Zmień kolejność” w górnym pasku (wstawiany z pages/Devices do .app-header-actions w App.tsx) */
+.header-gear {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.header-gear svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  fill: currentColor;
+}
+
+.header-gear:hover,
+.header-gear:focus-visible,
+.header-gear.active {
+  background: rgba(255, 255, 255, 0.25);
 }

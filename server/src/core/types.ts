@@ -84,6 +84,8 @@ export interface Device {
   name?: string;
   /** sterownik otwierany po starcie aplikacji; najwyżej jeden */
   isDefault?: boolean;
+  /** miejsce na liście sterowników (0 = pierwszy); brak = na końcu */
+  sortOrder?: number;
   /** wersja firmware zgłoszona przez sterownik przy ostatnim zgłoszeniu (pole version) i kiedy */
   firmwareVersion?: string;
   firmwareSeenAt?: Date;
@@ -120,4 +122,43 @@ export interface DeviceTypeModule {
   onPropertiesSaved?: (rootId: string) => Promise<void>;
   /** sprawdzenie definicji przed zapisem (okno „Dane sterownika”); DefinitionConflictError = 409 */
   checkDefinition?: (rootId: string, definition: { boilerConfig?: BoilerConfig }) => Promise<void>;
+  /** kafelek sterownika na stronie /devices; null = brak danych do pokazania (kafelek tylko z nazwą) */
+  tile?: (rootId: string, device: Device) => Promise<DeviceTile | null>;
+}
+
+// Kafelek sterownika na stronie /devices (GET /devices/summary): stan, kilka kluczowych wartości i ewentualny
+// błąd albo ostrzeżenie. Każdy rodzaj buduje go w swoim tile.ts (pole tile w DeviceTypeModule), a klient
+// rysuje jednym komponentem. Teksty i wartości są gotowe do wyświetlenia.
+export type TileLevel = 'ok' | 'warn' | 'err' | 'off';
+
+/** nazwa piktogramu z klienta (client/src/core/components/pictograms.tsx) */
+export type TileIcon =
+  'thermo' | 'target' | 'bolt' | 'sliders' | 'sun' | 'drop' | 'timer' | 'repeat' | 'flame' | 'tap'
+  | 'pellet' | 'power' | 'battery' | 'panel' | 'bubbles' | 'waves';
+
+export interface TileFact { icon: TileIcon; value: string; label?: string }
+
+export interface TileRelay { name: string; on: boolean; text: string }
+
+export interface DeviceTile {
+  /** kolor paska kafelka: ok (zielony), warn (pomarańczowy), err (czerwony, z ramką), off (szary) */
+  level: TileLevel;
+  /** tekst w prawym górnym rogu; running = niebieski chip z pulsującą kropką („teraz pracuje”) */
+  chip: string;
+  running?: boolean;
+  /** wartość główna (duża, po lewej) i pozostałe w prawej kolumnie, wyrównane do prawej */
+  main?: TileFact;
+  /** druga wartość obok głównej (hydrofor: woda w miesiącu obok wody dziś); bez własnej ikony */
+  main2?: TileFact;
+  side?: TileFact[];
+  /** drugi wiersz wartości: pierwsza po lewej, ostatnia po prawej */
+  row?: TileFact[];
+  /** włącznik: przekaźniki zamiast wartości */
+  relays?: TileRelay[];
+  /** jedna linia o błędzie albo ostrzeżeniu */
+  note?: { level: 'warn' | 'err'; text: string };
+  /** czas ostatnich danych (ISO): klient pisze „dane sprzed …” */
+  updatedAt?: string;
+  /** własny tekst stopki zamiast „dane sprzed …” (np. „ostatnie uruchomienie dziś 14:32”) */
+  foot?: string;
 }

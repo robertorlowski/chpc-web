@@ -406,3 +406,10 @@ header.app-header-plain {
 		top: 44px !important;
 	}
 }
+
+/* /devices: tytuł po lewej, przyciski strony (trybik „Zmień kolejność”) po prawej */
+header.app-header-plain {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}

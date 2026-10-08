@@ -1,0 +1,86 @@
+// Zawartość kafelka sterownika na stronie /devices: nazwa, chip ze stanem, kluczowe wartości (po lewej główna,
+// w prawej kolumnie reszta), drugi wiersz wartości albo przekaźniki włącznika, linia o błędzie lub ostrzeżeniu
+// i stopka. Dane z GET /api/devices/summary (DeviceTile), bez nich kafelek ma tylko nazwę.
+import { DeviceTile, DeviceType, TileFact } from '../types';
+import { Pictogram } from './pictograms';
+
+const TYPE_ICONS = {
+  [DeviceType.HP]: 'waves',
+  [DeviceType.WATER_PRESSURE_TANK]: 'drop',
+  [DeviceType.PELLET_BOILER_PELUX200]: 'flame',
+  [DeviceType.SWITCH]: 'power',
+  [DeviceType.PHOTOVOLTAIC]: 'sun',
+} as const;
+
+// „8 s”, „5 min”, „3 h”, „2 dni” — wiek danych w stopce kafelka
+export function ageLabel(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} dni`;
+}
+
+const Fact = ({ fact, big, noIcon }: { fact: TileFact; big?: boolean; noIcon?: boolean }) => (
+  <span className={`tile-fact${big ? ' big' : ''}`}>
+    {!noIcon && <span className="tile-fact-icon"><Pictogram name={fact.icon} /></span>}
+    <span className="tile-fact-text">
+      <b>{fact.value}</b>
+      {fact.label ? <small>{fact.label}</small> : null}
+    </span>
+  </span>
+);
+
+export function DeviceTileCard({ deviceType, name, tile, now }: {
+  deviceType: DeviceType; name: string; tile?: DeviceTile; now: number;
+}) {
+  const foot = tile?.foot ?? (tile?.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '');
+  return (
+    <span className={`tile tile-${tile?.level ?? 'off'}`}>
+      <span className="tile-head">
+        <span className="tile-type-icon"><Pictogram name={TYPE_ICONS[deviceType] ?? 'waves'} /></span>
+        <strong className="tile-name">{name}</strong>
+        {tile && <span className={`tile-chip${tile.running ? ' run' : ` ${tile.level}`}`}>{tile.chip}</span>}
+      </span>
+
+      {tile?.relays && (
+        <span className="tile-relays">
+          {tile.relays.map((relay) => (
+            <span key={relay.name} className="tile-relay">
+              <span className={`tile-relay-dot${relay.on ? ' on' : ''}`} />
+              <b>{relay.name}</b>
+              <small>{relay.text}</small>
+            </span>
+          ))}
+        </span>
+      )}
+
+      {tile?.main && (
+        <span className="tile-facts tile-facts-main">
+          <span className="tile-main-pair">
+            <Fact fact={tile.main} big />
+            {tile.main2 && <span className="tile-main-sep" aria-hidden="true">/</span>}
+            {tile.main2 && <Fact fact={tile.main2} big noIcon />}
+          </span>
+          {tile.side?.length ? (
+            <span className="tile-side">{tile.side.map((fact, index) => <Fact key={index} fact={fact} />)}</span>
+          ) : null}
+        </span>
+      )}
+
+      {tile?.row?.length ? (
+        <span className="tile-facts tile-facts-row">{tile.row.map((fact, index) => <Fact key={index} fact={fact} />)}</span>
+      ) : null}
+
+      {tile?.note && (
+        <span className={`tile-note ${tile.note.level}`}>
+          <span className="tile-note-icon"><Pictogram name={tile.note.level === 'err' ? 'error' : 'warn'} /></span>
+          <span>{tile.note.text}</span>
+        </span>
+      )}
+
+      {foot && <span className="tile-foot">{foot}</span>}
+    </span>
+  );
+}

@@ -2,6 +2,7 @@
 // nowego urządzenia, ustawienia odsyłane przy zgłoszeniu, OTA i liczba przekaźników.
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 import { ensureRelays, isRelayCount } from './services/switch.service';
+import { switchTile } from './tile';
 
 export const DEFAULT_SWITCH_PROPERTIES: DeviceProperties = {
   default_on_minutes: 30,
@@ -12,6 +13,7 @@ export const DEFAULT_SWITCH_PROPERTIES: DeviceProperties = {
 export const switchDeviceType: DeviceTypeModule = {
   type: DeviceType.SWITCH,
   initialProperties: DEFAULT_SWITCH_PROPERTIES,
+  tile: switchTile,
   firmwareUpdates: true,
   controllerSettings: (properties) => ({
     default_on_minutes: properties.default_on_minutes ?? 30,

@@ -1,15 +1,20 @@
-// Strona /devices: kafelki sterowników (GET /api/devices), wybór sterownika, gwiazdka sterownika
-// domyślnego (PUT /api/devices/:rootId/default) i ołówek otwierający popup „Dane sterownika”.
-// Trafia się tu z DeviceGuard (brak wyboru) albo z ikonki w stopce. Na dole własna stopka: lewa część
-// wolna (zarezerwowana na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
+// Strona /devices: kafelki sterowników (GET /api/devices i GET /api/devices/summary: stan, kluczowe wartości,
+// błąd albo ostrzeżenie), wybór sterownika kliknięciem kafelka, ołówek otwierający popup „Dane sterownika”,
+// trybik firmware i tryb „Zmień kolejność” (strzałki, zapis PUT /api/devices/order przy „Gotowe”).
+// Nie ma sterownika domyślnego ani automatycznego wyboru: lista jest zawsze ekranem startowym (DeviceGuard
+// przekierowuje tu, gdy nie wybrano sterownika). Na dole własna stopka: lewa część wolna (zarezerwowana
+// na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
-import { DatabaseStats, Device } from '../../types';
+import { DatabaseStats, Device, DeviceTiles, DeviceType } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
+import { DeviceTileCard } from '../../components/DeviceTileCard';
 import { SettingsIcon } from '../../components/icons';
-import { deviceLabel, useDevice } from '../../context/DeviceContext';
+import { Pictogram } from '../../components/pictograms';
+import { useDevice } from '../../context/DeviceContext';
 import './style.css';
 
 const MB = 1024 * 1024;
@@ -34,18 +39,44 @@ function DatabaseUsage() {
   );
 }
 
+// Kafelek ma zawsze nazwę (bez numeru seryjnego): gdy użytkownik jej nie nadał, nazwę rodzaju, a przy kilku
+// takich samych sterownikach bez nazwy dopisuje końcówkę numeru, żeby dało się je odróżnić.
+const DEFAULT_NAMES: Record<DeviceType, string> = {
+  [DeviceType.HP]: 'Pompa ciepła',
+  [DeviceType.WATER_PRESSURE_TANK]: 'Hydrofor',
+  [DeviceType.PELLET_BOILER_PELUX200]: 'Piec Pellux 200',
+  [DeviceType.SWITCH]: 'Włącznik',
+  [DeviceType.PHOTOVOLTAIC]: 'Fotowoltaika',
+};
+
+export function tileName(device: Device, all: Device[]): string {
+  const name = device.name?.trim();
+  if (name) return name;
+  const base = DEFAULT_NAMES[device.deviceType] ?? device.deviceType;
+  const same = all.filter((item) => !item.name?.trim() && item.deviceType === device.deviceType);
+  return same.length > 1 ? `${base} …${device.deviceId.slice(-4)}` : base;
+}
+
+// miejsce w górnym pasku (App.tsx), do którego strona wstawia trybik „Zmień kolejność”
+export const DEVICES_HEADER_ACTIONS_ID = 'devices-header-actions';
+
+// odświeżanie stanu kafelków i wieku danych w stopce kafelka
+const TILES_REFRESH_MS = 30 * 1000;
+
 // Sterowniki rejestrują się same (POST /api/devices/register), więc tu można je tylko wybrać i nazwać.
 export const Devices: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { clearDevice, selectDevice } = useDevice();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [tiles, setTiles] = useState<DeviceTiles>({});
+  const [now, setNow] = useState(Date.now());
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Device | null>(null);
-
-  // automatyczny wybór jedynego urządzenia tylko przy wejściu do aplikacji (przekierowanie ze strażnika),
-  // nie przy świadomym przejściu na tę stronę, np. żeby zmienić nazwę sterownika
-  const automaticSelection = (location.state as { auto?: boolean } | null)?.auto === true;
+  // tryb „Zmień kolejność”: kafelki dostają strzałki, wybór sterownika jest wyłączony; kolejność
+  // zapisuje dopiero „Gotowe”, „Anuluj” przywraca listę z serwera
+  const [reordering, setReordering] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   const loadDevices = () => {
     DeviceRequests.getDevices()
@@ -53,11 +84,22 @@ export const Devices: React.FC = () => {
       .catch(() => setError('Nie udało się pobrać urządzeń.'));
   };
 
+  const loadTiles = () => {
+    DeviceRequests.getDeviceTiles().then((result) => {
+      if (result) setTiles(result);
+      setNow(Date.now());
+    });
+  };
+
   // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
   // do widoków jest możliwy tylko przez wybór kafelka
   useEffect(() => {
     clearDevice();
+    setHeaderSlot(document.getElementById(DEVICES_HEADER_ACTIONS_ID));
     loadDevices();
+    loadTiles();
+    const timer = window.setInterval(loadTiles, TILES_REFRESH_MS);
+    return () => window.clearInterval(timer);
   }, []);
 
   const chooseDevice = (device: Device) => {
@@ -65,24 +107,35 @@ export const Devices: React.FC = () => {
     navigate('/');
   };
 
-  // przy wejściu do aplikacji: sterownik domyślny z bazy, a bez niego jedyny sterownik
-  useEffect(() => {
-    if (!automaticSelection) return;
-    const preferred = devices.find((device) => device.isDefault) ?? (devices.length === 1 ? devices[0] : undefined);
-    if (preferred) chooseDevice(preferred);
-  }, [devices]);
+  const moveDevice = (index: number, step: -1 | 1) => {
+    setDevices((list) => {
+      const target = index + step;
+      if (target < 0 || target >= list.length) return list;
+      const next = [...list];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
 
-  // serwer zdejmuje flagę z pozostałych sterowników, więc lokalnie też zostaje najwyżej jeden domyślny
-  const toggleDefault = async (device: Device) => {
+  const saveOrder = async () => {
+    setSavingOrder(true);
     try {
-      const updated = await DeviceRequests.setDefaultDevice(device.rootId, !device.isDefault);
-      setDevices((list) => list.map((item) => ({
-        ...item,
-        isDefault: item.rootId === updated.rootId ? updated.isDefault : false,
-      })));
+      const sorted = await DeviceRequests.setDevicesOrder(devices.map((device) => device.rootId));
+      if (!sorted) throw new Error('order');
+      setDevices(sorted);
+      setReordering(false);
+      setError('');
     } catch {
-      setError('Nie udało się zmienić sterownika domyślnego.');
+      setError('Nie udało się zapisać kolejności.');
+    } finally {
+      setSavingOrder(false);
     }
+  };
+
+  const cancelOrder = () => {
+    setReordering(false);
+    setError('');
+    loadDevices();
   };
 
   const saved = (updated: Device) => {
@@ -93,53 +146,72 @@ export const Devices: React.FC = () => {
   return (
     <main className="device-selection">
       <h1>Wybierz urządzenie</h1>
+      {/* trybik w górnym pasku włącza tryb „Zmień kolejność” (przy co najmniej dwóch sterownikach) */}
+      {headerSlot && devices.length > 1 && createPortal(
+        <button type="button" className={`header-gear${reordering ? ' active' : ''}`} disabled={reordering}
+          title="Zmień kolejność" aria-label="Zmień kolejność kafelków" onClick={() => setReordering(true)}>
+          <SettingsIcon />
+        </button>,
+        headerSlot,
+      )}
+      {reordering && (
+        <div className="device-reorder-bar">
+          <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
+          <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
+          <span>Ustaw kolejność strzałkami na kafelkach.</span>
+        </div>
+      )}
       {error && <p className="device-selection-error">{error}</p>}
       <section className="device-list">
-        {devices.map((device) => (
-          <div key={device.rootId} className="device-card">
-            <button type="button" className="device-choose" onClick={() => chooseDevice(device)}>
-              {getDeviceTypeView(device.deviceType).tileIcon}
-              <strong>{deviceLabel(device)}</strong>
-              {/* Device ID pod nazwą; bez nazwy jest już w tytule kafelka */}
-              {device.name?.trim() && <small>{device.deviceId}</small>}
-            </button>
-            <button
-              type="button"
-              className={`device-default${device.isDefault ? ' active' : ''}`}
-              title={device.isDefault ? 'Sterownik domyślny (kliknij, aby wyłączyć)' : 'Ustaw jako domyślny: otwierany po starcie aplikacji'}
-              aria-label={device.isDefault ? 'Wyłącz sterownik domyślny' : 'Ustaw jako sterownik domyślny'}
-              aria-pressed={device.isDefault === true}
-              onClick={() => toggleDefault(device)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3.5L14.6 8.8L20.4 9.6L16.2 13.7L17.2 19.5L12 16.8L6.8 19.5L7.8 13.7L3.6 9.6L9.4 8.8L12 3.5Z" strokeWidth="1.8" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="device-edit"
-              title="Edytuj dane sterownika"
-              aria-label={`Edytuj dane sterownika ${deviceLabel(device)}`}
-              onClick={() => setEditing(device)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
-              </svg>
-            </button>
-            {getDeviceTypeView(device.deviceType).firmwareUpdates && (
-              <button
-                type="button"
-                className="device-firmware"
-                title="Firmware tego rodzaju sterownika"
-                aria-label={`Firmware rodzaju sterownika ${deviceLabel(device)}`}
-                onClick={() => navigate(`/firmware/${encodeURIComponent(device.deviceType)}`)}
-              >
-                <SettingsIcon />
+        {devices.map((device, index) => {
+          const label = tileName(device, devices);
+          const tile = tiles[device.rootId];
+          return (
+            <div key={device.rootId} className={`device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}`}>
+              <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(device)}>
+                <DeviceTileCard deviceType={device.deviceType} name={label} tile={tile} now={now} />
               </button>
-            )}
-          </div>
-        ))}
+              {reordering ? (
+                <div className="device-reorder-arrows">
+                  <button type="button" className="device-move" disabled={index === 0}
+                    title="Przesuń wcześniej" aria-label={`Przesuń ${label} wcześniej`} onClick={() => moveDevice(index, -1)}>
+                    <Pictogram name="chevron-left" />
+                  </button>
+                  <button type="button" className="device-move" disabled={index === devices.length - 1}
+                    title="Przesuń później" aria-label={`Przesuń ${label} później`} onClick={() => moveDevice(index, 1)}>
+                    <Pictogram name="chevron-right" />
+                  </button>
+                </div>
+              ) : (
+                <div className="device-tools">
+                  {getDeviceTypeView(device.deviceType).firmwareUpdates && (
+                    <button
+                      type="button"
+                      className="device-firmware"
+                      title="Firmware tego rodzaju sterownika"
+                      aria-label={`Firmware rodzaju sterownika ${label}`}
+                      onClick={() => navigate(`/firmware/${encodeURIComponent(device.deviceType)}`)}
+                    >
+                      <SettingsIcon />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="device-edit"
+                    title="Edytuj dane sterownika"
+                    aria-label={`Edytuj dane sterownika ${label}`}
+                    onClick={() => setEditing(device)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                      <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
         {devices.length === 0 && !error && (
           <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
         )}

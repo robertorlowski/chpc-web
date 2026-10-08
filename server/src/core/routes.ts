@@ -4,11 +4,12 @@ import express from 'express'
 
 import {
   addDevice, cancelDeviceFirmwareUpdate, getDevices, getProperties, registerDeviceEntry, requestDeviceFirmwareUpdate,
-  updateDefaultDevice, updateDevice, updateProperties,
+  updateDefaultDevice, updateDevice, updateDevicesOrder, updateProperties,
 } from './controllers/device.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import { getDatabaseStatsEntry } from './controllers/database.controller'
+import { getDeviceTilesEntry } from './controllers/device.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
 import pelletBoilerPelux200Routes from '../modules/pellet-boiler-pelux200/routes'
@@ -23,9 +24,13 @@ const router = express.Router()
 router.get('/devices', getDevices)
 // zajętość bazy (stopka strony /devices); przed /devices/:rootId, bez rootId
 router.get('/devices/db-stats', getDatabaseStatsEntry)
+// kafelki sterowników (stan i kluczowe wartości) dla strony /devices; bez rootId
+router.get('/devices/summary', getDeviceTilesEntry)
 // ręczne dodanie (test E2E); klient go nie używa, sterowniki rejestrują się same
 router.post('/devices', addDevice)
 router.post('/devices/register', registerDeviceEntry)
+// kolejność kafelków na /devices; przed /devices/:rootId, bez rootId
+router.put('/devices/order', updateDevicesOrder)
 router.put('/devices/:rootId', updateDevice)
 router.put('/devices/:rootId/default', updateDefaultDevice)
 // przycisk „Aktualizuj” w Ustawieniach sterownika: zlecenie aktualizacji firmware i jego odwołanie

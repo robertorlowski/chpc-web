@@ -347,6 +347,28 @@ describe('API with MongoDB', () => {
     meteo.temperature = null;
   });
 
+  it('saves the order of devices and lists them in that order (new ones at the end)', async () => {
+    const second = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'order-b', name: 'Bbb', schedules: [] });
+    const third = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'order-c', name: 'Aaa', schedules: [] });
+    const ids = [String(second._id), String(rootId), String(third._id)];
+
+    const saved = await request(app).put('/api/devices/order').send({ rootIds: ids });
+    expect(saved.status).toBe(200);
+    expect(saved.body.map((item: { rootId: string }) => item.rootId).slice(0, 3)).toEqual(ids);
+
+    const added = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'order-d', name: '', schedules: [] });
+    const list = await request(app).get('/api/devices');
+    const listed = list.body.map((item: { rootId: string }) => item.rootId);
+    expect(listed.slice(0, 3)).toEqual(ids);
+    expect(listed[listed.length - 1]).toBe(String(added._id));
+
+    expect((await request(app).put('/api/devices/order').send({ rootIds: [ids[0], ids[0]] })).status).toBe(400);
+    expect((await request(app).put('/api/devices/order').send({ rootIds: ['000000000000000000000000'] })).status).toBe(404);
+    expect((await request(app).put('/api/devices/order').send({ rootIds: 'x' })).status).toBe(400);
+
+    await DeviceModel.deleteMany({ _id: { $in: [second._id, third._id, added._id] } });
+  });
+
   it('returns settings for the selected device', async () => {
     const response = await request(app)
       .get(`/api/settings?rootId=${rootId}&deviceId=${deviceId}`);

@@ -6,7 +6,7 @@ import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault sortOrder firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
 
 // Pojemność zbiornika pompy [l], pełne litry.
 const TANK_LITERS_MIN = 20;
@@ -138,11 +138,28 @@ export async function updateDeviceData(
   return device;
 }
 
+// Lista dla /devices: najpierw sterowniki z ustawioną kolejnością (sortOrder rosnąco), potem pozostałe po nazwie.
 export async function listDevices(): Promise<DeviceDocument[]> {
-  return DeviceModel.find()
+  const devices = await DeviceModel.find()
     .select(DEVICE_PUBLIC_FIELDS)
     .sort({ name: 1 })
     .lean<DeviceDocument[]>();
+  const rank = (device: DeviceDocument) => device.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return devices.sort((a, b) => rank(a) - rank(b)); // sort jest stabilny: bez sortOrder zostaje kolejność po nazwie
+}
+
+// Tryb „Zmień kolejność” na /devices: rootIds w nowej kolejności (każdy sterownik dokładnie raz).
+// Zapisuje sortOrder = miejsce na liście, więc kolejność jest wspólna dla wszystkich przeglądarek.
+export async function setDevicesOrder(rootIds: unknown): Promise<void> {
+  if (!Array.isArray(rootIds) || rootIds.some((id) => typeof id !== 'string' || !/^[0-9a-f]{24}$/i.test(id))
+    || new Set(rootIds).size !== rootIds.length) {
+    throw new Error('rootIds: lista unikalnych Root ID.');
+  }
+  const existing = await DeviceModel.countDocuments({ _id: { $in: rootIds } });
+  if (existing !== rootIds.length) throw new Error('rootIds: nieznany sterownik (Device not found).');
+  await DeviceModel.bulkWrite((rootIds as string[]).map((id, index) => ({
+    updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } },
+  })));
 }
 
 export async function getDeviceProperties(rootId: string): Promise<DeviceProperties> {

@@ -1,9 +1,9 @@
 // Szkielet aplikacji: router, strażnik wyboru sterownika (DeviceGuard), menu, trasy z rejestru
 // rodzajów sterowników (device-types.tsx) i stopka „Aktywne urządzenie”. Montowany w index.tsx.
-// Serwer: GET /api/devices (lista sterowników, sterownik domyślny isDefault).
+// Serwer: GET /api/devices (lista sterowników). Sterownika domyślnego ani automatycznego wyboru nie ma.
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
-import { Devices } from './pages/Devices';
+import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
 import { Firmware } from './pages/Firmware';
 import { deviceLabel, useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
@@ -12,20 +12,23 @@ import { DeviceRequests } from './api';
 import { Device } from './types';
 import { allDevicePaths, getDeviceTypeView } from './device-types';
 
-// Po otwarciu aplikacji raz na sesję przeglądarki przechodzi do sterownika
-// domyślnego z bazy; późniejsza zmiana w stopce obowiązuje do końca sesji.
-const defaultAppliedKey = 'chpc.defaultApplied';
+// Klucz sesji przeglądarki: otwarcie aplikacji zawsze zaczyna od listy kafelków (/devices), także gdy w
+// localStorage został wybrany sterownik; późniejsze przeładowania w tej samej sesji zostają na bieżącej stronie.
+const startedKey = 'chpc.startedOnList';
 
 // porównanie pól pokazywanych w interfejsie; rootId jest już równy (szukany po nim)
 const sameDevice = (a: Device, b: Device) =>
-	a.deviceId === b.deviceId && a.name === b.name && a.deviceType === b.deviceType
-	&& a.isDefault === b.isDefault;
+	a.deviceId === b.deviceId && a.name === b.name && a.deviceType === b.deviceType;
 
-// Strażnik: bez wybranego sterownika każda ścieżka poza /devices przekierowuje na listę
-// z state.auto, a lista sama wybiera wtedy sterownik domyślny albo jedyny (pages/Devices).
+// Strażnik: bez wybranego sterownika każda ścieżka poza /devices przekierowuje na listę kafelków (pages/Devices).
 function DeviceGuard({ children }: { children: React.ReactNode }) {
 	const { device, selectDevice, clearDevice } = useDevice();
 	const location = useLocation();
+	const [startOnList] = useState(() => {
+		if (sessionStorage.getItem(startedKey)) return false;
+		sessionStorage.setItem(startedKey, '1');
+		return location.pathname === '/';
+	});
 
 	// zapamiętany sterownik może nie istnieć w bazie (np. po przełączeniu z bazy lokalnej na produkcyjną);
 	// wtedy każde żądanie kończy się 404, więc wybór jest czyszczony. Błąd sieci (null) niczego nie czyści.
@@ -40,21 +43,11 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 		});
 	}, [device?.rootId]);
 
-	// tylko przy montowaniu (otwarcie aplikacji albo przeładowanie strony): gdy wybór był już
-	// w localStorage, a w bazie domyślny jest inny sterownik, przełącza na domyślny. Bez wyboru
-	// flaga nie jest ustawiana, bo domyślny wybierze strona /devices (state.auto).
-	useEffect(() => {
-		if (!device || sessionStorage.getItem(defaultAppliedKey)) return;
-		sessionStorage.setItem(defaultAppliedKey, '1');
-		DeviceRequests.getDevices().then((list) => {
-			const preferred = list?.find((item) => item.isDefault);
-			if (preferred && preferred.rootId !== device.rootId) selectDevice(preferred);
-		});
-	}, []);
+	if (startOnList) return <Navigate to="/devices" replace />;
 
 	// /firmware/:deviceType wskazuje rodzaj w adresie, więc nie wymaga wyboru sterownika
 	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware')) {
-		return <Navigate to="/devices" replace state={{ auto: true }} />;
+		return <Navigate to="/devices" replace />;
 	}
 
 	return <>{children}</>;
@@ -119,6 +112,8 @@ function AppContent() {
 				{/* /devices: sam pasek w kolorze menu (bez pozycji menu, bo nie wybrano sterownika) */}
 				{location.pathname === '/devices' && <header className="app-header app-header-plain">
 					<span>Sterowniki</span>
+					{/* miejsce na przyciski strony (trybik „Zmień kolejność” wstawia tu pages/Devices) */}
+					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 				</header>}
 
 				<main className="app-main">

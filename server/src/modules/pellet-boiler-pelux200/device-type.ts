@@ -3,6 +3,7 @@
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 import { connectionSettings } from './connection';
 import { checkBoilerDefinition, initBoilerDefinition } from './services/pellet-boiler-pelux200-heat-pump-link.service';
+import { pelletBoilerTile } from './tile';
 
 // Co minutę (od 2026-10-05, cykl Zimy w trybie pompy ciepła reaguje na temperaturę kotła; wcześniej 5 min);
 // zakres 30–3600 s pilnuje schemat properties (core/models/device.model.ts).
@@ -24,4 +25,5 @@ export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
   // powiązanie z pompą ciepła (heat-pump-link.service): nowy kocioł bez pompy, odłączenie tylko w trybie Pellet
   onRegister: (rootId) => initBoilerDefinition(rootId),
   checkDefinition: checkBoilerDefinition,
+  tile: pelletBoilerTile,
 };

@@ -5,11 +5,12 @@ import { Request, Response } from 'express';
 import { DefinitionConflictError, DeviceProperties, DeviceType } from '../types';
 import { DeviceDocument } from '../models/device.model';
 import {
-  createDevice, getDeviceProperties, listDevices, parseBoilerConfig, parsePumpConfig, registerDevice, setDefaultDevice,
+  createDevice, getDeviceProperties, listDevices, parseBoilerConfig, parsePumpConfig, registerDevice, setDefaultDevice, setDevicesOrder,
   updateDeviceData, updateDeviceProperties,
 } from '../services/device.service';
 import { getDeviceTypeModule } from '../device-types';
 import { getDeviceInfo } from '../services/device-info.service';
+import { getDeviceTiles } from '../services/tile.service';
 import {
   FirmwareError, cancelFirmwareUpdate, firmwareOfferForDevice, requestFirmwareUpdate,
 } from '../services/firmware.service';
@@ -205,5 +206,25 @@ export async function updateDefaultDevice(
     return res.status(200).json(toPublicDevice(device));
   } catch (error) {
     return res.status(String(error).includes('not found') ? 404 : 400).json({ message: String(error) });
+  }
+}
+
+// PUT /devices/order {rootIds: string[]} — kolejność kafelków na /devices (tryb „Zmień kolejność”).
+export async function updateDevicesOrder(req: Request<{}, {}, { rootIds?: unknown }>, res: Response) {
+  try {
+    await setDevicesOrder(req.body?.rootIds);
+    return res.status(200).json((await listDevices()).map(toPublicDevice));
+  } catch (error) {
+    return res.status(String(error).includes('not found') ? 404 : 400).json({ message: String(error) });
+  }
+}
+
+// GET /devices/summary — kafelki sterowników dla strony /devices: {[rootId]: DeviceTile}; rodzaj bez
+// danych albo z błędem nie ma wpisu (kafelek zostaje wtedy tylko z nazwą).
+export async function getDeviceTilesEntry(_req: Request, res: Response) {
+  try {
+    return res.status(200).json(await getDeviceTiles());
+  } catch (error) {
+    return res.status(500).json({ message: String(error) });
   }
 }

@@ -55,6 +55,8 @@ export type Device = {
   deviceId: string;
   name: string;
   isDefault?: boolean;
+  // miejsce na liście sterowników ustawione w trybie „Zmień kolejność” (0 = pierwszy); lista z serwera jest już posortowana
+  sortOrder?: number;
   // wersja firmware zgłoszona przy ostatnim uruchomieniu sterownika i czas zgłoszenia (ISO);
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
@@ -155,3 +157,27 @@ export type DeviceTypeView = {
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];
 };
+
+// Kafelek sterownika na stronie /devices (GET /api/devices/summary, kontrakt z serwerem: core/types.ts DeviceTile).
+// level: pasek kafelka (ok zielony, warn pomarańczowy, err czerwony z ramką, off szary); running: niebieski chip
+// „teraz pracuje”; main + side: wartość główna po lewej i reszta w prawej kolumnie; row: drugi wiersz wartości.
+export type TileLevel = 'ok' | 'warn' | 'err' | 'off';
+export type TileIcon =
+  'thermo' | 'target' | 'bolt' | 'sliders' | 'sun' | 'drop' | 'timer' | 'repeat' | 'flame' | 'tap'
+  | 'pellet' | 'power' | 'battery' | 'panel' | 'bubbles' | 'waves';
+export type TileFact = { icon: TileIcon; value: string; label?: string };
+export type TileRelay = { name: string; on: boolean; text: string };
+export type DeviceTile = {
+  level: TileLevel;
+  chip: string;
+  running?: boolean;
+  main?: TileFact;
+  main2?: TileFact;
+  side?: TileFact[];
+  row?: TileFact[];
+  relays?: TileRelay[];
+  note?: { level: 'warn' | 'err'; text: string };
+  updatedAt?: string;
+  foot?: string;
+};
+export type DeviceTiles = Record<string, DeviceTile>;
