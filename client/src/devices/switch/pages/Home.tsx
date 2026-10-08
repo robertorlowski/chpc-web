@@ -81,7 +81,7 @@ const RelayCard: React.FC<{
       {/* „Wyłącz” na dole karty, na całą szerokość */}
       <button type="button" disabled={busy}
         className={`switch-stop switch-stop-wide${relay.mode === 'off' ? ' switch-active' : ''}`}
-        onClick={() => onMode('off')}>Wyłącz</button>
+        onClick={() => onMode('off')}>Wyłącz / wyłącz harmonogram</button>
     </div>
   );
 };

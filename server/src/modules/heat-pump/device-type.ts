@@ -1,4 +1,4 @@
-import { DeviceType, DeviceTypeModule } from '../../core/types';
+import { DeviceType, DeviceTypeModule, PumpConfig } from '../../core/types';
 import { sendMessage } from '../../core/websocket';
 import { clearManualOperation, getManualOperationData, setOperationData } from './services/operation.service';
 import { runSchedulerOnce } from './services/scheduler.service';
@@ -8,7 +8,13 @@ import { heatPumpTile } from './tile';
 // Pompa ciepła: ustawienia domyślne dostaje od schematu (work_mode = MANUAL),
 // a operacje odbiera w odpowiedzi na /hp/add, nie przy zgłoszeniu.
 // OTA od firmware co 1.1.0: oferta na zlecenie „Aktualizuj” w odpowiedzi /hp/add (hp.controller.ts).
+// Nowa pompa dostaje od razu podłączenie CWU (bez pojemności zbiornika: pusta do czasu wpisania w oknie „Dane
+// sterownika”). pvDtu = true, bo bez zapisanej definicji serwer mówił co „DTU jest” (pv_dtu = 1,
+// controller-contract.service.ts): inaczej automatyczna definicja wyłączyłaby odczyt falownika.
+export const INITIAL_PUMP_CONFIG: PumpConfig = { connection: 'cwu', pvDtu: true, pvForce: false };
+
 export const heatPumpDeviceType: DeviceTypeModule = {
+  initialPumpConfig: INITIAL_PUMP_CONFIG,
   tile: heatPumpTile,
   type: DeviceType.HP,
   firmwareUpdates: true,

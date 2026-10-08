@@ -18,15 +18,21 @@ export function parsePumpConfig(value: unknown): PumpConfig {
   if (config.connection !== 'cwu' && config.connection !== 'co') {
     throw new Error('pumpConfig.connection: cwu albo co.');
   }
-  const tankLiters = config.tankLiters;
-  if (typeof tankLiters !== 'number' || !Number.isInteger(tankLiters)
-    || tankLiters < TANK_LITERS_MIN || tankLiters > TANK_LITERS_MAX) {
-    throw new Error(`pumpConfig.tankLiters: pełne litry ${TANK_LITERS_MIN}–${TANK_LITERS_MAX}.`);
+  // pojemność jest opcjonalna (pusta, dopóki użytkownik jej nie wpisze); wpisana musi być pełnymi litrami w zakresie
+  const tankLiters = config.tankLiters === null ? undefined : config.tankLiters;
+  if (tankLiters !== undefined && (typeof tankLiters !== 'number' || !Number.isInteger(tankLiters)
+    || tankLiters < TANK_LITERS_MIN || tankLiters > TANK_LITERS_MAX)) {
+    throw new Error(`pumpConfig.tankLiters: pełne litry ${TANK_LITERS_MIN}–${TANK_LITERS_MAX} albo puste.`);
   }
   if (typeof config.pvDtu !== 'boolean' || typeof config.pvForce !== 'boolean') {
     throw new Error('pumpConfig.pvDtu i pumpConfig.pvForce: true albo false.');
   }
-  return { connection: config.connection, tankLiters, pvDtu: config.pvDtu, pvForce: config.pvDtu && config.pvForce };
+  return {
+    connection: config.connection,
+    ...(tankLiters !== undefined ? { tankLiters } : {}),
+    pvDtu: config.pvDtu,
+    pvForce: config.pvDtu && config.pvForce,
+  };
 }
 
 // Definicja kotła z okna „Dane sterownika”: Root ID istniejącej pompy ciepła albo null (bez pompy),
@@ -85,10 +91,13 @@ export async function registerDevice(
     ...(firmwareVersion ? { firmwareVersion, firmwareSeenAt: now } : {}),
     ...(ipAddress ? { ipAddress, ipSeenAt: now } : {}),
   };
+  // definicja nadawana automatycznie przy zgłoszeniu (pompa ciepła: podłączenie CWU, bez pojemności zbiornika)
+  const initialPumpConfig = getDeviceTypeModule(deviceType).initialPumpConfig;
   const existing = await DeviceModel.findOne({ deviceType, deviceId });
   if (existing) {
-    if (Object.keys(seen).length > 0) {
-      existing.set(seen);
+    const missingPumpConfig = initialPumpConfig && !existing.pumpConfig;
+    if (Object.keys(seen).length > 0 || missingPumpConfig) {
+      existing.set({ ...seen, ...(missingPumpConfig ? { pumpConfig: initialPumpConfig } : {}) });
       await existing.save();
     }
     return { device: existing, created: false };
@@ -100,9 +109,22 @@ export async function registerDevice(
     name: name ?? '',
     schedules: [],
     properties: initialProperties(deviceType),
+    ...(initialPumpConfig ? { pumpConfig: initialPumpConfig } : {}),
     ...seen,
   });
   return { device, created: true };
+}
+
+// Pompy ciepła zgłoszone, zanim definicja była nadawana automatycznie (albo bez zapisanej): dostają tę samą definicję
+// startową; istniejącej definicji nie rusza. Wołane przy starcie serwera (server.ts).
+export async function assignDefaultPumpConfigs(): Promise<number> {
+  const initial = getDeviceTypeModule(DeviceType.HP).initialPumpConfig;
+  if (!initial) return 0;
+  const result = await DeviceModel.updateMany(
+    { deviceType: DeviceType.HP, $or: [{ pumpConfig: { $exists: false } }, { pumpConfig: null }] },
+    { $set: { pumpConfig: initial } },
+  );
+  return result.modifiedCount;
 }
 
 // Najwyżej jeden sterownik domyślny: ustawienie zdejmuje znacznik z pozostałych.

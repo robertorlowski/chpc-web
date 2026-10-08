@@ -81,7 +81,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
     pumpConfig: {
       type: new Schema({
         connection: { type: String, enum: ['cwu', 'co'], required: true },
-        tankLiters: { type: Number, required: true },
+        tankLiters: { type: Number }, // opcjonalna: brak = nie wpisana
         pvDtu: { type: Boolean, required: true },
         pvForce: { type: Boolean, required: true },
       }, { _id: false }),

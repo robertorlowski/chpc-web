@@ -174,8 +174,8 @@ export const SwitchSchedules: React.FC = () => {
               Aktywny
             </label>
             <div className="schedule-form-actions">
-              <button type="submit" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
               <button type="button" className="schedule-cancel" onClick={resetForm}>{editingId ? 'Anuluj' : 'Zamknij'}</button>
+              <button type="submit" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
             </div>
             {error && <p className="schedule-error">{error}</p>}
           </form>

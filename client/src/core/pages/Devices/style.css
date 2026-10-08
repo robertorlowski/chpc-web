@@ -93,8 +93,9 @@
   flex-direction: column;
   gap: 8px;
   box-sizing: border-box;
-  /* wysokość z zawartości, a w jednym wierszu wszystkie kafelki jak najwyższy z nich (flex stretch) */
-  min-height: 100%;
+  /* wysokość z zawartości, a w jednym wierszu wszystkie kafelki jak najwyższy z nich (flex stretch);
+     co najmniej nagłówek + miejsce na ołówek i trybik, żeby kafelek bez danych ich nie zasłaniał */
+  min-height: max(100%, 5.4rem);
   padding: 12px 14px 12px 12px;
   border-left: 6px solid #1481a5; /* kolor przycisków i paska aplikacji */
   border-radius: 12px;
@@ -341,9 +342,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* zatwierdzenie po prawej, „Anuluj” obok niego po lewej */
   gap: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px; /* jak szerokość listy kafelków, żeby przyciski były nad prawą krawędzią kafelków */
   margin: 0 0 1rem;
+  padding: 0 10px;
+}
+
+.device-reorder-bar span {
+  margin-right: auto; /* podpowiedź po lewej */
 }
 
 .device-reorder-bar span {
@@ -405,6 +414,8 @@
 
   .device-list {
     flex-direction: column;
+    box-sizing: border-box;
+    padding: 0 10px; /* trochę światła po bokach */
     gap: 22px;
   }
 
@@ -413,9 +424,10 @@
     width: 100%;
   }
 
+  /* delikatnie zaokrąglone rogi */
   .device-list .device-choose,
   .tile {
-    border-radius: 0;
+    border-radius: 10px;
   }
 
   .device-card.has-error .device-choose {

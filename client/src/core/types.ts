@@ -82,8 +82,8 @@ export type BoilerConfig = { heatPumpRootId: string | null; connection?: BoilerC
 export type PumpConnection = 'cwu' | 'co';
 export type PumpConfig = {
   connection: PumpConnection;
-  /** pojemność zbiornika [l], pełne litry 20–2000 */
-  tankLiters: number;
+  /** pojemność zbiornika [l], pełne litry 20–2000; brak = jeszcze nie wpisana (pole w oknie puste) */
+  tankLiters?: number;
   /** panele Hoymiles podłączone przez DTU (RS-485) */
   pvDtu: boolean;
   /** wymuszenie pracy przy produkcji PV > 2 kW; tylko z pvDtu */

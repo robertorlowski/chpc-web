@@ -26,7 +26,8 @@ const HP: React.FC = () => {
   const ws = useRef<WebSocket | null>(null);
 
   // Nagłówek według podłączenia pompy z okna „Dane sterownika” (pumpConfig.connection): „CWU” albo „CO”;
-  // bez definicji „CWU / CO”. Najpierw z zapisanego wyboru, potem ze świeżej listy urządzeń, bo wybór
+  // bez zapisanej definicji „CWU”, bo to wartość, którą okno „Dane sterownika” pokazuje jako wybraną
+  // (domyślne podłączenie, PumpConfigFields). Najpierw z zapisanego wyboru, potem ze świeżej listy urządzeń, bo wybór
   // w localStorage mógł zostać zapisany przed zmianą definicji.
   const [connection, setConnection] = useState<PumpConnection | undefined>(getSelectedDevice()?.pumpConfig?.connection);
   useEffect(() => {
@@ -124,7 +125,7 @@ const HP: React.FC = () => {
   // zgłoszonym przez co. Temp. min/max i COP to estymacja COP zbiornika liczona w co.
   return (
     <div className="settings hp-page">
-      <h2>{connection === 'co' ? 'CO' : connection === 'cwu' ? 'CWU' : 'CWU / CO'}</h2>
+      <h2>{connection === 'co' ? 'CO' : 'CWU'}</h2>
       <section>
         {cwuLoading?.active && (
           <div className="resource cwu-loading">

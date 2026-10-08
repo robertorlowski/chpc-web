@@ -24,11 +24,16 @@ const sameDevice = (a: Device, b: Device) =>
 function DeviceGuard({ children }: { children: React.ReactNode }) {
 	const { device, selectDevice, clearDevice } = useDevice();
 	const location = useLocation();
-	const [startOnList] = useState(() => {
+	const [startOnList, setStartOnList] = useState(() => {
 		if (sessionStorage.getItem(startedKey)) return false;
 		sessionStorage.setItem(startedKey, '1');
 		return location.pathname === '/';
 	});
+	// po przejściu na /devices przekierowanie startowe jest zużyte; bez tego strażnik zwracałby samo <Navigate>
+	// zamiast stron i pierwsze wejście dawało pustą aplikację aż do odświeżenia (błąd z 2026-10-08)
+	useEffect(() => {
+		if (location.pathname !== '/') setStartOnList(false);
+	}, [location.pathname]);
 
 	// zapamiętany sterownik może nie istnieć w bazie (np. po przełączeniu z bazy lokalnej na produkcyjną);
 	// wtedy każde żądanie kończy się 404, więc wybór jest czyszczony. Błąd sieci (null) niczego nie czyści.
@@ -43,7 +48,7 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 		});
 	}, [device?.rootId]);
 
-	if (startOnList) return <Navigate to="/devices" replace />;
+	if (startOnList && location.pathname === '/') return <Navigate to="/devices" replace />;
 
 	// /firmware/:deviceType wskazuje rodzaj w adresie, więc nie wymaga wyboru sterownika
 	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware')) {

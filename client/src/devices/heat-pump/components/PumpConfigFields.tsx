@@ -10,26 +10,34 @@ const DEFAULT_TANK_LITERS: Record<PumpConnection, number> = { cwu: 300, co: 200 
 const TANK_LITERS_MIN = 20;
 const TANK_LITERS_MAX = 2000;
 
-// Sterownik bez zapisanej definicji: podłączenie CWU, jak działała pompa do tej pory.
+// Sterownik bez zapisanej definicji: podłączenie CWU i DTU, jak działała pompa do tej pory (serwer też tak
+// zakłada), a pojemność zbiornika pusta, dopóki użytkownik jej nie wpisze. Serwer nadaje taką definicję
+// automatycznie przy zgłoszeniu sterownika (INITIAL_PUMP_CONFIG).
 const initialConfig = (config?: PumpConfig): PumpConfig =>
-  config ?? { connection: 'cwu', tankLiters: DEFAULT_TANK_LITERS.cwu, pvDtu: false, pvForce: false };
+  config ?? { connection: 'cwu', pvDtu: true, pvForce: false };
 
 export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsProps) {
   const [config, setConfig] = useState<PumpConfig>(() => initialConfig(device.pumpConfig));
-  const [liters, setLiters] = useState(String(config.tankLiters));
+  // pusty tekst = pojemność niewpisana (zapis bez tankLiters, serwer podaje co wtedy domyślne 300 l)
+  const [liters, setLiters] = useState(config.tankLiters === undefined ? '' : String(config.tankLiters));
 
+  const litersEmpty = liters.trim() === '';
   const litersValue = Number(liters);
-  const litersValid = /^\d+$/.test(liters.trim()) && litersValue >= TANK_LITERS_MIN && litersValue <= TANK_LITERS_MAX;
+  const litersValid = litersEmpty
+    || (/^\d+$/.test(liters.trim()) && litersValue >= TANK_LITERS_MIN && litersValue <= TANK_LITERS_MAX);
 
-  // okno zapisuje zawsze komplet (także definicję widoczną, ale jeszcze niezapisaną)
+  // okno zapisuje zawsze komplet (także definicję widoczną, ale jeszcze niezapisaną); pojemność tylko gdy wpisana
   useEffect(() => {
-    onChange(litersValid ? { pumpConfig: { ...config, tankLiters: litersValue, pvForce: config.pvDtu && config.pvForce } } : null);
-  }, [config, litersValid, litersValue, onChange]);
+    const { tankLiters: _tank, ...rest } = config;
+    onChange(litersValid
+      ? { pumpConfig: { ...rest, ...(litersEmpty ? {} : { tankLiters: litersValue }), pvForce: config.pvDtu && config.pvForce } }
+      : null);
+  }, [config, litersValid, litersEmpty, litersValue, onChange]);
 
-  // zmiana podłączenia podpowiada pojemność, chyba że wpisano własną
+  // zmiana podłączenia podpowiada pojemność tylko wtedy, gdy była wpisana domyślna dla poprzedniego (puste zostaje puste)
   const pickConnection = (connection: PumpConnection) => {
     if (connection === config.connection) return;
-    if (litersValue === DEFAULT_TANK_LITERS[config.connection]) setLiters(String(DEFAULT_TANK_LITERS[connection]));
+    if (!litersEmpty && litersValue === DEFAULT_TANK_LITERS[config.connection]) setLiters(String(DEFAULT_TANK_LITERS[connection]));
     setConfig({ ...config, connection });
   };
 
@@ -62,12 +70,13 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
           max={TANK_LITERS_MAX}
           step={1}
           value={liters}
+          placeholder="brak"
           aria-invalid={!litersValid}
           onChange={(event) => setLiters(event.currentTarget.value)}
         />
         <span>l</span>
       </div>
-      {!litersValid && <p className="device-modal-error">Pojemność: pełne litry {TANK_LITERS_MIN}–{TANK_LITERS_MAX}.</p>}
+      {!litersValid && <p className="device-modal-error">Pojemność: pełne litry {TANK_LITERS_MIN}–{TANK_LITERS_MAX} albo puste.</p>}
 
       <div className="pump-config-pv-title">Fotowoltaika</div>
       <label className="pump-config-check">
@@ -92,48 +101,47 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
         <div className="pump-config-schema-title">
           Schemat podłączenia: {config.connection === 'cwu' ? 'zasobnik CWU' : 'bufor CO / piec'}
         </div>
-        <ConnectionSchema connection={config.connection} liters={litersValid ? litersValue : null} />
+        <ConnectionSchema connection={config.connection} liters={litersValid && !litersEmpty ? litersValue : null} />
       </div>
-      <p className="pump-config-note">Zmiana podłączenia nie zmienia trybu pracy ani temperatur.</p>
     </section>
   );
 }
 
-// Schemat hydrauliczny: gorąca woda z pompy do górnego króćca, zimna z dołu zbiornika do pompy.
+// Schemat hydrauliczny: gorąca woda z pompy do górnego króćca, zimna z dołu zbiornika do pompy. Niski (300 × 150),
+// opisy krótkie i nad / pod strzałkami, żeby się nie nakładały, a okno mieściło się na ekranie telefonu.
 function ConnectionSchema({ connection, liters }: { connection: PumpConnection; liters: number | null }) {
   const cwu = connection === 'cwu';
   const hot = '#c62828';
   const cold = '#1565c0';
   return (
     <svg
-      viewBox="0 0 300 220"
-      width="100%"
+      viewBox="0 0 300 150"
       role="img"
       aria-label={cwu ? 'Schemat: pompa ciepła podłączona do zasobnika CWU' : 'Schemat: pompa ciepła podłączona do bufora CO lub pieca'}
     >
       <defs>
-        <marker id="pump-arrow-hot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <marker id="pump-arrow-hot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill={hot} />
         </marker>
-        <marker id="pump-arrow-cold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <marker id="pump-arrow-cold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill={cold} />
         </marker>
       </defs>
-      <rect x="70" y="20" width="80" height="180" rx={cwu ? 30 : 8} fill="#fff" stroke="#455a64" strokeWidth="2" />
-      <text x="110" y="98" textAnchor="middle" fontSize="12" fontWeight="600" fill="#222">{cwu ? 'Zasobnik' : 'Bufor CO'}</text>
-      <text x="110" y="114" textAnchor="middle" fontSize="12" fontWeight="600" fill="#222">{cwu ? 'CWU' : '/ piec'}</text>
-      {liters !== null && <text x="110" y="131" textAnchor="middle" fontSize="11" fill="#444">{liters} l</text>}
-      <rect x="215" y="85" width="75" height="60" rx="6" fill="#1481a5" />
-      <text x="252" y="111" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">Pompa</text>
-      <text x="252" y="126" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">ciepła</text>
-      <path d="M232 85 V45 H152" fill="none" stroke={hot} strokeWidth="4" markerEnd="url(#pump-arrow-hot)" />
-      <text x="190" y="38" textAnchor="middle" fontSize="10" fill={hot}>{cwu ? 'gorąca → górny króciec' : 'gorąca → góra'}</text>
-      <path d="M152 180 H232 V145" fill="none" stroke={cold} strokeWidth="4" markerEnd="url(#pump-arrow-cold)" />
-      <text x="192" y="196" textAnchor="middle" fontSize="10" fill={cold}>zimna ← z dołu</text>
-      <path d="M68 40 H10" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
-      <text x="8" y="32" fontSize="10" fill={hot}>{cwu ? 'do kranów' : 'zasilanie CO'}</text>
-      <path d="M10 185 H68" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />
-      <text x="8" y="205" fontSize="10" fill={cold}>{cwu ? 'woda z sieci' : 'powrót CO'}</text>
+      <rect x="100" y="8" width="70" height="134" rx={cwu ? 26 : 6} fill="#fff" stroke="#455a64" strokeWidth="2" />
+      <text x="135" y="62" textAnchor="middle" fontSize="11" fontWeight="600" fill="#222">{cwu ? 'Zasobnik' : 'Bufor CO'}</text>
+      <text x="135" y="76" textAnchor="middle" fontSize="11" fontWeight="600" fill="#222">{cwu ? 'CWU' : '/ piec'}</text>
+      {liters !== null && <text x="135" y="91" textAnchor="middle" fontSize="10" fill="#444">{liters} l</text>}
+      <rect x="226" y="52" width="68" height="46" rx="6" fill="#1481a5" />
+      <text x="260" y="72" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">Pompa</text>
+      <text x="260" y="86" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">ciepła</text>
+      <path d="M260 52 V26 H172" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
+      <text x="216" y="20" textAnchor="middle" fontSize="10" fill={hot}>gorąca</text>
+      <path d="M172 122 H260 V98" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />
+      <text x="216" y="138" textAnchor="middle" fontSize="10" fill={cold}>zimna</text>
+      <path d="M98 26 H8" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
+      <text x="8" y="20" fontSize="10" fill={hot}>{cwu ? 'do kranów' : 'zasilanie CO'}</text>
+      <path d="M8 122 H98" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />
+      <text x="8" y="138" fontSize="10" fill={cold}>{cwu ? 'woda z sieci' : 'powrót CO'}</text>
     </svg>
   );
 }

@@ -183,9 +183,9 @@ export const Devices: React.FC = () => {
       )}
       {reordering && (
         <div className="device-reorder-bar">
-          <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
-          <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
           <span>Ustaw kolejność strzałkami na kafelkach.</span>
+          <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
+          <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
         </div>
       )}
       {error && <p className="device-selection-error">{error}</p>}

@@ -187,6 +187,9 @@ export const addHpData = async (rootId: string, data :HpEntry) => {
   lastDataByRoot.set(rootId, dataWithRoot);
 
   const { doc } = await writeHp(rootId, dataWithRoot as unknown as Record<string, unknown>, hpKey);
+  // po zapisie pamięć podręczna dostaje też czas rekordu: bez niego kafelek na /devices (tile.ts) nie wie, kiedy
+  // sterownik ostatnio nadał, i do restartu serwera pokazuje „Brak danych” (błąd z produkcji 2026-10-08)
+  lastDataByRoot.set(rootId, { ...dataWithRoot, createdAt: (doc as { createdAt?: Date }).createdAt ?? new Date() } as HpEntry);
 
   const cachedDates = availableDatesByRoot.get(rootId);
   if (cachedDates) {

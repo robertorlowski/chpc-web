@@ -11,6 +11,7 @@ import { restoreOutdoorTemperature } from './modules/pellet-boiler-pelux200/serv
 import { startScheduler } from './modules/heat-pump/services/scheduler.service';
 import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service';
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
+import { assignDefaultPumpConfigs } from './core/services/device.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -47,6 +48,10 @@ const PORT = Number(process.env.PORT ?? 3001);
   } else {
     // scheduler działa w procesie serwera: operacje ręczne i wyliczone są tylko w pamięci,
     // więc restart serwera je kasuje (pierwszy przebieg od razu po starcie)
+    // pompy bez zapisanej definicji dostają podłączenie CWU (jak nowo zgłoszone), bez pojemności zbiornika
+    void assignDefaultPumpConfigs()
+      .then((count) => { if (count > 0) console.log(`[pompa] podłączenie CWU nadane ${count} pompom bez definicji`); })
+      .catch((error) => console.error('[pompa] nadawanie definicji:', error));
     startScheduler();
     // harmonogram kotła pelletowego: sezon i CWU od–do, zlecenia zmian parametrów co minutę
     startPelletBoilerScheduler();

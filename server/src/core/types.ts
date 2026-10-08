@@ -56,8 +56,8 @@ export type PumpConnection = 'cwu' | 'co';
 export interface PumpConfig {
   /** cwu: pompa grzeje zasobnik CWU; co: bufor CO albo wodę w piecu */
   connection: PumpConnection;
-  /** pojemność zbiornika [l] (COP zbiornika w co) */
-  tankLiters: number;
+  /** pojemność zbiornika [l] (COP zbiornika w co); brak = jeszcze nie wpisana (serwer podaje co domyślne 300 l) */
+  tankLiters?: number;
   /** panele Hoymiles podłączone przez DTU (RS-485 sterownika co) */
   pvDtu: boolean;
   /** wymuszenie pracy przy produkcji PV > 2 kW; tylko z pvDtu */
@@ -122,6 +122,8 @@ export interface DeviceTypeModule {
   onPropertiesSaved?: (rootId: string) => Promise<void>;
   /** sprawdzenie definicji przed zapisem (okno „Dane sterownika”); DefinitionConflictError = 409 */
   checkDefinition?: (rootId: string, definition: { boilerConfig?: BoilerConfig }) => Promise<void>;
+  /** definicja pompy nadawana automatycznie przy zgłoszeniu sterownika (okno „Dane sterownika” może ją zmienić) */
+  initialPumpConfig?: PumpConfig;
   /** kafelek sterownika na stronie /devices; null = brak danych do pokazania (kafelek tylko z nazwą) */
   tile?: (rootId: string, device: Device) => Promise<DeviceTile | null>;
 }

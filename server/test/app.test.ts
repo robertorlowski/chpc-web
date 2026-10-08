@@ -16,6 +16,7 @@ vi.mock('../src/core/services/meteo.service', () => ({
 
 import app from '../src/core/app'
 import { DeviceModel } from '../src/core/models/device.model'
+import { assignDefaultPumpConfigs } from '../src/core/services/device.service'
 import { HpEntryModel } from '../src/modules/heat-pump/models/hp.model'
 import { SettingsEntryModel } from '../src/modules/heat-pump/models/settings.model'
 import { DeviceType } from '../src/core/types'
@@ -301,6 +302,44 @@ describe('API with MongoDB', () => {
     expect((await DeviceModel.findById(rootId).lean())?.pumpConfig?.tankLiters).toBe(200);
   });
 
+  it('assigns the CWU connection to a newly registered heat pump, with the tank liters left empty', async () => {
+    const first = await request(app).post('/api/devices/register').send({ deviceId: 'A4CF0000AA01', deviceType: DeviceType.HP });
+    expect(first.status).toBe(201);
+    const created = await DeviceModel.findById(first.body.rootId).lean();
+    // pvDtu = true: jak bez definicji (controller-contract: pv_dtu = 1), żeby nie wyłączyć odczytu falownika
+    expect(created?.pumpConfig).toEqual({ connection: 'cwu', pvDtu: true, pvForce: false });
+    expect(created?.pumpConfig?.tankLiters).toBeUndefined();
+
+    // ponowne zgłoszenie nie rusza zmienionej definicji
+    await request(app).put(`/api/devices/${first.body.rootId}`).send({ pumpConfig: { connection: 'co', tankLiters: 250, pvDtu: false, pvForce: false } });
+    await request(app).post('/api/devices/register').send({ deviceId: 'A4CF0000AA01', deviceType: DeviceType.HP });
+    expect((await DeviceModel.findById(first.body.rootId).lean())?.pumpConfig).toEqual({ connection: 'co', tankLiters: 250, pvDtu: false, pvForce: false });
+
+    // pompa zgłoszona wcześniej bez definicji dostaje ją przy kolejnym zgłoszeniu i przy starcie serwera
+    const old = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'A4CF0000AA02', name: 'Stara', schedules: [] });
+    expect((await DeviceModel.findById(old._id).lean())?.pumpConfig).toBeUndefined();
+    await request(app).post('/api/devices/register').send({ deviceId: 'A4CF0000AA02', deviceType: DeviceType.HP });
+    expect((await DeviceModel.findById(old._id).lean())?.pumpConfig?.connection).toBe('cwu');
+
+    const old2 = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'A4CF0000AA03', name: 'Stara 2', schedules: [] });
+    expect(await assignDefaultPumpConfigs()).toBeGreaterThanOrEqual(1);
+    expect((await DeviceModel.findById(old2._id).lean())?.pumpConfig?.connection).toBe('cwu');
+    // istniejącej definicji nie nadpisuje
+    expect((await DeviceModel.findById(first.body.rootId).lean())?.pumpConfig?.connection).toBe('co');
+
+    await DeviceModel.deleteMany({ _id: { $in: [first.body.rootId, old._id, old2._id] } });
+  });
+
+  it('accepts a heat pump definition without the tank liters and rejects an out-of-range value', async () => {
+    const empty = await request(app).put(`/api/devices/${rootId}`).send({ pumpConfig: { connection: 'cwu', pvDtu: true, pvForce: false } });
+    expect(empty.status).toBe(200);
+    expect(empty.body.pumpConfig.tankLiters).toBeUndefined();
+    const nulled = await request(app).put(`/api/devices/${rootId}`).send({ pumpConfig: { connection: 'co', tankLiters: null, pvDtu: true, pvForce: false } });
+    expect(nulled.status).toBe(200);
+    expect((await DeviceModel.findById(rootId).lean())?.pumpConfig?.tankLiters).toBeUndefined();
+    expect((await request(app).put(`/api/devices/${rootId}`).send({ pumpConfig: { connection: 'cwu', tankLiters: 5000, pvDtu: true, pvForce: false } })).status).toBe(400);
+  });
+
   it('rejects an invalid heat pump definition and a definition for other device types', async () => {
     const bad = [
       { connection: 'pv', tankLiters: 200, pvDtu: false, pvForce: false },
@@ -367,6 +406,20 @@ describe('API with MongoDB', () => {
     expect((await request(app).put('/api/devices/order').send({ rootIds: 'x' })).status).toBe(400);
 
     await DeviceModel.deleteMany({ _id: { $in: [second._id, third._id, added._id] } });
+  });
+
+  it('shows the heat pump tile with data right after telemetry (cache keeps the record time)', async () => {
+    const posted = await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: 41.5, Tmin: 38, Tmax: 45, HPS: false }, work_mode: 'AUTO', time: '2026.10.08 12:00:00' });
+    expect(posted.status).toBe(201);
+
+    const summary = await request(app).get('/api/devices/summary');
+    expect(summary.status).toBe(200);
+    const tile = summary.body[rootId];
+    expect(tile.level).not.toBe('off');
+    expect(tile.main.value).toContain('41,5');
+    expect(tile.updatedAt).toBeTruthy();
   });
 
   it('returns settings for the selected device', async () => {
