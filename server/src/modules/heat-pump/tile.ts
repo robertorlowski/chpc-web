@@ -10,6 +10,7 @@ import {
 import { errorDescription } from './error-codes';
 import { ERROR_LOCK_LIMIT, getHpLastData, getHpLastError } from './services/hp.service';
 import { HpEntry } from './types';
+import { pumpTemperatures } from './services/pump-mode.service';
 
 export const OFFLINE_AFTER_MS = 5 * 60 * 1000;
 
@@ -25,7 +26,7 @@ export function modeLabel(workMode?: string): string {
   }
 }
 
-export async function heatPumpTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function heatPumpTile(rootId: string, device: Device, now = new Date()): Promise<DeviceTile | null> {
   const last = await getHpLastData(rootId) as HpEntry & { createdAt?: Date };
   if (!last?.createdAt) return { level: 'off', chip: 'Brak danych' };
 
@@ -64,9 +65,16 @@ export async function heatPumpTile(rootId: string, _device: Device, now = new Da
   const tmax = toNumber(hp.Tmax);
   if (live && tmin !== undefined && tmax !== undefined) {
     side.push({ icon: 'target' as const, value: `${formatNumber(tmin, 1)}–${formatNumber(tmax, 1)} °C`, label: 'min–max' });
+  } else if (!live) {
+    // bez łączności zakres od–do z ustawień (to, co serwer każe pompie utrzymywać), a nie ze starej telemetrii
+    const set = pumpTemperatures(device?.properties ?? {}, device?.pumpConfig?.connection ?? 'cwu', last);
+    const min = toNumber(set.min);
+    const max = toNumber(set.max);
+    if (min !== undefined && max !== undefined) side.push({ icon: 'target' as const, value: `${formatNumber(min, 0)}–${formatNumber(max, 0)} °C`, label: 'od–do' });
   }
   const watts = toNumber(hp.Watts);
-  if (live && running && watts !== undefined) side.push({ icon: 'bolt' as const, value: formatUnit(watts, 'W'), label: '' });
+  // moc, którą pompa pobiera teraz (w postoju zwykle kilka W); bez łączności „---”
+  side.push({ icon: 'bolt' as const, value: live && watts !== undefined ? formatUnit(watts, 'W') : '---', label: 'moc' });
 
   return {
     level,

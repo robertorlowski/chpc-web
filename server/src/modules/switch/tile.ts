@@ -11,52 +11,20 @@ export const UNLIMITED_ON_WARNING_MS = 24 * 3600 * 1000;
 
 type Relay = Awaited<ReturnType<typeof listRelays>>[number];
 
-// Opis przekaźnika: kiedy się wyłączy, kiedy włączy według harmonogramu i jak jest w trybie ręcznym.
-// Przy jednym przekaźniku (solo) pełnym zdaniem, bez nazwy, a tryb w drugiej linii (detail):
-// „Włączony do 15:00” + „Harmonogram włączony”, „Włączy się jutro 06:00” + „Harmonogram włączony”,
-// „Włączony do 15:00” + „Tryb ręczny”; przy kilku przekaźnikach krótko, obok nazwy, bez drugiej linii.
-function relayText(relay: Relay, now: Date, solo: boolean): { text: string; detail?: string } {
+// Opis przekaźnika obok nazwy: kiedy się wyłączy, kiedy włączy według harmonogramu i jak jest w trybie ręcznym.
+function relayText(relay: Relay, now: Date): string {
   const until = warsawTime(new Date(relay.until ?? now));
   switch (relay.mode) {
     case 'off':
-      return solo ? { text: 'Wyłączony ręcznie', detail: 'Harmonogram zablokowany' } : { text: 'wyłączony ręcznie' };
+      return 'wyłączony ręcznie';
     case 'on':
-      if (!relay.on) return { text: solo ? 'Włączanie…' : 'włączanie…' };
-      return solo ? { text: 'Włączony bez limitu czasu', detail: 'Tryb ręczny' } : { text: 'wł. ręcznie bez limitu' };
+      return relay.on ? 'wł. ręcznie bez limitu' : 'włączanie…';
     case 'timer':
-      if (!relay.on) return { text: solo ? 'Włączanie…' : 'włączanie…' };
-      return solo ? { text: `Włączony do ${until}`, detail: 'Tryb ręczny' } : { text: `wł. ręcznie do ${until}` };
+      return relay.on ? `wł. ręcznie do ${until}` : 'włączanie…';
     default:
-      if (relay.on) return solo ? { text: `Włączony do ${until}`, detail: 'Harmonogram włączony' } : { text: `wł. do ${until} · harmonogram` };
-      if (relay.nextStart) {
-        const when = formatWhen(new Date(relay.nextStart), now);
-        return solo ? { text: `Włączy się ${when}`, detail: 'Harmonogram włączony' } : { text: `wył. · następne ${when}` };
-      }
-      return solo ? { text: 'Wyłączony', detail: 'Brak wpisów w harmonogramie' } : { text: 'wył. · harmonogram' };
-  }
-}
-
-// Włącznik z jednym przekaźnikiem w układzie kafelka pompy: duża wartość („Włączony”) z podpisem (do kiedy / kiedy się włączy)
-// i wiersz z trybem („Harmonogram włączony”, „Tryb ręczny”, „Harmonogram zablokowany”).
-function soloView(relay: Relay, now: Date): { value: string; label: string; mode: string } {
-  const until = warsawTime(new Date(relay.until ?? now));
-  switch (relay.mode) {
-    case 'off':
-      return { value: 'Wyłączony', label: 'ręcznie', mode: 'Harmonogram zablokowany' };
-    case 'on':
-      return relay.on
-        ? { value: 'Włączony', label: 'bez limitu czasu', mode: 'Tryb ręczny' }
-        : { value: 'Włączanie…', label: '', mode: 'Tryb ręczny' };
-    case 'timer':
-      return relay.on
-        ? { value: 'Włączony', label: `do ${until}`, mode: 'Tryb ręczny' }
-        : { value: 'Włączanie…', label: '', mode: 'Tryb ręczny' };
-    default:
-      if (relay.on) return { value: 'Włączony', label: `do ${until}`, mode: 'Harmonogram włączony' };
-      if (relay.nextStart) {
-        return { value: 'Wyłączony', label: `włączy się ${formatWhen(new Date(relay.nextStart), now)}`, mode: 'Harmonogram włączony' };
-      }
-      return { value: 'Wyłączony', label: 'brak wpisów', mode: 'Brak wpisów w harmonogramie' };
+      if (relay.on) return `wł. do ${until} · harmonogram`;
+      if (relay.nextStart) return `wył. · następne ${formatWhen(new Date(relay.nextStart), now)}`;
+      return 'wył. · harmonogram';
   }
 }
 
@@ -69,11 +37,10 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
   const online = relays.some((relay) => relay.online);
   const name = (relay: Relay) => relay.name || `Przekaźnik ${relay.relay}`;
 
-  const solo = relays.length === 1;
   const tiles: TileRelay[] = relays.map((relay) => ({
-    name: solo ? '' : name(relay),
+    name: name(relay),
     on: online && relay.on,
-    ...(online ? relayText(relay, now, solo) : { text: solo ? 'Stan nieznany' : 'stan nieznany' }),
+    text: online ? relayText(relay, now) : 'stan nieznany',
   }));
 
   let level: DeviceTile['level'] = 'ok';
@@ -97,18 +64,6 @@ export async function switchTile(rootId: string, _device: Device, now = new Date
       level = 'warn';
       note = { level: 'warn', text: `${name(unlimited)}: włączony bez limitu czasu od ponad doby` };
     }
-  }
-
-  if (solo) {
-    const view = online ? soloView(relays[0], now) : { value: '---', label: 'stan nieznany', mode: '' };
-    return {
-      level,
-      chip: offlineChip,
-      main: { icon: 'power', value: view.value, label: view.label },
-      row: view.mode ? [{ icon: 'sliders', value: view.mode }] : undefined,
-      note,
-      updatedAt: lastSeen?.toISOString(),
-    };
   }
 
   return {

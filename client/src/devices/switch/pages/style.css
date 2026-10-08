@@ -64,8 +64,15 @@
   margin-top: 0.5rem;
 }
 
+/* „Wyłącz / wyłącz harmonogram”: pastelowa czerwień zamiast jaskrawej (#b00020 „waliła po oczach”) */
 button.switch-stop {
-  background-color: #b00020;
+  background-color: #f6d6d3;
+  border: 1px solid #e5b3ae;
+  color: #8c2a24;
+}
+
+button.switch-stop:hover:not(:disabled) {
+  background-color: #f0c4bf;
 }
 
 button.switch-secondary {

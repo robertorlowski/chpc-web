@@ -125,7 +125,6 @@ export const PelletBoilerHome: React.FC = () => {
         {empty && <div className="resource">Brak danych od sterownika</div>}
         {reading && !empty && (
           <>
-            <AlertsBanner />
             {autoPellet && (
               <div className="resource boiler-auto-pellet" role="alert">
                 <span>
@@ -147,6 +146,7 @@ export const PelletBoilerHome: React.FC = () => {
             <div className="resource boiler-status">
               {/* brak odczytu: czerwony pasek „Offline od …” w górnym panelu (nad trybem i pompami) */}
               {stale && <OfflineBanner since={reading?.createdAt} />}
+              <AlertsBanner />
               <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
               {heatPumpLinked && <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>}
               <Pump label="Pompa CO" on={reading.heating_pump} />

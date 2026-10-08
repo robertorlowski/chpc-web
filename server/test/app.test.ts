@@ -444,12 +444,21 @@ describe('API with MongoDB', () => {
     const fresh = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 60 * 1000));
     expect(fresh?.main?.value).toBe('50,8 °C');
     expect(fresh?.level).toBe('ok');
+    expect(fresh?.side).toEqual([
+      { icon: 'target', value: '40–47 °C', label: 'min–max' },
+      { icon: 'bolt', value: '20 W', label: 'moc' },
+    ]);
 
-    const lostFor10min = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 10 * 60 * 1000));
+    const device = { properties: { temp_min: '40', temp_max: '45' } } as never;
+    const lostFor10min = await heatPumpTile(rootId, device, new Date(Date.now() + 10 * 60 * 1000));
     expect(lostFor10min?.level).toBe('warn');
     expect(lostFor10min?.chip).toBe('Offline');
     expect(lostFor10min?.main?.value).toBe('---');
-    expect(lostFor10min?.side).toEqual([]);
+    // bez łączności: od–do z ustawień zamiast telemetrii (40–47), moc nieznana
+    expect(lostFor10min?.side).toEqual([
+      { icon: 'target', value: '40–45 °C', label: 'od–do' },
+      { icon: 'bolt', value: '---', label: 'moc' },
+    ]);
 
     const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));
     expect(lostFor2h?.level).toBe('err');

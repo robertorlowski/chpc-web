@@ -1,10 +1,8 @@
-// Alarmy kotła w aplikacji (firmware pieca od 1.7.0, dziennik z panelu przez sterownik): karta „Alarmy” w Ustawieniach
-// (cała karta prowadzi na /alarms), pasek na stronie głównej (alarm trwający albo nowy z ostatnich 24 h, sam znika)
-// i strona /alarms z listą. Kasowania nie ma: historię alarmów kasuje tylko serwis z panelu (instrukcja kotła).
+// Alarmy kotła w aplikacji (firmware pieca od 1.7.0, dziennik z panelu przez sterownik): czerwony pasek w górnym panelu
+// strony głównej (alarm trwający albo nowy z ostatnich 24 h, sam znika) i zakładka Alarmy (/alarms, w menu po Harmonogramie)
+// z listą. Kasowania nie ma: historię alarmów kasuje tylko serwis z panelu (instrukcja kotła).
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { IconButton } from '../../../core/components/IconButton';
-import { BackIcon } from '../../../core/components/icons';
+import { Link } from 'react-router-dom';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerAlert, PelletBoilerAlerts } from '../types';
 import { alertDuration, alertName, bannerAlerts, endUnknown, formatAlertTime, POWER_LOSS } from '../utils/alerts';
@@ -26,44 +24,17 @@ const endText = (alert: PelletBoilerAlert) =>
   !alert.to ? 'trwa' : endUnknown(alert) ? 'koniec nieznany' : formatAlertTime(alert.to);
 const period = (alert: PelletBoilerAlert) => `${formatAlertTime(alert.from)} – ${endText(alert)}`;
 
-// Ustawienia (na górze strony): trwające alarmy na czerwono i ostatni zakończony (bez zaników zasilania), bez
-// etykiet „Aktywne” / „Ostatni” (uwaga użytkownika 2026-10-07); kliknięcie w kartę otwiera listę.
-export const AlertsCard: React.FC = () => {
-  const data = useAlerts();
-  const list = data?.alerts ?? [];
-  const active = list.filter((alert) => alert.active);
-  const last = list.find((alert) => alert.code !== POWER_LOSS && !alert.active);
-  return (
-    <Link to="/alarms" className="resource boiler-alerts-card" aria-label="Alarmy: otwórz listę">
-      <span className="boiler-alerts-card-title">Alarmy<span aria-hidden="true">›</span></span>
-      {data === undefined && <span>Wczytywanie…</span>}
-      {data === null && <span>Brak danych</span>}
-      {data && (
-        <>
-          {active.map((alert) => (
-            <strong key={`${alert.code}-${alert.from}`} className="boiler-error">
-              {alertName(alert.code)}, od {formatAlertTime(alert.from)}, trwa
-            </strong>
-          ))}
-          {last && <span>{alertName(last.code)}, {period(last)}</span>}
-          {!active.length && !last && <span>Brak alarmów</span>}
-          {!data.readAt && <span className="boiler-hint">Dziennik jeszcze nie przesłany (sterownik od wersji 1.7.0).</span>}
-        </>
-      )}
-    </Link>
-  );
-};
-
-// Strona główna: pasek tylko wtedy, gdy jest powód (alarm trwa albo nowy skończył się w ostatnich 24 h).
+// Strona główna: czerwony pasek (jak „Offline od …”) w górnym panelu, tylko gdy jest powód (alarm trwa albo nowy skończył się
+// w ostatnich 24 h); bez pogrubienia, kliknięcie otwiera zakładkę Alarmy.
 export const AlertsBanner: React.FC = () => {
   const data = useAlerts();
   const items = bannerAlerts(data?.alerts ?? []);
   if (!items.length) return null;
   return (
-    <Link to="/alarms" className="resource boiler-alert-banner" role="alert">
+    <Link to="/alarms" className="offline-banner boiler-alert-banner" role="alert">
       {items.map((alert) => (
         <span key={`${alert.code}-${alert.from}`}>
-          ⚠ <strong>{alertName(alert.code)}</strong>
+          ⚠ {alertName(alert.code)}
           {alert.active ? `, od ${formatAlertTime(alert.from, false)}, trwa` : `, ${period(alert)}`}
         </span>
       ))}
@@ -71,19 +42,15 @@ export const AlertsBanner: React.FC = () => {
   );
 };
 
-// Strona /alarms (wejście z karty w Ustawieniach): trwające na górze, potem od najnowszego; zaniki zasilania
+// Zakładka Alarmy (/alarms): trwające na górze, potem od najnowszego; zaniki zasilania
 // domyślnie ukryte (prawie cały dziennik).
 export const PelletBoilerAlertsPage: React.FC = () => {
-  const navigate = useNavigate();
   const data = useAlerts();
   const [showPowerLoss, setShowPowerLoss] = useState(false);
   const list = (data?.alerts ?? []).filter((alert) => showPowerLoss || alert.code !== POWER_LOSS);
   return (
     <div className="settings boiler-page boiler-alerts-page">
-      <div className="boiler-alerts-header">
-        <IconButton label="Wróć do Ustawień" icon={<BackIcon />} onClick={() => navigate('/settings')} />
-        <h2>Alarmy</h2>
-      </div>
+      <h2>Alarmy</h2>
       <section>
         <div className="resource">
           <label className="boiler-alerts-filter">

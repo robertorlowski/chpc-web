@@ -644,57 +644,13 @@
   color: #1481a5;
 }
 
-/* Alarmy kotła (components/Alerts.tsx): karta w Ustawieniach (cała jest odnośnikiem), pasek na stronie głównej,
-   strona /alarms z tabelą; na telefonie wiersze tabeli jako karty. */
-.boiler-alerts-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.boiler-alerts-card:hover {
-  outline: 2px solid #1481a5;
-}
-
-.boiler-alerts-card-title {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
+/* Alarmy kotła (components/Alerts.tsx): czerwony pasek w górnym panelu strony głównej, zakładka Alarmy
+   (/alarms) z tabelą; na telefonie wiersze tabeli jako karty. */
 .boiler-alert-banner {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  border-left: 4px solid #b00020;
-  color: #b00020;
   text-decoration: none;
-}
-
-.boiler-alerts-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* strzałka „wstecz” na wysokości tekstu: tytuł bez własnych odstępów (h2 ma globalnie padding-top i marginesy),
-   odstęp od menu i od karty daje cały nagłówek, a align-items: center wyrównuje oba elementy do wspólnego środka */
-.boiler-alerts-header {
-  margin: 1.4rem 0 0.9rem;
-}
-
-.boiler-alerts-header h2 {
-  margin: 0;
-  padding: 0;
-  line-height: 1.2;
-}
-
-.boiler-alerts-header > button {
-  display: inline-flex;
-  align-items: center;
 }
 
 .boiler-alerts-filter {
@@ -863,7 +819,8 @@
 }
 
 /* „Offline od …” w panelu trybu i pomp: cała szerokość, nad elementami panelu */
-.boiler-status .offline-banner {
+.boiler-status .offline-banner,
+.boiler-status .boiler-alert-banner {
   flex-basis: 100%;
   margin: 0;
 }

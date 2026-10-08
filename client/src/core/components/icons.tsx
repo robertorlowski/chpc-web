@@ -28,6 +28,14 @@ export const SettingsIcon = () => (
 	</svg>
 );
 
+// dzwonek: zakładka Alarmy (kocioł)
+export const AlarmIcon = () => (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+		<path d="M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+	</svg>
+);
+
 // Ikony akcji w przyciskach-ikonach (components/IconButton.tsx): dodaj, usuń, przywróć, wróć, edytuj: kreska 2, siatka 24, kolor z currentColor.
 const action = (path: React.ReactNode) => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"

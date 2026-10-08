@@ -2,7 +2,7 @@
 // rejestru core/device-types.tsx: ikona płomienia na kafelku, menu i widoki. Ścieżki spoza listy
 // prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { ChartIcon, DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
+import { AlarmIcon, ChartIcon, DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
 import { FLAME_PATH, FlameIcon } from './components/icons';
 import { PelletBoilerHome } from './pages/Home';
 import { PelletBoilerData } from './pages/Data';
@@ -12,7 +12,7 @@ import { PelletBoilerSettings } from './pages/Settings';
 import { PelletBoilerAlertsPage } from './components/Alerts';
 import { BoilerConfigFields } from './components/BoilerConfigFields';
 
-// Kocioł pelletowy: podgląd, dane z dnia, wykres temperatur, harmonogram (sezon, CWU od–do) i ustawienia.
+// Kocioł pelletowy: podgląd, dane z dnia, wykres temperatur, harmonogram (sezon, CWU od–do), alarmy i ustawienia.
 export const pelletBoilerDeviceType: DeviceTypeView = {
 	type: DeviceType.PELLET_BOILER_PELUX200,
 	tileIcon: (
@@ -29,8 +29,7 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <PelletBoilerData /> },
 		{ path: '/chart', label: 'Wykres', icon: <ChartIcon />, element: <PelletBoilerChart /> },
 		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <PelletBoilerSchedules /> },
+		{ path: '/alarms', label: 'Alarmy', icon: <AlarmIcon />, element: <PelletBoilerAlertsPage /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <PelletBoilerSettings /> },
 	],
-	// lista alarmów: wejście z karty „Alarmy” w Ustawieniach, bez pozycji w menu
-	extraRoutes: [{ path: '/alarms', element: <PelletBoilerAlertsPage /> }],
 };

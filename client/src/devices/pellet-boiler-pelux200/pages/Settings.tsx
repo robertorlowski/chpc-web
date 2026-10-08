@@ -13,7 +13,6 @@ import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
 import { AdvancedSettings } from '../components/AdvancedSettings';
 import { MainParameters } from '../components/MainParameters';
-import { AlertsCard } from '../components/Alerts';
 import './style.css';
 
 // interwał w minutach w formularzu, w sekundach w ustawieniach (30–3600 s = 0,5–60 min)
@@ -63,8 +62,6 @@ export const PelletBoilerSettings: React.FC = () => {
       <Notification message={notice} />
       <h2>Ustawienia</h2>
       <section>
-        {/* alarmy kotła na górze (firmware pieca od 1.7.0): karta prowadzi na /alarms */}
-        <AlertsCard />
         <MainParameters />
 
         <form className="resource boiler-form" onSubmit={save}>

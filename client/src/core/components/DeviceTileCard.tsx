@@ -92,11 +92,10 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
       {tile?.relays && (
         <span className="tile-relays">
           {tile.relays.map((relay) => (
-            <span key={relay.name || 'solo'} className={`tile-relay${relay.name ? '' : ' solo'}`}>
+            <span key={relay.name} className="tile-relay">
               <span className={`tile-relay-dot${relay.on ? ' on' : ''}`} />
-              {relay.name ? <b>{relay.name}</b> : null}
+              <b>{relay.name}</b>
               <small>{relay.text}</small>
-              {relay.detail ? <small className="tile-relay-detail">{relay.detail}</small> : null}
             </span>
           ))}
         </span>
