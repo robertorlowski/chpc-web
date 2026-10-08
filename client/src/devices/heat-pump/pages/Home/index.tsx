@@ -211,11 +211,11 @@ const HP: React.FC = () => {
             <table>
               <tbody>
                 <tr>
-                  <td className="label">Temp. CO min:</td>
+                  <td className="label">Temp. min:</td>
                   <td className="field">{_hp?.Tmin || '---'}</td>
                 </tr>
                 <tr>
-                  <td className="label">Temp. CO max:</td>
+                  <td className="label">Temp. max:</td>
                   <td className="field">{_hp?.Tmax || '---'}</td>
                 </tr>                  
 

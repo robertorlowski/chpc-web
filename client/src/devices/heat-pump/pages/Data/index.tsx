@@ -158,6 +158,7 @@ export const HeatPumpTable: React.FC = () => {
 			<button type="button" disabled={downloading} onClick={handleDownloadCsv} style={{ padding: '6px 10px'}}>{downloading ? 'Pobieranie…' : 'Pobierz dane'}</button>
 		</div>
 	
+		<div className="data-layout">
 		<table className="data-table" style={{
 			borderCollapse: 'separate',
 			borderSpacing: 0,
@@ -275,6 +276,20 @@ export const HeatPumpTable: React.FC = () => {
 		))}
 		</tbody>
 	</table>
+		{/* legenda skrótów kolumn: na dużym ekranie obok tabeli, na telefonie pod nią (style.css, .data-layout) */}
+		<dl className="data-legend">
+			<dt>Watts</dt><dd>moc pobierana przez pompę [W]</dd>
+			<dt>PV</dt><dd>moc instalacji fotowoltaicznej [W]</dd>
+			<dt>EEV</dt><dd>pozycja zaworu rozprężnego (EEV pozycja)</dd>
+			<dt>ΔT</dt><dd>EEV dt, różnica temperatur zaworu rozprężnego</dd>
+			<dt>T. be</dt><dd>temperatura przed parownikiem [°C]</dd>
+			<dt>T. ae</dt><dd>temperatura za parownikiem [°C]</dd>
+			<dt>T. ho</dt><dd>temperatura wody wychodzącej [°C]</dd>
+			<dt>T. target</dt><dd>temperatura czujnika w środku zbiornika [°C]</dd>
+			<dt>T. sump</dt><dd>temperatura karteru sprężarki [°C]</dd>
+			<dt>T. out</dt><dd>temperatura zewnętrzna [°C]</dd>
+		</dl>
+		</div>
 	</div>
   );
 };
