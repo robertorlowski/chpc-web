@@ -850,3 +850,28 @@
   flex-basis: 100%;
   margin: 0;
 }
+
+/* okno „Uwaga” przy włączaniu regulatora: szersze, trzy przyciski w jednym rzędzie na komputerze,
+   na telefonie zawijane i rozciągnięte (Anuluj i Pellet w pierwszym rzędzie, pompa ciepła w drugim) */
+.device-modal.boiler-turn-on {
+  width: min(520px, 100%);
+}
+
+.boiler-turn-on .device-modal-actions {
+  flex-wrap: wrap;
+}
+
+.boiler-turn-on .device-modal-actions button {
+  flex: 1 1 auto;
+  padding: 9px 12px;
+}
+
+@media (max-width: 560px) {
+  .device-modal-backdrop:has(.boiler-turn-on) {
+    padding: 0.5rem;
+  }
+
+  .device-modal.boiler-turn-on {
+    padding: 1rem 0.75rem;
+  }
+}

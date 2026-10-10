@@ -848,7 +848,7 @@ export const MainParameters: React.FC = () => {
 
       {turnOnBlock && (
         <div className="device-modal-backdrop" onClick={() => setTurnOnBlock(null)}>
-          <div className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-turn-on-title"
+          <div className="device-modal boiler-edit boiler-turn-on" role="dialog" aria-modal="true" aria-labelledby="boiler-turn-on-title"
             onClick={(event) => event.stopPropagation()}>
             <h2 id="boiler-turn-on-title">Uwaga</h2>
             <div>
