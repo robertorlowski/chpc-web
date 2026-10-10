@@ -276,6 +276,12 @@
   margin: 0;
 }
 
+/* znacznik nieaktywny (np. „CWU - grzanie peletem” w trybie Pellet): wyszarzony razem z napisem */
+.boiler-check.boiler-check-disabled {
+  color: #9aa5aa;
+  cursor: default;
+}
+
 .boiler-commands {
   list-style: none;
   margin: 0;

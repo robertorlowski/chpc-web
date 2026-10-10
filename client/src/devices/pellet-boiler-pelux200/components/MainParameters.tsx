@@ -647,8 +647,9 @@ export const MainParameters: React.FC = () => {
         {/* CWU z peletu w trybie pompy ciepła (serwer: pellet-boiler-pelux200-pellet-cwu.service.ts) */}
         {current?.pelletCwu && (
           <div className="boiler-main-section">
-            <label className="boiler-check">
-              <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving}
+            {/* tylko w trybie Pompa ciepła; w trybie Pellet wyszarzony (kocioł i tak grzeje CWU peletem) */}
+            <label className={heatPumpMode ? 'boiler-check' : 'boiler-check boiler-check-disabled'}>
+              <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving || !heatPumpMode}
                 onChange={(event) => setPelletCwu(event.currentTarget.checked)} />
               CWU - grzanie peletem
             </label>
