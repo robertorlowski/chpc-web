@@ -17,7 +17,7 @@ void testJsonContainsEveryKeyUsedByCoAndWeb() {
   startAfterPowerOnPause();
   std::string json = query();
   const char *keys[] = {"Tbe", "Tae", "Tco", "Tho", "Ttarget", "Tsump", "EEV_dt", "Tmax", "Tmin", "Watts", "EEV",
-                        "EEV_pos", "EEV_pulse", "SHS", "HCS", "CCS", "HPS", "F", "CO", "WWatt", "EEVmax", "EEVmin",
+                        "EEV_pos", "EEV_pulse", "SHS", "HCS", "CCS", "FLW", "HPS", "F", "CO", "WWatt", "EEVmax", "EEVmin",
                         "ERR", "ERRn", "ERRc", "lt_pow", "lt_hp_on"};
   for (const char *k : keys) TEST_ASSERT_TRUE_MESSAGE(jsonHas(json, k), k);
   TEST_ASSERT_EQUAL_CHAR('{', json.front());

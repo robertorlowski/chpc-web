@@ -334,6 +334,14 @@ const HP: React.FC = () => {
                     <img title="Cold circle state" src={_hp?.CCS ? swith_on : swith_off} />
                   </td>
                 </tr>
+                <tr>
+                  <td className="label">Przepływ:</td>
+                  <td className="field">
+                    {_hp?.FLW === undefined
+                      ? '---'
+                      : <img title="Przepływ wody przez parownik" src={Number(_hp.FLW) ? swith_on : swith_off} />}
+                  </td>
+                </tr>
               </tbody>
             </table>
             <table>

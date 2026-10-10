@@ -26,6 +26,8 @@ const HpMetricsSchema = new Schema<HpMetrics>(
     EEV_pos: { type: Number },
     HCS: { type: Boolean },
     CCS: { type: Boolean },
+    // przepływ przez parownik (CHPC od 2026-10-11; starsze rekordy bez pola)
+    FLW: { type: Boolean },
     HPS: { type: Boolean },
     F: { type: Boolean },
     CWUS: { type: Boolean },

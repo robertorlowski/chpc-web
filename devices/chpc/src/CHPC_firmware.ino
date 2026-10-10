@@ -2265,6 +2265,10 @@ void StatsSerial(void) {
   RS485Serial.print(F(",\"CCS\":"));
   RS485Serial.print(coldside_circle_state || cold_pomp_on || precirc == 1);
 
+  //przepływ przez parownik (wejście A7, jak "Flow:" na wyświetlaczu): 1 = jest, 0 = brak (po 9 s bez przepływu)
+  RS485Serial.print(F(",\"FLW\":"));
+  RS485Serial.print(emergency == 0);
+
   RS485Serial.print(F(",\"HPS\":"));
   RS485Serial.print(heatpump_state);
 

@@ -67,7 +67,7 @@ export type CurrentSchedule = {
 };
 
 // Pole HP telemetrii: JSON z CHPC (StatsSerial) przekazany przez co bez zmian. Flagi (HPS, F, CO,
-// HCS, CCS) CHPC wysyła jako 0/1: rekordy z bazy mają je jako boolean (schemat Mongo), a surowa
+// HCS, CCS, FLW) CHPC wysyła jako 0/1: rekordy z bazy mają je jako boolean (schemat Mongo), a surowa
 // telemetria z GET /hp jako liczby, dlatego widoki sprawdzają je przez truthy albo Number().
 export type HpMetrics = {
     Tbe: number,
@@ -87,6 +87,8 @@ export type HpMetrics = {
     EEV_pos: number,
     HCS: boolean,
     CCS: boolean,
+    /** przepływ przez parownik (CHPC od 2026-10-11; brak = starszy firmware) */
+    FLW?: boolean,
     HPS: boolean,
     F: boolean,
     CWUS: boolean,

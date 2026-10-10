@@ -92,6 +92,7 @@ export interface HpMetrics {
     EEV_pos?: number,
     HCS?: boolean,
     CCS?: boolean,
+    FLW?: boolean,
     HPS?: boolean,
     F?: boolean,
     CWUS?: boolean,
