@@ -102,6 +102,15 @@
 #define MINCYCLE_POWERON 180000         //5 min  	//60 mins
 #define POWERON_HIGHTIME 9000           //1 sec, defines time after start when power consumption can be 2 times greater than normal
 #define COLDOFF_HIGHTIME 50000//15000          //15 sec
+//Pompy przed sprężarką (2026-10-10; tylko przy włączonej ochronie przepływu, c_wattage_max > MAX_WATTS):
+//po spełnieniu warunków startu najpierw pompy, sprężarka dopiero przy przepływie wody przez parownik.
+//Obie pompy wiszą u nas na jednym dużym przekaźniku (wyjście pompy gorącej), który bywa zawodny
+//(telemetria 4.10–10.10: przy błędach 3 wyjście włączone, moc 3,3–3,5 kW jak bez przepływu). Bez przepływu
+//przez PRECIRC_MILLIS pompy stoją PRECIRC_PAUSE_MILLIS i włączają się ponownie; po PRECIRC_TRIES próbach
+//ERRC_NO_FLOW (jeden błąd liczony) bez startu sprężarki.
+#define PRECIRC_MILLIS 30000
+#define PRECIRC_PAUSE_MILLIS 10000
+#define PRECIRC_TRIES 3
 #define MINCYKLE_CHECK 60000            //60 sec
 //EEV
 #define EEV_MAXPULSES 480
@@ -423,6 +432,9 @@ bool hotside_circle_state = 0;
 bool coldside_circle_state = 0;
 bool sump_heater_state = 0;
 bool frost_protect = 0;  //obieg gorący włączony przez ochronę przed zamarzaniem
+byte precirc = 0;        //pompy przed startem sprężarki: 0 nie, 1 pompy włączone (czekanie na przepływ), 2 przerwa
+byte precirc_try = 0;    //numer próby (PRECIRC_TRIES)
+unsigned long millis_precirc = 0;  //początek bieżącej próby albo przerwy
 //Wymuszenie startu (0x03, JSON "F"): start już przy Ttarget < T max - T_delta_force (3 °C).
 //Kasowane przy normalnym zatrzymaniu termostatem i przy restarcie; nie w EEPROM.
 bool start_force = 0;
@@ -1030,8 +1042,8 @@ void off_EEV() {  //1 = do not take care of position
 //którąkolwiek pompą (millis_last_pump_on), od której liczy się zwłoka ERRC_RELAY.
 void halifise(void) {
 #ifdef BOARD_TYPE_G
-  bool hot = hotside_circle_state || hot_pomp_on || frost_protect;
-  bool cold = coldside_circle_state || cold_pomp_on;
+  bool hot = hotside_circle_state || hot_pomp_on || frost_protect || precirc == 1;
+  bool cold = coldside_circle_state || cold_pomp_on || precirc == 1;
   if (hot || cold) millis_last_pump_on = millis_now;
   digitalWrite(RELAY_SUMP_HEATER, sump_heater_state || sump_heater_on);
   digitalWrite(RELAY_HOTSIDE_CIRCLE, hot);
@@ -1137,6 +1149,35 @@ void stopByTemperature(const __FlashStringHelper *msg, uint8_t code) {
   reportError(code);
   millis_last_heatpump_off = millis_now;
   heatpump_state = 0;
+}
+
+//Pompy przed sprężarką (opis przy PRECIRC_MILLIS); wołane w każdym cyklu ze spełnionymi warunkami startu.
+//true = przepływ jest (albo ochrona przepływu wyłączona), sprężarka może ruszyć.
+bool flowBeforeStart(void) {
+  if (c_wattage_max <= MAX_WATTS) return true;
+  if (precirc == 0) {
+    precirc = 1;
+    precirc_try = 1;
+    millis_precirc = millis_now;
+  }
+  unsigned long since = millis_now - millis_precirc;
+  if (precirc == 1) {
+    if (emergency == 0) return true;
+    if (since > PRECIRC_MILLIS) {
+      if (precirc_try >= PRECIRC_TRIES) {
+        precirc = 0;
+        stopOnError(F("ERR: Cold Flow"), ERRC_NO_FLOW);
+        return false;
+      }
+      precirc = 2;
+      millis_precirc = millis_now;
+    }
+  } else if (since > PRECIRC_PAUSE_MILLIS) {
+    precirc = 1;
+    precirc_try++;
+    millis_precirc = millis_now;
+  }
+  return false;
 }
 
 //restart programowy przez skok do adresu 0: zmienne globalne i setup() od nowa;
@@ -1980,7 +2021,8 @@ void loop(void) {
     //Start: co_on, brak błędu, EEV po kalibracji, postój >= 20 min, Tsump 5..85, Tae > -2, Tbc < 70,
     //Tci/Tco > -2 oraz Ttarget < T max - delta (albo < T max - 3 przy start_force).
     //Zawór domknięty w postoju otwiera się po spełnieniu warunków (millis_eev_prestart, cykl EEV),
-    //a sprężarka rusza dopiero, gdy stoi na pozycji oczekiwania.
+    //a sprężarka rusza dopiero, gdy stoi na pozycji oczekiwania i jest przepływ przez parownik (flowBeforeStart;
+    //pompy włączone przed sprężarką zostają włączone jako pompy pracy).
     if (
       (co_on == 1) && (heatpump_state == 0) && (errorcode == 0) && (((unsigned long)(millis_now - millis_last_heatpump_off) > mincycle_poweroff) || (millis_last_heatpump_off == 0)) && ((Tsump.e == 1 && Tsump.T > cT_sump_min) || (Tsump.e ^ 1)) && ((Tsump.e == 1 && Tsump.T < cT_sump_max) || (Tsump.e ^ 1)) && (
 
@@ -1988,13 +2030,18 @@ void loop(void) {
         )
       && ((Tae.e == 1 && Tae.T > cT_after_evaporator_min) || (Tae.e ^ 1)) && ((Tbc.e == 1 && Tbc.T < cT_before_condenser_max) || (Tbc.e ^ 1)) && ((Tci.e == 1 && Tci.T > cT_cold_min) || (Tci.e ^ 1)) && ((Tco.e == 1 && Tco.T > cT_cold_min) || (Tco.e ^ 1))) {
       millis_eev_prestart = millis_now;
-      //start dopiero po zakończeniu kalibracji/domykania/otwierania EEV
-      if ((EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0)) {
+      //start dopiero po zakończeniu kalibracji/domykania/otwierania EEV i przy przepływie
+      bool flow = flowBeforeStart();
+      if (flow && (EEV_cur_pos >= EEV_OPEN_AFTER_CLOSE) && (EEV_adonotcare == 0 || EEV_apulses == 0)) {
+        if (precirc) hotside_circle_state = coldside_circle_state = 1;
+        precirc = 0;
         last_power = 0;
         millis_last_heatpump_on = millis_now;
         last_power_milis = millis_now;
         heatpump_state = 1;
       }
+    } else {
+      precirc = 0;  //warunki startu przestały być spełnione (albo sprężarka pracuje): pompy przed startem stop
     }
 
     //stop if
@@ -2213,10 +2260,10 @@ void StatsSerial(void) {
   RS485Serial.print(sump_heater_state || sump_heater_on);
 
   RS485Serial.print(F(",\"HCS\":"));
-  RS485Serial.print(hotside_circle_state || hot_pomp_on || frost_protect);
+  RS485Serial.print(hotside_circle_state || hot_pomp_on || frost_protect || precirc == 1);
 
   RS485Serial.print(F(",\"CCS\":"));
-  RS485Serial.print(coldside_circle_state || cold_pomp_on);
+  RS485Serial.print(coldside_circle_state || cold_pomp_on || precirc == 1);
 
   RS485Serial.print(F(",\"HPS\":"));
   RS485Serial.print(heatpump_state);

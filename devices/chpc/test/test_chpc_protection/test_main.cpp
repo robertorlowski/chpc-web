@@ -133,17 +133,61 @@ void testNoFlowIgnoredAtDefaultPowerLimit() {
   setTemp("Ttarget", 27.0);
 }
 
-void testNoFlowStopsAbovePowerLimitSwitch() {
+// Ochrona przepływu włączona (limit > 3200 W): pompy przed sprężarką (2026-10-10). Bez przepływu przez parownik
+// sprężarka nie rusza; pompy próbują 3 razy po 30 s z 10 s przerwy (ponowne załączenie przekaźnika), potem jeden
+// błąd ERRC_NO_FLOW.
+void testNoFlowBeforeStartKeepsCompressorOff() {
   sendFrame(0x0E, 38, 0);  // 3800 W > 3200 W: ochrona przepływu włączona
+  setTemp("Tho", 20.0);  // Tho > Ttarget + 3 trzymałoby pompę gorącą z automatyki: tu tylko pompy przed startem
   runMs(600);
-  startCompressor();
   sim::tx.clear();
   sim::lcdLog.clear();
-  long stopped = waitUntil([] { return !compressor(); }, 70000);
-  TEST_ASSERT_TRUE(stopped >= 40000);  // COLDOFF_HIGHTIME 50 s od startu
+  // wybieg pomp po poprzednim zatrzymaniu
+  TEST_ASSERT_TRUE(waitUntil([] { return !hotPump() && !coldPump(); }, 90000, 1000) >= 0);
+  setTemp("Ttarget", 24.0);
+  TEST_ASSERT_TRUE_MESSAGE(waitUntil([] { return hotPump() && coldPump(); }, 25 * 60 * 1000UL, 2000) >= 0, "pompy nie ruszyły przed startem");
+  TEST_ASSERT_FALSE_MESSAGE(compressor(), "sprężarka ruszyła bez przepływu");
+  TEST_ASSERT_EQUAL_DOUBLE(1, jsonNumber(query(), "HCS"));
+  // pierwsza próba bez przepływu: przerwa (pompy stoją), potem druga próba
+  TEST_ASSERT_TRUE(waitUntil([] { return !hotPump(); }, 35000, 1000) >= 0);
+  TEST_ASSERT_TRUE(waitUntil([] { return hotPump(); }, 15000, 1000) >= 0);
+  TEST_ASSERT_FALSE(compressor());
+  // po trzeciej próbie błąd, sprężarka cały czas stoi
+  TEST_ASSERT_TRUE(waitUntil([] { return jsonNumber(query(), "ERR") == ERRC_NO_FLOW; }, 120000, 5000) >= 0);
+  TEST_ASSERT_FALSE(compressor());
+  sim::tx.clear();  // odpowiedzi na zapytania z pętli wyżej
   expectNewError(ERRC_NO_FLOW, "ERR: Cold Flow");
   // poprzedni test zakończył się normalnym zatrzymaniem, które zeruje licznik błędów
   TEST_ASSERT_EQUAL_DOUBLE(1, jsonNumber(query(), "ERRc"));
+  runMs(3000, 1000);
+  TEST_ASSERT_FALSE(hotPump() || coldPump());
+}
+
+// Przepływ dopiero przy drugim załączeniu pomp (przekaźnik złapał za drugim razem): sprężarka rusza,
+// pompy przed startem zostają pompami pracy (bez przerwy), błędu nie ma. Następna próba po 20 min postoju.
+void testFlowOnSecondTryStartsCompressor() {
+  setTemp("Ttarget", 24.0);
+  TEST_ASSERT_TRUE(waitUntil([] { return hotPump(); }, 25 * 60 * 1000UL, 2000) >= 0);
+  TEST_ASSERT_TRUE(waitUntil([] { return !hotPump(); }, 35000, 1000) >= 0);  // przerwa po pierwszej próbie
+  TEST_ASSERT_TRUE(waitUntil([] { return hotPump(); }, 15000, 1000) >= 0);   // druga próba
+  sim::flow_adc = 0;  // przepływ jest
+  TEST_ASSERT_TRUE_MESSAGE(waitUntil([] { return compressor(); }, 5000) >= 0, "sprężarka nie ruszyła przy przepływie");
+  runMs(5000);
+  TEST_ASSERT_TRUE(hotPump() && coldPump());
+  TEST_ASSERT_EQUAL_DOUBLE(lastSeq, jsonNumber(query(), "ERRn"));
+  runMs(3000);
+  setTemp("Ttarget", 27.0);
+}
+
+// Utrata przepływu w czasie pracy: jak dotąd zatrzymanie po COLDOFF_HIGHTIME (50 s) od startu, błąd liczony.
+void testNoFlowWhileRunningStopsCompressor() {
+  sim::tx.clear();
+  sim::lcdLog.clear();
+  sim::flow_adc = 1023;
+  long stopped = waitUntil([] { return !compressor(); }, 70000);
+  TEST_ASSERT_TRUE(stopped >= 0);
+  expectNewError(ERRC_NO_FLOW, "ERR: Cold Flow");
+  TEST_ASSERT_EQUAL_DOUBLE(2, jsonNumber(query(), "ERRc"));
   sim::flow_adc = 0;
 }
 
@@ -218,7 +262,9 @@ int main() {
   RUN_TEST(testCompressorWithoutPowerIsDetected);
   RUN_TEST(testLowSumpTemperatureAfterStart);
   RUN_TEST(testNoFlowIgnoredAtDefaultPowerLimit);
-  RUN_TEST(testNoFlowStopsAbovePowerLimitSwitch);
+  RUN_TEST(testNoFlowBeforeStartKeepsCompressorOff);
+  RUN_TEST(testFlowOnSecondTryStartsCompressor);
+  RUN_TEST(testNoFlowWhileRunningStopsCompressor);
   RUN_TEST(testPumpsOnSharedSupplyAreNotRelayFault);
   RUN_TEST(testStuckCompressorRelayIsReportedOnce);
   RUN_TEST(testLostSensorStopsControlAndRecovers);
