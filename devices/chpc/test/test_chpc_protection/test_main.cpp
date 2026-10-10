@@ -240,7 +240,8 @@ void testLostSensorStopsControlAndRecovers() {
   sim::tx.clear();
   sim::lcdLog.clear();
   sensor("Tbe")->connected = false;
-  TEST_ASSERT_TRUE(waitUntil([] { return errorcode == ERR_T_SENSOR; }, 3000) >= 0);
+  // błąd po SENSOR_FAIL_READS kolejnych odczytach -127 (ok. 10 s; chwilowe zaniki są pomijane)
+  TEST_ASSERT_TRUE(waitUntil([] { return errorcode == ERR_T_SENSOR; }, 15000) >= 0);
   uint64_t latency = 0;
   std::string json = query(3000, &latency);
   TEST_ASSERT_TRUE_MESSAGE(latency < 100000, "odpowiedź RS-485 wolniejsza niż 100 ms przy braku czujnika");

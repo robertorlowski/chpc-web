@@ -366,7 +366,13 @@ typedef struct {
   DeviceAddress addr;
   bool e;  //enabled
   double T;
+  byte fail;  //kolejne odczyty -127 (GetT, SENSOR_FAIL_READS)
 } st_tsens;
+
+//Chwilowe -127 (zakłócenie na linii OneWire, np. przy przełączaniu przekaźników): czujnik zostaje przy
+//poprzednim odczycie; -127 trafia do T (i ERRC_T_SENSOR) dopiero po tylu kolejnych odczytach (ok. 5–10 s).
+//Do 2026-10-11 wystarczyły dwa odczyty w jednym cyklu: błąd 1 w aplikacji kilka razy na dobę.
+#define SENSOR_FAIL_READS 10
 
 DeviceAddress dev_addr;  //temp
 
@@ -1005,8 +1011,13 @@ double GetT(st_tsens &s) {
       return s.T;              //zostaw poprzedni odczyt do czasu pierwszego pomiaru
     }
     if (tempdouble != -127.0) {
-      break;
+      s.fail = 0;
+      return tempdouble;
     }
+  }
+  if (s.fail < SENSOR_FAIL_READS) {
+    s.fail++;
+    return s.T;
   }
   return tempdouble;
 }
@@ -1015,8 +1026,11 @@ void Get_Temperatures(void) {
   for (byte n = 0; n < T_SENSORS; n++) {
     if (sensors[n].e) sensors[n].T = GetT(sensors[n]);
   }
-  //Ttarget: średnia z dwóch odczytów
-  if (Ttarget.e) Ttarget.T = (Ttarget.T + GetT(Ttarget)) / 2;
+  //Ttarget: średnia z dwóch odczytów; -127 bez uśredniania (inaczej np. -48 zamiast błędu czujnika)
+  if (Ttarget.e) {
+    tempdouble = GetT(Ttarget);
+    Ttarget.T = (tempdouble == -127.0 || Ttarget.T == -127.0) ? tempdouble : (Ttarget.T + tempdouble) / 2;
+  }
 
   s_allTsensors.requestTemperatures();  //global request
 }
@@ -1790,7 +1804,8 @@ void loop(void) {
     
     //--------------------important logic
     //check T sensors
-    //ERRC_T_SENSOR: -127 z Tae, Tbe, Ttarget, Tsump, Tco albo Tho (włączonych) po dwóch odczytach;
+    //ERRC_T_SENSOR: -127 z Tae, Tbe, Ttarget, Tsump, Tco albo Tho (włączonych), czyli po SENSOR_FAIL_READS
+    //kolejnych odczytach bez czujnika (GetT);
     //blokuje start, zatrzymuje sprężarkę (niżej), nie liczy się do blokady, znika sam po powrocie czujnika
     if (errorcode == ERR_OK) {
       for (e = 0; e < 2; e++) {

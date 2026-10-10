@@ -117,6 +117,41 @@ void testAllSensorsResetWhileRunningIsIgnored() {
   TEST_ASSERT_EQUAL_DOUBLE(seq, jsonNumber(query(), "ERRn"));
 }
 
+// Chwilowe -127 (zakłócenie linii OneWire, np. przy przełączaniu przekaźników) w czasie pracy:
+// czujnik zostaje przy poprzednim odczycie, bez błędu 1 i bez zatrzymania (do 2026-10-11 błąd po dwóch odczytach).
+void testShortSensorDropoutIsIgnored() {
+  const double seq = jsonNumber(query(), "ERRn");
+  for (const char *name : {"Ttarget", "Tsump", "Tae"}) {
+    SimSensor *s = sensor(name);
+    s->connected = false;
+    bool stopped = false, saw127 = false;
+    const uint64_t end = sim::now_us + 3000ULL * 1000;
+    while (sim::now_us < end) {
+      loop();
+      sim::now_us += LOOP_US;
+      stopped = stopped || !compressor();
+      saw127 = saw127 || Ttarget.T < 0 || Tsump.T < 0 || Tae.T < 0;
+    }
+    s->connected = true;
+    runMs(3000);
+    TEST_ASSERT_FALSE_MESSAGE(stopped, name);
+    TEST_ASSERT_FALSE_MESSAGE(saw127, name);
+    TEST_ASSERT_EQUAL_DOUBLE_MESSAGE(seq, jsonNumber(query(), "ERRn"), name);
+  }
+  TEST_ASSERT_EQUAL_DOUBLE(24.0, Ttarget.T);
+}
+
+// Czujnik odłączony na dłużej: błąd 1 i zatrzymanie sprężarki jak dotąd; Ttarget = -127, nie średnia z -127.
+void testLongSensorDropoutReportsError() {
+  sensor("Ttarget")->connected = false;
+  TEST_ASSERT_TRUE_MESSAGE(waitUntil([] { return jsonNumber(query(), "ERR") == ERRC_T_SENSOR; }, 30000) >= 0, "brak błędu czujnika");
+  TEST_ASSERT_EQUAL_DOUBLE(-127.0, Ttarget.T);
+  TEST_ASSERT_TRUE_MESSAGE(waitUntil([] { return !compressor(); }, 10000) >= 0, "sprężarka nie stanęła");
+  sensor("Ttarget")->connected = true;
+  runMs(5000);
+  TEST_ASSERT_EQUAL_DOUBLE(24.0, Ttarget.T);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(testDiscoveryFindsAllTwelveSensors);
@@ -124,5 +159,7 @@ int main() {
   RUN_TEST(testFirstJsonCarriesRealTemperatures);
   RUN_TEST(testSingleSensorResetWhileRunningIsIgnored);
   RUN_TEST(testAllSensorsResetWhileRunningIsIgnored);
+  RUN_TEST(testShortSensorDropoutIsIgnored);
+  RUN_TEST(testLongSensorDropoutReportsError);
   return UNITY_END();
 }
