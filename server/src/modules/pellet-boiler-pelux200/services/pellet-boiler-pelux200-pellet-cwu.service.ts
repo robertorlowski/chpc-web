@@ -11,7 +11,7 @@
 //   cooling → kocioł < PELLET_CWU_PUMP_BLOCK_BELOW (50 °C): faza idle (najdłużej MAX_COOLING_MS bez odczytu).
 // Od heating do końca cooling pompa ciepła jest wstrzymana (work_mode OFF przez PUT /hp/cwu-loading
 // z pellet_block, cwu-loading.service.ts): gorąca woda z kotła w skraplaczu zatrzymałaby ją błędem Tho.
-// Zima rozprowadza potem ciepło po CO (cykl Zimy przełącza sezon przy kotle ≥ 40 °C). Przy włączonym
+// Zima rozprowadza potem ciepło po CO (cykl Zimy przełącza sezon przy kotle ≥ max pompy ciepła − 3 °C). Przy włączonym
 // znaczniku harmonogram zleca CWU (nr 119, 123) z ustawień trybu Pellet, pompa ciepła nie ładuje CWU
 // (47–49 °C), automatyczne przejście na Pellet po rozpaleniu i wymuszanie startu pompy w cyklu Zimy stoją.
 import { sendMessage } from '../../../core/websocket';

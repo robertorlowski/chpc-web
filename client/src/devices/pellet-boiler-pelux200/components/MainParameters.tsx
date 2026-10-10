@@ -452,7 +452,7 @@ export const MainParameters: React.FC = () => {
   // Sezon: Tryb LATO (nr 125), 0 Zima / 1 Lato / 2 Auto (kolejność z PyPlumIO, na kotle niepotwierdzona)
   const summer = findIn(settings ?? null, { kind: 'ecomax', index: 125 });
   const [seasonError, setSeasonError] = useState('');
-  // tryb pompy ciepła: Zimą steruje cykl na serwerze (Zima przy kotle ≥ 40 °C, Lato przy < 30 °C i stojącej
+  // tryb pompy ciepła: Zimą steruje cykl na serwerze (Zima przy kotle ≥ max pompy ciepła − 3 °C, Lato przy < 30 °C i stojącej
   // pompie CO); przycisk zapisuje wybrany sezon (PUT /season), a stan cyklu jest w GET /schedules/current
   // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: bez sekcji „Tryb pracy”
   // i bez cyklu Zimy (serwer też traktuje kocioł jak Pellet).
@@ -479,7 +479,7 @@ export const MainParameters: React.FC = () => {
   const setSeason = async (value: number, label: string) => {
     if (heatPumpMode) {
       const message = value === 0
-        ? 'Przełączyć na Zimę z pompą ciepła? Kocioł przejdzie na Zimę, gdy będzie miał co najmniej 40 °C (do tego czasu pompa ciepła dostaje wymuszenie startu), a wróci na Lato poniżej 30 °C przy stojącej pompie CO.'
+        ? 'Przełączyć na Zimę z pompą ciepła? Kocioł przejdzie na Zimę, gdy kocioł albo woda w pompie ciepła osiągnie temperaturę, do której grzeje pompa, minus 3 °C (do tego czasu pompa ciepła dostaje wymuszenie startu), a wróci na Lato poniżej 30 °C przy stojącej pompie CO.'
         : 'Przełączyć kocioł na Lato?';
       if (!window.confirm(message)) return;
       try {

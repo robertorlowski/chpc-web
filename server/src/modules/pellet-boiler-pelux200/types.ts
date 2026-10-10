@@ -237,6 +237,8 @@ export interface PelletBoilerScheduleSettings {
   autoPellet?: PelletBoilerAutoPellet;
   /** cykl Zimy w trybie pompy ciepła (pellet-boiler-pelux200-winter-cycle.service.ts); null = nie działa */
   winterCycle?: PelletBoilerWinterCycle | null;
+  /** zadana mieszacza 1 obniżona przez cykl Zimy, do przywrócenia; null = nie obniżona */
+  winterMixer?: PelletBoilerWinterMixer | null;
   /** sezon wybrany przyciskiem w Ustawieniach (tryb pompy ciepła); obowiązuje do zmiany sezonu z harmonogramu */
   manualSeason?: PelletBoilerManualSeason | null;
   /** CWU z peletu w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts) */
@@ -291,14 +293,35 @@ export type PelletBoilerPelletCwu = {
   error?: string | null;
 };
 
-/** Cykl Zimy: waiting = Lato, czeka na kocioł ≥ 40 °C; winter = Zima do kotła < 30 °C przy stojącej pompie CO. */
+/** Cykl Zimy: waiting = Lato, czeka na kocioł ≥ max pompy ciepła − 3 °C; winter = Zima do kotła < 30 °C przy stojącej pompie CO. */
 export type PelletBoilerWinterCycle = {
   phase: 'waiting' | 'winter';
   since: Date;
   /** temperatura kotła (heating_temp) z ostatniego świeżego odczytu [°C] */
   temperature: number | null;
+  /** próg Zimy w fazie waiting: max pompy ciepła (HP.Tmax) − 3 °C, bez jej danych 45 °C */
+  winterFrom?: number;
+  /** HP.Ttarget pompy ciepła w fazie waiting (próg Zimy sprawdzany też na nim) [°C] */
+  pumpTemperature?: number | null;
   /** ostatnie wymuszenie startu sprężarki pompy ciepła */
   forcedAt?: Date | null;
+  /** zadana mieszacza 1 obniżona przez cykl (do wyświetlenia; stan w winterMixer) */
+  mixer?: PelletBoilerWinterMixer;
+};
+
+/** Mieszacz 1 w cyklu Zimy: zadana obniżona do minimum razem z Latem; na Zimie wraca, gdy woda w pompie osiągnie
+ *  HP.Tmin, utrzyma wartość 15 min albo wzrośnie o 5 °C. */
+export type PelletBoilerWinterMixer = {
+  /** zadana przed obniżeniem (wraca) i obniżona [°C, surowo] */
+  saved: number;
+  lowered: number;
+  loweredAt: Date;
+  /** wartość odniesienia wody w pompie (HP.Ttarget) na Zimie i od kiedy ją trzyma */
+  reference?: number | null;
+  referenceAt?: Date | null;
+  /** minimalna zadana pompy (HP.Tmin) z ostatniego kroku [°C]; belowMin = woda na Zimie spadła poniżej niej */
+  restoreFrom?: number;
+  belowMin?: boolean;
 };
 
 export type PelletBoilerManualSeason = {

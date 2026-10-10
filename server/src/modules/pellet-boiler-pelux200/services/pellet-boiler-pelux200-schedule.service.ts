@@ -17,7 +17,7 @@
 // zewnętrzna z czujnika kotła (outside_temp z ostatniego odczytu) jest poniżej progu (z histerezą SEASON_COLD_HYSTERESIS: działający
 // wpis zostaje do progu + 1 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
 // harmonogram sezonem nie steruje. Zmiany sezonu i CWU idą do kotła jednym zleceniem (createCommands).
-// W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ 40 °C,
+// W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ max pompy ciepła − 3 °C,
 // Lato przy kotle < 30 °C i stojącej pompie CO, w Lecie wymuszanie startu pompy ciepła. Przycisk Lato/Zima
 // w Ustawieniach (tryb pompy ciepła) zapisuje sezon (manualSeason), który wygrywa do zmiany sezonu z harmonogramu.
 // Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C) i CWU z peletu
