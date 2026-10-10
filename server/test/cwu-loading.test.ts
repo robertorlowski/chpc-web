@@ -279,7 +279,7 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     const switchOn = await request(app).post(api('commands')).send({ changes: [...heatPumpProfile, { kind: 'control', index: 0, value: 1 }] });
     expect(switchOn.status).toBe(409);
     expect(switchOn.body.turnOn).toMatchObject({ mode: 'heat-pump', ignites: true, cause: 'cwu', target: 55, startBelow: 35, cwuStartBelow: 35 });
-    expect(switchOn.body.message).toMatch(/16.8 °C, a rozpali się poniżej 35 °C/);
+    expect(switchOn.body.message).toMatch(/Zbyt niska temperatura kotła/);
     expect((await request(app).get(api('commands'))).body).toEqual([]);
 
     // kopia z 4.10 (tryb pompy ciepła: zadana 30, histereza 30, CWU 40 / 5): CWU czeka → zadana 45, rozpalenie poniżej 15 °C

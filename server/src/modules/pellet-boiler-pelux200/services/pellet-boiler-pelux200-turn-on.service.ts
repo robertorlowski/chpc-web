@@ -80,15 +80,10 @@ export async function predictIgnition(rootId: string, changes: PelletBoilerComma
   return result;
 }
 
-// Opis dla aplikacji (okno po „Włącz regulator” i komunikat 409).
-export function describeIgnition(check: PelletBoilerTurnOnCheck) {
-  const why = check.cause === 'cwu'
-    ? `CWU (${check.cwuTemp?.toFixed(1)} °C) jest poniżej ${check.cwuStartBelow} °C, więc regulator podniesie zadaną kotła do ${check.target} °C`
-    : check.cause === 'mixer'
-      ? `zimą mieszacz podniesie zadaną kotła do ${check.target} °C`
-      : `zadana kotła to ${check.target} °C`;
-  return `W trybie Pompa ciepła kocioł ma ${check.boilerTemp?.toFixed(1)} °C, a rozpali się poniżej ${check.startBelow} °C: ${why}. `
-    + 'Zaraz po rozpaleniu serwer przełączyłby kocioł na Pellet. Najpierw przełącz kocioł na Pellet albo uruchom pompę ciepła.';
+// Komunikat dla aplikacji (okno „Uwaga” po „Włącz regulator” i odpowiedź 409; tekst użytkownika 2026-10-10).
+// Liczby (temperatura kotła, próg, przyczyna) są w samym check.
+export function describeIgnition(_check: PelletBoilerTurnOnCheck) {
+  return 'Zbyt niska temperatura kotła — wymagane jest uruchomienie pompy ciepła lub przełączenie trybu pracy na Pellet.';
 }
 
 // Zlecenie z aplikacji: przy „włącz” w trybie pompy ciepła, które rozpaliłoby kocioł — 409 z opisem.

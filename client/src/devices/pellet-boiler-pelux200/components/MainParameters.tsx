@@ -850,11 +850,9 @@ export const MainParameters: React.FC = () => {
         <div className="device-modal-backdrop" onClick={() => setTurnOnBlock(null)}>
           <div className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-turn-on-title"
             onClick={(event) => event.stopPropagation()}>
-            <h2 id="boiler-turn-on-title">Kocioł rozpali się na pellecie</h2>
-            <div>{turnOnBlock.message}</div>
-            <div className="boiler-hint">
-              „Uruchom pompę ciepła” włącza pompę ciepła (tryb ręczny), a kocioł włączy się sam, gdy woda w nim osiągnie
-              {' '}{turnOnBlock.startBelow ?? '…'} °C.
+            <h2 id="boiler-turn-on-title">Uwaga</h2>
+            <div>
+              Zbyt niska temperatura kotła — wymagane jest uruchomienie pompy ciepła lub przełączenie trybu pracy na Pellet.
             </div>
             {turnOnError && <p className="device-modal-error">{turnOnError}</p>}
             <div className="device-modal-actions">
