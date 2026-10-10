@@ -74,11 +74,23 @@ void printCentered(Adafruit_ST7735 &display, const char *text, int16_t y, int16_
   display.print(text);
 }
 
-// Temperatura z telemetrii z jednym miejscem po przecinku; brak = "--".
+// Temperatura z telemetrii z jednym miejscem po przecinku; brak = "--". CHPC wysyła temperatury jako
+// napisy ("Ttarget":"17.4"), więc napis też jest liczbą (1.2.3 pokazywało dla nich „--”).
 String oneDecimal(JsonVariantConst value)
 {
-  if (value.isNull() || !(value.is<float>() || value.is<int>())) return "--";
-  return String(value.as<float>(), 1);
+  if (value.isNull()) return "--";
+  float number = 0;
+  if (value.is<const char *>()) {
+    const char *text = value.as<const char *>();
+    char *end = nullptr;
+    number = strtof(text, &end);
+    if (end == text) return "--";
+  } else if (value.is<float>() || value.is<int>()) {
+    number = value.as<float>();
+  } else {
+    return "--";
+  }
+  return String(number, 1);
 }
 
 String jsonValueToString(JsonVariantConst value)
