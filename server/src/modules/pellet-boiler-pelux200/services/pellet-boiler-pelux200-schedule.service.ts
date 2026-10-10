@@ -45,6 +45,7 @@ import { HeatPumpControl, heatPumpControl, runWinterCycle, stopWinterCycle } fro
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 import { effectiveBoilerMode, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu, runPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
+import { getPendingTurnOn, runPendingTurnOn } from './pellet-boiler-pelux200-turn-on.service';
 
 export { boilerMode };
 
@@ -372,6 +373,7 @@ export async function runPelletBoilerSchedulerOnce(now = new Date()) {
   for (const device of devices) {
     await applySchedule(String(device._id), now);
     await runPelletCwu(String(device._id), now).catch((error) => console.error('[pellet cwu z peletu] error:', error));
+    await runPendingTurnOn(String(device._id), now).catch((error) => console.error('[pellet] włączenie po nagrzaniu:', error));
     await evaluateCwuLoading(String(device._id), now).catch((error) => console.error('[pellet cwu] error:', error));
   }
 }
@@ -440,10 +442,12 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
     .lean<{ winterCycle?: PelletBoilerWinterCycle | null; manualSeason?: PelletBoilerManualSeason | null }>();
   // pelletCwu: CWU z peletu w trybie pompy ciepła (znacznik, faza, CWU od–do trybu Pellet)
   const pelletCwu = await getPelletCwu(rootId);
+  // pendingTurnOn: włączenie regulatora czeka na nagrzanie kotła (turn-on.service.ts)
+  const pendingTurnOn = await getPendingTurnOn(rootId);
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
   return {
     enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
-    winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null, pelletCwu, lastError: settings.lastError ?? null,
+    winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null, pelletCwu, pendingTurnOn, lastError: settings.lastError ?? null,
   };
 }
 

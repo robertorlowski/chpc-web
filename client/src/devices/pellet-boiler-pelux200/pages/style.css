@@ -263,6 +263,19 @@
   margin-top: 0.2rem;
 }
 
+/* zwykły znacznik na stronie (np. „Grzej CWU peletem”): pole wyrównane do środka napisu */
+.boiler-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.boiler-check input {
+  width: auto;
+  margin: 0;
+}
+
 .boiler-commands {
   list-style: none;
   margin: 0;

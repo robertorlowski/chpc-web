@@ -1,7 +1,8 @@
 import { Requests } from '../../core/http';
 import {
   PelletBoilerAlerts, PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerFuel, PelletBoilerFuelPeriod, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
-  PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
+  PelletBoilerPendingTurnOn, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
+  PelletBoilerTurnOnCheck,
 } from './types';
 
 // Kocioł pelletowy Pellux 200: odczyty ze sterownika (/api/pellet-boiler-pelux200/*);
@@ -64,6 +65,16 @@ export class PelletBoilerRequests {
 
   static getCurrentSchedule(): Promise<PelletBoilerCurrentSchedule | null> {
     return Requests.get('/pellet-boiler-pelux200/schedules/current');
+  }
+
+  // „Włącz regulator” w trybie pompy ciepła: czy rozpali kocioł na pellecie
+  static getTurnOn(): Promise<PelletBoilerTurnOnCheck | null> {
+    return Requests.get('/pellet-boiler-pelux200/turn-on');
+  }
+
+  // włączenie po nagrzaniu kotła (when-warm), z uruchomieniem pompy ciepła (start-heat-pump) albo anulowanie
+  static postTurnOn(action: 'when-warm' | 'start-heat-pump' | 'cancel'): Promise<PelletBoilerPendingTurnOn | null> {
+    return Requests.post('/pellet-boiler-pelux200/turn-on', { action }) as Promise<PelletBoilerPendingTurnOn | null>;
   }
 
   // znacznik „CWU grzej peletem” (tryb pompy ciepła); rzuca wyjątek przy błędzie

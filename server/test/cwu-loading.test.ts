@@ -19,10 +19,14 @@ import { evaluateCwuLoading } from '../src/modules/pellet-boiler-pelux200/servic
 import { applySchedule } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { checkAutoPellet } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-auto-pellet.service'
 import { runPelletCwu } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-pellet-cwu.service'
+import { runPendingTurnOn } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-turn-on.service'
+import { DEFAULT_SCHEDULE_SETTINGS } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { PelletBoilerCommandModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-command.model'
 
 const archiveHeatPump = JSON.parse(readFileSync(resolve(__dirname,
   '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));
+// warunki z kotła 2026-10-10 (odczyt i ustawienia regulatora z płytki, tryb Pellet)
+const today = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/kociol-2026-10-10.json'), 'utf-8'));
 const archivePellet = JSON.parse(readFileSync(resolve(__dirname,
   '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-03.json'), 'utf-8'));
 
@@ -252,5 +256,61 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     expect(operation().work_mode).toBe('A');
     // harmonogram wraca do CWU pompy ciepła (35–40; odczyt ustawień w teście ma już 40 / 5, więc bez zleceń)
     expect((await request(app).get(api('schedule-settings'))).body.lastApplied).toMatchObject({ cwuFrom: 35, cwuTo: 40 });
+  });
+
+  it('„Włącz regulator” w trybie pompy ciepła: blokada, gdy kocioł rozpaliłby się na pellecie; włączenie po nagrzaniu', async () => {
+    const sn = 'AABBCC0000B5';
+    const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
+    const reading = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(body).expect(201);
+    const controls = async () => ((await request(app).get(api('commands'))).body as { kind: string; value: number }[]).filter((c) => c.kind === 'control');
+    // warunki z kotła 2026-10-10 (fixture): tryb Pellet, kocioł 16,8 °C, CWU 21,3 °C, CWU 50 / 15, podwyższenie 5
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(today.raw_hex).expect(201);
+    await reading(today.odczyt);
+    // w trybie Pellet włączenie jest dozwolone
+    expect((await request(app).get(api('turn-on'))).body).toMatchObject({ mode: 'pellet', blocked: false });
+    // przełączenie na Pompę ciepła z włączeniem na końcu: zadana 30 → CWU podnosi do 55, histereza 20 → rozpali się
+    // poniżej 35 °C — odrzucone w całości (nastawy też nie idą)
+    const heatPumpProfile = Object.entries(DEFAULT_SCHEDULE_SETTINGS.profiles['heat-pump']).map(([key, value]) => {
+      const [kind, index] = key.split(':');
+      return kind === 'ecomax' ? { kind, index: Number(index), value } : { kind: 'mixer', mixer: Number(kind.slice(5)), index: Number(index), value };
+    });
+    const switchOn = await request(app).post(api('commands')).send({ changes: [...heatPumpProfile, { kind: 'control', index: 0, value: 1 }] });
+    expect(switchOn.status).toBe(409);
+    expect(switchOn.body.turnOn).toMatchObject({ mode: 'heat-pump', ignites: true, cause: 'cwu', target: 55, startBelow: 35, cwuStartBelow: 35 });
+    expect(switchOn.body.message).toMatch(/16.8 °C, a rozpali się poniżej 35 °C/);
+    expect((await request(app).get(api('commands'))).body).toEqual([]);
+
+    // kopia z 4.10 (tryb pompy ciepła: zadana 30, histereza 30, CWU 40 / 5): CWU czeka → zadana 45, rozpalenie poniżej 15 °C
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    await reading({ state: 0, heating_temp: 10, water_heater_temp: 21 });
+    const check = (await request(app).get(api('turn-on'))).body;
+    expect(check).toMatchObject({ mode: 'heat-pump', ignites: true, cause: 'cwu', blocked: true, target: 45, startBelow: 15 });
+    const refused = await request(app).post(api('commands')).send({ changes: [{ kind: 'control', index: 0, value: 1 }] });
+    expect(refused.status).toBe(409);
+    expect(await controls()).toEqual([]);
+
+    // „Uruchom pompę ciepła”: pompa z OFF na ręczny, kocioł czeka na nagrzanie
+    const pumpProps = `/api/device/properties?rootId=${pumpRoot}`;
+    const props = (await request(app).get(pumpProps)).body;
+    await request(app).put(pumpProps).send({ ...props, work_mode: 'OFF' }).expect(200);
+    const pending = await request(app).post(api('turn-on')).send({ action: 'start-heat-pump' });
+    expect(pending.body).toMatchObject({ startBelow: check.startBelow, heatPumpStarted: true });
+    expect((await request(app).get(pumpProps)).body.work_mode).toBe('MANUAL');
+    expect((await runPendingTurnOn(boilerRoot))?.startBelow).toBe(check.startBelow);
+    expect(await controls()).toEqual([]);
+
+    // kocioł nagrzany przez pompę ciepła: włączenie idzie samo, czekanie znika
+    await reading({ state: 0, heating_temp: check.startBelow + 1, water_heater_temp: 21 });
+    expect(await runPendingTurnOn(boilerRoot)).toBeNull();
+    expect((await controls()).map((c) => c.value)).toEqual([1]);
+    expect((await request(app).get(api('schedules/current'))).body.pendingTurnOn).toBeNull();
+
+    // CWU z peletu: rozpalenie na CWU jest zamierzone — bez blokady
+    await reading({ state: 0, heating_temp: 17, water_heater_temp: 21 });
+    await request(app).put(api('pellet-cwu')).send({ enabled: true }).expect(200);
+    expect((await request(app).get(api('turn-on'))).body.blocked).toBe(false);
+    expect((await request(app).post(api('turn-on')).send({ action: 'nie' })).status).toBe(400);
   });
 });

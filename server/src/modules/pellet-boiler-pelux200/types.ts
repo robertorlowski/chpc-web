@@ -239,7 +239,32 @@ export interface PelletBoilerScheduleSettings {
   manualSeason?: PelletBoilerManualSeason | null;
   /** CWU z peletu w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts) */
   pelletCwu?: PelletBoilerPelletCwu;
+  /** włączenie regulatora po nagrzaniu kotła (pellet-boiler-pelux200-turn-on.service.ts); null = nie czeka */
+  pendingTurnOn?: PelletBoilerPendingTurnOn | null;
 }
+
+/** Czy włączenie regulatora rozpali kocioł (tryb pompy ciepła): zadana i próg z nastaw i odczytu. */
+export type PelletBoilerTurnOnCheck = {
+  mode: 'heat-pump' | 'pellet';
+  ignites: boolean;
+  /** co podnosi zadaną: boiler = sama zadana kotła, cwu = ładowanie CWU, mixer = mieszacz zimą */
+  cause: 'boiler' | 'cwu' | 'mixer' | null;
+  boilerTemp: number | null;
+  cwuTemp: number | null;
+  /** zadana po podniesieniu [°C] i próg rozpalenia (zadana − histereza) */
+  target?: number;
+  startBelow?: number;
+  /** CWU ładuje się poniżej (zadana CWU − histereza) */
+  cwuStartBelow?: number;
+};
+
+/** Włączenie regulatora czeka, aż kocioł nagrzeje się do startBelow (wtedy w trybie pompy ciepła się nie rozpali). */
+export type PelletBoilerPendingTurnOn = {
+  since: Date;
+  startBelow: number | null;
+  /** pompa ciepła była wyłączona i została uruchomiona (tryb ręczny) */
+  heatPumpStarted: boolean;
+};
 
 /**
  * CWU z peletu w trybie „Pompa ciepła”: idle = czeka na CWU poniżej „od” (ustawienia trybu Pellet);

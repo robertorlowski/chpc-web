@@ -167,6 +167,8 @@ export type PelletBoilerCurrentSchedule = {
   manualSeason?: PelletBoilerSeason | null;
   /** CWU z peletu w trybie pompy ciepła (znacznik w Ustawieniach) */
   pelletCwu?: PelletBoilerPelletCwu;
+  /** włączenie regulatora czeka na nagrzanie kotła; null = nie czeka */
+  pendingTurnOn?: PelletBoilerPendingTurnOn | null;
   lastError: string | null;
 };
 
@@ -174,6 +176,28 @@ export type PelletBoilerCurrentSchedule = {
  * CWU z peletu w trybie „Pompa ciepła” (serwer: pellet-boiler-pelux200-pellet-cwu.service.ts): idle = czeka na CWU
  * poniżej „od” trybu Pellet, heating = kocioł grzeje CWU peletem, cooling = pompa ciepła czeka na kocioł < 50 °C.
  */
+/** Czy „Włącz regulator” rozpali kocioł w trybie pompy ciepła (GET …/turn-on, 409 przy „włącz”). */
+export type PelletBoilerTurnOnCheck = {
+  mode: PelletBoilerMode;
+  ignites: boolean;
+  cause: 'boiler' | 'cwu' | 'mixer' | null;
+  boilerTemp: number | null;
+  cwuTemp: number | null;
+  target?: number;
+  startBelow?: number;
+  cwuStartBelow?: number;
+  /** włączenie zablokowane (GET); message: opis dla okna */
+  blocked?: boolean;
+  message?: string;
+};
+
+/** Włączenie regulatora czeka, aż kocioł nagrzeje się do startBelow. */
+export type PelletBoilerPendingTurnOn = {
+  since: string;
+  startBelow: number | null;
+  heatPumpStarted: boolean;
+};
+
 export type PelletBoilerPelletCwu = {
   enabled: boolean;
   phase: 'idle' | 'heating' | 'cooling';

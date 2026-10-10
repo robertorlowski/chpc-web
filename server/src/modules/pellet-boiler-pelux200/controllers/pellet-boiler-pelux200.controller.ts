@@ -26,6 +26,8 @@ import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boile
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
 import { setPelletCwuEnabled } from '../services/pellet-boiler-pelux200-pellet-cwu.service';
+import { describeIgnition, predictIgnition, turnOnAction, turnOnCheck } from '../services/pellet-boiler-pelux200-turn-on.service';
+import { PelletBoilerCommandChange } from '../types';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 
@@ -147,8 +149,14 @@ const commandError = (res: Response, error: unknown) => {
 };
 
 // POST /commands (aplikacja): {changes: [{kind, mixer?, index, value}]} → 201 z utworzonymi zleceniami.
+// „Włącz” w trybie pompy ciepła, które rozpaliłoby kocioł: 409 {message, turnOn} (turn-on.service.ts).
 export async function addPelletBoilerPelux200Commands(req: Request, res: Response) {
   try {
+    const changes = (req.body as { changes?: unknown })?.changes;
+    if (Array.isArray(changes)) {
+      const check = await turnOnCheck(req.deviceRootId as string, changes as PelletBoilerCommandChange[]);
+      if (check) return res.status(409).json({ message: describeIgnition(check), turnOn: check });
+    }
     return res.status(201).json(await createCommands(req.deviceRootId as string, req.body));
   } catch (error) {
     return commandError(res, error);
@@ -235,6 +243,32 @@ export async function putPelletBoilerSeason(req: Request<{}, {}, { season?: unkn
     return res.status(200).json(await getCurrentSchedule(req.deviceRootId as string));
   } catch (error) {
     return scheduleError(res, error);
+  }
+}
+
+// GET /pellet-boiler-pelux200/turn-on → {check, message?} — czy „Włącz regulator” rozpali kocioł w trybie pompy ciepła
+// (check.blocked: aplikacja pokazuje okno zamiast zwykłego pytania).
+export async function getPelletBoilerTurnOn(req: Request, res: Response) {
+  try {
+    const rootId = req.deviceRootId as string;
+    const blocked = await turnOnCheck(rootId, [{ kind: 'control', index: 0, value: 1 }]);
+    const check = blocked ?? await predictIgnition(rootId);
+    return res.status(200).json({ ...check, blocked: !!blocked, ...(blocked ? { message: describeIgnition(blocked) } : {}) });
+  } catch (error) {
+    return commandError(res, error);
+  }
+}
+
+// POST /pellet-boiler-pelux200/turn-on {action: when-warm | start-heat-pump | cancel} → czekające włączenie albo null
+export async function postPelletBoilerTurnOn(req: Request<{}, {}, { action?: unknown }>, res: Response) {
+  const action = req.body?.action;
+  if (action !== 'when-warm' && action !== 'start-heat-pump' && action !== 'cancel') {
+    return res.status(400).json({ message: 'action: when-warm, start-heat-pump albo cancel.' });
+  }
+  try {
+    return res.status(200).json(await turnOnAction(req.deviceRootId as string, action));
+  } catch (error) {
+    return commandError(res, error);
   }
 }
 

@@ -7,6 +7,7 @@ import {
   getPelletBoilerSchedules, postPelletBoilerSchedule, putPelletBoilerSchedule, deletePelletBoilerSchedule,
   getPelletBoilerCwuLoading, getPelletBoilerAutoPellet, acknowledgePelletBoilerAutoPellet, putPelletBoilerSeason,
   addPelletBoilerPelux200Alerts, getPelletBoilerPelux200Alerts, getPelletBoilerPelux200Fuel, putPelletBoilerPelletCwu,
+  getPelletBoilerTurnOn, postPelletBoilerTurnOn,
 } from './controllers/pellet-boiler-pelux200.controller'
 
 // Kocioł pelletowy Pellux 200: zapis odczytu (sterownik pieca), ostatni odczyt, lista dnia
@@ -32,6 +33,9 @@ router.get('/pellet-boiler-pelux200/schedules/current', getPelletBoilerCurrentSc
 router.put('/pellet-boiler-pelux200/season', putPelletBoilerSeason)
 // znacznik „CWU grzej peletem” w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts)
 router.put('/pellet-boiler-pelux200/pellet-cwu', putPelletBoilerPelletCwu)
+// „Włącz regulator” w trybie pompy ciepła: czy rozpali kocioł, włączenie po nagrzaniu, uruchomienie pompy ciepła
+router.get('/pellet-boiler-pelux200/turn-on', getPelletBoilerTurnOn)
+router.post('/pellet-boiler-pelux200/turn-on', postPelletBoilerTurnOn)
 // ładowanie CWU w trybie pompy ciepła (pompa ciepła grzeje wtedy 47–49 °C), dla ekranu głównego kotła
 router.get('/pellet-boiler-pelux200/cwu-loading', getPelletBoilerCwuLoading)
 // automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła: komunikat na ekranie i „OK”

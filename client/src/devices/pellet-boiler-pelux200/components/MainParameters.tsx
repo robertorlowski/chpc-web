@@ -11,7 +11,7 @@ import '../../../core/components/deviceEditModal.css';
 import { PelletBoilerRequests } from '../api';
 import {
   PelletBoilerChange, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerParameter,
-  PelletBoilerScheduleSettings, PelletBoilerReading, PelletBoilerSettings,
+  PelletBoilerScheduleSettings, PelletBoilerReading, PelletBoilerSettings, PelletBoilerTurnOnCheck,
 } from '../types';
 import { WinterCycleStatus } from './WinterCycleStatus';
 import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
@@ -429,9 +429,24 @@ export const MainParameters: React.FC = () => {
       setProfile(null);
       setProfileError('');
       load();
-    } else {
-      setProfileError(await errorMessage(response));
+      return;
     }
+    // „włącz” rozpaliłoby kocioł w trybie pompy ciepła (serwer: 409 z turnOn): nastawy idą bez „włącz”,
+    // a okno proponuje przełączenie na Pellet albo uruchomienie pompy ciepła
+    const body = response?.status === 409 ? await response.json().catch(() => null) : null;
+    if (body?.turnOn && on.length) {
+      const retry = await PelletBoilerRequests.postCommands([...off, ...changes]);
+      if (retry?.status === 201) {
+        setProfile(null);
+        setProfileError('');
+        setTurnOnBlock({ ...body.turnOn, message: body.message });
+        load();
+        return;
+      }
+      setProfileError(await errorMessage(retry));
+      return;
+    }
+    setProfileError(body?.message ?? await errorMessage(response));
   };
 
   // Sezon: Tryb LATO (nr 125), 0 Zima / 1 Lato / 2 Auto (kolejność z PyPlumIO, na kotle niepotwierdzona)
@@ -449,7 +464,6 @@ export const MainParameters: React.FC = () => {
   // znacznik „CWU grzej peletem” (PUT /pellet-cwu); odpowiedź to nowy stan harmonogramu z fazą cyklu
   const [pelletCwuSaving, setPelletCwuSaving] = useState(false);
   const [pelletCwuError, setPelletCwuError] = useState('');
-  const pelletProfile = (key: string, fallback: number) => scheduleSettings?.profiles.pellet[key] ?? fallback;
   const setPelletCwu = async (enabled: boolean) => {
     setPelletCwuSaving(true);
     try {
@@ -500,10 +514,41 @@ export const MainParameters: React.FC = () => {
   const regulatorOn = boilerState === undefined ? undefined : boilerState !== 0;
   const controlPending = commands.find((command) => command.kind === 'control' && (command.status === 'pending' || command.status === 'sent'));
   const [workError, setWorkError] = useState('');
+  // Okno po „Włącz regulator” w trybie pompy ciepła, gdy kocioł rozpaliłby się na pellecie (turn-on.service.ts
+  // na serwerze): przełączenie na Pellet albo uruchomienie pompy ciepła z włączeniem kotła po nagrzaniu.
+  const [turnOnBlock, setTurnOnBlock] = useState<PelletBoilerTurnOnCheck | null>(null);
+  const [turnOnError, setTurnOnError] = useState('');
+  const startHeatPump = async () => {
+    const pending = await PelletBoilerRequests.postTurnOn('start-heat-pump') as { message?: string; since?: string } | null;
+    if (!pending?.since) {
+      setTurnOnError(pending?.message ?? 'Nie udało się uruchomić pompy ciepła.');
+      return;
+    }
+    setTurnOnBlock(null);
+    setTurnOnError('');
+    PelletBoilerRequests.getCurrentSchedule().then(setCurrent);
+  };
+  const switchToPellet = () => {
+    setTurnOnBlock(null);
+    const pellet = profiles.find((item) => item.key === 'pellet');
+    if (pellet) openProfile(pellet);
+  };
+  const cancelPendingTurnOn = async () => {
+    await PelletBoilerRequests.postTurnOn('cancel');
+    PelletBoilerRequests.getCurrentSchedule().then(setCurrent);
+  };
   const setWork = async (on: boolean) => {
     if (!scheduleSettings) return;
     // regulator już w żądanym stanie (odczyt): zmienia się tylko harmonogram
     const regulatorAlready = regulatorOn === on;
+    if (on && !regulatorAlready) {
+      const check = await PelletBoilerRequests.getTurnOn();
+      if (check?.blocked) {
+        setTurnOnError('');
+        setTurnOnBlock(check);
+        return;
+      }
+    }
     const question = on
       ? (regulatorAlready
         ? 'Regulator już pracuje. Uruchomić harmonogram CWU?'
@@ -518,7 +563,10 @@ export const MainParameters: React.FC = () => {
       }
       if (!regulatorAlready) {
         const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }]);
-        setWorkError(response?.status === 201 ? '' : await errorMessage(response));
+        // 409 z turnOn: odczyt zmienił się między sprawdzeniem a zleceniem — to samo okno
+        const body = response?.status === 409 ? await response.json().catch(() => null) : null;
+        if (body?.turnOn) setTurnOnBlock({ ...body.turnOn, message: body.message });
+        setWorkError(response?.status === 201 || body?.turnOn ? '' : body?.message ?? await errorMessage(response));
       } else {
         setWorkError('');
       }
@@ -593,28 +641,20 @@ export const MainParameters: React.FC = () => {
             </button>
           ))}
         </div>
-        <div className="boiler-hint">
-          Obecny: <strong>{currentMode}</strong> (z minimalnej temperatury kotła). Przełączenie zleca nastawy
-          trybu z Ustawień zaawansowanych (grupa „Pompa ciepła / Pellet”); CWU ustawia harmonogram trybu.
-          Zmiana tylko przy kotle wyłączonym albo na postoju.
-        </div>
         {modeChangePending && <div className="boiler-hint"><strong>Zmiana trybu czeka na wyłączenie kotła.</strong></div>}
         {modeBlocked && <div className="boiler-error">{modeBlocked}</div>}
 
         {/* CWU z peletu w trybie pompy ciepła (serwer: pellet-boiler-pelux200-pellet-cwu.service.ts) */}
         {current?.pelletCwu && (
           <div className="boiler-main-section">
-            <label className="boiler-confirm">
+            <label className="boiler-check">
               <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving}
                 onChange={(event) => setPelletCwu(event.currentTarget.checked)} />
-              CWU grzej peletem
+              Grzej CWU peletem
             </label>
             <div className="boiler-hint">
-              W trybie Pompa ciepła CWU grzeje kocioł według ustawień trybu Pellet (Harmonogram → Pellet): rozpala,
-              gdy CWU spadnie poniżej {current.pelletCwu.cwuFrom ?? '…'} °C, i grzeje do {current.pelletCwu.cwuTo ?? '…'} °C.
-              Na ten czas zadana kotła {pelletProfile('ecomax:98', 67)} °C i histereza {pelletProfile('ecomax:17', 12)} (nastawy
-              trybu Pellet), potem wracają nastawy pompy ciepła. Pompa ciepła stoi, gdy kocioł się rozpala, pali albo ma
-              co najmniej 50 °C — rusza, gdy woda rozejdzie się po CO.
+              W trybie Pompa ciepła CWU grzeje kocioł według ustawień trybu Pellet:
+              od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C.
             </div>
             {current.pelletCwu.phase === 'heating' && (
               <div className="boiler-hint">
@@ -665,6 +705,18 @@ export const MainParameters: React.FC = () => {
                 ? `${controlPending.value ? 'Włączenie' : 'Wyłączenie'} regulatora czeka na sterownik.`
                 : `Harmonogram ${scheduleSettings.enabled ? 'działa' : 'nie działa'}.`}
             </div>
+            {current?.pendingTurnOn && (
+              <div className="boiler-hint">
+                <strong>Włączenie czeka, aż kocioł osiągnie {current.pendingTurnOn.startBelow ?? '…'} °C</strong>
+                {typeof lastReading?.heating_temp === 'number' && <> (teraz {formatNumber(lastReading.heating_temp)} °C)</>}
+                {current.pendingTurnOn.heatPumpStarted && <>; pompa ciepła uruchomiona</>}.
+              </div>
+            )}
+            {current?.pendingTurnOn && (
+              <div className="boiler-profiles">
+                <button type="button" className="boiler-profile" onClick={cancelPendingTurnOn}>Anuluj włączenie</button>
+              </div>
+            )}
             {workError && <div className="boiler-error">{workError}</div>}
           </div>
         )}
@@ -792,6 +844,26 @@ export const MainParameters: React.FC = () => {
       {editing && settings && (
         <GroupEditPanel section={editing} settings={settings} reading={lastReading} onClose={() => setEditing(null)}
           onSent={() => setEditing(null)} />
+      )}
+
+      {turnOnBlock && (
+        <div className="device-modal-backdrop" onClick={() => setTurnOnBlock(null)}>
+          <div className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-turn-on-title"
+            onClick={(event) => event.stopPropagation()}>
+            <h2 id="boiler-turn-on-title">Kocioł rozpali się na pellecie</h2>
+            <div>{turnOnBlock.message}</div>
+            <div className="boiler-hint">
+              „Uruchom pompę ciepła” włącza pompę ciepła (tryb ręczny), a kocioł włączy się sam, gdy woda w nim osiągnie
+              {' '}{turnOnBlock.startBelow ?? '…'} °C.
+            </div>
+            {turnOnError && <p className="device-modal-error">{turnOnError}</p>}
+            <div className="device-modal-actions">
+              <button type="button" onClick={() => setTurnOnBlock(null)}>Anuluj</button>
+              <button type="button" onClick={switchToPellet}>Przełącz na Pellet</button>
+              <button type="button" onClick={startHeatPump}>Uruchom pompę ciepła</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {profile && (

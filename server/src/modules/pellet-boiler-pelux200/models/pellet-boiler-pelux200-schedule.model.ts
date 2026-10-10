@@ -56,6 +56,8 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
     manualSeason: { type: Schema.Types.Mixed },
     // CWU z peletu w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts): znacznik i faza
     pelletCwu: { type: Schema.Types.Mixed },
+    // włączenie regulatora po nagrzaniu kotła (pellet-boiler-pelux200-turn-on.service.ts)
+    pendingTurnOn: { type: Schema.Types.Mixed },
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200_schedule_settings', minimize: false }
 );
