@@ -3,6 +3,8 @@
 // cyklicznego: dane odświeża komunikat WebSocket „update”, który serwer wysyła po zapisie telemetrii.
 // Na górze informacja o ładowaniu CWU w kotle (GET /hp/cwu-loading, co minutę i przy „update”): kocioł
 // w trybie pompy ciepła ładuje CWU, pompa grzeje wtedy 47–49 °C; „pompa ciepła wyłączona” przy trybie OFF.
+// Czerwony pasek „Pompa ciepła wstrzymana” w górnym panelu (jak „Offline od …”), gdy serwer wstrzymuje pompę, bo kocioł
+// pali albo jest gorący (pelletBlock z GET /hp/cwu-loading): tryb w Ustawieniach zostaje, sterownik dostaje OFF.
 import './style.css';
 import { HpRequests } from '../../api';
 import { wsAddressServer } from '../../../../core/http';
@@ -163,6 +165,11 @@ const HP: React.FC = () => {
         <div className="resource">
           {stale && dataAge !== undefined && (
             <OfflineBanner since={readAt} now={now} detail={coResponding ? 'sterownik działa, pompa (CHPC) nie odpowiada.' : 'brak łączności ze sterownikiem.'} />
+          )}
+          {cwuLoading?.pelletBlock && (
+            <div className="offline-banner" role="alert">
+              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej 48 °C.
+            </div>
           )}
           <div className={`heet${stale ? ' hp-stale-data' : ''}`}>
             <div className="heat head">
