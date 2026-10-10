@@ -296,13 +296,20 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     const props = (await request(app).get(pumpProps)).body;
     await request(app).put(pumpProps).send({ ...props, work_mode: 'OFF' }).expect(200);
     const pending = await request(app).post(api('turn-on')).send({ action: 'start-heat-pump' });
-    expect(pending.body).toMatchObject({ startBelow: check.startBelow, heatPumpStarted: true });
+    expect(pending.body).toMatchObject({ startBelow: 47, heatPumpStarted: true });
     expect((await request(app).get(pumpProps)).body.work_mode).toBe('MANUAL');
-    expect((await runPendingTurnOn(boilerRoot))?.startBelow).toBe(check.startBelow);
+    expect((await runPendingTurnOn(boilerRoot))?.startBelow).toBe(47);
+    expect(await controls()).toEqual([]);
+    // czekanie: pompa ciepła grzeje 47–49 °C
+    await evaluateCwuLoading(boilerRoot);
+    expect(operation()).toMatchObject({ co_max: '49', cwu_max: '49' });
+    // kocioł ponad progiem rozpalenia, ale poniżej 47 °C: nadal czeka (ładowanie CWU wychłodziłoby wodę)
+    await reading({ state: 0, heating_temp: 30, water_heater_temp: 21 });
+    expect((await runPendingTurnOn(boilerRoot))?.startBelow).toBe(47);
     expect(await controls()).toEqual([]);
 
-    // kocioł nagrzany przez pompę ciepła: włączenie idzie samo, czekanie znika
-    await reading({ state: 0, heating_temp: check.startBelow + 1, water_heater_temp: 21 });
+    // kocioł nagrzany przez pompę ciepła do 47 °C: włączenie idzie samo, czekanie znika
+    await reading({ state: 0, heating_temp: 47, water_heater_temp: 21 });
     expect(await runPendingTurnOn(boilerRoot)).toBeNull();
     expect((await controls()).map((c) => c.value)).toEqual([1]);
     expect((await request(app).get(api('schedules/current'))).body.pendingTurnOn).toBeNull();

@@ -21,6 +21,7 @@ import { PelletBoilerCwuLoading } from '../types';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { effectiveBoilerMode, linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu, pelletCwuBlocksPump } from './pellet-boiler-pelux200-pellet-cwu.service';
+import { getPendingTurnOn } from './pellet-boiler-pelux200-turn-on.service';
 
 // odczyt starszy niż to nie świadczy o ładowaniu (kocioł bez łączności)
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
@@ -63,7 +64,10 @@ export async function evaluateCwuLoading(rootId: string, now = new Date(), notif
   const readingAt = last ? new Date((last as { createdAt?: Date }).createdAt ?? 0) : null;
   const fresh = !!readingAt && now.getTime() - readingAt.getTime() < READING_MAX_AGE_MS;
   // CWU z peletu: CWU grzeje kocioł, pompa ciepła nie ładuje (i bywa wstrzymana)
-  const active = !pelletCwu.enabled && (await effectiveBoilerMode(rootId, settings)) === 'heat-pump' && fresh && last?.water_heater_pump === true;
+  // ładowanie: pracuje pompa CWU kotła; także czekanie na włączenie regulatora po „Uruchom pompę ciepła” —
+  // pompa ciepła grzeje wtedy 47–49 °C, aż kocioł osiągnie 47 °C (turn-on.service.ts)
+  const heatPumpMode = !pelletCwu.enabled && (await effectiveBoilerMode(rootId, settings)) === 'heat-pump';
+  const active = heatPumpMode && ((fresh && last?.water_heater_pump === true) || !!(await getPendingTurnOn(rootId)));
   // kocioł pali albo jest gorący; zwolnienie z histerezą (wstrzymana pompa czeka do 48 °C)
   const hotFrom = HOT_BOILER_FROM - (saved.pumpBlocked ? HOT_BOILER_HYSTERESIS : 0);
   const hot = fresh && (BURNING_STATES.includes(last?.state ?? -1)

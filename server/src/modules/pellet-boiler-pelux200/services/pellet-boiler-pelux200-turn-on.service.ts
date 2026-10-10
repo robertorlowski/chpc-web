@@ -8,9 +8,13 @@
 //   rozpalenie, gdy kocioł < zadana − nr 17.
 // Zlecenie „włącz” z aplikacji (POST /commands z control = 1) jest wtedy odrzucane (409, turnOnCheck), chyba że
 // rozpalenie wynika tylko z CWU, a włączony jest znacznik „CWU grzej peletem” (pellet-cwu.service.ts) — wtedy
-// pellet ma grzać CWU. Aplikacja proponuje: przełączenie na Pellet, uruchomienie pompy ciepła albo włączenie
-// po nagrzaniu kotła (pendingTurnOn: scheduler kotła co minutę zleca „włącz”, gdy kocioł nie rozpali się już
-// w trybie pompy ciepła albo kocioł jest w trybie Pellet; wygasa po PENDING_MAX_MS).
+// pellet ma grzać CWU. Aplikacja proponuje: przełączenie na Pellet albo uruchomienie pompy ciepła z włączeniem
+// po nagrzaniu kotła (pendingTurnOn: scheduler kotła co minutę zleca „włącz”, gdy kocioł ma co najmniej
+// TURN_ON_FROM (47 °C = dolna granica 47–49 °C, do których pompa ciepła grzeje przy ładowaniu CWU; decyzja
+// użytkownika 2026-10-10) albo jest w trybie Pellet; wygasa po PENDING_MAX_MS. W czasie czekania pompa ciepła
+// dostaje te same 47–49 °C (cwu-loading.service.ts), bo jej zwykłe ustawienia (np. 40–47 °C) mogą nie dobić do 47.
+// Wcześniej „włącz” szło, gdy kocioł przekroczył próg rozpalenia (25,8 °C przy progu 25): regulator od razu
+// ładował CWU, woda wychłodziła się do 25 °C i pellet się rozpalił (2026-10-10 09:30).
 // Panelu kotła nie da się zablokować — to tylko zlecenia z aplikacji.
 import { sendMessage } from '../../../core/websocket';
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
@@ -22,7 +26,9 @@ import { linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.se
 import { getPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 
-// włączenie po nagrzaniu kotła czeka najwyżej tyle (np. pompa ciepła nie grzeje wody w kotle)
+// włączenie po nagrzaniu kotła: od tej temperatury wody w kotle [°C], czeka najwyżej PENDING_MAX_MS
+// (np. pompa ciepła nie grzeje wody w kotle)
+export const TURN_ON_FROM = 47;
 export const PENDING_MAX_MS = 12 * 60 * 60 * 1000;
 // odczyt kotła co 60 s; starszy = brak danych
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
@@ -139,16 +145,16 @@ export async function turnOnAction(
     if (!heatPump) throw new CommandError('Kocioł nie ma powiązanej pompy ciepła (Dane sterownika).', 409);
     heatPumpStarted = await start(heatPump);
   }
-  const check = await predictIgnition(rootId, [], now);
-  const pending: PelletBoilerPendingTurnOn = { since: now, startBelow: check.startBelow ?? null, heatPumpStarted };
+  // startBelow: temperatura kotła, przy której regulator się włączy (napis „Włączenie czeka, aż kocioł osiągnie …”)
+  const pending: PelletBoilerPendingTurnOn = { since: now, startBelow: TURN_ON_FROM, heatPumpStarted };
   await savePending(rootId, pending);
   await runPendingTurnOn(rootId, now);
   sendMessage('update', rootId);
   return getPendingTurnOn(rootId);
 }
 
-// Krok schedulera kotła (co minutę): czekające włączenie, gdy kocioł już się nie rozpali w trybie pompy ciepła
-// (woda nagrzana) albo jest w trybie Pellet; po PENDING_MAX_MS rezygnacja z opisem.
+// Krok schedulera kotła (co minutę): czekające włączenie, gdy kocioł ma co najmniej TURN_ON_FROM albo jest
+// w trybie Pellet; po PENDING_MAX_MS rezygnacja z opisem.
 export async function runPendingTurnOn(rootId: string, now = new Date()) {
   const pending = await getPendingTurnOn(rootId);
   if (!pending) return null;
@@ -161,14 +167,8 @@ export async function runPendingTurnOn(rootId: string, now = new Date()) {
     return null;
   }
   const check = await predictIgnition(rootId, [], now);
-  if (check.boilerTemp === null && check.mode === 'heat-pump') return pending;  // bez świeżego odczytu czeka
-  if (check.ignites && !(check.cause === 'cwu' && (await getPelletCwu(rootId)).enabled)) {
-    // próg może się zmienić (np. CWU się podgrzała): aktualny dla ekranu
-    if ((check.startBelow ?? null) !== pending.startBelow) {
-      await savePending(rootId, { ...pending, startBelow: check.startBelow ?? null });
-    }
-    return pending;
-  }
+  // tryb pompy ciepła: czeka na świeży odczyt z kotłem co najmniej TURN_ON_FROM
+  if (check.mode === 'heat-pump' && (check.boilerTemp === null || check.boilerTemp < TURN_ON_FROM)) return pending;
   try {
     await createCommands(rootId, { changes: [{ kind: 'control', index: 0, value: 1 }] });
     await PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { enabled: true } });
