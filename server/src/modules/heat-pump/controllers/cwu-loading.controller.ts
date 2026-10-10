@@ -14,18 +14,20 @@ export async function getCwuLoadingState(req: Request, res: Response) {
   }
 }
 
-// PUT /hp/cwu-loading {active: boolean, since?: ISO, co_pump?: boolean} → {active, since, pumpOff}
+// PUT /hp/cwu-loading {active: boolean, since?: ISO, co_pump?: boolean, pellet_block?: boolean} → {active, since, pumpOff, pelletBlock}
 // co_pump: pompa CO kotła pracuje (co od 1.2.0 nie liczy wtedy COP, przy podłączeniu CO)
-export async function putCwuLoadingState(req: Request<{}, {}, { active?: unknown; since?: unknown; co_pump?: unknown }>, res: Response) {
-  const { active, since, co_pump: coPump } = req.body ?? {};
+// pellet_block: kocioł grzeje CWU peletem — pompa wstrzymana (OFF) do jego ostygnięcia
+export async function putCwuLoadingState(req: Request<{}, {}, { active?: unknown; since?: unknown; co_pump?: unknown; pellet_block?: unknown }>, res: Response) {
+  const { active, since, co_pump: coPump, pellet_block: pelletBlock } = req.body ?? {};
   if (typeof active !== 'boolean') return res.status(400).json({ message: 'active: true albo false.' });
   if (coPump !== undefined && typeof coPump !== 'boolean') return res.status(400).json({ message: 'co_pump: true albo false.' });
+  if (pelletBlock !== undefined && typeof pelletBlock !== 'boolean') return res.status(400).json({ message: 'pellet_block: true albo false.' });
   const start = typeof since === 'string' ? new Date(since) : undefined;
   if (start && Number.isNaN(start.getTime())) return res.status(400).json({ message: 'since: data ISO.' });
   try {
     const rootId = req.deviceRootId as string;
     if (typeof coPump === 'boolean') setBoilerCoPump(rootId, coPump);
-    const { changed, status } = await setCwuLoading(rootId, active, start);
+    const { changed, status } = await setCwuLoading(rootId, active, start, new Date(), pelletBlock as boolean | undefined);
     if (changed) void sendMessage('operation', rootId);
     return res.status(200).json(status);
   } catch (error) {

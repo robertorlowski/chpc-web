@@ -48,7 +48,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const res = await register('AABBCC000001');
     expect(res.status).toBe(201);
     expect(res.body.deviceType).toBe(TYPE);
-    expect(res.body.settings).toEqual({ poll_interval_seconds: 60, connection: 'rs485', econet_ip: '' });
+    expect(res.body.settings).toEqual({ poll_interval_seconds: 60 });
 
     const again = await register('AABBCC000001');
     expect(again.status).toBe(200);
@@ -89,7 +89,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
         mixer1_closing: true, mixer3_temp: 20,
       });
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ poll_interval_seconds: 60, connection: 'rs485', econet_ip: '' });
+    expect(res.body).toEqual({ poll_interval_seconds: 60 });
 
     const doc = await PelletBoilerPelux200Model.findOne({ rootId }).lean() as Record<string, unknown>;
     expect(doc.heating_temp).toBe(63.5);
@@ -176,7 +176,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
 
     // nowe ustawienie dociera do sterownika w odpowiedzi na odczyt
     const add = await request(app).post(`/api/pellet-boiler-pelux200/add?rootId=${rootId}`).send({ state: 0 });
-    expect(add.body).toEqual({ poll_interval_seconds: 60, connection: 'rs485', econet_ip: '' });
+    expect(add.body).toEqual({ poll_interval_seconds: 60 });
   });
 
   // Prawdziwe odpowiedzi regulatora z kopii ustawień kotła (2026-10-03).
@@ -731,22 +731,16 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect((await boiler())?.boilerConfig).toMatchObject({ heatPumpRootId: String(first?._id) });
   });
 
-  it('połączenie z kotłem: rs485 albo econet300 z adresem IP, dociera do sterownika w zgłoszeniu i odpowiedzi na odczyt', async () => {
+  it('definicja kotła bez połączenia ecoNET300 (wycofane 2026-10-10): dawne pola są pomijane, sterownik ich nie dostaje', async () => {
     const sn = 'AABBCC0000FB';
     const { rootId } = (await register(sn)).body;
-    const put = (boilerConfig: object) => request(app).put(`/api/devices/${rootId}`).send({ boilerConfig });
-    expect((await put({ heatPumpRootId: null, connection: 'econet300' })).status).toBe(400);  // bez adresu
-    expect((await put({ heatPumpRootId: null, connection: 'econet300', econetIp: '192.168.1.300' })).status).toBe(400);
-    expect((await put({ heatPumpRootId: null, connection: 'wifi' })).status).toBe(400);
-    const saved = await put({ heatPumpRootId: null, connection: 'econet300', econetIp: ' 192.168.55.20 ' });
+    const saved = await request(app).put(`/api/devices/${rootId}`)
+      .send({ boilerConfig: { heatPumpRootId: null, connection: 'econet300', econetIp: '192.168.55.20' } });
     expect(saved.status).toBe(200);
-    expect(saved.body.boilerConfig).toEqual({ heatPumpRootId: null, connection: 'econet300', econetIp: '192.168.55.20' });
-    const reply = { poll_interval_seconds: 60, connection: 'econet300', econet_ip: '192.168.55.20' };
+    expect(saved.body.boilerConfig).toEqual({ heatPumpRootId: null });
+    const reply = { poll_interval_seconds: 60 };
     expect((await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0 })).body).toEqual(reply);
-    expect((await register(sn)).body.settings).toMatchObject(reply);
-    // powrót na RS-485: adres zostaje zapisany, sterownik dostaje rs485
-    expect((await put({ heatPumpRootId: null, connection: 'rs485', econetIp: '192.168.55.20' })).status).toBe(200);
-    expect((await register(sn)).body.settings).toMatchObject({ connection: 'rs485', econet_ip: '192.168.55.20' });
+    expect((await register(sn)).body.settings).toEqual(reply);
   });
 
   it('praca sprężarki pompy ciepła tylko w trybie pompy ciepła (stan „Praca” w aplikacji)', async () => {

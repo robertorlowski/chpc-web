@@ -15,7 +15,7 @@ import {
   CommandError, createCommands, finishCommand, listRecentCommands, takeNextCommand,
 } from '../services/pellet-boiler-pelux200-command.service';
 import {
-  createScheduleEntry, getCurrentSchedule, getScheduleSettings, listScheduleEntries, parseScheduleEntry,
+  applySchedule, createScheduleEntry, getCurrentSchedule, getScheduleSettings, listScheduleEntries, parseScheduleEntry,
   parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings, setManualSeason,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
@@ -25,6 +25,7 @@ import { FuelPeriod, fuelWindow, getFuelSummary } from '../services/pellet-boile
 import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
+import { setPelletCwuEnabled } from '../services/pellet-boiler-pelux200-pellet-cwu.service';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
 
@@ -232,6 +233,22 @@ export async function putPelletBoilerSeason(req: Request<{}, {}, { season?: unkn
   try {
     await setManualSeason(req.deviceRootId as string, season);
     return res.status(200).json(await getCurrentSchedule(req.deviceRootId as string));
+  } catch (error) {
+    return scheduleError(res, error);
+  }
+}
+
+// PUT /pellet-boiler-pelux200/pellet-cwu {enabled} — znacznik „CWU grzej peletem” (tryb pompy ciepła);
+// od razu krok cyklu i harmonogramu (CWU od–do z trybu Pellet), odpowiedź jak GET schedules/current.
+export async function putPelletBoilerPelletCwu(req: Request<{}, {}, { enabled?: unknown }>, res: Response) {
+  const enabled = req.body?.enabled;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ message: 'enabled: true albo false.' });
+  try {
+    const rootId = req.deviceRootId as string;
+    await setPelletCwuEnabled(rootId, enabled);
+    await applySchedule(rootId);
+    await evaluateCwuLoading(rootId);
+    return res.status(200).json(await getCurrentSchedule(rootId));
   } catch (error) {
     return scheduleError(res, error);
   }

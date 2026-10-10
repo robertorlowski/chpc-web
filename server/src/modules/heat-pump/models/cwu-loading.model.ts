@@ -10,6 +10,8 @@ export interface CwuLoadingEntry {
   since?: Date;
   /** ostatnie zgłoszenie od kotła; bez odświeżenia przez CWU_LOADING_TTL_MS ładowanie wygasa */
   refreshedAt: Date;
+  /** CWU z peletu w kotle: pompa wstrzymana (OFF) do ostygnięcia kotła; wygasa jak ładowanie */
+  pelletBlock?: boolean;
 }
 
 const CwuLoadingSchema = new Schema<CwuLoadingEntry>(
@@ -18,6 +20,7 @@ const CwuLoadingSchema = new Schema<CwuLoadingEntry>(
     active: { type: Boolean, required: true },
     since: { type: Date },
     refreshedAt: { type: Date, required: true },
+    pelletBlock: { type: Boolean },
   },
   { timestamps: true, collection: 'heat_pump_cwu_loading' }
 );

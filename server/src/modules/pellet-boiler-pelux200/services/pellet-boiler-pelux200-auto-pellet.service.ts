@@ -17,6 +17,7 @@ import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { getScheduleSettings } from './pellet-boiler-pelux200-schedule.service';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 import { effectiveBoilerMode } from './pellet-boiler-pelux200-heat-pump-link.service';
+import { getPelletCwu, pelletCwuBlocksPump } from './pellet-boiler-pelux200-pellet-cwu.service';
 
 const KINDLING = 2;
 // odczyt starszy niż to nie wyzwala przejścia (np. zaległy odczyt po powrocie łączności)
@@ -72,6 +73,8 @@ export async function checkAutoPellet(rootId: string, now = new Date()) {
   if (last?.state !== KINDLING || !readingAt || now.getTime() - readingAt.getTime() > READING_MAX_AGE_MS) return null;
   if (!settings || (await effectiveBoilerMode(rootId, settings)) !== 'heat-pump') return null;
   if (await getAutoPellet(rootId)) return null;
+  // rozpalenie na CWU z peletu (pellet-cwu.service.ts) zostaje w trybie pompy ciepła
+  if (pelletCwuBlocksPump(await getPelletCwu(rootId))) return null;
   const { profiles } = await getScheduleSettings(rootId);
   // przejście już w drodze: zadana albo minimum kotła z wartością trybu Pellet czeka na kocioł
   // (starsze oczekujące zlecenia z innymi wartościami zostaną zastąpione)

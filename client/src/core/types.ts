@@ -74,9 +74,7 @@ export type Device = {
 };
 
 // Definicja kotła pelletowego (kontrakt z serwerem, core/types.ts): pompa ciepła trybu „Pompa ciepła”.
-// connection: skąd płytka pieca bierze dane — rs485 (magistrala) albo econet300 (moduł ecoNET300 pod econetIp)
-export type BoilerConnection = 'rs485' | 'econet300';
-export type BoilerConfig = { heatPumpRootId: string | null; connection?: BoilerConnection; econetIp?: string | null };
+export type BoilerConfig = { heatPumpRootId: string | null };
 
 // Definicja pompy ciepła (kontrakt z serwerem, core/types.ts): podłączenie, zbiornik i fotowoltaika.
 export type PumpConnection = 'cwu' | 'co';

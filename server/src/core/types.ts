@@ -66,13 +66,8 @@ export interface PumpConfig {
 
 // Definicja kotła pelletowego (okno „Dane sterownika”): pompa ciepła, z którą kocioł pracuje w trybie
 // „Pompa ciepła”. null = bez pompy ciepła: kocioł pracuje tylko na pellecie, aplikacja nie pokazuje trybu pracy.
-// connection (od 2026-10-08): skąd płytka pieca bierze dane kotła — rs485 (magistrala, płytka jako moduł ecoNET)
-// albo econet300 (lokalne API modułu ecoNET300 w sieci domowej pod econetIp; płytka nie nadaje na RS-485).
-export type BoilerConnection = 'rs485' | 'econet300';
 export interface BoilerConfig {
   heatPumpRootId: string | null;
-  connection?: BoilerConnection;
-  econetIp?: string | null;
 }
 
 // Zapis definicji odrzucony przez moduł rodzaju (np. usunięcie pompy ciepła przy trybie „Pompa ciepła”): 409.

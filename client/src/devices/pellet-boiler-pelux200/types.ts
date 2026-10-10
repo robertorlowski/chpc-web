@@ -165,7 +165,24 @@ export type PelletBoilerCurrentSchedule = {
   winterCycle?: PelletBoilerWinterCycle | null;
   /** sezon wybrany przyciskiem w Ustawieniach (do zmiany sezonu z harmonogramu) */
   manualSeason?: PelletBoilerSeason | null;
+  /** CWU z peletu w trybie pompy ciepła (znacznik w Ustawieniach) */
+  pelletCwu?: PelletBoilerPelletCwu;
   lastError: string | null;
+};
+
+/**
+ * CWU z peletu w trybie „Pompa ciepła” (serwer: pellet-boiler-pelux200-pellet-cwu.service.ts): idle = czeka na CWU
+ * poniżej „od” trybu Pellet, heating = kocioł grzeje CWU peletem, cooling = pompa ciepła czeka na kocioł < 50 °C.
+ */
+export type PelletBoilerPelletCwu = {
+  enabled: boolean;
+  phase: 'idle' | 'heating' | 'cooling';
+  since: string | null;
+  cwuFrom?: number;
+  cwuTo?: number;
+  boilerTemp?: number | null;
+  cwuTemp?: number | null;
+  error?: string | null;
 };
 
 /** Cykl Zimy (tryb pompy ciepła): waiting = Lato, czeka na kocioł ≥ 40 °C (wymuszając start pompy ciepła);
@@ -193,6 +210,8 @@ export type PelletBoilerCwuLoading = {
   since: string | null;
   /** pompa ciepła w trybie OFF: nie dogrzeje wody */
   heatPumpOff: boolean;
+  /** pompa ciepła wstrzymana: kocioł pali albo ma ≥ 50 °C, albo trwa CWU z peletu */
+  pumpBlocked?: boolean;
   error?: string;
 };
 

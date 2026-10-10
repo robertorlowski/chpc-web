@@ -91,8 +91,6 @@ const DeviceSchema = new Schema<DeviceDocument>(
     boilerConfig: {
       type: new Schema({
         heatPumpRootId: { type: String, default: null },
-        connection: { type: String, enum: ['rs485', 'econet300'], default: 'rs485' },
-        econetIp: { type: String, default: null },
       }, { _id: false }),
       default: undefined,
     },

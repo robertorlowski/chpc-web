@@ -66,6 +66,11 @@ export class PelletBoilerRequests {
     return Requests.get('/pellet-boiler-pelux200/schedules/current');
   }
 
+  // znacznik „CWU grzej peletem” (tryb pompy ciepła); rzuca wyjątek przy błędzie
+  static setPelletCwu(enabled: boolean): Promise<PelletBoilerCurrentSchedule> {
+    return Requests.put('/pellet-boiler-pelux200/pellet-cwu', { enabled }) as Promise<PelletBoilerCurrentSchedule>;
+  }
+
   // przycisk Lato / Zima w trybie pompy ciepła: Zima przez cykl Zimy na serwerze; rzuca wyjątek przy błędzie
   static setSeason(season: PelletBoilerSeason): Promise<PelletBoilerCurrentSchedule> {
     return Requests.put('/pellet-boiler-pelux200/season', { season }) as Promise<PelletBoilerCurrentSchedule>;

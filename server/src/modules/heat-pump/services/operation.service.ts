@@ -12,7 +12,8 @@ const operations = new Map<string, OperationEntry>();
 const scheduledOperations = new Map<string, OperationEntry>();
 // ręczne nadpisania z /operation/set (tylko przekazane pola)
 const manualOperations = new Map<string, OperationEntry>();
-// nadpisanie na czas ładowania CWU w kotle (temperatury 47–49 °C), ustawiane przez cwu-loading.service.ts
+// nadpisanie na czas ładowania CWU w kotle (temperatury 47–49 °C) albo wstrzymanie pompy na czas CWU z peletu
+// (work_mode OFF), ustawiane przez cwu-loading.service.ts
 const cwuLoadingOperations = new Map<string, OperationEntry>();
 // Ręczne force: czy od jego ustawienia telemetria pokazała sprężarkę w spoczynku.
 const manualForceSeenIdle = new Map<string, boolean>();

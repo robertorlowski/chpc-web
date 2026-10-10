@@ -20,6 +20,7 @@ import { PelletBoilerSeason, PelletBoilerWinterCycle } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { effectiveBoilerMode, linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
+import { getPelletCwu, pelletCwuBlocksPump } from './pellet-boiler-pelux200-pellet-cwu.service';
 
 export const WINTER_FROM = 40;
 export const SUMMER_BELOW = 30;
@@ -115,6 +116,8 @@ export async function runWinterCycle(
 // Wymuszenie startu sprężarki powiązanej pompy ciepła (definicja kotła), gdy stoi albo nie wiadomo.
 async function forcePumpIfDue(rootId: string, cycle: PelletBoilerWinterCycle, now: Date, pump: HeatPumpControl) {
   if (cycle.forcedAt && now.getTime() - cycle.forcedAt.getTime() < FORCE_REPEAT_MS) return;
+  // CWU z peletu: pompa ciepła wstrzymana do ostygnięcia kotła
+  if (pelletCwuBlocksPump(await getPelletCwu(rootId))) return;
   const heatPump = await linkedHeatPumpRootId(rootId);
   if (!heatPump) return;
   try {

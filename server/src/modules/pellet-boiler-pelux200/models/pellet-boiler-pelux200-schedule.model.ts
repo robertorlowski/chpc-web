@@ -54,6 +54,8 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
     // cykl Zimy w trybie pompy ciepła (pellet-boiler-pelux200-winter-cycle.service.ts) i sezon z przycisku
     winterCycle: { type: Schema.Types.Mixed },
     manualSeason: { type: Schema.Types.Mixed },
+    // CWU z peletu w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts): znacznik i faza
+    pelletCwu: { type: Schema.Types.Mixed },
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200_schedule_settings', minimize: false }
 );

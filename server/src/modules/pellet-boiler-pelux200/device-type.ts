@@ -1,7 +1,6 @@
 // Opis rodzaju „kocioł pelletowy Pellux 200” dla rejestru core/device-types.ts:
 // ustawienia nowego urządzenia i ustawienia odsyłane sterownikowi przy zgłoszeniu.
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
-import { connectionSettings } from './connection';
 import { checkBoilerDefinition, initBoilerDefinition } from './services/pellet-boiler-pelux200-heat-pump-link.service';
 import { pelletBoilerTile } from './tile';
 
@@ -15,10 +14,8 @@ export const DEFAULT_PELLET_BOILER_PELUX200_PROPERTIES: DeviceProperties = {
 export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
   type: DeviceType.PELLET_BOILER_PELUX200,
   initialProperties: DEFAULT_PELLET_BOILER_PELUX200_PROPERTIES,
-  // połączenie z kotłem (definicja kotła, od firmware 1.9.0): płytka przełącza się bez restartu
-  controllerSettings: (properties, device) => ({
+  controllerSettings: (properties) => ({
     poll_interval_seconds: properties.poll_interval_seconds ?? DEFAULT_POLL_INTERVAL_SECONDS,
-    ...connectionSettings(device.boilerConfig),
   }),
   // OTA na zlecenie („Aktualizuj”); oferta idzie też w odpowiedzi GET …/commands/next (od firmware 1.5.0)
   firmwareUpdates: true,

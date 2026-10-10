@@ -8,8 +8,6 @@ import { DeviceModel } from '../../../core/models/device.model';
 import { sendMessage } from '../../../core/websocket';
 import { setOutdoorTemperature } from '../../../core/services/meteo.service';
 import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
-import { BoilerConfig } from '../../../core/types';
-import { connectionSettings } from '../connection';
 
 export const DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
@@ -117,14 +115,13 @@ export async function getPollIntervalSeconds(rootId: string): Promise<number> {
   return device?.properties?.poll_interval_seconds ?? DEFAULT_POLL_INTERVAL_SECONDS;
 }
 
-// Odpowiedź na odczyt: odstęp odpytywania i połączenie z kotłem (rs485 / econet300 z adresem IP).
+// Odpowiedź na odczyt: odstęp odpytywania.
 export async function getControllerReply(rootId: string) {
-  const device = await DeviceModel.findById(rootId).select('properties boilerConfig').lean<{
-    properties?: { poll_interval_seconds?: number }; boilerConfig?: BoilerConfig;
+  const device = await DeviceModel.findById(rootId).select('properties').lean<{
+    properties?: { poll_interval_seconds?: number };
   }>();
   return {
     poll_interval_seconds: device?.properties?.poll_interval_seconds ?? DEFAULT_POLL_INTERVAL_SECONDS,
-    ...connectionSettings(device?.boilerConfig),
   };
 }
 

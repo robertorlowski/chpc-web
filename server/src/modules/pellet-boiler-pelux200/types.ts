@@ -203,6 +203,8 @@ export interface PelletBoilerCwuLoading {
   heatPumpOff: boolean;
   /** błąd zgłoszenia do pompy ciepła (brak pompy, HTTP) */
   error?: string;
+  /** pompa ciepła wstrzymana: kocioł pali (stany 1–4) albo ma ≥ 50 °C, albo trwa CWU z peletu */
+  pumpBlocked?: boolean;
 }
 
 /** Automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (komunikat do „OK”). */
@@ -235,7 +237,32 @@ export interface PelletBoilerScheduleSettings {
   winterCycle?: PelletBoilerWinterCycle | null;
   /** sezon wybrany przyciskiem w Ustawieniach (tryb pompy ciepła); obowiązuje do zmiany sezonu z harmonogramu */
   manualSeason?: PelletBoilerManualSeason | null;
+  /** CWU z peletu w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts) */
+  pelletCwu?: PelletBoilerPelletCwu;
 }
+
+/**
+ * CWU z peletu w trybie „Pompa ciepła”: idle = czeka na CWU poniżej „od” (ustawienia trybu Pellet);
+ * heating = kocioł ma zadaną i histerezę trybu Pellet i grzeje CWU do „do”; cooling = nastawy pompy ciepła
+ * przywrócone, pompa ciepła wstrzymana do spadku kotła poniżej PELLET_CWU_PUMP_BLOCK_BELOW (50 °C).
+ */
+export type PelletBoilerPelletCwu = {
+  /** znacznik „CWU grzej peletem” w Ustawieniach */
+  enabled: boolean;
+  phase: 'idle' | 'heating' | 'cooling';
+  /** początek fazy */
+  since: Date | null;
+  /** w fazie heating: kocioł zgłosił palenie (stany 1–4) */
+  burning?: boolean;
+  /** CWU od–do trybu Pellet z ostatniego przebiegu [°C] */
+  cwuFrom?: number;
+  cwuTo?: number;
+  /** temperatura kotła i CWU z ostatniego świeżego odczytu [°C] */
+  boilerTemp?: number | null;
+  cwuTemp?: number | null;
+  /** powód przerwania ostatniego grzania (brak rozpalenia, za długo); kasowany przy następnym starcie */
+  error?: string | null;
+};
 
 /** Cykl Zimy: waiting = Lato, czeka na kocioł ≥ 40 °C; winter = Zima do kotła < 30 °C przy stojącej pompie CO. */
 export type PelletBoilerWinterCycle = {

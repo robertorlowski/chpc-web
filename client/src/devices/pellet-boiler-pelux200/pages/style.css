@@ -216,6 +216,19 @@
   font-size: 1rem;
 }
 
+/* lista wyboru wygląda jak pole edycyjne (ramka i wysokość z .device-modal input) */
+.boiler-edit select,
+.boiler-edit input:not([type='checkbox']) {
+  height: 2.3rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.boiler-edit select {
+  background-color: #fff;
+}
+
 .boiler-edit {
   max-height: calc(100vh - 2rem);
   overflow-y: auto;

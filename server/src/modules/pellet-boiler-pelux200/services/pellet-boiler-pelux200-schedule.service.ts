@@ -20,7 +20,8 @@
 // W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ 40 °C,
 // Lato przy kotle < 30 °C i stojącej pompie CO, w Lecie wymuszanie startu pompy ciepła. Przycisk Lato/Zima
 // w Ustawieniach (tryb pompy ciepła) zapisuje sezon (manualSeason), który wygrywa do zmiany sezonu z harmonogramu.
-// Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C).
+// Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C) i CWU z peletu
+// w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts); przy jego znaczniku CWU od–do jest z trybu Pellet.
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { scheduleDayMatches } from '../../../core/services/calendar.service';
@@ -43,6 +44,7 @@ import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service
 import { HeatPumpControl, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 import { effectiveBoilerMode, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
+import { getPelletCwu, runPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
 
 export { boilerMode };
 
@@ -310,6 +312,11 @@ export async function applySchedule(rootId: string, now = new Date(), pump: Heat
     // sezon z przycisku w Ustawieniach (tryb pompy ciepła) wygrywa do zmiany sezonu z harmonogramu
     const manual = await activeManualSeason(rootId, state.season ?? null);
     if (manual) state = { ...state, season: manual };
+    // CWU z peletu w trybie pompy ciepła: CWU od–do jak w trybie Pellet (kocioł grzeje wtedy CWU sam)
+    if (mode === 'heat-pump' && (await getPelletCwu(rootId)).enabled) {
+      const pellet = scheduleState(settings, entries, 'pellet', now).state;
+      state = { ...state, cwuFrom: pellet.cwuFrom, cwuTo: pellet.cwuTo };
+    }
     // Tryb pompy ciepła i Zima: sezonem steruje cykl Zimy (winter-cycle.service.ts), więc stan jest bez sezonu
     // (harmonogram zleca tylko CWU); koniec cyklu = Lato ze zwykłej ścieżki (stan z sezonem różny od ostatniego).
     if (mode === 'heat-pump' && state.season === 'winter') {
@@ -364,6 +371,7 @@ export async function runPelletBoilerSchedulerOnce(now = new Date()) {
   const devices = await DeviceModel.find({ deviceType: DeviceType.PELLET_BOILER_PELUX200 }).select('_id').lean();
   for (const device of devices) {
     await applySchedule(String(device._id), now);
+    await runPelletCwu(String(device._id), now).catch((error) => console.error('[pellet cwu z peletu] error:', error));
     await evaluateCwuLoading(String(device._id), now).catch((error) => console.error('[pellet cwu] error:', error));
   }
 }
@@ -430,10 +438,12 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   // winterCycle: cykl Zimy w trybie pompy ciepła (winter-cycle.service.ts), manualSeason: sezon z przycisku
   const saved = await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('winterCycle manualSeason')
     .lean<{ winterCycle?: PelletBoilerWinterCycle | null; manualSeason?: PelletBoilerManualSeason | null }>();
+  // pelletCwu: CWU z peletu w trybie pompy ciepła (znacznik, faza, CWU od–do trybu Pellet)
+  const pelletCwu = await getPelletCwu(rootId);
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
   return {
     enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
-    winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null, lastError: settings.lastError ?? null,
+    winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null, pelletCwu, lastError: settings.lastError ?? null,
   };
 }
 

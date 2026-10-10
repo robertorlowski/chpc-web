@@ -18,6 +18,8 @@ import { getOperationData, replaceOperationData } from '../src/modules/heat-pump
 import { evaluateCwuLoading } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-cwu-loading.service'
 import { applySchedule } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { checkAutoPellet } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-auto-pellet.service'
+import { runPelletCwu } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-pellet-cwu.service'
+import { PelletBoilerCommandModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-command.model'
 
 const archiveHeatPump = JSON.parse(readFileSync(resolve(__dirname,
   '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));
@@ -165,5 +167,90 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 5, water_heater_target: 50 }).expect(201);
     await applySchedule(boilerRoot, new Date('2026-10-05T10:01:00Z'));
     expect((await commands()).map((c) => [c.index, c.value])).toEqual([[119, 40]]);
+  });
+
+  it('CWU z peletu w trybie pompy ciepła: zadana kotła trybu Pellet do nagrzania CWU, pompa ciepła wstrzymana do kotła < 50 °C', async () => {
+    const sn = 'AABBCC0000B4';
+    const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
+    const reading = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(body).expect(201);
+    const pending = async () => ((await request(app).get(api('commands'))).body as { index: number; value: number; status: string }[])
+      .filter((c) => c.status === 'pending').map((c) => `${c.index}=${c.value}`).sort();
+    const step = async (now = new Date()) => {
+      await runPelletCwu(boilerRoot, now);
+      await evaluateCwuLoading(boilerRoot, now);
+      return (await request(app).get(api('schedules/current'))).body.pelletCwu;
+    };
+    const finishAll = () => PelletBoilerCommandModel.updateMany({ rootId: boilerRoot, status: 'pending' }, { $set: { status: 'done' } });
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+
+    // znacznik: walidacja; harmonogram zleca CWU z trybu Pellet (40–55 = 55 / 15), a nie pompy ciepła (35–40)
+    expect((await request(app).put(api('pellet-cwu')).send({ enabled: 'tak' })).status).toBe(400);
+    const settings = (await request(app).get(api('schedule-settings'))).body;
+    await request(app).put(api('schedule-settings')).send({ ...settings, enabled: true }).expect(200);
+    await reading({ state: 5, water_heater_temp: 45, heating_temp: 32 });
+    const on = await request(app).put(api('pellet-cwu')).send({ enabled: true });
+    expect(on.body.pelletCwu).toMatchObject({ enabled: true, phase: 'idle', cwuFrom: 40, cwuTo: 55 });
+    expect(await pending()).toEqual(['119=55', '123=15']);
+    await finishAll();
+
+    // CWU 38 < 40: kocioł dostaje zadaną 67 i histerezę 12 (minimum 30 zostaje — dalej tryb pompy ciepła)
+    await reading({ state: 5, water_heater_temp: 38, heating_temp: 32 });
+    expect(await step()).toMatchObject({ phase: 'heating', error: null });
+    expect(await pending()).toEqual(['17=12', '98=67']);
+    await finishAll();
+    // pompa ciepła wstrzymana, nie ładuje CWU; rozpalanie nie przełącza kotła na Pellet
+    expect(operation()).toMatchObject({ work_mode: 'OFF', force: '0' });
+    expect((await request(app).get(hp('cwu-loading'))).body).toMatchObject({ active: false, pelletBlock: true });
+    await reading({ state: 2, water_heater_temp: 39, heating_temp: 40, water_heater_pump: true });
+    await new Promise((done) => setTimeout(done, 300));
+    expect(await checkAutoPellet(boilerRoot)).toBeNull();
+    expect(await pending()).toEqual([]);
+
+    // CWU 55: nastawy pompy ciepła wracają, pompa ciepła czeka na kocioł < 50 °C
+    await reading({ state: 3, water_heater_temp: 55, heating_temp: 66 });
+    expect(await step()).toMatchObject({ phase: 'cooling', error: null });
+    expect(await pending()).toEqual(['17=20', '98=30']);
+    await finishAll();
+    await reading({ state: 7, water_heater_temp: 54, heating_temp: 52 });
+    expect((await step()).phase).toBe('cooling');
+    expect(operation().work_mode).toBe('OFF');
+    // cykl kończy się poniżej 50 °C, a ogólna zasada (kocioł gorący) zwalnia pompę dopiero poniżej 48 °C
+    await reading({ state: 5, water_heater_temp: 54, heating_temp: 49 });
+    expect((await step()).phase).toBe('idle');
+    expect(operation().work_mode).toBe('OFF');
+    await reading({ state: 5, water_heater_temp: 54, heating_temp: 47 });
+    await step();
+    expect(operation()).toMatchObject({ work_mode: 'A' });
+    expect((await request(app).get(hp('cwu-loading'))).body.pelletBlock).toBe(false);
+
+    // kocioł nie rozpala się przez 30 min: koniec z błędem i powrót nastaw
+    await reading({ state: 5, water_heater_temp: 38, heating_temp: 45 });
+    await step();
+    await finishAll();
+    const late = await step(new Date(Date.now() + 31 * 60_000));
+    expect(late).toMatchObject({ phase: 'cooling' });
+    expect(late.error).toMatch(/nie rozpalił się/);
+    expect(await pending()).toEqual(['17=20', '98=30']);
+    await finishAll();
+
+    // odznaczenie: bez nowego grzania; pompa ciepła wraca po ostygnięciu kotła
+    await request(app).put(api('pellet-cwu')).send({ enabled: false }).expect(200);
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 40 });
+    expect(await step()).toMatchObject({ enabled: false, phase: 'idle' });
+    expect(operation().work_mode).toBe('A');
+
+    // zasada bezpieczeństwa bez znacznika: rozpalanie albo kocioł ≥ 50 °C wstrzymuje pompę, rusza poniżej 48 °C
+    await reading({ state: 2, water_heater_temp: 30, heating_temp: 35 });
+    await evaluateCwuLoading(boilerRoot);
+    expect(operation().work_mode).toBe('OFF');
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 51 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(true);
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 47.5 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(false);
+    expect(operation().work_mode).toBe('A');
+    // harmonogram wraca do CWU pompy ciepła (35–40; odczyt ustawień w teście ma już 40 / 5, więc bez zleceń)
+    expect((await request(app).get(api('schedule-settings'))).body.lastApplied).toMatchObject({ cwuFrom: 35, cwuTo: 40 });
   });
 });

@@ -10,6 +10,10 @@ import { OperationEntry } from '../types';
 import { getEffectiveWorkMode, setCwuLoadingOperation } from './operation.service';
 
 export const CWU_LOADING_OPERATION: OperationEntry = { co_min: '47', co_max: '49', cwu_min: '47', cwu_max: '49' };
+// CWU z peletu w kotle (moduł kotła, pellet-cwu.service.ts): od rozpalenia do ostygnięcia kotła poniżej 50 °C
+// pompa jest wyłączona — gorąca woda z kotła w skraplaczu zatrzymałaby sprężarkę błędem Tho. Nadpisanie
+// wygrywa z ładowaniem i ręcznymi polami; po nim wraca harmonogram (work_mode i wymuszenie).
+export const PELLET_BLOCK_OPERATION: OperationEntry = { work_mode: 'OFF', force: '0' };
 export const CWU_LOADING_TTL_MS = 15 * 60 * 1000;
 
 export type CwuLoadingStatus = {
@@ -17,29 +21,45 @@ export type CwuLoadingStatus = {
   since: Date | null;
   /** pompa ciepła wyłączona (tryb OFF): ładowanie trwa, ale pompa nie grzeje */
   pumpOff: boolean;
+  /** pompa wstrzymana na czas CWU z peletu w kotle */
+  pelletBlock: boolean;
 };
 
-const isActive = (entry: CwuLoadingEntry | null, now: Date) =>
-  !!entry?.active && now.getTime() - new Date(entry.refreshedAt).getTime() < CWU_LOADING_TTL_MS;
+const isFresh = (entry: CwuLoadingEntry | null, now: Date) =>
+  !!entry && now.getTime() - new Date(entry.refreshedAt).getTime() < CWU_LOADING_TTL_MS;
+const isActive = (entry: CwuLoadingEntry | null, now: Date) => !!entry?.active && isFresh(entry, now);
+const isBlocked = (entry: CwuLoadingEntry | null, now: Date) => !!entry?.pelletBlock && isFresh(entry, now);
+
+// Nadpisanie operacji: wstrzymanie (CWU z peletu) przed ładowaniem CWU.
+const overrideOf = (entry: CwuLoadingEntry | null, now: Date) =>
+  isBlocked(entry, now) ? PELLET_BLOCK_OPERATION : isActive(entry, now) ? CWU_LOADING_OPERATION : undefined;
 
 const statusOf = (rootId: string, entry: CwuLoadingEntry | null, now: Date): CwuLoadingStatus => {
   const active = isActive(entry, now);
-  return { active, since: active && entry?.since ? new Date(entry.since) : null, pumpOff: getEffectiveWorkMode(rootId) === 'OFF' };
+  return {
+    active, since: active && entry?.since ? new Date(entry.since) : null,
+    pumpOff: getEffectiveWorkMode(rootId) === 'OFF', pelletBlock: isBlocked(entry, now),
+  };
 };
 
 // Zgłoszenie od kotła; zwraca true, gdy zmienił się stan (wtedy kontroler budzi sterownik co).
-export async function setCwuLoading(rootId: string, active: boolean, since: Date | undefined, now = new Date()) {
+// pelletBlock: CWU z peletu — pompa wstrzymana (brak pola = bez zmiany).
+export async function setCwuLoading(rootId: string, active: boolean, since: Date | undefined, now = new Date(), pelletBlock?: boolean) {
   const before = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
   const wasActive = isActive(before, now);
+  const wasBlocked = isBlocked(before, now);
   const start = active ? (wasActive && before?.since ? before.since : since ?? now) : undefined;
   await CwuLoadingModel.updateOne(
     { rootId },
-    { $set: { active, refreshedAt: now, ...(start ? { since: start } : {}) }, ...(start ? {} : { $unset: { since: 1 } }) },
+    {
+      $set: { active, refreshedAt: now, ...(start ? { since: start } : {}), ...(pelletBlock !== undefined ? { pelletBlock } : {}) },
+      ...(start ? {} : { $unset: { since: 1 } }),
+    },
     { upsert: true },
   );
-  setCwuLoadingOperation(rootId, active ? CWU_LOADING_OPERATION : undefined);
   const entry = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
-  return { changed: wasActive !== active, status: statusOf(rootId, entry, now) };
+  setCwuLoadingOperation(rootId, overrideOf(entry, now));
+  return { changed: wasActive !== active || wasBlocked !== isBlocked(entry, now), status: statusOf(rootId, entry, now) };
 }
 
 // Pompa CO kotła (zgłaszana razem z ładowaniem CWU): co od 1.2.0 nie liczy wtedy COP (cop_pause,
@@ -63,7 +83,7 @@ export async function getCwuLoading(rootId: string, now = new Date()) {
 // Scheduler pompy co minutę: nadpisanie w pamięci zgodne z bazą (po restarcie serwera) i wygaszenie
 // ładowania bez odświeżenia od kotła.
 export async function syncCwuLoading(rootId: string, now = new Date()) {
-  const active = isActive(await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>(), now);
-  setCwuLoadingOperation(rootId, active ? CWU_LOADING_OPERATION : undefined);
-  return active;
+  const entry = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
+  setCwuLoadingOperation(rootId, overrideOf(entry, now));
+  return isActive(entry, now);
 }
