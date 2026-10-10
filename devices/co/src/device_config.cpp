@@ -80,6 +80,16 @@ const String &deviceSerial()
   return serial;
 }
 
+const char *configApSsid()
+{
+  static String ssid;
+  if (ssid.length() == 0) {
+    const String &serial = deviceSerial();
+    ssid = "MyHome-HeatPump-" + serial.substring(serial.length() > 4 ? serial.length() - 4 : 0);
+  }
+  return ssid.c_str();
+}
+
 bool saveWifiConfig(const String &ssid, const String &password)
 {
   if (ssid.length() == 0) return false;

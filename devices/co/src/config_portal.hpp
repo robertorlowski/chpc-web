@@ -3,7 +3,7 @@
 #include <pv_telemetry.hpp>
 #include <telemetry.hpp>
 
-// Strony WWW sterownika na porcie 80 (sieć lokalna i AP HP-CO-setup):
+// Strony WWW sterownika na porcie 80 (sieć lokalna i AP MyHome-HeatPump-…):
 // GET / (podgląd, otwarty), GET /telemetry.json, GET /pv.json (otwarte),
 // GET /install i POST /save (Basic Auth, dane w device_config.hpp).
 // Nieznany adres przekierowuje na /.

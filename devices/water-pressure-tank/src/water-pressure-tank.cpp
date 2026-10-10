@@ -52,7 +52,8 @@ constexpr uint16_t REGISTER_TIMEOUT_MS = 8000;
 constexpr uint16_t OTA_TIMEOUT_MS = 15000;
 constexpr int HTTP_CONFLICT = 409;
 
-const IPAddress AP_ADDRESS(10, 11, 16, 1);
+// sieć sterownika (AP): ten sam adres we wszystkich sterownikach (od 2026-10-10)
+const IPAddress AP_ADDRESS(10, 10, 10, 1);
 constexpr uint32_t STATUS_LOG_MS = 10000;
 
 Preferences preferences;
@@ -154,6 +155,17 @@ String readSerial()
   char text[13];
   snprintf(text, sizeof(text), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   return text;
+}
+
+// Nazwa sieci sterownika (AP, otwarta): MyHome-WaterPump-<4 ostatnie znaki SN> (od 2026-10-10, wcześniej AP_SSID z secrets.h).
+const char *accessPointSsid()
+{
+  static String ssid;
+  if (ssid.isEmpty()) {
+    const String sn = readSerial();
+    ssid = "MyHome-WaterPump-" + sn.substring(sn.length() > 4 ? sn.length() - 4 : 0);
+  }
+  return ssid.c_str();
 }
 
 String storedOrDefault(const char *key, const char *fallback)
@@ -442,7 +454,7 @@ void logNetwork(uint32_t nowMs)
       static_cast<unsigned>(queue.size()), lastHttpStatus);
     logf("sieć: \"%s\" (hasło %u znaków), przyczyna rozłączenia %d, kanał %d, AP %s %s (klientów %d)",
       wifiSsid.c_str(), static_cast<unsigned>(wifiPassword.length()), static_cast<int>(lastDisconnectReason),
-      static_cast<int>(WiFi.channel()), AP_SSID, accessPointOn ? "włączony" : "WYŁĄCZONY",
+      static_cast<int>(WiFi.channel()), accessPointSsid(), accessPointOn ? "włączony" : "WYŁĄCZONY",
       static_cast<int>(WiFi.softAPgetStationNum()));
   }
 
@@ -538,8 +550,8 @@ String htmlEscape(const String &text)
 
 const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Hydrofor</title>
-<style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}
-.card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem}
+<style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}@media(max-width:30rem){body{padding:.3rem}}
+.card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem;overflow-wrap:anywhere}
 .state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
 button{background:#1481a5;color:#fff;border:0;border-radius:6px;padding:.6rem 1rem;font-size:1rem}
 button.stop{background:#c62828}button.second{background:#fff;color:#1481a5;border:1px solid #1481a5}
@@ -715,20 +727,21 @@ void handleInstall()
   page += "<div><small>Chmura: ";
   page += compressorPending ? "czeka na wysyłkę" : "aktualna";
   page += "</small></div><p><button type=\"submit\">Zapisz czas</button></p></form>";
-  // ręczne wgranie obrazu (awaryjnie, gdy OTA z chmury nie działa)
-  page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
-  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
-  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
-  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
-  page += "<div><small>Działa tylko przy wyłączonym kompresorze. Po wgraniu sterownik się restartuje.</small></div>";
-  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
   page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
   page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div>";
   page += "<div>Ostatnia wysyłka: " + String(lastDeliveredMs ? String((millis() - lastDeliveredMs) / 1000) + " s temu" : String("---"));
   page += lastHttpStatus ? " (HTTP " + String(lastHttpStatus) + ")" : String("");
-  page += "</div></div><p><a href=\"/\">Strona główna</a></p></body></html>";
+  page += "</div></div>";
+  // ręczne wgranie obrazu (awaryjnie, gdy OTA z chmury nie działa), na końcu strony jak we wszystkich sterownikach
+  page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
+  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
+  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
+  page += "<div><small>Działa tylko przy wyłączonym kompresorze. Po wgraniu sterownik się restartuje.</small></div>";
+  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
+  page += "<p><a href=\"/\">Strona główna</a></p></body></html>";
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html; charset=utf-8", page);
 }
@@ -797,7 +810,7 @@ void handleFirmwareDone()
   }
 }
 
-// AP (10.11.16.1) działa przez cały czas pracy, równolegle z połączeniem do
+// AP (10.10.10.1) działa przez cały czas pracy, równolegle z połączeniem do
 // sieci domowej (tryb AP+STA). Nieznane ścieżki pokazują stronę główną.
 void startNetwork()
 {
@@ -805,8 +818,8 @@ void startNetwork()
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
   // hasło krótsze niż 8 znaków daje sieć otwartą (WPA2 wymaga co najmniej 8)
   const char *apPassword = strlen(AP_PASSWORD) >= 8 ? AP_PASSWORD : nullptr;
-  accessPointOn = WiFi.softAP(AP_SSID, apPassword);
-  logf("AP %s: %s", AP_SSID, accessPointOn ? "uruchomiony" : "NIE uruchomiony");
+  accessPointOn = WiFi.softAP(accessPointSsid(), apPassword);
+  logf("AP %s: %s", accessPointSsid(), accessPointOn ? "uruchomiony" : "NIE uruchomiony");
   // przyczyna każdego rozłączenia (kody esp_wifi: 2 = uwierzytelnienie, 15 = uścisk dłoni, 201 = brak sieci)
   WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t info) { lastDisconnectReason = info.wifi_sta_disconnected.reason; },
     ARDUINO_EVENT_WIFI_STA_DISCONNECTED);

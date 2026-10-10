@@ -8,7 +8,7 @@
 constexpr const char *DEVICE_TYPE = "switch";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z ofertą chmury (OTA). Podnieść przy
 // każdym wydaniu, zanim zbudujesz obraz; tę samą wersję wpisuje się w aplikacji przy wgrywaniu.
-constexpr const char *FW_VERSION = "1.1.0";
+constexpr const char *FW_VERSION = "1.1.1";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 

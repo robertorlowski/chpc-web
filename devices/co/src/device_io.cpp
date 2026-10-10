@@ -1,11 +1,12 @@
 // Obsługa sprzętu ESP32: ekran ST7735 (ekran trybu i główny), RTC DS3231
-// z synchronizacją NTP, start Wi-Fi w trybie AP+STA, włączanie AP HP-CO-setup
+// z synchronizacją NTP, start Wi-Fi w trybie AP+STA, włączanie AP MyHome-HeatPump-…
 // i zapis odpowiedzi na magistralę (przekaźniki CO/CWU usunięte w 1.2.0).
 #include <device_io.hpp>
 
 #include <cstring>
 
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold18pt7b.h>
 #include <NTPClient.h>
 #include <WiFi.h>
 #include <Wire.h>
@@ -13,6 +14,21 @@
 #include <device_config.hpp>
 
 namespace {
+// Układ ekranu głównego (renderDashboard, od 1.2.3): linia bazowa dużego T i T. zew, przesunięcie dużego T
+// w prawo (miejsce na „F”) i zejście dolnej linii, zakresu i szczegółów pompy w dół.
+constexpr int16_t TANK_BASELINE = 54;
+constexpr int16_t TANK_SHIFT = 6;
+constexpr int16_t OUTDOOR_BASELINE = 72;
+constexpr int DETAILS_DY = 8;
+
+// Otwarta sieć sterownika (AP) pod stałym adresem 10.10.10.1.
+void startConfigAccessPoint()
+{
+  const IPAddress address(CONFIG_AP_ADDRESS[0], CONFIG_AP_ADDRESS[1], CONFIG_AP_ADDRESS[2], CONFIG_AP_ADDRESS[3]);
+  WiFi.softAPConfig(address, address, IPAddress(255, 255, 255, 0));
+  WiFi.softAP(configApSsid());
+}
+
 uint8_t lastSundayOfMonth(uint16_t year, uint8_t month)
 {
   uint16_t nextYear = month == 12 ? year + 1 : year;
@@ -33,25 +49,36 @@ long warsawUtcOffset(unsigned long utcEpoch)
     ? 7200L : 3600L;
 }
 
+// dy: przesunięcie w dół (szczegóły pompy pod dolną linią, od 1.2.3 o DETAILS_DY niżej)
 void displayRow(Adafruit_ST7735 &display, int row, int column,
-  const String &name, const String &value, const String &defaultValue = "")
+  const String &name, const String &value, const String &defaultValue = "", int dy = 0)
 {
   if (column == -1)
-    display.setCursor(7, row * 10 + 20);
+    display.setCursor(7, row * 10 + 20 + dy);
   else
-    display.setCursor(column * 65, row * 10 + 20);
+    display.setCursor(column * 65, row * 10 + 20 + dy);
 
   display.printf("%s%s", name.c_str(),
     (value != "" ? value : defaultValue).c_str());
 }
 
-void printCentered(Adafruit_ST7735 &display, const char *text, int16_t y)
+// Napis wyśrodkowany bieżącą czcionką; shift > 0 przesuwa w prawo. centerOn: wzór, na którego szerokość
+// się środkuje, żeby napis nie skakał przy zmianie wartości (nullptr = sam napis).
+void printCentered(Adafruit_ST7735 &display, const char *text, int16_t y, int16_t shift = 0,
+  const char *centerOn = nullptr)
 {
   int16_t boundsX, boundsY;
   uint16_t width, height;
-  display.getTextBounds(text, 0, y, &boundsX, &boundsY, &width, &height);
-  display.setCursor((display.width() - width) / 2, y);
+  display.getTextBounds(centerOn ? centerOn : text, 0, y, &boundsX, &boundsY, &width, &height);
+  display.setCursor((display.width() - width) / 2 + shift, y);
   display.print(text);
+}
+
+// Temperatura z telemetrii z jednym miejscem po przecinku; brak = "--".
+String oneDecimal(JsonVariantConst value)
+{
+  if (value.isNull() || !(value.is<float>() || value.is<int>())) return "--";
+  return String(value.as<float>(), 1);
 }
 
 String jsonValueToString(JsonVariantConst value)
@@ -108,7 +135,7 @@ bool initializeDevice(RTC_DS3231 &rtc, Adafruit_ST7735 &display)
   WiFi.mode(WIFI_AP_STA);
   WiFi.persistent(false);
   WiFi.setAutoReconnect(true);
-  WiFi.softAP(CONFIG_AP_SSID);
+  startConfigAccessPoint();
   WiFi.begin(config.wifiSsid.c_str(), config.wifiPassword.c_str());
   unsigned long wifiStartedAt = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - wifiStartedAt < 10000) {
@@ -117,7 +144,7 @@ bool initializeDevice(RTC_DS3231 &rtc, Adafruit_ST7735 &display)
 
   if (WiFi.status() != WL_CONNECTED) {
     displayStatus(display, "Error WIFI", 0);
-    displayStatus(display, "AP: " + String(CONFIG_AP_SSID), 1);
+    displayStatus(display, "AP: " + String(configApSsid()), 1);
     displayStatus(display, "IP: " + WiFi.softAPIP().toString(), 2);
     return false;
   }
@@ -204,7 +231,7 @@ void setAccessPointEnabled(bool enabled)
   if (enabled) {
     // The station keeps its connection; the access point joins its channel.
     WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP(CONFIG_AP_SSID);
+    startConfigAccessPoint();
   } else {
     // wifioff = true drops the AP interface and leaves the station mode.
     WiFi.softAPdisconnect(true);
@@ -217,25 +244,28 @@ void renderDashboard(Adafruit_ST7735 &display,
   bool pvTemperatureCurrent, const DeviceSettings &settings,
   float outdoorTemperature, bool outdoorCurrent)
 {
-  // Nad niebieską linią (y = 23): data, godzina, tryb (C-RECZ, C-AUTO, C-OFF, L-RECZ, OFF), moc PV
-  // i produkcja dziś, temperatura falowników. Między liniami: duże T (Ttarget),
-  // „F” przy wymuszeniu, T. zew. Pod linią y = 70: szczegóły pompy.
+  // Nad niebieską linią (y = 23): data, godzina, tryb (C-MAN, C-AUT, C-OFF, L-MAN, OFF), moc PV
+  // i produkcja dziś, temperatura falowników. Między liniami: duże T (Ttarget, FreeSansBold 18 pt),
+  // „F” przy wymuszeniu, T. zew. Pod linią y = 78: zakres Tmin–Tmax i szczegóły pompy.
+  // Układ od 1.2.3 (2026-10-10): po 5 px odstępu nad dużym T, między nim a T. zew i pod T. zew; oba napisy
+  // środkowane na stałą szerokość wzoru (T:99.9, T. zew: -99.9), więc nie skaczą przy zmianie wartości.
   display.fillScreen(ST77XX_BLACK);
   display.setTextSize(1);
   display.clearWriteError();
   display.setCursor(0, 3);
   display.printf("%04d.%02d.%02d %02d:%02d", rtcTime.year(), rtcTime.month(),
     rtcTime.day(), rtcTime.hour(), rtcTime.minute());
-  // tryb do prawej krawędzi (czcionka 6 px na znak): C = z chmury, L = lokalnie (przycisk)
+  // tryb do prawej krawędzi (czcionka 6 px na znak): C = z chmury, L = lokalnie (przycisk), MAN = ręczny,
+  // AUT = harmonogram; najwyżej 5 znaków, bo data z godziną zajmuje 96 z 128 px
   const char *modeLabel = "C-OFF";
   if (controllerMode == ControllerMode::OFF) {
     modeLabel = "OFF";
   } else if (controllerMode == ControllerMode::MANUAL) {
-    modeLabel = "L-RECZ";
+    modeLabel = "L-MAN";
   } else if (workMode == MANUAL) {
-    modeLabel = "C-RECZ";
+    modeLabel = "C-MAN";
   } else if (workMode == AUTO) {
-    modeLabel = "C-AUTO";
+    modeLabel = "C-AUT";
   }
   display.setCursor(display.width() - static_cast<int16_t>(strlen(modeLabel)) * 6, 3);
   display.print(modeLabel);
@@ -251,17 +281,19 @@ void renderDashboard(Adafruit_ST7735 &display,
     display.printf("T:--");
 
   // Outdoor temperature from the cloud (IMGW) under the tank temperature,
-  // left-aligned. The built-in font only scales by whole steps (7 or 14 px),
-  // so FreeSans 9 pt gives the size in between. With a GFX font the cursor
+  // centred on "T. zew: -99.9". FreeSans 9 pt; with a GFX font the cursor
   // y is the baseline. It does not depend on the pump, so it is drawn even
   // without pump data.
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.setCursor(7, 63);
-  if (outdoorCurrent)
-    display.printf("T. zew: %.1f", outdoorTemperature);
-  else
-    display.print("T. zew: --");
+  {
+    char outdoor[24];
+    if (outdoorCurrent)
+      snprintf(outdoor, sizeof(outdoor), "T. zew: %.1f", outdoorTemperature);
+    else
+      snprintf(outdoor, sizeof(outdoor), "T. zew: --");
+    printCentered(display, outdoor, OUTDOOR_BASELINE, 0, "T. zew: -99.9");
+  }
   display.setFont(nullptr);
 
   JsonObjectConst hp = telemetry["HP"].as<JsonObjectConst>();
@@ -275,9 +307,11 @@ void renderDashboard(Adafruit_ST7735 &display,
     display.setTextColor(ST77XX_WHITE);
   }
 
-  if (hp["CO"].isNull()) {
-    displayRow(display, 1, -1, "  T:", "----");
-  } else {
+  // Duże T (temperatura w środku zbiornika), FreeSansBold 18 pt, środkowane na "T:99.9" i przesunięte
+  // w prawo, żeby nie wchodziło na „F”.
+  display.setTextSize(1);
+  display.setFont(&FreeSansBold18pt7b);
+  if (!hp["CO"].isNull()) {
     // Red while CHPC counts an unresolved error (ERRc > 0; it clears after
     // a successful run or an unlock, and 5 means locked), otherwise yellow
     // while the compressor runs. ERR itself is only the last event's code
@@ -286,38 +320,42 @@ void renderDashboard(Adafruit_ST7735 &display,
       display.setTextColor(ST77XX_RED);
     else if (hp["HPS"].as<int>() > 0)
       display.setTextColor(ST77XX_YELLOW);
-    displayRow(display, 1, -1, "  T:", jsonValueToString(hp["Ttarget"]));
-    display.setTextColor(ST77XX_WHITE);
   }
+  {
+    const String tank = "T:" + (hp["CO"].isNull() ? String("--") : oneDecimal(hp["Ttarget"]));
+    printCentered(display, tank.c_str(), TANK_BASELINE, TANK_SHIFT, "T:99.9");
+  }
+  display.setFont(nullptr);
 
   display.setTextColor(ST77XX_WHITE);
-  display.drawLine(0, 70, 420, 70, ST77XX_BLUE);
+  display.drawLine(0, 70 + DETAILS_DY, 420, 70 + DETAILS_DY, ST77XX_BLUE);
   display.setTextSize(1);
 
   // Only what CHPC reports as set (Tmin–Tmax from its telemetry), not what
   // `co` wants to send: a mismatch then shows as a stale value, not a second line.
-  // Same font as "T. zew:" (GFX font: y is the baseline), centred; takes the
-  // place of the rows 6 and 7 of the 5x7 font, so the rest starts at row 7.
+  // Same font as "T. zew:" (GFX font: y is the baseline), centred and 4 px to the left; one decimal
+  // ("35.0 - 45.0": with two the line filled the whole 128 px); takes the place of the rows 6 and 7 of
+  // the 5x7 font, so the rest starts at row 7.
   {
-    const String tMin = jsonValueToString(hp["Tmin"]);
-    const String tMax = jsonValueToString(hp["Tmax"]);
-    const String range = "T: " + ((tMin != "" && tMax != "") ? tMin + " - " + tMax : String("--"));
+    const bool known = !hp["Tmin"].isNull() && !hp["Tmax"].isNull();
+    const String range = "T: " + (known ? oneDecimal(hp["Tmin"]) + " - " + oneDecimal(hp["Tmax"]) : String("--"));
     display.setFont(&FreeSans9pt7b);
-    printCentered(display, range.c_str(), 86);
+    printCentered(display, range.c_str(), 86 + DETAILS_DY, -4);
     display.setFont(nullptr);
   }
   int row = 7;
+  const int dy = DETAILS_DY;
 
-  displayRow(display, row, 0, "T.be:", jsonValueToString(hp["Tbe"]));
-  displayRow(display, row++, 1, "T.ae:", jsonValueToString(hp["Tae"]));
-  displayRow(display, row, 0, "T.hp:", jsonValueToString(hp["Tsump"]));
-  displayRow(display, row++, 1, "T.ho:", jsonValueToString(hp["Tho"]));
-  displayRow(display, row, 0, "E.ev:", jsonValueToString(hp["EEV"]));
-  displayRow(display, row++, 1, "E.dt:", jsonValueToString(hp["EEV_dt"]));
-  displayRow(display, row, 0, "E.ps:", jsonValueToString(hp["EEV_pos"]));
-  displayRow(display, row++, 1, "Watt:", jsonValueToString(hp["Watts"]));
+  displayRow(display, row, 0, "T.be:", jsonValueToString(hp["Tbe"]), "", dy);
+  displayRow(display, row++, 1, "T.ae:", jsonValueToString(hp["Tae"]), "", dy);
+  displayRow(display, row, 0, "T.hp:", jsonValueToString(hp["Tsump"]), "", dy);
+  displayRow(display, row++, 1, "T.ho:", jsonValueToString(hp["Tho"]), "", dy);
+  displayRow(display, row, 0, "E.ev:", jsonValueToString(hp["EEV"]), "", dy);
+  displayRow(display, row++, 1, "E.dt:", jsonValueToString(hp["EEV_dt"]), "", dy);
+  displayRow(display, row, 0, "E.ps:", jsonValueToString(hp["EEV_pos"]), "", dy);
+  displayRow(display, row++, 1, "Watt:", jsonValueToString(hp["Watts"]), "", dy);
   displayRow(display, row, 0, "HC.s:",
-    hp["HCS"].isNull() ? "" : hp["HCS"] ? "ON" : "OFF");
+    hp["HCS"].isNull() ? "" : hp["HCS"] ? "ON" : "OFF", "", dy);
   displayRow(display, row++, 1, "CC.s:",
-    hp["CCS"].isNull() ? "" : hp["CCS"] ? "ON" : "OFF");
+    hp["CCS"].isNull() ? "" : hp["CCS"] ? "ON" : "OFF", "", dy);
 }

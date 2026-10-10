@@ -26,7 +26,7 @@ struct DeviceConfig {
 // przycisk OFF → CLOUD → RĘCZNY, konfiguracja pompy z chmury (wymuszenie PV, DTU, zbiornik),
 // COP na bieżąco i bez wyniku przy pracy pompy CO kotła;
 // 1.2.1: ekran: jedna wyśrodkowana linia „T: od - do” (Tmin–Tmax z pompy) zamiast T.HP i T.od-do.
-constexpr const char *FW_VERSION = "1.2.2";
+constexpr const char *FW_VERSION = "1.2.3";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";
@@ -34,8 +34,12 @@ constexpr const char *PREFERENCES_NAMESPACE = "hp";
 // Network the controller opens when it cannot join the configured one, so a
 // wrong password never makes the configuration page unreachable.
 // Stan obecny: AP startuje zawsze razem ze sterownikiem, a wyłącza go
-// i przywraca AccessPointPolicy.
-constexpr const char *CONFIG_AP_SSID = "HP-CO-setup";
+// i przywraca AccessPointPolicy. Nazwa MyHome-HeatPump-<4 ostatnie znaki SN>,
+// adres 10.10.10.1 jak we wszystkich sterownikach (od 2026-10-10, wcześniej
+// HP-CO-setup pod 192.168.4.1).
+const char *configApSsid();
+// Adres sterownika w jego sieci (AP).
+constexpr uint8_t CONFIG_AP_ADDRESS[4] = {10, 10, 10, 1};
 
 // Basic-auth credentials guarding /install. The telemetry page on / is open.
 // These live in tracked source, so treat them as a lock on the front door,

@@ -56,7 +56,8 @@ constexpr int HTTP_CONFLICT = 409;
 constexpr int HTTP_NOT_FOUND = 404;
 constexpr uint32_t STATUS_LOG_MS = 30000;
 
-const IPAddress AP_ADDRESS(10, 11, 17, 1);
+// sieć sterownika (AP): ten sam adres we wszystkich sterownikach (od 2026-10-10)
+const IPAddress AP_ADDRESS(10, 10, 10, 1);
 
 Preferences preferences;
 WebServer server(80);
@@ -146,6 +147,17 @@ String readSerial()
   char text[13];
   snprintf(text, sizeof(text), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   return text;
+}
+
+// Nazwa sieci sterownika (AP, otwarta): MyHome-Switch-<4 ostatnie znaki SN> (od 2026-10-10, wcześniej AP_SSID z secrets.h).
+const char *accessPointSsid()
+{
+  static String ssid;
+  if (ssid.isEmpty()) {
+    const String sn = readSerial();
+    ssid = "MyHome-Switch-" + sn.substring(sn.length() > 4 ? sn.length() - 4 : 0);
+  }
+  return ssid.c_str();
 }
 
 // Wartość z NVS, a gdy jej nie ma (pierwszy start) — wkompilowana z secrets.h.
@@ -477,12 +489,12 @@ void updateAccessPoint(uint32_t nowMs)
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
     accessPointOn = false;
-    logf("AP %s: wyłączony (Wi-Fi połączone, strony pod %s)", AP_SSID, WiFi.localIP().toString().c_str());
+    logf("AP %s: wyłączony (Wi-Fi połączone, strony pod %s)", accessPointSsid(), WiFi.localIP().toString().c_str());
   } else if (!accessPointOn && !connected && wifiLostSinceMs != 0 && nowMs - wifiLostSinceMs >= AP_ON_AFTER_MS) {
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
-    accessPointOn = WiFi.softAP(AP_SSID, accessPointPassword());
-    logf("AP %s: włączony (brak Wi-Fi)", AP_SSID);
+    accessPointOn = WiFi.softAP(accessPointSsid(), accessPointPassword());
+    logf("AP %s: włączony (brak Wi-Fi)", accessPointSsid());
   }
 }
 
@@ -536,15 +548,16 @@ String htmlEscape(const String &text)
 
 const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Włącznik</title>
-<style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}
-.card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem}
+<style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}@media(max-width:30rem){body{padding:.3rem}}
+.card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem;overflow-wrap:anywhere}
 .state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
 .count{font-size:2rem;font-weight:700;color:#1481a5;text-align:center;font-variant-numeric:tabular-nums}
 button{background:#1481a5;color:#fff;border:0;border-radius:6px;padding:.6rem 1rem;font-size:1rem}
 button.stop{background:#c62828}button.second{background:#7a8c93}button:disabled{opacity:.4}
-.buttons{display:flex;flex-wrap:wrap;gap:.5rem}.timer{display:flex;gap:.4rem;align-items:center;margin-top:.5rem}
+.buttons{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end}.timer{display:flex;gap:.4rem;align-items:center;margin-top:.5rem}
 .timer input{width:4rem;padding:.3rem}label{display:block;margin:.4rem 0}label input{width:100%;box-sizing:border-box;padding:.3rem}
 small{color:#555}h2{margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:2px solid #1481a5;color:#1481a5;font-size:1.25rem}
+p:has(>button){text-align:right}
 </style></head><body>)html";
 
 // Karty przekaźników budowane w przeglądarce z /state.json (odświeżanie co 1 s, odliczanie lokalne).
@@ -676,18 +689,19 @@ void handleInstall()
   page += "<label>Sieć Wi-Fi (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
   page += "<label>Hasło Wi-Fi <small>(puste = bez zmian)</small><input name=\"password\" type=\"password\"></label>";
   page += "<p><button type=\"submit\">Zapisz</button></p></form>";
+  page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
+  page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
+  page += "<div>Przekaźników: <b>" + String(RELAY_COUNT) + "</b></div>";
+  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
+  page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div></div>";
+  // firmware na końcu strony (jak we wszystkich sterownikach)
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
   page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
   if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
   page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
   page += "<div><small>Po wgraniu sterownik się restartuje (przekaźniki wyłączą się na chwilę).</small></div>";
   page += "<p><button type=\"submit\">Wgraj</button></p></form>";
-  page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
-  page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
-  page += "<div>Przekaźników: <b>" + String(RELAY_COUNT) + "</b></div>";
-  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
-  page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div>";
-  page += "</div><p><a href=\"/\">Strona główna</a></p></body></html>";
+  page += "<p><a href=\"/\">Strona główna</a></p></body></html>";
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html; charset=utf-8", page);
 }
@@ -732,13 +746,13 @@ void handleFirmwareDone()
   }
 }
 
-// AP do konfiguracji (10.11.17.1) razem z połączeniem do sieci domowej (AP+STA) i strony WWW.
+// AP do konfiguracji (10.10.10.1) razem z połączeniem do sieci domowej (AP+STA) i strony WWW.
 void startNetwork()
 {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(AP_ADDRESS, AP_ADDRESS, IPAddress(255, 255, 255, 0));
-  accessPointOn = WiFi.softAP(AP_SSID, accessPointPassword());
-  logf("AP %s: %s (10.11.17.1, %s)", AP_SSID, accessPointOn ? "uruchomiony" : "NIE uruchomiony",
+  accessPointOn = WiFi.softAP(accessPointSsid(), accessPointPassword());
+  logf("AP %s: %s (10.10.10.1, %s)", accessPointSsid(), accessPointOn ? "uruchomiony" : "NIE uruchomiony",
     accessPointPassword() ? "z hasłem" : "otwarty");
   if (wifiSsid.length() > 0) {
     logf("Wi-Fi: łączę z %s", wifiSsid.c_str());

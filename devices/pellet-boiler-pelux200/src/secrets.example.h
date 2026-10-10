@@ -4,7 +4,6 @@
 
 // Punkt dostępowy do konfiguracji: działa po starcie i po 1 min bez Wi-Fi, wyłącza się po
 // 1 min połączenia (pellet.cpp, updateAccessPoint). Hasło krótsze niż 8 znaków = sieć otwarta.
-#define AP_SSID "Piec-setup"
 #define AP_PASSWORD ""
 
 // Logowanie do /install (Basic Auth), jak w pozostałych sterownikach.

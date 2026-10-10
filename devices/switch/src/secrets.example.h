@@ -5,7 +5,6 @@
 // Punkt dostępowy do pierwszej konfiguracji: działa po starcie i po 1 min bez Wi-Fi, wyłącza
 // się po 1 min połączenia z Wi-Fi (switch.cpp, updateAccessPoint). Hasło krótsze niż 8 znaków
 // (np. puste) daje sieć otwartą: w tym czasie każdy w zasięgu może przełączyć przekaźnik.
-#define AP_SSID "Wlacznik-setup"
 #define AP_PASSWORD ""
 
 // Logowanie do /install (Basic Auth), takie samo jak w sterowniku co i hydroforze.

@@ -10,7 +10,7 @@ constexpr const char *DEVICE_TYPE = "water-pressure-tank";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z wersją oferowaną przez
 // chmurę (OTA). Podnieść przy każdym wydaniu, zanim zbudujesz obraz; tę samą wersję
 // wpisuje się na stronie firmware w aplikacji przy wgrywaniu pliku.
-constexpr const char *FW_VERSION = "1.3.0";
+constexpr const char *FW_VERSION = "1.3.1";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Hydrofor";
 

@@ -1,4 +1,4 @@
-// Polityka AP HP-CO-setup (opis i progi w access_point_policy.hpp). Moduł bez
+// Polityka AP MyHome-HeatPump-… (opis i progi w access_point_policy.hpp). Moduł bez
 // zależności od Arduino, testowany w test_access_point_policy.
 #include <access_point_policy.hpp>
 

@@ -2,7 +2,7 @@
 // Odpytuje CHPC (0x41) i DTU Hoymiles (0x69) po RS-485, wysyła telemetrię
 // na POST /api/hp/add i odczyt PV na POST /api/pv/add, stosuje `operation`
 // z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
-// HP-CO-setup i odpowiada na zapytania innych urządzeń do adresu 0x10.
+// MyHome-HeatPump-… i odpowiada na zapytania innych urządzeń do adresu 0x10.
 // Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
 // Od 1.2.0 tryb pracy MANUAL / AUTO / OFF z jedną temperaturą od–do, bez przekaźników CO/CWU,
 // przycisk OFF → CLOUD → MANUAL (ręczny lokalnie), konfiguracja pompy z chmury (PV, zbiornik).

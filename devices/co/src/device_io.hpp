@@ -7,7 +7,7 @@
 #include <domain_types.hpp>
 
 // Sprzęt ESP32: ekran ST7735 (128×160, pionowo), RTC DS3231, NTP, Wi-Fi
-// z AP HP-CO-setup i odpowiedź na magistrali RS-485.
+// z AP MyHome-HeatPump-… i odpowiedź na magistrali RS-485.
 // Wszystko wywołuje main.cpp.
 
 // Start ekranu i Wi-Fi (do 10 s czekania), potem NTP; false = brak czasu.

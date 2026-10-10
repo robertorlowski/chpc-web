@@ -4,7 +4,6 @@
 
 // Punkt dostępowy sterownika, działa przez cały czas pracy. Hasło krótsze niż
 // 8 znaków (np. puste) daje sieć otwartą.
-#define AP_SSID "Piwnica"
 #define AP_PASSWORD ""
 
 // Logowanie do /install (Basic Auth), takie samo jak w sterowniku co.

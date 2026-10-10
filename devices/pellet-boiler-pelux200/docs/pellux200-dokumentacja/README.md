@@ -33,8 +33,8 @@ z adresów z kolumny „Źródło” i położyć w tym katalogu pod podanymi na
    `mode`, `pumpCOWorks`, `pumpCWUWorks`, `boilerPower`, `fanPower`, `fuelLevel`.
    Źródło: społecznościowe (Home Assistant, elektroda), nieoficjalne —
    do sprawdzenia na naszym module. Wymaga zakupu ecoNET300 i tylko Wi-Fi ESP32,
-   bez dotykania magistrali RS-485 kotła. Opis API, nagrania odpowiedzi (także
-   ecoMAX 860P2) i ustalenia z 2026-10-08: [../econet300-api/README.md](../econet300-api/README.md).
+   bez dotykania magistrali RS-485 kotła. **Wycofane 2026-10-10:** modułu nie mamy
+   i nie planujemy zakupu; tryb ecoNET300 z firmware 1.9.0 usunięto (zostaje RS-485).
 2. **Bezpośrednio RS-485 (PyPlumIO).** Opis ramek w
    [piec-pellux200.md](../piec-pellux200.md). Wymaga
    konwertera i wpięcia w magistralę kotła; ryzyko kolizji, brak oficjalnej
