@@ -650,7 +650,7 @@ export const MainParameters: React.FC = () => {
             <label className="boiler-check">
               <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving}
                 onChange={(event) => setPelletCwu(event.currentTarget.checked)} />
-              Grzej CWU peletem
+              CWU - grzanie peletem
             </label>
             <div className="boiler-hint">
               W trybie Pompa ciepła CWU grzeje kocioł według ustawień trybu Pellet:

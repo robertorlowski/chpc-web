@@ -185,6 +185,8 @@ export interface PelletBoilerScheduleState extends PelletBoilerCwuRange {
   season?: PelletBoilerSeason;
   seasonScheduleId?: string | null;
   paused?: boolean;
+  /** znacznik „Grzej CWU peletem” w trybie pompy ciepła (CWU od–do z trybu Pellet) */
+  pelletCwu?: boolean;
 }
 
 /** Wartości poza harmonogramem dla trybu: CWU od–do i sezon (brak sezonu = harmonogram go nie zmienia). */

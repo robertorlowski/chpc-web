@@ -313,4 +313,44 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     expect((await request(app).get(api('turn-on'))).body.blocked).toBe(false);
     expect((await request(app).post(api('turn-on')).send({ action: 'nie' })).status).toBe(400);
   });
+
+  it('harmonogram zatrzymany: zmiana trybu i znacznika „Grzej CWU peletem” od razu ustawia CWU bieżącego harmonogramu', async () => {
+    const sn = 'AABBCC0000B6';
+    const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+    await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
+    const settingsFrom = (hex: Record<string, string>) =>
+      request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(hex).expect(201);
+    const pending = async () => ((await request(app).get(api('commands'))).body as { index: number; value: number; status: string }[])
+      .filter((c) => c.status === 'pending').map((c) => `${c.index}=${c.value}`).sort();
+    const finishAll = () => PelletBoilerCommandModel.updateMany({ rootId: boilerRoot, status: 'pending' }, { $set: { status: 'done' } });
+    // kocioł z 2026-10-10 (Pellet, CWU 50 / 15), harmonogram zatrzymany, regulator wyłączony
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(today.odczyt).expect(201);
+    await settingsFrom(today.raw_hex);
+    expect((await request(app).get(api('schedule-settings'))).body.enabled).toBe(false);
+    // pierwszy przebieg: CWU trybu Pellet (poza harmonogramem 40–55 = 55 / 15; histereza 15 już jest)
+    await applySchedule(boilerRoot);
+    expect(await pending()).toEqual(['119=55']);
+    await finishAll();
+    // bez zmiany trybu: nic więcej
+    await applySchedule(boilerRoot);
+    expect(await pending()).toEqual([]);
+
+    // przełączenie na Pompę ciepła (minimum kotła 30 w odczycie ustawień): CWU trybu pompy ciepła 35–40 = 40 / 5
+    const ecomax = Buffer.from(today.raw_hex.ecomax_parameters, 'hex');
+    ecomax[3 + 3 * 99] = 30;
+    await settingsFrom({ ...today.raw_hex, ecomax_parameters: ecomax.toString('hex') });
+    await applySchedule(boilerRoot);
+    expect(await pending()).toEqual(['119=40', '123=5']);
+    await finishAll();
+
+    // „Grzej CWU peletem” przy zatrzymanym harmonogramie: CWU z trybu Pellet od razu; regulator wyłączony — cykl nie rusza
+    const on = (await request(app).put(api('pellet-cwu')).send({ enabled: true })).body;
+    expect(on.pelletCwu).toMatchObject({ enabled: true, phase: 'idle' });
+    // odczyt ustawień w teście ma nadal CWU 50 / 15
+    expect(await pending()).toEqual(['119=55']);
+    await finishAll();
+    await request(app).put(api('pellet-cwu')).send({ enabled: false }).expect(200);
+    expect(await pending()).toEqual(['119=40', '123=5']);
+  });
 });

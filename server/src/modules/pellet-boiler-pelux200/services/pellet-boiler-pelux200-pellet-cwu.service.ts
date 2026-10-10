@@ -2,7 +2,7 @@
 // (minimum kotła nr 99 bez zmian, więc tryb z odczytu ustawień się nie zmienia), ale ciepłą wodę grzeje pellet,
 // a pompa ciepła tylko CO. Znacznik „CWU grzej peletem” w Ustawieniach (PUT /pellet-boiler-pelux200/pellet-cwu).
 // Krok co minutę (scheduler kotła, po harmonogramie), na ostatnim świeżym odczycie kotła:
-//   idle    → CWU (water_heater_temp) < „od” trybu Pellet (harmonogram Pellet albo jego ustawienie poza
+//   idle    → regulator włączony i CWU (water_heater_temp) < „od” trybu Pellet (harmonogram Pellet albo jego ustawienie poza
 //             harmonogramem): zadana kotła nr 98 i histereza nr 17 z nastaw trybu Pellet (profiles.pellet,
 //             67 °C / 12) — kocioł rozpala i przy priorytecie CWU ładuje wodę; faza heating;
 //   heating → CWU ≥ „do” trybu Pellet: nr 98 i 17 wracają do nastaw trybu Pompa ciepła (30 °C / 20), kocioł
@@ -87,6 +87,8 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
   const state: PelletBoilerPelletCwu = { ...saved, cwuFrom, cwuTo, boilerTemp, cwuTemp };
   const elapsed = state.since ? now.getTime() - new Date(state.since).getTime() : 0;
   const heatPumpMode = mode === 'heat-pump';
+  // regulator włączony (świeży odczyt w stanie innym niż 0): przy wyłączonym kotle cykl nie startuje
+  const regulatorOn = fresh && typeof last?.state === 'number' && last.state !== 0;
 
   // koniec grzania: nastawy pompy ciepła (tylko w jej trybie; po przejściu na Pellet zostają nastawy Pelletu)
   const finish = async (error: string | null) => {
@@ -100,7 +102,7 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
 
   try {
     if (state.phase === 'idle') {
-      if (state.enabled && heatPumpMode && cwuTemp !== null && cwuTemp < cwuFrom) {
+      if (state.enabled && heatPumpMode && regulatorOn && cwuTemp !== null && cwuTemp < cwuFrom) {
         const changes = await boilerChanges(rootId, 'pellet');
         if (changes.length) await createCommands(rootId, { changes });
         Object.assign(state, { phase: 'heating', since: now, burning: false, error: null });

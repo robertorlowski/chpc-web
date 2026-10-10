@@ -237,7 +237,24 @@ export function scheduleState(
 
 const sameState = (a?: PelletBoilerScheduleState, b?: PelletBoilerScheduleState) =>
   !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && a.season === b.season
-  && !!a.paused === !!b.paused;
+  && !!a.paused === !!b.paused && !!a.pelletCwu === !!b.pelletCwu;
+
+// Stan harmonogramu teraz: wpisy i ustawienie poza harmonogramem trybu, sezon z przycisku, a przy znaczniku
+// „Grzej CWU peletem” (tryb pompy ciepła) CWU od–do z trybu Pellet.
+async function currentState(
+  rootId: string, settings: PelletBoilerScheduleSettings, mode: PelletBoilerMode, now: Date,
+  last?: PelletBoilerScheduleState,
+) {
+  const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
+  let { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
+  const manual = await activeManualSeason(rootId, state.season ?? null);
+  if (manual) state = { ...state, season: manual };
+  if (mode === 'heat-pump' && (await getPelletCwu(rootId)).enabled) {
+    const pellet = scheduleState(settings, entries, 'pellet', now).state;
+    state = { ...state, cwuFrom: pellet.cwuFrom, cwuTo: pellet.cwuTo, pelletCwu: true };
+  }
+  return state;
+}
 
 // Wartość surowa parametru kotła z ostatniego odczytu ustawień.
 const currentParameter = (settings: PelletBoilerSettingsEntry, index: number) =>
@@ -296,8 +313,23 @@ export async function applySchedule(rootId: string, now = new Date(), pump: Heat
   const last = settings.lastApplied;
   try {
     // harmonogram nie działa („Wyłącz regulator”): nic nie zleca; zapamiętuje przerwę, żeby po wznowieniu
-    // zastosować stan od razu
+    // zastosować stan od razu. Wyjątek (decyzja użytkownika 2026-10-10): po zmianie trybu (Pompa ciepła / Pellet)
+    // albo znacznika „Grzej CWU peletem” CWU z bieżącego harmonogramu idzie od razu (bez sezonu i bez włączania).
     if (!settings.enabled) {
+      const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
+      const mode = await effectiveBoilerMode(rootId, boiler);
+      if (boiler && mode) {
+        const { season: _season, seasonScheduleId: _seasonId, ...cwu } = await currentState(rootId, settings, mode, now, last);
+        if (last?.mode !== mode || !!last?.pelletCwu !== !!cwu.pelletCwu) {
+          const changes = changesFor(cwu, boiler);
+          if (changes.length) await createCommands(rootId, { changes });
+          await PelletBoilerScheduleSettingsModel.updateOne(
+            { rootId }, { $set: { lastApplied: { ...cwu, paused: true }, lastAppliedAt: now }, $unset: { lastError: 1 } }, { upsert: true });
+          console.log(`[pellet scheduler] ${rootId} harmonogram zatrzymany, zmiana trybu albo CWU z peletu — CWU`, cwu, `zleceń: ${changes.length}`);
+          sendMessage('update', rootId);
+          return;
+        }
+      }
       if (!last || last.paused) return;
       const paused = { ...last, paused: true };
       await PelletBoilerScheduleSettingsModel.updateOne(
@@ -308,16 +340,9 @@ export async function applySchedule(rootId: string, now = new Date(), pump: Heat
     const boiler = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
     const mode = await effectiveBoilerMode(rootId, boiler);
     if (!boiler || !mode) throw new Error('Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.');
-    const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
-    let { state } = scheduleState(settings, entries, mode, now, await boilerOutdoorTemperature(rootId, now), last?.seasonScheduleId);
-    // sezon z przycisku w Ustawieniach (tryb pompy ciepła) wygrywa do zmiany sezonu z harmonogramu
-    const manual = await activeManualSeason(rootId, state.season ?? null);
-    if (manual) state = { ...state, season: manual };
+    // sezon z przycisku w Ustawieniach (tryb pompy ciepła) wygrywa do zmiany sezonu z harmonogramu;
     // CWU z peletu w trybie pompy ciepła: CWU od–do jak w trybie Pellet (kocioł grzeje wtedy CWU sam)
-    if (mode === 'heat-pump' && (await getPelletCwu(rootId)).enabled) {
-      const pellet = scheduleState(settings, entries, 'pellet', now).state;
-      state = { ...state, cwuFrom: pellet.cwuFrom, cwuTo: pellet.cwuTo };
-    }
+    let state = await currentState(rootId, settings, mode, now, last);
     // Tryb pompy ciepła i Zima: sezonem steruje cykl Zimy (winter-cycle.service.ts), więc stan jest bez sezonu
     // (harmonogram zleca tylko CWU); koniec cyklu = Lato ze zwykłej ścieżki (stan z sezonem różny od ostatniego).
     if (mode === 'heat-pump' && state.season === 'winter') {
