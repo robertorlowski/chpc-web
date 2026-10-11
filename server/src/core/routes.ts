@@ -3,9 +3,14 @@
 import express from 'express'
 
 import {
-  addDevice, cancelDeviceFirmwareUpdate, getDevices, getProperties, registerDeviceEntry, requestDeviceFirmwareUpdate,
-  updateDefaultDevice, updateDevice, updateDevicesOrder, updateProperties,
+  addDevice, addDeviceShare, cancelDeviceFirmwareUpdate, getDeviceShares, getDevices, getProperties, registerDeviceEntry,
+  removeDeviceShare, requestDeviceFirmwareUpdate, updateDefaultDevice, updateDevice, updateDeviceShare, updateDevicesOrder,
+  updateProperties,
 } from './controllers/device.controller'
+import {
+  authDelete, authDeleteConfirm, authEmailChange, authEmailChangeVerify, authLogout, authMe, authRemember, authStart,
+  authSystem, authUpdateMe, authVerify,
+} from './controllers/auth.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
 import { getDatabaseStatsEntry } from './controllers/database.controller'
@@ -18,6 +23,19 @@ import photovoltaicRoutes from '../modules/photovoltaic/routes'
 
 // Trasy /api: wspólne (urządzenia, temperatura zewnętrzna) i moduły rodzajów sterowników.
 const router = express.Router()
+
+// Konta użytkowników (logowanie kodem z maila, sesja w nagłówku Authorization; core/middleware/session.ts)
+router.post('/auth/start', authStart)
+router.post('/auth/verify', authVerify)
+router.post('/auth/system', authSystem)
+router.post('/auth/remember', authRemember)
+router.post('/auth/logout', authLogout)
+router.get('/auth/me', authMe)
+router.put('/auth/me', authUpdateMe)
+router.post('/auth/email-change', authEmailChange)
+router.post('/auth/email-change/verify', authEmailChangeVerify)
+router.post('/auth/delete', authDelete)
+router.post('/auth/delete/confirm', authDeleteConfirm)
 
 // Urządzenia wszystkich rodzajów: lista, zgłoszenie sterownika, nazwa,
 // sterownik domyślny i ustawienia (properties).
@@ -36,6 +54,11 @@ router.put('/devices/:rootId/default', updateDefaultDevice)
 // przycisk „Aktualizuj” w Ustawieniach sterownika: zlecenie aktualizacji firmware i jego odwołanie
 router.post('/devices/:rootId/firmware-update', requestDeviceFirmwareUpdate)
 router.delete('/devices/:rootId/firmware-update', cancelDeviceFirmwareUpdate)
+// udostępnianie sterownika z wyborem zakładek (właściciel)
+router.get('/devices/:rootId/shares', getDeviceShares)
+router.post('/devices/:rootId/shares', addDeviceShare)
+router.put('/devices/:rootId/shares/:id', updateDeviceShare)
+router.delete('/devices/:rootId/shares/:id', removeDeviceShare)
 router.get('/device/properties', getProperties)
 router.put('/device/properties', updateProperties)
 

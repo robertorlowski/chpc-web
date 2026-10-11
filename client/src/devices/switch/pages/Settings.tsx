@@ -7,6 +7,7 @@ import Notification, { useSaveNotice } from '../../../core/components/Notificati
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
+import { DeviceSharing } from '../../../core/components/DeviceSharing';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { SwitchRequests } from '../api';
@@ -92,7 +93,7 @@ export const SwitchSettings: React.FC = () => {
         </form>
 
         <div className="resource settings-device">
-          <ControllerCardTitle disabled={!device} onEdit={() => setEditingDevice(true)} />
+          <ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={() => setEditingDevice(true)} />
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
@@ -100,6 +101,8 @@ export const SwitchSettings: React.FC = () => {
           <DeviceAddress device={device} />
           <FirmwareStatus device={device} actionsClassName="switch-form-actions" />
         </div>
+        {/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
+        {device && <DeviceSharing device={device} />}
       </section>
 
       {editingDevice && device && (

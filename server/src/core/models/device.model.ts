@@ -94,6 +94,9 @@ const DeviceSchema = new Schema<DeviceDocument>(
       }, { _id: false }),
       default: undefined,
     },
+    // właściciel (konta użytkowników, 2026-10-11): _id z users; brak = sterownik bez właściciela (widzi go tylko
+    // użytkownik systemowy). Sterownik zgłaszający się sam nie dostaje właściciela.
+    ownerId: { type: String, default: null, index: true },
     // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
     settings: { type: SettingsEntrySchema },
     schedules: { type: [ScheduleEntrySchema] },

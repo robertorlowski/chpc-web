@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useDevice } from "../context/DeviceContext";
 import { getDeviceTypeView } from "../device-types";
 import { BackIcon } from "./icons";
+import { UserMenu } from "./UserMenu";
 
 
 // Menu górne (App.tsx, poza stroną /devices). Na początku strzałka powrotu do listy urządzeń (/devices),
@@ -10,7 +11,9 @@ export function Header() {
 	let location  = useLocation();
 	// menu z rejestru rodzajów sterowników: każdy rodzaj ma swoje widoki (hydrofor bez harmonogramów)
 	const { device } = useDevice();
-	const { views } = getDeviceTypeView(device?.deviceType);
+	const { views: allViews } = getDeviceTypeView(device?.deviceType);
+	// sterownik udostępniony: w menu tylko udostępnione zakładki (konta użytkowników)
+	const views = device?.access === 'shared' ? allViews.filter((view) => device.tabs?.includes(view.path)) : allViews;
 
 	// if (location.pathname === '/' || location.pathname === '/hp') {
     //   	//autorefresh
@@ -30,6 +33,8 @@ export function Header() {
 					<span className="nav-label">{view.label}</span>
 				</Link>
 				))}
+				{/* konto zalogowanego: po prawej stronie paska */}
+				<UserMenu />
 			</nav>
 		</header>
 	);

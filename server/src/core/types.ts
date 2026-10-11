@@ -77,7 +77,9 @@ export interface Device {
   deviceType: DeviceType;
   deviceId: string;
   name?: string;
-  /** sterownik otwierany po starcie aplikacji; najwyżej jeden */
+  /** właściciel (users._id); brak = bez właściciela */
+  ownerId?: string | null;
+  /** sterownik otwierany po starcie aplikacji; najwyżej jeden (od kont użytkowników: users.defaultRootId) */
   isDefault?: boolean;
   /** miejsce na liście sterowników (0 = pierwszy); brak = na końcu */
   sortOrder?: number;

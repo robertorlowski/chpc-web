@@ -4,6 +4,9 @@
 // Nie ma sterownika domyślnego ani automatycznego wyboru: lista jest zawsze ekranem startowym (DeviceGuard
 // przekierowuje tu, gdy nie wybrano sterownika). Na dole własna stopka: lewa część wolna (zarezerwowana
 // na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
+// Konta użytkowników (2026-10-11): sekcje według właściciela — nagłówki („Moje sterowniki”, „Udostępnione przez …”,
+// u użytkownika systemowego każdy właściciel i „Bez właściciela”) tylko przy więcej niż jednej sekcji; ołówek
+// tylko przy własnych sterownikach; trybik firmware i zajętość bazy tylko dla użytkownika systemowego.
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +18,7 @@ import { DeviceTileCard } from '../../components/DeviceTileCard';
 import { SettingsIcon } from '../../components/icons';
 import { Pictogram } from '../../components/pictograms';
 import { useDevice } from '../../context/DeviceContext';
+import { useAuth } from '../../context/AuthContext';
 import './style.css';
 
 const MB = 1024 * 1024;
@@ -75,6 +79,28 @@ const rememberDeviceCount = (count: number) => {
   try { localStorage.setItem(DEVICE_COUNT_KEY, String(count)); } catch { /* bez zapamiętania */ }
 };
 
+// Sekcja listy: klucz (właściciel albo „bez właściciela”), tytuł i podtytuł; własne sterowniki pierwsze.
+type Section = { key: string; title: string; subtitle?: string; devices: Device[] };
+const OWNERLESS = 'none';
+const sectionKey = (device: Device) => device.owner?.id ?? OWNERLESS;
+function groupSections(devices: Device[], meId: string | undefined, system: boolean): Section[] {
+  const sections = new Map<string, Section>();
+  for (const device of devices) {
+    const key = sectionKey(device);
+    if (!sections.has(key)) {
+      const own = key === meId;
+      const title = key === OWNERLESS ? 'Bez właściciela'
+        : own ? 'Moje sterowniki'
+        : system ? device.owner?.name || device.owner?.email || 'Właściciel'
+        : `Udostępnione przez ${device.owner?.name || device.owner?.email}`;
+      sections.set(key, { key, title, subtitle: system && !own && key !== OWNERLESS ? device.owner?.email ?? undefined : undefined, devices: [] });
+    }
+    sections.get(key)!.devices.push(device);
+  }
+  const rank = (section: Section) => (section.key === meId ? 0 : section.key === OWNERLESS ? 2 : 1);
+  return [...sections.values()].sort((a, b) => rank(a) - rank(b));
+}
+
 // odświeżanie stanu kafelków i wieku danych w stopce kafelka
 const TILES_REFRESH_MS = 30 * 1000;
 
@@ -82,6 +108,8 @@ const TILES_REFRESH_MS = 30 * 1000;
 export const Devices: React.FC = () => {
   const navigate = useNavigate();
   const { clearDevice, selectDevice } = useDevice();
+  const { user } = useAuth();
+  const isSystem = !!user?.isSystem;
   const [devices, setDevices] = useState<Device[]>([]);
   const [tiles, setTiles] = useState<DeviceTiles>({});
   // do czasu pierwszej odpowiedzi kafelki pokazują duszki (stała wysokość, bez „rozszerzania się” po załadowaniu)
@@ -134,9 +162,11 @@ export const Devices: React.FC = () => {
     navigate('/');
   };
 
+  // strzałki przesuwają kafelek w obrębie jego sekcji (właściciela)
   const moveDevice = (index: number, step: -1 | 1) => {
     setDevices((list) => {
-      const target = index + step;
+      let target = index + step;
+      while (target >= 0 && target < list.length && sectionKey(list[target]) !== sectionKey(list[index])) target += step;
       if (target < 0 || target >= list.length) return list;
       const next = [...list];
       [next[index], next[target]] = [next[target], next[index]];
@@ -190,10 +220,17 @@ export const Devices: React.FC = () => {
         </div>
       )}
       {error && <p className="device-selection-error">{error}</p>}
-      <section className="device-list">
-        {devices.map((device, index) => {
+      {groupSections(devices, user?.id, isSystem).map((section, _sectionIndex, sections) => (
+      <section key={section.key} className="device-section">
+        {sections.length > 1 && (
+          <h2 className="device-section-title">{section.title}{section.subtitle && <small>{section.subtitle}</small>}</h2>
+        )}
+      <div className="device-list">
+        {section.devices.map((device) => {
+          const index = devices.indexOf(device);
           const label = tileName(device, devices);
           const tile = tiles[device.rootId];
+          const neighbours = section.devices;
           return (
             <div key={device.rootId} className={`device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}`}>
               <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(device)}>
@@ -201,18 +238,18 @@ export const Devices: React.FC = () => {
               </button>
               {reordering ? (
                 <div className="device-reorder-arrows">
-                  <button type="button" className="device-move" disabled={index === 0}
+                  <button type="button" className="device-move" disabled={neighbours[0] === device}
                     title="Przesuń wcześniej" aria-label={`Przesuń ${label} wcześniej`} onClick={() => moveDevice(index, -1)}>
                     <Pictogram name="chevron-left" />
                   </button>
-                  <button type="button" className="device-move" disabled={index === devices.length - 1}
+                  <button type="button" className="device-move" disabled={neighbours[neighbours.length - 1] === device}
                     title="Przesuń później" aria-label={`Przesuń ${label} później`} onClick={() => moveDevice(index, 1)}>
                     <Pictogram name="chevron-right" />
                   </button>
                 </div>
               ) : (
                 <div className="device-tools">
-                  {getDeviceTypeView(device.deviceType).firmwareUpdates && (
+                  {isSystem && getDeviceTypeView(device.deviceType).firmwareUpdates && (
                     <button
                       type="button"
                       className="device-firmware"
@@ -223,7 +260,7 @@ export const Devices: React.FC = () => {
                       <SettingsIcon />
                     </button>
                   )}
-                  <button
+                  {device.access !== 'shared' && <button
                     type="button"
                     className="device-edit"
                     title="Edytuj dane sterownika"
@@ -234,12 +271,19 @@ export const Devices: React.FC = () => {
                       <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
                       <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
                     </svg>
-                  </button>
+                  </button>}
                 </div>
+              )}
+              {device.access === 'shared' && device.tabs && (
+                <p className="device-access">Dostęp: {device.tabs.map((path) => path === '/' ? 'Podgląd' : getDeviceTypeView(device.deviceType).views.find((view) => view.path === path)?.label ?? path).join(', ')}</p>
               )}
             </div>
           );
         })}
+      </div>
+      </section>
+      ))}
+      <section className="device-list">
         {!devicesLoaded && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
           <div key={`skeleton-${index}`} className="device-card">
             <div className="device-choose" aria-hidden="true">
@@ -248,7 +292,7 @@ export const Devices: React.FC = () => {
           </div>
         ))}
         {devicesLoaded && devices.length === 0 && !error && (
-          <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
+          <p>Brak sterowników. Sterownik pojawi się tutaj, gdy ktoś Ci go udostępni albo po przypisaniu do konta.</p>
         )}
       </section>
     </main>
@@ -256,11 +300,12 @@ export const Devices: React.FC = () => {
     {/* poza <main>: tam obowiązuje skala 0,9, a okno i stopka mają mieć zwykły rozmiar */}
     {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
 
-      <footer className="device-footer devices-footer">
+      {/* zajętość bazy tylko dla użytkownika systemowego (konta użytkowników); bez niej stopki nie ma */}
+      {isSystem && <footer className="device-footer devices-footer">
         {/* lewa część zarezerwowana na później (plan 2026-10-04) */}
         <span />
         <DatabaseUsage />
-      </footer>
+      </footer>}
     </>
   );
 };

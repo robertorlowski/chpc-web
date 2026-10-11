@@ -12,6 +12,7 @@ import { startScheduler } from './modules/heat-pump/services/scheduler.service';
 import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service';
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
 import { assignDefaultPumpConfigs } from './core/services/device.service';
+import { migrateOwners } from './core/services/auth.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -40,6 +41,12 @@ const PORT = Number(process.env.PORT ?? 3001);
 (async () => {
   await mongoose.connect(MONGODB_URI);
   console.log("Mongo connected");
+
+  // konta użytkowników: użytkownik systemowy i (raz) właściciel sterowników sprzed kont
+  await migrateOwners().catch((error) => console.error('[konta] migracja:', error));
+  if (process.env.AUTH_DISABLED === '1') console.warn('[konta] AUTH_DISABLED=1: API bez logowania (tylko do testów)');
+  if (!process.env.SYSTEM_PASSWORD) console.warn('[konta] brak SYSTEM_PASSWORD: logowanie systemowe wyłączone');
+  if (!process.env.SMTP_HOST) console.warn('[konta] brak SMTP_HOST: maile tylko w logu');
 
   // BACKGROUND_JOBS=off: podgląd lokalny na bazie produkcyjnej bez schedulerów i czyszczenia PV
   // (inaczej drugi serwer zlecałby zmiany kotłu i kasował dane obok produkcji)

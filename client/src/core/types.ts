@@ -71,7 +71,34 @@ export type Device = {
   // kocioł pelletowy: powiązana pompa ciepła (null = kocioł tylko na pellecie)
   boilerConfig?: BoilerConfig;
   properties?: DeviceProperties;
+  // konta użytkowników (GET /api/devices z sesją): rodzaj dostępu, zakładki udostępnienia i właściciel
+  access?: DeviceAccess;
+  tabs?: string[];
+  owner?: DeviceOwner | null;
 };
+
+// owner: właściciel, shared: udostępniony (tylko zakładki tabs), system: użytkownik systemowy
+export type DeviceAccess = 'owner' | 'shared' | 'system';
+export type DeviceOwner = { id: string; name: string; email: string | null };
+
+// Konto (GET /api/auth/me); profileComplete = imię, nazwisko i kraj wpisane (system zawsze)
+export type UserLocation = { lat: number; lng: number };
+export type User = {
+  id: string;
+  email: string | null;
+  isSystem: boolean;
+  firstName: string;
+  lastName: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  location: UserLocation | null;
+  profileComplete: boolean;
+};
+
+// Osoba z dostępem do sterownika (karta „Udostępnianie”); registered = false: zaproszenie czeka na rejestrację
+export type DeviceShare = { id: string; email: string; name: string | null; registered: boolean; tabs: string[]; createdAt: string };
 
 // Definicja kotła pelletowego (kontrakt z serwerem, core/types.ts): pompa ciepła trybu „Pompa ciepła”.
 export type BoilerConfig = { heatPumpRootId: string | null };

@@ -6,7 +6,7 @@ import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name isDefault sortOrder firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name ownerId isDefault sortOrder firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
 
 // Pojemność zbiornika pompy [l], pełne litry.
 const TANK_LITERS_MIN = 20;

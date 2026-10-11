@@ -14,6 +14,7 @@
 // trybie; rusza poniżej HOT_BOILER_FROM − HOT_BOILER_HYSTERESIS. Gorąca woda z kotła w skraplaczu zatrzymałaby
 // sprężarkę błędem Tho (po 5 błędach blokada CHPC). Do tego CWU z peletu (pellet-cwu.service.ts) od podniesienia
 // zadanej kotła do jego ostygnięcia.
+import { internalHeaders } from '../../../core/internal';
 import { sendMessage } from '../../../core/websocket';
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
@@ -40,7 +41,8 @@ const internalApiUrl = () => process.env.INTERNAL_API_URL ?? `http://127.0.0.1:$
 export const notifyHeatPump: HeatPumpNotifier = async (heatPumpRootId, active, since, coPump, pelletBlock) => {
   const response = await fetch(`${internalApiUrl()}/hp/cwu-loading?rootId=${encodeURIComponent(heatPumpRootId)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    // wywołanie wewnętrzne: bez logowania (core/internal.ts)
+    headers: { 'Content-Type': 'application/json', ...internalHeaders() },
     body: JSON.stringify({ active, ...(since ? { since: since.toISOString() } : {}), ...(coPump !== undefined ? { co_pump: coPump } : {}), ...(pelletBlock !== undefined ? { pellet_block: pelletBlock } : {}) }),
   });
   if (!response.ok) throw new Error(`pompa ciepła: HTTP ${response.status}`);

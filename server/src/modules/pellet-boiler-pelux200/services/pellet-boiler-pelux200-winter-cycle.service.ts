@@ -23,6 +23,7 @@
 // sent) wstrzymuje cykl do wyniku i nowego odczytu ustawień. Bez świeżego odczytu kotła cykl czeka.
 // Moduły nie importują siebie nawzajem: stan i wymuszenie pompy ciepła idą przez API serwera (GET /hp,
 // POST /operation/set), jak ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts).
+import { internalHeaders } from '../../../core/internal';
 import { fromZonedTime } from 'date-fns-tz';
 import { TIME_ZONE } from '../../../core/time';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
@@ -79,7 +80,8 @@ const internalApiUrl = () => process.env.INTERNAL_API_URL ?? `http://127.0.0.1:$
 
 // ostatnia telemetria pompy, tylko świeża (pompa offline = null)
 async function freshPumpData(heatPumpRootId: string) {
-  const response = await fetch(`${internalApiUrl()}/hp?rootId=${encodeURIComponent(heatPumpRootId)}`);
+  // wywołanie wewnętrzne: bez logowania (core/internal.ts)
+  const response = await fetch(`${internalApiUrl()}/hp?rootId=${encodeURIComponent(heatPumpRootId)}`, { headers: internalHeaders() });
   if (!response.ok) return null;
   const data = await response.json() as {
     HP?: { HPS?: unknown; Tmax?: unknown; Tmin?: unknown; Ttarget?: unknown }; createdAt?: string; time?: string;
@@ -104,7 +106,7 @@ export const heatPumpControl: HeatPumpControl = {
   force: async (heatPumpRootId) => {
     const response = await fetch(`${internalApiUrl()}/operation/set?rootId=${encodeURIComponent(heatPumpRootId)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalHeaders() },
       body: JSON.stringify({ force: '1' }),
     });
     if (!response.ok) throw new Error(`pompa ciepła: HTTP ${response.status}`);
