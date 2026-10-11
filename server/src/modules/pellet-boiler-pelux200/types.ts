@@ -329,6 +329,8 @@ export type PelletBoilerManualSeason = {
   at: Date;
   /** sezon z harmonogramu w chwili wyboru (null = harmonogram sezonem nie sterował); jego zmiana kończy wybór */
   scheduled: PelletBoilerSeason | null;
+  /** najbliższa granica okien wpisów sezonu: wtedy wybór się kończy; brak/null = bez wpisów sezonu */
+  until?: Date | null;
 };
 
 export interface PelletBoilerPelux200Entry extends PelletBoilerPelux200Measurements {
