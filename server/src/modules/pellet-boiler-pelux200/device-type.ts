@@ -3,6 +3,7 @@
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 import { checkBoilerDefinition, initBoilerDefinition } from './services/pellet-boiler-pelux200-heat-pump-link.service';
 import { pelletBoilerTile } from './tile';
+import { plannedScheduleOperations } from './services/pellet-boiler-pelux200-schedule.service';
 
 // Co minutę (od 2026-10-05, cykl Zimy w trybie pompy ciepła reaguje na temperaturę kotła; wcześniej 5 min);
 // zakres 30–3600 s pilnuje schemat properties (core/models/device.model.ts).
@@ -23,4 +24,7 @@ export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
   onRegister: (rootId) => initBoilerDefinition(rootId),
   checkDefinition: checkBoilerDefinition,
   tile: pelletBoilerTile,
+  // dziennik operacji: przejścia harmonogramu do końca doby
+  plannedOperations: plannedScheduleOperations,
+  propertyLabels: { poll_interval_seconds: { label: 'Odpytywanie pieca', unit: 's' } },
 };

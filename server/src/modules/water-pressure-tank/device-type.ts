@@ -22,4 +22,7 @@ export const waterPressureTankDeviceType: DeviceTypeModule = {
   controllerSettings: (properties) => ({
     compressor_seconds: properties.compressor_seconds,
   }),
+  // dziennik operacji: zmiana z aplikacji czeka na zgłoszenie (następne uruchomienie pompy)
+  propertyLabels: { compressor_seconds: { label: 'Czas kompresora', unit: 's' } },
+  propertiesOnRegister: true,
 };

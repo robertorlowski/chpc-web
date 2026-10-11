@@ -234,6 +234,13 @@ h4, h5 {
 	header nav a {
 		padding: 0.6rem 0.75rem;
 	}
+	/* 7 i więcej pozycji (kocioł z Operacjami): węższe odstępy, żeby Ustawienia zmieściły się przy 360 px */
+	header nav:has(> a:nth-of-type(8)) a:not(.nav-back) {
+		padding: 0.6rem 0.4rem;
+	}
+	header nav:has(> a:nth-of-type(8)) a:not(.nav-back) svg {
+		padding-right: 0;
+	}
 }
 
 /* telefon: szare karty od krawędzi do krawędzi ekranu, bez białych marginesów po bokach.

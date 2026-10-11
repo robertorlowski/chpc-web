@@ -8,6 +8,22 @@
 import { CwuLoadingEntry, CwuLoadingModel } from '../models/cwu-loading.model';
 import { OperationEntry } from '../types';
 import { getEffectiveWorkMode, setCwuLoadingOperation } from './operation.service';
+import { noteOperationChange } from './hp-operation-log.service';
+import { systemMeta } from '../../../core/services/operation-log.service';
+import { OperationMeta } from '../../../core/types';
+
+// Dziennik operacji: dlaczego kocioł zmienił operację pompy (stan po zmianie).
+function loadingMeta(entry: CwuLoadingEntry | null, now: Date): OperationMeta {
+  if (isBlocked(entry, now)) {
+    return systemMeta('Kocioł: CWU z peletu', 'Kocioł grzeje CWU peletem — pompa wstrzymana do ostygnięcia kotła (gorąca woda w skraplaczu zatrzymałaby sprężarkę).');
+  }
+  if (isActive(entry, now)) {
+    return systemMeta('Kocioł: ładowanie CWU', 'Ładowanie CWU w kotle: pompa grzeje 47–49 °C (kocioł ma CWU najwyżej 45 °C).');
+  }
+  return systemMeta('Kocioł', entry && !isFresh(entry, now)
+    ? 'Brak zgłoszenia od kotła przez 15 min — koniec ładowania CWU, pompa wraca do harmonogramu.'
+    : 'Koniec ładowania CWU w kotle — pompa wraca do harmonogramu.');
+}
 
 export const CWU_LOADING_OPERATION: OperationEntry = { co_min: '47', co_max: '49', cwu_min: '47', cwu_max: '49' };
 // CWU z peletu w kotle (moduł kotła, pellet-cwu.service.ts): od rozpalenia do ostygnięcia kotła poniżej 50 °C
@@ -59,6 +75,7 @@ export async function setCwuLoading(rootId: string, active: boolean, since: Date
   );
   const entry = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
   setCwuLoadingOperation(rootId, overrideOf(entry, now));
+  await noteOperationChange(rootId, loadingMeta(entry, now));
   return { changed: wasActive !== active || wasBlocked !== isBlocked(entry, now), status: statusOf(rootId, entry, now) };
 }
 
@@ -85,5 +102,7 @@ export async function getCwuLoading(rootId: string, now = new Date()) {
 export async function syncCwuLoading(rootId: string, now = new Date()) {
   const entry = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
   setCwuLoadingOperation(rootId, overrideOf(entry, now));
+  // wygaśnięcie bez zgłoszenia od kotła (scheduler zaraz potem liczy operację, różnica już będzie zapisana)
+  await noteOperationChange(rootId, loadingMeta(entry, now));
   return isActive(entry, now);
 }

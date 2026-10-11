@@ -11,6 +11,7 @@ import {
   ActivationSource, CommandSource, RELAY_MODES, RelayCommand, RelayMode, RelayReport, SwitchRelay, SwitchSchedule,
 } from '../types';
 import { activeSchedule, nextScheduleStart } from './switch-schedule.service';
+import { noteRelayReport } from './switch-operation-log.service';
 
 export const MAX_RELAYS = 16;
 // „Włącz na…”: od 1 min do 7 dni
@@ -154,7 +155,9 @@ export async function reportState(
       },
       ...(expired ? { $unset: { until: 1 } } : {}),
     });
-    const { command, mode } = relayCommand(relay, schedules, now);
+    const { command, mode, until, scheduleId } = relayCommand(relay, schedules, now);
+    // dziennik operacji: polecenie zmienione przez harmonogram albo koniec czasu, potwierdzenie czekających zmian
+    await noteRelayReport(rootId, relay, state.on, { on: command.on, mode, until, scheduleId }, schedules, now);
     commands.push({ ...command, mode });
   }
   return { relays: commands, changed };

@@ -1,7 +1,8 @@
 // Opis rodzaju „water-pressure-tank” (hydrofor) dla rejestru core/device-types.tsx: ikona kropli
 // na kafelku, menu i widoki. Ścieżki spoza listy (np. /schedules) prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { ChartIcon, DataIcon, SettingsIcon } from '../../core/components/icons';
+import { ChartIcon, DataIcon, OperationsIcon, SettingsIcon } from '../../core/components/icons';
+import { OperationsPage } from '../../core/pages/Operations';
 import { WaterPressureTankHome } from './pages/Home';
 import { WaterPressureTankData } from './pages/Data';
 import { WaterPressureTankChart } from './pages/Chart';
@@ -28,6 +29,7 @@ export const waterPressureTankDeviceType: DeviceTypeView = {
 		{ path: '/', label: 'Hydrofor', icon: <DropIcon />, element: <WaterPressureTankHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <WaterPressureTankData /> },
 		{ path: '/chart', label: 'Wykres', icon: <ChartIcon />, element: <WaterPressureTankChart /> },
+		{ path: '/operations', label: 'Operacje', icon: <OperationsIcon />, element: <OperationsPage /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <WaterPressureTankSettings /> },
 	],
 };

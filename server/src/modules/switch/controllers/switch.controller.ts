@@ -13,6 +13,7 @@ import {
 import {
   createSchedule, listSchedules, parseSchedule, removeSchedule, replaceSchedule,
 } from '../services/switch-schedule.service';
+import { noteModeChange } from '../services/switch-operation-log.service';
 
 // Sterownik dostaje polecenia w odpowiedzi na najbliższe zgłoszenie; "operation" budzi
 // go od razu (WebSocket), a aplikacja odświeża widok.
@@ -48,6 +49,7 @@ export async function putSwitchMode(req: Request, res: Response) {
     const rootId = req.deviceRootId as string;
     const result = await setRelayMode(rootId, req.body ?? {}, source);
     if (typeof result === 'string') return res.status(400).json({ message: result });
+    await noteModeChange(rootId, result, source, new Date(), typeof req.body?.minutes === 'number' ? req.body.minutes : undefined);
     wakeController(rootId);
     return res.status(200).json((await listRelays(rootId)).find((relay) => relay.relay === result.relay));
   } catch (error) {

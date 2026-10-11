@@ -40,6 +40,14 @@ export const setCwuLoadingOperation = (rootId: string, data: OperationEntry | un
   else if (data) operations.set(rootId, { ...getOperationData(rootId), ...data });
 };
 
+// Operacja, którą co dostaje teraz (harmonogram, jawne zera, ręczne pola, ładowanie CWU); dziennik operacji
+// porównuje ją z poprzednią (hp-operation-log.service.ts).
+export const getEffectiveOperation = (rootId: string): OperationEntry =>
+  mergeWithManualOperation(rootId, scheduledOperations.get(rootId) ?? {});
+
+// scheduler policzył już operację (po restarcie serwera: od pierwszego przebiegu)
+export const hasScheduledOperation = (rootId: string) => scheduledOperations.has(rootId);
+
 // Tryb pracy, który pompa dostaje teraz (harmonogram z ręcznymi polami); OFF = pompa wyłączona.
 export const getEffectiveWorkMode = (rootId: string) =>
   ({ ...(scheduledOperations.get(rootId) ?? {}), ...(manualOperations.get(rootId) ?? {}) }).work_mode;

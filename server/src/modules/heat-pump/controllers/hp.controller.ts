@@ -10,6 +10,8 @@ import { getFreshPvSummary } from '../services/pv.service'
 import { getTemperature } from '../../../core/services/meteo.service'
 import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../../core/time'
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service'
+import { systemMeta } from '../../../core/services/operation-log.service'
+import { markOperationsDelivered, noteOperationChange } from '../services/hp-operation-log.service'
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller'
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model'
 import { toControllerOperation } from '../services/controller-contract.service'
@@ -250,10 +252,14 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     // Bez ręcznych nadpisań operacja znika do następnego przebiegu schedulera (co 60 s),
     // więc kolejne odpowiedzi niosą {} — co zostaje przy ostatnich wartościach.
     clearOperation(rootId);
+    // dziennik operacji: ta odpowiedź niesie operację, więc czekające zmiany są dostarczone
+    if (Object.keys(operation).length > 0) await markOperationsDelivered(rootId);
     if (data?.HP) {
       // ręczne force jest jednorazowe: znika po starcie sprężarki (HPS > 0)
       const hps = data.HP.HPS as unknown;
-      consumeManualForceOnStart(rootId, hps === true || Number(hps) > 0);
+      if (consumeManualForceOnStart(rootId, hps === true || Number(hps) > 0)) {
+        await noteOperationChange(rootId, systemMeta('Wymuszenie', 'Sprężarka ruszyła — ręczne wymuszenie startu jest jednorazowe.'));
+      }
     }
     console.log("Get HP operation");
     console.log(operation);

@@ -134,7 +134,7 @@ export const AdvancedSettings: React.FC = () => {
         </div>
       )}
       {editing && (
-        <EditPanel item={editing.item} parameter={editing.parameter} onClose={() => setEditing(null)}
+        <EditPanel item={editing.item} parameter={editing.parameter} reason="Zmiana w „Ustawienia zaawansowane”." onClose={() => setEditing(null)}
           onSent={() => setEditing(null)} />
       )}
     </div>

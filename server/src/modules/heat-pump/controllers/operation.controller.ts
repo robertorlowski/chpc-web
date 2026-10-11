@@ -10,6 +10,8 @@ import { sendMessage } from '../../../core/websocket';
 import { DeviceModel } from '../../../core/models/device.model';
 import { getDeviceProperties } from '../../../core/services/device.service';
 import { heatPumpDeviceType } from '../device-type';
+import { appUserMeta, logPropertiesChange, metaFromRequest } from '../../../core/services/operation-log.service';
+import { noteOperationAction, noteOperationChange } from '../services/hp-operation-log.service';
 
 
 const optionalText = (value: unknown) => value === undefined || value === null ? undefined : String(value);
@@ -90,15 +92,22 @@ export const setOperation = async (req: Request<{}, {}, OperationEntry>, res: Re
   if (error) return res.status(400).json({ message: error });
 
   try {
+    // kto: aplikacja albo moduł kotła przez API (nagłówki x-operation-*, np. wymuszenie z cyklu Zimy)
+    const meta = metaFromRequest(req, appUserMeta('Ustawienia', 'Przycisk „Zmień” w Ustawieniach.'));
     if (work_mode !== undefined) {
+      const before = await getDeviceProperties(rootId);
       await DeviceModel.updateOne({ _id: rootId }, { $set: { 'properties.work_mode': work_mode } });
-      await heatPumpDeviceType.onPropertiesSaved?.(rootId);
+      await logPropertiesChange(rootId, heatPumpDeviceType.propertyLabels, before, { ...before, work_mode: work_mode as PumpWorkMode }, meta);
+      await heatPumpDeviceType.onPropertiesSaved?.(rootId, meta);
     }
     const manual: OperationEntry = {
       ...rest,
       ...temperatureFields(optionalText(temp_min), optionalText(temp_max)),
     };
-    if (Object.keys(manual).length > 0) setManualOperationData(rootId, manual);
+    if (Object.keys(manual).length > 0) {
+      setManualOperationData(rootId, manual);
+      await noteOperationChange(rootId, meta);
+    }
     sendMessage('operation', rootId);
     return res.status(201).json({ message: req.body });
   } catch (error) {
@@ -117,6 +126,8 @@ export const setOperationAction = async (req: Request<{}, {}, { action?: string 
 
   const rootId = req.deviceRootId as string;
   addOperationAction(rootId, action);
+  await noteOperationAction(rootId, action, metaFromRequest(req, appUserMeta('Ustawienia',
+    action === 'error_reset' ? 'Przycisk „Odblokuj” (sterownik zablokowany po 5 błędach).' : 'Przycisk „Restart sterownika”.')));
   sendMessage('operation', rootId);
   return res.status(201).json({ action });
 }

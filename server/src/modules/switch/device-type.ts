@@ -3,6 +3,7 @@
 import { DeviceProperties, DeviceType, DeviceTypeModule } from '../../core/types';
 import { ensureRelays, isRelayCount } from './services/switch.service';
 import { switchTile } from './tile';
+import { plannedSwitchOperations } from './services/switch-operation-log.service';
 
 export const DEFAULT_SWITCH_PROPERTIES: DeviceProperties = {
   default_on_minutes: 30,
@@ -21,4 +22,7 @@ export const switchDeviceType: DeviceTypeModule = {
   onRegister: async (rootId, deviceId, body) => {
     if (isRelayCount(body.relays)) await ensureRelays(rootId, deviceId, body.relays);
   },
+  // dziennik operacji
+  propertyLabels: { default_on_minutes: { label: 'Domyślny czas „Włącz”', unit: 'min' } },
+  plannedOperations: plannedSwitchOperations,
 };

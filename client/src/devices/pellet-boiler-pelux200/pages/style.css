@@ -881,3 +881,14 @@
     padding: 1rem 0.75rem;
   }
 }
+
+/* linia „Zmiany w toku: N · zobacz w Operacjach” w Ustawieniach (zamiast dawnych „Ostatnich zmian”) */
+.boiler-in-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #1481a5;
+  color: #0d5770;
+  font-size: 0.95rem;
+}

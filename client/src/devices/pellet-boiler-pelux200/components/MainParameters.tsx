@@ -5,6 +5,7 @@
 // nowa. Przełącznik „Pompa ciepła / Pellet” zleca cały zestaw z kociol-ustawienia.md, punkt 4b,
 // w kolejności, w jakiej regulator go przyjmie (najpierw granice, potem zadane).
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { IconButton } from '../../../core/components/IconButton';
 import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import { EditIcon } from '../../../core/components/icons';
@@ -19,7 +20,7 @@ import { formatDateTime, formatNumber, readingStateName, stateName, workModeName
 import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
-// zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i „Ostatnie zmiany”
+// zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i liczbę zmian w toku
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
 
 export type Item ={ kind: 'ecomax' | 'mixer'; mixer?: number; index: number };
@@ -109,17 +110,8 @@ type Profile = { key: PelletBoilerMode; label: string; changes: PelletBoilerChan
 const STANDBY_STATES = [5, 6];
 const PROFILE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
 
-const CONTROL_LABEL = (value: number) => (value ? 'Kocioł → włączony' : 'Kocioł → wyłączony');
 // harmonogram czyszczenia kotła w regulatorze (nr 4 w PyPlumIO); godziny ustawia się na panelu
 const CLEAN_SCHEDULE = 4;
-
-const STATUS_TEXT: Record<PelletBoilerCommand['status'], string> = {
-  pending: 'czeka na sterownik',
-  sent: 'wysyłane do kotła',
-  done: 'zapisane',
-  error: 'błąd',
-  replaced: 'zastąpione nowszą zmianą',
-};
 
 // parametr z odczytu ustawień; polecenie włącz/wyłącz (kind control) i harmonogram (schedule) nie są parametrami
 const findIn = (settings: PelletBoilerSettings | null, item: { kind: string; mixer?: number; index: number }) =>
@@ -157,9 +149,10 @@ const errorMessage = async (response: Response | null | undefined) => {
 };
 
 // Panel zmiany jednego parametru: opis, zakres, ocena i pole wartości.
+// reason: „dlaczego” w dzienniku operacji
 export const EditPanel: React.FC<{
-  item: Item; parameter: PelletBoilerParameter; onClose: () => void; onSent: () => void;
-}> = ({ item, parameter, onClose, onSent }) => {
+  item: Item; parameter: PelletBoilerParameter; reason: string; onClose: () => void; onSent: () => void;
+}> = ({ item, parameter, reason, onClose, onSent }) => {
   const choices = choicesOf(item, parameter);
   const [value, setValue] = useState(String(parameter.value));
   const [error, setError] = useState('');
@@ -181,10 +174,10 @@ export const EditPanel: React.FC<{
       return setError(`Dozwolone: ${display(item, parameter, parameter.min)} – ${display(item, parameter, parameter.max)}.`);
     }
     setSending(true);
-    const response = await PelletBoilerRequests.postCommands([{ ...item, value: toRaw(parameter, number) }]);
+    const response = await PelletBoilerRequests.postCommands([{ ...item, value: toRaw(parameter, number) }], reason);
     setSending(false);
     if (response?.status === 201) {
-      // inne panele (główne parametry, ostatnie zmiany) odświeżają się na to zdarzenie
+      // inne panele (główne parametry, zmiany w toku) odświeżają się na to zdarzenie
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
       return onSent();
     }
@@ -301,7 +294,7 @@ const GroupEditPanel: React.FC<{
     const response = await PelletBoilerRequests.postCommands([
       ...ordered.map(({ item, parameter }): PelletBoilerChange => ({ ...item, value: toRaw(parameter, numberOf(item.index)) })),
       ...(scheduleChanged ? [{ kind: 'schedule', index: CLEAN_SCHEDULE, value: scheduleOn ? 1 : 0 } as PelletBoilerChange] : []),
-    ]);
+    ], `Zmiana w „Główne parametry”, ${section.title}.`);
     setSending(false);
     if (response?.status === 201) {
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
@@ -388,7 +381,6 @@ export const MainParameters: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [scheduleSettings, setScheduleSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [profileError, setProfileError] = useState('');
-  const [recentOpen, setRecentOpen] = useState(false);
   // zmiana trybu przy pracującym regulatorze: najpierw wyłączenie, nastawy czekają na stan „wyłączony”
   const [profileNeedsOff, setProfileNeedsOff] = useState(false);
   const [turnOnAfter, setTurnOnAfter] = useState(true);
@@ -427,7 +419,8 @@ export const MainParameters: React.FC = () => {
     const changes = pendingChanges(profile.changes).map((change) => (profileNeedsOff ? { ...change, waitOff: true } : change));
     const on: PelletBoilerChange[] = turnOnAfter ? [{ kind: 'control', index: 0, value: 1, ...(profileNeedsOff ? { waitOff: true } : {}) }] : [];
     const off: PelletBoilerChange[] = profileNeedsOff ? [{ kind: 'control', index: 0, value: 0 }] : [];
-    const response = await PelletBoilerRequests.postCommands([...off, ...changes, ...on]);
+    const reason = `Przycisk „${profile.label}” w „Tryb pracy”${profileNeedsOff ? ' — najpierw wyłączenie regulatora, nastawy po stanie „wyłączony”' : ''}.`;
+    const response = await PelletBoilerRequests.postCommands([...off, ...changes, ...on], reason);
     if (response?.status === 201) {
       setProfile(null);
       setProfileError('');
@@ -438,7 +431,7 @@ export const MainParameters: React.FC = () => {
     // a okno proponuje przełączenie na Pellet albo uruchomienie pompy ciepła
     const body = response?.status === 409 ? await response.json().catch(() => null) : null;
     if (body?.turnOn && on.length) {
-      const retry = await PelletBoilerRequests.postCommands([...off, ...changes]);
+      const retry = await PelletBoilerRequests.postCommands([...off, ...changes], `${reason} Bez włączenia: kocioł rozpaliłby się na pellecie.`);
       if (retry?.status === 201) {
         setProfile(null);
         setProfileError('');
@@ -495,7 +488,7 @@ export const MainParameters: React.FC = () => {
       return;
     }
     if (!window.confirm(`Przełączyć kocioł na tryb: ${label}?`)) return;
-    const response = await PelletBoilerRequests.postCommands([{ kind: 'ecomax', index: 125, value }]);
+    const response = await PelletBoilerRequests.postCommands([{ kind: 'ecomax', index: 125, value }], `Przycisk ${label} w „Sezon”.`);
     setSeasonError(response?.status === 201 ? '' : await errorMessage(response));
     load();
   };
@@ -565,7 +558,8 @@ export const MainParameters: React.FC = () => {
         setScheduleSettings(await PelletBoilerRequests.saveScheduleSettings({ ...scheduleSettings, enabled: on }));
       }
       if (!regulatorAlready) {
-        const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }]);
+        const response = await PelletBoilerRequests.postCommands([{ kind: 'control', index: 0, value: on ? 1 : 0 }],
+          `Przycisk „${on ? 'Włącz' : 'Wyłącz'} regulator” w „Praca kotła”${on ? ' — harmonogram zaczyna działać' : ' — harmonogram zatrzymany'}.`);
         // 409 z turnOn: odczyt zmienił się między sprawdzeniem a zleceniem — to samo okno
         const body = response?.status === 409 ? await response.json().catch(() => null) : null;
         if (body?.turnOn) setTurnOnBlock({ ...body.turnOn, message: body.message });
@@ -626,7 +620,6 @@ export const MainParameters: React.FC = () => {
     const where = change.kind === 'mixer' ? `Mieszacz ${change.mixer}: ` : '';
     return { name: `${where}${parameter?.label ?? `nr ${change.index}`}`, parameter };
   };
-  const recent = commands.slice(0, 8);
   const inProgressCount = commands.filter((c) => c.status === 'pending' || c.status === 'sent').length;
 
   return (
@@ -849,40 +842,12 @@ export const MainParameters: React.FC = () => {
         {ready && <div className="boiler-hint">Odczyt ustawień: {formatDateTime(settings.readAt)}</div>}
       </div>
 
-      {recent.length > 0 && (
-        <div className="resource">
-          {/* zwinięte domyślnie (jak Ustawienia zaawansowane); w nagłówku liczba zmian w toku */}
-          <h3 className="settings-section-title">
-            <button type="button" className="boiler-advanced-toggle" aria-expanded={recentOpen} onClick={() => setRecentOpen(!recentOpen)}>
-              <span>Ostatnie zmiany{inProgressCount > 0 ? ` (w toku: ${inProgressCount})` : ''}</span>
-              <span aria-hidden="true">{recentOpen ? '▲' : '▼'}</span>
-            </button>
-          </h3>
-          {recentOpen && (
-          <ul className="boiler-commands">
-            {recent.map((command) => {
-              const control = command.kind === 'control';
-              const schedule = command.kind === 'schedule';
-              const { name, parameter } = control ? { name: '', parameter: undefined }
-                : schedule ? { name: command.label ?? `Harmonogram nr ${command.index}`, parameter: undefined }
-                : labelOf(command);
-              const item: Item = { kind: command.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: command.mixer, index: command.index };
-              const value = parameter ? display(item, parameter, fromRaw(parameter, command.value))
-                : schedule ? (command.value ? 'Tak' : 'Nie') : String(command.value);
-              return (
-                <li key={command._id}>
-                  <span>{control ? <strong>{CONTROL_LABEL(command.value)}</strong> : <>{name} → <strong>{value}</strong></>}</span>
-                  <span className={`boiler-command-${command.status}`}>
-                    {command.waitOff && command.status === 'pending' ? 'czeka na wyłączenie kotła' : STATUS_TEXT[command.status]}
-                    {command.error ? `: ${command.error}` : ''}
-                    <span className="boiler-hint"> · {formatDateTime(command.createdAt)}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          )}
-        </div>
+      {/* „Ostatnie zmiany” są w zakładce Operacje (dziennik operacji); tu tylko zmiany w toku */}
+      {inProgressCount > 0 && (
+        <Link to="/operations" className="resource boiler-in-progress">
+          <span>Zmiany w toku: {inProgressCount} · zobacz w Operacjach</span>
+          <span aria-hidden="true">›</span>
+        </Link>
       )}
 
       {editing && settings && (

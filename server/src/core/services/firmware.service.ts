@@ -7,7 +7,8 @@ import { createHash } from 'crypto';
 import { FirmwareImageModel, FirmwareOfferModel } from '../models/firmware.model';
 import { DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
-import { DeviceType } from '../types';
+import { DeviceType, OperationMeta } from '../types';
+import { appUserMeta, logOperation, setStatusByRef } from './operation-log.service';
 
 // Partycja aplikacji OTA ESP32 (0x140000); większy obraz się nie zmieści.
 export const MAX_FIRMWARE_BYTES = 1310720;
@@ -131,8 +132,12 @@ type FirmwareDevice = {
   firmwareUpdate?: { version: string; requestedAt: Date } | null;
 };
 
+// Dziennik operacji: zlecenie „Aktualizuj” czeka (ref „firmware”), oferta w odpowiedzi sterownikowi = wysłana,
+// zgłoszenie z oferowaną wersją = wykonana, odwołanie albo nowe zlecenie = zastąpiona.
+const FIRMWARE_REF = 'firmware';
+
 // POST /devices/:rootId/firmware-update: zlecenie aktualizacji do oferowanej wersji.
-export async function requestFirmwareUpdate(rootId: string) {
+export async function requestFirmwareUpdate(rootId: string, meta: OperationMeta = appUserMeta()) {
   const device = await DeviceModel.findById(rootId).select('deviceType firmwareVersion').lean();
   if (!device) throw new FirmwareError(404, 'Nie znaleziono urządzenia.');
   if (!getDeviceTypeModule(device.deviceType).firmwareUpdates) {
@@ -143,13 +148,21 @@ export async function requestFirmwareUpdate(rootId: string) {
   if (device.firmwareVersion === image.version) throw new FirmwareError(409, 'Sterownik ma już tę wersję.');
   const firmwareUpdate = { version: image.version, requestedAt: new Date() };
   await DeviceModel.updateOne({ _id: rootId }, { $set: { firmwareUpdate } });
+  await setStatusByRef(rootId, FIRMWARE_REF, ['pending', 'sent'], 'replaced');
+  await logOperation(rootId, meta, `Aktualizacja firmware: ${device.firmwareVersion ?? '?'} → ${image.version}`,
+    { status: 'pending', refs: [FIRMWARE_REF] });
   return firmwareUpdate;
 }
 
 // DELETE /devices/:rootId/firmware-update: odwołanie zlecenia (sterownik, który już pobiera, dokończy).
-export async function cancelFirmwareUpdate(rootId: string) {
+export async function cancelFirmwareUpdate(rootId: string, meta: OperationMeta = appUserMeta()) {
+  const device = await DeviceModel.findById(rootId).select('firmwareUpdate').lean();
   const result = await DeviceModel.updateOne({ _id: rootId }, { $unset: { firmwareUpdate: 1 } });
   if (result.matchedCount === 0) throw new FirmwareError(404, 'Nie znaleziono urządzenia.');
+  if (device?.firmwareUpdate) {
+    await setStatusByRef(rootId, FIRMWARE_REF, ['pending', 'sent'], 'replaced');
+    await logOperation(rootId, meta, `Anulowanie aktualizacji firmware do ${device.firmwareUpdate.version}`);
+  }
 }
 
 // Oferta dla sterownika {version, url, sha256, request}, tylko przy zleceniu. request (czas zlecenia
@@ -161,8 +174,10 @@ export async function firmwareOfferForDevice(device: FirmwareDevice, baseUrl: st
   if (!image) return undefined;
   if (device.firmwareVersion === image.version) {
     await DeviceModel.updateOne({ _id: device._id }, { $unset: { firmwareUpdate: 1 } });
+    await setStatusByRef(String(device._id), FIRMWARE_REF, ['pending', 'sent'], 'done');
     return undefined;
   }
+  await setStatusByRef(String(device._id), FIRMWARE_REF, ['pending'], 'sent');
   return {
     version: image.version,
     url: `${baseUrl}/api/firmware/${device.deviceType}/${image.version}.bin`,

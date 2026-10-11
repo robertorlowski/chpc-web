@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest } from './types';
+import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -81,5 +81,12 @@ export class FirmwareRequests {
   // włączenie i wyłączenie oferty albo przywrócenie wersji, której plik jest jeszcze w bazie
   static update(type: DeviceType, change: { enabled?: boolean; version?: string }): Promise<FirmwareSummary> {
     return Requests.put(`/firmware/${type}`, change, false) as Promise<FirmwareSummary>;
+  }
+}
+
+// Dziennik operacji wybranego sterownika z dnia (zakładka „Operacje”); null przy błędzie
+export class OperationRequests {
+  static getDay(date: string): Promise<OperationsDay | null> {
+    return Requests.get(`/operations?date=${date}`) as Promise<OperationsDay | null>;
   }
 }

@@ -36,6 +36,14 @@ export const AlarmIcon = () => (
 	</svg>
 );
 
+// lista z punktami: zakładka Operacje (dziennik operacji sterownika)
+export const OperationsIcon = () => (
+	<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<path d="M9 6H20M9 12H20M9 18H20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+		<path d="M4.5 6H5M4.5 12H5M4.5 18H5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+	</svg>
+);
+
 // Ikony akcji w przyciskach-ikonach (components/IconButton.tsx): dodaj, usuń, przywróć, wróć, edytuj: kreska 2, siatka 24, kolor z currentColor.
 const action = (path: React.ReactNode) => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"

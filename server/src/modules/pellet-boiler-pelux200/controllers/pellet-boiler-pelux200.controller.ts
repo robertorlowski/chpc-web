@@ -19,6 +19,7 @@ import {
   parseScheduleSettings, removeScheduleEntry, replaceScheduleEntry, saveScheduleSettings, setManualSeason,
 } from '../services/pellet-boiler-pelux200-schedule.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
+import { appUserMeta } from '../../../core/services/operation-log.service';
 import { PelletBoilerPelux200Entry } from '../types';
 import { AlertsError, listAlerts, saveAlerts, validateAlertsUpload } from '../services/pellet-boiler-pelux200-alert.service';
 import { FuelPeriod, fuelWindow, getFuelSummary } from '../services/pellet-boiler-pelux200-fuel.service';
@@ -148,7 +149,8 @@ const commandError = (res: Response, error: unknown) => {
   return res.status(500).json({ message: String(error) });
 };
 
-// POST /commands (aplikacja): {changes: [{kind, mixer?, index, value}]} → 201 z utworzonymi zleceniami.
+// POST /commands (aplikacja): {changes: [{kind, mixer?, index, value}], reason?} → 201 z utworzonymi zleceniami;
+// reason (do 200 znaków) to opis w dzienniku operacji, np. „Przycisk „Pellet” w Trybie pracy”.
 // „Włącz” w trybie pompy ciepła, które rozpaliłoby kocioł: 409 {message, turnOn} (turn-on.service.ts).
 export async function addPelletBoilerPelux200Commands(req: Request, res: Response) {
   try {
@@ -157,7 +159,8 @@ export async function addPelletBoilerPelux200Commands(req: Request, res: Respons
       const check = await turnOnCheck(req.deviceRootId as string, changes as PelletBoilerCommandChange[]);
       if (check) return res.status(409).json({ message: describeIgnition(check), turnOn: check });
     }
-    return res.status(201).json(await createCommands(req.deviceRootId as string, req.body));
+    const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim().slice(0, 200) : 'Zmiana w Ustawieniach.';
+    return res.status(201).json(await createCommands(req.deviceRootId as string, req.body, appUserMeta('Ustawienia', reason)));
   } catch (error) {
     return commandError(res, error);
   }

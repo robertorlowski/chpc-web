@@ -21,6 +21,7 @@ import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerCommandChange, PelletBoilerPendingTurnOn, PelletBoilerTurnOnCheck } from '../types';
 import { CommandError, createCommands } from './pellet-boiler-pelux200-command.service';
+import { appUserMeta, operationHeaders, systemMeta } from '../../../core/services/operation-log.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
@@ -123,7 +124,12 @@ export const startHeatPumpViaApi: HeatPumpStarter = async (heatPumpRootId) => {
   const properties = await current.json() as Record<string, unknown>;
   if (properties.work_mode !== 'OFF') return false;
   const saved = await fetch(url, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...properties, work_mode: 'MANUAL' }),
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...operationHeaders(appUserMeta('Kocioł', 'Przycisk „Uruchom pompę ciepła” w oknie „Uwaga” przy włączaniu kotła (kocioł za zimny).')),
+    },
+    body: JSON.stringify({ ...properties, work_mode: 'MANUAL' }),
   });
   if (!saved.ok) throw new Error(`pompa ciepła: HTTP ${saved.status}`);
   return true;
@@ -170,7 +176,10 @@ export async function runPendingTurnOn(rootId: string, now = new Date()) {
   // tryb pompy ciepła: czeka na świeży odczyt z kotłem co najmniej TURN_ON_FROM
   if (check.mode === 'heat-pump' && (check.boilerTemp === null || check.boilerTemp < TURN_ON_FROM)) return pending;
   try {
-    await createCommands(rootId, { changes: [{ kind: 'control', index: 0, value: 1 }] });
+    await createCommands(rootId, { changes: [{ kind: 'control', index: 0, value: 1 }] }, systemMeta(
+      'Włączenie po nagrzaniu', 'Regulator czekał na nagrzanie kotła przez pompę ciepła (okno „Uwaga” przy włączaniu).',
+      check.mode === 'heat-pump' ? `kocioł ${check.boilerTemp ?? '?'} °C ≥ ${TURN_ON_FROM} °C` : 'tryb Pellet',
+    ));
     await PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { enabled: true } });
     console.log(`[pellet] ${rootId} kocioł ${check.boilerTemp ?? '?'} °C — włączam regulator (czekał na nagrzanie)`);
   } catch (error) {
