@@ -6,6 +6,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FirmwareRequests } from '../../api';
+import { InfoTip } from '../../components/InfoTip';
 import { DeviceType, FirmwareImage, FirmwareSummary } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import Notification, { useSaveNotice } from '../../components/Notification';
@@ -206,7 +207,7 @@ export const Firmware: React.FC = () => {
               <input key={fileKey} type="file" accept=".bin" onChange={chooseFile} />
             </label>
             <label>
-              <span>Wersja</span>
+              <span>Wersja<InfoTip>Wpisz wersję zgodną z <code>FW_VERSION</code> w kodzie firmware. Sterownik zgłasza ją po aktualizacji; dopóki zgłasza inną, przy sterowniku widać „dostępna” i przycisk „Aktualizuj”.</InfoTip></span>
               <input type="text" value={version} placeholder="np. 1.0.1" maxLength={32} autoComplete="off"
                 onChange={(event) => setVersion(event.currentTarget.value)} />
             </label>
@@ -220,9 +221,6 @@ export const Firmware: React.FC = () => {
                 {file.name} · {formatBytes(file.size)}{sha && <> · SHA-256 <code>{shortSha(sha)}</code></>}
               </div>
             )}
-            <div className="firmware-hint">
-              Wpisz wersję zgodną z ustawieniem wersji komponentu <code>FW_VERSION</code>.
-            </div>
             {error && <p className="device-modal-error" role="alert">{error}</p>}
             <div className="device-modal-actions">
               <button type="button" className="device-modal-cancel" onClick={closeAdd}>Anuluj</button>

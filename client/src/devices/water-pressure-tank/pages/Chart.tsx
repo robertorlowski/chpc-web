@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { WaterPressureTankRequests } from '../api';
 import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../types';
 import { formatDuration, formatLiters, todayWarsaw } from '../utils/water';
@@ -89,7 +90,12 @@ export const WaterPressureTankChart: React.FC = () => {
 
   return (
     <div className="settings water-page fill-page">
-      <h2>Zużycie wody w okresie</h2>
+      <h2>
+        Zużycie wody w okresie
+        {meter?.flow.litersPerMinute !== null && meter?.flow.litersPerMinute !== undefined && (
+          <InfoTip>Woda z czasu pompy liczona przepływem {formatLiters(meter.flow.litersPerMinute)} l/min (średnia ze wszystkich okresów między odczytami wodomierza).</InfoTip>
+        )}
+      </h2>
       <section>
         <div className="resource" ref={cardRef}>
           <div className="water-toolbar">
@@ -138,12 +144,6 @@ export const WaterPressureTankChart: React.FC = () => {
                     </BarChart>
                   </ResponsiveContainer>
               </div>
-              {meter?.flow.litersPerMinute !== null && meter?.flow.litersPerMinute !== undefined && (
-                <div className="water-hint">
-                  Woda z czasu pompy liczona przepływem <strong>{formatLiters(meter.flow.litersPerMinute)} l/min</strong>
-                  {' '}(średnia ze wszystkich okresów między odczytami wodomierza).
-                </div>
-              )}
             </>
           ) : (
             <>

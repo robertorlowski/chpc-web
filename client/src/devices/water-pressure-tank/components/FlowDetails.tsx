@@ -1,6 +1,7 @@
 // Przepływ pompy hydroforu (GET /water-pressure-tank/flow) na widoku głównym i w Ustawieniach:
 // wartość w l/min i z czego ją policzono, a bez dwóch odczytów wodomierza — co zrobić.
 import { WaterFlow } from '../types';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { formatDuration, formatLiters } from '../utils/water';
 
 export const FlowDetails: React.FC<{ flow: WaterFlow | null }> = ({ flow }) => {
@@ -18,11 +19,11 @@ export const FlowDetails: React.FC<{ flow: WaterFlow | null }> = ({ flow }) => {
       <div>
         <span className="label">Przepływ pompy:</span>
         <strong>{formatLiters(flow.litersPerMinute)} l/min</strong>
-      </div>
-      <div className="water-hint">
-        Z {flow.periods} {flow.periods === 1 ? 'okresu' : 'okresów'} między odczytami wodomierza:
-        {' '}{formatLiters(flow.meterLiters)} l w {formatDuration(flow.pumpSeconds)} pracy pompy
-        (bez ręcznej pracy kompresora).
+        <InfoTip>
+          Z {flow.periods} {flow.periods === 1 ? 'okresu' : 'okresów'} między odczytami wodomierza:
+          {' '}{formatLiters(flow.meterLiters)} l w {formatDuration(flow.pumpSeconds)} pracy pompy
+          (bez ręcznej pracy kompresora).
+        </InfoTip>
       </div>
     </>
   );

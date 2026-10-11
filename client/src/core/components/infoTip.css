@@ -1,0 +1,60 @@
+/* Ikona „i” z dymkiem (components/InfoTip.tsx): kółko w kolorze przycisków aplikacji, dymek nad treścią strony. */
+.info-tip {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin: 0 0 0 0.35rem;
+  padding: 0;
+  border: 1.5px solid #1481a5;
+  border-radius: 50%;
+  background: #fff;
+  color: #1481a5;
+  font: italic 700 12px Georgia, 'Times New Roman', serif;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+  /* większe pole dotyku niż sama ikona */
+  position: relative;
+}
+
+.info-tip::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+.info-tip.open,
+.info-tip:hover {
+  background: #1481a5;
+  color: #fff;
+}
+
+.info-tip-bubble {
+  display: block;
+  position: fixed;
+  z-index: 1300;
+  box-sizing: border-box;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 0.85rem;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+}
+
+/* kilka akapitów w dymku (TipParagraph) */
+.info-tip-paragraph {
+  display: block;
+}
+
+.info-tip-paragraph + .info-tip-paragraph {
+  margin-top: 0.45rem;
+}

@@ -6,6 +6,7 @@ import { DeviceProperties } from '../../../core/types';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { useDevice } from '../../../core/context/DeviceContext';
@@ -79,12 +80,11 @@ export const SwitchSettings: React.FC = () => {
             </label>
           ))}
           <label>
-            <span className="label">Czas włączenia:</span>
+            <span className="label">Czas włączenia:<InfoTip>Domyślny czas „Włącz” w aplikacji i na stronie sterownika; 0 = bez limitu czasu. Strona sterownika pobiera nową wartość po jego ponownym uruchomieniu.</InfoTip></span>
             <input type="number" min={0} max={10080} value={defaultMinutes}
               onChange={(event) => setDefaultMinutes(event.currentTarget.value)} />
             <span className="switch-unit">min</span>
           </label>
-          <div className="switch-hint switch-form-hint">Domyślny dla „Włącz”; 0 = bez limitu czasu.</div>
           {error && <div className="switch-error">{error}</div>}
           <div className="switch-form-actions">
             <button type="submit" disabled={relays === null || properties === null || busy}>Zapisz</button>

@@ -6,6 +6,7 @@
 // w kolejności, w jakiej regulator go przyjmie (najpierw granice, potem zadane).
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { IconButton } from '../../../core/components/IconButton';
+import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import { EditIcon } from '../../../core/components/icons';
 import '../../../core/components/deviceEditModal.css';
 import { PelletBoilerRequests } from '../api';
@@ -56,8 +57,8 @@ function ReadOnlyMixerTarget({ item, reading }: { item: Item; reading: PelletBoi
         </div>
       )}
       <div className="boiler-hint">
-        {typeof target === 'number' ? 'Z odczytu pracy kotła. ' : ''}
-        Regulator nie podaje nastaw tego mieszacza — zmiana tylko na panelu kotła.
+        Zmiana tylko na panelu kotła
+        <InfoTip>{typeof target === 'number' ? 'Zadana z odczytu pracy kotła. ' : ''}Regulator nie podaje nastaw tego mieszacza — zmiana tylko na panelu kotła.</InfoTip>
       </div>
     </>
   );
@@ -194,11 +195,16 @@ export const EditPanel: React.FC<{
     <div className="device-modal-backdrop" onClick={onClose}>
       <form className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-edit-title"
         onClick={(event) => event.stopPropagation()} onSubmit={send}>
-        <h2 id="boiler-edit-title">{parameter.label ?? parameter.name}</h2>
+        <h2 id="boiler-edit-title">
+          {parameter.label ?? parameter.name}
+          <InfoTip label="Opis parametru">
+            {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
+            {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
+            <div>Zmiana trafia do sterownika pieca od razu i zwykle w kilka sekund do regulatora (także przy pracującym kotle); potem sterownik odczytuje ustawienia od nowa. Gdy kocioł nie przesyła danych, zmiany nie da się zlecić.</div>
+          </InfoTip>
+        </h2>
         <div>Teraz: <strong>{display(item, parameter, parameter.value)}</strong>
           {' '}· zakres {display(item, parameter, parameter.min)} – {display(item, parameter, parameter.max)}</div>
-        {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
-        {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
         <label>
           <span>Nowa wartość{parameter.unit && !choices ? ` [${parameter.unit}]` : ''}</span>
           {choices ? (
@@ -211,10 +217,6 @@ export const EditPanel: React.FC<{
               value={value} onChange={(event) => setValue(event.currentTarget.value)} autoFocus />
           )}
         </label>
-        <div className="boiler-hint">
-          Sterownik wyśle zmianę do regulatora w ciągu ok. 15–30 s (także przy pracującym kotle),
-          a potem odczyta ustawienia od nowa.
-        </div>
         {service && (
           <label className="boiler-confirm">
             <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.currentTarget.checked)} />
@@ -312,7 +314,10 @@ const GroupEditPanel: React.FC<{
     <div className="device-modal-backdrop" onClick={onClose}>
       <form className="device-modal boiler-edit" role="dialog" aria-modal="true" aria-labelledby="boiler-group-title"
         onClick={(event) => event.stopPropagation()} onSubmit={send}>
-        <h2 id="boiler-group-title">{section.title}</h2>
+        <h2 id="boiler-group-title">
+          {section.title}
+          <InfoTip label="Jak sterownik wysyła zmiany">Wysyłane są tylko zmienione pola, po kolei: każde następne po potwierdzeniu poprzedniego przez regulator i ponownym odczycie ustawień (zwykle kilka sekund na pole, także przy pracującym kotle).</InfoTip>
+        </h2>
         {fields.map(({ item, parameter }) => {
           if (hidden(item.index)) return null;
           const choices = choicesOf(item, parameter);
@@ -325,6 +330,12 @@ const GroupEditPanel: React.FC<{
                 <span>
                   {parameter.label ?? parameter.name}
                   {parameter.unit && !choices ? ` [${parameter.unit}]` : ''}
+                  {(parameter.description || parameter.rating) && (
+                    <InfoTip label="Opis parametru">
+                      {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
+                      {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
+                    </InfoTip>
+                  )}
                 </span>
                 {choices ? (
                   <select value={value} onChange={(event) => set(event.currentTarget.value)}>
@@ -339,11 +350,7 @@ const GroupEditPanel: React.FC<{
                 )}
               </label>
               {fromCurve && <div className="boiler-hint">Przy sterowaniu pogodowym zadaną liczy regulator z krzywej.</div>}
-              <details className="boiler-hint">
-                <summary>zakres {display(item, parameter, parameter.min)} – {display(item, parameter, parameter.max)}</summary>
-                {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
-                {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
-              </details>
+              <div className="boiler-hint">zakres {display(item, parameter, parameter.min)} – {display(item, parameter, parameter.max)}</div>
             </div>
           );
         })}
@@ -358,10 +365,6 @@ const GroupEditPanel: React.FC<{
             </label>
           </div>
         )}
-        <div className="boiler-hint">
-          Wysyłane są tylko zmienione pola. Sterownik przekaże je regulatorowi po kolei w ciągu
-          ok. 15–30 s każde (także przy pracującym kotle).
-        </div>
         {service && (
           <label className="boiler-confirm">
             <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.currentTarget.checked)} />
@@ -652,11 +655,18 @@ export const MainParameters: React.FC = () => {
               <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving || !heatPumpMode}
                 onChange={(event) => setPelletCwu(event.currentTarget.checked)} />
               CWU - grzanie peletem
+              <InfoTip>
+                <TipParagraph>
+                  W trybie Pompa ciepła CWU grzeje kocioł peletem według ustawień trybu Pellet:
+                  od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C (Harmonogram, tryb Pellet).
+                  Grzanie zaczyna się tylko przy włączonym regulatorze.
+                </TipParagraph>
+                <TipParagraph>
+                  Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej 50 °C, i rusza, gdy kocioł
+                  spadnie poniżej 48 °C. W trybie Pellet znacznik jest nieaktywny.
+                </TipParagraph>
+              </InfoTip>
             </label>
-            <div className="boiler-hint">
-              W trybie Pompa ciepła CWU grzeje kocioł według ustawień trybu Pellet:
-              od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C.
-            </div>
             {current.pelletCwu.phase === 'heating' && (
               <div className="boiler-hint">
                 <strong>Kocioł grzeje CWU peletem</strong> od {formatDateTime(current.pelletCwu.since ?? undefined)}
@@ -723,7 +733,31 @@ export const MainParameters: React.FC = () => {
         )}
         {ready && (
           <div className="boiler-main-section">
-            <div className="boiler-main-title">Sezon</div>
+            <div className="boiler-main-title">
+              Sezon
+              <InfoTip>
+                <TipParagraph>Lato: kocioł grzeje tylko CWU, ogrzewanie CO wyłączone. Zima: kocioł grzeje też CO.</TipParagraph>
+                {heatPumpMode && (
+                  <>
+                    <TipParagraph>
+                      Zima z pompą ciepła: kocioł przechodzi na Zimę, gdy kocioł albo woda w pompie ciepła osiągnie
+                      {typeof current?.winterCycle?.winterFrom === 'number'
+                        ? ` ${formatNumber(current.winterCycle.winterFrom)} °C (temperatura, do której grzeje pompa, minus 3 °C)`
+                        : ' temperaturę, do której grzeje pompa, minus 3 °C'}; do tego czasu pompa ciepła dostaje wymuszenie startu.
+                      Na Lato wraca poniżej 30 °C przy stojącej pompie CO.
+                    </TipParagraph>
+                    <TipParagraph>
+                      Razem z Latem zadana mieszacza 1 spada do minimum. Na Zimie wraca, gdy woda w pompie po spadku poniżej
+                      minimalnej zadanej pompy wróci do niej, utrzyma temperaturę przez 15 min albo wzrośnie o 5 °C.
+                    </TipParagraph>
+                    <TipParagraph>
+                      Wybór przyciskiem działa do najbliższego początku albo końca wpisu sezonu w Harmonogramie, potem sezon
+                      ustawia harmonogram. Wybór sezonu, który harmonogram ustawia teraz, wraca do harmonogramu.
+                    </TipParagraph>
+                  </>
+                )}
+              </InfoTip>
+            </div>
             <div className="boiler-profiles">
               {/* bez Auto (decyzja użytkownika 2026-10-04): tylko Zima i Lato */}
               {(CHOICES['ecomax:125']).slice(0, 2).map((label, value) => {
@@ -738,11 +772,17 @@ export const MainParameters: React.FC = () => {
                 );
               })}
             </div>
-            <div className="boiler-hint">
-              Lato: kocioł grzeje tylko CWU, ogrzewanie CO wyłączone.
-              {summer?.value === 2 && ' Teraz kocioł jest w trybie Auto (przełączanie według temperatury zewnętrznej).'}
-            </div>
+            {summer?.value === 2 && <div className="boiler-hint">Teraz kocioł jest w trybie Auto (przełączanie według temperatury zewnętrznej).</div>}
             {heatPumpMode && <WinterCycleStatus cycle={current?.winterCycle} />}
+            {/* sezon z przycisku: do kiedy, potem harmonogram (naciśnięcie sezonu z harmonogramu wraca do niego) */}
+            {heatPumpMode && current?.manualSeason && (
+              <div className="boiler-hint boiler-season-manual">
+                Ustawienie ręczne: {current.manualSeason === 'winter' ? 'Zima' : 'Lato'}
+                {current.manualSeasonUntil
+                  ? ` do ${new Date(current.manualSeasonUntil).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}, potem zgodnie z harmonogramem`
+                  : ', do zmiany sezonu w harmonogramie'}
+              </div>
+            )}
             {seasonError && <div className="boiler-error">{seasonError}</div>}
           </div>
         )}
@@ -795,7 +835,10 @@ export const MainParameters: React.FC = () => {
                 );
               })()}
               {settings?.mixers?.find((m) => m.mixer === item.mixer)?.assumed && item.kind === 'mixer' && (
-                <div className="boiler-hint">Zadana z odczytu pracy kotła. Regulator nie podaje nastaw tego mieszacza — zmiany bez potwierdzenia, sprawdź na panelu.</div>
+                <div className="boiler-hint">
+                  Zadana z odczytu pracy kotła
+                  <InfoTip>Zadana z odczytu pracy kotła. Regulator nie podaje nastaw tego mieszacza — zmiany bez potwierdzenia, sprawdź na panelu.</InfoTip>
+                </div>
               )}
               {section.cleanSchedule && cleanPending && (
                 <div className="boiler-hint">{cleanPending.value ? 'Włączenie' : 'Wyłączenie'} harmonogramu czyszczenia czeka na sterownik.</div>

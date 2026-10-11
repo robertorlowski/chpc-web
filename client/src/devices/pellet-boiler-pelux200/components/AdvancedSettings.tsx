@@ -6,6 +6,7 @@
 // Zwinięty na start; dane pobierane przy pierwszym rozwinięciu i po każdym zleceniu zmiany.
 import { useCallback, useEffect, useState } from 'react';
 import { IconButton } from '../../../core/components/IconButton';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { EditIcon } from '../../../core/components/icons';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerParameter, PelletBoilerSettings } from '../types';
@@ -25,7 +26,15 @@ const formatValue = (parameter: PelletBoilerParameter, value: number) => {
 const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void; disabled?: boolean }> = ({ parameter, onEdit, disabled }) => (
   <li className="boiler-parameter">
     <div className="boiler-parameter-head">
-      <span className="boiler-parameter-label">{parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}</span>
+      <span className="boiler-parameter-label">
+        {parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}
+        {(parameter.description || parameter.rating) && (
+          <InfoTip label="Opis parametru">
+            {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
+            {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
+          </InfoTip>
+        )}
+      </span>
       <span className="boiler-parameter-value">
         {parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}
         {parameter.name && ADVANCED_SETTINGS_EDIT && (
@@ -38,8 +47,6 @@ const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => v
       {parameter.name && <> · zakres {formatValue(parameter, parameter.min)} – {formatValue(parameter, parameter.max)}</>}
       {parameter.name && <> · <code>{parameter.name}</code></>}
     </div>
-    {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
-    {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
   </li>
 );
 
@@ -88,14 +95,19 @@ export const AdvancedSettings: React.FC = () => {
           {settings?.readAt && (
             <>
               <div className="boiler-hint">
-                Odczyt z regulatora: {formatDateTime(settings.readAt)} · {count} parametrów kotła.
-                {ADVANCED_SETTINGS_EDIT
-                  ? 'Ołówek zleca zmianę (sterownik wyśle ją do regulatora w ciągu ok. 15–30 s); parametry serwisowe wymagają potwierdzenia.'
-                  : 'Tylko podgląd: zmiana tych parametrów jest wyłączona w konfiguracji aplikacji (config.ts).'}
+                Odczyt z regulatora: {formatDateTime(settings.readAt)} · {count} parametrów kotła
+                <InfoTip>
+                  {ADVANCED_SETTINGS_EDIT
+                    ? 'Ołówek zleca zmianę (sterownik pieca wyśle ją do regulatora zwykle w kilka sekund); parametry „Tylko serwis” i „Nie ruszać” wymagają potwierdzenia.'
+                    : 'Tylko podgląd: zmiana tych parametrów jest wyłączona w aplikacji. Główne nastawy zmienisz w sekcji „Główne parametry”.'}
+                </InfoTip>
               </div>
               {heatPumpLinked && (
                 <details className="boiler-group">
-                  <summary>Pompa ciepła / Pellet <span className="boiler-hint">(nastawy trybów)</span></summary>
+                  <summary>
+                    Pompa ciepła / Pellet <span className="boiler-hint">(nastawy trybów)</span>
+                    <InfoTip>Te nastawy zleca przycisk „Pompa ciepła” / „Pellet” w Trybie pracy (tylko wartości różne od obecnych). Przy pracującym regulatorze najpierw go wyłącza, a nastawy idą po zgłoszeniu stanu „wyłączony”. CWU w każdym trybie ustawia harmonogram (zakładka Harmonogram).</InfoTip>
+                  </summary>
                   <ModeProfiles settings={settings} />
                 </details>
               )}
