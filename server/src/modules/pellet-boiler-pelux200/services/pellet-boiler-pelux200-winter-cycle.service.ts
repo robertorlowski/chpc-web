@@ -31,12 +31,17 @@ import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-comma
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerSeason, PelletBoilerWinterCycle, PelletBoilerWinterMixer } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
+import { operationHeaders, systemMeta } from '../../../core/services/operation-log.service';
+import { OperationMeta } from '../../../core/types';
 import { decodeMixerParameters } from './pellet-boiler-pelux200-settings.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { effectiveBoilerMode, linkedHeatPumpRootId } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu, pelletCwuBlocksPump } from './pellet-boiler-pelux200-pellet-cwu.service';
 
 export const WINTER_FROM = 45;
+// temperatura do opisu w dzienniku operacji
+const tempText = (value: number | null | undefined) =>
+  typeof value === 'number' ? `${value.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C` : 'brak odczytu';
 export const WINTER_BELOW_PUMP_MAX = 3;
 export const SUMMER_BELOW = 30;
 // powyżej progu Lata; poniżej 50 °C, od którego pompa ciepła jest blokowana (kocioł gorący, ładowanie CWU)
@@ -60,7 +65,8 @@ export type PumpTemperatures = { max: number | null; min?: number | null; water:
 export type HeatPumpControl = {
   /** sprężarka pracuje (HP.HPS z ostatniej telemetrii); null = nie wiadomo */
   running: (heatPumpRootId: string) => Promise<boolean | null>;
-  force: (heatPumpRootId: string) => Promise<void>;
+  /** conditions: warunki do dziennika operacji pompy (nagłówki x-operation-*) */
+  force: (heatPumpRootId: string, conditions?: string) => Promise<void>;
   /** ze świeżej telemetrii [°C]: max = HP.Tmax (do tylu grzeje pompa), min = HP.Tmin (minimalna zadana),
    *  water = HP.Ttarget (czujnik, na którym staje); null / brak = nie wiadomo */
   temperatures?: (heatPumpRootId: string) => Promise<PumpTemperatures | null>;
@@ -103,10 +109,14 @@ export const heatPumpControl: HeatPumpControl = {
     const positive = (value: unknown) => { const n = number(value); return n !== null && n > 0 ? n : null; };
     return { max: positive(hp.Tmax), min: positive(hp.Tmin), water: number(hp.Ttarget) };
   },
-  force: async (heatPumpRootId) => {
+  force: async (heatPumpRootId, conditions) => {
     const response = await fetch(`${internalApiUrl()}/operation/set?rootId=${encodeURIComponent(heatPumpRootId)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...internalHeaders() },
+      headers: {
+        'Content-Type': 'application/json',
+        ...internalHeaders(),
+        ...operationHeaders(systemMeta('Kocioł: cykl Zimy', 'Kocioł czeka na Zimę — wymuszenie startu sprężarki, żeby pompa nagrzała kocioł.', conditions)),
+      },
       body: JSON.stringify({ force: '1' }),
     });
     if (!response.ok) throw new Error(`pompa ciepła: HTTP ${response.status}`);
@@ -139,12 +149,12 @@ async function mixerTarget(rootId: string) {
 }
 
 // Przywrócenie zadanej mieszacza 1; true = stan winterMixer do skasowania (przywrócona albo zmieniona ręcznie).
-async function restoreMixer(rootId: string, mixer: PelletBoilerWinterMixer): Promise<boolean> {
+async function restoreMixer(rootId: string, mixer: PelletBoilerWinterMixer, meta: OperationMeta): Promise<boolean> {
   const current = await mixerTarget(rootId);
   if (!current) return true;
   if (!current.settled) return false;
   if (current.value === mixer.lowered) {
-    await createCommands(rootId, { changes: [{ kind: 'mixer', mixer: 1, index: 0, value: mixer.saved }] });
+    await createCommands(rootId, { changes: [{ kind: 'mixer', mixer: 1, index: 0, value: mixer.saved }] }, meta);
     console.log(`[pellet zima] ${rootId} mieszacz 1: zadana wraca ${mixer.lowered} → ${mixer.saved} °C`);
   }
   return true;
@@ -154,7 +164,9 @@ async function restoreMixer(rootId: string, mixer: PelletBoilerWinterMixer): Pro
 export async function stopWinterCycle(rootId: string) {
   await PelletBoilerScheduleSettingsModel.updateOne({ rootId, winterCycle: { $ne: null } }, { $set: { winterCycle: null } });
   const mixer = await loadMixer(rootId);
-  if (mixer && await restoreMixer(rootId, mixer)) await saveMixer(rootId, null);
+  if (mixer && await restoreMixer(rootId, mixer, systemMeta('Cykl Zimy', 'Koniec cyklu Zimy (tryb Pellet albo Lato z harmonogramu): zadana mieszacza 1 wraca od razu.'))) {
+    await saveMixer(rootId, null);
+  }
 }
 
 // Jeden krok cyklu (scheduler kotła co minutę). boilerSeason: sezon z ostatniego odczytu ustawień kotła.
@@ -197,7 +209,11 @@ export async function runWinterCycle(
     const from = cycle.winterFrom ?? WINTER_FROM;
     const reached = [temperature, cycle.pumpTemperature ?? null].some((t) => t !== null && t >= from);
     if (reached) {
-      await createCommands(rootId, { changes: [{ kind: 'ecomax', index: SEASON_PARAMETER, value: SEASON_VALUE.winter }] });
+      await createCommands(rootId, { changes: [{ kind: 'ecomax', index: SEASON_PARAMETER, value: SEASON_VALUE.winter }] }, systemMeta(
+        'Cykl Zimy', 'Kocioł nagrzany przez pompę ciepła — Zima rozprowadza ciepło po CO.',
+        `kocioł ${tempText(temperature)}, woda w pompie ${tempText(cycle.pumpTemperature ?? null)}; próg ${tempText(from)}`
+          + `${cycle.winterFrom !== WINTER_FROM ? ' (Tmax pompy − 3 °C)' : ''}`,
+      ));
       console.log(`[pellet zima] ${rootId} kocioł ${temperature} °C, pompa ${cycle.pumpTemperature} °C, próg ${from} — Zima`);
     } else if (temperature !== null || cycle.pumpTemperature != null) {
       await forcePumpIfDue(rootId, cycle, now, pump);
@@ -209,7 +225,12 @@ export async function runWinterCycle(
     await createCommands(rootId, { changes: [
       { kind: 'ecomax', index: SEASON_PARAMETER, value: SEASON_VALUE.summer },
       ...(lower ? [{ kind: 'mixer', mixer: 1, index: 0, value: lower.min }] : []),
-    ] });
+    ] }, systemMeta(
+      'Cykl Zimy',
+      'Woda w kotle wychłodzona — Lato do ponownego nagrzania przez pompę ciepła'
+        + (lower ? '; mieszacz 1 na minimum, żeby po Zimie nie wychłodził wody z pompy.' : '.'),
+      `kocioł ${tempText(temperature)} < ${SUMMER_BELOW} °C, pompa CO stoi`,
+    ));
     if (lower) {
       mixer = { saved: lower.value, lowered: lower.min, loweredAt: now, reference: null, referenceAt: null };
       await saveMixer(rootId, mixer);
@@ -234,7 +255,12 @@ export async function runWinterCycle(
       if (water < from) mixer.belowMin = true;
       const held = now.getTime() - new Date(mixer.referenceAt).getTime() >= MIXER_RESTORE_MS;
       const backToMin = !!mixer.belowMin && water >= from;
-      if ((backToMin || water >= mixer.reference + MIXER_RESTORE_RISE || held) && await restoreMixer(rootId, mixer)) {
+      if ((backToMin || water >= mixer.reference + MIXER_RESTORE_RISE || held) && await restoreMixer(rootId, mixer, systemMeta(
+      'Cykl Zimy', 'Ciepło z pompy wróciło — zadana mieszacza 1 wraca do wartości sprzed obniżenia.',
+      backToMin ? `woda w pompie ${tempText(water)} wróciła do minimalnej zadanej pompy ${tempText(from)}`
+        : water >= mixer.reference + MIXER_RESTORE_RISE ? `woda w pompie ${tempText(water)} wzrosła o ${MIXER_RESTORE_RISE} °C od ${tempText(mixer.reference)}`
+        : `woda w pompie ${tempText(water)} trzyma się od 15 min`,
+    ))) {
         console.log(`[pellet zima] ${rootId} pompa ${water} °C (min ${from}, odniesienie ${mixer.reference} °C) — mieszacz 1 wraca`);
         mixer = null;
       }
@@ -264,7 +290,7 @@ async function forcePumpIfDue(rootId: string, cycle: PelletBoilerWinterCycle, no
   if (!heatPump) return;
   try {
     if (await pump.running(heatPump)) return;
-    await pump.force(heatPump);
+    await pump.force(heatPump, `kocioł ${cycle.temperature ?? '?'} °C, woda w pompie ${cycle.pumpTemperature ?? '?'} °C < próg ${cycle.winterFrom ?? WINTER_FROM} °C, sprężarka stoi`);
     cycle.forcedAt = now;
     console.log(`[pellet zima] ${rootId} kocioł ${cycle.temperature} °C, pompa ${cycle.pumpTemperature} °C < ${cycle.winterFrom ?? WINTER_FROM} — wymuszam start sprężarki pompy ciepła`);
   } catch (error) {

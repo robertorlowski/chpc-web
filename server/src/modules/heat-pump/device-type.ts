@@ -1,7 +1,8 @@
 import { DeviceType, DeviceTypeModule, PumpConfig } from '../../core/types';
 import { sendMessage } from '../../core/websocket';
 import { clearManualOperation, getManualOperationData, setOperationData } from './services/operation.service';
-import { runSchedulerOnce } from './services/scheduler.service';
+import { plannedSchedulerOperations, runSchedulerOnce } from './services/scheduler.service';
+import { appUserMeta } from '../../core/services/operation-log.service';
 import { heatPumpTile } from './tile';
 
 // Opis rodzaju „pompa ciepła” (heat_pump) dla rejestru core/device-types.ts.
@@ -23,11 +24,20 @@ export const heatPumpDeviceType: DeviceTypeModule = {
   // Bez tego ręczne pole trzymało się bez końca, gdy żaden harmonogram się nie kończył
   // (produkcja 2026-10-04: ręczne CWU max 38 przy domyślnym 48). co trzyma ostatnią przysłaną
   // wartość, więc ręczne co_pomp "0" trzeba jawnie odwrócić na "1".
-  onPropertiesSaved: async (rootId) => {
+  // Dziennik operacji: zmiana operacji dla co z tym samym „kto” co zapis ustawień.
+  onPropertiesSaved: async (rootId, meta = appUserMeta('Harmonogramy', 'Zapis ustawień domyślnych.')) => {
     const manual = getManualOperationData(rootId);
     clearManualOperation(rootId);
-    await runSchedulerOnce(new Date(), rootId);
+    const changed = { ...meta, reason: `${meta.reason ?? 'Zapis ustawień.'} Ręczne zmiany z Ustawień skasowane.` };
+    await runSchedulerOnce(new Date(), rootId, changed);
     if (manual.co_pomp === '0') setOperationData(rootId, { co_pomp: '1' });
     sendMessage('operation', rootId);
   },
+  // dziennik operacji: ustawienia domyślne (Harmonogramy) i tryb pracy
+  propertyLabels: {
+    work_mode: { label: 'Tryb pracy', values: { MANUAL: 'Ręczny', AUTO: 'Automatyczny', OFF: 'Wyłączony', M: 'Ręczny', A: 'Automatyczny', CWU: 'Automatyczny' } },
+    temp_min: { label: 'Temperatura od', unit: '°C' },
+    temp_max: { label: 'Temperatura do', unit: '°C' },
+  },
+  plannedOperations: plannedSchedulerOperations,
 };

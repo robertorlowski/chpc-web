@@ -206,3 +206,23 @@ export type DeviceTile = {
   foot?: string;
 };
 export type DeviceTiles = Record<string, DeviceTile>;
+
+// Dziennik operacji (GET /api/operations?date=, zakładka „Operacje”; kontrakt: server/src/core/types.ts i
+// core/services/operation-log.service.ts). planned: najpierw wpisy w toku, potem przejścia harmonogramu
+// do końca doby (status „planned”, bez id); done: reszta dnia, najnowsze u góry.
+export type OperationActorType = 'user' | 'system' | 'controller';
+export type OperationActor = { type: OperationActorType; name?: string; userId?: string };
+export type OperationStatus = 'planned' | 'pending' | 'sent' | 'delivered' | 'done' | 'error' | 'replaced';
+export type OperationEntry = {
+  id?: string;
+  at: string;
+  actor: OperationActor;
+  source: string;
+  action: string;
+  status: OperationStatus;
+  statusAt?: string | null;
+  error?: string | null;
+  reason?: string | null;
+  conditions?: string | null;
+};
+export type OperationsDay = { date: string; today: boolean; planned: OperationEntry[]; done: OperationEntry[] };

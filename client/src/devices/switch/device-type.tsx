@@ -1,7 +1,8 @@
 // Opis rodzaju „switch” (włącznik: ESP32 z przekaźnikami) dla rejestru core/device-types.tsx:
 // ikona włącznika na kafelku, menu i widoki. Ścieżki spoza listy (np. /chart) prowadzą na stronę główną.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
+import { DataIcon, ScheduleIcon, OperationsIcon, SettingsIcon } from '../../core/components/icons';
+import { OperationsPage } from '../../core/pages/Operations';
 import { SwitchHome } from './pages/Home';
 import { SwitchData } from './pages/Data';
 import { SwitchSchedules } from './pages/Schedules';
@@ -26,6 +27,7 @@ export const switchDeviceType: DeviceTypeView = {
 		{ path: '/', label: 'Włącznik', icon: <SwitchIcon />, element: <SwitchHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <SwitchData /> },
 		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <SwitchSchedules /> },
+		{ path: '/operations', label: 'Operacje', icon: <OperationsIcon />, element: <OperationsPage /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <SwitchSettings /> },
 	],
 };

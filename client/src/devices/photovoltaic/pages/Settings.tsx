@@ -4,6 +4,7 @@
 // podgląd, zmian z aplikacji nie ma — i dane urządzenia (nazwa).
 import { useEffect, useState } from 'react';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { PhotovoltaicRequests } from '../api';
 import { PvInverters } from '../types';
@@ -56,13 +57,10 @@ export const PhotovoltaicSettings: React.FC = () => {
               <span>Parametry DTU i mikrofalowników</span>
               <span aria-hidden="true">{showParameters ? '▲' : '▼'}</span>
             </button>
+            <InfoTip>Lista parametrów, które da się odczytać albo ustawić w DTU Hoymiles i mikrofalownikach. Tylko podgląd: sterownik co dziś czyta pomiary, a zmiana ustawień z aplikacji nie jest jeszcze dostępna.</InfoTip>
           </h3>
           {showParameters && (
             <>
-              <div className="pv-hint">
-                Lista parametrów, które da się odczytać albo ustawić w DTU Hoymiles i mikrofalownikach. Tylko podgląd:
-                sterownik co dziś czyta pomiary, a zmiana ustawień z aplikacji nie jest jeszcze dostępna.
-              </div>
               {PV_PARAMETER_GROUPS.map((group) => (
                 <details key={group.label} className="pv-group">
                   <summary>{group.label} <span className="pv-hint">({group.parameters.length})</span></summary>
@@ -70,11 +68,15 @@ export const PhotovoltaicSettings: React.FC = () => {
                     {group.parameters.map((parameter) => (
                       <li key={parameter.name} className="pv-parameter">
                         <div className="pv-parameter-head">
-                          <span className="pv-parameter-label">{parameter.name}</span>
+                          <span className="pv-parameter-label">
+                            {parameter.name}
+                            <InfoTip label="Opis parametru">
+                              {parameter.description}
+                              {parameter.rating && <div className="pv-parameter-rating">{parameter.rating}</div>}
+                            </InfoTip>
+                          </span>
                           <span className={`pv-parameter-status ${parameter.read ? 'pv-on' : ''}`}>{parameter.read ? 'odczytywany' : parameter.access}</span>
                         </div>
-                        <div className="pv-parameter-description">{parameter.description}</div>
-                        {parameter.rating && <div className="pv-parameter-rating">{parameter.rating}</div>}
                       </li>
                     ))}
                   </ul>
@@ -85,11 +87,10 @@ export const PhotovoltaicSettings: React.FC = () => {
         </div>
 
         <div className="resource">
-          <h3 className="settings-section-title">Urządzenie</h3>
+          <h3 className="settings-section-title">Urządzenie<InfoTip>DTU czyta sterownik pompy ciepła (co) o tym samym identyfikatorze; urządzenie założył serwer.</InfoTip></h3>
           <div className="pv-row"><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div className="pv-row"><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div className="pv-row"><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
-          <div className="pv-hint">DTU czyta sterownik pompy ciepła (co) o tym samym identyfikatorze; urządzenie założył serwer.</div>
           <div className="pv-actions">
             <button type="button" disabled={!device} onClick={() => setEditingDevice(true)}>Zmień</button>
           </div>

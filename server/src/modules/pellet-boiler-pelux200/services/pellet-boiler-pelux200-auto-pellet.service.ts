@@ -13,6 +13,7 @@ import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerAutoPellet, PelletBoilerCommandChange } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
+import { systemMeta } from '../../../core/services/operation-log.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { getScheduleSettings } from './pellet-boiler-pelux200-schedule.service';
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
@@ -91,7 +92,12 @@ export async function checkAutoPellet(rootId: string, now = new Date()) {
   );
   const autoPellet: PelletBoilerAutoPellet = { at: readingAt, acknowledged: false, changes: changes.length };
   try {
-    if (changes.length) await createCommands(rootId, { changes });
+    if (changes.length) {
+      await createCommands(rootId, { changes }, systemMeta(
+        'Tryb pracy', 'Kocioł rozpala się w trybie Pompa ciepła — przejście na nastawy trybu Pellet.',
+        `stan kotła: rozpalanie (odczyt ${readingAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })})`,
+      ));
+    }
   } catch (error) {
     autoPellet.error = String((error as Error).message ?? error);
   }

@@ -9,6 +9,9 @@ import {
   pumpSeconds, RUN_IN_PROGRESS_MS, setCompressorSeconds, SummaryPeriod, validateRunReport,
 } from '../services/water-pressure-tank.service';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
+import { getDeviceProperties } from '../../../core/services/device.service';
+import { controllerMeta, logPropertiesChange } from '../../../core/services/operation-log.service';
+import { waterPressureTankDeviceType } from '../device-type';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 // Północ danego dnia w Warszawie jako chwila UTC (granice miesięcy i lat).
@@ -42,8 +45,13 @@ export async function updateWaterPressureTankSettings(
     return res.status(400).json({ message: 'compressor_seconds: pełne sekundy 1–3600.' });
   }
   try {
-    const saved = await setCompressorSeconds(req.deviceRootId as string, seconds);
+    const rootId = req.deviceRootId as string;
+    const before = await getDeviceProperties(rootId);
+    const saved = await setCompressorSeconds(rootId, seconds);
     if (saved === null) return res.status(404).json({ message: 'Urządzenie nie jest hydroforem.' });
+    // dziennik operacji: zmiana na stronie sterownika jest już w nim zapisana (wykonana)
+    await logPropertiesChange(rootId, waterPressureTankDeviceType.propertyLabels, before, { ...before, compressor_seconds: saved },
+      controllerMeta('Strona sterownika', 'Sekcja „Kompresor” na stronie /install sterownika.'));
     return res.status(200).json({ compressor_seconds: saved });
   } catch (error) {
     console.error(error);

@@ -383,3 +383,15 @@
   height: 0.7rem;
   border-radius: 50%;
 }
+
+/* ikona „i” obok przycisku rozwijania listy parametrów, w tej samej linii */
+.settings-section-title:has(> .pv-toggle) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.settings-section-title > .pv-toggle {
+  flex: 1;
+  min-width: 0;
+}

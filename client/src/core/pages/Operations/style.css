@@ -1,0 +1,263 @@
+/* Zakładka „Operacje”: pasek dnia i filtra, na telefonie karty (op-mobile), na komputerze tabela (op-table). */
+
+/* karta na komputerze szersza na tabelę; na telefonie pełna szerokość (reguły body .settings w style.css) */
+@media (min-width: 561px) {
+  .settings.operations-page > section > .resource,
+  .settings.operations-page > section > .resource:first-child {
+    width: min(1100px, calc(100vw - 2rem));
+    box-sizing: border-box;
+  }
+}
+
+.op-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.op-day {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.operations-page .op-day button {
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.operations-page .op-day button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* data jako tekst, kalendarz z przezroczystego pola nad nim */
+.op-date {
+  position: relative;
+  font-weight: 700;
+  padding: 4px 8px;
+  border: 1px solid #c5cdd1;
+  border-radius: 6px;
+  background: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.op-date input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.op-filter {
+  display: flex;
+  border: 1px solid #1481a5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.operations-page .op-filter button {
+  margin: 0;
+  padding: 5px 12px;
+  font-size: 14px;
+  border-radius: 0;
+  background: #fff;
+  color: #1481a5;
+}
+
+.operations-page .op-filter button + button {
+  border-left: 1px solid #1481a5;
+}
+
+.operations-page .op-filter button.op-filter-active {
+  background: #1481a5;
+  color: #fff;
+}
+
+.op-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 700;
+  color: #444;
+  padding: 10px 2px 6px;
+}
+
+.op-section small {
+  font-weight: 400;
+  color: #555;
+}
+
+.op-none {
+  font-size: 13px;
+  color: #555;
+  padding: 0 2px 6px;
+}
+
+.op-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.op-card {
+  background: #fff;
+  border: 1px solid #dde3e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.op-card-planned {
+  background: #f7fafb;
+  border-style: dashed;
+}
+
+.op-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.op-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.op-card .op-time {
+  font-size: 15px;
+}
+
+.op-what {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.op-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #444;
+}
+
+.op-who svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.op-why {
+  font-size: 12.5px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.op-why b {
+  color: #333;
+  font-weight: 600;
+}
+
+.op-error,
+.op-error b {
+  color: #8a1c13;
+}
+
+/* błąd w osobnej linii nad „Dlaczego” */
+.op-why .op-error {
+  display: block;
+}
+
+.op-chip {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.op-chip-planned { background: #eef2f4; color: #3d4b52; border: 1px dashed #8aa0aa; }
+.op-chip-wait { background: #fff1d6; color: #7a4b00; }
+.op-chip-sent { background: #e1f0f6; color: #0d5770; }
+.op-chip-ok { background: #e3f4e6; color: #1b6b34; }
+.op-chip-err { background: #fdecea; color: #8a1c13; }
+.op-chip-gone { background: #eeeeee; color: #555; }
+
+.op-table {
+  display: none;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  background: #fff;
+}
+
+.op-table th {
+  text-align: left;
+  font-size: 12px;
+  color: #555;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 2px solid #1481a5;
+  background: #f7f9fa;
+}
+
+.op-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e3e7e9;
+  vertical-align: top;
+  line-height: 1.4;
+}
+
+.op-table tr.op-group td {
+  background: #f0f0f0;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #444;
+  padding: 7px 10px;
+}
+
+.op-table tr.op-row-planned td {
+  background: #f7fafb;
+}
+
+.op-table .op-why {
+  font-size: 13px;
+}
+
+/* komputer: tabela zamiast kart */
+@media (min-width: 900px) {
+  .op-mobile {
+    display: none;
+  }
+
+  .op-table {
+    display: table;
+  }
+}
+
+@media (min-width: 900px) {
+  .op-table td.op-time {
+    width: 4rem;
+  }
+
+  .op-table td:nth-child(2) {
+    width: 11rem;
+  }
+
+  .op-table td:nth-child(4) {
+    white-space: nowrap;
+  }
+}

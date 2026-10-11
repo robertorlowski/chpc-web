@@ -11,7 +11,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import app from '../src/core/app'
-import { applySchedule, scheduleState } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
+import { applySchedule, nextSeasonBoundary, scheduleState } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service'
 import { PelletBoilerPelux200Model } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200.model'
 import { PelletBoilerCommandModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-command.model'
 import { PelletBoilerScheduleSettingsModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-schedule.model'
@@ -893,6 +893,53 @@ describe('Kocioł pelletowy Pellux 200', () => {
     const summer = (await request(app).put(api('season')).send({ season: 'summer' }).expect(200)).body;
     expect(summer.manualSeason).toBe('summer');
     expect(summer.winterCycle).toBeNull();
+  });
+
+  it('przycisk Lato / Zima do najbliższej granicy okien sezonu (noc 10–11.10: Zima przy 11,7 °C do 06:00), sezon z harmonogramu wraca do niego', async () => {
+    const sn = 'AABBCC00001B';
+    const { rootId } = (await registerWithHeatPump(sn)).body;
+    const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${rootId}`;
+    const pump = { running: async () => true, force: async () => undefined };
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archiveHeatPump.raw_hex).expect(201);
+    const settings = (await request(app).get(api('schedule-settings'))).body;
+    await request(app).put(api('schedule-settings')).send({
+      ...settings, enabled: true, defaults: { ...settings.defaults, 'heat-pump': { ...settings.defaults['heat-pump'], season: 'summer' } },
+    }).expect(200);
+    // jak na produkcji: Zima 22:00–06:00 tylko poniżej 10 °C
+    await request(app).post(api('schedules')).send({
+      type: 'season', mode: 'heat-pump', dayOfWeek: -1, startTime: '22:00', endTime: '06:00', season: 'winter', coldBelow: 10,
+    }).expect(201);
+    const entries = (await request(app).get(api('schedules'))).body;
+    expect(nextSeasonBoundary(entries, 'heat-pump', new Date('2026-10-11T10:00:00Z'))?.toISOString()).toBe('2026-10-11T20:00:00.000Z');
+    expect(nextSeasonBoundary(entries, 'pellet', new Date('2026-10-11T10:00:00Z'))).toBeNull();
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const at = async (iso: string) => {
+        vi.setSystemTime(new Date(iso));
+        await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`)
+          .send({ state: 5, heating_temp: 35, heating_pump: true, outside_temp: 11.7 }).expect(201);
+      };
+      // 22:15: Zima z przycisku (harmonogram: Lato, bo 11,7 °C ≥ 10) — do 06:00
+      await at('2026-10-10T20:15:00Z');
+      const winter = (await request(app).put(api('season')).send({ season: 'winter' }).expect(200)).body;
+      expect(winter).toMatchObject({ manualSeason: 'winter', manualSeasonUntil: '2026-10-11T04:00:00.000Z' });
+      await at('2026-10-11T03:59:00Z');
+      await applySchedule(rootId, new Date(), pump);
+      expect((await request(app).get(api('schedules/current'))).body).toMatchObject({ manualSeason: 'winter', state: { season: 'summer' } });  // state: sezon z samego harmonogramu
+      // 06:00: harmonogram przejmuje sezon (Lato poza oknem)
+      await at('2026-10-11T04:00:30Z');
+      await applySchedule(rootId, new Date(), pump);
+      expect((await request(app).get(api('schedules/current'))).body).toMatchObject({ manualSeason: null, manualSeasonUntil: null, state: { season: 'summer' } });
+
+      // Zima o 12:00 (poza oknem) działa do 22:00; Lato (sezon z harmonogramu) wraca do harmonogramu od razu
+      await at('2026-10-11T10:00:00Z');
+      expect((await request(app).put(api('season')).send({ season: 'winter' }).expect(200)).body.manualSeasonUntil).toBe('2026-10-11T20:00:00.000Z');
+      const back = (await request(app).put(api('season')).send({ season: 'summer' }).expect(200)).body;
+      expect(back).toMatchObject({ manualSeason: null, state: { season: 'summer' } });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {

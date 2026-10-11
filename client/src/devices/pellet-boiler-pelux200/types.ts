@@ -165,6 +165,8 @@ export type PelletBoilerCurrentSchedule = {
   winterCycle?: PelletBoilerWinterCycle | null;
   /** sezon wybrany przyciskiem w Ustawieniach (do zmiany sezonu z harmonogramu) */
   manualSeason?: PelletBoilerSeason | null;
+  /** do kiedy działa sezon z przycisku (ISO); null = do zmiany sezonu w harmonogramie */
+  manualSeasonUntil?: string | null;
   /** CWU z peletu w trybie pompy ciepła (znacznik w Ustawieniach) */
   pelletCwu?: PelletBoilerPelletCwu;
   /** włączenie regulatora czeka na nagrzanie kotła; null = nie czeka */

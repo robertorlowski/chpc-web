@@ -19,6 +19,7 @@ import { PelletBoilerScheduleModel, PelletBoilerScheduleSettingsModel } from '..
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
 import { PelletBoilerCommandChange, PelletBoilerPelletCwu, PelletBoilerScheduleEntry } from '../types';
 import { createCommands } from './pellet-boiler-pelux200-command.service';
+import { systemMeta } from '../../../core/services/operation-log.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { effectiveBoilerMode } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getScheduleSettings, scheduleState } from './pellet-boiler-pelux200-schedule.service';
@@ -94,7 +95,13 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
   const finish = async (error: string | null) => {
     if (heatPumpMode) {
       const changes = await boilerChanges(rootId, 'heat-pump');
-      if (changes.length) await createCommands(rootId, { changes });
+      if (changes.length) {
+        await createCommands(rootId, { changes }, systemMeta(
+          'CWU z peletu',
+          error ? `Koniec grzania CWU peletem: ${error} — nastawy trybu Pompa ciepła.` : 'Koniec grzania CWU peletem — nastawy trybu Pompa ciepła.',
+          `CWU ${cwuTemp === null || cwuTemp === undefined ? '?' : cwuTemp} °C, cel ${cwuTo} °C; pompa ciepła czeka na kocioł poniżej ${PELLET_CWU_PUMP_BLOCK_BELOW} °C`,
+        ));
+      }
     }
     Object.assign(state, { phase: 'cooling', since: now, burning: false, error });
     console.log(`[pellet cwu z peletu] ${rootId} koniec grzania CWU${error ? ` — ${error}` : ''}, pompa ciepła czeka na kocioł < ${PELLET_CWU_PUMP_BLOCK_BELOW} °C`);
@@ -104,7 +111,12 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
     if (state.phase === 'idle') {
       if (state.enabled && heatPumpMode && regulatorOn && cwuTemp !== null && cwuTemp < cwuFrom) {
         const changes = await boilerChanges(rootId, 'pellet');
-        if (changes.length) await createCommands(rootId, { changes });
+        if (changes.length) {
+          await createCommands(rootId, { changes }, systemMeta(
+            'CWU z peletu', 'Włączone „CWU - grzanie peletem”: kocioł grzeje CWU peletem według ustawień trybu Pellet.',
+            `CWU ${cwuTemp === null || cwuTemp === undefined ? '?' : cwuTemp} °C poniżej „od” ${cwuFrom} °C, cel ${cwuTo} °C; regulator włączony`,
+          ));
+        }
         Object.assign(state, { phase: 'heating', since: now, burning: false, error: null });
         console.log(`[pellet cwu z peletu] ${rootId} CWU ${cwuTemp} °C < ${cwuFrom} — kocioł grzeje CWU peletem do ${cwuTo} °C`);
       }

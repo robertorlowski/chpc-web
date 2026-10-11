@@ -13,6 +13,40 @@ import { PelletBoilerCommandChange, PelletBoilerCommandEntry, PelletBoilerParame
 import { buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 import { getPelletBoilerPelux200Last, isBoilerResponding } from './pellet-boiler-pelux200.service';
 import { sendMessage } from '../../../core/websocket';
+import { OperationMeta, OperationStatus } from '../../../core/types';
+import { appUserMeta, logOperation, syncOperations } from '../../../core/services/operation-log.service';
+
+// Dziennik operacji (2026-10-11): jedno zlecenie (createCommands) = jeden wpis „przed → po” z kim i dlaczego (meta;
+// bez meta — użytkownik aplikacji w Ustawieniach); każda zmiana statusu zlecenia przepisuje status wpisu.
+const commandsOf = (refs: string[]) => PelletBoilerCommandModel.find({ _id: { $in: refs } }).select('status doneAt error')
+  .lean<{ status: OperationStatus; doneAt?: Date | null; error?: string | null }[]>();
+export const syncCommandLog = (ids: unknown[]) => syncOperations(ids.map(String), commandsOf);
+
+const SEASON_NAMES = ['Zima', 'Lato', 'Auto'];
+const number = (value: number) => value.toLocaleString('pl-PL', { maximumFractionDigits: 2 });
+// wartość do pokazania z surowej: przełącznik Tak/Nie, liczba (surowa − przesunięcie) × krok z jednostką
+function shown(parameter: PelletBoilerParameter | undefined, raw: number | undefined) {
+  if (raw === undefined) return '?';
+  if (!parameter) return String(raw);
+  if (parameter.kind === 'switch') return raw ? 'Tak' : 'Nie';
+  const value = (raw - (parameter.offset ?? 0)) * (parameter.step ?? 1);
+  return `${number(value)}${parameter.unit ? ` ${parameter.unit}` : ''}`;
+}
+// „przed → po” jednej zmiany dla dziennika
+function changeText(change: PelletBoilerCommandChange & { previous?: number; label?: string }, parameter?: PelletBoilerParameter) {
+  if (change.kind === 'control') return change.label ?? (change.value ? 'Włącz kocioł' : 'Wyłącz kocioł');
+  if (change.kind === 'schedule') return `${change.label}: ${change.previous ? 'Tak' : 'Nie'} → ${change.value ? 'Tak' : 'Nie'}`;
+  if (change.kind === 'ecomax' && change.index === 125) {
+    return `Sezon: ${SEASON_NAMES[change.previous ?? -1] ?? '?'} → ${SEASON_NAMES[change.value] ?? change.value}`;
+  }
+  const name = `${change.kind === 'mixer' ? `Mieszacz ${change.mixer}: ` : ''}${(change.label ?? `nr ${change.index}`).replace(/ mieszacza$/, '')}`;
+  const after = shown(parameter, change.value);
+  if (change.previous === undefined) return `${name}: ${after}`;
+  // jednostka raz, na końcu: „55 → 45 °C”
+  const unit = parameter?.kind !== 'switch' && parameter?.unit ? ` ${parameter.unit}` : '';
+  const before = shown(parameter, change.previous);
+  return `${name}: ${unit && before.endsWith(unit) ? before.slice(0, -unit.length) : before} → ${after}`;
+}
 
 // najwięcej zmian w jednym zleceniu (przełącznik trybu pracy ma kilka)
 const MAX_CHANGES = 16;
@@ -48,7 +82,7 @@ function findParameter(entry: PelletBoilerSettingsEntry, change: PelletBoilerCom
 // Gdy kocioł nie odpowiada (isBoilerResponding), nic nie jest zapisywane (409): zlecenie nie czeka
 // godzinami w kolejce (decyzja 2026-10-05). Harmonogram i cykl Zimy dostają ten błąd w lastError
 // i ponawiają przebieg co minutę, więc zmienią ustawienia sami po powrocie kotła.
-export async function createCommands(rootId: string, body: unknown): Promise<PelletBoilerCommandEntry[]> {
+export async function createCommands(rootId: string, body: unknown, meta: OperationMeta = appUserMeta()): Promise<PelletBoilerCommandEntry[]> {
   const changes = (body as { changes?: unknown })?.changes;
   if (!Array.isArray(changes) || changes.length === 0 || changes.length > MAX_CHANGES) {
     throw new CommandError(`changes: od 1 do ${MAX_CHANGES} zmian`);
@@ -57,6 +91,8 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
   const settings = await PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>();
 
   const valid: (PelletBoilerCommandChange & { previous?: number; label?: string })[] = [];
+  // tekst każdej zmiany do dziennika operacji (w kolejności valid)
+  const texts: string[] = [];
   // Zakres zadanej zależy od innego parametru: zadana kotła (98) od min/max kotła (99/100),
   // zadana mieszacza (0) od jego min/max (1/2). Gdy zlecenie zmienia też granicę (wcześniej
   // w kolejności), zadana jest sprawdzana z nową granicą — regulator dostaje granicę pierwszą.
@@ -76,6 +112,7 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
     if (kind === 'control') {
       if (raw.value !== 0 && raw.value !== 1) throw new CommandError('control: value 0 (wyłącz) albo 1 (włącz)');
       valid.push({ kind, index: 0, value: raw.value, previous: 1 - raw.value, label: raw.value ? 'Włącz kocioł' : 'Wyłącz kocioł', ...waitOff });
+      texts.push(changeText(valid[valid.length - 1]));
       continue;
     }
     if (kind !== 'ecomax' && kind !== 'mixer' && kind !== 'schedule') throw new CommandError('kind: ecomax, mixer, control albo schedule');
@@ -86,6 +123,7 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
       const schedule = buildSettingsView(settings).schedules.find((s) => s.index === raw.index);
       if (!schedule) throw new CommandError(`Harmonogramu nr ${String(raw.index)} nie ma w odczycie ustawień kotła.`);
       valid.push({ kind, index: schedule.index, value: raw.value, previous: schedule.enabled ? 1 : 0, label: schedule.label, ...waitOff });
+      texts.push(changeText(valid[valid.length - 1]));
       continue;
     }
     if (!isInteger(raw.index, 0, 255) || !isInteger(raw.value, 0, 255)) throw new CommandError('index i value: liczby 0–255');
@@ -101,21 +139,24 @@ export async function createCommands(rootId: string, body: unknown): Promise<Pel
     }
     // mieszacz 2 (nastawy nieznane): bez poprzedniej wartości
     valid.push({ ...change, ...(parameter.unknown ? {} : { previous: parameter.raw[0] }), label: parameter.label ?? parameter.name ?? undefined, ...waitOff });
+    texts.push(changeText(valid[valid.length - 1], parameter));
   }
 
   // zastępowane są tylko wcześniejsze zlecenia: w jednym zleceniu „wyłącz … włącz” oba zostają
   const created: PelletBoilerCommandEntry[] = [];
+  const replaced: unknown[] = [];
   for (const change of valid) {
-    await PelletBoilerCommandModel.updateMany(
-      {
-        rootId, kind: change.kind, mixer: change.mixer, index: change.index, status: 'pending',
-        _id: { $nin: created.map((entry) => entry._id) },
-      },
-      { $set: { status: 'replaced', doneAt: new Date() } },
-    );
+    const older = {
+      rootId, kind: change.kind, mixer: change.mixer, index: change.index, status: 'pending',
+      _id: { $nin: created.map((entry) => entry._id) },
+    };
+    replaced.push(...(await PelletBoilerCommandModel.find(older).select('_id').lean()).map((doc) => doc._id));
+    await PelletBoilerCommandModel.updateMany(older, { $set: { status: 'replaced', doneAt: new Date() } });
     const doc = await PelletBoilerCommandModel.create({ rootId, ...change, status: 'pending' });
     created.push(doc.toObject());
   }
+  await logOperation(rootId, meta, texts.join(' · '), { status: 'pending', refs: created.map((entry) => String(entry._id)) });
+  await syncCommandLog(replaced);
   sendMessage('update', rootId);
   // budzi sterownik pieca (WebSocket, firmware od 1.6.0): pobiera zlecenie od razu, nie po 15 s
   sendMessage('operation', rootId);
@@ -138,10 +179,12 @@ export async function takeNextCommand(rootId: string, now = new Date()): Promise
     const createdAt = new Date(next.createdAt as Date);
     if (now.getTime() - createdAt.getTime() > WAIT_OFF_MAX_MS) {
       // kocioł się nie wyłączył (np. włączony z panelu): ta i pozostałe zmiany trybu kończą się błędem
+      const waiting = (await PelletBoilerCommandModel.find({ rootId, status: 'pending', waitOff: true }).select('_id').lean()).map((doc) => doc._id);
       await PelletBoilerCommandModel.updateMany(
-        { rootId, status: 'pending', waitOff: true },
+        { _id: { $in: waiting } },
         { $set: { status: 'error', doneAt: now, error: 'kocioł nie wyłączył się w ciągu 60 min — zmiana trybu nie wysłana' } },
       );
+      await syncCommandLog(waiting);
       sendMessage('update', rootId);
       return takeNextCommand(rootId, now);
     }
@@ -149,11 +192,13 @@ export async function takeNextCommand(rootId: string, now = new Date()): Promise
     const lastAt = last ? new Date((last as { createdAt?: Date }).createdAt ?? 0) : undefined;
     if (!last || last.state !== 0 || !lastAt || lastAt <= createdAt) return null;
   }
-  return PelletBoilerCommandModel.findOneAndUpdate(
+  const sent = await PelletBoilerCommandModel.findOneAndUpdate(
     { _id: next._id, status: next.status },
     { $set: { status: 'sent', sentAt: now } },
     { new: true },
   ).lean<PelletBoilerCommandEntry>();
+  if (sent) await syncCommandLog([sent._id]);
+  return sent;
 }
 
 // Wynik od sterownika: ok = regulator potwierdził (0xB3/0xB4); inaczej błąd z opisem.
@@ -167,6 +212,9 @@ export async function finishCommand(rootId: string, body: unknown) {
     { $set: { status: ok ? 'done' : 'error', doneAt: new Date(), ...(ok ? {} : { error: String(error ?? 'błąd') }) } },
     { new: true },
   ).lean<PelletBoilerCommandEntry>();
-  if (updated) sendMessage('update', rootId);
+  if (updated) {
+    await syncCommandLog([updated._id]);
+    sendMessage('update', rootId);
+  }
   return updated;
 }

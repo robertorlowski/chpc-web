@@ -23,6 +23,7 @@ import { UserEntry, UserModel } from '../models/user.model';
 import { accessibleDevices, canManage, deviceAccess } from '../services/access.service';
 import { AuthError, userName } from '../services/auth.service';
 import { createShare, deleteShare, listShares, updateShare } from '../services/share.service';
+import { appUserMeta, logPropertiesChange, metaFromRequest, setStatusByRef } from '../services/operation-log.service';
 
 // Kształt urządzenia w API; rootId to _id dokumentu w kolekcji devices.
 const toPublicDevice = (device: DeviceDocument) => ({
@@ -55,12 +56,17 @@ export async function getProperties(req: Request, res: Response) {
 // Zapis zastępuje całe properties (wszystkie rodzaje w jednym polu): klient musi
 // wysłać komplet, bo pominięte klucze znikną. Pompa: od razu, ręczne ustawienia znikają
 // (onPropertiesSaved); hydrofor: od następnego zgłoszenia, czyli uruchomienia pompy.
+// Zmienione ustawienia trafiają do dziennika operacji (kto z nagłówków x-operation-*, inaczej aplikacja).
 export async function updateProperties(req: Request<{}, {}, DeviceProperties>, res: Response) {
   try {
     const rootId = req.deviceRootId as string;
+    const before = await getDeviceProperties(rootId);
     const properties = await updateDeviceProperties(rootId, req.body);
     const { deviceType } = await getDeviceInfo(rootId);
-    await getDeviceTypeModule(deviceType).onPropertiesSaved?.(rootId);
+    const typeModule = getDeviceTypeModule(deviceType);
+    const meta = metaFromRequest(req, appUserMeta('Ustawienia', 'Zapis ustawień.'));
+    await logPropertiesChange(rootId, typeModule.propertyLabels, before, properties, meta, { pending: typeModule.propertiesOnRegister });
+    await typeModule.onPropertiesSaved?.(rootId, meta);
     return res.status(200).json(properties);
   } catch (error) {
     return res.status(400).json({ message: String(error) });
@@ -178,6 +184,8 @@ export async function registerDeviceEntry(
     );
     const typeModule = getDeviceTypeModule(device.deviceType);
     await typeModule.onRegister?.(String(device._id), device.deviceId, req.body as Record<string, unknown>);
+    // ustawienia z aplikacji idą w tej odpowiedzi (hydrofor): w dzienniku „dostarczona”
+    if (typeModule.propertiesOnRegister && !created) await setStatusByRef(String(device._id), 'properties', ['pending'], 'delivered');
     // oferta firmware (OTA) tylko przy zleceniu „Aktualizuj”; zgłoszenie z oferowaną wersją je kasuje
     const firmware = typeModule.firmwareUpdates
       ? await firmwareOfferForDevice(device, serverBaseUrl(req))
@@ -203,7 +211,8 @@ const firmwareError = (res: Response, error: unknown) =>
 export async function requestDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
   if (!(await allowManage(req, res))) return;
   try {
-    const firmwareUpdate = await requestFirmwareUpdate(req.params.rootId);
+    const firmwareUpdate = await requestFirmwareUpdate(req.params.rootId,
+      metaFromRequest(req, appUserMeta('Ustawienia', 'Przycisk „Aktualizuj” w karcie Sterownik.')));
     void sendMessage('operation', req.params.rootId);
     return res.status(200).json(firmwareUpdate);
   } catch (error) {
@@ -215,7 +224,8 @@ export async function requestDeviceFirmwareUpdate(req: Request<{ rootId: string 
 export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
   if (!(await allowManage(req, res))) return;
   try {
-    await cancelFirmwareUpdate(req.params.rootId);
+    await cancelFirmwareUpdate(req.params.rootId,
+      metaFromRequest(req, appUserMeta('Ustawienia', 'Przycisk „Anuluj aktualizację” w karcie Sterownik.')));
     return res.status(200).json({});
   } catch (error) {
     return firmwareError(res, error);

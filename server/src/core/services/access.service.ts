@@ -8,9 +8,9 @@ import { DeviceModel } from '../models/device.model';
 import { UserEntry } from '../models/user.model';
 
 /** ścieżki zakładek klienta (menu rodzaju sterownika); nie każdy rodzaj ma wszystkie */
-export const TABS = ['/', '/data', '/chart', '/schedules', '/alarms', '/settings'] as const;
+export const TABS = ['/', '/data', '/chart', '/schedules', '/alarms', '/operations', '/settings'] as const;
 export const TAB_LABELS: Record<string, string> = {
-  '/': 'Podgląd', '/data': 'Dane', '/chart': 'Wykres', '/schedules': 'Harmonogram', '/alarms': 'Alarmy', '/settings': 'Ustawienia',
+  '/': 'Podgląd', '/data': 'Dane', '/chart': 'Wykres', '/schedules': 'Harmonogram', '/alarms': 'Alarmy', '/operations': 'Operacje', '/settings': 'Ustawienia',
 };
 
 export type DeviceAccess = { role: 'system' | 'owner' } | { role: 'shared'; tabs: string[] };

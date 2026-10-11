@@ -1,7 +1,8 @@
 // Opis rodzaju „heat_pump” dla rejestru core/device-types.tsx: ikona kafelka, menu i trasy
 // widoków pompy ciepła. Kolejność w views to kolejność pozycji w menu.
 import { DeviceType, DeviceTypeView } from '../../core/types';
-import { ChartIcon, DataIcon, ScheduleIcon, SettingsIcon } from '../../core/components/icons';
+import { ChartIcon, DataIcon, ScheduleIcon, OperationsIcon, SettingsIcon } from '../../core/components/icons';
+import { OperationsPage } from '../../core/pages/Operations';
 import HP from './pages/Home';
 import { HeatPumpTable } from './pages/Data';
 import { HeatPumpChart } from './pages/Charts';
@@ -33,6 +34,7 @@ export const heatPumpDeviceType: DeviceTypeView = {
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <HeatPumpTable /> },
 		{ path: '/chart', label: 'Wykres', icon: <ChartIcon />, element: <HeatPumpChart /> },
 		{ path: '/schedules', label: 'Harmonogram', icon: <ScheduleIcon />, element: <Schedules /> },
+		{ path: '/operations', label: 'Operacje', icon: <OperationsIcon />, element: <OperationsPage /> },
 		{ path: '/settings', label: 'Ustawienia', icon: <SettingsIcon />, element: <Settings /> },
 	],
 	// /hp: drugi adres widoku głównego, poza menu (starsze linki); hydrofor go nie ma, więc tam prowadzi na /

@@ -115,14 +115,57 @@ export interface DeviceTypeModule {
   firmwareUpdates?: boolean;
   /** dodatkowe pola zgłoszenia (np. liczba przekaźników włącznika); wołane przy każdym zgłoszeniu */
   onRegister?: (rootId: string, deviceId: string, body: Record<string, unknown>) => Promise<void>;
-  /** wołane po zapisie ustawień urządzenia (PUT /device/properties), np. pompa kasuje ręczne nadpisania */
-  onPropertiesSaved?: (rootId: string) => Promise<void>;
+  /** wołane po zapisie ustawień urządzenia (PUT /device/properties), np. pompa kasuje ręczne nadpisania;
+   * meta: kto zapisał (dziennik operacji) */
+  onPropertiesSaved?: (rootId: string, meta?: OperationMeta) => Promise<void>;
+  /** dziennik operacji: nazwy ustawień (properties) do opisu zmiany „przed → po”; pozostałe klucze są pomijane */
+  propertyLabels?: Record<string, PropertyLabel>;
+  /** sterownik dostaje ustawienia dopiero przy zgłoszeniu (hydrofor): zmiana czeka w dzienniku do zgłoszenia */
+  propertiesOnRegister?: boolean;
   /** sprawdzenie definicji przed zapisem (okno „Dane sterownika”); DefinitionConflictError = 409 */
   checkDefinition?: (rootId: string, definition: { boilerConfig?: BoilerConfig }) => Promise<void>;
   /** definicja pompy nadawana automatycznie przy zgłoszeniu sterownika (okno „Dane sterownika” może ją zmienić) */
   initialPumpConfig?: PumpConfig;
   /** kafelek sterownika na stronie /devices; null = brak danych do pokazania (kafelek tylko z nazwą) */
   tile?: (rootId: string, device: Device) => Promise<DeviceTile | null>;
+  /** dziennik operacji: operacje zaplanowane od now do końca doby (np. przejścia harmonogramu) */
+  plannedOperations?: (rootId: string, now: Date, dayEnd: Date) => Promise<PlannedOperation[]>;
+}
+
+// Dziennik operacji (zakładka „Operacje”, core/services/operation-log.service.ts). Kto: użytkownik aplikacji, system
+// (moduł w source) albo sterownik (zmiana na jego stronie). Status zlecenia: pending czeka, sent wysłane do sterownika,
+// delivered odebrane przez sterownik, który nie potwierdza wykonania (pompa ciepła, hydrofor; status końcowy),
+// done wykonane, error błąd, replaced zastąpione nowszym albo odwołane.
+export type OperationActorType = 'user' | 'system' | 'controller';
+export interface OperationActor {
+  type: OperationActorType;
+  name?: string;
+  userId?: string;
+}
+export type OperationStatus = 'pending' | 'sent' | 'delivered' | 'done' | 'error' | 'replaced';
+
+/** kto i dlaczego: przekazywane do miejsca, które tworzy zlecenie */
+export interface OperationMeta {
+  actor: OperationActor;
+  source: string;
+  reason?: string;
+  conditions?: string;
+}
+
+/** nazwa ustawienia w dzienniku: values tłumaczy wartości (np. work_mode), unit dopisywana do liczby */
+export interface PropertyLabel {
+  label: string;
+  unit?: string;
+  values?: Record<string, string>;
+}
+
+export interface PlannedOperation {
+  at: Date;
+  actor: OperationActor;
+  source: string;
+  action: string;
+  reason?: string;
+  conditions?: string;
 }
 
 // Kafelek sterownika na stronie /devices (GET /devices/summary): stan, kilka kluczowych wartości i ewentualny

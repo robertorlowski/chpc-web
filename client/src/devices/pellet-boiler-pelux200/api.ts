@@ -48,9 +48,10 @@ export class PelletBoilerRequests {
     return Requests.get('/pellet-boiler-pelux200/settings');
   }
 
-  // zlecenie zmian parametrów w podanej kolejności; Response (201 albo 400 z {message})
-  static postCommands(changes: PelletBoilerChange[]) {
-    return Requests.post('/pellet-boiler-pelux200/commands', { changes }, false);
+  // zlecenie zmian parametrów w podanej kolejności; Response (201 albo 400 z {message});
+  // reason: „dlaczego” w dzienniku operacji (np. przycisk, panel), bez niego „Zmiana w Ustawieniach.”
+  static postCommands(changes: PelletBoilerChange[], reason?: string) {
+    return Requests.post('/pellet-boiler-pelux200/commands', { changes, ...(reason ? { reason } : {}) }, false);
   }
 
   // --- harmonogram: sezon (zakres dat) i CWU od–do (okna godzin) ---

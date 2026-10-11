@@ -5,7 +5,7 @@
 // Tryb pracy (properties.work_mode): ręczny — zawsze ustawienia domyślne, automatyczny —
 // harmonogram, a poza wpisami ustawienia domyślne, OFF — pompa wyłączona. Tłumaczenie na
 // kontrakt co (podłączenie CWU / CO): pump-mode.service.ts.
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
   HpEntry,
   OperationEntry,
@@ -14,7 +14,9 @@ import {
   ScheduleType,
   WeekDay,
 } from '../types';
-import { DeviceType, PumpConnection } from '../../../core/types';
+import { DeviceType, OperationMeta, PlannedOperation, PumpConnection } from '../../../core/types';
+import { systemMeta } from '../../../core/services/operation-log.service';
+import { noteOperationChange, plannedOperation } from './hp-operation-log.service';
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
 import { getHpLastData } from './hp.service';
 import { clearManualOperation, replaceOperationData } from './operation.service';
@@ -28,6 +30,23 @@ export const SCHEDULER_INTERVAL_MS = 60 * 1000;
 // Stan z poprzedniego przebiegu, tylko w pamięci: po restarcie serwera nie widać
 // zakończenia harmonogramu z pierwszego przebiegu.
 const previousScheduleState = new Map<string, boolean>();
+// wpis harmonogramu z poprzedniego przebiegu (dziennik operacji: początek / koniec wpisu)
+const previousSchedule = new Map<string, ScheduleEntry | null>();
+
+const WORK_MODE_NAMES: Record<PumpWorkMode, string> = { MANUAL: 'Ręczny', AUTO: 'Automatyczny', OFF: 'Wyłączony' };
+const scheduleName = (schedule: ScheduleEntry) =>
+  `${schedule.type === ScheduleType.OFF ? 'przerwy OFF' : 'pracy'} ${schedule.startTime}–${schedule.endTime}`;
+
+// Dziennik operacji: dlaczego scheduler zmienił operację (początek albo koniec wpisu, poza harmonogramem).
+function schedulerMeta(previous: ScheduleEntry | null | undefined, active: ScheduleEntry | undefined, workMode: PumpWorkMode): OperationMeta {
+  const conditions = `tryb pracy ${WORK_MODE_NAMES[workMode]}`;
+  const changed = String(previous?._id ?? '') !== String(active?._id ?? '');
+  if (changed && active) return systemMeta('Harmonogram', `Początek wpisu ${scheduleName(active)}.`, conditions);
+  if (changed && previous) {
+    return systemMeta('Harmonogram', `Koniec wpisu ${scheduleName(previous)} — poza harmonogramem ustawienia domyślne.`, conditions);
+  }
+  return systemMeta('Harmonogram', active ? `Wpis ${scheduleName(active)}.` : 'Poza harmonogramem: ustawienia domyślne.', conditions);
+}
 
 // Harmonogram działa tylko w trybie automatycznym: wszystkie wpisy (praca i przerwa OFF).
 export function scheduleTypesForWorkMode(workMode: PumpWorkMode): ScheduleType[] {
@@ -164,7 +183,8 @@ export async function getCurrentSchedule(
 
 // Jeden przebieg dla wszystkich pomp (albo jednej: onlyRootId, np. zaraz po zapisie ustawień
 // domyślnych); now jako parametr dla testów.
-export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): Promise<void> {
+// meta: kto spowodował przeliczenie (np. zapis ustawień domyślnych); bez niego opis z harmonogramu.
+export async function runSchedulerOnce(now = new Date(), onlyRootId?: string, meta?: OperationMeta): Promise<void> {
   const devices = await DeviceModel
     .find({ deviceType: DeviceType.HP, ...(onlyRootId ? { _id: onlyRootId } : {}) })
     .select('_id schedules properties pumpConfig deviceType deviceId')
@@ -188,6 +208,8 @@ export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): P
       clearManualOperation(rootId);
     }
     previousScheduleState.set(rootId, hasActiveSchedule);
+    const previous = previousSchedule.get(rootId);
+    previousSchedule.set(rootId, activeSchedule ?? null);
 
     const operation = activeSchedule
       ? scheduleToOperation(activeSchedule, device, lastData)
@@ -198,9 +220,43 @@ export async function runSchedulerOnce(now = new Date(), onlyRootId?: string): P
     // Ładowanie CWU w kotle (nadpisanie 47–49 °C) zgodne z bazą: po restarcie serwera i po wygaśnięciu.
     await syncCwuLoading(rootId, now);
     replaceOperationData(rootId, operation);
+    await noteOperationChange(rootId, meta ?? schedulerMeta(previous, activeSchedule, pumpWorkMode(device.properties?.work_mode)));
 
     console.log(`[scheduler] ${rootId}`, operation);
   }
+}
+
+// Dziennik operacji, „Zaplanowane”: zmiany operacji na granicach wpisów harmonogramu od now do dayEnd (tylko tryb
+// automatyczny). Operacja przed i po granicy liczona tak jak w przebiegu schedulera; ręczne nadpisania pominięte.
+export async function plannedSchedulerOperations(rootId: string, now: Date, dayEnd: Date): Promise<PlannedOperation[]> {
+  const device = await DeviceModel.findById(rootId).select('schedules properties pumpConfig').lean<DeviceDocument>();
+  if (!device) return [];
+  const workMode = pumpWorkMode(device.properties?.work_mode);
+  const types = scheduleTypesForWorkMode(workMode);
+  if (!types.length) return [];
+  const lastData = await getHpLastData(rootId);
+  const schedules = (device.schedules ?? []).filter((schedule) => schedule.enabled && types.includes(schedule.type));
+  const operationAt = (time: Date) => {
+    const active = getActiveSchedule(schedules, types, time);
+    return { active, operation: active ? scheduleToOperation(active, device, lastData) : getDefaultOperation(device, lastData) };
+  };
+  const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
+  const times = new Set<number>();
+  for (const schedule of schedules) {
+    for (const time of [schedule.startTime, schedule.endTime]) {
+      const at = fromZonedTime(`${today}T${time}:00`, TIME_ZONE);
+      if (at > now && at < dayEnd) times.add(at.getTime());
+    }
+  }
+  const planned: PlannedOperation[] = [];
+  for (const time of [...times].sort((a, b) => a - b)) {
+    const before = operationAt(new Date(time - 1000));
+    const after = operationAt(new Date(time + 1000));
+    const meta = schedulerMeta(before.active, after.active, workMode);
+    const entry = plannedOperation(new Date(time), before.operation, after.operation, meta.reason ?? '', meta.conditions);
+    if (entry) planned.push(entry);
+  }
+  return planned;
 }
 
 // Pierwszy przebieg od razu, potem co SCHEDULER_INTERVAL_MS; przebieg nie startuje,

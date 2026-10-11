@@ -8,6 +8,7 @@ import Notification, { useSaveNotice } from '../../../core/components/Notificati
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
 import { DeviceSharing } from '../../../core/components/DeviceSharing';
 import { useDevice } from '../../../core/context/DeviceContext';
@@ -68,11 +69,10 @@ export const PelletBoilerSettings: React.FC = () => {
         <form className="resource boiler-form" onSubmit={save}>
           <h3 className="settings-section-title">Odpytywanie</h3>
           <label>
-            <span className="label">Odpytywanie pieca [min]:</span>
+            <span className="label">Odpytywanie pieca [min]:<InfoTip>Co ile sterownik odczytuje piec i wysyła dane (0,5–60 min). Krótszy odstęp to szybsza reakcja harmonogramu, cyklu Zimy i ładowania CWU, które korzystają z ostatniego odczytu. Nowa wartość działa od następnej wysyłki sterownika.</InfoTip></span>
             <input type="number" min={MIN_MINUTES} max={MAX_MINUTES} step={0.5} value={minutes}
               onChange={(event) => setMinutes(event.currentTarget.value)} />
           </label>
-          <div className="boiler-hint">Co ile sterownik odczytuje piec i wysyła dane (0,5–60 min).</div>
           {error && <div className="boiler-error">{error}</div>}
           <div className="boiler-actions">
             <button type="submit" disabled={properties === null || busy}>Zapisz</button>

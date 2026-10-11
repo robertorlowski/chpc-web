@@ -13,6 +13,7 @@ import {
 } from './controllers/auth.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
+import { getOperations } from './controllers/operation-log.controller'
 import { getDatabaseStatsEntry } from './controllers/database.controller'
 import { getDeviceTilesEntry } from './controllers/device.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
@@ -71,6 +72,9 @@ router.get('/firmware/:deviceType/:version', downloadFirmware)
 router.delete('/firmware/:deviceType/:version', deleteFirmware)
 
 router.get('/temperature', getTemperature)
+
+// dziennik operacji sterownika z dnia (zakładka „Operacje”)
+router.get('/operations', getOperations)
 
 // Moduły nie sprawdzają rodzaju urządzenia: np. /hp/add z rootId hydroforu
 // zostanie przyjęte. Rozdział rodzajów jest po stronie sterowników i klienta.

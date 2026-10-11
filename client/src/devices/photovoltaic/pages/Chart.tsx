@@ -9,6 +9,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
+import { InfoTip } from '../../../core/components/InfoTip';
 import { PhotovoltaicRequests } from '../api';
 import { PvDay, PvSummary, PvSummaryPeriod } from '../types';
 import { formatDay, formatEnergy, formatPower, formatTime, panelName, shortSerial, todayWarsaw } from '../utils/pv';
@@ -220,8 +221,8 @@ export const PhotovoltaicChart: React.FC = () => {
               )}
               {view === 'energy' && (
                 <div className="pv-hint">
-                  Średnio {formatEnergy(averageWh)} na panel; na czerwono panele z produkcją niższą o ponad 15% od średniej
-                  (zacienienie, zabrudzenie, usterka). Etykieta: końcówka numeru mikrofalownika / port.
+                  Średnio {formatEnergy(averageWh)} na panel
+                  <InfoTip>Na czerwono panele z produkcją niższą o ponad 15% od średniej (zacienienie, zabrudzenie, usterka). Etykieta: końcówka numeru mikrofalownika / port.</InfoTip>
                 </div>
               )}
             </>
@@ -247,10 +248,10 @@ export const PhotovoltaicChart: React.FC = () => {
               </div>
               <div className="pv-total">
                 {summary === undefined ? 'Wczytywanie…' : summary === null ? 'Nie udało się pobrać danych.' : (
-                  <>Razem: <strong>{formatEnergy(summary.energyWh)}</strong>{summaryData.length ? '' : ' (brak danych w tym okresie)'}</>
+                  <>Razem: <strong>{formatEnergy(summary.energyWh)}</strong>{summaryData.length ? '' : ' (brak danych w tym okresie)'}
+                    <InfoTip>Produkcja liczona z dni, z których są dane w systemie (licznik dzienny DTU).</InfoTip></>
                 )}
               </div>
-              <div className="pv-hint">Produkcja liczona z dni, z których są dane w systemie (licznik dzienny DTU).</div>
             </>
           )}
         </div>

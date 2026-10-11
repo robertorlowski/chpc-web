@@ -12,6 +12,7 @@ import '../../heat-pump/pages/Schedules/style.css';
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { WeekDay } from '../../../core/types';
+import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { IconButton } from '../../../core/components/IconButton';
 import { EditIcon, PlusIcon, TrashIcon } from '../../../core/components/icons';
@@ -265,7 +266,15 @@ export const PelletBoilerSchedules: React.FC = () => {
             )}
             {form.type === 'season' ? (
               <>
-                <div>Tryb pracy</div>
+                <div>
+                  Tryb pracy
+                  <InfoTip>
+                    <TipParagraph>Lato: kocioł grzeje tylko CWU, Zima: także CO.</TipParagraph>
+                    <TipParagraph>Z progiem wpis działa tylko przy temperaturze zewnętrznej (czujnik kotła) poniżej progu; działający wpis zostaje do progu + 1 °C. Powyżej obowiązuje tryb pracy „Poza harmonogramem”.</TipParagraph>
+                    {form.mode === 'heat-pump' && <TipParagraph>W trybie Pompa ciepła Zima z harmonogramu włącza cykl Zimy: kocioł przechodzi na Zimę dopiero po nagrzaniu przez pompę ciepła.</TipParagraph>}
+                    <TipParagraph>Lato/Zima wybrane przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu, także gdy wpis z progiem nie działa.</TipParagraph>
+                  </InfoTip>
+                </div>
                 <SeasonChoice value={form.season} onChange={(season) => update('season', season)} />
                 <label className="schedule-toggle">
                   <input type="checkbox" checked={form.coldEnabled} onChange={(event) => update('coldEnabled', event.target.checked)} />
@@ -275,20 +284,22 @@ export const PelletBoilerSchedules: React.FC = () => {
                       disabled={!form.coldEnabled} value={form.coldBelow} onChange={(event) => update('coldBelow', event.target.value)} /> °C
                   </span>
                 </label>
-                <div className="boiler-hint">
-                  Lato: kocioł grzeje tylko CWU. Z progiem wpis działa tylko przy temperaturze poniżej progu (czujnik
-                  zewnętrzny kotła; działający wpis zostaje do progu + 1 °C); powyżej obowiązuje tryb pracy „Poza harmonogramem”.
-                </div>
               </>
             ) : (
               <>
                 <div className="schedule-fields">
                   <label>CWU od [°C]<input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
-                  <label>CWU do [°C]<input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
-                </div>
-                <div className="boiler-hint">
-                  „Do” = zadana CWU, „od” = start ładowania (histereza = do − od).
-                  {form.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}
+                  <label>
+                    <span>
+                      CWU do [°C]
+                      <InfoTip>
+                        <TipParagraph>„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).{form.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}</TipParagraph>
+                        {form.mode === 'heat-pump' && current?.pelletCwu?.enabled && (
+                          <TipParagraph>Teraz włączone jest „CWU - grzanie peletem”: w trybie Pompa ciepła obowiązują CWU od–do z trybu Pellet.</TipParagraph>
+                        )}
+                      </InfoTip>
+                    </span>
+                    <input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
                 </div>
               </>
             )}
@@ -371,10 +382,11 @@ export const PelletBoilerSchedules: React.FC = () => {
                     <div className={`boiler-default-row${defaultCurrent ? ' boiler-default-current' : ''}`}>
                       <span><b>Poza harmonogramem</b></span>
                       <div className="boiler-default-season">
-                        <span>Tryb pracy</span>
+                        <span>Tryb pracy<InfoTip>{settings.defaults[mode].season
+                          ? `Poza wpisami harmonogram ustawia ${SEASON_LABEL[settings.defaults[mode].season as 'winter' | 'summer']}. Bez wyboru nie zmieniałby trybu pracy.`
+                          : 'Bez wyboru harmonogram nie zmienia trybu pracy poza wpisami.'}</InfoTip></span>
                         <SeasonChoice value={settings.defaults[mode].season} onChange={(season) => setDefault(mode, 'season', season)} />
                       </div>
-                      {!settings.defaults[mode].season && <div className="boiler-hint">Bez wyboru harmonogram nie zmienia trybu pracy poza wpisami.</div>}
                       <span className="schedule-fields">
                         <label>CWU od [°C]<input type="number" min={10} max={cwuMax(mode)} value={cwuInput(mode, 'cwuFrom')}
                           onChange={(event) => setDefault(mode, 'cwuFrom', event.target.value)} /></label>
@@ -389,7 +401,13 @@ export const PelletBoilerSchedules: React.FC = () => {
                 <div className="boiler-hint">
                   Teraz{heatPumpLinked ? ` (${MODE_LABEL[current.state.mode]})` : ''}: {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
                   CWU {cwuText(current.state.cwuFrom, current.state.cwuTo)}.
-                  {' '}Zmiany z obu harmonogramów idą do kotła jednym zleceniem przy przejściu między wpisami; ręczna zmiana zostaje do następnego przejścia.
+                  <InfoTip>
+                    <TipParagraph>Zmiany sezonu i CWU idą do kotła jednym zleceniem przy przejściu między wpisami.</TipParagraph>
+                    <TipParagraph>{current.state.mode === 'heat-pump'
+                      ? 'W trybie Pompa ciepła CWU zmienione na panelu wraca do harmonogramu w ciągu minuty (pompa ciepła nie dogrzeje wyższej temperatury).'
+                      : 'Ręczna zmiana CWU zostaje do następnego przejścia między wpisami.'}</TipParagraph>
+                    <TipParagraph>Sezon wybrany przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu.</TipParagraph>
+                  </InfoTip>
                 </div>
               )}
               {current?.lastError && <div className="boiler-error">Ostatni błąd: {current.lastError}</div>}

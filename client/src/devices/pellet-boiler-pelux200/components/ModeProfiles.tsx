@@ -109,10 +109,6 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
           })}
         </tbody>
       </table>
-      <div className="boiler-hint">
-        Te nastawy zleca przycisk „Pompa ciepła” / „Pellet” w Trybie pracy (tylko wartości różne od obecnych).
-        CWU w każdym trybie ustawia harmonogram (zakładka Harmonogram).
-      </div>
       {error && <div className="boiler-error">{error}</div>}
       {notice && <div className="boiler-hint">{notice}</div>}
       <div className="boiler-actions"><button type="submit" disabled={busy}>Zapisz nastawy</button></div>
