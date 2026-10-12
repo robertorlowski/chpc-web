@@ -254,6 +254,23 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     await reading({ state: 5, water_heater_temp: 30, heating_temp: 47.5 });
     expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(false);
     expect(operation().work_mode).toBe('A');
+
+    // próg z Ustawień pompy (2026-10-12): 55 °C, rusza poniżej 53 °C; kocioł dostaje go w odpowiedzi na zgłoszenie
+    await request(app).put(hp('boiler-block')).send({ temperature: 39 }).expect(400);
+    await request(app).put(hp('boiler-block')).send({ temperature: 55.5 }).expect(400);
+    const saved = await request(app).put(hp('boiler-block')).send({ temperature: 55 }).expect(200);
+    expect(saved.body).toMatchObject({ blockFrom: 55, resumeBelow: 53 });
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 47 });
+    expect(await evaluateCwuLoading(boilerRoot)).toMatchObject({ pumpBlocked: false, hotBoilerFrom: 55 });
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 52 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(false);
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 55 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(true);
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 53.5 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(true);
+    await reading({ state: 5, water_heater_temp: 30, heating_temp: 52.5 });
+    expect((await evaluateCwuLoading(boilerRoot)).pumpBlocked).toBe(false);
+    expect(operation().work_mode).toBe('A');
     // harmonogram wraca do CWU pompy ciepła (35–40; odczyt ustawień w teście ma już 40 / 5, więc bez zleceń)
     expect((await request(app).get(api('schedule-settings'))).body.lastApplied).toMatchObject({ cwuFrom: 35, cwuTo: 40 });
   });

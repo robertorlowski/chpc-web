@@ -17,9 +17,9 @@ import { errorDescription } from '../../utils/errors';
 import { ClipLoader } from 'react-spinners';
 import { useFillHeight } from '../../../../core/components/useFillHeight';
 
-// co od 1.2.0: MANUAL / AUTO / OFF = ręczny / automatyczny / OFF. Starsze rekordy: A i M (grzanie CO) = CO,
-// CWU, OFF i PV bez zmian (decyzja 2026-10-04: dawnych kodów nie przerabiać).
-const WORK_MODE_LABELS: Record<string, string> = { MANUAL: 'ręczny', AUTO: 'automatyczny', OFF: 'OFF', A: 'CO', M: 'CO' };
+// co od 1.2.0: MANUAL / AUTO / OFF = MAN / AUTO / OFF (krótko, żeby kolumna nie nachodziła na sąsiednią; 2026-10-12).
+// Starsze rekordy: A i M (grzanie CO) = CO, CWU, OFF i PV bez zmian (decyzja 2026-10-04: dawnych kodów nie przerabiać).
+const WORK_MODE_LABELS: Record<string, string> = { MANUAL: 'MAN', AUTO: 'AUTO', OFF: 'OFF', A: 'CO', M: 'CO' };
 const formatDataWorkMode = (workMode?: string): string => (
   (workMode && WORK_MODE_LABELS[workMode]) || workMode || '---'
 );

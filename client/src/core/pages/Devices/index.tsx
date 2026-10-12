@@ -4,10 +4,13 @@
 // Nie ma sterownika domyślnego ani automatycznego wyboru: lista jest zawsze ekranem startowym (DeviceGuard
 // przekierowuje tu, gdy nie wybrano sterownika). Na dole własna stopka: lewa część wolna (zarezerwowana
 // na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
-import { useEffect, useState } from 'react';
+// Kafelki odświeżają się jak ekran główny pompy: po komunikacie WebSocket „update” któregokolwiek sterownika (jedno
+// połączenie ?rootIds=…, najwyżej raz na TILES_UPDATE_MIN_MS) i co TILES_REFRESH_MS, gdy żaden nic nie wysyła.
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
+import { wsAddressServer } from '../../http';
 import { DatabaseStats, Device, DeviceTiles, DeviceType } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
@@ -77,6 +80,8 @@ const rememberDeviceCount = (count: number) => {
 
 // odświeżanie stanu kafelków i wieku danych w stopce kafelka
 const TILES_REFRESH_MS = 30 * 1000;
+// po „update” z WebSocket: kafelki najwyżej raz na tyle (pompa wysyła co 10–30 s, włącznik przy każdej zmianie)
+const TILES_UPDATE_MIN_MS = 5 * 1000;
 
 // Sterowniki rejestrują się same (POST /api/devices/register), więc tu można je tylko wybrać i nazwać.
 export const Devices: React.FC = () => {
@@ -128,6 +133,34 @@ export const Devices: React.FC = () => {
     const timer = window.setInterval(loadTiles, TILES_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, []);
+
+  // „update” któregokolwiek sterownika: kafelki od nowa (z ograniczeniem częstości); połączenie od nowa przy zmianie listy
+  const rootIdsKey = devices.map((device) => device.rootId).sort().join(',');
+  const lastTilesLoad = useRef(0);
+  const pendingTilesLoad = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!rootIdsKey) return undefined;
+    const reload = () => {
+      pendingTilesLoad.current = undefined;
+      lastTilesLoad.current = Date.now();
+      loadTiles();
+    };
+    const wsUrl = new URL(wsAddressServer());
+    wsUrl.searchParams.set('rootIds', rootIdsKey);
+    const ws = new WebSocket(wsUrl.toString());
+    ws.onmessage = (event) => {
+      try {
+        if ((JSON.parse(event.data) as { type?: string }).type !== 'update' || pendingTilesLoad.current !== undefined) return;
+        const wait = Math.max(0, lastTilesLoad.current + TILES_UPDATE_MIN_MS - Date.now());
+        pendingTilesLoad.current = window.setTimeout(reload, wait);
+      } catch { /* inne komunikaty */ }
+    };
+    return () => {
+      ws.close();
+      window.clearTimeout(pendingTilesLoad.current);
+      pendingTilesLoad.current = undefined;
+    };
+  }, [rootIdsKey]);
 
   const chooseDevice = (device: Device) => {
     selectDevice(device);

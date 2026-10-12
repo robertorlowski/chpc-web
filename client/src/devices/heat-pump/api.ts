@@ -81,6 +81,11 @@ export class HpRequests {
     return Requests.get('/hp/cwu-loading');
   }
 
+  // próg wstrzymania pompy przy gorącym kotle [°C] (Ustawienia, sekcja „Ustaw”); rzuca przy błędzie
+  static setBoilerBlock(temperature: number): Promise<HpCwuLoading> {
+    return Requests.put('/hp/boiler-block', { temperature }) as Promise<HpCwuLoading>;
+  }
+
   static getHpLastError() : Promise<HpEntry | null> {
       return Requests.get("/hp/last-error");
   }

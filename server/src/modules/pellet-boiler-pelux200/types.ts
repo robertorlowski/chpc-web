@@ -205,8 +205,10 @@ export interface PelletBoilerCwuLoading {
   heatPumpOff: boolean;
   /** błąd zgłoszenia do pompy ciepła (brak pompy, HTTP) */
   error?: string;
-  /** pompa ciepła wstrzymana: kocioł pali (stany 1–4) albo ma ≥ 50 °C, albo trwa CWU z peletu */
+  /** pompa ciepła wstrzymana: kocioł pali (stany 1–4) albo ma ≥ hotBoilerFrom, albo trwa CWU z peletu */
   pumpBlocked?: boolean;
+  /** próg gorącego kotła z ustawień pompy ciepła [°C] (odpowiedź pompy na zgłoszenie; brak = 50 °C) */
+  hotBoilerFrom?: number;
 }
 
 /** Automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła (komunikat do „OK”). */

@@ -598,12 +598,16 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const pelletCwu = await getPelletCwu(rootId);
   // pendingTurnOn: włączenie regulatora czeka na nagrzanie kotła (turn-on.service.ts)
   const pendingTurnOn = await getPendingTurnOn(rootId);
+  // hotBoilerFrom: pompa ciepła stoi przy kotle od tej temperatury (ustawienia pompy; opis znacznika CWU z peletu)
+  const hotBoilerFrom = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('cwuLoading')
+    .lean<{ cwuLoading?: { hotBoilerFrom?: number } }>())?.cwuLoading?.hotBoilerFrom ?? 50;
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
   return {
     enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
     winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null,
     // do kiedy działa sezon z przycisku (null: do zmiany sezonu w harmonogramie albo kolejnego naciśnięcia)
-    manualSeasonUntil: saved?.manualSeason ? saved.manualSeason.until ?? null : null, pelletCwu, pendingTurnOn, lastError: settings.lastError ?? null,
+    manualSeasonUntil: saved?.manualSeason ? saved.manualSeason.until ?? null : null, pelletCwu, pendingTurnOn, hotBoilerFrom,
+    lastError: settings.lastError ?? null,
   };
 }
 

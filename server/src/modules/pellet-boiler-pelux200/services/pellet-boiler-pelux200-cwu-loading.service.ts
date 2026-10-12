@@ -11,7 +11,8 @@
 // harmonogramu (pole cwuLoading), GET /pellet-boiler-pelux200/cwu-loading.
 // Tą samą drogą idzie wstrzymanie pompy ciepła (pellet_block → tryb OFF): zasada bezpieczeństwa z 2026-10-10 —
 // pompa stoi, gdy kocioł się rozpala lub pali (stany 1–4) albo ma co najmniej HOT_BOILER_FROM (50 °C), w każdym
-// trybie; rusza poniżej HOT_BOILER_FROM − HOT_BOILER_HYSTERESIS. Gorąca woda z kotła w skraplaczu zatrzymałaby
+// trybie; rusza poniżej HOT_BOILER_FROM − HOT_BOILER_HYSTERESIS. Próg ustawia się w Ustawieniach pompy ciepła
+// (od 2026-10-12): pompa odsyła go w odpowiedzi na zgłoszenie (blockFrom), kocioł używa go od następnego kroku. Gorąca woda z kotła w skraplaczu zatrzymałaby
 // sprężarkę błędem Tho (po 5 błędach blokada CHPC). Do tego CWU z peletu (pellet-cwu.service.ts) od podniesienia
 // zadanej kotła do jego ostygnięcia.
 import { sendMessage } from '../../../core/websocket';
@@ -32,7 +33,7 @@ const BURNING_STATES = [1, 2, 3, 4];
 
 // coPump: pompa CO kotła pracuje (świeży odczyt); pompa ciepła (co od 1.2.0) nie liczy wtedy COP
 // pelletBlock: pompa ciepła wstrzymana — kocioł pali albo jest gorący, albo CWU z peletu (pellet-cwu.service.ts)
-export type HeatPumpNotifier = (heatPumpRootId: string, active: boolean, since: Date | null, coPump?: boolean, pelletBlock?: boolean) => Promise<{ pumpOff: boolean }>;
+export type HeatPumpNotifier = (heatPumpRootId: string, active: boolean, since: Date | null, coPump?: boolean, pelletBlock?: boolean) => Promise<{ pumpOff: boolean; blockFrom?: number }>;
 
 const internalApiUrl = () => process.env.INTERNAL_API_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3001}/api`;
 
@@ -44,8 +45,8 @@ export const notifyHeatPump: HeatPumpNotifier = async (heatPumpRootId, active, s
     body: JSON.stringify({ active, ...(since ? { since: since.toISOString() } : {}), ...(coPump !== undefined ? { co_pump: coPump } : {}), ...(pelletBlock !== undefined ? { pellet_block: pelletBlock } : {}) }),
   });
   if (!response.ok) throw new Error(`pompa ciepła: HTTP ${response.status}`);
-  const body = await response.json() as { pumpOff?: boolean };
-  return { pumpOff: body.pumpOff === true };
+  const body = await response.json() as { pumpOff?: boolean; blockFrom?: unknown };
+  return { pumpOff: body.pumpOff === true, ...(typeof body.blockFrom === 'number' ? { blockFrom: body.blockFrom } : {}) };
 };
 
 export async function getCwuLoadingState(rootId: string): Promise<PelletBoilerCwuLoading> {
@@ -68,21 +69,24 @@ export async function evaluateCwuLoading(rootId: string, now = new Date(), notif
   // pompa ciepła grzeje wtedy 47–49 °C, aż kocioł osiągnie 47 °C (turn-on.service.ts)
   const heatPumpMode = !pelletCwu.enabled && (await effectiveBoilerMode(rootId, settings)) === 'heat-pump';
   const active = heatPumpMode && ((fresh && last?.water_heater_pump === true) || !!(await getPendingTurnOn(rootId)));
-  // kocioł pali albo jest gorący; zwolnienie z histerezą (wstrzymana pompa czeka do 48 °C)
-  const hotFrom = HOT_BOILER_FROM - (saved.pumpBlocked ? HOT_BOILER_HYSTERESIS : 0);
+  // kocioł pali albo jest gorący; zwolnienie z histerezą (przy 50 °C wstrzymana pompa czeka do 48 °C)
+  const blockFrom = saved.hotBoilerFrom ?? HOT_BOILER_FROM;
+  const hotFrom = blockFrom - (saved.pumpBlocked ? HOT_BOILER_HYSTERESIS : 0);
   const hot = fresh && (BURNING_STATES.includes(last?.state ?? -1)
     || (typeof last?.heating_temp === 'number' && last.heating_temp >= hotFrom));
   const pelletBlock = pelletCwuBlocksPump(pelletCwu) || hot;
   const since = active ? (saved.active && saved.since ? new Date(saved.since) : readingAt ?? now) : null;
 
-  const state: PelletBoilerCwuLoading = { active, since, heatPumpOff: false, pumpBlocked: pelletBlock };
+  const state: PelletBoilerCwuLoading = { active, since, heatPumpOff: false, pumpBlocked: pelletBlock, hotBoilerFrom: blockFrom };
   const pumpRootId = await linkedHeatPumpRootId(rootId);
   const pump = pumpRootId ? { _id: pumpRootId } : null;
   if (!pump) {
     state.error = 'Brak pompy ciepła na koncie.';
   } else {
     try {
-      state.heatPumpOff = (await notify(String(pump._id), active, since, fresh && last?.heating_pump === true, pelletBlock)).pumpOff;
+      const reply = await notify(String(pump._id), active, since, fresh && last?.heating_pump === true, pelletBlock);
+      state.heatPumpOff = reply.pumpOff;
+      if (reply.blockFrom !== undefined) state.hotBoilerFrom = reply.blockFrom;
     } catch (error) {
       state.error = String((error as Error).message ?? error);
     }

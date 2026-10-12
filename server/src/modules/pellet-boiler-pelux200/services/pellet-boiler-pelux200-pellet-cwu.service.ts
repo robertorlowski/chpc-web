@@ -41,6 +41,13 @@ const FALLBACK: Record<'heat-pump' | 'pellet', Record<number, number>> = {
 
 const IDLE: PelletBoilerPelletCwu = { enabled: false, phase: 'idle', since: null };
 
+// koniec stygnięcia: próg gorącego kotła z ustawień pompy ciepła (zapisany przy zgłoszeniu do pompy, cwu-loading.service.ts)
+async function pumpBlockBelow(rootId: string) {
+  const saved = await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('cwuLoading')
+    .lean<{ cwuLoading?: { hotBoilerFrom?: number } }>();
+  return saved?.cwuLoading?.hotBoilerFrom ?? PELLET_CWU_PUMP_BLOCK_BELOW;
+}
+
 export async function getPelletCwu(rootId: string): Promise<PelletBoilerPelletCwu> {
   const saved = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('pelletCwu')
     .lean<{ pelletCwu?: PelletBoilerPelletCwu }>())?.pelletCwu;
@@ -126,7 +133,7 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
       else if (cwuTemp !== null && cwuTemp >= cwuTo) await finish(null);
       else if (!state.burning && elapsed > IGNITION_TIMEOUT_MS) await finish(`kocioł nie rozpalił się w ${IGNITION_TIMEOUT_MS / 60000} min`);
       else if (elapsed > MAX_HEATING_MS) await finish(`grzanie CWU trwało dłużej niż ${MAX_HEATING_MS / 3600000} h`);
-    } else if ((boilerTemp !== null && boilerTemp < PELLET_CWU_PUMP_BLOCK_BELOW) || elapsed > MAX_COOLING_MS) {
+    } else if ((boilerTemp !== null && boilerTemp < await pumpBlockBelow(rootId)) || elapsed > MAX_COOLING_MS) {
       Object.assign(state, { phase: 'idle', since: now });
       console.log(`[pellet cwu z peletu] ${rootId} kocioł ${boilerTemp ?? '?'} °C — pompa ciepła znowu pracuje`);
     }

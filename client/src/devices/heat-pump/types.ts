@@ -204,6 +204,9 @@ export type HpCwuLoading = {
   since: string | null;
   /** pompa w trybie OFF: ładowanie trwa, ale pompa nie dogrzewa wody */
   pumpOff: boolean;
-  /** pompa wstrzymana przez kocioł (pali, ma ≥ 50 °C albo grzeje CWU peletem): sterownik dostaje OFF do kotła < 48 °C */
+  /** pompa wstrzymana przez kocioł (pali, ma ≥ blockFrom albo grzeje CWU peletem): sterownik dostaje OFF do kotła < resumeBelow */
   pelletBlock?: boolean;
+  /** próg z Ustawień pompy (domyślnie 50 °C) i temperatura kotła, poniżej której pompa rusza (2 °C niżej) */
+  blockFrom?: number;
+  resumeBelow?: number;
 };

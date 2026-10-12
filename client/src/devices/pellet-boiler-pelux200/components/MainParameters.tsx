@@ -655,8 +655,9 @@ export const MainParameters: React.FC = () => {
                   Grzanie zaczyna się tylko przy włączonym regulatorze.
                 </TipParagraph>
                 <TipParagraph>
-                  Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej 50 °C, i rusza, gdy kocioł
-                  spadnie poniżej 48 °C. W trybie Pellet znacznik jest nieaktywny.
+                  Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej {current.hotBoilerFrom ?? 50} °C
+                  (próg w Ustawieniach pompy ciepła), i rusza, gdy kocioł spadnie poniżej {(current.hotBoilerFrom ?? 50) - 2} °C.
+                  W trybie Pellet znacznik jest nieaktywny.
                 </TipParagraph>
               </InfoTip>
             </label>
