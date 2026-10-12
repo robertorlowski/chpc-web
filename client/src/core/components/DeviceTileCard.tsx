@@ -22,7 +22,7 @@ export function ageLabel(ms: number): string {
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} dni`;
 }
 
-// Ikona rodzaju pulsuje (niebiesko-czerwono) przy pracy pompy ciepła i palenia w piecu (decyzja użytkownika 2026-10-13).
+// Ikona rodzaju pulsuje (jak dawniej kropka w chipie, kolor aplikacji) przy pracy pompy ciepła i palenia w piecu (decyzja użytkownika 2026-10-13).
 const PULSE_TYPES = [DeviceType.HP, DeviceType.PELLET_BOILER_PELUX200];
 
 // Kolor chipu: „Online” zielony (niebieski przy pracy: sprężarka, palenie, produkcja), „Offline” pomarańczowy do godziny,
