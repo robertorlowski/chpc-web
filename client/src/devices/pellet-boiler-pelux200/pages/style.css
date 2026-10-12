@@ -109,6 +109,23 @@
   color: #555;
 }
 
+/* CWU wyłączone w regulatorze (nr 122 = Wyłączony): pod zadaną i w Ustawieniach */
+.boiler-tile-off,
+.boiler-parameter-value.boiler-value-off {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.boiler-tile-off {
+  font-size: 0.85rem;
+}
+
+.boiler-loading {
+  padding: 1rem;
+  text-align: center;
+  color: #555;
+}
+
 .boiler-tile-extra {
   display: flex;
   flex-wrap: wrap;

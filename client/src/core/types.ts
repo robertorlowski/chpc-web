@@ -197,5 +197,7 @@ export type OperationEntry = {
   error?: string | null;
   reason?: string | null;
   conditions?: string | null;
+  /** zaplanowane bez godziny: po spełnieniu warunku (cykl Zimy pieca) */
+  conditional?: boolean;
 };
 export type OperationsDay = { date: string; today: boolean; planned: OperationEntry[]; done: OperationEntry[] };

@@ -166,6 +166,8 @@ export interface PlannedOperation {
   action: string;
   reason?: string;
   conditions?: string;
+  /** przejście bez godziny, po spełnieniu warunku (np. cykl Zimy); at = chwila odczytu, klient pokazuje „—” */
+  conditional?: boolean;
 }
 
 // Kafelek sterownika na stronie /devices (GET /devices/summary): stan, kilka kluczowych wartości i ewentualny

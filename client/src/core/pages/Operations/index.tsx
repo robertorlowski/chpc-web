@@ -50,7 +50,10 @@ const actorName = (entry: OperationEntry) => entry.actor.name
 const matches = (entry: OperationEntry, filter: Filter) =>
   filter === 'all' || (filter === 'system' ? entry.actor.type === 'system' : entry.actor.type !== 'system');
 
+// wpis warunkowy (np. cykl Zimy): bez godziny, status „Czeka na warunek”; po wykonaniu jest w „Wykonanych” z godziną
+const when = (entry: OperationEntry) => (entry.conditional ? '—' : time(entry.at));
 const statusText = (entry: OperationEntry) => {
+  if (entry.conditional && entry.status === 'planned') return 'Czeka na warunek';
   const status = STATUS[entry.status];
   return (entry.status === 'done' || entry.status === 'delivered') && entry.statusAt ? `${status.text} ${time(entry.statusAt, true)}` : status.text;
 };
@@ -93,7 +96,7 @@ const Cards: React.FC<{ entries: OperationEntry[]; planned?: boolean }> = ({ ent
     {entries.map((entry, index) => (
       <div key={key(entry, index)} className={`op-card${planned && entry.status === 'planned' ? ' op-card-planned' : ''}`}>
         <div className="op-card-top">
-          <span className="op-time">{time(entry.at)}</span>
+          <span className="op-time">{when(entry)}</span>
           <Chip entry={entry} />
         </div>
         <div className="op-what">{entry.action}</div>
@@ -109,7 +112,7 @@ const Rows: React.FC<{ title: string; entries: OperationEntry[]; planned?: boole
     <tr className="op-group"><td colSpan={5}>{title}</td></tr>
     {entries.map((entry, index) => (
       <tr key={key(entry, index)} className={planned && entry.status === 'planned' ? 'op-row-planned' : ''}>
-        <td className="op-time">{time(entry.at)}</td>
+        <td className="op-time">{when(entry)}</td>
         <td><Who entry={entry} /></td>
         <td className="op-what">{entry.action}</td>
         <td><Chip entry={entry} /></td>

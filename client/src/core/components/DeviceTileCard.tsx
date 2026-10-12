@@ -5,7 +5,7 @@ import { DeviceTile, DeviceType, TileFact } from '../types';
 import { Pictogram } from './pictograms';
 
 const TYPE_ICONS = {
-  [DeviceType.HP]: 'waves',
+  [DeviceType.HP]: 'heatpump',
   [DeviceType.WATER_PRESSURE_TANK]: 'drop',
   [DeviceType.PELLET_BOILER_PELUX200]: 'flame',
   [DeviceType.SWITCH]: 'power',
@@ -22,12 +22,16 @@ export function ageLabel(ms: number): string {
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} dni`;
 }
 
+// Ikona rodzaju pulsuje (niebiesko-czerwono) przy pracy pompy ciepła i palenia w piecu (decyzja użytkownika 2026-10-13).
+const PULSE_TYPES = [DeviceType.HP, DeviceType.PELLET_BOILER_PELUX200];
+
 // Kolor chipu: „Online” zielony (niebieski przy pracy: sprężarka, palenie, produkcja), „Offline” pomarańczowy do godziny,
-// potem czerwony (szary, gdy brak danych jest normalny, np. PV w nocy); inne napisy (hydrofor) według poziomu kafelka.
-function chipClass(tile: DeviceTile): string {
+// potem czerwony (szary, gdy brak danych jest normalny, np. PV w nocy; hydrofor zawsze, bo jego sterownik ma zasilanie
+// tylko przy pracy pompy); inne napisy według poziomu kafelka.
+function chipClass(tile: DeviceTile, deviceType: DeviceType): string {
   if (tile.running) return 'run';
   if (tile.chip === 'Online') return 'ok';
-  if (tile.chip === 'Offline' && tile.level === 'ok') return 'off';
+  if (tile.chip === 'Offline' && (tile.level === 'ok' || deviceType === DeviceType.WATER_PRESSURE_TANK)) return 'off';
   return tile.level;
 }
 
@@ -81,12 +85,14 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading }: {
   // stopka: własny tekst rodzaju (np. „ostatnie uruchomienie …” hydroforu) i „dane sprzed …”, gdy znany jest czas danych
   const age = tile?.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '';
   const footLines = [tile?.foot, age].filter((line): line is string => !!line);
+  // pracuje: wartość główna na niebiesko (każdy rodzaj), ikona pulsuje (pompa i piec)
+  const pulse = !!tile?.running && PULSE_TYPES.includes(deviceType);
   return (
-    <span className={`tile tile-${tile?.level ?? 'off'}`}>
+    <span className={`tile tile-${tile?.level ?? 'off'}${tile?.running ? ' tile-running' : ''}`}>
       <span className="tile-head">
-        <span className="tile-type-icon"><Pictogram name={TYPE_ICONS[deviceType] ?? 'waves'} /></span>
+        <span className={`tile-type-icon${pulse ? ' tile-type-icon-pulse' : ''}`}><Pictogram name={TYPE_ICONS[deviceType] ?? 'waves'} /></span>
         <strong className="tile-name">{name}</strong>
-        {tile && <span className={`tile-chip ${chipClass(tile)}`}>{tile.chip}</span>}
+        {tile && <span className={`tile-chip ${chipClass(tile, deviceType)}`}>{tile.chip}</span>}
       </span>
 
       {tile?.relays && (

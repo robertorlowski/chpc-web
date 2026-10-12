@@ -21,6 +21,7 @@ import { plannedSchedulerOperations, runSchedulerOnce } from '../src/modules/hea
 import { SwitchRelayModel } from '../src/modules/switch/models/switch-relay.model'
 import { reportState, setRelayMode } from '../src/modules/switch/services/switch.service'
 import { noteModeChange, plannedSwitchOperations } from '../src/modules/switch/services/switch-operation-log.service'
+import { PelletBoilerScheduleSettingsModel } from '../src/modules/pellet-boiler-pelux200/models/pellet-boiler-pelux200-schedule.model'
 
 const TYPE = 'pellet-boiler-pelux200';
 const register = (deviceId: string) =>
@@ -124,6 +125,33 @@ describe('Dziennik operacji', () => {
     expect(planned[0]).toMatchObject({ actor: { type: 'system' }, source: 'Harmonogram', action: 'CWU od–do: 45–60 °C' });
     expect(planned[0].reason).toMatch(/początek wpisu CWU 13:00–15:00/);
     expect(planned[1].reason).toMatch(/koniec wpisu CWU 13:00–15:00/);
+  });
+
+  it('zaplanowane: cykl Zimy czeka na warunek (bez godziny), na Zimie powrót na Lato', async () => {
+    const sn = 'AABBCC0000A4';
+    const { rootId } = (await register(sn)).body;
+    const pump = (await request(app).post('/api/devices/register').send({ deviceId: 'AABBCC0000A5', deviceType: 'heat_pump' })).body.rootId;
+    await request(app).put(`/api/devices/${rootId}`).send({ boilerConfig: { heatPumpRootId: pump } }).expect(200);
+    // ustawienia kotła w trybie pompy ciepła (minimum kotła nr 99 < 50 °C)
+    const heatPump = JSON.parse(readFileSync(resolve(__dirname, '../../devices/pellet-boiler-pelux200/docs/ustawienia-kotla-2026-10-04.json'), 'utf-8'));
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(heatPump.raw_hex).expect(201);
+    const settings = (await request(app).get(`/api/pellet-boiler-pelux200/schedule-settings?rootId=${rootId}`)).body;
+    await request(app).put(`/api/pellet-boiler-pelux200/schedule-settings?rootId=${rootId}`).send({ ...settings, enabled: true }).expect(200);
+    const now = new Date('2026-10-11T20:00:00Z');
+    const dayEnd = new Date('2026-10-11T22:00:00Z');
+    const cycle = (winterCycle: object) => PelletBoilerScheduleSettingsModel.updateOne({ rootId }, { $set: { winterCycle } });
+
+    await cycle({ phase: 'waiting', since: now, temperature: 32.2, winterFrom: 44, pumpTemperature: 37.4 });
+    let planned = (await plannedScheduleOperations(rootId, now, dayEnd)).filter((entry) => entry.conditional);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({ source: 'Cykl Zimy', action: 'Sezon: Lato → Zima' });
+    expect(planned[0].conditions).toBe('gdy kocioł albo woda w pompie osiągnie 44 °C; teraz kocioł 32,2 °C, pompa 37,4 °C');
+
+    await cycle({ phase: 'winter', since: now, temperature: 41 });
+    planned = (await plannedScheduleOperations(rootId, now, dayEnd)).filter((entry) => entry.conditional);
+    expect(planned.map((entry) => [entry.action, entry.conditions])).toEqual([
+      ['Sezon: Zima → Lato', 'gdy kocioł spadnie poniżej 30 °C i stanie pompa CO; teraz kocioł 41 °C'],
+    ]);
   });
 
   const entries = (rootId: string) => OperationLogModel.find({ rootId }).sort({ _id: 1 }).lean();

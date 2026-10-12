@@ -30,14 +30,15 @@ export type Item ={ kind: 'ecomax' | 'mixer'; mixer?: number; index: number };
 // cleanSchedule: w grupie także przełącznik harmonogramu czyszczenia (Kocioł; zlecenie schedule, firmware od 1.8.0)
 // weather: mieszacz ze sterowaniem pogodowym (nr 4 Tak/Nie); krzywa (nr 5) i przesunięcie (nr 6) tylko przy „Tak”,
 // zadana (nr 0) jest wtedy liczona z krzywej (decyzja użytkownika 2026-10-08)
-type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean; weather?: boolean };
+// extra: parametr kotła pokazany na liście pod zadaną (CWU: tryb pracy pompy CWU nr 122, „Wyłączony” na czerwono)
+type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean; weather?: boolean; extra?: number };
 const ecomax = (indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'ecomax', index }));
 const mixerItems = (mixer: number, indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'mixer', mixer, index }));
 const WEATHER_SWITCH = 4;
 const WEATHER_FIELDS = [5, 6];
 const SECTIONS: Section[] = [
   { title: 'Kocioł', items: ecomax([98, 99, 17, 101, 105]), min: 99, cleanSchedule: true },
-  { title: 'CWU', items: ecomax([119, 123, 122]) },
+  { title: 'CWU', items: ecomax([119, 123, 122]), extra: 122 },
   { title: 'Mieszacz 1 (grzejniki)', items: mixerItems(1, [0, 1, 2, 4, 5, 6]), min: 1, max: 2, weather: true },
   // mieszacz 2: regulator nie podaje nastaw (same FF), serwer zakłada zadaną 20–40 °C i zakresy mieszacza 1
   { title: 'Mieszacz 2', items: mixerItems(2, [0, 4, 5, 6]), weather: true },
@@ -374,7 +375,8 @@ const GroupEditPanel: React.FC<{
   );
 };
 
-export const MainParameters: React.FC = () => {
+// onReady: wołane raz, gdy są dane potrzebne do narysowania (Ustawienia rysują stronę w całości, bez mrugania)
+export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) => {
   const [settings, setSettings] = useState<PelletBoilerSettings | null | undefined>(undefined);
   const [commands, setCommands] = useState<PelletBoilerCommand[]>([]);
   const [editing, setEditing] = useState<Section | null>(null);
@@ -457,6 +459,8 @@ export const MainParameters: React.FC = () => {
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
   useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
   const wantedWinter = heatPumpMode && (current?.manualSeason === 'winter' || !!current?.winterCycle);
+  const loaded = settings !== undefined && scheduleSettings !== null && current !== null && heatPumpLinked !== undefined;
+  useEffect(() => { if (loaded) onReady?.(); }, [loaded, onReady]);
   // znacznik „CWU grzej peletem” (PUT /pellet-cwu); odpowiedź to nowy stan harmonogramu z fazą cyklu
   const [pelletCwuSaving, setPelletCwuSaving] = useState(false);
   const [pelletCwuError, setPelletCwuError] = useState('');
@@ -795,6 +799,19 @@ export const MainParameters: React.FC = () => {
               ) : (
                 <ReadOnlyMixerTarget item={item} reading={lastReading} />
               )}
+              {section.extra !== undefined && (() => {
+                const extraItem: Item = { kind: 'ecomax', index: section.extra };
+                const extra = findIn(settings, extraItem);
+                if (!extra) return null;
+                const off = section.extra === 122 && !extra.unknown && extra.value === 0;
+                return (
+                  <div className="boiler-main-row">
+                    <span className="boiler-main-label">{extra.label ?? extra.name}</span>
+                    <span className={`boiler-parameter-value${off ? ' boiler-value-off' : ''}`}>{shownValue(extraItem, extra)}</span>
+                    <IconButton label={`Zmień: ${section.title}, ${extra.label ?? extra.name}`} icon={<EditIcon />} disabled={offline} onClick={() => setEditing(section)} />
+                  </div>
+                );
+              })()}
               {/* Harmonogram czyszczenia (od firmware 1.8.0): zmiana w panelu grupy (zlecenie schedule, ramka 0x37;
                   w regulatorze zmienia się tylko przełącznik, godziny zostają); stan z ostatniego odczytu ustawień */}
               {section.cleanSchedule && cleanSchedule && (

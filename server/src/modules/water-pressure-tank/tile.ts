@@ -1,4 +1,6 @@
-// Kafelek hydroforu na stronie /devices (GET /devices/summary): czy pompa pracuje, woda, czas pompy i
+// Kafelek hydroforu na stronie /devices (GET /devices/summary): chip Online (sterownik zgłasza się, czyli pompa pracuje)
+// albo Offline (zwykły stan: sterownik ma zasilanie tylko przy pracy pompy; od 2026-10-13 zamiast „Pompa pracuje …” /
+// „Nie pracuje”, czas pracy w stopce), woda, czas pompy i
 // liczba uruchomień z dzisiejszego dnia oraz woda z całego bieżącego miesiąca (dziś / miesiąc). Błąd (czerwony): pompa pracuje bez przerwy dłużej niż 30 min
 // (wyciek albo praca na sucho). Ostrzeżenie (pomarańczowy): brak przepływu (za mało odczytów wodomierza)
 // albo dzisiejsze uruchomienie z czasem przybliżonym (z kolejki po braku sieci). Brak łączności NIE jest
@@ -47,7 +49,7 @@ export async function waterPressureTankTile(rootId: string, _device: Device, now
 
   return {
     level,
-    chip: running ? `Pompa pracuje ${formatDuration(runningMs / 1000)}` : 'Nie pracuje',
+    chip: running ? 'Online' : 'Offline',
     running: running && level !== 'err',
     main: { icon: 'drop', value: liters === null ? '---' : formatUnit(liters, 'l'), label: 'dziś' },
     main2: { icon: 'drop', value: monthLiters === null ? '---' : formatUnit(monthLiters, 'l'), label: 'miesiąc' },
@@ -59,7 +61,7 @@ export async function waterPressureTankTile(rootId: string, _device: Device, now
       ...(running && last.compressorRunning ? [{ icon: 'bubbles' as const, value: 'wł.', label: 'kompresor' }] : []),
     ],
     note,
-    foot: `ostatnie uruchomienie ${formatWhen(new Date(last.pumpStart), now)}`,
+    foot: running ? `pompa pracuje ${formatDuration(runningMs / 1000)}` : `ostatnie uruchomienie ${formatWhen(new Date(last.pumpStart), now)}`,
     // ostatnie zgłoszenie sterownika: klient pisze pod „ostatnie uruchomienie” także „dane sprzed …”
     updatedAt: new Date(last.lastSeenAt ?? last.pumpEnd).toISOString(),
   };
