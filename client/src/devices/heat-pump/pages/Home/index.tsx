@@ -168,7 +168,7 @@ const HP: React.FC = () => {
           )}
           {cwuLoading?.pelletBlock && (
             <div className="offline-banner" role="alert">
-              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej 48 °C.
+              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej {cwuLoading.resumeBelow ?? 48} °C.
             </div>
           )}
           <div className={`heet${stale ? ' hp-stale-data' : ''}`}>
@@ -392,25 +392,6 @@ const HP: React.FC = () => {
           </div>
         </div>
 
-        <br />
-        <div className="resource">
-          <h3>Instalacja fotowtaiczna</h3>
-          <hr />
-          <div>
-            <ul>
-              <li>
-                Moc: <strong>{_pv && _pv.total_power ? _pv.total_power : '---'} </strong> W
-              </li>
-              <li>
-                Temperatura: <strong>{_pv && _pv.temperature ? _pv.temperature : '---'} </strong> C
-              </li>
-              <li>
-                Produkcja dziś:{' '}
-                <strong>{_pv && _pv.total_prod_today ? _pv.total_prod_today : '---'} </strong> W
-              </li>
-            </ul>
-          </div>
-        </div>
       </section>
     </div>
   );

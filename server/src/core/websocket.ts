@@ -4,9 +4,9 @@
 // każe klientowi odświeżyć dane. Treść wiadomości przychodzących jest tylko logowana.
 import WebSocket, { WebSocketServer } from 'ws';
 
-// połączenie -> rootId; sterownik i przeglądarki tego samego urządzenia są
-// nierozróżnialne, więc każdy komunikat trafia do wszystkich
-const espClients = new Map<WebSocket, string>();
+// połączenie -> rootId (albo kilka: lista sterowników w kliencie, ?rootIds=a,b,c); sterownik i przeglądarki
+// tego samego urządzenia są nierozróżnialne, więc każdy komunikat trafia do wszystkich
+const espClients = new Map<WebSocket, string[]>();
 
 export const createWsServer = (server: any) => {
   const wss = new WebSocketServer({ server });    
@@ -16,15 +16,17 @@ export const createWsServer = (server: any) => {
   wss.on('connection', async (ws: WebSocket, req) => {
     const ip = req.socket.remoteAddress;
     console.log(`New client connected: ${ip}`);
-    const queryRootId = new URL(req.url ?? '/', 'http://localhost').searchParams.get('rootId');
+    const params = new URL(req.url ?? '/', 'http://localhost').searchParams;
+    // rootIds: lista sterowników w kliencie odświeża kafelki po „update” któregokolwiek z nich
+    const rootIds = (params.get('rootIds') ?? params.get('rootId') ?? '')
+      .split(',').map((id) => id.trim()).filter(Boolean).slice(0, 100);
     // bez rootId nie wiadomo, do którego sterownika kierować komunikaty
-    if (!queryRootId) {
+    if (rootIds.length === 0) {
       ws.close(1008, 'rootId jest wymagane');
       return;
     }
-    const rootId = queryRootId;
-    espClients.set(ws, rootId);
-    console.log(`WebSocket registered for device: ${rootId}`);
+    espClients.set(ws, rootIds);
+    console.log(`WebSocket registered for device: ${rootIds.join(', ')}`);
 
     ws.on('message', (message) => {
       console.log(`Received from client [${ip}]:`, message.toString());
@@ -47,8 +49,8 @@ export const sendMessage = async (message: String, rootId: string) => {
   }
   const payload = JSON.stringify({ type: String(message), rootId });
   setTimeout(() => {
-    espClients.forEach((clientRootId, client) => {
-      if (clientRootId === rootId && client.readyState === WebSocket.OPEN) {
+    espClients.forEach((clientRootIds, client) => {
+      if (clientRootIds.includes(rootId) && client.readyState === WebSocket.OPEN) {
         client.send(payload);
       }
     });

@@ -2,7 +2,7 @@
 // Nazwy zgodne z TileIcon z serwera (core/types.ts); ostrzeżenie i błąd to osobne piktogramy przy komunikatach.
 import { TileIcon } from '../types';
 
-type Name = TileIcon | 'warn' | 'error' | 'chevron-left' | 'chevron-right';
+type Name = TileIcon | 'heatpump' | 'warn' | 'error' | 'chevron-left' | 'chevron-right';
 
 const PICTOGRAMS: Record<Name, { color: string; paths: React.ReactNode }> = {
   thermo: { color: '#e8a09a', paths: <><path d="M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z" /><path d="M12 9v7" /></> },
@@ -21,6 +21,8 @@ const PICTOGRAMS: Record<Name, { color: string; paths: React.ReactNode }> = {
   panel: { color: '#8fb7d9', paths: <><path d="M4 6h16l-2 12H6z" /><path d="M9 6l-1 12M15 6l1 12M5 12h14" /></> },
   bubbles: { color: '#8dc3e6', paths: <><circle cx="9" cy="14" r="4" /><circle cx="16" cy="8" r="3" /><circle cx="17" cy="16" r="1.5" /></> },
   waves: { color: '#8dc3e6', paths: <path d="M3 9c3-3 6 3 9 0s6 3 9 0M3 15c3-3 6 3 9 0s6 3 9 0" /> },
+  // pompa ciepła: ta sama ikona co pierwsza pozycja menu na ekranie pompy (trzy pionowe falki)
+  heatpump: { color: '#8dc3e6', paths: <path d="M11.0007 3C11.0007 3 9.86264 7.5 11.9313 12C14 16.5 13.5 21 13.5 21M18.9313 21C18.9313 21 19.6008 16.5 17.5007 13C15.4007 9.5 16.0007 6 16.0007 6M7.92989 21C7.92989 21 8.5993 16.5 6.49927 13C4.39924 9.5 4.99927 6 4.99927 6" /> },
   warn: { color: '#f0a95b', paths: <><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17v.1" /></> },
   error: { color: '#e07f7f', paths: <><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></> },
   'chevron-left': { color: 'currentColor', paths: <path d="M15 5L8 12L15 19" /> },

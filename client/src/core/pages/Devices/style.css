@@ -132,6 +132,21 @@
 
 .tile-type-icon .pictogram { width: 100%; height: 100%; }
 
+/* praca pompy ciepła i palenie w piecu: ikona przechodzi płynnie z niebieskiego aplikacji w ceglastą czerwień
+   (animacja wygrywa z kolorem piktogramu ustawionym w style) */
+.tile-type-icon-pulse .pictogram {
+  animation: tile-icon-pulse 1.6s ease-in-out infinite;
+}
+
+/* kolor trzyma się na niebieskim i czerwonym, przejście krótkie (bez długiego szarego środka) */
+@keyframes tile-icon-pulse {
+  0%, 35%, 100% { color: #1481a5; }
+  50%, 85% { color: #d0521b; }
+}
+
+/* urządzenie pracuje: wartość główna (po lewej) na niebiesko */
+.tile-running .tile-facts-main .tile-fact.big b { color: #1481a5; }
+
 .tile-name {
   font-size: 1.1rem;
   line-height: 1.15;
@@ -153,8 +168,7 @@
 .tile-chip.err { background: #fdecea; color: #c62828; }
 .tile-chip.off { background: #eceff1; color: #78909c; }
 
-/* „teraz pracuje”: niebieski chip z pulsującą kropką */
-/* pracuje: pełne tło w kolorze aplikacji, odróżnia się od jasnego chipa „ok” */
+/* pracuje: pełne tło w kolorze aplikacji ze stałą kropką (od 2026-10-13 pulsuje ikona rodzaju, nie kropka) */
 .tile-chip.run { background: #1481a5; color: #fff; }
 .tile-chip.run::before {
   content: '';
@@ -164,12 +178,6 @@
   margin-right: 6px;
   border-radius: 50%;
   background: #fff;
-  animation: tile-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes tile-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.7); }
 }
 
 .tile-facts {

@@ -45,7 +45,7 @@ import { appUserMeta, systemMeta } from '../../../core/services/operation-log.se
 import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service';
-import { HeatPumpControl, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
+import { HeatPumpControl, SUMMER_BELOW, WINTER_FROM, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
 import { effectiveBoilerMode, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu, runPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
@@ -517,7 +517,27 @@ export async function plannedScheduleOperations(rootId: string, now: Date, dayEn
       reason: 'Sezon wybrany przyciskiem działa do granicy wpisu sezonu; dalej sezon ustawia harmonogram.',
     });
   }
-  return planned.sort((a, b) => a.at.getTime() - b.at.getTime());
+  // cykl Zimy (tryb Pompa ciepła): przejście po spełnieniu warunku, bez godziny; po wykonaniu wpis z godziną jest
+  // w „Wykonanych” (winter-cycle.service.ts)
+  const cycle = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('winterCycle')
+    .lean<{ winterCycle?: PelletBoilerWinterCycle | null }>())?.winterCycle;
+  const temp = (value: number | null | undefined) =>
+    typeof value === 'number' ? `${value.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C` : '?';
+  if (mode === 'heat-pump' && cycle?.phase === 'waiting') {
+    planned.push({
+      at: now, conditional: true, actor: { type: 'system' }, source: 'Cykl Zimy', action: 'Sezon: Lato → Zima',
+      reason: 'Kocioł na Lecie czeka, aż pompa ciepła nagrzeje wodę; na Zimie ruszają pompy kotła.',
+      conditions: `gdy kocioł albo woda w pompie osiągnie ${cycle.winterFrom ?? WINTER_FROM} °C; teraz kocioł ${temp(cycle.temperature)}, pompa ${temp(cycle.pumpTemperature)}`,
+    });
+  }
+  if (mode === 'heat-pump' && cycle?.phase === 'winter') {
+    planned.push({
+      at: now, conditional: true, actor: { type: 'system' }, source: 'Cykl Zimy', action: 'Sezon: Zima → Lato',
+      reason: 'Woda w kotle się wychłodzi — kocioł wraca na Lato, mieszacz 1 na minimum do powrotu ciepła z pompy.',
+      conditions: `gdy kocioł spadnie poniżej ${SUMMER_BELOW} °C i stanie pompa CO; teraz kocioł ${temp(cycle.temperature)}`,
+    });
+  }
+  return planned.sort((a, b) => Number(!!b.conditional) - Number(!!a.conditional) || a.at.getTime() - b.at.getTime());
 }
 
 const SEASON_NAMES_PL: Record<PelletBoilerSeason, string> = { winter: 'Zima', summer: 'Lato' };
@@ -598,12 +618,16 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const pelletCwu = await getPelletCwu(rootId);
   // pendingTurnOn: włączenie regulatora czeka na nagrzanie kotła (turn-on.service.ts)
   const pendingTurnOn = await getPendingTurnOn(rootId);
+  // hotBoilerFrom: pompa ciepła stoi przy kotle od tej temperatury (ustawienia pompy; opis znacznika CWU z peletu)
+  const hotBoilerFrom = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('cwuLoading')
+    .lean<{ cwuLoading?: { hotBoilerFrom?: number } }>())?.cwuLoading?.hotBoilerFrom ?? 50;
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
   return {
     enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
     winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null,
     // do kiedy działa sezon z przycisku (null: do zmiany sezonu w harmonogramie albo kolejnego naciśnięcia)
-    manualSeasonUntil: saved?.manualSeason ? saved.manualSeason.until ?? null : null, pelletCwu, pendingTurnOn, lastError: settings.lastError ?? null,
+    manualSeasonUntil: saved?.manualSeason ? saved.manualSeason.until ?? null : null, pelletCwu, pendingTurnOn, hotBoilerFrom,
+    lastError: settings.lastError ?? null,
   };
 }
 

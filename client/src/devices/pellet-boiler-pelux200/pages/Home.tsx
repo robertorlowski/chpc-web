@@ -50,17 +50,19 @@ const Valve: React.FC<{ opening?: boolean; closing?: boolean }> = ({ opening, cl
 
 // hysteresis: zadana „od–do” (od = zadana − histereza: tu kocioł rozpala / zaczyna się ładowanie CWU);
 // wide: kafelek na pół rzędu (mieszacze: dwa wypełniają rząd pod kotłem, CWU i pelletem)
+// off: obieg wyłączony w regulatorze (CWU: nr 122 = Wyłączony): zadana „---” i czerwona informacja
 const Tile: React.FC<{
-  title: string; current?: number; target?: number; hysteresis?: number; wide?: boolean; children?: React.ReactNode;
-}> = ({ title, current, target, hysteresis, wide, children }) => (
+  title: string; current?: number; target?: number; hysteresis?: number; wide?: boolean; off?: string; children?: React.ReactNode;
+}> = ({ title, current, target, hysteresis, wide, off, children }) => (
   <div className={wide ? 'boiler-tile boiler-tile-wide' : 'boiler-tile'}>
     <div className="boiler-tile-title">{title}</div>
     <div className="boiler-tile-current">{formatTemp(current)}</div>
     <div className="boiler-tile-target">
-      zadana {target !== undefined && hysteresis !== undefined
+      zadana {off ? '---' : target !== undefined && hysteresis !== undefined
         ? `${formatNumber(target - hysteresis, 0)}–${formatTemp(target)}`
         : formatTemp(target)}
     </div>
+    {off && <div className="boiler-tile-off">{off}</div>}
     {children}
   </div>
 );
@@ -159,7 +161,8 @@ export const PelletBoilerHome: React.FC = () => {
                 <Tile title="Kocioł" wide={fuel.today === null} current={reading.heating_temp} target={reading.heating_target}
                   hysteresis={findParameter(settings, 17)?.value} />
                 <Tile title="CWU" wide={fuel.today === null} current={reading.water_heater_temp} target={reading.water_heater_target}
-                  hysteresis={findParameter(settings, 123)?.value} />
+                  hysteresis={findParameter(settings, 123)?.value}
+                  off={findParameter(settings, 122)?.value === 0 ? 'Wyłączone' : undefined} />
                 {/* spalony pellet jak kafelek CWU: dziś duża liczba, pod nią miesiąc (licznik ze sterownika od 1.7.1) */}
                 {fuel.today !== null && (
                   <div className="boiler-tile boiler-fuel-tile">

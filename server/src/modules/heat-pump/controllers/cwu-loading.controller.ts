@@ -3,12 +3,37 @@
 // żeby nowe temperatury poszły od razu, a nie przy cyklicznym /hp/add.
 import { Request, Response } from 'express';
 import { sendMessage } from '../../../core/websocket';
-import { getCwuLoading, setBoilerCoPump, setCwuLoading } from '../services/cwu-loading.service';
+import {
+  BOILER_BLOCK_MAX, BOILER_BLOCK_MIN, getBoilerBlockFrom, getCwuLoading, setBoilerCoPump, setCwuLoading,
+} from '../services/cwu-loading.service';
+import { DeviceModel } from '../../../core/models/device.model';
+import { appUserMeta, logPropertiesChange, metaFromRequest } from '../../../core/services/operation-log.service';
+import { heatPumpDeviceType } from '../device-type';
 
-// GET /hp/cwu-loading → {active, since, pumpOff}
+// GET /hp/cwu-loading → {active, since, pumpOff, pelletBlock, blockFrom, resumeBelow}
 export async function getCwuLoadingState(req: Request, res: Response) {
   try {
     return res.status(200).json(await getCwuLoading(req.deviceRootId as string));
+  } catch (error) {
+    return res.status(500).json({ message: String(error) });
+  }
+}
+
+// PUT /hp/boiler-block {temperature} — Ustawienia pompy: pompa stoi, gdy powiązany kocioł ma co najmniej tyle °C
+// (pełne stopnie 40–70), i rusza 2 °C niżej. Tylko to pole (bez PUT /device/properties, który kasuje ręczne
+// ustawienia pompy); kocioł dostaje próg przy najbliższym zgłoszeniu (do minuty).
+export async function putBoilerBlock(req: Request<{}, {}, { temperature?: unknown }>, res: Response) {
+  const temperature = req.body?.temperature;
+  if (typeof temperature !== 'number' || !Number.isInteger(temperature) || temperature < BOILER_BLOCK_MIN || temperature > BOILER_BLOCK_MAX) {
+    return res.status(400).json({ message: `Temperatura: pełne stopnie ${BOILER_BLOCK_MIN}–${BOILER_BLOCK_MAX} °C.` });
+  }
+  try {
+    const rootId = req.deviceRootId as string;
+    const before = await getBoilerBlockFrom(rootId);
+    await DeviceModel.updateOne({ _id: rootId }, { $set: { 'properties.boiler_block_temp': temperature } });
+    await logPropertiesChange(rootId, heatPumpDeviceType.propertyLabels, { boiler_block_temp: before }, { boiler_block_temp: temperature },
+      metaFromRequest(req, appUserMeta('Ustawienia', 'Zapis „Wyłącz powyżej temp.” w Ustawieniach.')));
+    return res.status(200).json(await getCwuLoading(rootId));
   } catch (error) {
     return res.status(500).json({ message: String(error) });
   }

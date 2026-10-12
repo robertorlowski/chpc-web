@@ -1,5 +1,6 @@
 // Zakładka Ustawienia pompy (/settings): operacja ręczna (POST /operation/set), błędy sterownika
-// z akcjami Odblokuj i Restart (POST /operation/action) oraz dane sterownika (popup DeviceEditModal).
+// z akcjami Odblokuj i Restart (POST /operation/action) oraz dane sterownika (popup DeviceEditModal). W „Ustaw”, przy
+// powiązanym kotle, także „Wyłącz powyżej temp.” (PUT /hp/boiler-block, BoilerBlockField), zapisywane tym samym „Zmień”.
 // Wartości początkowe (placeholdery i checkboxy) to rzeczywisty stan pompy z telemetrii (GET /operation),
 // a nie ostatnio wysłane ustawienie. Stan jest wczytywany tylko przy wejściu na stronę.
 import './style.css';
@@ -15,6 +16,7 @@ import { DeviceSharing } from '../../../../core/components/DeviceSharing';
 import { ControllerCardTitle } from '../../../../core/components/ControllerCardTitle';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { BoilerBlockField, boilerBlockProblem, useBoilerBlock } from '../../components/BoilerBlockField';
 
 // przegrzanie EEV [°C]: z panelu pompy najmniej 0,1, po restarcie CHPC wartość powyżej 8 wraca do domyślnej
 const EEV_SETPOINT_MIN = 0.1;
@@ -36,6 +38,11 @@ export const Settings: React.FC = () => {
 	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
 	// sprężarka pracuje: pompa sama steruje pompami, a wymuszenie przyjmuje tylko w spoczynku
 	const [running, setRunning] = useState(false);
+	// „Wyłącz powyżej temp.” (tylko z powiązanym kotłem): '' = bez zmiany
+	const boilerBlock = useBoilerBlock(device?.rootId);
+	const [boilerBlockValue, setBoilerBlockValue] = useState('');
+	const boilerBlockError = boilerBlockProblem(boilerBlockValue);
+	const boilerBlockChanged = boilerBlock.linked && boilerBlockValue.trim() !== '' && Number(boilerBlockValue) !== boilerBlock.saved;
 
 	useEffect(() => {
 		HpRequests.getHpLastError()
@@ -99,8 +106,8 @@ export const Settings: React.FC = () => {
 	};
 
 	const enableSave = useMemo(() => {
-		return Object.entries(valueOpration).length > 0 && eevSetpointValid && !temperatureProblem;
-	}, [valueOpration, eevSetpointValid, temperatureProblem]);
+		return (Object.entries(valueOpration).length > 0 || boilerBlockChanged) && eevSetpointValid && !temperatureProblem && !boilerBlockError;
+	}, [valueOpration, eevSetpointValid, temperatureProblem, boilerBlockChanged, boilerBlockError]);
 
 	useEffect( () => {
 		HpRequests.prepareOperation()
@@ -123,12 +130,35 @@ export const Settings: React.FC = () => {
 	// urządzenia (jak Harmonogram, ręczne ustawienia znikają), temperatury i reszta idą od razu na pompę
 	// jako ustawienie ręczne. Temperatura 1–50 °C i przegrzanie EEV 0,1–8 °C są sprawdzane tutaj; limity
 	// mocy i EEV stosują dopiero co i CHPC, a faktycznie użyte wartości widać w telemetrii.
+	// próg pompy przy gorącym buforze/kotle osobno (PUT /hp/boiler-block), przed operacją
+	const saveBoilerBlock = async () => {
+		if (!boilerBlockChanged) return true;
+		try {
+			const status = await HpRequests.setBoilerBlock(Number(boilerBlockValue));
+			boilerBlock.setSaved(status?.blockFrom ?? Number(boilerBlockValue));
+			setBoilerBlockValue('');
+			return true;
+		} catch {
+			setError(true);
+			return false;
+		}
+	};
+
 	const handleSave = () => {
 		if (Object.entries(valueOpration).length == 0) {
+			if (boilerBlockChanged) {
+				run(() => saveBoilerBlock().then((ok) => {
+					if (ok) {
+						setError(false);
+						showNotice('Zapisano. Kocioł użyje nowej temperatury w ciągu minuty.');
+					}
+				}));
+			}
 			return;
 		}
 
-		run(() => HpRequests.setOperation(valueOpration).then(response => {
+		run(() => saveBoilerBlock().then((ok) => (ok ? HpRequests.setOperation(valueOpration) : undefined)).then(response => {
+			if (response === undefined) return;
 			setError( response?.status === 201 ? false : true );
 			if (response?.status === 201) {
 				showSaveNotice();
@@ -186,6 +216,11 @@ export const Settings: React.FC = () => {
 						<span> °C</span>
 					</div>
 					{temperatureProblem && <p className="settings-error-text settings-field-error">{temperatureProblem}</p>}
+
+					{boilerBlock.linked && (
+						<BoilerBlockField saved={boilerBlock.saved} value={boilerBlockValue} onChange={setBoilerBlockValue} />
+					)}
+					{boilerBlock.linked && boilerBlockError && <p className="settings-error-text settings-field-error">{boilerBlockError}</p>}
 
 					<div style={{ minWidth: '240px' }}>
 						<span className="label">Wymuszenie pracy:</span>

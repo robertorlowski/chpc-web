@@ -48,6 +48,8 @@ export interface DeviceProperties {
   poll_interval_seconds?: number;
   // włącznik: domyślny czas „Włącz” [min] (0 = bez limitu), podpowiadany w aplikacji i na stronie sterownika
   default_on_minutes?: number;
+  // pompa ciepła powiązana z kotłem: pompa stoi, gdy kocioł ma co najmniej tyle [°C] (rusza 2 °C niżej), 40–70
+  boiler_block_temp?: number;
 }
 
 // Definicja pompy ciepła (okno „Dane sterownika”), ustawiana raz przy montażu; nie zmienia trybu
@@ -166,6 +168,8 @@ export interface PlannedOperation {
   action: string;
   reason?: string;
   conditions?: string;
+  /** przejście bez godziny, po spełnieniu warunku (np. cykl Zimy); at = chwila odczytu, klient pokazuje „—” */
+  conditional?: boolean;
 }
 
 // Kafelek sterownika na stronie /devices (GET /devices/summary): stan, kilka kluczowych wartości i ewentualny

@@ -31,6 +31,8 @@ const WRITE_RULES: { method: string; path: RegExp; tabs: string[] | 'any' }[] = 
   // pompa ciepła: przełączniki na Podglądzie i panel Ustawień; harmonogramy; ustawienia domyślne w Harmonogramie
   { method: 'POST', path: /^\/operation\/(set|action)$/, tabs: ['/', '/settings'] },
   { method: 'POST', path: /^\/settings\/set$/, tabs: ['/settings'] },
+  // próg „Wyłącz powyżej temp.” (sekcja „Ustaw” w Ustawieniach pompy)
+  { method: 'PUT', path: /^\/hp\/boiler-block$/, tabs: ['/settings'] },
   { method: '*', path: /^\/schedules(\/[^/]+)?$/, tabs: ['/schedules'] },
   { method: 'PUT', path: /^\/device\/properties$/, tabs: ['/settings', '/schedules'] },
   // kocioł

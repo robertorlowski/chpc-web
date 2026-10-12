@@ -1,6 +1,6 @@
 // Zakładka Wykres kotła pelletowego (/chart): temperatury z wybranego dnia (GET /pellet-boiler-pelux200/list,
-// co interwał odpytywania sterownika). Domyślnie CO (obieg grzejników = mieszacz 1) i CWU; kocioł,
-// mieszacz 2 i temperatura zewnętrzna do włączenia przełącznikami. Dane pobierane przy wejściu
+// co interwał odpytywania sterownika). Serie: kocioł, CWU, mieszacz 1 (CO), mieszacz 2 i zewnętrzna; domyślnie
+// wszystkie poza zewnętrzną (decyzja użytkownika 2026-10-13), przełącznikami do ukrycia. Dane pobierane przy wejściu
 // i zmianie daty, bez odświeżania cyklicznego. Karta na całe okno (useFillHeight, klasa fill-page):
 // wykres wypełnia miejsce między wyborem dnia a przełącznikami serii. Oś X to czas (liczba ms), nie kolejne
 // odczyty: od 2026-10-07 serwer nie zapisuje identycznych odczytów (seria = rekord początkowy i końcowy, nowy
@@ -16,10 +16,10 @@ import './style.css';
 type SeriesKey = 'mixer1_temp' | 'water_heater_temp' | 'heating_temp' | 'mixer2_temp' | 'outside_temp';
 
 const SERIES: { key: SeriesKey; label: string; color: string; visible: boolean }[] = [
-  { key: 'mixer1_temp', label: 'CO', color: '#d0521b', visible: true },
+  { key: 'heating_temp', label: 'Kocioł', color: '#8e44ad', visible: true },
   { key: 'water_heater_temp', label: 'CWU', color: '#1481a5', visible: true },
-  { key: 'heating_temp', label: 'Kocioł', color: '#8e44ad', visible: false },
-  { key: 'mixer2_temp', label: 'Mieszacz 2', color: '#2e7d32', visible: false },
+  { key: 'mixer1_temp', label: 'Mieszacz 1', color: '#d0521b', visible: true },
+  { key: 'mixer2_temp', label: 'Mieszacz 2', color: '#2e7d32', visible: true },
   { key: 'outside_temp', label: 'Zewnętrzna', color: '#777777', visible: false },
 ];
 

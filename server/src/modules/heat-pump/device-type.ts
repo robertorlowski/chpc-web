@@ -38,6 +38,7 @@ export const heatPumpDeviceType: DeviceTypeModule = {
     work_mode: { label: 'Tryb pracy', values: { MANUAL: 'Ręczny', AUTO: 'Automatyczny', OFF: 'Wyłączony', M: 'Ręczny', A: 'Automatyczny', CWU: 'Automatyczny' } },
     temp_min: { label: 'Temperatura od', unit: '°C' },
     temp_max: { label: 'Temperatura do', unit: '°C' },
+    boiler_block_temp: { label: 'Wyłącz powyżej temp.', unit: '°C' },
   },
   plannedOperations: plannedSchedulerOperations,
 };

@@ -169,6 +169,8 @@ export type PelletBoilerCurrentSchedule = {
   manualSeasonUntil?: string | null;
   /** CWU z peletu w trybie pompy ciepła (znacznik w Ustawieniach) */
   pelletCwu?: PelletBoilerPelletCwu;
+  /** pompa ciepła stoi przy kotle od tej temperatury [°C] (Ustawienia pompy ciepła; rusza 2 °C niżej) */
+  hotBoilerFrom?: number;
   /** włączenie regulatora czeka na nagrzanie kotła; null = nie czeka */
   pendingTurnOn?: PelletBoilerPendingTurnOn | null;
   lastError: string | null;
