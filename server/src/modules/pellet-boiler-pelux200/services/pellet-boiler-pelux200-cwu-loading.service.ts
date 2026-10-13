@@ -10,9 +10,9 @@
 // Stan dla ekranu głównego kotła (z informacją, że pompa ciepła jest wyłączona) jest w ustawieniach
 // harmonogramu (pole cwuLoading), GET /pellet-boiler-pelux200/cwu-loading.
 // Tą samą drogą idzie wstrzymanie pompy ciepła (pellet_block → tryb OFF): zasada bezpieczeństwa z 2026-10-10 —
-// pompa stoi, gdy kocioł się rozpala lub pali (stany 1–4) albo ma co najmniej HOT_BOILER_FROM (50 °C), w każdym
-// trybie; rusza poniżej HOT_BOILER_FROM − HOT_BOILER_HYSTERESIS. Próg ustawia się w Ustawieniach pompy ciepła
-// (od 2026-10-12): pompa odsyła go w odpowiedzi na zgłoszenie (blockFrom), kocioł używa go od następnego kroku. Gorąca woda z kotła w skraplaczu zatrzymałaby
+// pompa stoi, gdy kocioł się rozpala lub pali (stany 1–4) albo ma co najmniej HOT_BOILER_FROM (52 °C), w każdym
+// trybie; rusza poniżej HOT_BOILER_FROM − HOT_BOILER_HYSTERESIS (50 °C). Próg trzyma moduł pompy (BOILER_BLOCK_FROM
+// w heat-pump/services/cwu-loading.service.ts) i odsyła go w odpowiedzi na zgłoszenie (blockFrom); tu wartość zapasowa. Gorąca woda z kotła w skraplaczu zatrzymałaby
 // sprężarkę błędem Tho (po 5 błędach blokada CHPC). Do tego CWU z peletu (pellet-cwu.service.ts) od podniesienia
 // zadanej kotła do jego ostygnięcia.
 import { internalHeaders } from '../../../core/internal';
@@ -27,7 +27,10 @@ import { getPendingTurnOn } from './pellet-boiler-pelux200-turn-on.service';
 
 // odczyt starszy niż to nie świadczy o ładowaniu (kocioł bez łączności)
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
-export const HOT_BOILER_FROM = 50;
+// UWAGA: podniesienie maksymalnej temperatury pompy powyżej 50 °C wymaga podniesienia progu wstrzymania pompy przy gorącym kotle
+// (BOILER_BLOCK_FROM 52 °C = maks. 50 + 2, server/src/modules/heat-pump/services/cwu-loading.service.ts), inaczej pompa
+// zatrzyma się na wodzie, którą sama nagrzała; ta wartość jest zapasowa (zanim pompa odpowie).
+export const HOT_BOILER_FROM = 52;
 export const HOT_BOILER_HYSTERESIS = 2;
 // stabilizacja, rozpalanie, praca, nadzór
 const BURNING_STATES = [1, 2, 3, 4];
@@ -71,7 +74,7 @@ export async function evaluateCwuLoading(rootId: string, now = new Date(), notif
   // pompa ciepła grzeje wtedy 47–49 °C, aż kocioł osiągnie 47 °C (turn-on.service.ts)
   const heatPumpMode = !pelletCwu.enabled && (await effectiveBoilerMode(rootId, settings)) === 'heat-pump';
   const active = heatPumpMode && ((fresh && last?.water_heater_pump === true) || !!(await getPendingTurnOn(rootId)));
-  // kocioł pali albo jest gorący; zwolnienie z histerezą (przy 50 °C wstrzymana pompa czeka do 48 °C)
+  // kocioł pali albo jest gorący; zwolnienie z histerezą (przy 52 °C wstrzymana pompa czeka do 50 °C)
   const blockFrom = saved.hotBoilerFrom ?? HOT_BOILER_FROM;
   const hotFrom = blockFrom - (saved.pumpBlocked ? HOT_BOILER_HYSTERESIS : 0);
   const hot = fresh && (BURNING_STATES.includes(last?.state ?? -1)

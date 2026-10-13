@@ -135,8 +135,9 @@ export type PelletBoilerSchedule = {
 
 export type PelletBoilerCwuRange = { cwuFrom: number; cwuTo: number };
 
-/** Poza harmonogramem: CWU od–do i tryb pracy Lato / Zima (brak = harmonogram go nie zmienia). */
-export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange & { season?: PelletBoilerSeason };
+/** Poza harmonogramem: CWU od–do i tryb pracy Lato / Zima (brak = harmonogram go nie zmienia);
+ *  cwuUnchanged: CWU „bez zmiany” — zostaje zadana z panelu kotła (od–do zapisane na później). */
+export type PelletBoilerScheduleDefaults = PelletBoilerCwuRange & { season?: PelletBoilerSeason; cwuUnchanged?: boolean };
 
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
 export type PelletBoilerProfile = Record<string, number>;
@@ -154,7 +155,14 @@ export type PelletBoilerCurrentSchedule = {
   enabled: boolean;
   /** tryb z odczytu ustawień kotła; null bez odczytu */
   mode: PelletBoilerMode | null;
-  state: ({ mode: PelletBoilerMode; season?: PelletBoilerSeason } & PelletBoilerCwuRange) | null;
+  /** cwuUnchanged: teraz poza wpisami CWU z „CWU bez zmiany” (harmonogram nie zmienia CWU w kotle) */
+  state: ({ mode: PelletBoilerMode; season?: PelletBoilerSeason; cwuUnchanged?: boolean } & PelletBoilerCwuRange) | null;
+  /** CWU ustawione teraz w kotle: zadana (nr 119) i „od” = zadana − histereza (nr 123) */
+  boilerCwu?: Partial<PelletBoilerCwuRange>;
+  /** tryb pompy ciepła (bez „CWU - grzanie peletem”) z zadaną CWU wyższą niż heatPumpCwuMax: pompa ciepła jej nie dogrzeje */
+  cwuTooHigh?: boolean;
+  /** do ilu grzeje włączona pompa ciepła powiązana z kotłem (temp_max z telemetrii); null: wyłączona, offline albo brak pompy */
+  heatPumpCwuMax?: number | null;
   /** działający wpis CWU (null = poza harmonogramem) */
   scheduleId: string | null;
   /** działający wpis trybu pracy Lato / Zima (null = poza harmonogramem) */

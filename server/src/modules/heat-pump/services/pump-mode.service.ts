@@ -8,7 +8,9 @@ import { HpEntry, OperationEntry, PumpWorkMode } from '../types';
 
 export const PUMP_WORK_MODES: PumpWorkMode[] = ['MANUAL', 'AUTO', 'OFF'];
 
-// Zakres temperatury od–do (jak co: 1–50 °C).
+// Zakres temperatury od–do (jak co: 1–50 °C). UWAGA: podniesienie maksymalnej temperatury pompy powyżej 50 °C wymaga podniesienia progu wstrzymania pompy przy gorącym kotle
+// (BOILER_BLOCK_FROM 52 °C = maks. 50 + 2, server/src/modules/heat-pump/services/cwu-loading.service.ts), inaczej pompa
+// zatrzyma się na wodzie, którą sama nagrzała.
 export const PUMP_TEMPERATURE_MIN = 1;
 export const PUMP_TEMPERATURE_MAX = 50;
 

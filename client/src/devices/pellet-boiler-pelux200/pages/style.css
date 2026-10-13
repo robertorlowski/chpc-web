@@ -541,19 +541,7 @@
   }
 }
 
-/* Harmonogram: listy trybów, wiersz „Poza harmonogramem”, czerwona kreska = działa teraz */
-.boiler-default-row {
-  display: grid;
-  gap: 0.3rem;
-  padding: 0.5rem 0.6rem;
-  background: #fff;
-  border-left: 4px solid #1481a5;
-}
-
-.boiler-default-current {
-  border-left-color: #b00020;
-}
-
+/* Harmonogram: listy trybów, czerwona kreska = działa teraz */
 .boiler-mode-now {
   color: #b00020;
   font-weight: normal;
@@ -589,13 +577,6 @@
 .boiler-schedule-line {
   font-size: 0.95rem;
   color: #333;
-}
-
-.boiler-default-season {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
 }
 
 .boiler-cold-input {
@@ -908,4 +889,29 @@
   border: 1px solid #1481a5;
   color: #0d5770;
   font-size: 0.95rem;
+}
+
+/* Wykres „Spalony pellet”: tytuły dwóch wykresów (kg i koszt) i pole ceny pelletu z „Zapisz” po prawej */
+.boiler-chart-title {
+  margin-top: 0.4rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.boiler-price {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.boiler-price label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.boiler-price input {
+  width: 7rem;
 }

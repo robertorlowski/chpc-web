@@ -455,8 +455,8 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: bez sekcji „Tryb pracy”
   // i bez cyklu Zimy (serwer też traktuje kocioł jak Pellet).
   const heatPumpLinked = useHeatPumpLinked();
-  const heatPumpMode = !!heatPumpLinked && workModeName(settings ?? null) === 'Pompa ciepła';
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
+  const heatPumpMode = !!heatPumpLinked && workModeName(settings ?? null, current?.pelletCwu) === 'Pompa ciepła';
   useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
   const wantedWinter = heatPumpMode && (current?.manualSeason === 'winter' || !!current?.winterCycle);
   const loaded = settings !== undefined && scheduleSettings !== null && current !== null && heatPumpLinked !== undefined;
@@ -609,7 +609,9 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   };
 
   const ready = settings && settings.readAt;
-  const currentMode = workModeName(settings ?? null);
+  const currentMode = workModeName(settings ?? null, current?.pelletCwu);
+  // CWU wyłączone w regulatorze (nr 122 = 0): „CWU - grzanie peletem” nie wystartuje (serwer, noc 12/13.10)
+  const cwuOffInBoiler = findIn(settings ?? null, { kind: 'ecomax', index: 122 })?.value === 0;
   const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === CLEAN_SCHEDULE);
   const cleanPending = commands.find((command) => command.kind === 'schedule' && (command.status === 'pending' || command.status === 'sent'));
   const shownValue = (item: Item, parameter: PelletBoilerParameter) => {
@@ -656,15 +658,22 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
                 <TipParagraph>
                   W trybie Pompa ciepła CWU grzeje kocioł peletem według ustawień trybu Pellet:
                   od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C (Harmonogram, tryb Pellet).
-                  Grzanie zaczyna się tylko przy włączonym regulatorze.
+                  Grzanie zaczyna się tylko przy włączonym regulatorze i włączonym CWU w kotle.
                 </TipParagraph>
                 <TipParagraph>
-                  Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej {current.hotBoilerFrom ?? 50} °C
-                  (próg w Ustawieniach pompy ciepła), i rusza, gdy kocioł spadnie poniżej {(current.hotBoilerFrom ?? 50) - 2} °C.
+                  Na czas grzania kocioł dostaje nastawy trybu Pellet (zadana, minimum i histereza kotła, start pompy CO),
+                  a potem nastawy trybu Pompa ciepła. Tryb pracy zostaje „Pompa ciepła”.
+                </TipParagraph>
+                <TipParagraph>
+                  Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej {current.hotBoilerFrom ?? 52} °C,
+                  i rusza, gdy kocioł spadnie poniżej {(current.hotBoilerFrom ?? 52) - 2} °C.
                   W trybie Pellet znacznik jest nieaktywny.
                 </TipParagraph>
               </InfoTip>
             </label>
+            {current.pelletCwu.enabled && heatPumpMode && cwuOffInBoiler && (
+              <div className="boiler-error">CWU w kotle jest wyłączone – grzanie peletem nie wystartuje. Włącz CWU w Głównych parametrach.</div>
+            )}
             {current.pelletCwu.phase === 'heating' && (
               <div className="boiler-hint">
                 <strong>Kocioł grzeje CWU peletem</strong> od {formatDateTime(current.pelletCwu.since ?? undefined)}

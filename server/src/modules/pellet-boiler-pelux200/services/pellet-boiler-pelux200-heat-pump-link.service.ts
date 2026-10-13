@@ -7,6 +7,7 @@
 import { DeviceModel } from '../../../core/models/device.model';
 import { BoilerConfig, DefinitionConflictError, DeviceType } from '../../../core/types';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
+import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerMode } from '../types';
 import { boilerMode } from './pellet-boiler-pelux200-settings.service';
 
@@ -21,13 +22,19 @@ export async function linkedHeatPumpRootId(rootId: string): Promise<string | nul
   return (await DeviceModel.exists({ _id: heatPumpRootId, deviceType: DeviceType.HP })) ? heatPumpRootId : null;
 }
 
-// Tryb, w którym kocioł faktycznie działa: z odczytu ustawień (nr 99), bez pompy ciepła zawsze Pellet.
+// Tryb, w którym kocioł faktycznie działa: z odczytu ustawień (nr 99), bez pompy ciepła zawsze Pellet. Wyjątek:
+// w trakcie „CWU z peletu” (faza heating albo cooling, pellet-cwu.service.ts) kocioł ma nastawy trybu Pellet (99 = 65),
+// ale nadal pracuje w trybie Pompa ciepła (2026-10-13). Fazę czyta wprost z bazy (bez importu serwisu cyklu).
 export async function effectiveBoilerMode(
   rootId: string, settings: PelletBoilerSettingsEntry | null,
 ): Promise<PelletBoilerMode | null> {
   const mode = boilerMode(settings);
-  if (mode !== 'heat-pump') return mode;
-  return (await linkedHeatPumpRootId(rootId)) ? 'heat-pump' : 'pellet';
+  if (mode === null) return null;
+  if (!(await linkedHeatPumpRootId(rootId))) return 'pellet';
+  if (mode === 'heat-pump') return 'heat-pump';
+  const phase = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('pelletCwu')
+    .lean<{ pelletCwu?: { phase?: string } }>())?.pelletCwu?.phase;
+  return phase === 'heating' || phase === 'cooling' ? 'heat-pump' : 'pellet';
 }
 
 // checkDefinition rodzaju (core/device-types): odłączenie pompy tylko poza trybem „Pompa ciepła”.

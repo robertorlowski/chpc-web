@@ -168,7 +168,7 @@ const HP: React.FC = () => {
           )}
           {cwuLoading?.pelletBlock && (
             <div className="offline-banner" role="alert">
-              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej {cwuLoading.resumeBelow ?? 48} °C.
+              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej {cwuLoading.resumeBelow ?? 50} °C.
             </div>
           )}
           <div className={`heet${stale ? ' hp-stale-data' : ''}`}>

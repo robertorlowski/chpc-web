@@ -145,6 +145,16 @@
   margin: 0.5rem 0 0;
 }
 
+/* ikona „i” przy etykiecie: bez odstępu przycisków od góry (inaczej jest niżej niż tekst), odstęp od tekstu jak w infoTip.css;
+   mniejsza niż zwykle (16 px), żeby nie dotykała pola pod etykietą */
+.schedule-card .info-tip {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin: 0 0 0 0.35rem;
+  font-size: 10px;
+}
+
 .schedule-form-actions {
   display: flex;
   justify-content: flex-end;

@@ -41,10 +41,11 @@ const PelletBoilerScheduleSettingsSchema = new Schema<PelletBoilerScheduleSettin
   {
     rootId: { type: String, required: true, unique: true },
     enabled: { type: Boolean, default: false },
-    defaults: { 'heat-pump': { ...cwu, season }, pellet: { ...cwu, season } },
+    // cwuUnchanged: CWU poza wpisami „bez zmiany” (harmonogram nie zleca nr 119 i 123)
+    defaults: { 'heat-pump': { ...cwu, season, cwuUnchanged: Boolean }, pellet: { ...cwu, season, cwuUnchanged: Boolean } },
     // nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa
     profiles: { 'heat-pump': { type: Schema.Types.Mixed }, pellet: { type: Schema.Types.Mixed } },
-    lastApplied: { mode, ...cwu, season, seasonScheduleId: String, paused: Boolean, pelletCwu: Boolean },
+    lastApplied: { mode, ...cwu, season, seasonScheduleId: String, paused: Boolean, pelletCwu: Boolean, cwuUnchanged: Boolean },
     lastAppliedAt: { type: Date },
     lastError: { type: String },
     // ładowanie CWU w trybie pompy ciepła (pellet-boiler-pelux200-cwu-loading.service.ts)

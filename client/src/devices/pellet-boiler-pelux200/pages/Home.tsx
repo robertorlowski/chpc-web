@@ -6,13 +6,14 @@
 // pozostałe odczyty. Przy ładowaniu CWU w trybie pompy ciepła pasek „Ładowanie CWU od …” (i „pompa ciepła
 // wyłączona”, gdy pompa jest w trybie OFF), GET /pellet-boiler-pelux200/cwu-loading razem z odczytem.
 // Czerwony komunikat o automatycznym przejściu na Pellet (kocioł rozpalił się w trybie pompy ciepła),
-// GET …/auto-pellet, do kliknięcia „OK” (POST …/auto-pellet/ack).
+// GET …/auto-pellet, do kliknięcia „OK” (POST …/auto-pellet/ack). Na kafelku CWU czerwona informacja, gdy w trybie
+// pompy ciepła zadana CWU jest wyższa niż temperatura włączonej pompy ciepła (GET …/schedules/current, cwuTooHigh).
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { PelletBoilerRequests } from '../api';
 import { FlameIcon, PumpIcon, ValveIcon } from '../components/icons';
 import { AlertsBanner } from '../components/Alerts';
-import { PelletBoilerAutoPellet, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
+import { PelletBoilerAutoPellet, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
   DEFAULT_POLL_SECONDS, todayWarsaw, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
   heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
@@ -73,6 +74,8 @@ export const PelletBoilerHome: React.FC = () => {
   const [pollSeconds, setPollSeconds] = useState(DEFAULT_POLL_SECONDS);
   const [cwuLoading, setCwuLoading] = useState<PelletBoilerCwuLoading | null>(null);
   const [autoPellet, setAutoPellet] = useState<PelletBoilerAutoPellet | null>(null);
+  // stan harmonogramu: ostrzeżenie o zadanej CWU za wysokiej dla pompy ciepła (cwuTooHigh)
+  const [schedule, setSchedule] = useState<PelletBoilerCurrentSchedule | null>(null);
   // spalony pellet dziś i w tym miesiącu (licznik ze sterownika, firmware pieca od 1.7.1)
   const [fuel, setFuel] = useState<{ today: number | null; month: number | null }>({ today: null, month: null });
   const acknowledge = async () => {
@@ -89,6 +92,7 @@ export const PelletBoilerHome: React.FC = () => {
       PelletBoilerRequests.getLast().then((result) => result && setReading(result));
       PelletBoilerRequests.getCwuLoading().then(setCwuLoading);
       PelletBoilerRequests.getAutoPellet().then(setAutoPellet);
+      PelletBoilerRequests.getCurrentSchedule().then(setSchedule);
       const today = todayWarsaw();
       Promise.all([PelletBoilerRequests.getFuel('day', today), PelletBoilerRequests.getFuel('month', today)])
         .then(([day, month]) => setFuel({
@@ -150,7 +154,7 @@ export const PelletBoilerHome: React.FC = () => {
               {stale && <OfflineBanner since={reading?.createdAt} />}
               <AlertsBanner />
               <span className="boiler-chip"><span className="boiler-chip-label">Tryb</span>{summerModeName(settings)}</span>
-              {heatPumpLinked && <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings)}</span>}
+              {heatPumpLinked && <span className="boiler-chip"><span className="boiler-chip-label">Praca</span>{workModeName(settings, schedule?.pelletCwu)}</span>}
               <Pump label="Pompa CO" on={reading.heating_pump} />
               <Pump label="Pompa CWU" on={reading.water_heater_pump} />
             </div>
@@ -162,7 +166,11 @@ export const PelletBoilerHome: React.FC = () => {
                   hysteresis={findParameter(settings, 17)?.value} />
                 <Tile title="CWU" wide={fuel.today === null} current={reading.water_heater_temp} target={reading.water_heater_target}
                   hysteresis={findParameter(settings, 123)?.value}
-                  off={findParameter(settings, 122)?.value === 0 ? 'Wyłączone' : undefined} />
+                  off={findParameter(settings, 122)?.value === 0 ? 'Wyłączone' : undefined}>
+                  {schedule?.cwuTooHigh && (
+                    <div className="boiler-tile-off">Za wysoka temp. CWU</div>
+                  )}
+                </Tile>
                 {/* spalony pellet jak kafelek CWU: dziś duża liczba, pod nią miesiąc (licznik ze sterownika od 1.7.1) */}
                 {fuel.today !== null && (
                   <div className="boiler-tile boiler-fuel-tile">

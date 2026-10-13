@@ -1,6 +1,9 @@
 // Parser operacji z chmury. Zakresy: temp_min/temp_max 1–50 (zaokrąglane do
 // stopni), working_watt 0–25599, eev_max/min_pulse_open 0–255, eev_setpoint
 // 0,1–8, tank_liters 20–2000. Ostateczne limity stosuje dopiero CHPC.
+// UWAGA: podniesienie maksymalnej temperatury pompy powyżej 50 °C wymaga podniesienia progu wstrzymania pompy przy gorącym kotle
+// (BOILER_BLOCK_FROM 52 °C = maks. 50 + 2, server/src/modules/heat-pump/services/cwu-loading.service.ts), inaczej pompa
+// zatrzyma się na wodzie, którą sama nagrzała.
 // Zgodność ze starszym serwerem (do 1.1.x): work_mode M / CWU / PV = MANUAL, A = AUTO; bez temp_min /
 // temp_max temperatura z pary cwu_* (tryb CWU) albo co_* (pozostałe). co_pomp jest pomijane (przekaźników
 // CO/CWU już nie ma).

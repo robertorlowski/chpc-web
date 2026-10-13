@@ -206,7 +206,7 @@ export type HpCwuLoading = {
   pumpOff: boolean;
   /** pompa wstrzymana przez kocioł (pali, ma ≥ blockFrom albo grzeje CWU peletem): sterownik dostaje OFF do kotła < resumeBelow */
   pelletBlock?: boolean;
-  /** próg z Ustawień pompy (domyślnie 50 °C) i temperatura kotła, poniżej której pompa rusza (2 °C niżej) */
+  /** próg wstrzymania przy gorącym kotle (52 °C) i temperatura kotła, poniżej której pompa rusza (50 °C) */
   blockFrom?: number;
   resumeBelow?: number;
 };

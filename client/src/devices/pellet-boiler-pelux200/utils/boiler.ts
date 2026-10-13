@@ -1,5 +1,5 @@
 // Pomocnicze funkcje widoków kotła pelletowego: nazwy stanów, formaty, nieaktualność, CSV.
-import { PelletBoilerParameter, PelletBoilerReading, PelletBoilerSettings } from '../types';
+import { PelletBoilerParameter, PelletBoilerPelletCwu, PelletBoilerReading, PelletBoilerSettings } from '../types';
 
 const TIME_ZONE = 'Europe/Warsaw';
 
@@ -56,10 +56,14 @@ export const summerModeName = (settings: PelletBoilerSettings | null) => {
 };
 
 // Tryb pracy z ustawień (kociol-ustawienia.md, punkt 4b): minimalna temperatura kotła (nr 99)
-// 30 °C w zestawie „bez palenia” (pompa ciepła), 65 °C przy pracy na pellecie. Granica 50 °C.
-export const workModeName = (settings: PelletBoilerSettings | null) => {
+// 30 °C w zestawie „bez palenia” (pompa ciepła), 65 °C przy pracy na pellecie. Granica 50 °C. W trakcie „CWU z peletu”
+// (faza heating albo cooling, GET …/schedules/current) kocioł ma nastawy Pellet, ale pracuje w trybie Pompa ciepła
+// (jak effectiveBoilerMode na serwerze).
+export const workModeName = (settings: PelletBoilerSettings | null, pelletCwu?: PelletBoilerPelletCwu | null) => {
   const parameter = findParameter(settings, 99);
-  return parameter ? (parameter.value < 50 ? 'Pompa ciepła' : 'Pellet') : '---';
+  if (!parameter) return '---';
+  if (pelletCwu?.phase === 'heating' || pelletCwu?.phase === 'cooling') return 'Pompa ciepła';
+  return parameter.value < 50 ? 'Pompa ciepła' : 'Pellet';
 };
 
 // Kocioł się pali: stabilizacja, rozpalanie, praca, nadzór i wygaszanie (płomień na stronie głównej).

@@ -46,10 +46,10 @@ export interface DeviceProperties {
   compressor_seconds?: number;
   // kocioł pelletowy Pellux 200: odstęp odpytywania regulatora [s], 30–3600
   poll_interval_seconds?: number;
+  // kocioł pelletowy: cena pelletu [zł/t] do kosztu ogrzewania (wykres „Spalony pellet”)
+  pellet_price_per_ton?: number;
   // włącznik: domyślny czas „Włącz” [min] (0 = bez limitu), podpowiadany w aplikacji i na stronie sterownika
   default_on_minutes?: number;
-  // pompa ciepła powiązana z kotłem: pompa stoi, gdy kocioł ma co najmniej tyle [°C] (rusza 2 °C niżej), 40–70
-  boiler_block_temp?: number;
 }
 
 // Definicja pompy ciepła (okno „Dane sterownika”), ustawiana raz przy montażu; nie zmienia trybu
