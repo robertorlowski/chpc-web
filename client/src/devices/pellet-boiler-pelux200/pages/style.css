@@ -915,3 +915,9 @@
 .boiler-price input {
   width: 7rem;
 }
+
+/* dopisek pod nagłówkiem kotła: brak danych z pompy ciepła w trybie Pompa ciepła */
+.boiler-title-note {
+  margin: -0.6rem 0 0.6rem;
+  text-align: center;
+}
