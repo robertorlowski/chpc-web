@@ -1,13 +1,17 @@
 // Zakładka Wykres kotła pelletowego (/chart): temperatury z wybranego dnia (GET /pellet-boiler-pelux200/list,
-// co interwał odpytywania sterownika). Serie: kocioł, CWU, mieszacz 1 (CO), mieszacz 2 i zewnętrzna; domyślnie
+// co interwał odpytywania sterownika) albo spalony pellet z kosztem ogrzewania (cena pelletu w ustawieniach kotła,
+// properties.pellet_price_per_ton, pole pod wykresem; od 2026-10-13). Serie: kocioł, CWU, mieszacz 1 (CO), mieszacz 2 i zewnętrzna; domyślnie
 // wszystkie poza zewnętrzną (decyzja użytkownika 2026-10-13), przełącznikami do ukrycia. Dane pobierane przy wejściu
 // i zmianie daty, bez odświeżania cyklicznego. Karta na całe okno (useFillHeight, klasa fill-page):
 // wykres wypełnia miejsce między wyborem dnia a przełącznikami serii. Oś X to czas (liczba ms), nie kolejne
 // odczyty: od 2026-10-07 serwer nie zapisuje identycznych odczytów (seria = rekord początkowy i końcowy, nowy
 // co najwyżej co 10 min), więc odstępy między punktami są nierówne.
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
+import { DeviceRequests } from '../../../core/api';
+import Notification, { useSaveNotice } from '../../../core/components/Notification';
+import { DeviceProperties } from '../../../core/types';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerFuel, PelletBoilerFuelPeriod, PelletBoilerReading } from '../types';
 import { formatNumber, formatTemp, todayWarsaw } from '../utils/boiler';
@@ -31,12 +35,30 @@ const PERIODS: { key: PelletBoilerFuelPeriod; label: string }[] = [
   { key: 'day', label: 'Dzień' }, { key: 'month', label: 'Miesiąc' }, { key: 'year', label: 'Rok' },
 ];
 
+// cena pelletu [zł/t], gdy kocioł nie ma jej w ustawieniach (serwer: DEFAULT_PELLET_PRICE_PER_TON)
+const DEFAULT_PRICE_PER_TON = 2000;
+const MAX_PRICE_PER_TON = 100000;
+const formatMoney = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 // Widok „Pellet”: spalony pellet [kg] w godzinach dnia, dniach miesiąca albo miesiącach roku (GET …/fuel,
 // licznik ze sterownika od firmware 1.7.1). Szacunek regulatora z pracy podajnika — dokładność zależy od kalibracji.
+// Pod nim koszt ogrzewania [zł] = kg / 1000 × aktualna cena pelletu (cała historia liczona tą samą ceną).
 const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = ({ date, setDate }) => {
   const [period, setPeriod] = useState<PelletBoilerFuelPeriod>('day');
   const [fuel, setFuel] = useState<PelletBoilerFuel | null | undefined>(undefined);
   const [yearText, setYearText] = useState<string | null>(null);
+  // cena pelletu z ustawień kotła; serwer zastępuje całe properties, więc zapis rozszerza wczytany obiekt
+  const [properties, setProperties] = useState<DeviceProperties | null>(null);
+  const [priceText, setPriceText] = useState('');
+  const [priceError, setPriceError] = useState('');
+  const { notice, showNotice, run, busy } = useSaveNotice();
+  useEffect(() => {
+    DeviceRequests.getDeviceProperties().then((result) => {
+      setProperties(result ?? {});
+      setPriceText(String(result?.pellet_price_per_ton ?? DEFAULT_PRICE_PER_TON));
+    });
+  }, []);
+  const price = properties?.pellet_price_per_ton ?? DEFAULT_PRICE_PER_TON;
   useEffect(() => {
     setFuel(undefined);
     PelletBoilerRequests.getFuel(period, date).then(setFuel);
@@ -44,7 +66,23 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
   const data = (fuel?.buckets ?? []).map((bucket) => ({
     label: period === 'day' ? String(bucket.key) : period === 'month' ? String(bucket.key) : MONTHS[bucket.key - 1],
     kg: bucket.kg,
+    cost: Math.round(bucket.kg * price / 10) / 100,
   }));
+  const savePrice = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = Number(priceText.replace(',', '.'));
+    if (priceText.trim() === '' || !Number.isFinite(value) || value < 0 || value > MAX_PRICE_PER_TON) {
+      return setPriceError(`Cena pelletu: liczba 0–${MAX_PRICE_PER_TON} zł za tonę.`);
+    }
+    setPriceError('');
+    await run(async () => { try {
+      const saved = await DeviceRequests.updateDeviceProperties({ ...(properties ?? {}), pellet_price_per_ton: value });
+      setProperties(saved);
+      showNotice('Cena pelletu zapisana.');
+    } catch {
+      setPriceError('Nie udało się zapisać ceny pelletu.');
+    } });
+  };
   return (
     <>
       <div className="boiler-toolbar">
@@ -68,20 +106,47 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
       {fuel && fuel.counterKg === null && <div className="fill-area">Brak licznika pelletu w tym okresie (sterownik od wersji 1.7.1).</div>}
       {fuel && fuel.counterKg !== null && (
         <>
-          <div className="boiler-hint">Razem: <strong>{formatNumber(fuel.totalKg)} kg</strong></div>
+          <div className="boiler-hint">
+            Razem: <strong>{formatNumber(fuel.totalKg)} kg</strong> · koszt <strong>{formatMoney(fuel.totalKg * price / 1000)} zł</strong>
+            {' '}(cena {formatNumber(price)} zł/t)
+          </div>
+          <div className="boiler-chart-title">Spalony pellet [kg]</div>
           <div className="boiler-chart fill-area">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={8} />
-                <YAxis width={44} unit=" kg" />
+                <YAxis width={48} tickFormatter={(value) => formatNumber(Number(value))} />
                 <Tooltip formatter={(value) => [`${formatNumber(Number(value))} kg`, 'Pellet']} />
                 <Bar dataKey="kg" fill="#b5651d" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="boiler-chart-title">Koszt ogrzewania [zł]</div>
+          <div className="boiler-chart fill-area">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={8} />
+                <YAxis width={48} tickFormatter={(value) => formatNumber(Number(value))} />
+                <Tooltip formatter={(value) => [`${formatMoney(Number(value))} zł`, 'Koszt']} />
+                <Bar dataKey="cost" fill="#1481a5" isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </>
       )}
+      {/* cena pelletu: przycisk zapisu skrajnie z prawej */}
+      <form className="boiler-price" onSubmit={savePrice}>
+        <label>
+          Cena pelletu [zł/t]
+          <input type="number" min={0} max={MAX_PRICE_PER_TON} step="any" value={priceText} disabled={properties === null}
+            onChange={(event) => setPriceText(event.currentTarget.value)} />
+        </label>
+        <button type="submit" disabled={busy || properties === null}>Zapisz</button>
+      </form>
+      {priceError && <div className="boiler-error">{priceError}</div>}
+      <Notification message={notice} />
     </>
   );
 };

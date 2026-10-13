@@ -8,8 +8,11 @@ import { plannedScheduleOperations } from './services/pellet-boiler-pelux200-sch
 // Co minutę (od 2026-10-05, cykl Zimy w trybie pompy ciepła reaguje na temperaturę kotła; wcześniej 5 min);
 // zakres 30–3600 s pilnuje schemat properties (core/models/device.model.ts).
 export const DEFAULT_POLL_INTERVAL_SECONDS = 60;
+// cena pelletu [zł/t] do kosztu ogrzewania na wykresie (decyzja użytkownika 2026-10-13: 2000 zł za tonę)
+export const DEFAULT_PELLET_PRICE_PER_TON = 2000;
 export const DEFAULT_PELLET_BOILER_PELUX200_PROPERTIES: DeviceProperties = {
   poll_interval_seconds: DEFAULT_POLL_INTERVAL_SECONDS,
+  pellet_price_per_ton: DEFAULT_PELLET_PRICE_PER_TON,
 };
 
 export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
@@ -26,5 +29,8 @@ export const pelletBoilerPelux200DeviceType: DeviceTypeModule = {
   tile: pelletBoilerTile,
   // dziennik operacji: przejścia harmonogramu do końca doby
   plannedOperations: plannedScheduleOperations,
-  propertyLabels: { poll_interval_seconds: { label: 'Odpytywanie pieca', unit: 's' } },
+  propertyLabels: {
+    poll_interval_seconds: { label: 'Odpytywanie pieca', unit: 's' },
+    pellet_price_per_ton: { label: 'Cena pelletu', unit: 'zł/t' },
+  },
 };

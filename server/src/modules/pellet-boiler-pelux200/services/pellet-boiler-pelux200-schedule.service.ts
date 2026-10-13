@@ -26,6 +26,10 @@
 // Co minutę też ładowanie CWU (pellet-boiler-pelux200-cwu-loading.service.ts: pompa ciepła 47–49 °C) i CWU z peletu
 // w trybie pompy ciepła (pellet-boiler-pelux200-pellet-cwu.service.ts); przy jego znaczniku CWU od–do jest z trybu Pellet.
 // Tu są też nastawy trybów (profiles), które aplikacja zleca po wyborze „Pompa ciepła” / „Pellet”.
+// CWU poza harmonogramem może być „bez zmiany” (defaults[mode].cwuUnchanged, 2026-10-13): poza wpisami CWU
+// harmonogram nie zleca nr 119 i 123 i nie przywraca CWU zmienionego na panelu (także w trybie pompy ciepła);
+// zostaje zadana z panelu albo z ostatniego wpisu. Zadaną wyższą niż temperatura, do której grzeje włączona pompa ciepła
+// (heatPumpCwuMax), aplikacja pokazuje na czerwono z getCurrentSchedule (cwuTooHigh).
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { scheduleDayMatches } from '../../../core/services/calendar.service';
 import { TIME_ZONE } from '../../../core/time';
@@ -45,9 +49,11 @@ import { appUserMeta, systemMeta } from '../../../core/services/operation-log.se
 import { boilerMode, buildSettingsView } from './pellet-boiler-pelux200-settings.service';
 import { getPelletBoilerPelux200Last } from './pellet-boiler-pelux200.service';
 import { evaluateCwuLoading } from './pellet-boiler-pelux200-cwu-loading.service';
-import { HeatPumpControl, SUMMER_BELOW, WINTER_FROM, heatPumpControl, runWinterCycle, stopWinterCycle } from './pellet-boiler-pelux200-winter-cycle.service';
+import {
+  HeatPumpControl, SUMMER_BELOW, WINTER_FROM, heatPumpControl, heatPumpCwuMax, runWinterCycle, stopWinterCycle,
+} from './pellet-boiler-pelux200-winter-cycle.service';
 import { PelletBoilerCommandModel } from '../models/pellet-boiler-pelux200-command.model';
-import { effectiveBoilerMode, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
+import { effectiveBoilerMode, linkedHeatPumpRootId, migrateBoilerDefinitions } from './pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletCwu, runPelletCwu } from './pellet-boiler-pelux200-pellet-cwu.service';
 import { getPendingTurnOn, runPendingTurnOn } from './pellet-boiler-pelux200-turn-on.service';
 
@@ -165,7 +171,11 @@ export function parseScheduleSettings(body: unknown): Omit<PelletBoilerScheduleS
     if (season !== undefined && season !== null && !SEASONS.includes(season as PelletBoilerSeason)) {
       return 'Sezon poza harmonogramem: winter albo summer.';
     }
-    result.defaults[mode] = { ...range, ...(season ? { season: season as PelletBoilerSeason } : {}) };
+    const unchanged = defaults[mode]?.cwuUnchanged;
+    if (unchanged !== undefined && unchanged !== null && typeof unchanged !== 'boolean') return 'cwuUnchanged: true albo false.';
+    result.defaults[mode] = {
+      ...range, ...(season ? { season: season as PelletBoilerSeason } : {}), ...(unchanged ? { cwuUnchanged: true } : {}),
+    };
     const profile = profiles[mode] ?? {};
     if (typeof profile !== 'object' || Array.isArray(profile)) return 'profiles: obiekt klucz → wartość.';
     const clean: PelletBoilerProfile = {};
@@ -246,13 +256,15 @@ export function scheduleState(
     cwuTo: entry?.cwuTo ?? defaults.cwuTo,
     ...(season ? { season } : {}),
     seasonScheduleId,
+    // poza wpisami CWU „bez zmiany”: CWU zostaje w kotle
+    ...(!entry && defaults.cwuUnchanged ? { cwuUnchanged: true } : {}),
   };
   return { state, scheduleId: entry?._id ? String(entry._id) : null, seasonScheduleId };
 }
 
 const sameState = (a?: PelletBoilerScheduleState, b?: PelletBoilerScheduleState) =>
   !!a && !!b && a.mode === b.mode && a.cwuFrom === b.cwuFrom && a.cwuTo === b.cwuTo && a.season === b.season
-  && !!a.paused === !!b.paused && !!a.pelletCwu === !!b.pelletCwu;
+  && !!a.paused === !!b.paused && !!a.pelletCwu === !!b.pelletCwu && !!a.cwuUnchanged === !!b.cwuUnchanged;
 
 // Stan harmonogramu teraz: wpisy i ustawienie poza harmonogramem trybu, sezon z przycisku, a przy znaczniku
 // „Grzej CWU peletem” (tryb pompy ciepła) CWU od–do z trybu Pellet.
@@ -266,7 +278,11 @@ async function currentState(
   if (manual) state = { ...state, season: manual };
   if (mode === 'heat-pump' && (await getPelletCwu(rootId)).enabled) {
     const pellet = scheduleState(settings, entries, 'pellet', now).state;
-    state = { ...state, cwuFrom: pellet.cwuFrom, cwuTo: pellet.cwuTo, pelletCwu: true };
+    const { cwuUnchanged: _unchanged, ...withoutUnchanged } = state;
+    state = {
+      ...withoutUnchanged, cwuFrom: pellet.cwuFrom, cwuTo: pellet.cwuTo, pelletCwu: true,
+      ...(pellet.cwuUnchanged ? { cwuUnchanged: true } : {}),
+    };
   }
   return state;
 }
@@ -320,13 +336,25 @@ export async function setManualSeason(rootId: string, season: PelletBoilerSeason
   await applySchedule(rootId, now, pump);
 }
 
+// CWU ustawione teraz w kotle: zadana (nr 119; z ostatniego odczytu kotła, bez niego z odczytu ustawień) i „od”
+// = zadana − histereza (nr 123). Dla CWU „bez zmiany” (progi „CWU - grzanie peletem”, ostrzeżenie w aplikacji).
+export async function boilerCwuSetting(rootId: string, boiler: PelletBoilerSettingsEntry | null): Promise<Partial<PelletBoilerCwuRange>> {
+  const target = (await getPelletBoilerPelux200Last(rootId))?.water_heater_target ?? (boiler ? currentParameter(boiler, 119) : undefined);
+  const hysteresis = boiler ? currentParameter(boiler, 123) : undefined;
+  if (typeof target !== 'number') return {};
+  return { cwuTo: target, ...(typeof hysteresis === 'number' ? { cwuFrom: target - hysteresis } : {}) };
+}
+
 // Zmiany dla regulatora (sezon i CWU w jednym zleceniu): tylko pola różne od ostatniego odczytu ustawień kotła.
+// CWU „bez zmiany” poza wpisami: bez nr 119 i 123.
 function changesFor(state: PelletBoilerScheduleState, settings: PelletBoilerSettingsEntry): PelletBoilerCommandChange[] {
   const current = (index: number) => currentParameter(settings, index);
   const wanted: PelletBoilerCommandChange[] = [
     ...(state.season ? [{ kind: 'ecomax' as const, index: SEASON_PARAMETER, value: SEASON_VALUE[state.season] }] : []),
-    { kind: 'ecomax', index: 119, value: state.cwuTo },
-    { kind: 'ecomax', index: 123, value: state.cwuTo - state.cwuFrom },
+    ...(state.cwuUnchanged ? [] : [
+      { kind: 'ecomax' as const, index: 119, value: state.cwuTo },
+      { kind: 'ecomax' as const, index: 123, value: state.cwuTo - state.cwuFrom },
+    ]),
   ];
   return wanted.filter((change) => current(change.index) !== change.value);
 }
@@ -407,7 +435,9 @@ export async function applySchedule(rootId: string, now = new Date(), pump: Heat
 // Tryb pompy ciepła: CWU zmienione na panelu wraca do harmonogramu. Zadaną kocioł podaje w każdym odczycie
 // (water_heater_target), histerezę tylko w odczycie ustawień. Nie częściej niż co CWU_RESTORE_AFTER_MS
 // od ostatniego zlecenia CWU (odczyt tuż po zapisie może jeszcze mieć starą wartość).
+// CWU „bez zmiany” poza wpisami: nic nie przywraca.
 async function restoreCwu(rootId: string, state: PelletBoilerScheduleState, boiler: PelletBoilerSettingsEntry, now: Date) {
+  if (state.cwuUnchanged) return;
   // zlecenie CWU w toku albo świeże: najpierw jego wynik i nowy odczyt
   const recent = await PelletBoilerCommandModel.exists({
     rootId, kind: 'ecomax', index: { $in: [119, 123] },
@@ -450,8 +480,10 @@ async function transitionMeta(
     reasons.push(manual?.season === state.season ? 'sezon z przycisku w Ustawieniach'
       : seasonEntry ? `wpis sezonu ${window(seasonEntry)}` : 'sezon poza harmonogramem');
   }
-  if (state.cwuFrom !== last?.cwuFrom || state.cwuTo !== last?.cwuTo || !!state.pelletCwu !== !!last?.pelletCwu) {
-    reasons.push(state.pelletCwu ? 'CWU z peletu (wartości trybu Pellet)'
+  if (state.cwuFrom !== last?.cwuFrom || state.cwuTo !== last?.cwuTo || !!state.pelletCwu !== !!last?.pelletCwu
+    || !!state.cwuUnchanged !== !!last?.cwuUnchanged) {
+    reasons.push(state.cwuUnchanged ? 'CWU poza harmonogramem: bez zmiany (zostaje zadana z kotła)'
+      : state.pelletCwu ? 'CWU z peletu (wartości trybu Pellet)'
       : cwuEntry ? `wpis CWU ${window(cwuEntry)}` : 'CWU poza harmonogramem');
   }
   const conditions = [`tryb ${MODE_NAMES[mode]}`];
@@ -495,7 +527,11 @@ export async function plannedScheduleOperations(rootId: string, now: Date, dayEn
     const after = stateAt(time + 1000);
     const actions: string[] = [];
     if (after.season && after.season !== before.season) actions.push(`Sezon: ${SEASON_NAMES_PL[before.season ?? 'summer']} → ${SEASON_NAMES_PL[after.season]}`);
-    if (after.cwu.cwuFrom !== before.cwu.cwuFrom || after.cwu.cwuTo !== before.cwu.cwuTo) actions.push(`CWU od–do: ${after.cwu.cwuFrom}–${after.cwu.cwuTo} °C`);
+    if (after.cwu.cwuUnchanged) {
+      if (!before.cwu.cwuUnchanged) actions.push('CWU: bez zmiany (zostaje zadana z kotła)');
+    } else if (before.cwu.cwuUnchanged || after.cwu.cwuFrom !== before.cwu.cwuFrom || after.cwu.cwuTo !== before.cwu.cwuTo) {
+      actions.push(`CWU od–do: ${after.cwu.cwuFrom}–${after.cwu.cwuTo} °C`);
+    }
     if (!actions.length) continue;
     const local = formatInTimeZone(new Date(time), TIME_ZONE, 'HH:mm');
     const touched = boundaries.get(time) ?? [];
@@ -618,12 +654,20 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const pelletCwu = await getPelletCwu(rootId);
   // pendingTurnOn: włączenie regulatora czeka na nagrzanie kotła (turn-on.service.ts)
   const pendingTurnOn = await getPendingTurnOn(rootId);
-  // hotBoilerFrom: pompa ciepła stoi przy kotle od tej temperatury (ustawienia pompy; opis znacznika CWU z peletu)
+  // hotBoilerFrom: pompa ciepła stoi przy kotle od tej temperatury (z odpowiedzi pompy; opis znacznika CWU z peletu)
   const hotBoilerFrom = (await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('cwuLoading')
-    .lean<{ cwuLoading?: { hotBoilerFrom?: number } }>())?.cwuLoading?.hotBoilerFrom ?? 50;
+    .lean<{ cwuLoading?: { hotBoilerFrom?: number } }>())?.cwuLoading?.hotBoilerFrom ?? 52;
+  // boilerCwu: CWU ustawione teraz w kotle (dla „CWU bez zmiany”); heatPumpCwuMax: do ilu grzeje włączona pompa ciepła
+  // powiązana z kotłem (null: wyłączona, offline, brak pompy); cwuTooHigh: tryb pompy ciepła (bez „CWU - grzanie peletem”)
+  // z zadaną CWU wyższą niż heatPumpCwuMax — czerwona informacja w aplikacji (harmonogram i ekran kotła)
+  const boilerCwu = await boilerCwuSetting(rootId, boiler);
+  const heatPump = mode === 'heat-pump' && !pelletCwu.enabled ? await linkedHeatPumpRootId(rootId) : null;
+  const pumpCwuMax = heatPump ? await heatPumpCwuMax(heatPump).catch(() => null) : null;
+  const cwuTooHigh = pumpCwuMax !== null && typeof boilerCwu.cwuTo === 'number' && boilerCwu.cwuTo > pumpCwuMax;
   // outdoorTemperature: temperatura zewnętrzna z czujnika kotła (ostatni odczyt) dla zakładki Harmonogram
   return {
     enabled: settings.enabled, mode, ...current, outdoorTemperature: outdoor,
+    boilerCwu, cwuTooHigh, heatPumpCwuMax: pumpCwuMax,
     winterCycle: saved?.winterCycle ?? null, manualSeason: saved?.manualSeason?.season ?? null,
     // do kiedy działa sezon z przycisku (null: do zmiany sezonu w harmonogramie albo kolejnego naciśnięcia)
     manualSeasonUntil: saved?.manualSeason ? saved.manualSeason.until ?? null : null, pelletCwu, pendingTurnOn, hotBoilerFrom,

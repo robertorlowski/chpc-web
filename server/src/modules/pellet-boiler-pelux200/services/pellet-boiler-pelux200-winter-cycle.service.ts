@@ -43,7 +43,7 @@ const tempText = (value: number | null | undefined) =>
   typeof value === 'number' ? `${value.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C` : 'brak odczytu';
 export const WINTER_BELOW_PUMP_MAX = 3;
 export const SUMMER_BELOW = 30;
-// powyżej progu Lata; poniżej 50 °C, od którego pompa ciepła jest blokowana (kocioł gorący, ładowanie CWU)
+// powyżej progu Lata; poniżej maks. temperatury pompy ciepła (50 °C; od 52 °C pompa jest blokowana: kocioł gorący)
 const WINTER_FROM_MIN = SUMMER_BELOW + 1;
 const WINTER_FROM_MAX = 49;
 // bez HP.Tmin w telemetrii pompy
@@ -92,6 +92,21 @@ async function freshPumpData(heatPumpRootId: string) {
   };
   const at = telemetryTime(data);
   return data.HP && at && Date.now() - at.getTime() <= PUMP_DATA_MAX_AGE_MS ? data.HP : null;
+}
+
+// Do jakiej temperatury pompa ciepła grzeje CWU (ostrzeżenie o za wysokiej zadanej CWU w kotle): ze świeżej telemetrii
+// włączonej pompy (work_mode ≠ OFF) temp_max (co od 1.2.0: jedna nastawa dla CO i CWU), u starszego co cwu_max,
+// bez nich HP.Tmax. null: pompa wyłączona, offline albo bez tych pól.
+export async function heatPumpCwuMax(heatPumpRootId: string): Promise<number | null> {
+  const response = await fetch(`${internalApiUrl()}/hp?rootId=${encodeURIComponent(heatPumpRootId)}`);
+  if (!response.ok) return null;
+  const data = await response.json() as {
+    work_mode?: unknown; temp_max?: unknown; cwu_max?: unknown; HP?: { Tmax?: unknown }; createdAt?: string; time?: string;
+  };
+  const at = telemetryTime(data);
+  if (!at || Date.now() - at.getTime() > PUMP_DATA_MAX_AGE_MS || !data.work_mode || data.work_mode === 'OFF') return null;
+  const value = [data.temp_max, data.cwu_max, data.HP?.Tmax].map(Number).find((n) => Number.isFinite(n) && n > 0);
+  return value ?? null;
 }
 
 export const heatPumpControl: HeatPumpControl = {

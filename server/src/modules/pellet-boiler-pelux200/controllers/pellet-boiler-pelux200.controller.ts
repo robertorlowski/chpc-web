@@ -26,7 +26,7 @@ import { FuelPeriod, fuelWindow, getFuelSummary } from '../services/pellet-boile
 import { evaluateCwuLoading, getCwuLoadingState } from '../services/pellet-boiler-pelux200-cwu-loading.service';
 import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../services/pellet-boiler-pelux200-auto-pellet.service';
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
-import { setPelletCwuEnabled } from '../services/pellet-boiler-pelux200-pellet-cwu.service';
+import { pelletCwuModeChanged, setPelletCwuEnabled } from '../services/pellet-boiler-pelux200-pellet-cwu.service';
 import { describeIgnition, predictIgnition, turnOnAction, turnOnCheck } from '../services/pellet-boiler-pelux200-turn-on.service';
 import { PelletBoilerCommandChange } from '../types';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
@@ -160,7 +160,10 @@ export async function addPelletBoilerPelux200Commands(req: Request, res: Respons
       if (check) return res.status(409).json({ message: describeIgnition(check), turnOn: check });
     }
     const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim().slice(0, 200) : 'Zmiana w Ustawieniach.';
-    return res.status(201).json(await createCommands(req.deviceRootId as string, req.body, appUserMeta('Ustawienia', reason)));
+    const created = await createCommands(req.deviceRootId as string, req.body, appUserMeta('Ustawienia', reason));
+    // wybór trybu pracy (nr 99) w trakcie „CWU z peletu” kończy cykl bez przywracania nastaw
+    if (Array.isArray(changes)) await pelletCwuModeChanged(req.deviceRootId as string, changes as PelletBoilerCommandChange[]);
+    return res.status(201).json(created);
   } catch (error) {
     return commandError(res, error);
   }

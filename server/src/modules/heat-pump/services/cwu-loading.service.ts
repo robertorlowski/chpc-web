@@ -8,7 +8,6 @@
 import { CwuLoadingEntry, CwuLoadingModel } from '../models/cwu-loading.model';
 import { OperationEntry } from '../types';
 import { getEffectiveWorkMode, setCwuLoadingOperation } from './operation.service';
-import { DeviceModel } from '../../../core/models/device.model';
 import { noteOperationChange } from './hp-operation-log.service';
 import { systemMeta } from '../../../core/services/operation-log.service';
 import { OperationMeta } from '../../../core/types';
@@ -27,23 +26,20 @@ function loadingMeta(entry: CwuLoadingEntry | null, now: Date): OperationMeta {
 }
 
 export const CWU_LOADING_OPERATION: OperationEntry = { co_min: '47', co_max: '49', cwu_min: '47', cwu_max: '49' };
-// CWU z peletu w kotle (moduł kotła, pellet-cwu.service.ts): od rozpalenia do ostygnięcia kotła poniżej 50 °C
+// CWU z peletu w kotle (moduł kotła, pellet-cwu.service.ts): od rozpalenia do ostygnięcia kotła poniżej BOILER_BLOCK_FROM
 // pompa jest wyłączona — gorąca woda z kotła w skraplaczu zatrzymałaby sprężarkę błędem Tho. Nadpisanie
 // wygrywa z ładowaniem i ręcznymi polami; po nim wraca harmonogram (work_mode i wymuszenie).
 export const PELLET_BLOCK_OPERATION: OperationEntry = { work_mode: 'OFF', force: '0' };
 export const CWU_LOADING_TTL_MS = 15 * 60 * 1000;
-// Wstrzymanie przy gorącym kotle (zasada z 2026-10-10, liczy moduł kotła): pompa stoi, gdy kocioł ma co najmniej
-// boiler_block_temp z ustawień pompy (domyślnie 50 °C), i rusza BOILER_BLOCK_HYSTERESIS niżej. Kocioł dostaje próg
-// w odpowiedzi na PUT /hp/cwu-loading (blockFrom), więc zmiana działa od jego następnego zgłoszenia (do minuty).
-export const DEFAULT_BOILER_BLOCK_FROM = 50;
+// Wstrzymanie przy gorącym kotle (zasada z 2026-10-10, liczy moduł kotła): pompa stoi, gdy kocioł się pali albo ma
+// co najmniej BOILER_BLOCK_FROM, i rusza poniżej BOILER_BLOCK_FROM − BOILER_BLOCK_HYSTERESIS (52 / 50 °C; do 2026-10-13
+// 50 / 48 °C i przez chwilę pole w Ustawieniach pompy). Kocioł dostaje próg w odpowiedzi na PUT /hp/cwu-loading (blockFrom).
+// Próg = najwyższa temperatura, do której pompa może grzać (50 °C: aplikacja, serwer PUMP_TEMPERATURE_MAX, co i CHPC
+// T_SETPOINT_MAX), + 2 °C, żeby pompa nie zatrzymała się na wodzie, którą sama nagrzała.
+// UWAGA: podniesienie maksymalnej temperatury pompy powyżej 50 °C wymaga podniesienia BOILER_BLOCK_FROM (maks. + 2 °C)
+// i wartości zapasowych w module kotła (HOT_BOILER_FROM, PELLET_CWU_PUMP_BLOCK_BELOW).
+export const BOILER_BLOCK_FROM = 52;
 export const BOILER_BLOCK_HYSTERESIS = 2;
-export const BOILER_BLOCK_MIN = 40;
-export const BOILER_BLOCK_MAX = 70;
-
-export async function getBoilerBlockFrom(rootId: string): Promise<number> {
-  const device = await DeviceModel.findById(rootId).select('properties.boiler_block_temp').lean<{ properties?: { boiler_block_temp?: number } }>();
-  return device?.properties?.boiler_block_temp ?? DEFAULT_BOILER_BLOCK_FROM;
-}
 
 export type CwuLoadingStatus = {
   active: boolean;
@@ -66,13 +62,12 @@ const isBlocked = (entry: CwuLoadingEntry | null, now: Date) => !!entry?.pelletB
 const overrideOf = (entry: CwuLoadingEntry | null, now: Date) =>
   isBlocked(entry, now) ? PELLET_BLOCK_OPERATION : isActive(entry, now) ? CWU_LOADING_OPERATION : undefined;
 
-const statusOf = async (rootId: string, entry: CwuLoadingEntry | null, now: Date): Promise<CwuLoadingStatus> => {
+const statusOf = (rootId: string, entry: CwuLoadingEntry | null, now: Date): CwuLoadingStatus => {
   const active = isActive(entry, now);
-  const blockFrom = await getBoilerBlockFrom(rootId);
   return {
     active, since: active && entry?.since ? new Date(entry.since) : null,
     pumpOff: getEffectiveWorkMode(rootId) === 'OFF', pelletBlock: isBlocked(entry, now),
-    blockFrom, resumeBelow: blockFrom - BOILER_BLOCK_HYSTERESIS,
+    blockFrom: BOILER_BLOCK_FROM, resumeBelow: BOILER_BLOCK_FROM - BOILER_BLOCK_HYSTERESIS,
   };
 };
 
@@ -94,7 +89,7 @@ export async function setCwuLoading(rootId: string, active: boolean, since: Date
   const entry = await CwuLoadingModel.findOne({ rootId }).lean<CwuLoadingEntry>();
   setCwuLoadingOperation(rootId, overrideOf(entry, now));
   await noteOperationChange(rootId, loadingMeta(entry, now));
-  return { changed: wasActive !== active || wasBlocked !== isBlocked(entry, now), status: await statusOf(rootId, entry, now) };
+  return { changed: wasActive !== active || wasBlocked !== isBlocked(entry, now), status: statusOf(rootId, entry, now) };
 }
 
 // Pompa CO kotła (zgłaszana razem z ładowaniem CWU): co od 1.2.0 nie liczy wtedy COP (cop_pause,

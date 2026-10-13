@@ -29,15 +29,12 @@ const DevicePropertiesSchema = new Schema<DeviceProperties>(
       type: Number, min: 30, max: 3600,
       validate: { validator: Number.isInteger, message: 'poll_interval_seconds: pełne sekundy 30–3600.' },
     },
+    // kocioł pelletowy: aktualna cena pelletu [zł/t] do kosztu ogrzewania na wykresie (2026-10-13, domyślnie 2000)
+    pellet_price_per_ton: { type: Number, min: 0, max: 100000 },
     // włącznik: domyślny czas włączenia w pełnych minutach, 0 = bez limitu, najwyżej 7 dni
     default_on_minutes: {
       type: Number, min: 0, max: 10080,
       validate: { validator: Number.isInteger, message: 'default_on_minutes: pełne minuty 0–10080.' },
-    },
-    // pompa ciepła: wstrzymanie przy gorącym kotle od tej temperatury [°C] (heat-pump/services/cwu-loading.service.ts)
-    boiler_block_temp: {
-      type: Number, min: 40, max: 70,
-      validate: { validator: Number.isInteger, message: 'boiler_block_temp: pełne stopnie 40–70.' },
     },
   },
   { _id: false }

@@ -68,6 +68,8 @@
 //-----------------------TEMPERATURES-----------------------
 //Limity komend RS-485 0x04 (T max) i 0x05 (delta): wartość spoza zakresu CHPC po cichu pomija,
 //dlatego co nie wysyła zadanej > 50 ani różnicy > 30. Średnik w #define: używać tylko jako inicjalizatora.
+//UWAGA: podniesienie T_SETPOINT_MAX powyżej 50 wymaga podniesienia progu wstrzymania pompy przy gorącym kotle
+//w chpc-web (BOILER_BLOCK_FROM 52 °C = maks. 50 + 2) i limitów 50 °C w aplikacji, na serwerze i w co.
 #define T_SETPOINT_MAX 50;             //defines max temperature that ordinary user can set
 #define T_DELTA_MAX 30.0;              //defines max delta temperature
 #define T_DELTA_DEFAULT 5.0            //delta (T max - T min) gdy w EEPROM brak zapisanej wartości

@@ -187,11 +187,16 @@ export interface PelletBoilerScheduleState extends PelletBoilerCwuRange {
   paused?: boolean;
   /** znacznik „Grzej CWU peletem” w trybie pompy ciepła (CWU od–do z trybu Pellet) */
   pelletCwu?: boolean;
+  /** poza wpisami CWU „bez zmiany”: harmonogram nie zleca nr 119 i 123 (cwuFrom/cwuTo to tylko zapisane wartości) */
+  cwuUnchanged?: boolean;
 }
 
-/** Wartości poza harmonogramem dla trybu: CWU od–do i sezon (brak sezonu = harmonogram go nie zmienia). */
+/** Wartości poza harmonogramem dla trybu: CWU od–do i sezon (brak sezonu = harmonogram go nie zmienia).
+ *  cwuUnchanged: CWU „bez zmiany” — poza wpisami zostaje zadana z panelu kotła albo ustawiona ręcznie parametrem
+ *  (2026-10-13); cwuFrom/cwuTo zostają zapisane i wracają po odznaczeniu. */
 export interface PelletBoilerScheduleDefaults extends PelletBoilerCwuRange {
   season?: PelletBoilerSeason;
+  cwuUnchanged?: boolean;
 }
 
 /** Nastawy trybu: klucz „ecomax:<nr>” albo „mixer<n>:<nr>” → wartość surowa. */
@@ -207,7 +212,7 @@ export interface PelletBoilerCwuLoading {
   error?: string;
   /** pompa ciepła wstrzymana: kocioł pali (stany 1–4) albo ma ≥ hotBoilerFrom, albo trwa CWU z peletu */
   pumpBlocked?: boolean;
-  /** próg gorącego kotła z ustawień pompy ciepła [°C] (odpowiedź pompy na zgłoszenie; brak = 50 °C) */
+  /** próg gorącego kotła [°C] z odpowiedzi pompy ciepła na zgłoszenie (52 °C; brak = HOT_BOILER_FROM) */
   hotBoilerFrom?: number;
 }
 
@@ -275,7 +280,7 @@ export type PelletBoilerPendingTurnOn = {
 /**
  * CWU z peletu w trybie „Pompa ciepła”: idle = czeka na CWU poniżej „od” (ustawienia trybu Pellet);
  * heating = kocioł ma zadaną i histerezę trybu Pellet i grzeje CWU do „do”; cooling = nastawy pompy ciepła
- * przywrócone, pompa ciepła wstrzymana do spadku kotła poniżej PELLET_CWU_PUMP_BLOCK_BELOW (50 °C).
+ * przywrócone, pompa ciepła wstrzymana do spadku kotła poniżej 50 °C (PELLET_CWU_PUMP_BLOCK_BELOW 52 °C i histereza).
  */
 export type PelletBoilerPelletCwu = {
   /** znacznik „CWU grzej peletem” w Ustawieniach */

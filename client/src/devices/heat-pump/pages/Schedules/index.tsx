@@ -54,6 +54,9 @@ const formatScheduleTarget = (schedule: ScheduleEntry): string => {
 };
 
 // Temperatura od–do jak na serwerze (pump-mode.service.ts): 1–50 °C, od ≤ do.
+// UWAGA: podniesienie maksymalnej temperatury pompy powyżej 50 °C wymaga podniesienia progu wstrzymania pompy przy gorącym kotle
+// (BOILER_BLOCK_FROM 52 °C = maks. 50 + 2, server/src/modules/heat-pump/services/cwu-loading.service.ts), inaczej pompa
+// zatrzyma się na wodzie, którą sama nagrzała.
 const TEMPERATURE_MIN = 1;
 const TEMPERATURE_MAX = 50;
 const temperatureError = (min: string, max: string, required: boolean): string => {
