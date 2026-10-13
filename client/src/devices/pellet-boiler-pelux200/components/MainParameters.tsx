@@ -16,7 +16,7 @@ import {
   PelletBoilerScheduleSettings, PelletBoilerReading, PelletBoilerSettings, PelletBoilerTurnOnCheck,
 } from '../types';
 import { WinterCycleStatus } from './WinterCycleStatus';
-import { formatDateTime, formatNumber, readingStateName, stateName, workModeName } from '../utils/boiler';
+import { formatDateTime, formatNumber, heatPumpDataMissing, readingStateName, stateName, workModeName } from '../utils/boiler';
 import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
@@ -706,7 +706,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
               {regulatorOn === undefined
                 ? <span>brak odczytu</span>
                 : <span className={regulatorOn ? 'boiler-state-on' : 'boiler-state-off'}>{regulatorOn ? 'WŁĄCZONY' : 'WYŁĄCZONY'}</span>}
-              {boilerState !== undefined && <span className="boiler-hint"> ({readingStateName(lastReading)})</span>}
+              {boilerState !== undefined && <span className="boiler-hint"> ({readingStateName(lastReading)}{heatPumpDataMissing(lastReading, heatPumpMode) ? ', brak danych z pompy ciepła' : ''})</span>}
             </div>
             <div className="boiler-profiles">
               <button type="button" className="boiler-profile" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending || offline}

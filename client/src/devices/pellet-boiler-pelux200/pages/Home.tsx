@@ -16,7 +16,7 @@ import { AlertsBanner } from '../components/Alerts';
 import { PelletBoilerAutoPellet, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading, PelletBoilerSettings } from '../types';
 import {
   DEFAULT_POLL_SECONDS, todayWarsaw, findParameter, formatDateTime, formatNumber, formatPercent, formatTemp, isBurning, isStale,
-  heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
+  heatPumpDataMissing, heatPumpWorking, readingStateName, summerModeName, valveText, workModeName,
 } from '../utils/boiler';
 import './style.css';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
@@ -113,6 +113,8 @@ export const PelletBoilerHome: React.FC = () => {
   // „Wybór termostatu” (nr 111): 0 = termostat nie wpływa na kocioł (u nas wyłączony, 2026-10-07)
   const thermostatMode = settings?.groups?.flatMap((group) => group.parameters).find((p) => p.index === 111);
   const burning = isBurning(reading?.state);
+  // tryb Pompa ciepła bez świeżych danych pompy: nie wiadomo, czy sprężarka pracuje (dopisek pod nagłówkiem)
+  const pumpDataMissing = !stale && heatPumpDataMissing(reading, !!heatPumpLinked && workModeName(settings, schedule?.pelletCwu) === 'Pompa ciepła');
   const hasMixers = reading?.mixer1_temp !== undefined || reading?.mixer2_temp !== undefined;
 
   return (
@@ -126,6 +128,7 @@ export const PelletBoilerHome: React.FC = () => {
           <FlameIcon className={`boiler-flame${burning ? ' boiler-flame-on' : ''}`} filled={burning} />
         )}
       </h2>
+      {pumpDataMissing && <div className="boiler-hint boiler-title-note">Brak danych z pompy ciepła</div>}
       <section>
         {reading === null && <div className="resource">Wczytywanie…</div>}
         {empty && <div className="resource">Brak danych od sterownika</div>}

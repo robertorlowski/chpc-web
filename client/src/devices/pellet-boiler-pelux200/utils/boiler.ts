@@ -23,6 +23,13 @@ export const heatPumpWorking = (reading?: Pick<PelletBoilerReading, 'state' | 'h
 export const readingStateName = (reading?: Pick<PelletBoilerReading, 'state' | 'heat_pump_running'> | null) =>
   heatPumpWorking(reading) ? 'Praca' : stateName(reading?.state);
 
+// Tryb „Pompa ciepła”, kocioł się nie pali, a przy odczycie serwer nie miał świeżych danych pompy ciepła
+// (heat_pump_running brak: pompa offline albo jej sterownik CHPC nie odpowiada): nie wiadomo, czy sprężarka pracuje,
+// więc przy „Postój” dopisek (2026-10-13, produkcja: od 21:41 CHPC milczał, a pompa grzała).
+export const heatPumpDataMissing = (reading: Pick<PelletBoilerReading, 'state' | 'heat_pump_running'> | null | undefined, heatPumpMode: boolean) =>
+  heatPumpMode && !!reading && reading.heat_pump_running === undefined && reading.state !== undefined
+  && reading.state !== 0 && reading.state !== 8 && !isBurning(reading.state);
+
 export const formatNumber = (value: number | undefined, digits = 1) =>
   value === undefined || value === null ? '---' : value.toLocaleString('pl-PL', { maximumFractionDigits: digits });
 
