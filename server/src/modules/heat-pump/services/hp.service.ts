@@ -21,6 +21,53 @@ const lastDataByRoot = new Map<string, HpEntry>();
 const lastContactByRoot = new Map<string, Date>();
 export const markHpContact = (rootId: string, at = new Date()) => { lastContactByRoot.set(rootId, at); };
 export const getHpContactAt = (rootId: string): Date | undefined => lastContactByRoot.get(rootId);
+
+// Liczniki diagnostyczne co (punkt 5 CLAUDE.md) z każdego POST /hp/add, także z pustym HP (2026-10-14: CHPC milczał
+// godzinami, a serwer odrzucał całe zgłoszenie). Ostatnie, poprzednie i z ostatniego zgłoszenia z odczytem CHPC —
+// przyrost od tamtej chwili pokazuje, czy CHPC milczy (serial_read_timeout), czy odpowiada uszkodzoną ramką
+// (hp_json_error, serial_receive_overflow). Tylko w pamięci; liczniki co zerują się przy jego restarcie.
+const DIAGNOSTIC_KEYS = [
+  'serial_queue_overflow', 'serial_read_timeout', 'serial_receive_overflow', 'pv_crc_error', 'hp_json_error',
+  'pv_frame_error', 'cloud_http_status', 'cloud_request_error', 'websocket_disconnect', 'cloud_response_parse_error',
+  'operation_validation_error', 'preference_validation_error',
+] as const;
+type HpCounters = Partial<Record<(typeof DIAGNOSTIC_KEYS)[number], number>>;
+type HpCountersAt = { at: Date; counters: HpCounters };
+type HpDiagnostics = { last: HpCountersAt & { hp: boolean }; previous?: HpCountersAt; lastHp?: HpCountersAt };
+const diagnosticsByRoot = new Map<string, HpDiagnostics>();
+
+export function noteHpDiagnostics(rootId: string, data: unknown, at = new Date()) {
+  const body = (data ?? {}) as Record<string, unknown>;
+  const counters: HpCounters = {};
+  for (const key of DIAGNOSTIC_KEYS) if (typeof body[key] === 'number') counters[key] = body[key] as number;
+  const hp = !!(body.HP as { Ttarget?: unknown } | undefined)?.Ttarget;
+  const saved = diagnosticsByRoot.get(rootId);
+  const current = { at, counters };
+  diagnosticsByRoot.set(rootId, {
+    last: { ...current, hp },
+    previous: saved?.last,
+    lastHp: hp ? current : saved?.lastHp,
+  });
+}
+
+const countersDelta = (now: HpCounters, before?: HpCounters) => before && Object.fromEntries(DIAGNOSTIC_KEYS
+  .filter((key) => key !== 'cloud_http_status' && typeof now[key] === 'number' && typeof before[key] === 'number')
+  .map((key) => [key, (now[key] as number) - (before[key] as number)]));
+
+// Do GET /hp: liczniki, przyrost od poprzedniego zgłoszenia i od ostatniego odczytu CHPC (cloud_http_status to kod,
+// nie licznik — bez przyrostu).
+export function getHpDiagnostics(rootId: string) {
+  const saved = diagnosticsByRoot.get(rootId);
+  if (!saved) return undefined;
+  return {
+    at: saved.last.at.toISOString(),
+    hp: saved.last.hp,
+    counters: saved.last.counters,
+    sincePrevious: countersDelta(saved.last.counters, saved.previous?.counters),
+    lastHpAt: saved.lastHp?.at.toISOString() ?? null,
+    sinceLastHp: countersDelta(saved.last.counters, saved.lastHp?.counters),
+  };
+}
 // Dni z danymi (YYYY.MM.DD, Warszawa); addHpData dopisuje dzień tylko do już wczytanego zbioru.
 const availableDatesByRoot = new Map<string, Set<string>>();
 

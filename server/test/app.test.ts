@@ -91,6 +91,26 @@ describe('API with MongoDB', () => {
     expect(records).toHaveLength(3)
   })
 
+  it('keeps co diagnostic counters also from telemetry without a CHPC reading (GET /hp diagnostics)', async () => {
+    const device = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'test-hp-diag', schedules: [] })
+    const id = String(device._id)
+    const add = (body: object) => request(app).post(`/api/hp/add?rootId=${id}&deviceId=test-hp-diag`).send(body).expect(201)
+    await add({ time: '2026.10.14 12:35:00', HP: { Ttarget: 37.9, HPS: 0 }, serial_read_timeout: 4, hp_json_error: 1, cloud_http_status: 201 })
+    // CHPC milczy: puste HP nie jest zapisywane, ale liczniki tak
+    await add({ time: '2026.10.14 12:35:30', HP: {}, serial_read_timeout: 5, hp_json_error: 1, cloud_http_status: 201 })
+    await add({ time: '2026.10.14 12:36:00', HP: {}, serial_read_timeout: 6, hp_json_error: 1, cloud_http_status: 201 })
+    expect(await HpEntryModel.countDocuments({ rootId: id })).toBe(1)
+    const { diagnostics } = (await request(app).get(`/api/hp?rootId=${id}&deviceId=test-hp-diag`).expect(200)).body
+    expect(diagnostics).toMatchObject({
+      hp: false,
+      counters: { serial_read_timeout: 6, hp_json_error: 1, cloud_http_status: 201 },
+      sincePrevious: { serial_read_timeout: 1, hp_json_error: 0 },
+      sinceLastHp: { serial_read_timeout: 2, hp_json_error: 0 },
+    })
+    expect(diagnostics.lastHpAt).toEqual(expect.any(String))
+    expect(diagnostics.sinceLastHp.cloud_http_status).toBeUndefined()
+  })
+
   it('returns the latest HP data for the selected device', async () => {
     const response = await request(app)
       .get(`/api/hp?rootId=${rootId}&deviceId=${deviceId}`);
