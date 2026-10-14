@@ -99,6 +99,21 @@ void test_state_report_json()
     json.c_str());
 }
 
+// od 1.1.2: diagnostyka sterownika w zgłoszeniu stanu
+void test_state_report_with_diag()
+{
+  RelayBank bank(1);
+  ControllerDiag diag;
+  diag.reset = "brownout";
+  diag.boot = 7;
+  diag.wifiDrops = 2;
+  diag.rssi = -63;
+  diag.httpMs = 840;
+  const std::string json = buildStateReport(bank, 4000, &diag);
+  TEST_ASSERT_EQUAL_STRING("{\"uptimeS\":4,\"relays\":[{\"on\":false,\"changedS\":4}],"
+    "\"diag\":{\"reset\":\"brownout\",\"boot\":7,\"wifiDrops\":2,\"rssi\":-63,\"httpMs\":840}}", json.c_str());
+}
+
 void test_apply_state_response()
 {
   RelayBank bank(2);
@@ -181,6 +196,7 @@ int main()
   RUN_TEST(test_local_timer_and_minutes_to_send);
   RUN_TEST(test_local_schedule_turns_off_only_without_cloud);
   RUN_TEST(test_state_report_json);
+  RUN_TEST(test_state_report_with_diag);
   RUN_TEST(test_apply_state_response);
   RUN_TEST(test_mode_body_json);
   RUN_TEST(test_default_minutes_from_settings);

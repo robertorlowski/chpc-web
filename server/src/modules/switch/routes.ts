@@ -1,6 +1,6 @@
 import express from 'express'
 import {
-  deleteSwitchSchedule, getSwitchActivations, getSwitchRelays, getSwitchSchedules, postSwitchSchedule,
+  deleteSwitchSchedule, getSwitchActivations, getSwitchDiagnostics, getSwitchRelays, getSwitchSchedules, postSwitchSchedule,
   postSwitchState, putSwitchMode, putSwitchRelayName, putSwitchSchedule,
 } from './controllers/switch.controller'
 
@@ -17,5 +17,7 @@ router.post('/switch/schedules', postSwitchSchedule)
 router.put('/switch/schedules/:id', putSwitchSchedule)
 router.delete('/switch/schedules/:id', deleteSwitchSchedule)
 router.get('/switch/activations', getSwitchActivations)
+// diagnostyka sterownika (przyczyna startu, Wi-Fi, czas HTTP; firmware od 1.1.2)
+router.get('/switch/diagnostics', getSwitchDiagnostics)
 
 export default router

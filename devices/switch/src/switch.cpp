@@ -20,6 +20,7 @@
 #include <WiFiClientSecure.h>
 #include <Update.h>
 #include <esp_mac.h>
+#include <esp_system.h>
 #include <mbedtls/sha256.h>
 
 #include <firmware.hpp>
@@ -93,6 +94,12 @@ int lastHttpStatus = 0;
 bool accessPointOn = false;
 uint32_t wifiLostSinceMs = 0;
 uint32_t wifiConnectedSinceMs = 0;
+
+// Diagnostyka w zgłoszeniu stanu (od 1.1.2, protocol.hpp: ControllerDiag): przyczyna startu i numer
+// startu (NVS "boots") ustalane w setup(), zerwania Wi-Fi liczone w updateAccessPoint(), czas
+// poprzedniej wymiany HTTP w exchangeState().
+ControllerDiag diag;
+constexpr const char *KEY_BOOTS = "boots";
 
 OtaOffer otaOffer;
 bool otaOfferReceived = false;
@@ -342,8 +349,13 @@ void exchangeState(uint32_t nowMs)
   lastExchangeMs = nowMs;
   exchangeDue = false;
   String response;
-  const std::string body = buildStateReport(bank, nowMs);
-  if (!send("POST", requestUrl("switch/state"), body.c_str(), &response)) {
+  diag.rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+  const std::string body = buildStateReport(bank, nowMs, &diag);
+  const uint32_t sentMs = millis();
+  const bool sent = send("POST", requestUrl("switch/state"), body.c_str(), &response);
+  // czas tej wymiany idzie w następnym zgłoszeniu
+  diag.httpMs = millis() - sentMs;
+  if (!sent) {
     logf("stan do chmury: błąd, HTTP %d", lastHttpStatus);
     forgetRootIdOnError();
     return;
@@ -481,6 +493,7 @@ void updateAccessPoint(uint32_t nowMs)
     wifiLostSinceMs = 0;
     if (wifiConnectedSinceMs == 0) wifiConnectedSinceMs = nowMs;
   } else {
+    if (wifiConnectedSinceMs != 0) diag.wifiDrops++;
     wifiConnectedSinceMs = 0;
     if (wifiLostSinceMs == 0) wifiLostSinceMs = nowMs;
   }
@@ -772,6 +785,25 @@ void startNetwork()
 
 }  // namespace
 
+// Przyczyna startu po angielsku, jak w ESP-IDF (serwer tłumaczy ją w dzienniku operacji):
+// brownout = spadek napięcia zasilania, ext = pin EN, power_on = włączenie zasilania.
+const char *resetReasonName(esp_reset_reason_t reason)
+{
+  switch (reason) {
+  case ESP_RST_POWERON: return "power_on";
+  case ESP_RST_EXT: return "ext";
+  case ESP_RST_SW: return "software";
+  case ESP_RST_PANIC: return "panic";
+  case ESP_RST_INT_WDT: return "int_wdt";
+  case ESP_RST_TASK_WDT: return "task_wdt";
+  case ESP_RST_WDT: return "wdt";
+  case ESP_RST_DEEPSLEEP: return "deepsleep";
+  case ESP_RST_BROWNOUT: return "brownout";
+  case ESP_RST_SDIO: return "sdio";
+  default: return "unknown";
+  }
+}
+
 // Start: przekaźniki wyłączone, konfiguracja z NVS, sieć. Zgłoszenie i stan z chmury w tick().
 void setup()
 {
@@ -785,11 +817,15 @@ void setup()
   }
 
   preferences.begin(PREFERENCES_NAMESPACE, false);
+  diag.reset = resetReasonName(esp_reset_reason());
+  diag.boot = preferences.getUInt(KEY_BOOTS, 0) + 1;
+  preferences.putUInt(KEY_BOOTS, diag.boot);
   loadConfig();
   parseCloudUrl();
   serial = readSerial();
   logf("start: firmware %s, SN %s, rootId %s, przekaźników %u, chmura %s", FW_VERSION, serial.c_str(),
     rootId.length() > 0 ? rootId.c_str() : "brak", static_cast<unsigned>(RELAY_COUNT), CLOUD_URL);
+  logf("start: przyczyna %s, start nr %u", diag.reset, static_cast<unsigned>(diag.boot));
   startNetwork();
 }
 

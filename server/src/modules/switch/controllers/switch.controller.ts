@@ -14,6 +14,11 @@ import {
   createSchedule, listSchedules, parseSchedule, removeSchedule, replaceSchedule,
 } from '../services/switch-schedule.service';
 import { noteModeChange } from '../services/switch-operation-log.service';
+import { getControllerDiag, noteControllerDiag, parseControllerDiag } from '../services/switch-diagnostics.service';
+
+// GET /switch/diagnostics: ostatnia diagnostyka sterownika (firmware od 1.1.2) z pamięci; {} bez danych.
+export const getSwitchDiagnostics = (req: Request, res: Response) =>
+  res.status(200).json(getControllerDiag(req.deviceRootId as string));
 
 // Sterownik dostaje polecenia w odpowiedzi na najbliższe zgłoszenie; "operation" budzi
 // go od razu (WebSocket), a aplikacja odświeża widok.
@@ -34,6 +39,10 @@ export async function postSwitchState(req: Request, res: Response) {
     const { deviceId } = await getDeviceInfo(rootId);
     const { relays, changed } = await reportState(rootId, deviceId, report);
     if (changed) void sendMessage('update', rootId);
+    // firmware od 1.1.2: przyczyna startu, numer startu, Wi-Fi i czas HTTP (po historii włączeń, żeby powiązać
+    // restart z włączeniem przekaźnika)
+    const diag = parseControllerDiag(req.body);
+    if (diag) await noteControllerDiag(rootId, diag, report.uptimeS);
     const firmware = await firmwareOfferForRoot(rootId, serverBaseUrl(req));
     return res.status(200).json(firmware ? { relays, firmware } : { relays });
   } catch (error) {

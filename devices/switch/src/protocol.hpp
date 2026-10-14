@@ -8,10 +8,22 @@
 
 #include <relays.hpp>
 
-// Zgłoszenie stanu: {"uptimeS":N,"relays":[{"on":true,"changedS":12},…]}.
+// Diagnostyka sterownika w zgłoszeniu stanu (od 1.1.2, 2026-10-14: płytka restartowała się przy
+// włączaniu bojlera 1,5–2 kW): przyczyna ostatniego startu (esp_reset_reason, np. "brownout" = spadek
+// napięcia), numer startu z NVS, zerwania Wi-Fi od startu, siła sygnału i czas poprzedniej wymiany HTTP
+// (opóźnione zgłoszenie serwer mógłby wziąć za przełączenie przekaźnika).
+struct ControllerDiag {
+  const char *reset = "unknown";
+  uint32_t boot = 0;
+  uint32_t wifiDrops = 0;
+  int32_t rssi = 0;
+  uint32_t httpMs = 0;
+};
+
+// Zgłoszenie stanu: {"uptimeS":N,"relays":[{"on":true,"changedS":12},…],"diag":{…}}.
 // changedS — od ilu sekund przekaźnik jest w obecnym stanie; serwer liczy z tego czas
-// włączenia i wyłączenia w historii, także po przerwie w łączności.
-std::string buildStateReport(const RelayBank &bank, uint32_t nowMs);
+// włączenia i wyłączenia w historii, także po przerwie w łączności. diag tylko, gdy podane.
+std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag = nullptr);
 
 // Odpowiedź na zgłoszenie stanu: {"relays":[{"on":true,"offAfterS":1200,"mode":"schedule"},…]}.
 // Stosuje polecenia do bank (pomijając przekaźniki z niewysłaną zmianą lokalną). Zwraca
