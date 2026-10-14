@@ -26,46 +26,82 @@ export const getHpContactAt = (rootId: string): Date | undefined => lastContactB
 // godzinami, a serwer odrzucał całe zgłoszenie). Ostatnie, poprzednie i z ostatniego zgłoszenia z odczytem CHPC —
 // przyrost od tamtej chwili pokazuje, czy CHPC milczy (serial_read_timeout), czy odpowiada uszkodzoną ramką
 // (hp_json_error, serial_receive_overflow). Tylko w pamięci; liczniki co zerują się przy jego restarcie.
+// Od co 1.2.5 (bus_diagnostics.hpp) także serial_unexpected_frame, hp_late_frame, hp_last_ok_s, echo aktywnego
+// zlecenia diag i zrzuty diag_hp_raw / diag_bus.
 const DIAGNOSTIC_KEYS = [
   'serial_queue_overflow', 'serial_read_timeout', 'serial_receive_overflow', 'pv_crc_error', 'hp_json_error',
   'pv_frame_error', 'cloud_http_status', 'cloud_request_error', 'websocket_disconnect', 'cloud_response_parse_error',
-  'operation_validation_error', 'preference_validation_error',
+  'operation_validation_error', 'preference_validation_error', 'serial_unexpected_frame', 'hp_late_frame',
+  'hp_last_ok_s',
 ] as const;
+// wartości, które nie są licznikami (kod HTTP, wiek w sekundach): bez przyrostu
+const NOT_COUNTERS = new Set<string>(['cloud_http_status', 'hp_last_ok_s']);
+const DIAGNOSTIC_OBJECTS = ['diag', 'diag_hp_raw', 'diag_bus'] as const;
 type HpCounters = Partial<Record<(typeof DIAGNOSTIC_KEYS)[number], number>>;
 type HpCountersAt = { at: Date; counters: HpCounters };
-type HpDiagnostics = { last: HpCountersAt & { hp: boolean }; previous?: HpCountersAt; lastHp?: HpCountersAt };
+type HpDiagnostics = {
+  last: HpCountersAt & { hp: boolean; objects: Record<string, unknown> };
+  previous?: HpCountersAt;
+  lastHp?: HpCountersAt;
+};
 const diagnosticsByRoot = new Map<string, HpDiagnostics>();
 
 export function noteHpDiagnostics(rootId: string, data: unknown, at = new Date()) {
   const body = (data ?? {}) as Record<string, unknown>;
   const counters: HpCounters = {};
   for (const key of DIAGNOSTIC_KEYS) if (typeof body[key] === 'number') counters[key] = body[key] as number;
+  const objects: Record<string, unknown> = {};
+  for (const key of DIAGNOSTIC_OBJECTS) if (body[key] && typeof body[key] === 'object') objects[key] = body[key];
   const hp = !!(body.HP as { Ttarget?: unknown } | undefined)?.Ttarget;
   const saved = diagnosticsByRoot.get(rootId);
   const current = { at, counters };
   diagnosticsByRoot.set(rootId, {
-    last: { ...current, hp },
+    last: { ...current, hp, objects },
     previous: saved?.last,
     lastHp: hp ? current : saved?.lastHp,
   });
 }
 
 const countersDelta = (now: HpCounters, before?: HpCounters) => before && Object.fromEntries(DIAGNOSTIC_KEYS
-  .filter((key) => key !== 'cloud_http_status' && typeof now[key] === 'number' && typeof before[key] === 'number')
+  .filter((key) => !NOT_COUNTERS.has(key) && typeof now[key] === 'number' && typeof before[key] === 'number')
   .map((key) => [key, (now[key] as number) - (before[key] as number)]));
 
-// Do GET /hp: liczniki, przyrost od poprzedniego zgłoszenia i od ostatniego odczytu CHPC (cloud_http_status to kod,
-// nie licznik — bez przyrostu).
+// Zlecenie diagnostyki dla co (PUT /hp/diagnostics): pole "diag" w odpowiedzi na każde /hp/add do wygaśnięcia.
+// Tylko w pamięci: restart serwera albo koniec czasu = brak pola, co wraca do zwykłej pracy.
+export type HpDiagRequest = { hp_raw: 0 | 1; bus_sniff: 0 | 1; hp_timeout_s: number };
+const diagRequestByRoot = new Map<string, { request: HpDiagRequest; until: Date }>();
+
+export function setHpDiagRequest(rootId: string, request: HpDiagRequest | null, until?: Date) {
+  if (!request || !until) diagRequestByRoot.delete(rootId);
+  else diagRequestByRoot.set(rootId, { request, until });
+}
+
+export function getHpDiagRequest(rootId: string, now = new Date()) {
+  const saved = diagRequestByRoot.get(rootId);
+  if (saved && saved.until.getTime() <= now.getTime()) {
+    diagRequestByRoot.delete(rootId);
+    return undefined;
+  }
+  return saved;
+}
+
+// Do GET /hp i GET /hp/diagnostics: liczniki, przyrost od poprzedniego zgłoszenia i od ostatniego odczytu CHPC,
+// echo zlecenia i zrzuty z co (1.2.5) oraz zlecenie po stronie serwera.
 export function getHpDiagnostics(rootId: string) {
   const saved = diagnosticsByRoot.get(rootId);
-  if (!saved) return undefined;
+  const request = getHpDiagRequest(rootId);
+  if (!saved && !request) return undefined;
   return {
-    at: saved.last.at.toISOString(),
-    hp: saved.last.hp,
-    counters: saved.last.counters,
-    sincePrevious: countersDelta(saved.last.counters, saved.previous?.counters),
-    lastHpAt: saved.lastHp?.at.toISOString() ?? null,
-    sinceLastHp: countersDelta(saved.last.counters, saved.lastHp?.counters),
+    ...(saved ? {
+      at: saved.last.at.toISOString(),
+      hp: saved.last.hp,
+      counters: saved.last.counters,
+      sincePrevious: countersDelta(saved.last.counters, saved.previous?.counters),
+      lastHpAt: saved.lastHp?.at.toISOString() ?? null,
+      sinceLastHp: countersDelta(saved.last.counters, saved.lastHp?.counters),
+      ...saved.last.objects,
+    } : {}),
+    request: request ? { ...request.request, until: request.until.toISOString() } : null,
   };
 }
 // Dni z danymi (YYYY.MM.DD, Warszawa); addHpData dopisuje dzień tylko do już wczytanego zbioru.

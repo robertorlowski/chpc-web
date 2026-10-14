@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <RTClib.h>
 
+#include <bus_diagnostics.hpp>
 #include <domain_types.hpp>
 #include <heat_pump_data_processor.hpp>
 
@@ -24,6 +25,8 @@ public:
     uint32_t webSocketDisconnect, uint32_t responseParseError);
   void updateOperationDiagnostics(uint32_t operationValidationError,
     uint32_t preferenceValidationError);
+  // Ramki nieoczekiwane, wiek odpowiedzi CHPC i zrzuty na zlecenie (bus_diagnostics.hpp, od 1.2.5).
+  void updateBusDiagnostics(const BusDiagnostics &diagnostics, unsigned long now);
   // Nowy odczyt CHPC i pola COP (t_min/t_max i cop* w trakcie cyklu i po końcu).
   void updateHeatPump(const HeatPumpDataUpdate &update);
   // CHPC przestał odpowiadać (HeatPumpLinkWatch): pole HP puste, żeby stare temperatury nie szły do chmury jako

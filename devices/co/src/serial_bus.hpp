@@ -55,6 +55,12 @@ public:
   uint32_t queueOverflowCount() const;
   uint32_t readTimeoutCount() const;
   uint32_t receiveOverflowCount() const;
+  // Czas czekania na odpowiedź CHPC (diagnostyka hp_timeout_s, bus_diagnostics.hpp); 0 = READ_TIMEOUT_MS.
+  // Odczyty DTU zawsze czekają READ_TIMEOUT_MS.
+  void setHpReadTimeout(unsigned long timeoutMs);
+  // Czas od naszej ostatniej ramki i jej kod (SERIAL_OPERATION) — do zrzutu ramki nieoczekiwanej.
+  unsigned long msSinceLastWrite() const;
+  uint8_t lastWrittenOperation() const;
 
 private:
   struct Command {
@@ -89,6 +95,8 @@ private:
   uint8_t receiveBuffer[RX_BUFFER_SIZE]{};
   size_t receiveLength = 0;
   unsigned long lastWriteAt = 0;
+  unsigned long hpReadTimeoutMs = READ_TIMEOUT_MS;
+  uint8_t lastOperation = 0;
   unsigned long pendingSince = 0;
   unsigned long lastByteAt = 0;
   bool hasWritten = false;

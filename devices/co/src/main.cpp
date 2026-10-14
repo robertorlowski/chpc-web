@@ -4,6 +4,7 @@
 // z odpowiedzi chmury, obsługuje przycisk trybu (GPIO5), ekran TFT, AP
 // MyHome-HeatPump-… i odpowiada na zapytania innych urządzeń do adresu 0x10.
 // Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
+// Od 1.2.5 diagnostyka magistrali na zlecenie z chmury (bus_diagnostics.hpp).
 // Od 1.2.0 tryb pracy MANUAL / AUTO / OFF z jedną temperaturą od–do, bez przekaźników CO/CWU,
 // przycisk OFF → CLOUD → MANUAL (ręczny lokalnie), konfiguracja pompy z chmury (PV, zbiornik).
 // Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
@@ -11,6 +12,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <access_point_policy.hpp>
+#include <bus_diagnostics.hpp>
 #include <cloud_client.hpp>
 #include <config_portal.hpp>
 #include <device_config.hpp>
@@ -116,6 +118,8 @@ bool pvFollowUpPending = false;
 bool hpReadOutstanding = false;
 // Odczyty CHPC bez odpowiedzi z rzędu: po kilku HP w telemetrii jest czyszczone (hp_link_watch.hpp).
 HeatPumpLinkWatch hpLinkWatch;
+// Liczniki ramek nieoczekiwanych, wiek ostatniej odpowiedzi CHPC i diagnostyka na zlecenie z chmury (od 1.2.5).
+BusDiagnostics busDiagnostics;
 bool readAfterCommandPending = false;
 unsigned long lastControlCommandAt = 0;
 bool readAfterCommandDone = false;
@@ -286,6 +290,7 @@ void refreshTelemetry()
     cloudClient.webSocketDisconnectCount(), cloudResponseParseErrors);
   telemetry.updateOperationDiagnostics(operationValidationErrors,
     operationController.preferenceValidationErrorCount());
+  telemetry.updateBusDiagnostics(busDiagnostics, millis());
 
   refreshInterval = telemetry.heatPumpRunning()
     ? MILLIS_REFRESH_ACTIVE : MILLIS_REFRESH_IDLE;
@@ -506,7 +511,9 @@ void processSerialInput()
     heatPumpDataProcessor.configure(prefs.tankLiters, prefs.copPause);
     if (!heatPumpDataProcessor.processFrame(inData, length, update)) {
       hpJsonErrors++;
+      busDiagnostics.onHpInvalid(inData, length, millis());
     } else {
+      busDiagnostics.onHpResponse(millis());
       telemetry.updateHeatPump(update);
       reportHeatPumpState(update.hp.as<JsonObjectConst>());
       if (postAfterHpRead) {
@@ -516,7 +523,13 @@ void processSerialInput()
         cloudPostPending = true;
       }
     }
+    return;
   }
+
+  // Nikt na nią nie czekał (np. odpowiedź CHPC po timeoucie odczytu) albo przyszła od innego urządzenia niż
+  // oczekiwane (np. coś innego niż DTU w czasie odczytu PV). Do 1.2.4 pomijana bez śladu (bus_diagnostics.hpp).
+  busDiagnostics.onUnexpectedFrame(inData, length, millis(),
+    serialBus.msSinceLastWrite(), serialBus.lastWrittenOperation());
 }
 
 // Przekazuje kontrolerowi stan zgłoszony przez CHPC (CO, F, HPS, Tmax, Tmin).
@@ -630,6 +643,14 @@ void postTelemetryToCloud() {
   }
 
   applyServerOperation(responseDocument["operation"].as<JsonObjectConst>());
+
+  // Diagnostyka na zlecenie (pole "diag", od 1.2.5): brak pola wyłącza wszystko, więc wygasłe w chmurze
+  // zlecenie albo restart serwera przywraca zwykłą pracę.
+  const DiagRequest diag = parseDiagRequest(responseDocument.as<JsonVariantConst>());
+  if (!(diag == busDiagnostics.request())) {
+    busDiagnostics.configure(diag);
+    serialBus.setHpReadTimeout(diag.hpTimeoutS * 1000UL);
+  }
 
   // Oferta OTA jest w odpowiedzi tylko przy zleceniu „Aktualizuj”; jej brak =
   // zlecenia nie ma (albo zostało odwołane).
