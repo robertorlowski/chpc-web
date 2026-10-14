@@ -216,6 +216,8 @@ export type PelletBoilerPelletCwu = {
   since: string | null;
   cwuFrom?: number;
   cwuTo?: number;
+  /** koniec grzania: niższa z cwuTo i zadanej CWU w kotle [°C] */
+  cwuEnd?: number;
   boilerTemp?: number | null;
   cwuTemp?: number | null;
   error?: string | null;

@@ -324,7 +324,7 @@ export const PelletBoilerSchedules: React.FC = () => {
                   Tryb pracy
                   <InfoTip>
                     <TipParagraph>Lato: kocioł grzeje tylko CWU, Zima: także CO.</TipParagraph>
-                    <TipParagraph>Z progiem wpis działa tylko przy temperaturze zewnętrznej (czujnik kotła) poniżej progu; działający wpis zostaje do progu + 1 °C. Powyżej obowiązuje tryb pracy „Poza harmonogramem”.</TipParagraph>
+                    <TipParagraph>Z progiem wpis działa tylko przy temperaturze zewnętrznej (czujnik kotła) poniżej progu; działający wpis zostaje do progu + 0,5 °C. Powyżej obowiązuje tryb pracy „Poza harmonogramem”.</TipParagraph>
                     {form.mode === 'heat-pump' && <TipParagraph>W trybie Pompa ciepła Zima z harmonogramu włącza cykl Zimy: kocioł przechodzi na Zimę dopiero po nagrzaniu przez pompę ciepła.</TipParagraph>}
                     <TipParagraph>Lato/Zima wybrane przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu, także gdy wpis z progiem nie działa.</TipParagraph>
                   </InfoTip>

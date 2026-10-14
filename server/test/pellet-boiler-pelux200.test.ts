@@ -942,7 +942,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
     }
   });
 
-  it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {
+  it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 0,5 °C', () => {
     const settings = {
       enabled: true, profiles: { 'heat-pump': {}, pellet: {} },
       defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40, season: 'summer' as const }, pellet: { cwuFrom: 40, cwuTo: 55 } },
@@ -957,9 +957,9 @@ describe('Kocioł pelletowy Pellux 200', () => {
       scheduleState(settings, [entry as never], 'heat-pump', now, outdoor, last).state.season;
     expect(at(5)).toBe('winter');
     expect(at(6)).toBe('summer');
-    // histereza: działający wpis zostaje przy 6,5 °C, od 7 °C wraca sezon spoza harmonogramu
-    expect(at(6.5, 'w1')).toBe('winter');
-    expect(at(7, 'w1')).toBe('summer');
+    // histereza: działający wpis zostaje przy 6,4 °C, od 6,5 °C wraca sezon spoza harmonogramu
+    expect(at(6.4, 'w1')).toBe('winter');
+    expect(at(6.5, 'w1')).toBe('summer');
     // bez temperatury z serwera wpis z progiem nie działa
     expect(at(null)).toBe('summer');
     // poza oknem: sezon spoza harmonogramu

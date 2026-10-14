@@ -293,6 +293,8 @@ export type PelletBoilerPelletCwu = {
   /** CWU od–do trybu Pellet z ostatniego przebiegu [°C] */
   cwuFrom?: number;
   cwuTo?: number;
+  /** koniec grzania: niższa z cwuTo i zadanej CWU z odczytu kotła (water_heater_target) [°C] */
+  cwuEnd?: number;
   /** temperatura kotła i CWU z ostatniego świeżego odczytu [°C] */
   boilerTemp?: number | null;
   cwuTemp?: number | null;

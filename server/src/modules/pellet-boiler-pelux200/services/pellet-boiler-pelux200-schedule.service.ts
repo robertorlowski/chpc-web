@@ -15,7 +15,7 @@
 // Od 2026-10-04 drugi rodzaj wpisu: sezon Lato / Zima (type season, parametr nr 125: 0 zima, 1 lato) w oknach
 // godzin, z sezonem poza harmonogramem w defaults; wpis z progiem coldBelow działa tylko, gdy temperatura
 // zewnętrzna z czujnika kotła (outside_temp z ostatniego odczytu) jest poniżej progu (z histerezą SEASON_COLD_HYSTERESIS: działający
-// wpis zostaje do progu + 1 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
+// wpis zostaje do progu + 0,5 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
 // harmonogram sezonem nie steruje. Zmiany sezonu i CWU idą do kotła jednym zleceniem (createCommands).
 // W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ max pompy ciepła − 3 °C,
 // Lato przy kotle < 30 °C i stojącej pompie CO, w Lecie wymuszanie startu pompy ciepła. Przycisk Lato/Zima
@@ -79,7 +79,7 @@ const SEASONS: PelletBoilerSeason[] = ['winter', 'summer'];
 // próg temperatury wpisu sezonu [°C] i histereza: działający wpis zostaje do progu + histereza
 const COLD_BELOW_MIN = -30;
 const COLD_BELOW_MAX = 30;
-export const SEASON_COLD_HYSTERESIS = 1;
+export const SEASON_COLD_HYSTERESIS = 0.5;
 // temperatura zewnętrzna z czujnika kotła (outside_temp) tylko z odczytu nie starszego niż (3 × domyślny interwał)
 const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
 
