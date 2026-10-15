@@ -159,7 +159,8 @@ export interface PelletBoilerCwuRange {
 export type PelletBoilerSeason = 'winter' | 'summer';
 
 /** Wpis harmonogramu dla jednego trybu pracy kotła w oknie godzin: type cwu = CWU od–do, type season =
- * sezon Lato / Zima (od 2026-10-04), opcjonalnie tylko przy temperaturze zewnętrznej poniżej coldBelow.
+ * „Tryb Zima” (od 2026-10-15; wcześniej Lato / Zima z jednym progiem coldBelow), opcjonalnie według temperatury
+ * zewnętrznej: Zima poniżej winterBelow, powrót Lata powyżej summerAbove, między progami bez zmiany.
  * Włączanie i wyłączanie kotła z harmonogramu usunięto 2026-10-04; stare wpisy type = work są pomijane. */
 export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange> {
   _id?: unknown;
@@ -173,7 +174,12 @@ export interface PelletBoilerScheduleEntry extends Partial<PelletBoilerCwuRange>
   endTime: string;
   /** type season: sezon w oknie */
   season?: PelletBoilerSeason;
-  /** type season: wpis działa tylko, gdy temperatura zewnętrzna (czujnik kotła) jest poniżej [°C]; brak = zawsze */
+  /** type season: Zima, gdy temperatura zewnętrzna (czujnik kotła) spadnie poniżej [°C]; brak = przez całe okno */
+  winterBelow?: number | null;
+  /** type season: z powrotem Lato (poza harmonogramem), gdy temperatura wzrośnie powyżej [°C]; > winterBelow */
+  summerAbove?: number | null;
+  /** dawny jeden próg (do 2026-10-15): działa jak winterBelow = coldBelow, summerAbove = coldBelow + 0,5 °C;
+   *  zapis wpisu z formularza go kasuje */
   coldBelow?: number | null;
 }
 

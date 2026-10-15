@@ -26,8 +26,11 @@ const PelletBoilerScheduleSchema = new Schema<PelletBoilerScheduleEntry>(
     endTime: { type: String, match: time, required: true },
     cwuFrom: { type: Number },
     cwuTo: { type: Number },
-    // type season: sezon w oknie i opcjonalny próg temperatury zewnętrznej
+    // type season: „Tryb Zima” w oknie, opcjonalnie według temperatury zewnętrznej (Zima poniżej winterBelow,
+    // Lato powyżej summerAbove); coldBelow to dawny jeden próg (do 2026-10-15)
     season,
+    winterBelow: { type: Number },
+    summerAbove: { type: Number },
     coldBelow: { type: Number },
   },
   { timestamps: true, collection: 'pellet_boiler_pelux200_schedules' }

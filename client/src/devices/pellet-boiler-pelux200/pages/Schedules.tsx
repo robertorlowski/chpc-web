@@ -1,5 +1,5 @@
-// Zakładka Harmonogram kotła (/schedules): w oknach godzin tryb pracy Lato / Zima (nr 125, od 2026-10-04;
-// wpis może działać tylko przy temperaturze zewnętrznej poniżej progu) i CWU od–do; osobne listy i osobne
+// Zakładka Harmonogram kotła (/schedules): w oknach godzin „Tryb Zima” (nr 125, od 2026-10-04; od 2026-10-15 bez
+// wyboru Lato / Zima, z dwoma progami: Zima poniżej, Lato powyżej temperatury zewnętrznej) i CWU od–do; osobne listy i osobne
 // wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez
 // północ należy do dnia startu). W grupie trybu kolejno: wpisy trybu pracy, wpisy CWU, „Poza harmonogramem”.
 // Działa lista trybu, w którym kocioł jest teraz (z odczytu ustawień). Serwer co minutę wylicza stan i przy
@@ -24,6 +24,7 @@ import { PelletBoilerRequests } from '../api';
 import { WinterCycleStatus } from '../components/WinterCycleStatus';
 import {
   PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason,
+  seasonThresholds,
 } from '../types';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
 
@@ -60,7 +61,8 @@ const boilerCwuText = (cwu?: { cwuFrom?: number; cwuTo?: number }) => (typeof cw
 const emptyForm = {
   type: 'cwu' as 'cwu' | 'season', mode: 'heat-pump' as PelletBoilerMode, enabled: true,
   dayOfWeek: String(WeekDay.ANY_DAY), date: '', startTime: '', endTime: '', cwuFrom: '40', cwuTo: '43',
-  season: 'winter' as PelletBoilerSeason, coldEnabled: false, coldBelow: '6',
+  // „Tryb Zima”: season zostaje tylko dla dawnych wpisów Lato (formularz go nie pokazuje)
+  season: 'winter' as PelletBoilerSeason, tempEnabled: true, winterBelow: '5', summerAbove: '7',
 };
 
 // Lato / Zima jako dwa przyciski (wygląd jak przełącznik sezonu w Ustawieniach)
@@ -172,11 +174,15 @@ export const PelletBoilerSchedules: React.FC = () => {
     };
     let payload: PelletBoilerSchedule;
     if (form.type === 'season') {
-      const cold = Number(form.coldBelow);
-      if (form.coldEnabled && (!Number.isInteger(cold) || cold < -30 || cold > 30)) {
-        return setError('Próg temperatury: liczba całkowita −30…30 °C.');
-      }
-      payload = { ...when, type: 'season', season: form.season, coldBelow: form.coldEnabled ? cold : null };
+      const winter = Number(form.winterBelow);
+      const summer = Number(form.summerAbove);
+      const valid = (value: number) => Number.isInteger(value * 2) && value >= -30 && value <= 30;
+      if (form.tempEnabled && (!valid(winter) || !valid(summer))) return setError('Temperatury: −30…30 °C co 0,5 °C.');
+      if (form.tempEnabled && summer <= winter) return setError('Temperatura Lata musi być wyższa niż temperatura Zimy.');
+      payload = {
+        ...when, type: 'season', season: form.season,
+        winterBelow: form.tempEnabled ? winter : null, summerAbove: form.tempEnabled ? summer : null,
+      };
     } else {
       if (Number(form.cwuFrom) >= Number(form.cwuTo)) return setError('CWU: „od” musi być mniejsze niż „do”.');
       if (Number(form.cwuTo) > cwuMax(form.mode)) return setError(`Pompa ciepła: CWU najwyżej ${cwuMax(form.mode)} °C.`);
@@ -197,14 +203,16 @@ export const PelletBoilerSchedules: React.FC = () => {
   };
 
   const edit = (schedule: PelletBoilerSchedule) => {
-    const hasCold = schedule.coldBelow !== undefined && schedule.coldBelow !== null;
+    const thresholds = seasonThresholds(schedule);
     setForm({
       type: schedule.type ?? 'cwu', mode: schedule.mode, enabled: schedule.enabled,
       dayOfWeek: String(schedule.dayOfWeek ?? WeekDay.ANY_DAY), date: schedule.date ? schedule.date.slice(0, 10) : '',
       startTime: schedule.startTime, endTime: schedule.endTime,
       cwuFrom: String(schedule.cwuFrom ?? emptyForm.cwuFrom), cwuTo: String(schedule.cwuTo ?? emptyForm.cwuTo),
       season: schedule.season ?? emptyForm.season,
-      coldEnabled: hasCold, coldBelow: hasCold ? String(schedule.coldBelow) : emptyForm.coldBelow,
+      tempEnabled: !!thresholds,
+      winterBelow: thresholds ? String(thresholds.winterBelow) : emptyForm.winterBelow,
+      summerAbove: thresholds ? String(thresholds.summerAbove) : emptyForm.summerAbove,
     });
     setUseDate(Boolean(schedule.date));
     setEditingId(schedule._id ?? null);
@@ -285,7 +293,7 @@ export const PelletBoilerSchedules: React.FC = () => {
             <label>
               Rodzaj
               <select value={form.type} onChange={(event) => update('type', event.target.value)}>
-                <option value="season">Tryb pracy (Lato / Zima)</option>
+                <option value="season">Tryb Zima</option>
                 <option value="cwu">CWU</option>
               </select>
             </label>
@@ -321,21 +329,30 @@ export const PelletBoilerSchedules: React.FC = () => {
             {form.type === 'season' ? (
               <>
                 <div>
-                  Tryb pracy
+                  Według temperatury zewnętrznej
                   <InfoTip>
-                    <TipParagraph>Lato: kocioł grzeje tylko CWU, Zima: także CO.</TipParagraph>
-                    <TipParagraph>Z progiem wpis działa tylko przy temperaturze zewnętrznej (czujnik kotła) poniżej progu; działający wpis zostaje do progu + 0,5 °C. Powyżej obowiązuje tryb pracy „Poza harmonogramem”.</TipParagraph>
+                    <TipParagraph>Wpis włącza Zimę (kocioł grzeje CO i CWU) w podanych godzinach. Poza nimi obowiązuje tryb „Poza harmonogramem”.</TipParagraph>
+                    <TipParagraph>Z temperaturami (czujnik kotła): poniżej pierwszej kocioł przechodzi na Zimę, powyżej drugiej wraca na Lato. Między nimi nic się nie zmienia. Bez temperatur Zima trwa przez całe okno.</TipParagraph>
                     {form.mode === 'heat-pump' && <TipParagraph>W trybie Pompa ciepła Zima z harmonogramu włącza cykl Zimy: kocioł przechodzi na Zimę dopiero po nagrzaniu przez pompę ciepła.</TipParagraph>}
                     <TipParagraph>Lato/Zima wybrane przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu, także gdy wpis z progiem nie działa.</TipParagraph>
                   </InfoTip>
                 </div>
-                <SeasonChoice value={form.season} onChange={(season) => update('season', season)} />
                 <label className="schedule-toggle">
-                  <input type="checkbox" checked={form.coldEnabled} onChange={(event) => update('coldEnabled', event.target.checked)} />
+                  <input type="checkbox" checked={form.tempEnabled} onChange={(event) => update('tempEnabled', event.target.checked)} />
+                  <span>Według temperatury zewnętrznej (czujnik kotła)</span>
+                </label>
+                <label className="schedule-toggle">
                   <span>
-                    Uruchom, gdy temperatura zewnętrzna spadnie poniżej{' '}
-                    <input type="number" className="boiler-cold-input" min={-30} max={30} step={1} aria-label="Próg temperatury [°C]"
-                      disabled={!form.coldEnabled} value={form.coldBelow} onChange={(event) => update('coldBelow', event.target.value)} /> °C
+                    Uruchom tryb Zima, gdy temperatura spadnie poniżej{' '}
+                    <input type="number" className="boiler-cold-input" min={-30} max={30} step={0.5} aria-label="Zima poniżej [°C]"
+                      disabled={!form.tempEnabled} value={form.winterBelow} onChange={(event) => update('winterBelow', event.target.value)} /> °C
+                  </span>
+                </label>
+                <label className="schedule-toggle">
+                  <span>
+                    Uruchom tryb Lato, gdy temperatura wzrośnie powyżej{' '}
+                    <input type="number" className="boiler-cold-input" min={-30} max={30} step={0.5} aria-label="Lato powyżej [°C]"
+                      disabled={!form.tempEnabled} value={form.summerAbove} onChange={(event) => update('summerAbove', event.target.value)} /> °C
                   </span>
                 </label>
               </>
@@ -414,14 +431,17 @@ export const PelletBoilerSchedules: React.FC = () => {
                     )}
 
                     <div className="schedule-list-header">
-                      <span className="boiler-schedule-kind">Tryb pracy (Lato / Zima)</span>
-                      {!formOpen && <IconButton label={`Dodaj tryb pracy: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'season')} />}
+                      <span className="boiler-schedule-kind">Tryb Zima</span>
+                      {!formOpen && <IconButton label={`Dodaj tryb Zima: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'season')} />}
                     </div>
                     <div className="schedule-list">
                       {seasons.length === 0 && <div className="boiler-hint">brak wpisów</div>}
                       {seasons.map((schedule) => row(schedule, now && schedule._id === current?.seasonScheduleId,
                         <>{SEASON_LABEL[schedule.season ?? 'winter']}</>,
-                        schedule.coldBelow !== undefined && schedule.coldBelow !== null ? <>gdy na zewnątrz poniżej {schedule.coldBelow} °C</> : undefined))}
+                        (() => {
+                          const thresholds = seasonThresholds(schedule);
+                          return thresholds ? <>poniżej {thresholds.winterBelow} °C, Lato powyżej {thresholds.summerAbove} °C</> : undefined;
+                        })()))}
                     </div>
 
                     <div className="schedule-list-header">

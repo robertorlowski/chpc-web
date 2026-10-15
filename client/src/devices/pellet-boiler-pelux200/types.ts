@@ -117,7 +117,8 @@ export type PelletBoilerMode = 'heat-pump' | 'pellet';
 export type PelletBoilerSeason = 'winter' | 'summer';
 
 /** Wpis harmonogramu dla trybu w oknie godzin: type cwu = CWU od–do (od = start ładowania, do = zadana),
- *  type season = tryb pracy Lato / Zima, opcjonalnie tylko przy temperaturze zewnętrznej poniżej coldBelow. */
+ *  type season = „Tryb Zima” (od 2026-10-15), opcjonalnie według temperatury zewnętrznej: Zima poniżej winterBelow,
+ *  Lato powyżej summerAbove, między progami bez zmiany. coldBelow = dawny jeden próg (Lato powyżej progu + 0,5 °C). */
 export type PelletBoilerSchedule = {
   _id?: string;
   type: 'cwu' | 'season';
@@ -130,8 +131,16 @@ export type PelletBoilerSchedule = {
   cwuFrom?: number;
   cwuTo?: number;
   season?: PelletBoilerSeason;
+  winterBelow?: number | null;
+  summerAbove?: number | null;
   coldBelow?: number | null;
 };
+
+/** Progi wpisu „Tryb Zima” (dawny coldBelow: Lato powyżej progu + 0,5 °C); null = bez temperatury, Zima przez całe okno. */
+export const seasonThresholds = (schedule: PelletBoilerSchedule): { winterBelow: number; summerAbove: number } | null =>
+  typeof schedule.winterBelow === 'number'
+    ? { winterBelow: schedule.winterBelow, summerAbove: schedule.summerAbove ?? schedule.winterBelow + 0.5 }
+    : typeof schedule.coldBelow === 'number' ? { winterBelow: schedule.coldBelow, summerAbove: schedule.coldBelow + 0.5 } : null;
 
 export type PelletBoilerCwuRange = { cwuFrom: number; cwuTo: number };
 
