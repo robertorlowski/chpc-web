@@ -9,7 +9,8 @@ constexpr const char *DEVICE_TYPE = "switch";
 // Wersja firmware: wysyłana w zgłoszeniu i porównywana z ofertą chmury (OTA). Podnieść przy
 // każdym wydaniu, zanim zbudujesz obraz; tę samą wersję wpisuje się w aplikacji przy wgrywaniu.
 // 1.1.2: diagnostyka w zgłoszeniu stanu (przyczyna startu, numer startu, zerwania Wi-Fi, RSSI, czas HTTP).
-constexpr const char *FW_VERSION = "1.1.2";
+// 1.1.3: pogoda z Open-Meteo pobierana z domowego łącza i wysyłana w zgłoszeniu stanu (weather.hpp).
+constexpr const char *FW_VERSION = "1.1.3";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 

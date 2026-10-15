@@ -11,7 +11,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DeviceRequests } from '../../api';
 import { wsAddressServer } from '../../http';
-import { DatabaseStats, Device, DeviceTiles, DeviceType } from '../../types';
+import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions } from '../../types';
+import { precipitationText, weatherDescription, WeatherIcon } from '../../components/WeatherIcon';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { DeviceTileCard } from '../../components/DeviceTileCard';
@@ -100,6 +101,9 @@ export const Devices: React.FC = () => {
   const [reordering, setReordering] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  // temperatura z czujnika kotła i pogoda z Open-Meteo (GET /temperature), odświeżane razem z kafelkami;
+  // undefined = wczytywanie
+  const [outdoor, setOutdoor] = useState<OutdoorConditions | null | undefined>(undefined);
 
   const loadDevices = () => {
     DeviceRequests.getDevices()
@@ -121,6 +125,7 @@ export const Devices: React.FC = () => {
       setTilesLoaded(true);
       setNow(Date.now());
     });
+    DeviceRequests.getOutdoorConditions().then(setOutdoor);
   };
 
   // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
@@ -223,6 +228,24 @@ export const Devices: React.FC = () => {
         </div>
       )}
       {error && <p className="device-selection-error">{error}</p>}
+      {/* temperatura z czujnika kotła (bez niego z prognozy); niebo, opady i wiatr z Open-Meteo (pobiera sterownik
+          włącznika); na telefonie bez opadów i wiatru (style.css) */}
+      <div className="devices-outdoor" title={outdoor?.temperatureSource === 'forecast'
+        ? 'Temperatura i pogoda: prognoza Open-Meteo (brak odczytu z czujnika kotła).'
+        : 'Temperatura: czujnik zewnętrzny kotła. Pogoda: prognoza Open-Meteo.'}>
+        {outdoor?.weather && <WeatherIcon weather={outdoor.weather} />}
+        <span>
+          <b>{outdoor === undefined ? '…' : typeof outdoor?.temperature === 'number'
+            ? `${outdoor.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C'}</b>
+          {outdoor?.temperatureSource === 'forecast' && <span className="devices-outdoor-extra"> (prognoza)</span>}
+          {outdoor?.weather && <> {weatherDescription(outdoor.weather.code)}</>}
+        </span>
+        {outdoor?.weather && (
+          <span className="devices-outdoor-extra">
+            {precipitationText(outdoor.weather)} · wiatr {Math.round(outdoor.weather.windSpeed)} km/h
+          </span>
+        )}
+      </div>
       <section className="device-list">
         {devices.map((device, index) => {
           const label = tileName(device, devices);

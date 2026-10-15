@@ -190,6 +190,24 @@ describe('Włącznik (switch)', () => {
     });
   });
 
+  describe('pogoda z Open-Meteo (firmware 1.1.3)', () => {
+    it('przyjmuje pogodę ze zgłoszenia, odsyła współrzędne, bez kotła temperatura z prognozy', async () => {
+      const { body } = await register('4CC382C520FA');
+      const state = (extra: object) => request(app).post(`/api/switch/state?rootId=${body.rootId}`)
+        .send({ uptimeS: 60, relays: [{ on: false, changedS: 60 }], ...extra }).expect(200);
+      const answer = await state({});
+      expect(answer.body.weather_query).toEqual({ lat: 49.374298, lon: 20.007237 });
+      await state({ weather: { temp: 6.1, code: 61, cloud: 90, precip: 1.2, rain: 1.2, snow: 0, wind: 12.5, day: 0, age_s: 30 } });
+      const now = (await request(app).get('/api/temperature').expect(200)).body;
+      // w tym teście nie ma odczytu kotła: temperatura z prognozy
+      expect(now).toMatchObject({ temperature: 6.1, temperatureSource: 'forecast' });
+      expect(now.weather).toMatchObject({ code: 61, cloudCover: 90, precipitation: 1.2, windSpeed: 12.5, isDay: false });
+      // błędna pogoda nie nadpisuje poprawnej
+      await state({ weather: { code: 'x' } });
+      expect((await request(app).get('/api/temperature').expect(200)).body.weather.code).toBe(61);
+    });
+  });
+
   describe('harmonogramy i nazwy', () => {
     it('sprawdza wpis i pozwala go zmienić i usunąć', async () => {
       const { body } = await register('4CC382C520F7');

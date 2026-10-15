@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay } from './types';
+import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay, OutdoorConditions } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -21,6 +21,11 @@ export class DeviceRequests {
   // bo na liście urządzeń żadne nie jest jeszcze wybrane
   static updateDevice(rootId: string, data: { name: string } & DeviceDefinition): Promise<Device> {
     return Requests.put(`/devices/${encodeURIComponent(rootId)}`, data, false) as Promise<Device>;
+  }
+
+  // temperatura z czujnika kotła i pogoda z Open-Meteo nad kafelkami (null w polach bez świeżych danych); null przy błędzie
+  static getOutdoorConditions(): Promise<OutdoorConditions | null> {
+    return Requests.get('/temperature', false) as Promise<OutdoorConditions | null>;
   }
 
   // kafelki sterowników {rootId: kafelek}; null przy błędzie (Requests.get nie rzuca wyjątku)

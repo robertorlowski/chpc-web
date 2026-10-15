@@ -9,7 +9,8 @@
 // Kontrakt z chmurą: POST devices/register (rootId, settings.default_on_minutes, oferta OTA),
 // POST switch/state (polecenia i oferta OTA), PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
 // OTA tylko na zlecenie z aplikacji („Aktualizuj”): chmura wysyła ofertę wyłącznie wtedy (od 1.1.0
-// także w odpowiedzi na stan, więc bez restartu).
+// także w odpowiedzi na stan, więc bez restartu). Od 1.1.3 co 15 min pobiera pogodę z Open-Meteo dla współrzędnych
+// z chmury (weather_query) i wysyła ją w zgłoszeniu stanu (weather.hpp).
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
@@ -27,6 +28,7 @@
 #include <ota.hpp>
 #include <protocol.hpp>
 #include <relays.hpp>
+#include <weather.hpp>
 #include <secrets.h>
 
 namespace {
@@ -100,6 +102,12 @@ uint32_t wifiConnectedSinceMs = 0;
 // poprzedniej wymiany HTTP w exchangeState().
 ControllerDiag diag;
 constexpr const char *KEY_BOOTS = "boots";
+
+// Pogoda z Open-Meteo dla współrzędnych z chmury (weather.hpp, od 1.1.3), wysyłana w zgłoszeniu stanu.
+WeatherLocation weatherLocation;
+WeatherReading weather;
+uint32_t weatherAt = 0;
+WeatherSchedule weatherSchedule;
 
 OtaOffer otaOffer;
 bool otaOfferReceived = false;
@@ -350,7 +358,7 @@ void exchangeState(uint32_t nowMs)
   exchangeDue = false;
   String response;
   diag.rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
-  const std::string body = buildStateReport(bank, nowMs, &diag);
+  const std::string body = buildStateReport(bank, nowMs, &diag, &weather, millis() - weatherAt);
   const uint32_t sentMs = millis();
   const bool sent = send("POST", requestUrl("switch/state"), body.c_str(), &response);
   // czas tej wymiany idzie w następnym zgłoszeniu
@@ -369,6 +377,12 @@ void exchangeState(uint32_t nowMs)
   JsonDocument reply;
   const bool hadOffer = otaOfferReceived;
   otaOfferReceived = !deserializeJson(reply, response) && parseOtaOffer(reply.as<JsonVariantConst>(), otaOffer);
+  // współrzędne do pogody (weather_query, od 1.1.3); zmiana położenia = pobranie od razu
+  WeatherLocation location;
+  if (!reply.isNull() && parseWeatherLocation(reply.as<JsonVariantConst>(), location)) {
+    weatherSchedule.onLocation(!(location == weatherLocation));
+    weatherLocation = location;
+  }
   if (otaOfferReceived && !hadOffer) logf("OTA: zlecona wersja %s", otaOffer.version.c_str());
   lastExchangeOkMs = millis();
   writeChanged(changed, "chmura");
@@ -524,6 +538,8 @@ void logStatus(uint32_t nowMs)
 
 // Co 1 s z loop(): AP, zgłoszenie (co 30 s do skutku), zmiany lokalne, wymiana stanu
 // (co 5 s albo od razu po zmianie), OTA.
+void fetchWeather(uint32_t nowMs);
+
 void tick(uint32_t nowMs)
 {
   updateAccessPoint(nowMs);
@@ -540,6 +556,34 @@ void tick(uint32_t nowMs)
   }
   if (registeredThisBoot && (exchangeDue || nowMs - lastExchangeMs >= EXCHANGE_INTERVAL_MS)) exchangeState(nowMs);
   if (registeredThisBoot && cloudOnline(nowMs)) tryFirmwareUpdate();
+  if (weatherSchedule.due(weatherLocation.valid, nowMs)) fetchWeather(nowMs);
+}
+
+// Pogoda z Open-Meteo (weather.hpp): blokujący GET HTTPS (najwyżej kilka sekund; przekaźniki trzymają stan,
+// odliczanie włączeń liczy się z millis()). Nieudane pobranie zostawia poprzednią pogodę do WEATHER_MAX_AGE_MS.
+void fetchWeather(uint32_t nowMs)
+{
+  WiFiClientSecure client;
+  client.setInsecure();  // dane pogodowe, bez wpływu na przekaźniki
+  HTTPClient request;
+  request.setConnectTimeout(HTTP_TIMEOUT_MS);
+  request.setTimeout(HTTP_TIMEOUT_MS);
+  bool ok = false;
+  if (request.begin(client, openMeteoUrl(weatherLocation).c_str())) {
+    const int code = request.GET();
+    if (code == 200) {
+      const String body = request.getString();
+      WeatherReading reading;
+      ok = parseOpenMeteoCurrent(body.c_str(), body.length(), reading);
+      if (ok) {
+        weather = reading;
+        weatherAt = millis();
+      }
+    }
+    request.end();
+  }
+  weatherSchedule.onAttempt(ok, nowMs);
+  logf("pogoda: %s", ok ? "pobrana" : "błąd pobierania");
 }
 
 // --- strony WWW ---

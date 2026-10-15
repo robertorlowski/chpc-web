@@ -95,6 +95,31 @@ export type DeviceDefinition = { pumpConfig?: PumpConfig; boilerConfig?: BoilerC
 
 // GET /api/devices/db-stats (stopka strony /devices): zajętość bazy (dane + indeksy) względem limitu
 // planu Atlas M0 (512 MB) i odpowiedź bazy na ping; ok = false albo brak odpowiedzi = baza nie działa.
+/** pogoda z Open-Meteo pobrana przez sterownik włącznika (GET /temperature, serwer core/services/meteo.service.ts) */
+export type Weather = {
+  /** temperatura z prognozy [°C] */
+  temperature: number;
+  /** kod pogody WMO */
+  code: number;
+  /** zachmurzenie [%] */
+  cloudCover: number;
+  /** opad i deszcz [mm], śnieg [cm] z ostatniego kwadransa */
+  precipitation: number;
+  rain: number;
+  snowfall: number;
+  /** wiatr [km/h] */
+  windSpeed: number;
+  isDay: boolean;
+  at: string;
+};
+
+/** GET /temperature: temperatura (czujnik kotła, bez niego prognoza) i pogoda; null = brak świeżych danych */
+export type OutdoorConditions = {
+  temperature: number | null;
+  temperatureSource: 'boiler' | 'forecast' | null;
+  weather: Weather | null;
+};
+
 export type DatabaseStats = {
   ok: boolean;
   usedBytes: number;

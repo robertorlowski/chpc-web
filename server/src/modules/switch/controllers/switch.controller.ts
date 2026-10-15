@@ -7,6 +7,7 @@ import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { warsawDayBoundsUTC } from '../../../core/time';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
+import { setWeatherFromController, WEATHER_LOCATION } from '../../../core/services/meteo.service';
 import {
   listActivations, listRelays, parseStateReport, relayCount, renameRelay, reportState, setRelayMode,
 } from '../services/switch.service';
@@ -29,7 +30,7 @@ const handleError = (res: Response, error: unknown) => {
   return res.status(500).json({ message: String(error) });
 };
 
-// POST /switch/state {uptimeS?, relays: [{on, changedS}]} → {relays: [{on, offAfterS?}], firmware?}
+// POST /switch/state {uptimeS?, relays: [{on, changedS}], diag?, weather?} → {relays: [{on, offAfterS?}], firmware?, weather_query}
 // firmware: oferta OTA tylko przy zleceniu „Aktualizuj” z aplikacji (core/services/firmware.service.ts).
 export async function postSwitchState(req: Request, res: Response) {
   const report = parseStateReport(req.body);
@@ -43,8 +44,11 @@ export async function postSwitchState(req: Request, res: Response) {
     // restart z włączeniem przekaźnika)
     const diag = parseControllerDiag(req.body);
     if (diag) await noteControllerDiag(rootId, diag, report.uptimeS);
+    // pogoda z Open-Meteo pobrana przez włącznik z domowego łącza (od 1.1.3; core/services/meteo.service.ts)
+    setWeatherFromController((req.body as { weather?: unknown } | undefined)?.weather);
     const firmware = await firmwareOfferForRoot(rootId, serverBaseUrl(req));
-    return res.status(200).json(firmware ? { relays, firmware } : { relays });
+    // weather_query: współrzędne, dla których włącznik pobiera pogodę
+    return res.status(200).json({ relays, ...(firmware ? { firmware } : {}), weather_query: WEATHER_LOCATION });
   } catch (error) {
     return handleError(res, error);
   }

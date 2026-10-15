@@ -3,7 +3,8 @@
 
 #include <firmware.hpp>
 
-std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag)
+std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag,
+  const WeatherReading *weather, uint32_t weatherAgeMs)
 {
   JsonDocument document;
   document["uptimeS"] = nowMs / 1000;
@@ -22,6 +23,7 @@ std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const Contro
     item["rssi"] = diag->rssi;
     item["httpMs"] = diag->httpMs;
   }
+  if (weather) writeWeather(document, *weather, weatherAgeMs);
   std::string body;
   serializeJson(document, body);
   return body;

@@ -93,6 +93,24 @@
   box-shadow: 0 0 0 2px #c62828, 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
+/* temperatura (czujnik kotła) i pogoda (Open-Meteo) nad kafelkami */
+.devices-outdoor {
+  margin: 0 0 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  font-size: 0.95rem;
+}
+.devices-outdoor > span { display: inline-flex; align-items: center; gap: 6px; }
+.devices-outdoor b { font-weight: 600; }
+.devices-outdoor .weather-icon { flex: none; }
+.devices-outdoor-extra { color: #607d8b; }
+@media (max-width: 560px) {
+  .devices-outdoor-extra { display: none !important; }
+}
+
 .device-selection-error {
   color: #ef6c00;
   font-weight: bold;

@@ -7,6 +7,7 @@
 #include <string>
 
 #include <relays.hpp>
+#include <weather.hpp>
 
 // Diagnostyka sterownika w zgłoszeniu stanu (od 1.1.2, 2026-10-14: płytka restartowała się przy
 // włączaniu bojlera 1,5–2 kW): przyczyna ostatniego startu (esp_reset_reason, np. "brownout" = spadek
@@ -22,8 +23,10 @@ struct ControllerDiag {
 
 // Zgłoszenie stanu: {"uptimeS":N,"relays":[{"on":true,"changedS":12},…],"diag":{…}}.
 // changedS — od ilu sekund przekaźnik jest w obecnym stanie; serwer liczy z tego czas
-// włączenia i wyłączenia w historii, także po przerwie w łączności. diag tylko, gdy podane.
-std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag = nullptr);
+// włączenia i wyłączenia w historii, także po przerwie w łączności. diag tylko, gdy podane; weather (od 1.1.3,
+// weather.hpp) tylko ważna i nie starsza niż WEATHER_MAX_AGE_MS (weatherAgeMs = wiek odczytu).
+std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag = nullptr,
+  const WeatherReading *weather = nullptr, uint32_t weatherAgeMs = 0);
 
 // Odpowiedź na zgłoszenie stanu: {"relays":[{"on":true,"offAfterS":1200,"mode":"schedule"},…]}.
 // Stosuje polecenia do bank (pomijając przekaźniki z niewysłaną zmianą lokalną). Zwraca
