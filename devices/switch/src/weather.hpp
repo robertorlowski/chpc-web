@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <string>
+#include <vector>
 
 #include <ArduinoJson.h>
 
@@ -13,13 +14,21 @@
 // Render pobierać jej nie może: Open-Meteo liczy limit zapytań na adres IP, a Render dzieli adres z wieloma
 // usługami (w lipcu 2026 pobieranie z serwera nie działało). Współrzędne podaje chmura w odpowiedzi na zgłoszenie
 // stanu (weather_query {lat, lon}), więc położenie jest w jednym miejscu; bez nich włącznik nic nie pobiera.
-// Pobieranie co WEATHER_INTERVAL_MS (96 zapytań na dobę), po błędzie ponowienie po WEATHER_RETRY_MS.
+// Pobieranie co WEATHER_INTERVAL_MS (96 zapytań na dobę na miejsce), po błędzie ponowienie po WEATHER_RETRY_MS.
 // Temperatura z prognozy służy chmurze tylko wtedy, gdy nie ma świeżego odczytu czujnika zewnętrznego kotła.
+//
+// Od 1.2.0 (2026-10-16) wiele miejsc: chmura podaje weather_queries [{id, lat, lon}, ...] (kafelki pogody na liście
+// sterowników, najwyżej WEATHER_MAX_PLACES), włącznik pobiera każde osobno (jedno zapytanie naraz, odstęp
+// WEATHER_SPACING_MS) i odsyła tablicę weather: [{id, temp, ..., age_s}, ...]. Starsza chmura podaje samo
+// weather_query {lat, lon}: wtedy jedno miejsce bez id i pole weather jako obiekt, jak w 1.1.3.
 
 constexpr unsigned long WEATHER_INTERVAL_MS = 15UL * 60UL * 1000UL;
 constexpr unsigned long WEATHER_RETRY_MS = 5UL * 60UL * 1000UL;
 // starszej pogody telemetria nie niesie (chmura i tak uznałaby ją za nieaktualną)
 constexpr unsigned long WEATHER_MAX_AGE_MS = 45UL * 60UL * 1000UL;
+constexpr size_t WEATHER_MAX_PLACES = 8;
+// między pobraniami dwóch miejsc: każde blokuje pętlę na kilka sekund, a między nimi pętla ma dojść do głosu
+constexpr unsigned long WEATHER_SPACING_MS = 5000UL;
 
 struct WeatherLocation {
   double lat = 0;
@@ -137,4 +146,136 @@ private:
   bool attempted = false;
   bool lastOk = false;
   unsigned long lastAttemptAt = 0;
+};
+
+// Jedno miejsce z chmury: id kafelka pogody (puste przy starszej chmurze z weather_query), położenie, ostatni
+// poprawny odczyt z czasem pobrania i harmonogram pobierania.
+struct WeatherPlace {
+  std::string id;
+  WeatherLocation location;
+  WeatherReading reading;
+  unsigned long readAt = 0;
+  WeatherSchedule schedule;
+};
+
+// Lista miejsc do pogody i ich odczyty.
+class WeatherPlaces {
+public:
+  const std::vector<WeatherPlace> &all() const { return places; }
+  size_t size() const { return places.size(); }
+  WeatherPlace &at(size_t index) { return places[index]; }
+
+  // Odpowiedź chmury na zgłoszenie stanu: weather_queries [{id, lat, lon}] (od chmury 2026-10-16) albo samo
+  // weather_query {lat, lon} (dom, bez id). Miejsce o tym samym id zachowuje odczyt; zmiana położenia = pobranie
+  // od razu; miejsca, których nie ma w odpowiedzi, znikają. Zwraca false, gdy odpowiedź nie niesie miejsc
+  // (lista bez zmian).
+  bool update(JsonVariantConst response)
+  {
+    std::vector<std::pair<std::string, WeatherLocation>> wanted;
+    JsonArrayConst queries = response["weather_queries"].as<JsonArrayConst>();
+    if (!queries.isNull()) {
+      for (JsonVariantConst item : queries) {
+        if (wanted.size() >= WEATHER_MAX_PLACES) break;
+        WeatherLocation location;
+        const char *id = item["id"].as<const char *>();
+        if (!id || !*id || !parseLocation(item, location)) continue;
+        wanted.push_back({id, location});
+      }
+    } else {
+      WeatherLocation location;
+      if (!parseWeatherLocation(response, location)) return false;
+      wanted.push_back({"", location});
+    }
+    std::vector<WeatherPlace> next;
+    for (const auto &entry : wanted) {
+      WeatherPlace place;
+      place.id = entry.first;
+      place.location = entry.second;
+      for (const WeatherPlace &old : places) {
+        if (old.id != entry.first) continue;
+        place = old;
+        place.location = entry.second;
+        place.schedule.onLocation(!(old.location == entry.second));
+        break;
+      }
+      next.push_back(place);
+    }
+    places = next;
+    return true;
+  }
+
+  // Indeks miejsca do pobrania teraz albo -1: pierwsze, któremu minął czas, nie wcześniej niż WEATHER_SPACING_MS
+  // po poprzednim pobraniu.
+  int dueIndex(unsigned long now) const
+  {
+    if (fetchedOnce && now - lastFetchAt < WEATHER_SPACING_MS) return -1;
+    for (size_t index = 0; index < places.size(); index++) {
+      if (places[index].schedule.due(places[index].location.valid, now)) return static_cast<int>(index);
+    }
+    return -1;
+  }
+
+  // Wynik pobrania miejsca: udany odczyt zastępuje poprzedni, nieudany zostawia go (do WEATHER_MAX_AGE_MS).
+  void onFetched(size_t index, bool ok, const WeatherReading &reading, unsigned long now)
+  {
+    if (index >= places.size()) return;
+    WeatherPlace &place = places[index];
+    if (ok) {
+      place.reading = reading;
+      place.readAt = now;
+    }
+    place.schedule.onAttempt(ok, now);
+    fetchedOnce = true;
+    lastFetchAt = now;
+  }
+
+  // Pole weather w zgłoszeniu stanu: tablica [{id, ...}] przy miejscach z id, obiekt (jak 1.1.3) przy jednym
+  // miejscu bez id; odczyty nieważne albo starsze niż WEATHER_MAX_AGE_MS są pomijane; bez żadnego pole znika.
+  void write(JsonDocument &document, unsigned long now) const
+  {
+    document.remove("weather");
+    if (places.empty()) return;
+    if (places.size() == 1 && places[0].id.empty()) {
+      writeWeather(document, places[0].reading, now - places[0].readAt);
+      return;
+    }
+    JsonArray list = document["weather"].to<JsonArray>();
+    for (const WeatherPlace &place : places) {
+      if (!place.reading.valid || now - place.readAt > WEATHER_MAX_AGE_MS) continue;
+      JsonObject item = list.add<JsonObject>();
+      item["id"] = place.id;
+      writeReading(item, place.reading, now - place.readAt);
+    }
+    if (list.size() == 0) document.remove("weather");
+  }
+
+private:
+  static bool parseLocation(JsonVariantConst item, WeatherLocation &out)
+  {
+    if (!item["lat"].is<double>() || !item["lon"].is<double>()) return false;
+    const double lat = item["lat"].as<double>();
+    const double lon = item["lon"].as<double>();
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return false;
+    out.lat = lat;
+    out.lon = lon;
+    out.valid = true;
+    return true;
+  }
+
+  static void writeReading(JsonObject item, const WeatherReading &reading, unsigned long ageMs)
+  {
+    item["temp"] = reading.temperature;
+    item["code"] = reading.code;
+    item["cloud"] = reading.cloudCover;
+    item["precip"] = reading.precipitation;
+    item["rain"] = reading.rain;
+    item["snow"] = reading.snowfall;
+    item["wind"] = reading.windSpeed;
+    item["day"] = reading.isDay ? 1 : 0;
+    item["age_s"] = ageMs / 1000UL;
+  }
+
+  std::vector<WeatherPlace> places;
+  bool fetchedOnce = false;
+  unsigned long lastFetchAt = 0;
 };

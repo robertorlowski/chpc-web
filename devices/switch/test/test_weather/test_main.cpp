@@ -93,6 +93,73 @@ void testSchedule()
   TEST_ASSERT_TRUE(schedule.due(true, 400001));
 }
 
+// Wiele miejsc (1.2.0): weather_queries z chmury, odczyt zachowany przy tym samym id, zmiana położenia = pobranie
+// od razu, jedno pobranie naraz z odstępem, tablica weather w zgłoszeniu; starsza chmura (weather_query) = obiekt.
+void testPlacesFromCloud()
+{
+  WeatherPlaces places;
+  TEST_ASSERT_FALSE(places.update(json("{\"relays\":[]}").as<JsonVariantConst>()));
+  TEST_ASSERT_EQUAL(0, places.size());
+  // starsza chmura: jedno miejsce bez id
+  TEST_ASSERT_TRUE(places.update(json("{\"weather_query\":{\"lat\":49.37,\"lon\":20.0}}").as<JsonVariantConst>()));
+  TEST_ASSERT_EQUAL(1, places.size());
+  TEST_ASSERT_EQUAL_STRING("", places.at(0).id.c_str());
+  // nowa chmura: lista z id; wpis bez id albo poza zakresem pomijany
+  TEST_ASSERT_TRUE(places.update(json(
+    "{\"weather_query\":{\"lat\":49.37,\"lon\":20.0},\"weather_queries\":[{\"id\":\"dom\",\"lat\":49.37,\"lon\":20.0},"
+    "{\"id\":\"krakow\",\"lat\":50.06,\"lon\":19.94},{\"lat\":1,\"lon\":1},{\"id\":\"zle\",\"lat\":99,\"lon\":0}]}").as<JsonVariantConst>()));
+  TEST_ASSERT_EQUAL(2, places.size());
+  TEST_ASSERT_EQUAL_STRING("krakow", places.at(1).id.c_str());
+
+  // pobieranie: pierwsze miejsce od razu, drugie dopiero po odstępie
+  TEST_ASSERT_EQUAL(0, places.dueIndex(1000));
+  WeatherReading reading;
+  reading.temperature = 6.5;
+  reading.code = 61;
+  reading.cloudCover = 90;
+  reading.precipitation = 1.2;
+  reading.rain = 1.2;
+  reading.windSpeed = 12.5;
+  reading.isDay = true;
+  reading.valid = true;
+  places.onFetched(0, true, reading, 1000);
+  TEST_ASSERT_EQUAL(-1, places.dueIndex(1000 + WEATHER_SPACING_MS - 1));
+  TEST_ASSERT_EQUAL(1, places.dueIndex(1000 + WEATHER_SPACING_MS));
+  places.onFetched(1, false, reading, 1000 + WEATHER_SPACING_MS);
+  TEST_ASSERT_EQUAL(-1, places.dueIndex(2000 + WEATHER_SPACING_MS));
+
+  // zgłoszenie: tylko miejsca z odczytem
+  JsonDocument document;
+  places.write(document, 121500);
+  std::string text;
+  serializeJson(document, text);
+  TEST_ASSERT_EQUAL_STRING(
+    "{\"weather\":[{\"id\":\"dom\",\"temp\":6.5,\"code\":61,\"cloud\":90,\"precip\":1.2,\"rain\":1.2,\"snow\":0,\"wind\":12.5,\"day\":1,\"age_s\":120}]}",
+    text.c_str());
+
+  // ta sama lista z chmury zachowuje odczyt; zmiana położenia domu = pobranie od razu; usunięty Kraków znika
+  TEST_ASSERT_TRUE(places.update(json("{\"weather_queries\":[{\"id\":\"dom\",\"lat\":49.37,\"lon\":20.0}]}").as<JsonVariantConst>()));
+  TEST_ASSERT_EQUAL(1, places.size());
+  TEST_ASSERT_TRUE(places.at(0).reading.valid);
+  TEST_ASSERT_EQUAL(-1, places.dueIndex(200000));
+  TEST_ASSERT_TRUE(places.update(json("{\"weather_queries\":[{\"id\":\"dom\",\"lat\":49.30,\"lon\":19.95}]}").as<JsonVariantConst>()));
+  TEST_ASSERT_EQUAL(0, places.dueIndex(200000));
+
+  // stary odczyt znika z telemetrii
+  JsonDocument old;
+  places.write(old, 1000 + WEATHER_MAX_AGE_MS + 1);
+  TEST_ASSERT_TRUE(old["weather"].isNull());
+
+  // starsza chmura po nowej: obiekt zamiast tablicy
+  WeatherPlaces legacy;
+  legacy.update(json("{\"weather_query\":{\"lat\":49.37,\"lon\":20.0}}").as<JsonVariantConst>());
+  legacy.onFetched(0, true, reading, 5000);
+  JsonDocument single;
+  legacy.write(single, 65000);
+  TEST_ASSERT_EQUAL(61, single["weather"]["code"].as<int>());
+  TEST_ASSERT_EQUAL(60, single["weather"]["age_s"].as<int>());
+}
+
 int runAllTests()
 {
   UNITY_BEGIN();
@@ -100,6 +167,7 @@ int runAllTests()
   RUN_TEST(testParseOpenMeteoResponse);
   RUN_TEST(testTelemetryField);
   RUN_TEST(testSchedule);
+  RUN_TEST(testPlacesFromCloud);
   return UNITY_END();
 }
 

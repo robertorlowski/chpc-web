@@ -24,9 +24,9 @@ struct ControllerDiag {
 // Zgłoszenie stanu: {"uptimeS":N,"relays":[{"on":true,"changedS":12},…],"diag":{…}}.
 // changedS — od ilu sekund przekaźnik jest w obecnym stanie; serwer liczy z tego czas
 // włączenia i wyłączenia w historii, także po przerwie w łączności. diag tylko, gdy podane; weather (od 1.1.3,
-// weather.hpp) tylko ważna i nie starsza niż WEATHER_MAX_AGE_MS (weatherAgeMs = wiek odczytu).
+// od 1.2.0 wiele miejsc, weather.hpp) tylko odczyty ważne i nie starsze niż WEATHER_MAX_AGE_MS.
 std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const ControllerDiag *diag = nullptr,
-  const WeatherReading *weather = nullptr, uint32_t weatherAgeMs = 0);
+  const WeatherPlaces *weather = nullptr);
 
 // Odpowiedź na zgłoszenie stanu: {"relays":[{"on":true,"offAfterS":1200,"mode":"schedule"},…]}.
 // Stosuje polecenia do bank (pomijając przekaźniki z niewysłaną zmianą lokalną). Zwraca

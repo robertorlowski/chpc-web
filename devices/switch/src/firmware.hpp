@@ -10,7 +10,8 @@ constexpr const char *DEVICE_TYPE = "switch";
 // każdym wydaniu, zanim zbudujesz obraz; tę samą wersję wpisuje się w aplikacji przy wgrywaniu.
 // 1.1.2: diagnostyka w zgłoszeniu stanu (przyczyna startu, numer startu, zerwania Wi-Fi, RSSI, czas HTTP).
 // 1.1.3: pogoda z Open-Meteo pobierana z domowego łącza i wysyłana w zgłoszeniu stanu (weather.hpp).
-constexpr const char *FW_VERSION = "1.1.3";
+// 1.2.0: pogoda dla wielu miejsc z chmury (weather_queries, kafelki pogody na liście sterowników), tablica weather.
+constexpr const char *FW_VERSION = "1.2.0";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 
