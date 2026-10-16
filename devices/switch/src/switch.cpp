@@ -9,7 +9,8 @@
 // Kontrakt z chmurą: POST devices/register (rootId, settings.default_on_minutes, oferta OTA),
 // POST switch/state (polecenia i oferta OTA), PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
 // OTA tylko na zlecenie z aplikacji („Aktualizuj”): chmura wysyła ofertę wyłącznie wtedy (od 1.1.0
-// także w odpowiedzi na stan, więc bez restartu).
+// także w odpowiedzi na stan, więc bez restartu). Od 1.1.3 co 15 min pobiera pogodę z Open-Meteo dla współrzędnych
+// z chmury (weather_queries, starsza chmura: weather_query) i wysyła ją w zgłoszeniu stanu (weather.hpp).
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
@@ -20,12 +21,14 @@
 #include <WiFiClientSecure.h>
 #include <Update.h>
 #include <esp_mac.h>
+#include <esp_system.h>
 #include <mbedtls/sha256.h>
 
 #include <firmware.hpp>
 #include <ota.hpp>
 #include <protocol.hpp>
 #include <relays.hpp>
+#include <weather.hpp>
 #include <secrets.h>
 
 namespace {
@@ -93,6 +96,16 @@ int lastHttpStatus = 0;
 bool accessPointOn = false;
 uint32_t wifiLostSinceMs = 0;
 uint32_t wifiConnectedSinceMs = 0;
+
+// Diagnostyka w zgłoszeniu stanu (od 1.1.2, protocol.hpp: ControllerDiag): przyczyna startu i numer
+// startu (NVS "boots") ustalane w setup(), zerwania Wi-Fi liczone w updateAccessPoint(), czas
+// poprzedniej wymiany HTTP w exchangeState().
+ControllerDiag diag;
+constexpr const char *KEY_BOOTS = "boots";
+
+// Pogoda z Open-Meteo dla miejsc z chmury (weather.hpp, od 1.1.3; od 1.2.0 wiele miejsc = kafelki pogody),
+// wysyłana w zgłoszeniu stanu.
+WeatherPlaces weatherPlaces;
 
 OtaOffer otaOffer;
 bool otaOfferReceived = false;
@@ -342,8 +355,13 @@ void exchangeState(uint32_t nowMs)
   lastExchangeMs = nowMs;
   exchangeDue = false;
   String response;
-  const std::string body = buildStateReport(bank, nowMs);
-  if (!send("POST", requestUrl("switch/state"), body.c_str(), &response)) {
+  diag.rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+  const std::string body = buildStateReport(bank, nowMs, &diag, &weatherPlaces);
+  const uint32_t sentMs = millis();
+  const bool sent = send("POST", requestUrl("switch/state"), body.c_str(), &response);
+  // czas tej wymiany idzie w następnym zgłoszeniu
+  diag.httpMs = millis() - sentMs;
+  if (!sent) {
     logf("stan do chmury: błąd, HTTP %d", lastHttpStatus);
     forgetRootIdOnError();
     return;
@@ -357,6 +375,8 @@ void exchangeState(uint32_t nowMs)
   JsonDocument reply;
   const bool hadOffer = otaOfferReceived;
   otaOfferReceived = !deserializeJson(reply, response) && parseOtaOffer(reply.as<JsonVariantConst>(), otaOffer);
+  // miejsca do pogody (weather_queries, starsza chmura weather_query); zmiana położenia = pobranie od razu
+  if (!reply.isNull()) weatherPlaces.update(reply.as<JsonVariantConst>());
   if (otaOfferReceived && !hadOffer) logf("OTA: zlecona wersja %s", otaOffer.version.c_str());
   lastExchangeOkMs = millis();
   writeChanged(changed, "chmura");
@@ -481,6 +501,7 @@ void updateAccessPoint(uint32_t nowMs)
     wifiLostSinceMs = 0;
     if (wifiConnectedSinceMs == 0) wifiConnectedSinceMs = nowMs;
   } else {
+    if (wifiConnectedSinceMs != 0) diag.wifiDrops++;
     wifiConnectedSinceMs = 0;
     if (wifiLostSinceMs == 0) wifiLostSinceMs = nowMs;
   }
@@ -511,6 +532,8 @@ void logStatus(uint32_t nowMs)
 
 // Co 1 s z loop(): AP, zgłoszenie (co 30 s do skutku), zmiany lokalne, wymiana stanu
 // (co 5 s albo od razu po zmianie), OTA.
+void fetchWeather(size_t index, uint32_t nowMs);
+
 void tick(uint32_t nowMs)
 {
   updateAccessPoint(nowMs);
@@ -527,6 +550,34 @@ void tick(uint32_t nowMs)
   }
   if (registeredThisBoot && (exchangeDue || nowMs - lastExchangeMs >= EXCHANGE_INTERVAL_MS)) exchangeState(nowMs);
   if (registeredThisBoot && cloudOnline(nowMs)) tryFirmwareUpdate();
+  const int duePlace = weatherPlaces.dueIndex(nowMs);
+  if (duePlace >= 0) fetchWeather(static_cast<size_t>(duePlace), nowMs);
+}
+
+// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp): blokujący GET HTTPS (najwyżej kilka sekund; przekaźniki
+// trzymają stan, odliczanie włączeń liczy się z millis()). Nieudane pobranie zostawia poprzednią pogodę do
+// WEATHER_MAX_AGE_MS. Kolejne miejsca co WEATHER_SPACING_MS.
+void fetchWeather(size_t index, uint32_t nowMs)
+{
+  const WeatherLocation location = weatherPlaces.at(index).location;
+  WiFiClientSecure client;
+  client.setInsecure();  // dane pogodowe, bez wpływu na przekaźniki
+  HTTPClient request;
+  request.setConnectTimeout(HTTP_TIMEOUT_MS);
+  request.setTimeout(HTTP_TIMEOUT_MS);
+  bool ok = false;
+  WeatherReading reading;
+  if (request.begin(client, openMeteoUrl(location).c_str())) {
+    const int code = request.GET();
+    if (code == 200) {
+      const String body = request.getString();
+      ok = parseOpenMeteoCurrent(body.c_str(), body.length(), reading);
+    }
+    request.end();
+  }
+  weatherPlaces.onFetched(index, ok, reading, nowMs);
+  logf("pogoda %u/%u: %s", static_cast<unsigned>(index + 1), static_cast<unsigned>(weatherPlaces.size()),
+    ok ? "pobrana" : "błąd pobierania");
 }
 
 // --- strony WWW ---
@@ -772,6 +823,25 @@ void startNetwork()
 
 }  // namespace
 
+// Przyczyna startu po angielsku, jak w ESP-IDF (serwer tłumaczy ją w dzienniku operacji):
+// brownout = spadek napięcia zasilania, ext = pin EN, power_on = włączenie zasilania.
+const char *resetReasonName(esp_reset_reason_t reason)
+{
+  switch (reason) {
+  case ESP_RST_POWERON: return "power_on";
+  case ESP_RST_EXT: return "ext";
+  case ESP_RST_SW: return "software";
+  case ESP_RST_PANIC: return "panic";
+  case ESP_RST_INT_WDT: return "int_wdt";
+  case ESP_RST_TASK_WDT: return "task_wdt";
+  case ESP_RST_WDT: return "wdt";
+  case ESP_RST_DEEPSLEEP: return "deepsleep";
+  case ESP_RST_BROWNOUT: return "brownout";
+  case ESP_RST_SDIO: return "sdio";
+  default: return "unknown";
+  }
+}
+
 // Start: przekaźniki wyłączone, konfiguracja z NVS, sieć. Zgłoszenie i stan z chmury w tick().
 void setup()
 {
@@ -785,11 +855,15 @@ void setup()
   }
 
   preferences.begin(PREFERENCES_NAMESPACE, false);
+  diag.reset = resetReasonName(esp_reset_reason());
+  diag.boot = preferences.getUInt(KEY_BOOTS, 0) + 1;
+  preferences.putUInt(KEY_BOOTS, diag.boot);
   loadConfig();
   parseCloudUrl();
   serial = readSerial();
   logf("start: firmware %s, SN %s, rootId %s, przekaźników %u, chmura %s", FW_VERSION, serial.c_str(),
     rootId.length() > 0 ? rootId.c_str() : "brak", static_cast<unsigned>(RELAY_COUNT), CLOUD_URL);
+  logf("start: przyczyna %s, start nr %u", diag.reset, static_cast<unsigned>(diag.boot));
   startNetwork();
 }
 

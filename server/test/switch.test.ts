@@ -165,6 +165,49 @@ describe('Włącznik (switch)', () => {
     });
   });
 
+  describe('diagnostyka sterownika (firmware 1.1.2)', () => {
+    it('zapisuje restart z przyczyną i włączeniem przekaźnika tuż przed nim', async () => {
+      const { body } = await register('4CC382C520F9');
+      const api = (path: string) => `/api/${path}?rootId=${body.rootId}`;
+      // start sprzed 10 min (pierwsze zgłoszenie po starcie serwera): punkt odniesienia, bez wpisu
+      await request(app).post(api('switch/state')).send({
+        uptimeS: 600, relays: [{ on: true, changedS: 10 }], diag: { reset: 'power_on', boot: 5, wifiDrops: 1, rssi: -60, httpMs: 700 },
+      }).expect(200);
+      // restart 3 s temu przez spadek napięcia; przekaźnik wyłączony od startu
+      await request(app).post(api('switch/state')).send({
+        uptimeS: 3, relays: [{ on: false, changedS: 3 }], diag: { reset: 'brownout', boot: 6, wifiDrops: 0, rssi: -61, httpMs: 900 },
+      }).expect(200);
+      // błędne diag nie psuje zgłoszenia
+      await request(app).post(api('switch/state')).send({ uptimeS: 8, relays: [{ on: false, changedS: 8 }], diag: { reset: 5 } }).expect(200);
+
+      const day = (await request(app).get(api('operations')).expect(200)).body;
+      const restarts = day.done.filter((entry: { action: string }) => entry.action === 'Restart sterownika');
+      expect(restarts).toHaveLength(1);
+      expect(restarts[0].reason).toContain('spadek napięcia zasilania (brownout)');
+      expect(restarts[0].conditions).toMatch(/^start nr 6; \d+ s po włączeniu: Przekaźnik 1; przed restartem zerwań Wi-Fi: 1$/);
+      const diag = (await request(app).get(api('switch/diagnostics')).expect(200)).body;
+      expect(diag).toMatchObject({ reset: 'brownout', boot: 6, httpMs: 900, resetText: 'spadek napięcia zasilania (brownout)' });
+    });
+  });
+
+  describe('pogoda z Open-Meteo (firmware 1.1.3)', () => {
+    it('przyjmuje pogodę ze zgłoszenia, odsyła współrzędne, bez kotła temperatura z prognozy', async () => {
+      const { body } = await register('4CC382C520FA');
+      const state = (extra: object) => request(app).post(`/api/switch/state?rootId=${body.rootId}`)
+        .send({ uptimeS: 60, relays: [{ on: false, changedS: 60 }], ...extra }).expect(200);
+      const answer = await state({});
+      expect(answer.body.weather_query).toEqual({ lat: 49.374298, lon: 20.007237 });
+      await state({ weather: { temp: 6.1, code: 61, cloud: 90, precip: 1.2, rain: 1.2, snow: 0, wind: 12.5, day: 0, age_s: 30 } });
+      const now = (await request(app).get('/api/temperature').expect(200)).body;
+      // w tym teście nie ma odczytu kotła: temperatura z prognozy
+      expect(now).toMatchObject({ temperature: 6.1, temperatureSource: 'forecast' });
+      expect(now.weather).toMatchObject({ code: 61, cloudCover: 90, precipitation: 1.2, windSpeed: 12.5, isDay: false });
+      // błędna pogoda nie nadpisuje poprawnej
+      await state({ weather: { code: 'x' } });
+      expect((await request(app).get('/api/temperature').expect(200)).body.weather.code).toBe(61);
+    });
+  });
+
   describe('harmonogramy i nazwy', () => {
     it('sprawdza wpis i pozwala go zmienić i usunąć', async () => {
       const { body } = await register('4CC382C520F7');

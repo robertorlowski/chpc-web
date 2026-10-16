@@ -1,6 +1,6 @@
 import express from 'express'
 
-import { getHp, addHp, getHpAll, getHpAvailableDates, clearHp, getHp4Day, getHpMonthlySummary, getLastError } from './controllers/hp.controller'
+import { getHp, addHp, getHpAll, getHpAvailableDates, clearHp, getHp4Day, getHpMonthlySummary, getLastError, getDiagnostics, putDiagnostics } from './controllers/hp.controller'
 import { getSettings, setSettings } from './controllers/settings.controller'
 import { getAndClearOperation, getOperation, prepareOperation, setOperation, setOperationAction } from './controllers/operation.controller'
 import { createScheduleEntry, deleteScheduleEntry, getCurrentScheduleEntry, getScheduleEntries, updateScheduleEntry } from './controllers/schedule.controller'
@@ -26,6 +26,9 @@ router.get('/hp/monthly-summary', getHpMonthlySummary)
 router.get('/hp/last-error', getLastError)
 router.post('/hp/add', addHp)
 router.post('/hp/clear', clearHp)
+// diagnostyka magistrali sterownika co: liczniki i zrzuty (GET), zlecenie z czasem wygaśnięcia (PUT)
+router.get('/hp/diagnostics', getDiagnostics)
+router.put('/hp/diagnostics', putDiagnostics)
 // ładowanie CWU w kotle zasilanym przez pompę: kocioł zgłasza (PUT, z rootId pompy), ekran główny czyta (GET)
 router.get('/hp/cwu-loading', getCwuLoadingState)
 router.put('/hp/cwu-loading', putCwuLoadingState)

@@ -91,6 +91,49 @@ describe('API with MongoDB', () => {
     expect(records).toHaveLength(3)
   })
 
+  it('keeps co diagnostic counters also from telemetry without a CHPC reading (GET /hp diagnostics)', async () => {
+    const device = await DeviceModel.create({ deviceType: DeviceType.HP, deviceId: 'test-hp-diag', schedules: [] })
+    const id = String(device._id)
+    const add = (body: object) => request(app).post(`/api/hp/add?rootId=${id}&deviceId=test-hp-diag`).send(body).expect(201)
+    await add({ time: '2026.10.14 12:35:00', HP: { Ttarget: 37.9, HPS: 0 }, serial_read_timeout: 4, hp_json_error: 1, cloud_http_status: 201 })
+    // CHPC milczy: puste HP nie jest zapisywane, ale liczniki tak
+    await add({ time: '2026.10.14 12:35:30', HP: {}, serial_read_timeout: 5, hp_json_error: 1, cloud_http_status: 201 })
+    await add({ time: '2026.10.14 12:36:00', HP: {}, serial_read_timeout: 6, hp_json_error: 1, cloud_http_status: 201 })
+    expect(await HpEntryModel.countDocuments({ rootId: id })).toBe(1)
+    const { diagnostics } = (await request(app).get(`/api/hp?rootId=${id}&deviceId=test-hp-diag`).expect(200)).body
+    expect(diagnostics).toMatchObject({
+      hp: false,
+      counters: { serial_read_timeout: 6, hp_json_error: 1, cloud_http_status: 201 },
+      sincePrevious: { serial_read_timeout: 1, hp_json_error: 0 },
+      sinceLastHp: { serial_read_timeout: 2, hp_json_error: 0 },
+    })
+    expect(diagnostics.lastHpAt).toEqual(expect.any(String))
+    expect(diagnostics.sinceLastHp.cloud_http_status).toBeUndefined()
+
+    // zlecenie diagnostyki (co 1.2.5): walidacja, pole diag w odpowiedzi /hp/add, echo i zrzuty z co, odwołanie
+    const diagApi = `/api/hp/diagnostics?rootId=${id}`
+    expect((await request(app).put(diagApi).send({ hp_raw: 2 })).status).toBe(400)
+    expect((await request(app).put(diagApi).send({ hp_timeout_s: 20 })).status).toBe(400)
+    expect((await request(app).put(diagApi).send({ hp_raw: 1, minutes: 0 })).status).toBe(400)
+    const put = await request(app).put(diagApi).send({ hp_raw: 1, bus_sniff: true, hp_timeout_s: 8, minutes: 30 }).expect(200)
+    expect(put.body.request).toMatchObject({ hp_raw: 1, bus_sniff: 1, hp_timeout_s: 8, until: expect.any(String) })
+    const answer = await add({
+      HP: {}, serial_read_timeout: 7, serial_unexpected_frame: 3, hp_late_frame: 2, hp_last_ok_s: 95,
+      diag: { hp_raw: 1, bus_sniff: 1, hp_timeout_s: 8 }, diag_bus: { len: 412, age_s: 4, hex: '7b22546265', since_write_ms: 3150, op: 0 },
+    })
+    expect(answer.body.diag).toEqual({ hp_raw: 1, bus_sniff: 1, hp_timeout_s: 8 })
+    const after = (await request(app).get(diagApi).expect(200)).body
+    expect(after).toMatchObject({
+      counters: { serial_unexpected_frame: 3, hp_late_frame: 2, hp_last_ok_s: 95 },
+      sincePrevious: { serial_read_timeout: 1 },
+      diag: { hp_timeout_s: 8 }, diag_bus: { hex: '7b22546265', since_write_ms: 3150 },
+    })
+    expect(after.sinceLastHp.hp_last_ok_s).toBeUndefined()
+    // wszystko wyłączone = odwołanie: odpowiedź bez diag
+    expect((await request(app).put(diagApi).send({}).expect(200)).body.request).toBeNull()
+    expect((await add({ HP: {} })).body.diag).toBeUndefined()
+  })
+
   it('returns the latest HP data for the selected device', async () => {
     const response = await request(app)
       .get(`/api/hp?rootId=${rootId}&deviceId=${deviceId}`);

@@ -470,10 +470,16 @@ describe('Kocioł pelletowy Pellux 200', () => {
     // walidacja wpisu sezonu
     const post = (body: object) => request(app).post(api('schedules')).send({ mode: 'heat-pump', dayOfWeek: -1, startTime: '22:00', endTime: '06:00', ...body });
     expect((await post({ type: 'season', season: 'spring' })).status).toBe(400);
-    expect((await post({ type: 'season', season: 'winter', coldBelow: 6.5 })).status).toBe(400);
-    expect((await post({ type: 'season', season: 'winter', coldBelow: 99 })).status).toBe(400);
+    // „Tryb Zima” (2026-10-15): oba progi albo żaden, co 0,5 °C, Lato powyżej Zimy; bez season = zima
+    expect((await post({ type: 'season', winterBelow: 5 })).status).toBe(400);
+    expect((await post({ type: 'season', winterBelow: 5.2, summerAbove: 7 })).status).toBe(400);
+    expect((await post({ type: 'season', winterBelow: 7, summerAbove: 7 })).status).toBe(400);
+    expect((await post({ type: 'season', winterBelow: 5, summerAbove: 99 })).status).toBe(400);
+    // wpis trybu Pellet, żeby nie wpływał na dalszą część testu (tryb pompy ciepła)
+    expect((await post({ type: 'season', mode: 'pellet', winterBelow: 5, summerAbove: 6.5 }).expect(201)).body)
+      .toMatchObject({ season: 'winter', winterBelow: 5, summerAbove: 6.5, coldBelow: null });
     const created = (await post({ type: 'season', season: night }).expect(201)).body;
-    expect(created).toMatchObject({ type: 'season', season: night, coldBelow: null });
+    expect(created).toMatchObject({ type: 'season', season: night, winterBelow: null, summerAbove: null });
     // CWU w tym samym oknie
     await post({ cwuFrom: 40, cwuTo: 43 }).expect(201);
 
@@ -907,7 +913,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
     }).expect(200);
     // jak na produkcji: Zima 22:00–06:00 tylko poniżej 10 °C
     await request(app).post(api('schedules')).send({
-      type: 'season', mode: 'heat-pump', dayOfWeek: -1, startTime: '22:00', endTime: '06:00', season: 'winter', coldBelow: 10,
+      type: 'season', mode: 'heat-pump', dayOfWeek: -1, startTime: '22:00', endTime: '06:00', season: 'winter', winterBelow: 10, summerAbove: 10.5,
     }).expect(201);
     const entries = (await request(app).get(api('schedules'))).body;
     expect(nextSeasonBoundary(entries, 'heat-pump', new Date('2026-10-11T10:00:00Z'))?.toISOString()).toBe('2026-10-11T20:00:00.000Z');
@@ -942,7 +948,31 @@ describe('Kocioł pelletowy Pellux 200', () => {
     }
   });
 
-  it('harmonogram sezonu: wpis z progiem działa tylko poniżej progu, działający zostaje do progu + 1 °C', () => {
+  it('„Tryb Zima” z dwoma progami: Zima poniżej, Lato powyżej, między progami bez zmiany', () => {
+    const settings = {
+      enabled: true, profiles: { 'heat-pump': {}, pellet: {} },
+      defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40, season: 'summer' as const }, pellet: { cwuFrom: 40, cwuTo: 55 } },
+    };
+    const entry = {
+      _id: 'z1', rootId: 'r', type: 'season' as const, mode: 'heat-pump' as const, enabled: true,
+      dayOfWeek: -1, startTime: '00:00', endTime: '23:59', season: 'winter' as const, winterBelow: 5, summerAbove: 7,
+    };
+    const noon = new Date('2026-10-15T10:00:00Z');
+    const at = (outdoor: number | null, last?: string | null) =>
+      scheduleState(settings, [entry as never], 'heat-pump', noon, outdoor, last).state.season;
+    // wpis jeszcze nie działał: Zima dopiero poniżej 5 °C, przy 6 °C zostaje Lato spoza harmonogramu
+    expect(at(4.5)).toBe('winter');
+    expect(at(6)).toBe('summer');
+    // wpis działał: Zima zostaje do 7 °C włącznie, powyżej wraca Lato
+    expect(at(6, 'z1')).toBe('winter');
+    expect(at(7, 'z1')).toBe('winter');
+    expect(at(7.5, 'z1')).toBe('summer');
+    // bez temperatur: Zima przez całe okno
+    const plain = { ...entry, winterBelow: null, summerAbove: null };
+    expect(scheduleState(settings, [plain as never], 'heat-pump', noon, 20).state.season).toBe('winter');
+  });
+
+  it('dawny jeden próg coldBelow: Zima poniżej progu, Lato powyżej progu + 0,5 °C', () => {
     const settings = {
       enabled: true, profiles: { 'heat-pump': {}, pellet: {} },
       defaults: { 'heat-pump': { cwuFrom: 35, cwuTo: 40, season: 'summer' as const }, pellet: { cwuFrom: 40, cwuTo: 55 } },
@@ -957,9 +987,9 @@ describe('Kocioł pelletowy Pellux 200', () => {
       scheduleState(settings, [entry as never], 'heat-pump', now, outdoor, last).state.season;
     expect(at(5)).toBe('winter');
     expect(at(6)).toBe('summer');
-    // histereza: działający wpis zostaje przy 6,5 °C, od 7 °C wraca sezon spoza harmonogramu
+    // działający wpis zostaje do 6,5 °C włącznie, powyżej wraca sezon spoza harmonogramu
     expect(at(6.5, 'w1')).toBe('winter');
-    expect(at(7, 'w1')).toBe('summer');
+    expect(at(6.6, 'w1')).toBe('summer');
     // bez temperatury z serwera wpis z progiem nie działa
     expect(at(null)).toBe('summer');
     // poza oknem: sezon spoza harmonogramu

@@ -74,12 +74,14 @@ const toPanels = (panels: RawPanel[] | undefined): PvPanel[] =>
 
 const warsawDate = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
 
+// Rekord hp liczy się tylko nowszy niż ostatni pv, więc zapytanie hp jest zawężone do tego okresu: rekordy hp od
+// 2026-09-26 nie mają PV.total_prod i bez granicy baza przeglądała je wszystkie wstecz (ok. 0,5 s na kafelek).
 async function latest(src: string) {
-  const [pv, hp] = await Promise.all([
-    pvCollection().find({ rootId: src }).sort({ createdAt: -1 }).limit(1).next(),
-    hpCollection().find({ rootId: src, 'PV.total_prod': { $gt: 0 } }).sort({ createdAt: -1 }).limit(1).next(),
-  ]);
-  if (pv && (!hp || pv.createdAt >= hp.createdAt)) return fromPv(pv);
+  const pv = await pvCollection().find({ rootId: src }).sort({ createdAt: -1 }).limit(1).next();
+  const hp = await hpCollection()
+    .find({ rootId: src, 'PV.total_prod': { $gt: 0 }, ...(pv ? { createdAt: { $gt: pv.createdAt } } : {}) })
+    .sort({ createdAt: -1 }).limit(1).next();
+  if (pv && !hp) return fromPv(pv);
   return hp ? fromHp(hp) : undefined;
 }
 
@@ -87,11 +89,12 @@ async function latest(src: string) {
 async function firstInMonth(src: string, month: string) {
   const { startUTC } = warsawDayBoundsUTC(`${month}-01`);
   const match = { rootId: src, createdAt: { $gte: startUTC } };
-  const [pv, hp] = await Promise.all([
-    pvCollection().find({ ...match, total_prod: { $gt: 0 } }).sort({ createdAt: 1 }).limit(1).next(),
-    hpCollection().find({ ...match, 'PV.total_prod': { $gt: 0 } }).sort({ createdAt: 1 }).limit(1).next(),
-  ]);
-  if (hp && (!pv || hp.createdAt <= pv.createdAt)) return fromHp(hp);
+  // hp liczy się tylko nie później niż pierwszy pv (granica jak w latest)
+  const pv = await pvCollection().find({ ...match, total_prod: { $gt: 0 } }).sort({ createdAt: 1 }).limit(1).next();
+  const hp = await hpCollection()
+    .find({ ...match, 'PV.total_prod': { $gt: 0 }, ...(pv ? { createdAt: { $gte: startUTC, $lte: pv.createdAt } } : {}) })
+    .sort({ createdAt: 1 }).limit(1).next();
+  if (hp) return fromHp(hp);
   return pv ? fromPv(pv) : undefined;
 }
 
@@ -126,8 +129,11 @@ export async function getCurrentView(rootId: string, now = new Date()): Promise<
   const src = await sourceRootId(rootId);
   const latestSample = src ? await latest(src) : undefined;
   if (!src || !latestSample) return { stale: true, panels: [], panelsAvailable: false };
-  const last = await applyDayMaximum(src, latestSample);
-  const base = await firstInMonth(src, warsawDate(last.at).slice(0, 7));
+  // oba kroki zależą tylko od ostatniego odczytu, więc idą równolegle
+  const [last, base] = await Promise.all([
+    applyDayMaximum(src, latestSample),
+    firstInMonth(src, warsawDate(latestSample.at).slice(0, 7)),
+  ]);
   // licznik na początku miesiąca = licznik pierwszego odczytu miesiąca − produkcja dnia do tego odczytu
   const baseTotal = base?.totalWh !== undefined ? base.totalWh - (base.todayWh ?? 0) : undefined;
   return {

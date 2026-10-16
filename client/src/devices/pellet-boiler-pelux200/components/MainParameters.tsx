@@ -658,6 +658,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
                 <TipParagraph>
                   W trybie Pompa ciepła CWU grzeje kocioł peletem według ustawień trybu Pellet:
                   od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C (Harmonogram, tryb Pellet).
+                  Gdy zadana CWU w kotle jest niższa niż „do”, grzanie kończy się na zadanej.
                   Grzanie zaczyna się tylko przy włączonym regulatorze i włączonym CWU w kotle.
                 </TipParagraph>
                 <TipParagraph>
@@ -677,7 +678,8 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
             {current.pelletCwu.phase === 'heating' && (
               <div className="boiler-hint">
                 <strong>Kocioł grzeje CWU peletem</strong> od {formatDateTime(current.pelletCwu.since ?? undefined)}
-                {typeof current.pelletCwu.cwuTemp === 'number' && <> (CWU {formatNumber(current.pelletCwu.cwuTemp)} °C)</>}.
+                {typeof current.pelletCwu.cwuTemp === 'number' && <> (CWU {formatNumber(current.pelletCwu.cwuTemp)} °C)</>}
+                {typeof current.pelletCwu.cwuEnd === 'number' && <>, do {formatNumber(current.pelletCwu.cwuEnd)} °C</>}.
               </div>
             )}
             {current.pelletCwu.phase === 'cooling' && (

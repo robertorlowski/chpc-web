@@ -1,5 +1,5 @@
 // Konta użytkowników (kolekcja users, od 2026-10-11): logowanie kodem z maila, dane osobowe, jedna lokalizacja
-// konta i kolejność kafelków (osobno dla każdego użytkownika). Użytkownik systemowy
+// konta i układ listy sterowników (szachownica i ukryte kafelki, osobno dla każdego użytkownika). Użytkownik systemowy
 // (login „system”, hasło w SYSTEM_PASSWORD) to dokument z isSystem i bez e-maila; widzi wszystkie sterowniki.
 import mongoose, { Schema } from 'mongoose';
 
@@ -20,8 +20,10 @@ export interface UserEntry {
   city?: string;
   country?: string;
   location?: UserLocation | null;
-  /** kolejność kafelków na /devices (tryb „Zmień kolejność”) */
-  deviceOrder?: string[];
+  /** układ listy /devices: pola szachownicy (Root ID sterownika, id kafelka pogody albo null = puste pole) */
+  deviceOrder?: (string | null)[];
+  /** kafelki ukryte na liście tego konta (tile-layout.service.ts) */
+  hiddenTiles?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +40,7 @@ const UserSchema = new Schema<UserEntry>(
     country: { type: String, trim: true, default: '' },
     location: { type: new Schema<UserLocation>({ lat: Number, lng: Number }, { _id: false }), default: null },
     deviceOrder: { type: [String], default: undefined },
+    hiddenTiles: { type: [String], default: undefined },
   },
   { timestamps: true, collection: 'users' },
 );

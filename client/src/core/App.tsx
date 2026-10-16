@@ -6,6 +6,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
 import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
 import { Firmware } from './pages/Firmware';
+import { TileDesigner } from './pages/TileDesigner';
 import { deviceLabel, useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Fragment, useEffect, useState } from 'react';
@@ -111,8 +112,8 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 
 	if (startOnList && location.pathname === '/') return <Navigate to="/devices" replace />;
 
-	// /firmware/:deviceType wskazuje rodzaj w adresie, a /account to dane konta: bez wyboru sterownika
-	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware') && !location.pathname.startsWith('/account')) {
+	// /firmware/:deviceType wskazuje rodzaj w adresie, /account to dane konta, a /tile-designer dotyczy wszystkich kafelków: bez wyboru sterownika
+	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware') && !location.pathname.startsWith('/account') && location.pathname !== '/tile-designer') {
 		return <Navigate to="/devices" replace />;
 	}
 
@@ -174,8 +175,8 @@ function DeviceRoute({ path }: { path: string }) {
 // Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
-	// bez menu: /devices (lista sterowników) i /firmware/:deviceType (firmware rodzaju sterownika)
-	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || location.pathname.startsWith('/account');
+	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /account i /tile-designer
+	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || location.pathname.startsWith('/account') || location.pathname === '/tile-designer';
 
 	return (
 		<DeviceGuard>
@@ -205,6 +206,7 @@ function AppContent() {
 					{/* link z maila po zalogowaniu (adres zostaje /login): lista sterowników */}
 					<Route path="/login" element={<Navigate to="/devices" replace />} />
 					<Route path="/firmware/:deviceType" element={<Firmware />} />
+					<Route path="/tile-designer" element={<TileDesigner />} />
 					{allDevicePaths().map((path) => (
 						<Route key={path} path={path} element={<DeviceRoute path={path} />} />
 					))}

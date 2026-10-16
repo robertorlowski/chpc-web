@@ -27,7 +27,7 @@
   /* bez wymuszonej wysokości okna: z min-height 100vh strona przewijała się zawsze (o ok. 23 px), nawet z jednym kafelkiem */
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 3.4rem 0 4rem; /* miejsce na stałą stopkę pod kafelkami */
+  padding: 1.4rem 0 4rem; /* u góry pasek z temperaturą w dawnym marginesie, ok. 23 px pod nagłówkiem; dół na stałą stopkę */
 }
 
 /* tytuł „Lista urządzeń” niewidoczny (pasek u góry mówi, gdzie jesteśmy); zostaje dla czytników ekranu */
@@ -47,7 +47,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: stretch;
+  align-items: stretch; /* w wierszu wszystkie kafelki jak najwyższy; stopka kafelka trzyma się dołu */
   gap: 16px;
   width: 100%;
   margin: 1rem 0 0;
@@ -57,9 +57,9 @@
    zostaje wyśrodkowany */
 .device-card {
   position: relative;
-  flex: 1 1 300px;
+  flex: 1 1 var(--tile-basis, 300px); /* szerokość ze wzoru kafelka (pages/Devices, core/tile-template.ts) */
   min-width: 0;
-  max-width: 340px;
+  max-width: var(--tile-max, 340px);
 }
 
 .device-list .device-choose {
@@ -91,6 +91,24 @@
 /* błąd: czerwona ramka wokół całego kafelka */
 .device-card.has-error .device-choose {
   box-shadow: 0 0 0 2px #c62828, 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* temperatura (czujnik kotła) i pogoda (Open-Meteo) nad kafelkami */
+.devices-outdoor {
+  margin: 0 0 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  font-size: 0.95rem;
+}
+.devices-outdoor > span { display: inline-flex; align-items: center; gap: 6px; }
+.devices-outdoor b { font-weight: 600; }
+.devices-outdoor .weather-icon { flex: none; }
+.devices-outdoor-extra { color: #607d8b; }
+@media (max-width: 560px) {
+  .devices-outdoor-extra { display: none !important; }
 }
 
 .device-selection-error {
@@ -315,10 +333,16 @@
 .device-tools {
   position: absolute;
   right: 0.5rem;
-  bottom: 0.4rem;
+  bottom: 0.3rem; /* na wysokości pierwszego wiersza stopki */
   display: flex;
   gap: 0.25rem;
 }
+
+/* ołówek i trybik widać dopiero po najechaniu na kafelek albo przy fokusie klawiaturą (decyzja użytkownika
+   2026-10-16); bez myszy (telefon) są dostępne w trybie „Zmień układ”, gdzie przyciski są widoczne na stałe */
+.device-tools { opacity: 0; transition: opacity 0.15s; }
+.device-card:hover .device-tools,
+.device-card:focus-within .device-tools { opacity: 1; }
 
 .device-list .device-edit,
 .device-list .device-firmware {
@@ -353,13 +377,87 @@
   fill: #607d8b;
 }
 
+/* szachownica: kolumn tyle, ile się mieści (--cols z pages/Devices), kafelek najwyżej szerokości ze wzoru; pole
+   kafelka = grid-column / grid-row, puste pole zostaje puste; na telefonie jedna kolumna bez pustych pól */
+.device-list.device-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, var(--tile-max, 340px)));
+  justify-content: center;
+  align-items: stretch;
+}
+
+.device-grid .device-card {
+  flex: none;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+}
+
+/* puste pole w trybie „Zmień układ”: „+” (nowy kafelek pogody tutaj) albo „Wstaw tutaj” przy przenoszeniu */
+.device-cell-empty {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 2px dashed #b0bec5;
+  border-radius: 12px;
+  color: #607d8b;
+}
+
+.device-list .device-cell-add,
+.device-list .device-cell-place {
+  display: grid;
+  place-items: center;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0.6rem 1.2rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #607d8b;
+  font-size: 0.9rem;
+}
+
+.device-list .device-cell-add b { font-size: 1.8rem; line-height: 1; color: #1481a5; }
+.device-list .device-cell-place { border: 1px solid #1481a5; color: #1481a5; font-weight: 600; background: #fff; }
+
+/* przenoszony kafelek i cel zamiany */
+.device-card.moving .device-choose { box-shadow: 0 0 0 3px #ef6c00, 0 2px 8px rgba(0, 0, 0, 0.18); }
+.device-list .device-cell-swap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  margin: 0;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(20, 129, 165, 0.15);
+  color: #0f6a88;
+  font-weight: 700;
+}
+
+.device-list .device-cell-swap:hover { background: rgba(20, 129, 165, 0.3); }
+.device-list .device-move.active { background: #ef6c00; }
+
+/* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu; wtedy bez
+   stałych odstępów pod listą (odstęp liczy pages/Devices tak, żeby strona się nie przewijała) */
+.device-list-spacer { width: 100%; flex: none; }
+.device-list.device-grid-bottom { margin-top: 0; }
+.device-selection.has-bottom { padding-bottom: 0; }
+.app-main:has(.device-selection.has-bottom) { padding-bottom: 0; }
+
+/* kafelek pogody: bez przycisku wyboru (nie prowadzi do widoku) */
+.device-list .device-choose-static { cursor: default; }
+.device-list .device-choose-static:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
+
+/* w trybie „Zmień kolejność” przyciski zasłaniają dół kafelka: stopka schowana */
+.device-card.reordering .tt-f-footer { visibility: hidden; }
+
+/* kafelek ukryty (tylko w trybie „Zmień kolejność”): wyszarzony */
+.device-card.hidden-tile .device-choose { opacity: 0.45; }
+
 /* ---- tryb „Zmień kolejność”: pasek nad kafelkami i strzałki na kafelku ---- */
 .device-reorder-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end; /* zatwierdzenie po prawej, „Anuluj” obok niego po lewej */
-  gap: 0.5rem 0.75rem;
+  display: grid;
+  gap: 0.6rem;
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px; /* jak szerokość listy kafelków, żeby przyciski były nad prawą krawędzią kafelków */
@@ -368,12 +466,22 @@
 }
 
 .device-reorder-bar span {
-  margin-right: auto; /* podpowiedź po lewej */
-}
-
-.device-reorder-bar span {
   font-size: 0.9rem;
   opacity: 0.8;
+}
+
+/* cztery przyciski jednakowej szerokości, do prawej („Gotowe” skrajnie z prawej); na telefonie 2 × 2 */
+.device-reorder-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 11.5rem));
+  justify-content: end;
+  gap: 0.5rem;
+}
+
+.device-reorder-buttons button { margin: 0; width: 100%; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .device-reorder-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .device-card.reordering .tile {
@@ -382,11 +490,36 @@
 
 .device-reorder-arrows {
   position: absolute;
-  inset: auto 0.5rem 0.4rem 0.5rem;
+  inset: auto 0.5rem 0.3rem 0.5rem;
   display: flex;
   justify-content: space-between;
   pointer-events: none;
 }
+
+/* między strzałkami: oko (ukrycie) i ołówek */
+.device-reorder-middle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: auto;
+}
+
+.device-list .device-eye {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(96, 125, 139, 0.12);
+  color: #607d8b;
+}
+
+.device-list .device-eye.hidden { background-color: rgba(198, 40, 40, 0.12); color: #c62828; }
+.device-list .device-eye svg { width: 1.15rem; height: 1.15rem; }
+.device-list .device-reorder-middle .device-edit { pointer-events: auto; }
 
 .device-list .device-move {
   display: grid;
@@ -421,7 +554,7 @@
   .device-selection {
     width: 100%;
     min-height: 0;
-    padding: 1.9rem 0 2.6rem;
+    padding: 1rem 0 2.6rem;
   }
 
   .device-list {

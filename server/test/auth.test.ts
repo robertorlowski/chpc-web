@@ -1,7 +1,8 @@
 // Testy kont użytkowników (2026-10-11): logowanie i rejestracja kodem albo linkiem z maila, limity kodu,
 // „Zapamiętaj 7 dni”, dane konta (obowiązkowe imię, nazwisko, kraj), migracja sterowników do pierwszego konta,
 // użytkownik systemowy, udostępnianie z zakładkami (zapisy według zakładek), zmiana e-maila, wylogowanie,
-// usunięcie konta z danymi, endpointy sterowników i wywołania wewnętrzne bez logowania.
+// usunięcie konta z danymi, endpointy sterowników i wywołania wewnętrzne bez logowania, układ listy i kafelki
+// pogody osobno dla konta, wzór kafelka tylko dla użytkownika systemowego.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -10,6 +11,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 vi.mock('../src/core/services/meteo.service', () => ({
   getTemperature: () => null,
   setOutdoorTemperature: () => undefined,
+  getWeatherFor: () => null,
+  setHomeWeatherKey: () => undefined,
+  WEATHER_LOCATION: { lat: 49.37, lon: 20.01 },
 }));
 
 import app from '../src/core/app'
@@ -142,6 +146,43 @@ describe('Konta użytkowników', () => {
     expect(all.find((d: { deviceId: string }) => d.deviceId === 'AA0000000009').owner).toBeNull();
     expect(all.every((d: { access: string }) => d.access === 'system')).toBe(true);
     await request(app).get(`/api/hp?rootId=${pumpRootId}`).set(bearer(system)).expect(200);
+  });
+
+  it('układ listy osobno dla konta: pola szachownicy, ukrycie, własne kafelki pogody; wzór kafelka tylko systemowy', async () => {
+    const robert = await login('robert@infotower.pl');
+    const system = (await request(app).post('/api/auth/system').send({ password: 'tajne-haslo' }).expect(200)).body.token;
+    type Tile = { id: string; name: string; sortOrder?: number; hidden: boolean; home: boolean };
+    type Listed = { rootId: string; sortOrder?: number; hidden: boolean };
+
+    // własny kafelek pogody konta; „Dom” (bez właściciela) widzi tylko użytkownik systemowy
+    const krakow: Tile = (await request(app).post('/api/weather-tiles').set(bearer(robert)).send({ name: 'Kraków', lat: 50.06, lon: 19.94 }).expect(201)).body;
+    expect(krakow.sortOrder).toBe(2);
+    expect((await request(app).get('/api/weather-tiles').set(bearer(robert))).body.map((t: Tile) => t.name)).toEqual(['Kraków']);
+    const systemTiles: Tile[] = (await request(app).get('/api/weather-tiles').set(bearer(system))).body;
+    expect(systemTiles.map((t) => t.name)).toEqual(['Dom']);
+    const home = systemTiles[0];
+    await request(app).put(`/api/weather-tiles/${home.id}`).set(bearer(robert)).send({ name: 'X' }).expect(404);
+    await request(app).delete(`/api/weather-tiles/${home.id}`).set(bearer(robert)).expect(404);
+    await request(app).put('/api/devices/order').set(bearer(robert)).send({ rootIds: [pumpRootId, null, home.id] }).expect(400);
+
+    // szachownica z pustym polem tylko na koncie Roberta; systemowy ma układ wspólny sprzed kont
+    await request(app).put('/api/devices/order').set(bearer(robert)).send({ rootIds: [pumpRootId, null, krakow.id, boilerRootId] }).expect(200);
+    const mine: Listed[] = (await request(app).get('/api/devices').set(bearer(robert))).body;
+    expect(mine.map((d) => [d.rootId, d.sortOrder])).toEqual([[pumpRootId, 0], [boilerRootId, 3]]);
+    expect((await request(app).get('/api/weather-tiles').set(bearer(robert))).body[0].sortOrder).toBe(2);
+    const all: Listed[] = (await request(app).get('/api/devices').set(bearer(system))).body;
+    expect(all.find((d) => d.rootId === boilerRootId)?.sortOrder).toBe(0);
+
+    // ukrycie tylko na koncie, dokument sterownika bez zmian
+    expect((await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ hidden: true }).expect(200)).body.hidden).toBe(true);
+    expect((await request(app).get('/api/devices').set(bearer(system))).body.find((d: Listed) => d.rootId === pumpRootId).hidden).toBe(false);
+    expect((await DeviceModel.findById(pumpRootId).lean())?.hidden ?? false).toBe(false);
+    await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ hidden: false }).expect(200);
+    await request(app).put('/api/devices/order').set(bearer(robert)).send({ rootIds: [pumpRootId, boilerRootId] }).expect(200);
+    await request(app).delete(`/api/weather-tiles/${krakow.id}`).set(bearer(robert)).expect(204);
+
+    expect((await request(app).put('/api/devices/tile-template').set(bearer(robert)).send({})).status).toBe(403);
+    expect((await request(app).put('/api/devices/tile-template').set(bearer(system)).send({})).status).toBe(400);
   });
 
   it('udostępnianie: zaproszenie, zakładki pilnują zapisów, tylko właściciel zmienia nazwę i udostępnia', async () => {

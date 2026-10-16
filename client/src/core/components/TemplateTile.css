@@ -1,0 +1,191 @@
+/* Kafelek według wzoru (TemplateTile.tsx): pasek stanu po lewej jak dawniej (zielony / niebieski / pomarańczowy /
+   czerwony / szary), pola i czcionki w cqw (część szerokości kafelka, kontener .tt-box), ikony i odstępy w em,
+   więc cały kafelek skaluje się z szerokością; wyższy kafelek (wyrównanie w wierszu) ma stopkę przy dole.
+   Kolory chipów i komunikatów jak w dawnym kafelku. */
+.tt-box {
+  display: block;
+  width: 100%;
+  height: 100%;
+  container-type: inline-size;
+}
+.tt {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-left: 6px solid #1481a5;
+  border-radius: 12px;
+  color: #263238;
+  text-align: left;
+  line-height: 1.2;
+}
+.tt-warn { border-left-color: #ef6c00; }
+.tt-err { border-left-color: #c62828; }
+.tt-off { border-left-color: #78909c; }
+.tt-sky { border-left-color: #90caf9; } /* kafelek pogody */
+
+.tt-f {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.tt-a-left { justify-content: flex-start; text-align: left; }
+.tt-a-center { justify-content: center; text-align: center; }
+.tt-a-right { justify-content: flex-end; text-align: right; }
+.tt-ellipsis { overflow: hidden; text-overflow: ellipsis; }
+.tt .pictogram { flex: none; }
+
+.tt-f-icon .pictogram { width: 100%; height: 100%; }
+.tt-pulse { color: #1481a5 !important; animation: tt-pulse 1.4s ease-in-out infinite; }
+@keyframes tt-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+.tt-f-name { font-weight: 700; }
+
+.tt-chip {
+  padding: 0.12em 0.8em;
+  border-radius: 99px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #e1f1f6;
+  color: #0f6a88;
+}
+.tt-chip.ok { background: #e1f1f6; color: #0f6a88; }
+.tt-chip.warn { background: #fff3e0; color: #ef6c00; }
+.tt-chip.err { background: #fdecea; color: #c62828; }
+.tt-chip.off { background: #eceff1; color: #78909c; }
+.tt-chip.run { background: #1481a5; color: #fff; }
+.tt-chip.run::before {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* wartość główna: ikona, liczba, ewentualnie „/ druga” */
+.tt-f-main { gap: 0.3em; overflow: visible; }
+/* ikona na środku wartości z podpisem pod nią (jak na produkcji) */
+.tt-f-main .pictogram { width: 0.94em; height: 0.94em; margin-right: 0.1em; transform: translateY(0.3em); }
+.tt-value { position: relative; }
+.tt-under {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  color: #607d8b;
+  font-size: var(--tt-label-fs);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.tt-f-main b { font-weight: 700; line-height: 1.1; }
+.tt-running .tt-f-main b { color: #1481a5; }
+.tt-sep { color: #90a4ae; }
+.tt-f-mainLabel { color: #607d8b; }
+.tt-f-divider { border-left: 1px solid #cfd8dc; }
+
+/* wartość: ikona, liczba, podpis */
+.tt-fact { display: inline-flex; align-items: center; gap: 0.35em; min-width: 0; }
+.tt-fact .pictogram { width: 1.13em; height: 1.13em; }
+.tt-fact b { font-weight: 700; }
+.tt-fact small { color: #607d8b; font-size: 0.68em; }
+/* tekst stopki rodzaju w prawej kolumnie: jak stopka, wyrównany do prawej */
+.tt-f-side1:has(> .tt-foot-side) { align-items: flex-start; }
+.tt-foot-side { align-items: flex-start; }
+.tt-foot-side small {
+  font-size: 0.62em;
+  text-align: right;
+  white-space: normal;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tt-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5em 1em; width: 100%; }
+
+/* włącznik: przekaźnik w wierszu (kropka, nazwa, opis po prawej) */
+.tt-f-relays { align-items: flex-start; }
+.tt-relays { display: flex; flex-direction: column; gap: 0.3em; width: 100%; }
+.tt-relay { display: flex; align-items: center; gap: 0.45em; min-width: 0; }
+.tt-relay b { font-size: 0.92em; }
+.tt-relay small { margin-left: auto; color: #607d8b; font-size: 0.72em; overflow: hidden; text-overflow: ellipsis; }
+.tt-dot { flex: none; width: 0.7em; height: 0.7em; border-radius: 50%; background: #b0bec5; }
+.tt-dot.on { background: #1481a5; }
+
+/* błąd albo ostrzeżenie: jasne tło z cienką ramką, do 2 wierszy */
+.tt-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 0.65em;
+  border-radius: 0.65em;
+  white-space: normal;
+}
+.tt-note .pictogram { width: 1.5em; height: 1.5em; }
+.tt-note > span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tt-note.warn { background: #fffaf2; color: #8a4500; border: 1px solid #f6dcb8; }
+.tt-note.err { background: #fff6f5; color: #a32a24; border: 1px solid #f3cfcc; font-weight: 600; }
+
+/* stopka: do 2 wierszy po 1,6 rem (jak na produkcji), od góry pola */
+.tt-f-footer { flex-direction: column; justify-content: flex-start; align-items: stretch; color: #607d8b; line-height: 2.22; }
+.tt-f-footer > span { overflow: hidden; text-overflow: ellipsis; }
+.tt-a-right.tt-f-footer { text-align: right; }
+.tt-a-center.tt-f-footer { text-align: center; }
+
+/* duszek podczas ładowania */
+.tt-loading::after {
+  content: '';
+  position: absolute;
+  inset: 22% 5% 25% 5%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e3e8eb 25%, #f1f4f6 50%, #e3e8eb 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* projektant kafelka */
+.tt-design { cursor: move; outline: 1px dashed rgba(20, 129, 165, 0.45); touch-action: none; user-select: none; }
+.tt-empty-slot { color: #b0bec5; font-style: italic; font-weight: 400; }
+/* puste pole (bez danych w tym kafelku) nie przechwytuje kliknięć: wybiera się je na liście pól */
+.tt-empty-slot:not(.tt-selected) { pointer-events: none; outline-color: rgba(144, 164, 174, 0.5); }
+.tt-selected { outline: 2px solid #1481a5; background: rgba(20, 129, 165, 0.06); z-index: 3; overflow: visible; }
+.tt-bad { outline: 2px dashed #c62828; background: rgba(198, 40, 40, 0.06); }
+.tt-selected.tt-bad { outline: 2px solid #c62828; }
+.tt-selected > .tt-clip {
+  display: flex;
+  align-items: inherit;
+  justify-content: inherit;
+  flex-direction: inherit;
+  gap: inherit;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.tt-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid #1481a5;
+  border-radius: 3px;
+  background: #fff;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-pulse, .tt-loading::after { animation: none; }
+}

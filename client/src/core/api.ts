@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceShare, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay, User } from './types';
+import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceShare, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay, OutdoorConditions, User, WeatherTile } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -23,13 +23,34 @@ export class DeviceRequests {
     return Requests.put(`/devices/${encodeURIComponent(rootId)}`, data, false) as Promise<Device>;
   }
 
+  // ukrycie / pokazanie kafelka sterownika (tryb „Zmień kolejność”)
+  static setDeviceHidden(rootId: string, hidden: boolean): Promise<Device> {
+    return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { hidden }, false) as Promise<Device>;
+  }
+
+  // temperatura z czujnika kotła i pogoda z Open-Meteo nad kafelkami (null w polach bez świeżych danych); null przy błędzie
+  static getOutdoorConditions(): Promise<OutdoorConditions | null> {
+    return Requests.get('/temperature', false) as Promise<OutdoorConditions | null>;
+  }
+
   // kafelki sterowników {rootId: kafelek}; null przy błędzie (Requests.get nie rzuca wyjątku)
   static getDeviceTiles(): Promise<DeviceTiles | null> {
     return Requests.get('/devices/summary', false) as Promise<DeviceTiles | null>;
   }
 
-  // kolejność kafelków (tryb „Zmień kolejność”): wszystkie Root ID w nowej kolejności; zwraca posortowaną listę
-  static setDevicesOrder(rootIds: string[]): Promise<Device[]> {
+  // wzór kafelka (projektant kafelka): zapisany wzór, null = wbudowany, undefined przy błędzie sieci
+  static async getTileTemplate(): Promise<unknown | null | undefined> {
+    const result = await Requests.get('/devices/tile-template', false) as { template: unknown } | null;
+    return result ? result.template : undefined;
+  }
+
+  static saveTileTemplate(template: unknown): Promise<{ template: unknown }> {
+    return Requests.put('/devices/tile-template', template, false) as Promise<{ template: unknown }>;
+  }
+
+  // układ szachownicy (tryb „Zmień układ”): pola po kolei z Root ID sterownika, id kafelka pogody albo null
+  // (puste pole); zwraca posortowaną listę sterowników
+  static setDevicesOrder(rootIds: (string | null)[]): Promise<Device[]> {
     return Requests.put('/devices/order', { rootIds }, false) as Promise<Device[]>;
   }
 
@@ -115,5 +136,24 @@ export const ShareRequests = {
 export class OperationRequests {
   static getDay(date: string): Promise<OperationsDay | null> {
     return Requests.get(`/operations?date=${date}`) as Promise<OperationsDay | null>;
+  }
+}
+
+// Kafelki pogody na liście sterowników (bez rootId); kolejność razem ze sterownikami w DeviceRequests.setDevicesOrder.
+export class WeatherTileRequests {
+  static list(): Promise<WeatherTile[] | null> {
+    return Requests.get('/weather-tiles', false) as Promise<WeatherTile[] | null>;
+  }
+
+  static create(data: { name: string; lat: number; lon: number }): Promise<WeatherTile> {
+    return Requests.put('/weather-tiles', data, false, 'POST') as Promise<WeatherTile>;
+  }
+
+  static update(id: string, data: Partial<{ name: string; lat: number; lon: number; hidden: boolean }>): Promise<WeatherTile> {
+    return Requests.put(`/weather-tiles/${encodeURIComponent(id)}`, data, false) as Promise<WeatherTile>;
+  }
+
+  static remove(id: string): Promise<void> {
+    return Requests.delete(`/weather-tiles/${encodeURIComponent(id)}`, false);
   }
 }

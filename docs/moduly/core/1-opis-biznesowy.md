@@ -24,7 +24,9 @@ Moduł odpowiada za:
 | Czynność | Gdzie |
 |---|---|
 | Zobaczyć wszystkie sterowniki i wybrać jeden | ekran „Wybierz urządzenie” (`/devices`) |
-| Nadać lub zmienić nazwę sterownika | ołówek na kafelku albo „Zmień” w Ustawieniach |
+| Nadać lub zmienić nazwę sterownika | ołówek na kafelku (po najechaniu) albo „Zmień” w Ustawieniach |
+| Ułożyć kafelki na szachownicy, ukryć kafelek, dodać kafelek pogody dla dowolnej miejscowości | trybik w pasku → „Zmień układ”: „Przenieś” i wybór pola, oko, „+ pogoda” w pustym polu; pusty wiersz spycha kafelki pod nim do dołu ekranu |
+| Zaprojektować wygląd kafelka (rozmieszczenie pól) | „Zmień układ” → „Projekt kafelka” |
 | Ustawić sterownik domyślny | gwiazdka na kafelku |
 | Przełączyć się na inny sterownik | stopka „Aktywne urządzenie” (widoczna, gdy sterowników jest co najmniej dwa) |
 | Zobaczyć Root ID i identyfikator sterownika | popup „Dane sterownika”, sekcja „Sterownik” w Ustawieniach |

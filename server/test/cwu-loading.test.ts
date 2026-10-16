@@ -277,8 +277,11 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     expect(await checkAutoPellet(boilerRoot)).toBeNull();
     expect(await pending()).toEqual([]);
 
-    // CWU 55: nastawy pompy ciepła wracają, pompa ciepła czeka na kocioł < 50 °C
-    await reading({ state: 3, water_heater_temp: 55, heating_temp: 66 });
+    // zadana CWU w kotle 52 °C (niższa niż „do” 55): koniec grzania na zadanej, nie na „do”
+    await reading({ state: 3, water_heater_temp: 51, water_heater_target: 52, heating_temp: 64 });
+    expect(await step()).toMatchObject({ phase: 'heating', cwuTo: 55, cwuEnd: 52 });
+    // CWU 52: nastawy pompy ciepła wracają, pompa ciepła czeka na kocioł < 50 °C
+    await reading({ state: 3, water_heater_temp: 52, water_heater_target: 52, heating_temp: 66 });
     expect(await step()).toMatchObject({ phase: 'cooling', error: null });
     expect(await pending()).toEqual(['101=30', '17=20', '98=30', '99=30']);
     await finishAll();

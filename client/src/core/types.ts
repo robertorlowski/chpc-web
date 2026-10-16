@@ -57,8 +57,11 @@ export type Device = {
   deviceId: string;
   name: string;
   isDefault?: boolean;
-  // miejsce na liście sterowników ustawione w trybie „Zmień kolejność” (0 = pierwszy); lista z serwera jest już posortowana
+  // miejsce na liście sterowników ustawione w trybie „Zmień kolejność” (0 = pierwszy, wspólne z kafelkami pogody);
+  // lista z serwera jest już posortowana
   sortOrder?: number;
+  // kafelek ukryty na liście (widoczny tylko w trybie „Zmień kolejność”)
+  hidden?: boolean;
   // wersja firmware zgłoszona przy ostatnim uruchomieniu sterownika i czas zgłoszenia (ISO);
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
@@ -122,6 +125,45 @@ export type DeviceDefinition = { pumpConfig?: PumpConfig; boilerConfig?: BoilerC
 
 // GET /api/devices/db-stats (stopka strony /devices): zajętość bazy (dane + indeksy) względem limitu
 // planu Atlas M0 (512 MB) i odpowiedź bazy na ping; ok = false albo brak odpowiedzi = baza nie działa.
+/** pogoda z Open-Meteo pobrana przez sterownik włącznika (GET /temperature, serwer core/services/meteo.service.ts) */
+export type Weather = {
+  /** temperatura z prognozy [°C] */
+  temperature: number;
+  /** kod pogody WMO */
+  code: number;
+  /** zachmurzenie [%] */
+  cloudCover: number;
+  /** opad i deszcz [mm], śnieg [cm] z ostatniego kwadransa */
+  precipitation: number;
+  rain: number;
+  snowfall: number;
+  /** wiatr [km/h] */
+  windSpeed: number;
+  isDay: boolean;
+  at: string;
+};
+
+// Kafelek pogody na liście sterowników (GET /api/weather-tiles; kontrakt: server/src/core/services/weather-tile.service.ts):
+// miejscowość z pogodą z Open-Meteo pobieraną przez sterownik włącznika. home = kafelek domu (powstaje sam, bez usuwania);
+// sortOrder wspólne ze sterownikami; weather = null bez świeżych danych (45 min).
+export type WeatherTile = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  sortOrder?: number;
+  hidden: boolean;
+  home: boolean;
+  weather: Weather | null;
+};
+
+/** GET /temperature: temperatura (czujnik kotła, bez niego prognoza) i pogoda; null = brak świeżych danych */
+export type OutdoorConditions = {
+  temperature: number | null;
+  temperatureSource: 'boiler' | 'forecast' | null;
+  weather: Weather | null;
+};
+
 export type DatabaseStats = {
   ok: boolean;
   usedBytes: number;

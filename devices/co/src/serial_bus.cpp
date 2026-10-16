@@ -1,5 +1,5 @@
 // Implementacja kolejki RS-485 z priorytetami, przerwą 500 ms między ramkami,
-// timeoutem odczytu 3 s i składaniem odpowiedzi po 5 ms ciszy. Liczniki
+// timeoutem odczytu 3 s (CHPC: na zlecenie diagnostyki do 15 s) i składaniem odpowiedzi po 5 ms ciszy. Liczniki
 // przepełnień i timeoutów trafiają do telemetrii.
 #include <serial_bus.hpp>
 
@@ -111,7 +111,8 @@ void SerialBus::tick()
   unsigned long now = millis();
 
   if (pending != PendingRead::NONE) {
-    if (now - pendingSince > READ_TIMEOUT_MS) {
+    const unsigned long timeout = pending == PendingRead::HP ? hpReadTimeoutMs : READ_TIMEOUT_MS;
+    if (now - pendingSince > timeout) {
       pending = PendingRead::NONE;
       receiveLength = 0;
       discardingReceiveFrame = false;
@@ -132,6 +133,7 @@ void SerialBus::tick()
   writeCommand(command);
   hasWritten = true;
   lastWriteAt = now;
+  lastOperation = static_cast<uint8_t>(command.operation);
   if (!isReadOperation(command.operation)) controlCommandWritten = true;
 
   pending = readTypeFor(command.operation);
@@ -217,6 +219,21 @@ uint32_t SerialBus::readTimeoutCount() const
 uint32_t SerialBus::receiveOverflowCount() const
 {
   return receiveOverflows;
+}
+
+void SerialBus::setHpReadTimeout(unsigned long timeoutMs)
+{
+  hpReadTimeoutMs = timeoutMs == 0 ? READ_TIMEOUT_MS : timeoutMs;
+}
+
+unsigned long SerialBus::msSinceLastWrite() const
+{
+  return hasWritten ? millis() - lastWriteAt : 0;
+}
+
+uint8_t SerialBus::lastWrittenOperation() const
+{
+  return lastOperation;
 }
 
 PendingRead SerialBus::readTypeFor(SERIAL_OPERATION operation) const

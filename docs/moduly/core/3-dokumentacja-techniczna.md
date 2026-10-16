@@ -37,14 +37,17 @@
 | `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, ekrany menu, dodatkowe trasy) |
 | `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
 | `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika |
-| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, `properties`, zlecenie i odwołanie aktualizacji firmware |
+| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, ukrycie, układ (`setDevicesOrder` z `null` w pustych polach), wzór kafelka, `properties`, zlecenie i odwołanie aktualizacji firmware; `WeatherTileRequests`: kafelki pogody |
 | `core/context/DeviceContext.tsx` | wybrany sterownik (stan + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
 | `core/components/Header.tsx` | menu z rejestru |
 | `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
 | `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
 | `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) i akcji (dodaj, usuń, przywróć, wróć, edytuj) |
 | `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Harmonogramach pompy i na stronie firmware |
-| `core/pages/Devices/` | ekran wyboru sterownika: kafelki, gwiazdka domyślnego, ołówek; trybik firmware w rogu kafelków rodzajów z `firmwareUpdates` |
+| `core/pages/Devices/` | lista sterowników: szachownica kafelków z wzoru (sterowniki i kafelki pogody, pola `sortOrder`), pasek temperatury i pogody domu, tryb „Zmień układ” (przeniesienie, zamiana, „+ pogoda” w pustym polu, ukrywanie, pusty wiersz spycha resztę do dołu ekranu), ołówek i trybik firmware po najechaniu |
+| `core/pages/TileDesigner/` | `/tile-designer`: projektant kafelka (pola wzoru przeciągane, sprawdzanie nachodzenia i mieszczenia tekstu, podgląd listy i telefonu, zapis `PUT /devices/tile-template`) |
+| `core/components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | kafelek z wzoru (`deviceSlots`, `weatherSlots`, pola bez treści znikają: `collapseEmpty`), wzór wbudowany = kafelek z produkcji 2026-10-16 |
+| `core/components/WeatherTileModal.tsx` | popup „Kafelek pogody”: wyszukiwarka miejscowości (geokoder Open-Meteo z przeglądarki), współrzędne, usuwanie |
 | `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), przełącznik „Aktualizacje włączone/wyłączone” (wyłączone: „Aktualizuj” niedostępne, zlecenia nie są doręczane); poza kontekstem urządzenia |
 | `core/components/FirmwareStatus.tsx` | karta „Sterownik” w Ustawieniach hydroforu, włącznika i pieca: wersja firmware, stan („aktualny” / „dostępna wersja X” / „zlecona do wersji X (czas), czeka na sterownik”), czas zgłoszenia, przycisk „Aktualizuj” (z potwierdzeniem) albo „Anuluj aktualizację” i podpowiedź rodzaju (`firmwareUpdateHint`); przy zleceniu odświeżanie co 15 s |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |

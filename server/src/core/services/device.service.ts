@@ -1,12 +1,13 @@
 
 // Operacje na kolekcji devices dla device.controller: tworzenie, zgłoszenie
 // sterownika, nazwa, definicja pompy, sterownik domyślny i ustawienia (properties).
+import { countWeatherTiles, setWeatherTilesOrder } from './weather-tile.service';
 import { BoilerConfig, DeviceProperties, DeviceType, PumpConfig } from '../types';
 import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { getDeviceTypeModule } from '../device-types';
 
 // Pola urządzenia widoczne w API (lista, rejestracja, zmiana nazwy).
-export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name ownerId isDefault sortOrder firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
+export const DEVICE_PUBLIC_FIELDS = 'deviceType deviceId name ownerId isDefault sortOrder hidden firmwareVersion firmwareSeenAt firmwareUpdate ipAddress ipSeenAt pumpConfig boilerConfig';
 
 // Pojemność zbiornika pompy [l], pełne litry.
 const TANK_LITERS_MIN = 20;
@@ -133,7 +134,7 @@ export async function setDefaultDevice(rootId: string, isDefault: boolean): Prom
 // Okno „Dane sterownika”: nazwa i (tylko pompa ciepła) definicja pompy.
 export async function updateDeviceData(
   rootId: string,
-  data: { name?: string; pumpConfig?: PumpConfig; boilerConfig?: BoilerConfig },
+  data: { name?: string; hidden?: boolean; pumpConfig?: PumpConfig; boilerConfig?: BoilerConfig },
 ): Promise<DeviceDocument> {
   if (data.pumpConfig || data.boilerConfig) {
     const existing = await DeviceModel.findById(rootId).select('deviceType').lean<DeviceDocument>();
@@ -163,18 +164,27 @@ export async function listDevices(): Promise<DeviceDocument[]> {
   return devices.sort((a, b) => rank(a) - rank(b)); // sort jest stabilny: bez sortOrder zostaje kolejność po nazwie
 }
 
-// Tryb „Zmień kolejność” na /devices: rootIds w nowej kolejności (każdy sterownik dokładnie raz).
-// Zapisuje sortOrder = miejsce na liście, więc kolejność jest wspólna dla wszystkich przeglądarek.
+// Tryb „Zmień kolejność” na /devices: rootIds = pola szachownicy w kolejności (Root ID sterownika, id kafelka
+// pogody albo null = puste pole; każdy kafelek najwyżej raz). Zapisuje sortOrder = numer pola, więc układ jest
+// wspólny dla wszystkich przeglądarek; kafelek pominięty w liście zachowuje dotychczasowe pole.
 export async function setDevicesOrder(rootIds: unknown): Promise<void> {
-  if (!Array.isArray(rootIds) || rootIds.some((id) => typeof id !== 'string' || !/^[0-9a-f]{24}$/i.test(id))
-    || new Set(rootIds).size !== rootIds.length) {
-    throw new Error('rootIds: lista unikalnych Root ID.');
+  if (!Array.isArray(rootIds) || rootIds.some((id) => id !== null && (typeof id !== 'string' || !/^[0-9a-f]{24}$/i.test(id)))) {
+    throw new Error('rootIds: lista Root ID albo null (puste pole).');
   }
-  const existing = await DeviceModel.countDocuments({ _id: { $in: rootIds } });
-  if (existing !== rootIds.length) throw new Error('rootIds: nieznany sterownik (Device not found).');
-  await DeviceModel.bulkWrite((rootIds as string[]).map((id, index) => ({
-    updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } },
-  })));
+  const cells = rootIds as (string | null)[];
+  const ids = cells.filter((id): id is string => id !== null);
+  if (new Set(ids).size !== ids.length) throw new Error('rootIds: lista unikalnych Root ID.');
+  const devices = new Set((await DeviceModel.find({ _id: { $in: ids } }).select('_id').lean<{ _id: unknown }[]>()).map((d) => String(d._id)));
+  const weather = ids.filter((id) => !devices.has(id));
+  if (weather.length && await countWeatherTiles(weather) !== weather.length) throw new Error('rootIds: nieznany sterownik (Device not found).');
+  const indexed = cells.map((id, index) => ({ id, index })).filter((entry): entry is { id: string; index: number } => entry.id !== null);
+  const deviceWrites = indexed.filter(({ id }) => devices.has(id));
+  if (deviceWrites.length) {
+    await DeviceModel.bulkWrite(deviceWrites.map(({ id, index }) => ({
+      updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } },
+    })));
+  }
+  await setWeatherTilesOrder(indexed.filter(({ id }) => !devices.has(id)));
 }
 
 export async function getDeviceProperties(rootId: string): Promise<DeviceProperties> {

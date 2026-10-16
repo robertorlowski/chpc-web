@@ -49,6 +49,11 @@ void Telemetry::updateOperationDiagnostics(
   data["preference_validation_error"] = preferenceValidationError;
 }
 
+void Telemetry::updateBusDiagnostics(const BusDiagnostics &diagnostics, unsigned long now)
+{
+  diagnostics.writeTo(data, now);
+}
+
 // Pola COP z wyniku; bez wyniku (np. pracowała pompa CO kotła) są usuwane.
 void Telemetry::writeCop(const CopEstimate &estimate)
 {

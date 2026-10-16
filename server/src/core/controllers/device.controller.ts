@@ -21,6 +21,8 @@ import { sendMessage } from '../websocket';
 import { serverBaseUrl } from './firmware.controller';
 import { UserEntry, UserModel } from '../models/user.model';
 import { accessibleDevices, canManage, deviceAccess } from '../services/access.service';
+import { placeForViewer, saveViewerOrder, setViewerHidden } from '../services/tile-layout.service';
+import { viewerWeatherTileIds } from '../services/weather-tile.service';
 import { AuthError, userName } from '../services/auth.service';
 import { createShare, deleteShare, listShares, updateShare } from '../services/share.service';
 import { appUserMeta, logPropertiesChange, metaFromRequest, setStatusByRef } from '../services/operation-log.service';
@@ -32,6 +34,8 @@ const toPublicDevice = (device: DeviceDocument) => ({
   deviceId: device.deviceId,
   name: device.name,
   isDefault: device.isDefault ?? false,
+  hidden: device.hidden ?? false,
+  sortOrder: device.sortOrder,
   firmwareVersion: device.firmwareVersion,
   firmwareSeenAt: device.firmwareSeenAt,
   firmwareUpdate: device.firmwareUpdate ?? undefined,
@@ -73,29 +77,27 @@ export async function updateProperties(req: Request<{}, {}, DeviceProperties>, r
   }
 }
 
-// Sterowniki widoczne dla użytkownika z właścicielem i rodzajem dostępu (klient grupuje je według właściciela);
-// kolejność z konta użytkownika (świeży odczyt: req.user bywa z pamięci podręcznej sesji).
+// Sterowniki widoczne dla użytkownika z właścicielem i rodzajem dostępu; pole szachownicy (sortOrder) i ukrycie
+// (hidden) z układu konta (tile-layout.service.ts).
 async function userDevices(sessionUser: UserEntry) {
-  const user = (await UserModel.findById(sessionUser._id).lean<UserEntry>()) ?? sessionUser;
-  const access = await accessibleDevices(user);
+  const access = await accessibleDevices(sessionUser);
   const devices = (await listDevices()).filter((device) => access.has(String(device._id)));
   const ownerIds = [...new Set(devices.map((device) => device.ownerId).filter((id): id is string => !!id))];
   const owners = new Map((await UserModel.find({ _id: { $in: ownerIds } }).lean<UserEntry[]>()).map((owner) => [String(owner._id), owner]));
-  const order = user.deviceOrder ?? [];
-  const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : Number.MAX_SAFE_INTEGER);
-  return devices
-    .map((device) => {
-      const rootId = String(device._id);
-      const entry = access.get(rootId)!;
-      const owner = device.ownerId ? owners.get(device.ownerId) : undefined;
-      return {
-        ...toPublicDevice(device),
-        access: entry.role,
-        ...(entry.role === 'shared' ? { tabs: entry.tabs } : {}),
-        owner: owner ? { id: String(owner._id), name: userName(owner), email: owner.email ?? null } : null,
-      };
-    })
-    .sort((a, b) => rank(a.rootId) - rank(b.rootId));
+  const list = devices.map((device) => {
+    const rootId = String(device._id);
+    const entry = access.get(rootId)!;
+    const owner = device.ownerId ? owners.get(device.ownerId) : undefined;
+    return {
+      ...toPublicDevice(device),
+      id: rootId,
+      access: entry.role,
+      ...(entry.role === 'shared' ? { tabs: entry.tabs } : {}),
+      owner: owner ? { id: String(owner._id), name: userName(owner), email: owner.email ?? null } : null,
+    };
+  });
+  const rank = (device: { sortOrder?: number }) => device.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return (await placeForViewer(sessionUser, list)).sort((a, b) => rank(a) - rank(b)).map(({ id: _id, ...device }) => device);
 }
 
 // Zmiana sterownika z :rootId tylko dla właściciela i użytkownika systemowego (bez req.user: jak przed kontami).
@@ -237,21 +239,36 @@ export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }
 // rootId i deviceId nie podlegają edycji. Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
 // Definicja pompy nie zmienia trybu pracy ani temperatur, więc nie budzi schedulera.
 export async function updateDevice(
-  req: Request<{ rootId: string }, {}, { name?: string; pumpConfig?: unknown; boilerConfig?: unknown }>,
+  req: Request<{ rootId: string }, {}, { name?: string; hidden?: unknown; pumpConfig?: unknown; boilerConfig?: unknown }>,
   res: Response,
 ) {
-  const { name, pumpConfig, boilerConfig } = req.body ?? {};
+  const { name, hidden, pumpConfig, boilerConfig } = req.body ?? {};
   if (name !== undefined && typeof name !== 'string') {
     return res.status(400).json({ message: 'name: napis.' });
   }
-  if (name === undefined && pumpConfig === undefined && boilerConfig === undefined) {
-    return res.status(400).json({ message: 'name, pumpConfig albo boilerConfig jest wymagane.' });
+  if (hidden !== undefined && typeof hidden !== 'boolean') {
+    return res.status(400).json({ message: 'hidden: true albo false.' });
+  }
+  if (name === undefined && hidden === undefined && pumpConfig === undefined && boilerConfig === undefined) {
+    return res.status(400).json({ message: 'name, hidden, pumpConfig albo boilerConfig jest wymagane.' });
+  }
+  // z kontem ukrycie kafelka zapisuje się w układzie konta (każdy z dostępem do sterownika, także udostępnionego)
+  if (req.user && hidden !== undefined) {
+    const access = await accessibleDevices(req.user);
+    if (!access.has(req.params.rootId)) return res.status(404).json({ message: 'Nie znaleziono sterownika.' });
+    const mine = await userDevices(req.user);
+    await setViewerHidden(req.user, req.params.rootId, hidden as boolean,
+      mine.map((device) => ({ id: device.rootId, hidden: device.hidden })));
+    if (name === undefined && pumpConfig === undefined && boilerConfig === undefined) {
+      return res.status(200).json((await userDevices(req.user)).find((device) => device.rootId === req.params.rootId));
+    }
   }
   if (!(await allowManage(req, res))) return;
 
   try {
     const device = await updateDeviceData(req.params.rootId, {
       ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(hidden !== undefined && !req.user ? { hidden } : {}),
       ...(pumpConfig !== undefined ? { pumpConfig: parsePumpConfig(pumpConfig) } : {}),
       ...(boilerConfig !== undefined ? { boilerConfig: await parseBoilerConfig(boilerConfig) } : {}),
     });
@@ -277,16 +294,14 @@ export async function updateDefaultDevice(
   }
 }
 
-// PUT /devices/order {rootIds: string[]} — kolejność kafelków na /devices (tryb „Zmień kolejność”).
+// PUT /devices/order {rootIds: (string | null)[]} — pola szachownicy na /devices (tryb „Zmień układ”): z kontem
+// w układzie konta, bez konta wspólnie (sortOrder w dokumentach).
 export async function updateDevicesOrder(req: Request<{}, {}, { rootIds?: unknown }>, res: Response) {
   try {
     if (req.user) {
-      const rootIds = req.body?.rootIds;
       const access = await accessibleDevices(req.user);
-      if (!Array.isArray(rootIds) || rootIds.some((id) => typeof id !== 'string' || !access.has(id)) || new Set(rootIds).size !== rootIds.length) {
-        return res.status(400).json({ message: 'rootIds: lista unikalnych Root ID dostępnych sterowników.' });
-      }
-      await UserModel.updateOne({ _id: req.user._id }, { $set: { deviceOrder: rootIds } });
+      const allowed = new Set([...access.keys(), ...(await viewerWeatherTileIds(req.user))]);
+      await saveViewerOrder(req.user, req.body?.rootIds, allowed);
       return res.status(200).json(await userDevices(req.user));
     }
     await setDevicesOrder(req.body?.rootIds);

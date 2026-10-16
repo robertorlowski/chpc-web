@@ -13,9 +13,11 @@
 // a „CWU do” jest ograniczone do HEAT_PUMP_CWU_MAX (45 °C). Okno przez północ należy do dnia
 // startu (jak harmonogram włącznika); data ma pierwszeństwo przed dniem tygodnia, potem późniejszy start.
 // Od 2026-10-04 drugi rodzaj wpisu: sezon Lato / Zima (type season, parametr nr 125: 0 zima, 1 lato) w oknach
-// godzin, z sezonem poza harmonogramem w defaults; wpis z progiem coldBelow działa tylko, gdy temperatura
-// zewnętrzna z czujnika kotła (outside_temp z ostatniego odczytu) jest poniżej progu (z histerezą SEASON_COLD_HYSTERESIS: działający
-// wpis zostaje do progu + 1 °C); bez temperatury taki wpis nie działa. Bez wpisu i bez sezonu w defaults
+// godzin, z sezonem poza harmonogramem w defaults. Od 2026-10-15 wpis to „Tryb Zima” z dwoma progami temperatury
+// zewnętrznej z czujnika kotła (outside_temp z ostatniego odczytu): zaczyna działać (Zima) poniżej winterBelow,
+// przestaje (Lato spoza harmonogramu) powyżej summerAbove, między progami zostaje, jak było (seasonThresholds,
+// coldEnough). Dawny jeden próg coldBelow działa jak winterBelow = coldBelow, summerAbove = coldBelow + 0,5 °C.
+// Bez temperatury wpis z progami nie działa. Bez wpisu i bez sezonu w defaults
 // harmonogram sezonem nie steruje. Zmiany sezonu i CWU idą do kotła jednym zleceniem (createCommands).
 // W trybie pompy ciepła Zimą steruje cykl (pellet-boiler-pelux200-winter-cycle.service.ts): Zima przy kotle ≥ max pompy ciepła − 3 °C,
 // Lato przy kotle < 30 °C i stojącej pompie CO, w Lecie wymuszanie startu pompy ciepła. Przycisk Lato/Zima
@@ -76,10 +78,11 @@ const CWU_RESTORE_AFTER_MS = 5 * 60 * 1000;
 const SEASON_PARAMETER = 125;
 const SEASON_VALUE: Record<PelletBoilerSeason, number> = { winter: 0, summer: 1 };
 const SEASONS: PelletBoilerSeason[] = ['winter', 'summer'];
-// próg temperatury wpisu sezonu [°C] i histereza: działający wpis zostaje do progu + histereza
-const COLD_BELOW_MIN = -30;
-const COLD_BELOW_MAX = 30;
-export const SEASON_COLD_HYSTERESIS = 1;
+// progi temperatury wpisu „Tryb Zima” [°C], co 0,5 °C
+const SEASON_TEMP_MIN = -30;
+const SEASON_TEMP_MAX = 30;
+// dawny jeden próg coldBelow: powrót Lata powyżej progu + tyle
+export const LEGACY_SUMMER_MARGIN = 0.5;
 // temperatura zewnętrzna z czujnika kotła (outside_temp) tylko z odczytu nie starszego niż (3 × domyślny interwał)
 const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
 
@@ -133,12 +136,27 @@ export function parseScheduleEntry(body: unknown): ScheduleInput | string {
   }
   let what: Partial<ScheduleInput>;
   if (type === 'season') {
-    if (!SEASONS.includes(input.season as PelletBoilerSeason)) return 'season: winter albo summer.';
-    const cold = input.coldBelow;
-    if (cold !== undefined && cold !== null && (!isInteger(cold) || cold < COLD_BELOW_MIN || cold > COLD_BELOW_MAX)) {
-      return `coldBelow: liczba całkowita ${COLD_BELOW_MIN}–${COLD_BELOW_MAX} °C albo brak.`;
+    // „Tryb Zima”: bez season = zima (dawne wpisy Lato zostają, formularz ich już nie tworzy)
+    const season = input.season ?? 'winter';
+    if (!SEASONS.includes(season as PelletBoilerSeason)) return 'season: winter albo summer.';
+    const winter = input.winterBelow;
+    const summer = input.summerAbove;
+    const given = (value: unknown) => value !== undefined && value !== null;
+    if (given(winter) !== given(summer)) return 'winterBelow i summerAbove: oba albo żaden.';
+    if (given(winter)) {
+      const valid = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value * 2)
+        && value >= SEASON_TEMP_MIN && value <= SEASON_TEMP_MAX;
+      if (!valid(winter) || !valid(summer)) {
+        return `winterBelow i summerAbove: ${SEASON_TEMP_MIN}–${SEASON_TEMP_MAX} °C co 0,5 °C.`;
+      }
+      if (summer <= winter) return 'summerAbove musi być wyższe niż winterBelow.';
     }
-    what = { season: input.season as PelletBoilerSeason, coldBelow: isInteger(cold) ? cold : null };
+    what = {
+      season: season as PelletBoilerSeason,
+      winterBelow: given(winter) ? winter as number : null,
+      summerAbove: given(summer) ? summer as number : null,
+      coldBelow: null,
+    };
   } else {
     const range = parseRange(input.cwuFrom, input.cwuTo, input.mode as PelletBoilerMode);
     if (typeof range === 'string') return range;
@@ -206,7 +224,7 @@ function entryWindow(entry: PelletBoilerScheduleEntry, localDate: string) {
 }
 
 // Najbliższa po now granica (start albo koniec) okien włączonych wpisów sezonu trybu, w ciągu 8 dni; null = brak wpisów.
-// Próg temperatury (coldBelow) nie ma znaczenia: to godzina, o której harmonogram przejmuje sezon od przycisku.
+// Progi temperatury (winterBelow, summerAbove) nie mają znaczenia: to godzina, o której harmonogram przejmuje sezon od przycisku.
 export function nextSeasonBoundary(entries: PelletBoilerScheduleEntry[], mode: PelletBoilerMode, now: Date): Date | null {
   const today = formatInTimeZone(now, TIME_ZONE, 'yyyy-MM-dd');
   const times = entries.filter((e) => e.mode === mode && e.type === 'season').flatMap((entry) =>
@@ -232,13 +250,26 @@ export function activeEntry(
   return matches[0]?.entry ?? null;
 }
 
-// Wpis sezonu z progiem działa, gdy temperatura zewnętrzna jest poniżej progu; wpis, który już działał
-// (lastSeasonScheduleId), zostaje do progu + SEASON_COLD_HYSTERESIS. Bez temperatury wpis z progiem nie działa.
+// Progi wpisu „Tryb Zima”; dawny jeden próg coldBelow = Zima poniżej, Lato powyżej progu + LEGACY_SUMMER_MARGIN.
+// null = wpis bez temperatury (Zima przez całe okno).
+export function seasonThresholds(entry: PelletBoilerScheduleEntry): { winterBelow: number; summerAbove: number } | null {
+  if (typeof entry.winterBelow === 'number') {
+    return { winterBelow: entry.winterBelow, summerAbove: entry.summerAbove ?? entry.winterBelow + LEGACY_SUMMER_MARGIN };
+  }
+  if (typeof entry.coldBelow === 'number') {
+    return { winterBelow: entry.coldBelow, summerAbove: entry.coldBelow + LEGACY_SUMMER_MARGIN };
+  }
+  return null;
+}
+
+// Wpis z progami zaczyna działać poniżej winterBelow; wpis, który już działał (lastSeasonScheduleId), działa do
+// temperatury powyżej summerAbove. Między progami zostaje, jak było. Bez temperatury wpis z progami nie działa.
 const coldEnough = (entry: PelletBoilerScheduleEntry, outdoor: number | null, lastSeasonScheduleId?: string | null) => {
-  if (entry.coldBelow === undefined || entry.coldBelow === null) return true;
+  const thresholds = seasonThresholds(entry);
+  if (!thresholds) return true;
   if (outdoor === null) return false;
   const wasActive = !!lastSeasonScheduleId && String(entry._id) === lastSeasonScheduleId;
-  return outdoor < entry.coldBelow + (wasActive ? SEASON_COLD_HYSTERESIS : 0);
+  return wasActive ? outdoor <= thresholds.summerAbove : outdoor < thresholds.winterBelow;
 };
 
 export function scheduleState(
@@ -487,8 +518,14 @@ async function transitionMeta(
       : cwuEntry ? `wpis CWU ${window(cwuEntry)}` : 'CWU poza harmonogramem');
   }
   const conditions = [`tryb ${MODE_NAMES[mode]}`];
-  if (seasonEntry?.coldBelow !== undefined && seasonEntry?.coldBelow !== null) {
-    conditions.push(`temperatura zewnętrzna ${outdoor ?? '?'} °C poniżej progu ${seasonEntry.coldBelow} °C`);
+  const thresholds = seasonEntry && seasonThresholds(seasonEntry);
+  if (thresholds) {
+    conditions.push(`temperatura zewnętrzna ${outdoor ?? '?'} °C (Zima poniżej ${thresholds.winterBelow} °C, Lato powyżej ${thresholds.summerAbove} °C)`);
+  } else if (!seasonEntry && last?.seasonScheduleId && state.season !== last.season) {
+    // wpis „Tryb Zima” przestał działać przez temperaturę (okno trwa dalej)
+    const ended = entries.find((entry) => String(entry._id) === last.seasonScheduleId);
+    const endedThresholds = ended && seasonThresholds(ended);
+    if (endedThresholds) conditions.push(`temperatura zewnętrzna ${outdoor ?? '?'} °C powyżej ${endedThresholds.summerAbove} °C`);
   }
   return systemMeta('Harmonogram', `Przejście harmonogramu: ${reasons.join(', ') || 'zmiana stanu'}.`, conditions.join(', '));
 }
@@ -536,11 +573,11 @@ export async function plannedScheduleOperations(rootId: string, now: Date, dayEn
     const local = formatInTimeZone(new Date(time), TIME_ZONE, 'HH:mm');
     const touched = boundaries.get(time) ?? [];
     const reasons = touched.map((entry) => `${entry.startTime === local ? 'początek' : 'koniec'} wpisu ${entry.type === 'season' ? 'sezonu' : 'CWU'} ${window(entry)}`);
-    const cold = touched.find((entry) => entry.type === 'season' && entry.coldBelow !== undefined && entry.coldBelow !== null);
+    const cold = touched.map((entry) => entry.type === 'season' ? seasonThresholds(entry) : null).find(Boolean);
     planned.push({
       at: new Date(time), actor: { type: 'system' }, source: 'Harmonogram', action: actions.join(' · '),
       reason: `${reasons.join(', ')}${pelletCwu ? ' (CWU z peletu: wpisy trybu Pellet)' : ''}.`,
-      ...(cold ? { conditions: `tylko gdy temperatura zewnętrzna poniżej ${cold.coldBelow} °C (teraz ${outdoor ?? '?'} °C)` } : {}),
+      ...(cold ? { conditions: `według temperatury: Zima poniżej ${cold.winterBelow} °C, Lato powyżej ${cold.summerAbove} °C (teraz ${outdoor ?? '?'} °C)` } : {}),
     });
   }
   // koniec sezonu z przycisku

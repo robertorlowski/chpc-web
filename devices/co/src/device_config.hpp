@@ -26,7 +26,9 @@ struct DeviceConfig {
 // przycisk OFF → CLOUD → RĘCZNY, konfiguracja pompy z chmury (wymuszenie PV, DTU, zbiornik),
 // COP na bieżąco i bez wyniku przy pracy pompy CO kotła;
 // 1.2.1: ekran: jedna wyśrodkowana linia „T: od - do” (Tmin–Tmax z pompy) zamiast T.HP i T.od-do.
-constexpr const char *FW_VERSION = "1.2.4";
+// 1.2.5: diagnostyka magistrali (bus_diagnostics.hpp): ramki nieoczekiwane, wiek odpowiedzi CHPC, zrzuty
+// i dłuższy timeout odczytu CHPC na zlecenie z chmury (pole diag w odpowiedzi hp/add).
+constexpr const char *FW_VERSION = "1.2.5";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

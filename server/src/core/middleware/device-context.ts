@@ -7,7 +7,8 @@ import { DeviceModel } from '../models/device.model';
 import { DeviceType } from '../types';
 
 // ścieżki względem /api (req.path w routerze montowanym pod /api)
-const publicPaths = new Set(['/devices', '/devices/register']);
+// /temperature: temperatura zewnętrzna nad kafelkami listy urządzeń (żadne nie jest wtedy wybrane)
+const publicPaths = new Set(['/devices', '/devices/register', '/temperature', '/weather-tiles']);
 
 // Endpointy sterownika: urządzenie wskazuje rootId albo sam deviceId (SN),
 // więc sterownik bez zapisanego rootId też może wysyłać dane. Ten sam SN może
@@ -41,7 +42,7 @@ export async function resolveDeviceContext(
   // PUT /devices/:rootId niesie identyfikator w ścieżce, nie w query string
   // /firmware/...: strona firmware i pobieranie pliku przez sterownik, bez urządzenia
   // /auth/...: logowanie i konto (bez urządzenia)
-  if (publicPaths.has(req.path) || req.path.startsWith('/devices/') || req.path.startsWith('/firmware/') || req.path.startsWith('/auth/')) return next();
+  if (publicPaths.has(req.path) || req.path.startsWith('/devices/') || req.path.startsWith('/firmware/') || req.path.startsWith('/auth/') || req.path.startsWith('/weather-tiles/')) return next();
 
   const rootId = queryText(req.query.rootId);
   const deviceId = queryText(req.query.deviceId);

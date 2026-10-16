@@ -9,6 +9,7 @@ import { createWsServer } from './core/websocket';
 import mongoose from 'mongoose';
 import { restoreOutdoorTemperature } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200.service';
 import { startScheduler } from './modules/heat-pump/services/scheduler.service';
+import { ensureHomeWeatherTile } from './core/services/weather-tile.service';
 import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-schedule.service';
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
 import { assignDefaultPumpConfigs } from './core/services/device.service';
@@ -71,6 +72,8 @@ const PORT = Number(process.env.PORT ?? 3001);
   // przed nasłuchem, żeby pierwsze /hp/add miało już t_out: temperatura zewnętrzna z ostatniego odczytu
   // czujnika kotła (od 2026-10-04 zamiast IMGW Zakopane); dalej ustawia ją każdy odczyt kotła
   await restoreOutdoorTemperature().catch((error) => console.error('[meteo] error:', error));
+  // kafelek pogody „Dom” (core/services/weather-tile.service.ts): powstaje przy pierwszym starcie po wdrożeniu
+  await ensureHomeWeatherTile().catch((error) => console.error('[weather-tiles] error:', error));
 
   server.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}`));
 })();

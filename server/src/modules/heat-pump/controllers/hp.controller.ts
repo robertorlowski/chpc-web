@@ -2,7 +2,7 @@
 // oraz odczyty dla klienta: bieżący stan, dni z danymi, dane dnia, podsumowanie
 // energii i kosztów G12w, ostatni błąd. Dane w kolekcji hp (models/hp.model.ts).
 import { Request, Response } from 'express'
-import { addHpData, getHpContactAt, markHpContact, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
+import { addHpData, getHpContactAt, getHpDiagnostics, getHpDiagRequest, HpDiagRequest, markHpContact, noteHpDiagnostics, setHpDiagRequest, getHpLastData, getHpAllData, clearData, getHpAvailableDates as getCachedHpAvailableDates, getHpDataForDay, getHpLastError } from '../services/hp.service'
 import { HpEntry, OperationEntry } from '../types'
 import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/hp.model'
@@ -17,6 +17,7 @@ import { DeviceDocument, DeviceModel } from '../../../core/models/device.model'
 import { toControllerOperation } from '../services/controller-contract.service'
 import { pumpWorkMode } from '../services/pump-mode.service'
 import { getBoilerCoPump } from '../services/cwu-loading.service'
+import { sendMessage } from '../../../core/websocket'
 
 interface THpClear {
   clear?: Boolean
@@ -54,7 +55,9 @@ export async function getHp(req: Request, res: Response) {
     const pv = await getFreshPvSummary(rootId);
     // contactAt: ostatnie zgłoszenie co (także bez odczytu z CHPC) — ekran pompy odróżnia brak łączności od wyłączonej pompy
     const contactAt = getHpContactAt(rootId)?.toISOString();
-    return res.status(200).send({ ...result, ...(pv ?? {}), ...(contactAt ? { contactAt } : {}) })
+    // diagnostics: liczniki co z ostatniego zgłoszenia (także bez odczytu CHPC), przyrost od ostatniego odczytu CHPC
+    const diagnostics = getHpDiagnostics(rootId);
+    return res.status(200).send({ ...result, ...(pv ?? {}), ...(contactAt ? { contactAt } : {}), ...(diagnostics ? { diagnostics } : {}) })
   } catch (error) {
     console.log(error)
     return res.status(500).send({ message: error })
@@ -247,6 +250,7 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   try {
     const rootId = req.deviceRootId as string;
     markHpContact(rootId);
+    noteHpDiagnostics(rootId, data);
     // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
     const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
     // Bez ręcznych nadpisań operacja znika do następnego przebiegu schedulera (co 60 s),
@@ -289,14 +293,50 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
       pumpConfig: device?.pumpConfig,
       boilerCoPump: getBoilerCoPump(rootId),
     });
+    // diag: zlecenie diagnostyki magistrali (PUT /hp/diagnostics, co od 1.2.5); brak pola = wyłączona
+    const diag = getHpDiagRequest(rootId)?.request;
     return res.status(201).json({
       operation: controllerOperation,
       ...(typeof outdoor === 'number' && Number.isFinite(outdoor) ? { t_out: outdoor } : {}),
       ...(firmware ? { firmware } : {}),
+      ...(diag ? { diag } : {}),
     });
   } catch (error) {
     return res.status(500).send({ error: error })
   }
+}
+
+// GET /hp/diagnostics: liczniki co z ostatniego zgłoszenia, zrzuty (co 1.2.5) i zlecenie diagnostyki; {} bez danych.
+export const getDiagnostics = (req: Request, res: Response) =>
+  res.status(200).json(getHpDiagnostics(req.deviceRootId as string) ?? {});
+
+const DIAG_MINUTES_DEFAULT = 60;
+const DIAG_MINUTES_MAX = 24 * 60;
+const flag = (value: unknown) => value === true || value === 1 || value === '1' ? 1 : value === undefined || value === false || value === 0 || value === '0' ? 0 : null;
+
+// PUT /hp/diagnostics {hp_raw?, bus_sniff?, hp_timeout_s?, minutes?}: zlecenie diagnostyki magistrali dla co
+// (bus_diagnostics.hpp): zrzut nieudanej odpowiedzi CHPC, zrzut ramek nieoczekiwanych, dłuższy timeout odczytu
+// CHPC (3–15 s, 0 = domyślny). Działa przez minutes (1–1440, domyślnie 60), potem samo wygasa. Wszystko
+// wyłączone = odwołanie. WebSocket "operation" budzi co, żeby dostał zlecenie od razu.
+export const putDiagnostics = (req: Request<{}, {}, Record<string, unknown>>, res: Response) => {
+  const body = req.body ?? {};
+  const hpRaw = flag(body.hp_raw);
+  const busSniff = flag(body.bus_sniff);
+  const timeout = body.hp_timeout_s === undefined ? 0 : Number(body.hp_timeout_s);
+  const minutes = body.minutes === undefined ? DIAG_MINUTES_DEFAULT : Number(body.minutes);
+  if (hpRaw === null || busSniff === null) return res.status(400).json({ message: 'hp_raw i bus_sniff: 0 albo 1.' });
+  if (!Number.isInteger(timeout) || (timeout !== 0 && (timeout < 3 || timeout > 15))) {
+    return res.status(400).json({ message: 'hp_timeout_s: 0 albo liczba całkowita 3–15.' });
+  }
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > DIAG_MINUTES_MAX) {
+    return res.status(400).json({ message: `minutes: liczba całkowita 1–${DIAG_MINUTES_MAX}.` });
+  }
+  const rootId = req.deviceRootId as string;
+  const request: HpDiagRequest = { hp_raw: hpRaw, bus_sniff: busSniff, hp_timeout_s: timeout };
+  const active = hpRaw === 1 || busSniff === 1 || timeout !== 0;
+  setHpDiagRequest(rootId, active ? request : null, active ? new Date(Date.now() + minutes * 60_000) : undefined);
+  sendMessage('operation', rootId);
+  return res.status(200).json(getHpDiagnostics(rootId) ?? { request: null });
 }
 
 // GET /hp/last-error: rekord z error_code z 24 h albo bez limitu przy blokadzie

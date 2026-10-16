@@ -232,7 +232,8 @@ const HP: React.FC = () => {
                   className={'field'}
                   style={{ marginLeft: '5px' }}
                 >
-                  {_data?.t_out!  ? _data.t_out.toFixed(1) : '---'}
+                  {/* 0,0 °C to też odczyt (dawniej warunek na prawdziwość pokazywał wtedy „---”) */}
+                  {typeof _data?.t_out === 'number' ? _data.t_out.toFixed(1) : '---'}
                 </span>{' '}
                 °C
               </div>
