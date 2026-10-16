@@ -1,0 +1,43 @@
+/* ===== Propozycja A „Spokojny panel”: ciągłość z obecnym turkusem, chłodne szarości, białe karty na stonowanym tle.
+   Układ: zakładki w górnym pasku (komputer), dolna nawigacja (telefon); siatka kafelków. ===== */
+:root {
+  --font-display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px; --radius-sm: 9px; --gap: 14px; --page-max: 1180px; --page-pad-y: 16px; --tile-pad: 16px; --card-pad: 16px;
+
+  --bg: #eef2f5; --card: #ffffff; --fg: #15222b; --fg-2: #4b5b66; --fg-3: #7a8893;
+  --line: #d6dee4; --line-soft: #e6ecf0; --line-strong: #b9c6cf; --hover: rgba(15,127,159,.08);
+  --shadow: 0 1px 2px rgba(21,34,43,.06), 0 4px 14px rgba(21,34,43,.05); --shadow-hover: 0 2px 4px rgba(21,34,43,.08), 0 10px 24px rgba(21,34,43,.1);
+  --accent: #0f7f9f; --accent-strong: #0b6a86; --accent-fg: #ffffff;
+  --bar-bg: #ffffff; --bar-fg: #15222b; --bar-line: #d6dee4; --bar-shadow: none;
+  --tab-active-bg: #e1f0f5; --tab-active-fg: #0b6a86;
+  --nav-bg: #ffffff; --nav-fg: #5c6b76; --nav-active: #0b6a86; --nav-active-bg: #e1f0f5;
+  --ok-bg: #dcf3e6; --ok-fg: #15723f; --warn-bg: #fdebd2; --warn-fg: #9a4b00; --danger: #b3261e;
+  --muted-bg: #e7ecf0; --muted-fg: #5c6b76; --run-bg: #e1f0f5; --run-fg: #0b6a86;
+  --switch-off: #cfd8de; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #eef2f5; --row-bg: #f6f8fa; --row-current-bg: #ecf6f9;
+  --hero-bg: #ffffff; --hero-fg: #15222b; --hero-fg-2: #5c6b76; --hero-line: #d6dee4; --hero-track: #e1e8ed; --kpi-bg: #f3f6f8; --kpi-line: #e6ecf0;
+  --c-heat: #d5572b; --c-heat-bg: #fbe7df; --c-water: #2a7fc1; --c-water-bg: #e0eefa; --c-sun: #e0a100; --c-sun-bg: #fdf3cf;
+  --c-switch: #6b4fc4; --c-switch-bg: #ebe6f9; --c-fire: #c23b2c; --c-fire-bg: #fbe3e0; --c-sky: #3b8ac4; --c-sky-bg: #e2f0fb;
+  --mock-bg: #15222b; --mock-fg: #fff; --mock-on: #0f7f9f; --mock-on-fg: #fff;
+}
+/*DARK*/
+  color-scheme: dark;
+  --bg: #0f171c; --card: #18242b; --fg: #e8eef2; --fg-2: #aab8c2; --fg-3: #7d8c96;
+  --line: #27363f; --line-soft: #213039; --line-strong: #3a4c57; --hover: rgba(80,190,220,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25); --shadow-hover: 0 2px 4px rgba(0,0,0,.35), 0 10px 24px rgba(0,0,0,.4);
+  --accent: #3fb3d3; --accent-strong: #62c4df; --accent-fg: #06202a;
+  --bar-bg: #131e24; --bar-fg: #e8eef2; --bar-line: #27363f; --bar-shadow: none;
+  --tab-active-bg: #1e3a45; --tab-active-fg: #8fd7ea;
+  --nav-bg: #131e24; --nav-fg: #9fb0ba; --nav-active: #8fd7ea; --nav-active-bg: #1e3a45;
+  --ok-bg: #163a2a; --ok-fg: #6fd39a; --warn-bg: #4a2f10; --warn-fg: #f3bb6b; --danger: #f28b82;
+  --muted-bg: #243039; --muted-fg: #aab8c2; --run-bg: #1e3a45; --run-fg: #8fd7ea;
+  --switch-off: #34444e; --switch-knob: #cfd8de; --input-bg: #10191e; --seg-bg: #10191e; --row-bg: #1d2b33; --row-current-bg: #1c343d;
+  --hero-bg: #18242b; --hero-fg: #e8eef2; --hero-fg-2: #aab8c2; --hero-line: #27363f; --hero-track: #2a3a44; --kpi-bg: #1f2d35; --kpi-line: #2b3b45;
+  --c-heat: #ff8a5c; --c-heat-bg: #3d2419; --c-water: #6fb3ea; --c-water-bg: #182f44; --c-sun: #f3c44b; --c-sun-bg: #3d3314;
+  --c-switch: #b3a1f0; --c-switch-bg: #2b2546; --c-fire: #ff7b6d; --c-fire-bg: #3f1f1b; --c-sky: #7ebfef; --c-sky-bg: #1a3447;
+  --mock-bg: #27363f; --mock-fg: #fff; --mock-on: #3fb3d3; --mock-on-fg: #06202a;
+/*/DARK*/
+/* akcenty wariantu A */
+.topbar-list .topbar-title { font-size: 22px; }
+.tile-weather { background: linear-gradient(135deg, var(--c-sky-bg), var(--card) 70%); }

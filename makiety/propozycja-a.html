@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<!-- Makieta nowego wyglądu chpc-web, propozycja A „Spokojny panel”: ciągłość z obecnym turkusem, białe karty na chłodnym szarym tle, zakładki u góry.
+     Plik samodzielny (oprócz czcionek z Google Fonts): otwórz w przeglądarce na telefonie (360 / 412 px) i komputerze.
+     Źródło: makiety/src/ (szkielet.html, baza.css, wariant-a.css), składanie: node makiety/src/build.mjs -->
+<title>CHPC makieta A</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+/* ===== Propozycja A „Spokojny panel”: ciągłość z obecnym turkusem, chłodne szarości, białe karty na stonowanym tle.
+   Układ: zakładki w górnym pasku (komputer), dolna nawigacja (telefon); siatka kafelków. ===== */
+:root {
+  --font-display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px; --radius-sm: 9px; --gap: 14px; --page-max: 1180px; --page-pad-y: 16px; --tile-pad: 16px; --card-pad: 16px;
+
+  --bg: #eef2f5; --card: #ffffff; --fg: #15222b; --fg-2: #4b5b66; --fg-3: #7a8893;
+  --line: #d6dee4; --line-soft: #e6ecf0; --line-strong: #b9c6cf; --hover: rgba(15,127,159,.08);
+  --shadow: 0 1px 2px rgba(21,34,43,.06), 0 4px 14px rgba(21,34,43,.05); --shadow-hover: 0 2px 4px rgba(21,34,43,.08), 0 10px 24px rgba(21,34,43,.1);
+  --accent: #0f7f9f; --accent-strong: #0b6a86; --accent-fg: #ffffff;
+  --bar-bg: #ffffff; --bar-fg: #15222b; --bar-line: #d6dee4; --bar-shadow: none;
+  --tab-active-bg: #e1f0f5; --tab-active-fg: #0b6a86;
+  --nav-bg: #ffffff; --nav-fg: #5c6b76; --nav-active: #0b6a86; --nav-active-bg: #e1f0f5;
+  --ok-bg: #dcf3e6; --ok-fg: #15723f; --warn-bg: #fdebd2; --warn-fg: #9a4b00; --danger: #b3261e;
+  --muted-bg: #e7ecf0; --muted-fg: #5c6b76; --run-bg: #e1f0f5; --run-fg: #0b6a86;
+  --switch-off: #cfd8de; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #eef2f5; --row-bg: #f6f8fa; --row-current-bg: #ecf6f9;
+  --hero-bg: #ffffff; --hero-fg: #15222b; --hero-fg-2: #5c6b76; --hero-line: #d6dee4; --hero-track: #e1e8ed; --kpi-bg: #f3f6f8; --kpi-line: #e6ecf0;
+  --c-heat: #d5572b; --c-heat-bg: #fbe7df; --c-water: #2a7fc1; --c-water-bg: #e0eefa; --c-sun: #e0a100; --c-sun-bg: #fdf3cf;
+  --c-switch: #6b4fc4; --c-switch-bg: #ebe6f9; --c-fire: #c23b2c; --c-fire-bg: #fbe3e0; --c-sky: #3b8ac4; --c-sky-bg: #e2f0fb;
+  --mock-bg: #15222b; --mock-fg: #fff; --mock-on: #0f7f9f; --mock-on-fg: #fff;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --bg: #0f171c; --card: #18242b; --fg: #e8eef2; --fg-2: #aab8c2; --fg-3: #7d8c96;
+  --line: #27363f; --line-soft: #213039; --line-strong: #3a4c57; --hover: rgba(80,190,220,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25); --shadow-hover: 0 2px 4px rgba(0,0,0,.35), 0 10px 24px rgba(0,0,0,.4);
+  --accent: #3fb3d3; --accent-strong: #62c4df; --accent-fg: #06202a;
+  --bar-bg: #131e24; --bar-fg: #e8eef2; --bar-line: #27363f; --bar-shadow: none;
+  --tab-active-bg: #1e3a45; --tab-active-fg: #8fd7ea;
+  --nav-bg: #131e24; --nav-fg: #9fb0ba; --nav-active: #8fd7ea; --nav-active-bg: #1e3a45;
+  --ok-bg: #163a2a; --ok-fg: #6fd39a; --warn-bg: #4a2f10; --warn-fg: #f3bb6b; --danger: #f28b82;
+  --muted-bg: #243039; --muted-fg: #aab8c2; --run-bg: #1e3a45; --run-fg: #8fd7ea;
+  --switch-off: #34444e; --switch-knob: #cfd8de; --input-bg: #10191e; --seg-bg: #10191e; --row-bg: #1d2b33; --row-current-bg: #1c343d;
+  --hero-bg: #18242b; --hero-fg: #e8eef2; --hero-fg-2: #aab8c2; --hero-line: #27363f; --hero-track: #2a3a44; --kpi-bg: #1f2d35; --kpi-line: #2b3b45;
+  --c-heat: #ff8a5c; --c-heat-bg: #3d2419; --c-water: #6fb3ea; --c-water-bg: #182f44; --c-sun: #f3c44b; --c-sun-bg: #3d3314;
+  --c-switch: #b3a1f0; --c-switch-bg: #2b2546; --c-fire: #ff7b6d; --c-fire-bg: #3f1f1b; --c-sky: #7ebfef; --c-sky-bg: #1a3447;
+  --mock-bg: #27363f; --mock-fg: #fff; --mock-on: #3fb3d3; --mock-on-fg: #06202a;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f171c; --card: #18242b; --fg: #e8eef2; --fg-2: #aab8c2; --fg-3: #7d8c96;
+  --line: #27363f; --line-soft: #213039; --line-strong: #3a4c57; --hover: rgba(80,190,220,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25); --shadow-hover: 0 2px 4px rgba(0,0,0,.35), 0 10px 24px rgba(0,0,0,.4);
+  --accent: #3fb3d3; --accent-strong: #62c4df; --accent-fg: #06202a;
+  --bar-bg: #131e24; --bar-fg: #e8eef2; --bar-line: #27363f; --bar-shadow: none;
+  --tab-active-bg: #1e3a45; --tab-active-fg: #8fd7ea;
+  --nav-bg: #131e24; --nav-fg: #9fb0ba; --nav-active: #8fd7ea; --nav-active-bg: #1e3a45;
+  --ok-bg: #163a2a; --ok-fg: #6fd39a; --warn-bg: #4a2f10; --warn-fg: #f3bb6b; --danger: #f28b82;
+  --muted-bg: #243039; --muted-fg: #aab8c2; --run-bg: #1e3a45; --run-fg: #8fd7ea;
+  --switch-off: #34444e; --switch-knob: #cfd8de; --input-bg: #10191e; --seg-bg: #10191e; --row-bg: #1d2b33; --row-current-bg: #1c343d;
+  --hero-bg: #18242b; --hero-fg: #e8eef2; --hero-fg-2: #aab8c2; --hero-line: #27363f; --hero-track: #2a3a44; --kpi-bg: #1f2d35; --kpi-line: #2b3b45;
+  --c-heat: #ff8a5c; --c-heat-bg: #3d2419; --c-water: #6fb3ea; --c-water-bg: #182f44; --c-sun: #f3c44b; --c-sun-bg: #3d3314;
+  --c-switch: #b3a1f0; --c-switch-bg: #2b2546; --c-fire: #ff7b6d; --c-fire-bg: #3f1f1b; --c-sky: #7ebfef; --c-sky-bg: #1a3447;
+  --mock-bg: #27363f; --mock-fg: #fff; --mock-on: #3fb3d3; --mock-on-fg: #06202a;
+}
+
+/* akcenty wariantu A */
+.topbar-list .topbar-title { font-size: 22px; }
+.tile-weather { background: linear-gradient(135deg, var(--c-sky-bg), var(--card) 70%); }
+
+/* ===== Baza wspólna makiet: układ i komponenty budowane z tokenów wariantu ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  min-height: 100%;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bar-bg); }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+small { font-size: .8em; }
+svg { display: block; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- pasek makiety (poza aplikacją) ---- */
+.mock-bar {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px;
+  background: var(--mock-bg); color: var(--mock-fg); border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  font-size: 12px; white-space: nowrap;
+}
+.mock-name { font-weight: 600; letter-spacing: .02em; }
+.mock-group { display: flex; gap: 2px; background: rgba(255,255,255,.08); border-radius: 999px; padding: 2px; }
+.mock-group button { border: 0; background: transparent; color: inherit; padding: 4px 9px; border-radius: 999px; cursor: pointer; opacity: .75; }
+.mock-group button.is-on { background: var(--mock-on); color: var(--mock-on-fg); opacity: 1; }
+.app[data-screen="pompa"] ~ .mock-bar, .app[data-screen="harmonogram"] ~ .mock-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+@media (min-width: 900px) { .app[data-screen] ~ .mock-bar { bottom: 14px; } }
+
+/* ---- szkielet ekranu ---- */
+.app { min-height: 100%; }
+.screen { min-height: 100vh; display: flex; flex-direction: column; }
+.page { flex: 1; width: 100%; max-width: var(--page-max); margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: var(--page-pad-y) 28px; display: flex; flex-direction: column; gap: var(--gap); }
+.screen-device .page { padding-bottom: calc(28px + 64px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 900px) { .screen-device .page { padding-bottom: 36px; } }
+
+/* ---- górny pasek ---- */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bar-bg); color: var(--bar-fg);
+  border-bottom: 1px solid var(--bar-line); box-shadow: var(--bar-shadow); }
+.topbar-inner { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; letter-spacing: .04em; }
+.brand-mark { width: 10px; height: 22px; border-radius: 3px; background: var(--accent); }
+.brand-name { font-size: 14px; opacity: .85; }
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-actions { display: flex; gap: 4px; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; color: inherit; }
+.icon-btn:hover { background: var(--hover); }
+.icon-btn.sm { width: 34px; height: 34px; }
+.icon-btn.danger:hover { color: var(--danger); }
+.avatar { background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 700; width: 34px; height: 34px; letter-spacing: .04em; }
+.avatar:hover { background: var(--accent-strong); }
+.device-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.device-title h1 { font-size: 18px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-sub { font-size: 12px; opacity: .85; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-sub .chip { font-size: 11px; padding: 1px 7px; }
+.sep { opacity: .5; }
+.tabs { display: none; }
+@media (min-width: 900px) {
+  .tabs { display: flex; gap: 2px; }
+  .tab { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; color: var(--bar-fg); opacity: .78; }
+  .tab:hover { opacity: 1; background: var(--hover); }
+  .tab.is-active { opacity: 1; background: var(--tab-active-bg); color: var(--tab-active-fg); }
+  .tab svg { width: 18px; height: 18px; }
+}
+
+/* ---- chip stanu ---- */
+.chip { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; line-height: 1.5; white-space: nowrap; }
+.chip-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.chip-off { background: var(--muted-bg); color: var(--muted-fg); }
+.chip-warn { background: var(--warn-bg); color: var(--warn-fg); }
+
+/* ---- lista: pasek pogody domu ---- */
+.outdoor-strip { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 2px 4px; color: var(--fg-2); font-size: 13px; }
+.outdoor-temp { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--fg); }
+.outdoor-src { margin-left: auto; font-size: 12px; color: var(--fg-3); }
+
+/* ---- kafelki ---- */
+.tiles { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
+@media (max-width: 400px) { .tiles { grid-template-columns: 1fr; } }
+.tile { position: relative; display: flex; flex-direction: column; gap: 10px; padding: var(--tile-pad);
+  background: var(--card); color: var(--fg); border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); min-width: 0; }
+.tile.is-link { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+.tile.is-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: var(--line-strong); }
+.tile-head { display: flex; align-items: center; gap: 10px; }
+.tile-icon { display: inline-flex; width: 36px; height: 36px; border-radius: var(--radius-sm); align-items: center; justify-content: center; background: var(--kind-bg); color: var(--kind-fg); flex: none; }
+.tile[data-kind="hp"] { --kind-fg: var(--c-heat); --kind-bg: var(--c-heat-bg); }
+.tile[data-kind="tank"] { --kind-fg: var(--c-water); --kind-bg: var(--c-water-bg); }
+.tile[data-kind="pv"] { --kind-fg: var(--c-sun); --kind-bg: var(--c-sun-bg); }
+.tile[data-kind="switch"] { --kind-fg: var(--c-switch); --kind-bg: var(--c-switch-bg); }
+.tile[data-kind="boiler"] { --kind-fg: var(--c-fire); --kind-bg: var(--c-fire-bg); }
+.tile[data-kind="weather"] { --kind-fg: var(--c-sky); --kind-bg: var(--c-sky-bg); }
+.tile-name { font-size: 16px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-main { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.big { font-family: var(--font-num); font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -.01em; }
+.unit { font-size: 16px; font-weight: 600; color: var(--fg-2); }
+.big-label { flex-basis: 100%; font-size: 13px; color: var(--fg-2); margin-top: 2px; }
+.tile-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.tile-facts div { min-width: 0; }
+.tile-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); }
+.tile-facts dd { margin: 0; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.state { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--muted-bg); color: var(--muted-fg); }
+.state-on { background: var(--run-bg); color: var(--run-fg); }
+.warn-line { display: block; width: 100%; font-size: 13px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-fg); border-left: 3px solid var(--warn-fg); }
+.tile-foot { font-size: 12px; color: var(--fg-3); margin-top: auto; }
+.relays { display: flex; flex-direction: column; }
+.relay { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "n s" "d s"; align-items: center; column-gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.relay:first-child { border-top: 0; padding-top: 0; }
+.relay-name { grid-area: n; font-weight: 600; }
+.relay-desc { grid-area: d; font-size: 12px; color: var(--fg-2); }
+.relay .switch { grid-area: s; }
+
+/* ---- przełącznik ---- */
+.switch { display: inline-block; width: 44px; height: 26px; border-radius: 999px; background: var(--switch-off); position: relative; cursor: pointer; flex: none; transition: background .15s; border: 1px solid var(--line); }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--switch-knob); box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .15s; }
+.switch.is-on { background: var(--accent); border-color: var(--accent); }
+.switch.is-on::after { transform: translateX(18px); background: var(--accent-fg); }
+
+/* ---- stopka listy ---- */
+.statusbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--fg-3);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + 48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--line-soft); }
+.dot-ok { color: var(--ok-fg); }
+
+/* ---- karty ekranu sterownika ---- */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--card-pad); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.card-head h2 { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+.card-hint { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.grid-2 { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 760px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+/* hero */
+.card-hero { background: var(--hero-bg); color: var(--hero-fg); border-color: var(--hero-line); display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 760px) { .card-hero { grid-template-columns: 1.1fr 1fr; align-items: center; } }
+.hero-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--hero-fg-2); }
+.hero-value { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 10px; }
+.hero-num { font-family: var(--font-num); font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.hero-unit { font-size: 22px; font-weight: 600; color: var(--hero-fg-2); }
+.range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--hero-fg-2); }
+.range-bar { position: relative; height: 8px; border-radius: 999px; background: var(--hero-track); overflow: visible; }
+.range-fill { position: absolute; inset: 0 auto 0 0; width: var(--p); border-radius: 999px; background: var(--accent); }
+.range-pin { position: absolute; top: 50%; left: var(--p); width: 16px; height: 16px; border-radius: 50%; background: var(--card); border: 3px solid var(--accent); transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.hero-note { display: block; margin-top: 10px; font-size: 13px; color: var(--hero-fg-2); }
+.hero-side { display: flex; flex-direction: column; gap: 12px; }
+.state-pill { display: flex; flex-direction: column; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--run-bg); color: var(--run-fg); font-weight: 700; font-size: 14px; }
+.state-pill small { font-weight: 500; opacity: .9; margin-top: 2px; }
+.hero-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 420px) { .hero-kpis { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 760px) { .hero-kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--kpi-bg); border: 1px solid var(--kpi-line); min-width: 0; }
+.kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--hero-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-value { font-family: var(--font-num); font-size: 20px; font-weight: 700; line-height: 1.1; }
+.kpi-value small { font-size: 12px; font-weight: 600; margin-left: 3px; color: var(--hero-fg-2); }
+
+/* listy przełączników */
+.toggle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.toggle-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.toggle-list li:first-child { border-top: 0; padding-top: 2px; }
+.t-name { font-weight: 500; }
+.t-name small { color: var(--fg-3); font-weight: 400; }
+
+/* energia */
+.energy { display: flex; gap: 20px; }
+.energy-num { display: flex; flex-direction: column; }
+.energy-num span { font-family: var(--font-num); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.energy-num small { font-size: 12px; color: var(--fg-3); }
+.spark { width: 100%; height: 72px; max-width: 100%; }
+.spark-grid line { stroke: var(--line-soft); stroke-width: 1; }
+.spark-pv { fill: var(--c-sun); opacity: .28; }
+.spark-bars rect { fill: var(--accent); }
+.spark-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--fg-3); }
+
+/* pomiary */
+.measures { margin: 0; display: grid; grid-template-columns: 1fr; gap: 0; }
+@media (min-width: 560px) { .measures { grid-template-columns: 1fr 1fr; column-gap: 28px; } }
+.measures div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); min-width: 0; }
+.measures div:first-child { border-top: 0; }
+@media (min-width: 560px) { .measures div:nth-child(2) { border-top: 0; } }
+.measures dt { color: var(--fg-2); }
+.measures dd { margin: 0; font-weight: 600; white-space: nowrap; }
+.measures dd small { color: var(--fg-3); font-weight: 400; }
+.ok-text { color: var(--ok-fg); font-weight: 700; }
+
+/* formularze */
+.segmented { display: flex; background: var(--seg-bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 3px; gap: 3px; }
+.seg { flex: 1; position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; text-align: center; padding: 8px 6px; border-radius: calc(var(--radius-sm) - 3px); font-weight: 600; font-size: 14px; color: var(--fg-2); }
+.seg input:checked + span { background: var(--accent); color: var(--accent-fg); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.help { font-size: 13px; color: var(--fg-3); }
+.form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.form-row label { font-weight: 500; }
+.range-inputs { display: flex; align-items: center; gap: 8px; }
+.range-inputs input { width: 64px; padding: 8px 10px; font: inherit; font-weight: 600; text-align: center; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--fg); }
+.dash, .unit-txt { color: var(--fg-3); }
+.actions { display: flex; justify-content: flex-end; }
+.btn { border: 0; border-radius: var(--radius-sm); padding: 10px 18px; font-weight: 700; cursor: pointer; background: var(--muted-bg); color: var(--fg); }
+.btn-primary { background: var(--accent); color: var(--accent-fg); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--line-strong); }
+.btn-ghost:hover { background: var(--hover); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+/* wpisy harmonogramu */
+.entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.entry { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "when actions" "what actions" "tag actions"; align-items: center; column-gap: 10px;
+  padding: 10px 12px 10px 14px; border-radius: var(--radius-sm); background: var(--row-bg); border: 1px solid var(--line-soft); border-left: 4px solid var(--c-heat); }
+.entry-when { grid-area: when; }
+.entry-when small { color: var(--fg-3); }
+.entry-what { grid-area: what; font-size: 13px; color: var(--fg-2); }
+.entry-tag { grid-area: tag; justify-self: start; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; background: var(--run-bg); color: var(--run-fg); }
+.entry-actions { grid-area: actions; display: flex; }
+.entry.is-current { border-color: var(--accent); border-left-color: var(--accent); background: var(--row-current-bg); }
+.entry.is-off { border-left-color: var(--muted-fg); }
+.entry.is-default { border-left-color: var(--c-water); border-style: dashed; border-left-style: solid; }
+
+/* ---- dolna nawigacja (telefon) ---- */
+.bottom-nav { display: none; }
+.app[data-screen="pompa"] .bottom-nav, .app[data-screen="harmonogram"] .bottom-nav { display: flex; }
+@media (min-width: 900px) { .app[data-screen] .bottom-nav { display: none; } }
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--nav-bg); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); justify-content: space-around; }
+.bn { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--nav-fg); padding: 4px 8px; border-radius: var(--radius-sm); min-width: 56px; }
+.bn.is-active { color: var(--nav-active); }
+.bn svg { box-sizing: content-box; width: 24px; height: 24px; padding: 3px 12px; border-radius: 999px; }
+.bn.is-active svg { background: var(--nav-active-bg); }
+@media (max-width: 360px) { .bn { min-width: 0; padding: 4px 4px; } .bn svg { padding: 3px 9px; } }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+</style>
+</head>
+<body>
+<div class="app" data-screen="lista">
+
+  <!-- ============ EKRAN: LISTA STEROWNIKÓW ============ -->
+  <section class="screen screen-lista" id="lista">
+    <header class="topbar topbar-list">
+      <div class="topbar-inner">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">CHPC</span></div>
+        <h1 class="topbar-title">Sterowniki</h1>
+        <div class="topbar-actions">
+          <button type="button" class="icon-btn" title="Zmień układ" aria-label="Zmień układ"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+          <button type="button" class="icon-btn avatar" title="Konto" aria-label="Konto">RO</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page page-lista">
+      <div class="outdoor-strip">
+        <span class="outdoor-temp">7,4 °C</span>
+        <span class="outdoor-desc">pochmurno · wiatr 14 km/h · Dom</span>
+        <span class="outdoor-src">Open‑Meteo · 6 min temu</span>
+      </div>
+
+      <div class="tiles">
+
+        <article class="tile tile-weather" data-kind="weather">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+            <h2 class="tile-name">Dom</h2>
+          </div>
+          <div class="tile-main"><span class="big">7,4</span><span class="unit">°C</span><span class="big-label">pochmurno</span></div>
+          <dl class="tile-facts">
+            <div><dt>Wiatr</dt><dd>14 km/h</dd></div>
+            <div><dt>Chmury</dt><dd>86 %</dd></div>
+            <div><dt>Opad</dt><dd>0,2 mm</dd></div>
+          </dl>
+          <footer class="tile-foot">Open‑Meteo · 6 min temu</footer>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="hp" data-go="pompa" tabindex="0" role="link" aria-label="Pompa ciepła, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/></svg></span>
+            <h2 class="tile-name">Pompa ciepła</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+          </div>
+          <div class="tile-main"><span class="big">42,5</span><span class="unit">°C</span><span class="big-label">zbiornik · cel 38–45</span></div>
+          <dl class="tile-facts">
+            <div><dt>Tryb</dt><dd>Auto</dd></div>
+            <div><dt>Moc</dt><dd>2 140 W</dd></div>
+            <div><dt>COP</dt><dd>3,6</dd></div>
+          </dl>
+          <div class="tile-row"><span class="state state-on"><i class="dot"></i>Sprężarka pracuje · 49 min</span></div>
+          <footer class="tile-foot">dane sprzed 20 s</footer>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="pv" tabindex="0" role="link" aria-label="Fotowoltaika, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 10h16l2 9H2zM8 10l1-4h6l1 4M6 14.5h12M9 10v9M15 10v9"/></svg></span>
+            <h2 class="tile-name">Fotowoltaika</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+          </div>
+          <div class="tile-main"><span class="big">2,41</span><span class="unit">kW</span><span class="big-label">moc teraz · 4 panele</span></div>
+          <dl class="tile-facts">
+            <div><dt>Dziś</dt><dd>8,6 kWh</dd></div>
+            <div><dt>Miesiąc</dt><dd>164 kWh</dd></div>
+            <div><dt>Falownik</dt><dd>31 °C</dd></div>
+          </dl>
+          <footer class="tile-foot">dane sprzed 40 s</footer>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="tank" tabindex="0" role="link" aria-label="Hydrofor, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg></span>
+            <h2 class="tile-name">Hydrofor</h2>
+            <span class="chip chip-off">Offline</span>
+          </div>
+          <div class="tile-main"><span class="big">377</span><span class="unit">l</span><span class="big-label">dziś · 7 507 l w miesiącu</span></div>
+          <dl class="tile-facts">
+            <div><dt>Pompa</dt><dd>6 min 17 s</dd></div>
+            <div><dt>Uruchomień</dt><dd>3</dd></div>
+            <div><dt>Ostatnie</dt><dd>13:56</dd></div>
+          </dl>
+          <footer class="tile-foot">dane sprzed 4 h</footer>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="switch" tabindex="0" role="link" aria-label="Włącznik, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/></svg></span>
+            <h2 class="tile-name">Włącznik</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+          </div>
+          <div class="relays">
+            <div class="relay"><span class="relay-name">Bojler</span><span class="relay-desc">Harmonogram · do 23:30</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Bojler"></span></div>
+            <div class="relay"><span class="relay-name">Pompa cyrkulacji</span><span class="relay-desc">Wyłączony · harmonogram zablokowany</span><span class="switch" role="switch" aria-checked="false" aria-label="Pompa cyrkulacji"></span></div>
+          </div>
+          <footer class="tile-foot">dane sprzed 5 s</footer>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="boiler" tabindex="0" role="link" aria-label="Piec Pellux 200, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3 1-6 1-9z"/></svg></span>
+            <h2 class="tile-name">Piec Pellux 200</h2>
+            <span class="chip chip-warn"><i class="dot"></i>Praca</span>
+          </div>
+          <div class="tile-main"><span class="big">67</span><span class="unit">°C</span><span class="big-label">kocioł · zadana 67</span></div>
+          <dl class="tile-facts">
+            <div><dt>CWU</dt><dd>52 °C</dd></div>
+            <div><dt>Paliwo</dt><dd>64 %</dd></div>
+            <div><dt>Moc</dt><dd>14 kW</dd></div>
+          </dl>
+          <div class="tile-row"><span class="warn-line">Podajnik: brak reakcji od 12 min</span></div>
+          <footer class="tile-foot">dane sprzed 2 min</footer>
+        </article>
+
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <span class="db-usage"><i class="dot dot-ok"></i>Baza danych 12 %</span>
+      <span class="version">chpc‑web · wersja makiety A</span>
+    </footer>
+  </section>
+
+  <!-- ============ EKRAN: POMPA CIEPŁA (podgląd) ============ -->
+  <section class="screen screen-device" id="pompa" hidden>
+    <header class="topbar topbar-device">
+      <div class="topbar-inner">
+        <button type="button" class="icon-btn back" data-go="lista" aria-label="Wróć do listy sterowników"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div class="device-title">
+          <h1>Pompa ciepła</h1>
+          <span class="device-sub"><span class="chip chip-ok"><i class="dot"></i>Online</span><span class="sep">·</span>tryb automatyczny<span class="sep">·</span>SN A0B1…E4F5</span>
+        </div>
+        <nav class="tabs" aria-label="Widoki sterownika">
+          <a href="#pompa" class="tab is-active" data-go="pompa"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/></svg><span>Podgląd</span></a>
+          <a href="#dane" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Dane</span></a>
+          <a href="#wykres" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>Wykres</span></a>
+          <a href="#harmonogram" class="tab" data-go="harmonogram"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Harmonogram</span></a>
+          <a href="#operacje" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Operacje</span></a>
+          <a href="#ustawienia" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Ustawienia</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page page-device">
+
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Temperatura zbiornika</span>
+          <div class="hero-value"><span class="hero-num">42,5</span><span class="hero-unit">°C</span></div>
+          <div class="range" aria-label="Zakres 38 do 45 stopni, teraz 42,5">
+            <span class="range-min">38</span>
+            <span class="range-bar"><span class="range-fill" style="--p:64%"></span><span class="range-pin" style="--p:64%"></span></span>
+            <span class="range-max">45</span>
+          </div>
+          <span class="hero-note">cel 38–45 °C · <strong>CWU</strong> grzane · zmiana 16:00</span>
+        </div>
+        <div class="hero-side">
+          <div class="state-pill state-on"><i class="dot"></i>Sprężarka pracuje<small>49 min · 1,87 kWh w cyklu</small></div>
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">2 140<small>W</small></span></div>
+            <div class="kpi"><span class="kpi-label">PV teraz</span><span class="kpi-value">1 655<small>W</small></span></div>
+            <div class="kpi"><span class="kpi-label">COP</span><span class="kpi-value">3,6</span></div>
+            <div class="kpi"><span class="kpi-label">Na zewnątrz</span><span class="kpi-value">11,2<small>°C</small></span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid-2">
+        <section class="card">
+          <header class="card-head"><h2>Obieg</h2><span class="card-hint">stan przekaźników</span></header>
+          <ul class="toggle-list">
+            <li><span class="t-name">Pompa ciepła <small>(CO włączone)</small></span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Pompa ciepła"></span></li>
+            <li><span class="t-name">Obieg gorący</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Obieg gorący"></span></li>
+            <li><span class="t-name">Obieg zimny</span><span class="switch" role="switch" aria-checked="false" aria-label="Obieg zimny"></span></li>
+            <li><span class="t-name">Przepływ przez parownik</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Przepływ"></span></li>
+            <li><span class="t-name">Praca wymuszona</span><span class="switch" role="switch" aria-checked="false" aria-label="Praca wymuszona"></span></li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <header class="card-head"><h2>Energia dziś</h2><span class="card-hint">G12w · 8,76 PLN</span></header>
+          <div class="energy">
+            <div class="energy-num"><span>7,89</span><small>kWh pobrane</small></div>
+            <div class="energy-num"><span>16,91</span><small>kWh PV</small></div>
+          </div>
+          <svg class="spark" viewBox="0 0 240 64" preserveAspectRatio="none" aria-label="Pobór mocy w ciągu dnia">
+            <g class="spark-grid"><line x1="0" y1="16" x2="240" y2="16"/><line x1="0" y1="32" x2="240" y2="32"/><line x1="0" y1="48" x2="240" y2="48"/></g>
+            <path class="spark-pv" d="M0 62 C40 62 60 30 90 20 S150 10 180 28 S220 58 240 62 V64 H0 Z"/>
+            <g class="spark-bars">
+              <rect x="42" y="18" width="7" height="46"/><rect x="51" y="14" width="7" height="50"/><rect x="60" y="20" width="7" height="44"/>
+              <rect x="128" y="16" width="7" height="48"/><rect x="137" y="12" width="7" height="52"/><rect x="146" y="22" width="7" height="42"/>
+              <rect x="200" y="18" width="7" height="46"/><rect x="209" y="15" width="7" height="49"/>
+            </g>
+          </svg>
+          <div class="spark-axis"><span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <header class="card-head"><h2>Pomiary</h2><span class="card-hint">odczyt 16:00:42</span></header>
+        <dl class="measures">
+          <div><dt>T. przed parownikiem</dt><dd>4,1 °C</dd></div>
+          <div><dt>T. za parownikiem</dt><dd>1,2 °C</dd></div>
+          <div><dt>T. wody wyj.</dt><dd>44,1 °C</dd></div>
+          <div><dt>T. sprężarki</dt><dd>31 °C</dd></div>
+          <div><dt>T. CWU</dt><dd>45,2 °C</dd></div>
+          <div><dt>EEV pozycja</dt><dd>205 <small>/ 40–450</small></dd></div>
+          <div><dt>EEV przegrzanie</dt><dd>3,8 K</dd></div>
+          <div><dt>Limit mocy</dt><dd>2 140 W</dd></div>
+          <div><dt>Energia cyklu</dt><dd>1 870 Wh</dd></div>
+          <div><dt>Błędy</dt><dd><span class="ok-text">brak</span> <small>licznik 0/5</small></dd></div>
+        </dl>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- ============ EKRAN: HARMONOGRAM ============ -->
+  <section class="screen screen-device" id="harmonogram" hidden>
+    <header class="topbar topbar-device">
+      <div class="topbar-inner">
+        <button type="button" class="icon-btn back" data-go="lista" aria-label="Wróć do listy sterowników"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div class="device-title">
+          <h1>Pompa ciepła</h1>
+          <span class="device-sub"><span class="chip chip-ok"><i class="dot"></i>Online</span><span class="sep">·</span>tryb automatyczny</span>
+        </div>
+        <nav class="tabs" aria-label="Widoki sterownika">
+          <a href="#pompa" class="tab" data-go="pompa"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/></svg><span>Podgląd</span></a>
+          <a href="#dane" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Dane</span></a>
+          <a href="#wykres" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>Wykres</span></a>
+          <a href="#harmonogram" class="tab is-active" data-go="harmonogram"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Harmonogram</span></a>
+          <a href="#operacje" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Operacje</span></a>
+          <a href="#ustawienia" class="tab"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Ustawienia</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page page-device">
+      <section class="card">
+        <header class="card-head"><h2>Tryb pracy</h2><span class="card-hint">decyduje, które wpisy działają</span></header>
+        <div class="segmented" role="radiogroup" aria-label="Tryb pracy">
+          <label class="seg"><input type="radio" name="tryb" id="tryb-reczny"><span>Ręczny</span></label>
+          <label class="seg"><input type="radio" name="tryb" id="tryb-auto" checked><span>Automatyczny</span></label>
+          <label class="seg"><input type="radio" name="tryb" id="tryb-off"><span>Wyłączony</span></label>
+        </div>
+        <p class="help">Według harmonogramu; poza wpisami obowiązuje ustawienie domyślne.</p>
+        <div class="form-row">
+          <label for="t-min">Temperatura domyślna</label>
+          <div class="range-inputs">
+            <input type="number" id="t-min" value="38" inputmode="numeric"><span class="dash">–</span><input type="number" id="t-max" value="45" inputmode="numeric"><span class="unit-txt">°C</span>
+          </div>
+        </div>
+        <div class="actions"><button type="button" class="btn btn-primary">Zapisz</button></div>
+      </section>
+
+      <section class="card">
+        <header class="card-head"><h2>Wpisy</h2><button type="button" class="btn btn-ghost btn-sm">+ Dodaj wpis</button></header>
+        <ul class="entries">
+          <li class="entry is-current">
+            <span class="entry-when"><strong>Dni robocze</strong> 05:00–09:00</span>
+            <span class="entry-what">CO · 38–45 °C</span>
+            <span class="entry-tag">działa teraz</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/></svg></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></span>
+          </li>
+          <li class="entry">
+            <span class="entry-when"><strong>Dni robocze</strong> 13:00–17:00</span>
+            <span class="entry-what">CO · 40–46 °C · wymuszony start</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/></svg></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></span>
+          </li>
+          <li class="entry is-off">
+            <span class="entry-when"><strong>Dni wolne</strong> 22:00–06:00 <small>(+1 dzień)</small></span>
+            <span class="entry-what">Przerwa · pompa wyłączona</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/></svg></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></span>
+          </li>
+          <li class="entry is-default">
+            <span class="entry-when"><strong>Poza harmonogramem</strong></span>
+            <span class="entry-what">CWU · ustawienie domyślne 38–45 °C</span>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </section>
+
+  <!-- Dolna nawigacja (telefon) dla ekranów sterownika -->
+  <nav class="bottom-nav" aria-label="Widoki sterownika (telefon)">
+    <a href="#pompa" class="bn is-active" data-go="pompa"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/></svg><span>Podgląd</span></a>
+    <a href="#dane" class="bn"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Dane</span></a>
+    <a href="#wykres" class="bn"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>Wykres</span></a>
+    <a href="#harmonogram" class="bn" data-go="harmonogram"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Harmonogram</span></a>
+    <a href="#wiecej" class="bn"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>Więcej</span></a>
+  </nav>
+
+</div>
+
+<!-- Pasek makiety: przełączanie motywu i ekranów (nie jest częścią aplikacji) -->
+<div class="mock-bar" role="toolbar" aria-label="Sterowanie makietą">
+  <span class="mock-name">Propozycja A · Spokojny panel</span>
+  <div class="mock-group" aria-label="Motyw">
+    <button type="button" data-theme-set="light">Jasny</button>
+    <button type="button" data-theme-set="dark">Ciemny</button>
+    <button type="button" data-theme-set="system" class="is-on">System</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var bar = document.querySelector('.mock-bar');
+  function setTheme(mode) {
+    if (mode === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode);
+    bar.querySelectorAll('[data-theme-set]').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-theme-set') === mode); });
+    try { localStorage.setItem('chpc-makieta-theme', mode); } catch (e) {}
+  }
+  bar.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-theme-set]'); if (b) setTheme(b.getAttribute('data-theme-set'));
+  });
+  try { var saved = localStorage.getItem('chpc-makieta-theme'); if (saved) setTheme(saved); } catch (e) {}
+
+  var app = document.querySelector('.app');
+  function go(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; });
+    app.setAttribute('data-screen', id);
+    document.querySelectorAll('.bottom-nav .bn').forEach(function (a) { a.classList.toggle('is-active', a.getAttribute('data-go') === id); });
+    window.scrollTo(0, 0);
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go]'); if (!t) return;
+    e.preventDefault(); go(t.getAttribute('data-go'));
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role=link][data-go]')) { e.preventDefault(); go(e.target.getAttribute('data-go')); }
+  });
+  document.addEventListener('click', function (e) {
+    var s = e.target.closest('.switch'); if (!s) return;
+    var on = s.classList.toggle('is-on'); s.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  function fromHash() {
+    var start = (location.hash || '').slice(1);
+    if (['lista', 'pompa', 'harmonogram'].indexOf(start) >= 0) go(start);
+  }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+})();
+</script>
+
+</body>
+</html>

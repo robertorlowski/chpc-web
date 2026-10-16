@@ -1,0 +1,58 @@
+/* ===== Propozycja B „Instrument”: ciemny-pierwszy panel techniczny, grafitowe warstwy oddzielone wyraźnymi liniami,
+   liczby w zwężonym kroju, bursztyn dla ciepła i cyjan dla wody. Układ: boczne menu (komputer), dolna nawigacja (telefon). ===== */
+:root {
+  --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+  --radius: 8px; --radius-sm: 6px; --gap: 12px; --page-max: 1240px; --page-pad-y: 14px; --tile-pad: 14px; --card-pad: 14px;
+
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36; --bar-shadow: none;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebee; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --mock-bg: #1e2126; --mock-fg: #fff; --mock-on: #c7791c; --mock-on-fg: #fff;
+}
+/*DARK*/
+  color-scheme: dark;
+  --bg: #121417; --card: #1b1e23; --fg: #e9ebee; --fg-2: #aeb5bf; --fg-3: #7f8893;
+  --line: #2f343b; --line-soft: #272b31; --line-strong: #434a54; --hover: rgba(255,255,255,.06);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #f0a23a; --accent-strong: #f6b55d; --accent-fg: #1b1300;
+  --bar-bg: #0d0f12; --bar-fg: #e9ebee; --bar-line: #23272d; --bar-shadow: none;
+  --tab-active-bg: #f0a23a; --tab-active-fg: #1b1300;
+  --nav-bg: #0d0f12; --nav-fg: #8f98a3; --nav-active: #1b1300; --nav-active-bg: #f0a23a;
+  --ok-bg: #163d26; --ok-fg: #7ddb9b; --warn-bg: #45300d; --warn-fg: #f6c86a; --danger: #ff7b72;
+  --muted-bg: #272b31; --muted-fg: #aeb5bf; --run-bg: #3b2a0c; --run-fg: #f6c86a;
+  --switch-off: #3a4049; --switch-knob: #c9ced6; --input-bg: #0f1114; --seg-bg: #0f1114; --row-bg: #20242a; --row-current-bg: #2b2415;
+  --hero-bg: #1b1e23; --hero-fg: #f3f4f6; --hero-fg-2: #aeb5bf; --hero-line: #2f343b; --hero-track: #343941; --kpi-bg: #23272d; --kpi-line: #343941;
+  --c-heat: #f0a23a; --c-heat-bg: #3b2a0c; --c-water: #4fc3e8; --c-water-bg: #0f3340; --c-sun: #f5d04a; --c-sun-bg: #3d3610;
+  --c-switch: #a9a6f0; --c-switch-bg: #27264a; --c-fire: #ff7a62; --c-fire-bg: #40201a; --c-sky: #7fbbe8; --c-sky-bg: #16303f;
+  --mock-bg: #2f343b; --mock-fg: #fff; --mock-on: #f0a23a; --mock-on-fg: #1b1300;
+/*/DARK*/
+/* akcenty wariantu B: wyraźne linie zamiast cieni, nagłówki kapitalikami, boczne menu na komputerze */
+.card-head h2, .tile-facts dt, .kpi-label, .hero-label { text-transform: uppercase; letter-spacing: .08em; }
+.card-head h2 { font-size: 13px; color: var(--fg-2); }
+.tile-name { font-size: 17px; }
+.chip { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.state, .state-pill, .entry-tag { border-radius: 4px; }
+.tile::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--kind-fg); }
+.brand-mark { background: var(--accent); }
+.topbar-title { font-weight: 600; letter-spacing: .02em; }
+.card-hero { border-left: 4px solid var(--accent); }
+@media (min-width: 900px) {
+  .screen-device { padding-left: 212px; }
+  .screen-device .topbar { margin-left: -212px; padding-left: 212px; }
+  .tabs { position: fixed; left: 0; top: calc(56px + env(safe-area-inset-top, 0px)); bottom: 0; width: 212px; flex-direction: column; gap: 2px;
+    padding: 12px max(10px, env(safe-area-inset-left, 0px)) 12px 10px; background: var(--nav-bg); border-right: 1px solid var(--bar-line); }
+  .tab { color: var(--bar-fg); padding: 10px 12px; border-radius: 6px; }
+  .tab svg { width: 20px; height: 20px; }
+}

@@ -1,0 +1,57 @@
+/* ===== Propozycja C „Dom”: przyjazny, jasny-pierwszy, miękkie zaokrąglenia i duże liczby; rozdzielenie elementów przez
+   wyraźny kontrast tła i kart oraz lekki cień zamiast linii. Akcent granatowo-niebieski, ciepło = koral.
+   Układ: kolorowy nagłówek sterownika, zakładki pod nim (komputer), dolna nawigacja (telefon). ===== */
+:root {
+  --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --radius: 20px; --radius-sm: 12px; --gap: 16px; --page-max: 1140px; --page-pad-y: 18px; --tile-pad: 18px; --card-pad: 18px;
+
+  --bg: #e9ecf2; --card: #ffffff; --fg: #1b2030; --fg-2: #515a6e; --fg-3: #7f889b;
+  --line: transparent; --line-soft: #edf0f5; --line-strong: #c9cfdb; --hover: rgba(66,86,208,.08);
+  --shadow: 0 2px 6px rgba(27,32,48,.06), 0 8px 24px rgba(27,32,48,.07); --shadow-hover: 0 4px 10px rgba(27,32,48,.1), 0 14px 32px rgba(27,32,48,.12);
+  --accent: #3d55cc; --accent-strong: #2f44ad; --accent-fg: #ffffff;
+  --bar-bg: #e9ecf2; --bar-fg: #1b2030; --bar-line: transparent; --bar-shadow: none;
+  --tab-active-bg: #ffffff; --tab-active-fg: #2f44ad;
+  --nav-bg: #ffffff; --nav-fg: #6b7488; --nav-active: #2f44ad; --nav-active-bg: #e4e8fb;
+  --ok-bg: #d9f2e3; --ok-fg: #1c7a44; --warn-bg: #ffe9d1; --warn-fg: #9a4b00; --danger: #c2322f;
+  --muted-bg: #eceff5; --muted-fg: #5f6a80; --run-bg: #ffe3d6; --run-fg: #b23f1a;
+  --switch-off: #d4d9e3; --switch-knob: #ffffff; --input-bg: #f3f5f9; --seg-bg: #eceff5; --row-bg: #f4f6fa; --row-current-bg: #e9edfb;
+  --hero-bg: #2f44ad; --hero-fg: #ffffff; --hero-fg-2: #c9d1ff; --hero-line: transparent; --hero-track: rgba(255,255,255,.22); --kpi-bg: rgba(255,255,255,.12); --kpi-line: transparent;
+  --c-heat: #e2572f; --c-heat-bg: #ffe3d6; --c-water: #2a86c8; --c-water-bg: #dcedfb; --c-sun: #e3a400; --c-sun-bg: #fff2c4;
+  --c-switch: #6b4fc4; --c-switch-bg: #ebe6fb; --c-fire: #c23b2c; --c-fire-bg: #fbe1de; --c-sky: #3a8fd0; --c-sky-bg: #dff0fc;
+  --mock-bg: #1b2030; --mock-fg: #fff; --mock-on: #3d55cc; --mock-on-fg: #fff;
+}
+/*DARK*/
+  color-scheme: dark;
+  --bg: #15171e; --card: #222633; --fg: #eceef4; --fg-2: #b1b7c6; --fg-3: #818aa0;
+  --line: transparent; --line-soft: #2e3342; --line-strong: #434a5e; --hover: rgba(140,160,255,.12);
+  --shadow: 0 2px 6px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28); --shadow-hover: 0 4px 10px rgba(0,0,0,.4), 0 14px 32px rgba(0,0,0,.45);
+  --accent: #8ea0ff; --accent-strong: #a6b4ff; --accent-fg: #0e1540;
+  --bar-bg: #15171e; --bar-fg: #eceef4; --bar-line: transparent; --bar-shadow: none;
+  --tab-active-bg: #222633; --tab-active-fg: #b7c3ff;
+  --nav-bg: #1c1f29; --nav-fg: #8d95a9; --nav-active: #b7c3ff; --nav-active-bg: #2b3252;
+  --ok-bg: #173e2a; --ok-fg: #78dc9c; --warn-bg: #4a300f; --warn-fg: #f6c16c; --danger: #ff8a80;
+  --muted-bg: #2d3242; --muted-fg: #b1b7c6; --run-bg: #4a2418; --run-fg: #ffb199;
+  --switch-off: #3b4152; --switch-knob: #d4d9e3; --input-bg: #181b24; --seg-bg: #181b24; --row-bg: #282d3b; --row-current-bg: #2b3252;
+  --hero-bg: #2b3a8f; --hero-fg: #ffffff; --hero-fg-2: #c9d1ff; --hero-line: transparent; --hero-track: rgba(255,255,255,.2); --kpi-bg: rgba(255,255,255,.1); --kpi-line: transparent;
+  --c-heat: #ff8d66; --c-heat-bg: #4a2418; --c-water: #6fb8f0; --c-water-bg: #173148; --c-sun: #f6c84e; --c-sun-bg: #403512;
+  --c-switch: #b6a5f5; --c-switch-bg: #2e2850; --c-fire: #ff7f70; --c-fire-bg: #43211d; --c-sky: #84c2f2; --c-sky-bg: #1b364b;
+  --mock-bg: #2d3242; --mock-fg: #fff; --mock-on: #8ea0ff; --mock-on-fg: #0e1540;
+/*/DARK*/
+/* akcenty wariantu C: karty bez linii, nagłówek sterownika w kolorze akcentu, zakładki jako pigułki */
+.tile-icon, .state-pill, .kpi { border-radius: 14px; }
+.tile-head .chip { border: 0; }
+.card-hero .range-pin { background: var(--hero-bg); border-color: #ffffff; }
+.card-hero .range-fill { background: #ffffff; }
+.card-hero .state-pill { background: rgba(255,255,255,.14); color: #ffffff; }
+.card-hero .state-pill .dot { background: #ffd0a8; }
+.topbar-device { background: var(--bg); }
+.topbar-device .icon-btn.back { background: var(--card); box-shadow: var(--shadow); }
+.topbar-list .topbar-title { font-size: 26px; font-weight: 700; }
+.brand-mark { border-radius: 999px; width: 22px; height: 22px; background: var(--accent); }
+.tab { border-radius: 999px; }
+.tab.is-active { box-shadow: var(--shadow); }
+.btn, .segmented, .seg span, .range-inputs input { border-radius: 999px; }
+.entry { border-radius: 14px; }
+.bottom-nav { border-top: 0; }
