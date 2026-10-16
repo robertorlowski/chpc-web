@@ -1,0 +1,1698 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<!-- Pełna makieta nowego wyglądu chpc-web (etap 2, kierunek B „Instrument”): lista sterowników, wszystkie zakładki pompy ciepła,
+     ekrany główne fotowoltaiki, hydroforu, włącznika i pieca, logowanie, konto, okna. Plik samodzielny (oprócz czcionek z Google Fonts).
+     Źródło: makiety/src/ (makieta.html, makieta.css, baza.css, wariant-b.css), składanie: node makiety/src/build.mjs -->
+<title>CHPC makieta</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* ===== Propozycja B „Instrument”: ciemny-pierwszy panel techniczny, grafitowe warstwy oddzielone wyraźnymi liniami,
+   liczby w zwężonym kroju, bursztyn dla ciepła i cyjan dla wody. Układ: boczne menu (komputer), dolna nawigacja (telefon). ===== */
+:root {
+  --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+  --radius: 8px; --radius-sm: 6px; --gap: 12px; --page-max: 1240px; --page-pad-y: 14px; --tile-pad: 14px; --card-pad: 14px;
+
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36; --bar-shadow: none;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebee; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
+  --mock-bg: #1e2126; --mock-fg: #fff; --mock-on: #c7791c; --mock-on-fg: #fff;
+  color-scheme: dark;
+  --bg: #121417; --card: #1b1e23; --fg: #e9ebee; --fg-2: #aeb5bf; --fg-3: #7f8893;
+  --line: #2f343b; --line-soft: #272b31; --line-strong: #434a54; --hover: rgba(255,255,255,.06);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #f0a23a; --accent-strong: #f6b55d; --accent-fg: #1b1300;
+  --bar-bg: #0d0f12; --bar-fg: #e9ebee; --bar-line: #23272d; --bar-shadow: none;
+  --tab-active-bg: #f0a23a; --tab-active-fg: #1b1300;
+  --nav-bg: #0d0f12; --nav-fg: #8f98a3; --nav-active: #1b1300; --nav-active-bg: #f0a23a;
+  --ok-bg: #163d26; --ok-fg: #7ddb9b; --warn-bg: #45300d; --warn-fg: #f6c86a; --danger: #ff7b72;
+  --muted-bg: #272b31; --muted-fg: #aeb5bf; --run-bg: #3b2a0c; --run-fg: #f6c86a;
+  --switch-off: #3a4049; --switch-knob: #c9ced6; --input-bg: #0f1114; --seg-bg: #0f1114; --row-bg: #20242a; --row-current-bg: #2b2415;
+  --hero-bg: #1b1e23; --hero-fg: #f3f4f6; --hero-fg-2: #aeb5bf; --hero-line: #2f343b; --hero-track: #343941; --kpi-bg: #23272d; --kpi-line: #343941;
+  --c-heat: #f0a23a; --c-heat-bg: #3b2a0c; --c-water: #4fc3e8; --c-water-bg: #0f3340; --c-sun: #f5d04a; --c-sun-bg: #3d3610;
+  --c-switch: #a9a6f0; --c-switch-bg: #27264a; --c-fire: #ff7a62; --c-fire-bg: #40201a; --c-sky: #7fbbe8; --c-sky-bg: #16303f;
+  --err-bg: #42201d; --err-fg: #ff8d84;
+  --ch-1: #c6811f; --ch-2: #c66aa6; --ch-3: #3f9dd0; --ch-4: #4ea85e;
+  --mock-bg: #2f343b; --mock-fg: #fff; --mock-on: #f0a23a; --mock-on-fg: #1b1300;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+  --radius: 8px; --radius-sm: 6px; --gap: 12px; --page-max: 1240px; --page-pad-y: 14px; --tile-pad: 14px; --card-pad: 14px;
+
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36; --bar-shadow: none;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebee; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
+  --mock-bg: #1e2126; --mock-fg: #fff; --mock-on: #c7791c; --mock-on-fg: #fff;
+} }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+  --radius: 8px; --radius-sm: 6px; --gap: 12px; --page-max: 1240px; --page-pad-y: 14px; --tile-pad: 14px; --card-pad: 14px;
+
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36; --bar-shadow: none;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebee; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
+  --mock-bg: #1e2126; --mock-fg: #fff; --mock-on: #c7791c; --mock-on-fg: #fff;
+}
+
+/* akcenty wariantu B: wyraźne linie zamiast cieni, nagłówki kapitalikami, boczne menu na komputerze */
+.card-head h2, .tile-facts dt, .kpi-label, .hero-label { text-transform: uppercase; letter-spacing: .08em; }
+.card-head h2 { font-size: 13px; color: var(--fg-2); }
+.tile-name { font-size: 17px; }
+.chip { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.state, .state-pill, .entry-tag { border-radius: 4px; }
+.tile::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--kind-fg); }
+.brand-mark { background: var(--accent); }
+.topbar-title { font-weight: 600; letter-spacing: .02em; }
+.card-hero { border-left: 4px solid var(--accent); }
+@media (min-width: 900px) {
+  .screen-device { padding-left: 212px; }
+  .screen-device .topbar { margin-left: -212px; padding-left: 212px; }
+  .app.has-side .topbar { position: sticky; }
+  .tabs { position: fixed; left: 0; top: calc(56px + env(safe-area-inset-top, 0px)); bottom: 0; width: 212px; flex-direction: column; gap: 2px;
+    padding: 12px max(10px, env(safe-area-inset-left, 0px)) 12px 10px; background: var(--nav-bg); border-right: 1px solid var(--bar-line); }
+  .tab { color: var(--bar-fg); padding: 10px 12px; border-radius: 6px; }
+  .tab svg { width: 20px; height: 20px; }
+}
+
+/* ===== Baza wspólna makiet: układ i komponenty budowane z tokenów wariantu ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  min-height: 100%;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bar-bg); }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+small { font-size: .8em; }
+svg { display: block; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- pasek makiety (poza aplikacją) ---- */
+.mock-bar {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px;
+  background: var(--mock-bg); color: var(--mock-fg); border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  font-size: 12px; white-space: nowrap;
+}
+.mock-name { font-weight: 600; letter-spacing: .02em; }
+.mock-group { display: flex; gap: 2px; background: rgba(255,255,255,.08); border-radius: 999px; padding: 2px; }
+.mock-group button { border: 0; background: transparent; color: inherit; padding: 4px 9px; border-radius: 999px; cursor: pointer; opacity: .75; }
+.mock-group button.is-on { background: var(--mock-on); color: var(--mock-on-fg); opacity: 1; }
+.app[data-screen="pompa"] ~ .mock-bar, .app[data-screen="harmonogram"] ~ .mock-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+@media (min-width: 900px) { .app[data-screen] ~ .mock-bar { bottom: 14px; } }
+
+/* ---- szkielet ekranu ---- */
+.app { min-height: 100%; }
+.screen { min-height: 100vh; display: flex; flex-direction: column; }
+.page { flex: 1; width: 100%; max-width: var(--page-max); margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: var(--page-pad-y) 28px; display: flex; flex-direction: column; gap: var(--gap); }
+.screen-device .page { padding-bottom: calc(28px + 64px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 900px) { .screen-device .page { padding-bottom: 36px; } }
+
+/* ---- górny pasek ---- */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bar-bg); color: var(--bar-fg);
+  border-bottom: 1px solid var(--bar-line); box-shadow: var(--bar-shadow); }
+.topbar-inner { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; letter-spacing: .04em; }
+.brand-mark { width: 10px; height: 22px; border-radius: 3px; background: var(--accent); }
+.brand-name { font-size: 14px; opacity: .85; }
+.topbar-title { font-size: 20px; font-weight: 700; flex: 1; }
+.topbar-actions { display: flex; gap: 4px; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; color: inherit; }
+.icon-btn:hover { background: var(--hover); }
+.icon-btn.sm { width: 34px; height: 34px; }
+.icon-btn.danger:hover { color: var(--danger); }
+.avatar { background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 700; width: 34px; height: 34px; letter-spacing: .04em; }
+.avatar:hover { background: var(--accent-strong); }
+.device-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.device-title h1 { font-size: 18px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-sub { font-size: 12px; opacity: .85; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-sub .chip { font-size: 11px; padding: 1px 7px; }
+.sep { opacity: .5; }
+.tabs { display: none; }
+@media (min-width: 900px) {
+  .tabs { display: flex; gap: 2px; }
+  .tab { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; color: var(--bar-fg); opacity: .78; }
+  .tab:hover { opacity: 1; background: var(--hover); }
+  .tab.is-active { opacity: 1; background: var(--tab-active-bg); color: var(--tab-active-fg); }
+  .tab svg { width: 18px; height: 18px; }
+}
+
+/* ---- chip stanu ---- */
+.chip { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; line-height: 1.5; white-space: nowrap; }
+.chip-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.chip-off { background: var(--muted-bg); color: var(--muted-fg); }
+.chip-warn { background: var(--warn-bg); color: var(--warn-fg); }
+
+/* ---- lista: pasek pogody domu ---- */
+.outdoor-strip { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 2px 4px; color: var(--fg-2); font-size: 13px; }
+.outdoor-temp { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--fg); }
+.outdoor-src { margin-left: auto; font-size: 12px; color: var(--fg-3); }
+
+/* ---- kafelki ---- */
+.tiles { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
+@media (max-width: 400px) { .tiles { grid-template-columns: 1fr; } }
+.tile { position: relative; display: flex; flex-direction: column; gap: 10px; padding: var(--tile-pad);
+  background: var(--card); color: var(--fg); border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); min-width: 0; }
+.tile.is-link { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+.tile.is-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: var(--line-strong); }
+.tile-head { display: flex; align-items: center; gap: 10px; }
+.tile-icon { display: inline-flex; width: 36px; height: 36px; border-radius: var(--radius-sm); align-items: center; justify-content: center; background: var(--kind-bg); color: var(--kind-fg); flex: none; }
+.tile[data-kind="hp"] { --kind-fg: var(--c-heat); --kind-bg: var(--c-heat-bg); }
+.tile[data-kind="tank"] { --kind-fg: var(--c-water); --kind-bg: var(--c-water-bg); }
+.tile[data-kind="pv"] { --kind-fg: var(--c-sun); --kind-bg: var(--c-sun-bg); }
+.tile[data-kind="switch"] { --kind-fg: var(--c-switch); --kind-bg: var(--c-switch-bg); }
+.tile[data-kind="boiler"] { --kind-fg: var(--c-fire); --kind-bg: var(--c-fire-bg); }
+.tile[data-kind="weather"] { --kind-fg: var(--c-sky); --kind-bg: var(--c-sky-bg); }
+.tile-name { font-size: 16px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-main { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.big { font-family: var(--font-num); font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -.01em; }
+.unit { font-size: 16px; font-weight: 600; color: var(--fg-2); }
+.big-label { flex-basis: 100%; font-size: 13px; color: var(--fg-2); margin-top: 2px; }
+.tile-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.tile-facts div { min-width: 0; }
+.tile-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); }
+.tile-facts dd { margin: 0; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.state { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--muted-bg); color: var(--muted-fg); }
+.state-on { background: var(--run-bg); color: var(--run-fg); }
+.warn-line { display: block; width: 100%; font-size: 13px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-fg); border-left: 3px solid var(--warn-fg); }
+.tile-foot { font-size: 12px; color: var(--fg-3); margin-top: auto; }
+.relays { display: flex; flex-direction: column; }
+.relay { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "n s" "d s"; align-items: center; column-gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.relay:first-child { border-top: 0; padding-top: 0; }
+.relay-name { grid-area: n; font-weight: 600; }
+.relay-desc { grid-area: d; font-size: 12px; color: var(--fg-2); }
+.relay .switch { grid-area: s; }
+
+/* ---- przełącznik ---- */
+.switch { display: inline-block; width: 44px; height: 26px; border-radius: 999px; background: var(--switch-off); position: relative; cursor: pointer; flex: none; transition: background .15s; border: 1px solid var(--line); }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--switch-knob); box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .15s; }
+.switch.is-on { background: var(--accent); border-color: var(--accent); }
+.switch.is-on::after { transform: translateX(18px); background: var(--accent-fg); }
+
+/* ---- stopka listy ---- */
+.statusbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--fg-3);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + 48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--line-soft); }
+.dot-ok { color: var(--ok-fg); }
+
+/* ---- karty ekranu sterownika ---- */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--card-pad); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.card-head h2 { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+.card-hint { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.grid-2 { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 760px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+/* hero */
+.card-hero { background: var(--hero-bg); color: var(--hero-fg); border-color: var(--hero-line); display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 760px) { .card-hero { grid-template-columns: 1.1fr 1fr; align-items: center; } }
+.hero-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--hero-fg-2); }
+.hero-value { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 10px; }
+.hero-num { font-family: var(--font-num); font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.hero-unit { font-size: 22px; font-weight: 600; color: var(--hero-fg-2); }
+.range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--hero-fg-2); }
+.range-bar { position: relative; height: 8px; border-radius: 999px; background: var(--hero-track); overflow: visible; }
+.range-fill { position: absolute; inset: 0 auto 0 0; width: var(--p); border-radius: 999px; background: var(--accent); }
+.range-pin { position: absolute; top: 50%; left: var(--p); width: 16px; height: 16px; border-radius: 50%; background: var(--card); border: 3px solid var(--accent); transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.hero-note { display: block; margin-top: 10px; font-size: 13px; color: var(--hero-fg-2); }
+.hero-side { display: flex; flex-direction: column; gap: 12px; }
+.state-pill { display: flex; flex-direction: column; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--run-bg); color: var(--run-fg); font-weight: 700; font-size: 14px; }
+.state-pill small { font-weight: 500; opacity: .9; margin-top: 2px; }
+.hero-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 420px) { .hero-kpis { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 760px) { .hero-kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--kpi-bg); border: 1px solid var(--kpi-line); min-width: 0; }
+.kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--hero-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-value { font-family: var(--font-num); font-size: 20px; font-weight: 700; line-height: 1.1; }
+.kpi-value small { font-size: 12px; font-weight: 600; margin-left: 3px; color: var(--hero-fg-2); }
+
+/* listy przełączników */
+.toggle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.toggle-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.toggle-list li:first-child { border-top: 0; padding-top: 2px; }
+.t-name { font-weight: 500; }
+.t-name small { color: var(--fg-3); font-weight: 400; }
+
+/* energia */
+.energy { display: flex; gap: 20px; }
+.energy-num { display: flex; flex-direction: column; }
+.energy-num span { font-family: var(--font-num); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.energy-num small { font-size: 12px; color: var(--fg-3); }
+.spark { width: 100%; height: 72px; max-width: 100%; }
+.spark-grid line { stroke: var(--line-soft); stroke-width: 1; }
+.spark-pv { fill: var(--c-sun); opacity: .28; }
+.spark-bars rect { fill: var(--accent); }
+.spark-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--fg-3); }
+
+/* pomiary */
+.measures { margin: 0; display: grid; grid-template-columns: 1fr; gap: 0; }
+@media (min-width: 560px) { .measures { grid-template-columns: 1fr 1fr; column-gap: 28px; } }
+.measures div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); min-width: 0; }
+.measures div:first-child { border-top: 0; }
+@media (min-width: 560px) { .measures div:nth-child(2) { border-top: 0; } }
+.measures dt { color: var(--fg-2); }
+.measures dd { margin: 0; font-weight: 600; white-space: nowrap; }
+.measures dd small { color: var(--fg-3); font-weight: 400; }
+.ok-text { color: var(--ok-fg); font-weight: 700; }
+
+/* formularze */
+.segmented { display: flex; background: var(--seg-bg); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 3px; gap: 3px; }
+.seg { flex: 1; position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: block; text-align: center; padding: 8px 6px; border-radius: calc(var(--radius-sm) - 3px); font-weight: 600; font-size: 14px; color: var(--fg-2); }
+.seg input:checked + span { background: var(--accent); color: var(--accent-fg); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.help { font-size: 13px; color: var(--fg-3); }
+.form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.form-row label { font-weight: 500; }
+.range-inputs { display: flex; align-items: center; gap: 8px; }
+.range-inputs input { width: 64px; padding: 8px 10px; font: inherit; font-weight: 600; text-align: center; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--fg); }
+.dash, .unit-txt { color: var(--fg-3); }
+.actions { display: flex; justify-content: flex-end; }
+.btn { border: 0; border-radius: var(--radius-sm); padding: 10px 18px; font-weight: 700; cursor: pointer; background: var(--muted-bg); color: var(--fg); }
+.btn-primary { background: var(--accent); color: var(--accent-fg); }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--line-strong); }
+.btn-ghost:hover { background: var(--hover); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+/* wpisy harmonogramu */
+.entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.entry { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "when actions" "what actions" "tag actions"; align-items: center; column-gap: 10px;
+  padding: 10px 12px 10px 14px; border-radius: var(--radius-sm); background: var(--row-bg); border: 1px solid var(--line-soft); border-left: 4px solid var(--c-heat); }
+.entry-when { grid-area: when; }
+.entry-when small { color: var(--fg-3); }
+.entry-what { grid-area: what; font-size: 13px; color: var(--fg-2); }
+.entry-tag { grid-area: tag; justify-self: start; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; background: var(--run-bg); color: var(--run-fg); }
+.entry-actions { grid-area: actions; display: flex; }
+.entry.is-current { border-color: var(--accent); border-left-color: var(--accent); background: var(--row-current-bg); }
+.entry.is-off { border-left-color: var(--muted-fg); }
+.entry.is-default { border-left-color: var(--c-water); border-style: dashed; border-left-style: solid; }
+
+/* ---- dolna nawigacja (telefon) ---- */
+.bottom-nav { display: none; }
+.app[data-screen="pompa"] .bottom-nav, .app[data-screen="harmonogram"] .bottom-nav { display: flex; }
+@media (min-width: 900px) { .app[data-screen] .bottom-nav { display: none; } }
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--nav-bg); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); justify-content: space-around; }
+.bn { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--nav-fg); padding: 4px 8px; border-radius: var(--radius-sm); min-width: 56px; }
+.bn.is-active { color: var(--nav-active); }
+.bn svg { box-sizing: content-box; width: 24px; height: 24px; padding: 3px 12px; border-radius: 999px; }
+.bn.is-active svg { background: var(--nav-active-bg); }
+@media (max-width: 360px) { .bn { min-width: 0; padding: 4px 4px; } .bn svg { padding: 3px 9px; } }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+/* ===== Pełna makieta (etap 2): komponenty ponad baza.css. Tokeny wariantu w wariant-b.css. ===== */
+.ic { width: 22px; height: 22px; flex: none; }
+.inline-icon { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; }
+.topbar[hidden] { display: none; }
+.topbar-actions .avatar { margin-left: 4px; }
+.page-narrow { max-width: 760px; }
+.stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.grid-3 { display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+@media (min-width: 760px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .grid-settings { grid-template-columns: 1.15fr 1fr; align-items: start; } }
+.danger-text { color: var(--danger); }
+.chip-err { background: var(--err-bg); color: var(--err-fg); }
+.link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 13px; }
+.link-btn:hover { text-decoration: underline; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger-ghost { background: transparent; color: var(--danger); border: 1px solid var(--line-strong); }
+.btn-danger-ghost:hover { background: var(--err-bg); }
+.btn.is-active { outline: 2px solid var(--accent); outline-offset: -2px; }
+.btn-block { width: 100%; }
+.btn .ic { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; display: inline-block; }
+.actions-split { justify-content: space-between; gap: 10px; }
+.actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.switch.is-disabled { opacity: .5; cursor: not-allowed; }
+.switch.is-disabled.is-on { background: var(--muted-fg); border-color: var(--muted-fg); }
+code { font-family: "JetBrains Mono", Consolas, monospace; font-size: .9em; background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* ---- boczne menu i pasek (komputer) ---- */
+@media (min-width: 900px) {
+  .app.has-side .screen { padding-left: 212px; }
+  .app.has-side .topbar .topbar-inner { max-width: none; }
+  .tabs .is-stub { opacity: .55; }
+  .tabs .is-stub span::after { content: " ·"; opacity: .6; }
+}
+.bn.is-stub { opacity: .6; }
+
+/* ---- lista: narzędzia kafelka, tryb układu ---- */
+.tile-tools { display: none; gap: 2px; margin-left: 4px; }
+.tile:hover .tile-tools, .tile:focus-within .tile-tools { display: inline-flex; }
+.tile-tools .icon-btn { width: 30px; height: 30px; color: var(--fg-3); }
+.tile-tools .ic { width: 16px; height: 16px; }
+.tile-layout { display: none; }
+.layout-bar { display: none; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: var(--radius); background: var(--run-bg); color: var(--run-fg); font-size: 13px; }
+.tile-empty { display: none; align-items: center; justify-content: center; min-height: 120px; border: 2px dashed var(--line-strong); background: transparent; box-shadow: none; }
+.tile-empty::before { display: none; }
+.tile.is-hidden { display: none; opacity: .55; }
+#s-lista.is-layout .layout-bar, #s-lista.is-layout .tile-empty, #s-lista.is-layout .tile.is-hidden { display: flex; }
+#s-lista.is-layout .tile-layout { display: flex; gap: 4px; position: absolute; right: 10px; bottom: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+#s-lista.is-layout .tile-tools { display: inline-flex; }
+#s-lista.is-layout .tile.is-link { cursor: default; transform: none; }
+#s-lista.is-layout .tile .tile-foot { padding-right: 84px; }
+#s-lista.is-layout .tiles { align-items: stretch; }
+#s-lista.is-layout .tiles .tile { outline: 1px dashed var(--line-strong); outline-offset: 3px; }
+
+/* ---- filtry, nawigacja po dacie ---- */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.date-nav { display: inline-flex; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 2px; }
+.date-cur { padding: 0 10px; font-weight: 700; white-space: nowrap; }
+.date-cur small { font-weight: 500; color: var(--fg-3); margin-left: 4px; }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.icon-btn:disabled:hover { background: transparent; }
+.seg-inline { display: inline-flex; width: auto; }
+.seg-inline .seg span { padding: 6px 12px; }
+.check { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.check span { font-weight: 500; }
+.check small { grid-column: 2; color: var(--fg-3); font-size: 12px; }
+.checks { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checks legend { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); margin-bottom: 8px; }
+.filters .btn { margin-left: auto; }
+
+/* ---- tabela ---- */
+.card-table { padding-bottom: 8px; }
+.table-wrap { overflow-x: auto; margin: 0 calc(-1 * var(--card-pad)); padding: 0 var(--card-pad); -webkit-overflow-scrolling: touch; }
+table.data { border-collapse: collapse; width: 100%; min-width: 100%; font-size: 14px; white-space: nowrap; }
+table.data th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); font-weight: 600; padding: 6px 10px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); }
+table.data td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
+table.data th.num, table.data td.num { text-align: right; }
+table.data tbody tr:hover td { background: var(--hover); }
+table.data tr.is-err td { background: var(--err-bg); }
+table.data tr.is-err td:first-child { box-shadow: inset 3px 0 0 var(--err-fg); }
+table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
+.dot-run { color: var(--run-fg); background: currentColor; }
+.table-foot { font-size: 12px; color: var(--fg-3); padding-top: 6px; }
+
+/* ---- kafelki statystyk ---- */
+.stat-row { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 760px) { .stat-row { grid-template-columns: repeat(4, 1fr); } }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); }
+.stat-value { font-family: var(--font-num); font-size: 24px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.stat-value small { font-size: 12px; font-weight: 600; color: var(--fg-3); margin-left: 3px; }
+
+/* ---- wykresy ---- */
+.chart { position: relative; width: 100%; min-width: 0; }
+.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.nowrap { white-space: nowrap; }
+.chart .grid { stroke: var(--line-soft); stroke-width: 1; }
+.chart .tick { fill: var(--fg-3); font-size: 11px; font-family: var(--font-body); }
+.chart .cursor-line { stroke: var(--fg-2); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .tip { position: absolute; top: 8px; transform: translateX(-50%); background: var(--card); color: var(--fg); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12px; box-shadow: var(--shadow-hover), 0 6px 20px rgba(0,0,0,.25); pointer-events: none; display: flex; flex-direction: column; gap: 3px; white-space: nowrap; z-index: 2; }
+.chart .tip strong { font-size: 12px; margin-bottom: 2px; }
+.chart .tip i, .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.chart .tip b { font-weight: 700; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--fg-2); }
+.card-head .legend { justify-content: flex-end; }
+@media (max-width: 560px) { .card-head { flex-wrap: wrap; } .card-head .legend { justify-content: flex-start; flex-basis: 100%; } }
+
+/* ---- operacje: oś czasu ---- */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.tl { display: grid; grid-template-columns: 52px 1fr auto; grid-template-areas: "time who state" "time what state"; column-gap: 12px; row-gap: 2px; padding: 10px 0 10px 12px; border-top: 1px solid var(--line-soft); border-left: 3px solid var(--line-strong); align-items: center; }
+.tl:first-child { border-top: 0; }
+.tl-time { grid-area: time; font-family: var(--font-num); font-weight: 700; font-size: 15px; }
+.tl-who { grid-area: who; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); }
+.tl-what { grid-area: what; font-size: 14px; color: var(--fg-2); }
+.tl-what strong { color: var(--fg); }
+.tl-state { grid-area: state; align-self: center; }
+.tl-user { border-left-color: var(--accent); }
+.tl-sys { border-left-color: var(--c-water); }
+.tl-err { border-left-color: var(--err-fg); }
+@media (max-width: 560px) { .tl { grid-template-columns: 48px 1fr; grid-template-areas: "time who" "time what" "time state"; } .tl-state { justify-self: start; margin-top: 4px; } }
+
+/* ---- formularze ---- */
+.form-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
+.form-grid label { font-weight: 500; }
+.w-wide { width: 90px !important; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-3); }
+.field input, .field select { font: inherit; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--fg); width: 100%; }
+.field input:focus, .field select:focus, .range-inputs input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.field.is-readonly input { color: var(--fg-2); background: var(--muted-bg); border-style: dashed; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px; }
+.field input.code { font-family: var(--font-num); font-size: 24px; letter-spacing: .3em; text-align: center; }
+.range-inputs input[type="time"] { width: 96px; }
+.toast { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; }
+.toast-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.toast .ic { width: 18px; height: 18px; }
+
+/* ---- karty informacyjne ---- */
+.kv { margin: 0; display: flex; flex-direction: column; }
+.kv div { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line-soft); align-items: baseline; }
+.kv div:first-child { border-top: 0; padding-top: 0; }
+.kv dt { color: var(--fg-3); font-size: 13px; }
+.kv dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.kv dd small { color: var(--fg-3); font-weight: 400; margin-left: 4px; }
+@media (max-width: 400px) { .kv div { grid-template-columns: 110px 1fr; } }
+.people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.people li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.people li:first-child { border-top: 0; padding-top: 0; }
+.person { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.person strong { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.person small { color: var(--fg-3); }
+.avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--muted-bg); color: var(--fg-2); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: none; }
+.tile-icon.sm { width: 32px; height: 32px; }
+.tile-icon.sm .ic { width: 18px; height: 18px; }
+.people .tile-icon[data-kind="hp"] { --kind-fg: var(--c-heat); --kind-bg: var(--c-heat-bg); }
+.people .tile-icon[data-kind="pv"] { --kind-fg: var(--c-sun); --kind-bg: var(--c-sun-bg); }
+.people .tile-icon[data-kind="tank"] { --kind-fg: var(--c-water); --kind-bg: var(--c-water-bg); }
+.people .tile-icon[data-kind="switch"] { --kind-fg: var(--c-switch); --kind-bg: var(--c-switch-bg); }
+.people .tile-icon[data-kind="boiler"] { --kind-fg: var(--c-fire); --kind-bg: var(--c-fire-bg); }
+.alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; }
+.alert div { display: flex; flex-direction: column; }
+.alert strong { font-size: 14px; }
+.alert span { opacity: .85; }
+.alert .ic { width: 20px; height: 20px; margin-top: 1px; }
+.alert-err { background: var(--err-bg); color: var(--err-fg); border-left: 3px solid var(--err-fg); }
+.alert-warn { background: var(--warn-bg); color: var(--warn-fg); border-left: 3px solid var(--warn-fg); }
+.banner { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-radius: var(--radius); font-size: 13px; }
+.banner div { display: flex; flex-direction: column; }
+.banner strong { font-size: 14px; }
+.banner-off { background: var(--err-bg); color: var(--err-fg); border: 1px solid var(--err-fg); }
+.card-danger { border-color: var(--err-fg); }
+.pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.flame { color: var(--c-heat); font-weight: 600; white-space: nowrap; }
+.flame .ic { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; }
+
+/* ---- panele PV ---- */
+.panels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.panels li { display: grid; grid-template-columns: 64px 1fr auto; grid-template-areas: "name bar val" "name sub chip"; column-gap: 12px; row-gap: 4px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.panels li:first-child { border-top: 0; padding-top: 2px; }
+.panel-name { grid-area: name; font-weight: 600; }
+.panels .bar { grid-area: bar; height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+.panels .bar span { display: block; height: 100%; width: var(--p); background: var(--c-sun); border-radius: 999px; }
+.panels .is-low .bar span { background: var(--warn-fg); }
+.panel-val { grid-area: val; font-family: var(--font-num); font-weight: 700; font-size: 16px; text-align: right; }
+.panel-sub { grid-area: sub; font-size: 12px; color: var(--fg-3); }
+.panels .chip { grid-area: chip; justify-self: end; }
+
+/* ---- włącznik ---- */
+.card-relay { border-left: 4px solid var(--line-strong); }
+.card-relay.is-on { border-left-color: var(--accent); }
+.card-relay.is-blocked { border-left-color: var(--danger); }
+.card-relay .card-head h2 { text-transform: none; letter-spacing: 0; font-size: 18px; color: var(--fg); }
+.relay-state { font-size: 13px; font-weight: 600; color: var(--run-fg); }
+.relay-state .dot { background: currentColor; }
+.countdown { display: flex; flex-direction: column; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--kpi-bg); border: 1px solid var(--kpi-line); color: var(--hero-fg); }
+.countdown-num { font-family: var(--font-num); font-size: 38px; font-weight: 700; line-height: 1; }
+.countdown-label { font-size: 12px; color: var(--hero-fg-2); margin-top: 4px; }
+.countdown.is-idle .countdown-num { color: var(--hero-fg-2); }
+
+/* ---- piec ---- */
+.card-circuit { gap: 6px; }
+.circuit-val { display: flex; align-items: baseline; gap: 4px; }
+.circuit-sub { font-size: 13px; color: var(--fg-2); }
+.toggle-list.cols-2 { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .toggle-list.cols-2 { grid-template-columns: 1fr 1fr; column-gap: 28px; } .toggle-list.cols-2 li:nth-child(2) { border-top: 0; padding-top: 2px; } }
+.toggle-hero { background: var(--kpi-bg); border: 1px solid var(--kpi-line); border-radius: var(--radius-sm); padding: 4px 12px; }
+.toggle-hero li { color: var(--hero-fg); border-top-color: var(--kpi-line); }
+.toggle-hero li:first-child { padding-top: 10px; }
+
+/* ---- logowanie ---- */
+.screen-auth { justify-content: center; align-items: center; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
+.auth { width: 100%; max-width: 420px; }
+.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; }
+.auth-card h1 { font-size: 24px; }
+.auth-step { display: flex; flex-direction: column; gap: 12px; }
+.brand-big .brand-mark { width: 12px; height: 28px; }
+.brand-big .brand-name { font-size: 18px; }
+.auth-foot { font-size: 12px; color: var(--fg-3); }
+
+/* ---- pusty stan ---- */
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 40px 20px; color: var(--fg-2); }
+.empty .ic { width: 40px; height: 40px; color: var(--fg-3); }
+.empty h2 { color: var(--fg); font-size: 18px; text-transform: none; letter-spacing: 0; text-wrap: balance; }
+.empty p { max-width: 48ch; font-size: 14px; }
+
+/* ---- okna ---- */
+.modal-layer { position: fixed; inset: 0; z-index: 50; }
+.modal-layer[hidden] { display: none; }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; background: var(--card); color: var(--fg); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+.modal-sm { width: min(420px, calc(100% - 32px)); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--line-soft); }
+.modal-head h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--fg); }
+.modal-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.modal-body p { font-size: 14px; color: var(--fg-2); }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--line-soft); }
+.modal-foot .spacer { flex: 1; }
+.choices { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.choices li { display: flex; flex-direction: column; padding: 8px 12px; border-top: 1px solid var(--line-soft); cursor: pointer; }
+.choices li:first-child { border-top: 0; }
+.choices li small { color: var(--fg-3); }
+.choices li.is-selected { background: var(--row-current-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.popover { position: absolute; width: 260px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 6px; display: flex; flex-direction: column; }
+.popover[hidden] { display: none; }
+.popover-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px 10px; border-bottom: 1px solid var(--line-soft); margin-bottom: 4px; }
+.popover-head div { display: flex; flex-direction: column; min-width: 0; }
+.popover-head strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popover-head small { color: var(--fg-3); }
+.popover button[role="menuitem"], .sheet button[role="menuitem"] { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; padding: 9px 10px; border-radius: var(--radius-sm); text-align: left; cursor: pointer; font-weight: 500; }
+.popover button[role="menuitem"]:hover, .sheet button[role="menuitem"]:hover { background: var(--hover); }
+.popover .ic, .sheet .ic { width: 18px; height: 18px; color: var(--fg-2); }
+.popover-sep { height: 1px; background: var(--line-soft); margin: 4px 0; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line-strong); border-radius: var(--radius) var(--radius) 0 0; padding: 8px 10px calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,.35); }
+.sheet[hidden] { display: none; }
+.sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 2px auto 10px; }
+.sheet button[role="menuitem"] { font-size: 16px; padding: 12px 10px; }
+@media (min-width: 900px) { .sheet { left: 50%; right: auto; transform: translateX(-50%); width: 360px; } }
+
+/* ---- pasek makiety: wybór ekranu ---- */
+.mock-jump { border: 0; border-radius: 999px; background: rgba(255,255,255,.1); color: inherit; font: inherit; padding: 4px 8px; max-width: 160px; }
+.mock-jump option { color: #111; }
+@media (max-width: 400px) { .mock-bar { gap: 6px; padding: 5px 6px; } .mock-jump { max-width: 120px; } }
+
+</style>
+</head>
+<body>
+<div class="app" data-screen="lista">
+
+  <!-- Pasek górny i dolna nawigacja są rysowane skryptem z konfiguracji rodzajów sterowników (DEVICES niżej) -->
+  <header class="topbar" id="topbar"></header>
+
+  <!-- ============ LISTA STEROWNIKÓW ============ -->
+  <section class="screen" id="s-lista" data-chrome="list">
+    <main class="page page-lista">
+      <div class="outdoor-strip">
+        <span class="outdoor-temp">7,4 °C</span>
+        <span class="outdoor-desc">pochmurno · wiatr 14 km/h · Dom</span>
+        <span class="outdoor-src">Open‑Meteo · 6 min temu</span>
+      </div>
+
+      <div class="layout-bar">
+        <span>Tryb „Zmień układ”: przeciągnij kafelek strzałkami, oko ukrywa kafelek, puste pole może dostać kafelek pogody.</span>
+        <button type="button" class="btn btn-primary btn-sm" data-layout="off">Gotowe</button>
+      </div>
+
+      <div class="tiles">
+
+        <article class="tile tile-weather" data-kind="weather">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="sun"></i></span>
+            <h2 class="tile-name">Dom</h2>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Edytuj kafelek Dom" data-modal="kafelek-pogody"><i data-icon="edit"></i></button></span>
+          </div>
+          <div class="tile-main"><span class="big">7,4</span><span class="unit">°C</span><span class="big-label">pochmurno</span></div>
+          <dl class="tile-facts">
+            <div><dt>Wiatr</dt><dd>14 km/h</dd></div>
+            <div><dt>Chmury</dt><dd>86 %</dd></div>
+            <div><dt>Opad</dt><dd>0,2 mm</dd></div>
+          </dl>
+          <footer class="tile-foot">Open‑Meteo · 6 min temu</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="hp" data-go="hp-podglad" tabindex="0" role="link" aria-label="Pompa ciepła, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="hp"></i></span>
+            <h2 class="tile-name">Pompa ciepła</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm" aria-label="Firmware"><i data-icon="chip"></i></button></span>
+          </div>
+          <div class="tile-main"><span class="big">42,5</span><span class="unit">°C</span><span class="big-label">zbiornik · cel 38–45</span></div>
+          <dl class="tile-facts">
+            <div><dt>Tryb</dt><dd>Auto</dd></div>
+            <div><dt>Moc</dt><dd>2 140 W</dd></div>
+            <div><dt>COP</dt><dd>3,6</dd></div>
+          </dl>
+          <div class="tile-row"><span class="state state-on"><i class="dot"></i>Sprężarka pracuje · 49 min</span></div>
+          <footer class="tile-foot">dane sprzed 20 s</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="pv" data-go="pv-podglad" tabindex="0" role="link" aria-label="Fotowoltaika, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="pv"></i></span>
+            <h2 class="tile-name">Fotowoltaika</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button></span>
+          </div>
+          <div class="tile-main"><span class="big">2,41</span><span class="unit">kW</span><span class="big-label">moc teraz · 4 panele</span></div>
+          <dl class="tile-facts">
+            <div><dt>Dziś</dt><dd>8,6 kWh</dd></div>
+            <div><dt>Miesiąc</dt><dd>164 kWh</dd></div>
+            <div><dt>Falownik</dt><dd>31 °C</dd></div>
+          </dl>
+          <footer class="tile-foot">dane sprzed 40 s</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="tank" data-go="tank-podglad" tabindex="0" role="link" aria-label="Hydrofor, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="drop"></i></span>
+            <h2 class="tile-name">Hydrofor</h2>
+            <span class="chip chip-off">Offline</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm" aria-label="Firmware"><i data-icon="chip"></i></button></span>
+          </div>
+          <div class="tile-main"><span class="big">377</span><span class="unit">l</span><span class="big-label">dziś · 7 507 l w miesiącu</span></div>
+          <dl class="tile-facts">
+            <div><dt>Pompa</dt><dd>6 min 17 s</dd></div>
+            <div><dt>Uruchomień</dt><dd>3</dd></div>
+            <div><dt>Ostatnie</dt><dd>13:56</dd></div>
+          </dl>
+          <footer class="tile-foot">dane sprzed 4 h</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="switch" data-go="switch-podglad" tabindex="0" role="link" aria-label="Włącznik, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="switch"></i></span>
+            <h2 class="tile-name">Włącznik</h2>
+            <span class="chip chip-ok"><i class="dot"></i>Online</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm" aria-label="Firmware"><i data-icon="chip"></i></button></span>
+          </div>
+          <div class="relays">
+            <div class="relay"><span class="relay-name">Bojler</span><span class="relay-desc">Harmonogram · włączony do 23:30</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Bojler"></span></div>
+            <div class="relay"><span class="relay-name">Pompa cyrkulacji</span><span class="relay-desc danger-text">Wyłączony · harmonogram zablokowany</span><span class="switch" role="switch" aria-checked="false" aria-label="Pompa cyrkulacji"></span></div>
+          </div>
+          <footer class="tile-foot">dane sprzed 5 s</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-device is-link" data-kind="boiler" data-go="boiler-podglad" tabindex="0" role="link" aria-label="Piec Pellux 200, otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="fire"></i></span>
+            <h2 class="tile-name">Piec Pellux 200</h2>
+            <span class="chip chip-warn"><i class="dot"></i>Praca</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm" aria-label="Firmware"><i data-icon="chip"></i></button></span>
+          </div>
+          <div class="tile-main"><span class="big">67</span><span class="unit">°C</span><span class="big-label">kocioł · zadana 67</span></div>
+          <dl class="tile-facts">
+            <div><dt>CWU</dt><dd>52 °C</dd></div>
+            <div><dt>Paliwo</dt><dd>64 %</dd></div>
+            <div><dt>Moc</dt><dd>14 kW</dd></div>
+          </dl>
+          <div class="tile-row"><span class="warn-line">Podajnik: brak reakcji od 12 min</span></div>
+          <footer class="tile-foot">dane sprzed 2 min</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-empty" aria-label="Puste pole">
+          <button type="button" class="btn btn-ghost btn-sm" data-modal="kafelek-pogody">+ kafelek pogody</button>
+        </article>
+
+        <article class="tile tile-device is-hidden" data-kind="tank" aria-label="Hydrofor (ukryty)">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="drop"></i></span>
+            <h2 class="tile-name">Hydrofor (stary)</h2>
+            <span class="chip chip-off">Ukryty</span>
+          </div>
+          <div class="tile-main"><span class="big">—</span><span class="big-label">bez danych od 2 miesięcy</span></div>
+          <footer class="tile-foot">kafelek ukryty · widoczny tylko w trybie „Zmień układ”</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Pokaż"><i data-icon="eye-off"></i></button></div>
+        </article>
+
+      </div>
+    </main>
+    <footer class="statusbar">
+      <span class="db-usage"><i class="dot dot-ok"></i>Baza danych 12 %</span>
+      <span class="version">chpc‑web · makieta B</span>
+    </footer>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: PODGLĄD ============ -->
+  <section class="screen" id="s-hp-podglad" data-device="hp" data-view="podglad" hidden>
+    <main class="page page-device">
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Temperatura zbiornika</span>
+          <div class="hero-value"><span class="hero-num">42,5</span><span class="hero-unit">°C</span></div>
+          <div class="range" aria-label="Zakres 38 do 45 stopni, teraz 42,5">
+            <span class="range-min">38</span>
+            <span class="range-bar"><span class="range-fill" style="--p:64%"></span><span class="range-pin" style="--p:64%"></span></span>
+            <span class="range-max">45</span>
+          </div>
+          <span class="hero-note">cel 38–45 °C · <strong>CWU</strong> grzane · zmiana 16:00</span>
+        </div>
+        <div class="hero-side">
+          <div class="state-pill state-on"><i class="dot"></i>Sprężarka pracuje<small>49 min · 1,87 kWh w cyklu</small></div>
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">2 140<small>W</small></span></div>
+            <div class="kpi"><span class="kpi-label">PV teraz</span><span class="kpi-value">1 655<small>W</small></span></div>
+            <div class="kpi"><span class="kpi-label">COP</span><span class="kpi-value">3,6</span></div>
+            <div class="kpi"><span class="kpi-label">Na zewnątrz</span><span class="kpi-value">11,2<small>°C</small></span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid-2">
+        <section class="card">
+          <header class="card-head"><h2>Obieg</h2><span class="card-hint">stan przekaźników</span></header>
+          <ul class="toggle-list">
+            <li><span class="t-name">Pompa ciepła <small>(CO włączone)</small></span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Pompa ciepła"></span></li>
+            <li><span class="t-name">Obieg gorący</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Obieg gorący"></span></li>
+            <li><span class="t-name">Obieg zimny</span><span class="switch" role="switch" aria-checked="false" aria-label="Obieg zimny"></span></li>
+            <li><span class="t-name">Przepływ przez parownik</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Przepływ"></span></li>
+            <li><span class="t-name">Praca wymuszona</span><span class="switch" role="switch" aria-checked="false" aria-label="Praca wymuszona"></span></li>
+          </ul>
+        </section>
+        <section class="card">
+          <header class="card-head"><h2>Energia dziś</h2><span class="card-hint">G12w · 8,76 PLN</span></header>
+          <div class="energy">
+            <div class="energy-num"><span>7,89</span><small>kWh pobrane</small></div>
+            <div class="energy-num"><span>16,91</span><small>kWh PV</small></div>
+          </div>
+          <div class="chart chart-sm" data-chart="hp-power-mini"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <header class="card-head"><h2>Pomiary</h2><span class="card-hint">odczyt 16:00:42</span></header>
+        <dl class="measures">
+          <div><dt>T. przed parownikiem</dt><dd>4,1 °C</dd></div>
+          <div><dt>T. za parownikiem</dt><dd>1,2 °C</dd></div>
+          <div><dt>T. wody wyj.</dt><dd>44,1 °C</dd></div>
+          <div><dt>T. sprężarki</dt><dd>31 °C</dd></div>
+          <div><dt>T. CWU</dt><dd>45,2 °C</dd></div>
+          <div><dt>EEV pozycja</dt><dd>205 <small>/ 40–450</small></dd></div>
+          <div><dt>EEV przegrzanie</dt><dd>3,8 K</dd></div>
+          <div><dt>Limit mocy</dt><dd>2 140 W</dd></div>
+          <div><dt>Energia cyklu</dt><dd>1 870 Wh</dd></div>
+          <div><dt>Błędy</dt><dd><span class="ok-text">brak</span> <small>licznik 0/5</small></dd></div>
+        </dl>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: DANE ============ -->
+  <section class="screen" id="s-hp-dane" data-device="hp" data-view="dane" hidden>
+    <main class="page page-device">
+      <div class="filters">
+        <div class="date-nav"><button type="button" class="icon-btn sm" aria-label="Poprzedni dzień"><i data-icon="prev"></i></button><span class="date-cur">16.10.2026 <small>dziś</small></span><button type="button" class="icon-btn sm" aria-label="Następny dzień" disabled><i data-icon="next"></i></button></div>
+        <label class="check"><input type="checkbox" id="hp-dane-all"><span>Wszystkie odczyty</span><small>domyślnie tylko praca sprężarki</small></label>
+        <button type="button" class="btn btn-ghost btn-sm"><i data-icon="download"></i>CSV</button>
+      </div>
+      <section class="card card-table">
+        <header class="card-head"><h2>Odczyty dnia</h2><span class="card-hint">138 odczytów · sprężarka pracowała 4 h 12 min</span></header>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Czas</th><th>Praca</th><th class="num">Moc</th><th class="num">PV</th><th class="num">COP</th><th class="num">T. zbiornik</th><th class="num">T. wyj.</th><th class="num">T. przed par.</th><th class="num">T. za par.</th><th class="num">EEV</th><th class="num">ΔT</th><th class="num">Spręż.</th></tr></thead>
+            <tbody id="hp-dane-rows"></tbody>
+          </table>
+        </div>
+        <footer class="table-foot">Wiersz z błędem sterownika jest podświetlony. Przewijanie w poziomie tylko w tabeli.</footer>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: WYKRES ============ -->
+  <section class="screen" id="s-hp-wykres" data-device="hp" data-view="wykres" hidden>
+    <main class="page page-device">
+      <div class="filters">
+        <div class="segmented seg-inline" role="radiogroup" aria-label="Okres">
+          <label class="seg"><input type="radio" name="hp-okres" id="hp-okres-d" checked><span>Dzień</span></label>
+          <label class="seg"><input type="radio" name="hp-okres" id="hp-okres-m"><span>Miesiąc</span></label>
+          <label class="seg"><input type="radio" name="hp-okres" id="hp-okres-r"><span>Rok</span></label>
+        </div>
+        <div class="date-nav"><button type="button" class="icon-btn sm" aria-label="Poprzedni dzień"><i data-icon="prev"></i></button><span class="date-cur">16.10.2026 <small>dziś</small></span><button type="button" class="icon-btn sm" aria-label="Następny dzień" disabled><i data-icon="next"></i></button></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="stat-label">Pobór</span><span class="stat-value">7,89<small>kWh</small></span></div>
+        <div class="stat"><span class="stat-label">Produkcja PV</span><span class="stat-value">16,91<small>kWh</small></span></div>
+        <div class="stat"><span class="stat-label">Koszt G12w</span><span class="stat-value">8,76<small>PLN</small></span></div>
+        <div class="stat"><span class="stat-label">Czas pracy</span><span class="stat-value">4<small>h</small> 12<small>min</small></span></div>
+      </div>
+      <section class="card">
+        <header class="card-head"><h2>Temperatury</h2>
+          <div class="legend" id="hp-legend-temp"></div>
+        </header>
+        <div class="chart chart-lg" data-chart="hp-temps"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Moc i produkcja PV</h2>
+          <div class="legend" id="hp-legend-power"></div>
+        </header>
+        <div class="chart chart-md" data-chart="hp-power"></div>
+        <p class="help">Temperatury i moc są na osobnych wykresach z jedną osią każdy; wspólna oś czasu i wspólny kursor po najechaniu.</p>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: HARMONOGRAM ============ -->
+  <section class="screen" id="s-hp-harmonogram" data-device="hp" data-view="harmonogram" hidden>
+    <main class="page page-device">
+      <section class="card">
+        <header class="card-head"><h2>Tryb pracy</h2><span class="card-hint">decyduje, które wpisy działają</span></header>
+        <div class="segmented" role="radiogroup" aria-label="Tryb pracy">
+          <label class="seg"><input type="radio" name="tryb" id="tryb-reczny"><span>Ręczny</span></label>
+          <label class="seg"><input type="radio" name="tryb" id="tryb-auto" checked><span>Automatyczny</span></label>
+          <label class="seg"><input type="radio" name="tryb" id="tryb-off"><span>Wyłączony</span></label>
+        </div>
+        <p class="help">Według harmonogramu; poza wpisami obowiązuje ustawienie domyślne.</p>
+        <div class="form-row">
+          <label for="t-min">Temperatura domyślna</label>
+          <div class="range-inputs">
+            <input type="number" id="t-min" value="38" inputmode="numeric"><span class="dash">–</span><input type="number" id="t-max" value="45" inputmode="numeric"><span class="unit-txt">°C</span>
+          </div>
+        </div>
+        <div class="actions"><button type="button" class="btn btn-primary">Zapisz</button></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Wpisy</h2><button type="button" class="btn btn-ghost btn-sm" data-modal="wpis">+ Dodaj wpis</button></header>
+        <ul class="entries">
+          <li class="entry is-current">
+            <span class="entry-when"><strong>Dni robocze</strong> 05:00–09:00</span>
+            <span class="entry-what">CO · 38–45 °C</span>
+            <span class="entry-tag">działa teraz</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj" data-modal="wpis"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><i data-icon="trash"></i></button></span>
+          </li>
+          <li class="entry">
+            <span class="entry-when"><strong>Dni robocze</strong> 13:00–17:00</span>
+            <span class="entry-what">CO · 40–46 °C · wymuszony start</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj" data-modal="wpis"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><i data-icon="trash"></i></button></span>
+          </li>
+          <li class="entry is-off">
+            <span class="entry-when"><strong>Dni wolne</strong> 22:00–06:00 <small>(+1 dzień)</small></span>
+            <span class="entry-what">Przerwa · pompa wyłączona</span>
+            <span class="entry-actions"><button type="button" class="icon-btn sm" aria-label="Edytuj" data-modal="wpis"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm danger" aria-label="Usuń"><i data-icon="trash"></i></button></span>
+          </li>
+          <li class="entry is-default">
+            <span class="entry-when"><strong>Poza harmonogramem</strong></span>
+            <span class="entry-what">CWU · ustawienie domyślne 38–45 °C</span>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: OPERACJE ============ -->
+  <section class="screen" id="s-hp-operacje" data-device="hp" data-view="operacje" hidden>
+    <main class="page page-device">
+      <div class="filters">
+        <div class="date-nav"><button type="button" class="icon-btn sm" aria-label="Poprzedni dzień"><i data-icon="prev"></i></button><span class="date-cur">16.10.2026 <small>dziś</small></span><button type="button" class="icon-btn sm" aria-label="Następny dzień" disabled><i data-icon="next"></i></button></div>
+        <div class="segmented seg-inline" role="radiogroup" aria-label="Źródło">
+          <label class="seg"><input type="radio" name="op-src" id="op-all" checked><span>Wszystkie</span></label>
+          <label class="seg"><input type="radio" name="op-src" id="op-user"><span>Użytkownik</span></label>
+          <label class="seg"><input type="radio" name="op-src" id="op-sys"><span>System</span></label>
+        </div>
+      </div>
+      <section class="card">
+        <header class="card-head"><h2>Operacje w dniu</h2><span class="card-hint">7 zdarzeń</span></header>
+        <ol class="timeline">
+          <li class="tl tl-user"><span class="tl-time">16:00</span><span class="tl-who">Robert</span><span class="tl-what"><strong>Zmiana ustawień</strong> temperatura 38–45 → 40–46 °C, tryb automatyczny</span><span class="tl-state chip chip-ok">wykonane</span></li>
+          <li class="tl tl-sys"><span class="tl-time">13:00</span><span class="tl-who">Harmonogram</span><span class="tl-what"><strong>Start wpisu</strong> Dni robocze 13:00–17:00 · CO 40–46 °C · wymuszony start</span><span class="tl-state chip chip-ok">wykonane</span></li>
+          <li class="tl tl-sys"><span class="tl-time">13:00</span><span class="tl-who">System</span><span class="tl-what"><strong>Wymuszenie</strong> sprężarka ruszyła, ręczne wymuszenie startu jest jednorazowe</span><span class="tl-state chip chip-off">informacja</span></li>
+          <li class="tl tl-user"><span class="tl-time">09:12</span><span class="tl-who">Robert</span><span class="tl-what"><strong>Odblokowanie</strong> po błędzie 3 (brak przepływu)</span><span class="tl-state chip chip-ok">wykonane</span></li>
+          <li class="tl tl-err"><span class="tl-time">09:04</span><span class="tl-who">Sterownik</span><span class="tl-what"><strong>Błąd 3 · brak przepływu</strong> licznik 1/5</span><span class="tl-state chip chip-err">błąd</span></li>
+          <li class="tl tl-sys"><span class="tl-time">09:00</span><span class="tl-who">Harmonogram</span><span class="tl-what"><strong>Koniec wpisu</strong> Dni robocze 05:00–09:00 → ustawienie domyślne CWU 38–45 °C</span><span class="tl-state chip chip-ok">wykonane</span></li>
+          <li class="tl tl-sys"><span class="tl-time">05:00</span><span class="tl-who">Harmonogram</span><span class="tl-what"><strong>Start wpisu</strong> Dni robocze 05:00–09:00 · CO 38–45 °C</span><span class="tl-state chip chip-ok">wykonane</span></li>
+        </ol>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ POMPA CIEPŁA: USTAWIENIA ============ -->
+  <section class="screen" id="s-hp-ustawienia" data-device="hp" data-view="ustawienia" hidden>
+    <main class="page page-device">
+      <div class="grid-2 grid-settings">
+        <section class="card">
+          <header class="card-head"><h2>Ustaw</h2><span class="card-hint">polecenie do sterownika</span></header>
+          <div class="segmented" role="radiogroup" aria-label="Tryb pracy">
+            <label class="seg"><input type="radio" name="u-tryb" id="u-reczny"><span>Ręczny</span></label>
+            <label class="seg"><input type="radio" name="u-tryb" id="u-auto" checked><span>Automatyczny</span></label>
+            <label class="seg"><input type="radio" name="u-tryb" id="u-off"><span>Wyłączony</span></label>
+          </div>
+          <div class="form-grid">
+            <label for="u-tmin">Temperatura od / do</label>
+            <div class="range-inputs"><input type="number" id="u-tmin" value="38"><span class="dash">–</span><input type="number" id="u-tmax" value="45"><span class="unit-txt">°C</span></div>
+            <label for="u-watt">Limit mocy</label>
+            <div class="range-inputs"><input type="number" id="u-watt" value="2140" class="w-wide"><span class="unit-txt">W</span></div>
+            <label for="u-eevmin">EEV min / max</label>
+            <div class="range-inputs"><input type="number" id="u-eevmin" value="40"><span class="dash">–</span><input type="number" id="u-eevmax" value="450"></div>
+            <label for="u-eevsp">Przegrzanie EEV</label>
+            <div class="range-inputs"><input type="number" id="u-eevsp" value="250"></div>
+          </div>
+          <ul class="toggle-list">
+            <li><span class="t-name">Wymuszenie pracy <small>tylko w spoczynku sprężarki</small></span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Wymuszenie pracy"></span></li>
+            <li><span class="t-name">Pompy CO / CWU <small>stan przekaźników z telemetrii</small></span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Pompy CO/CWU"></span></li>
+            <li><span class="t-name">Pompa ciepłej wody</span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa ciepłej wody"></span></li>
+            <li><span class="t-name">Pompa zimnej wody</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Pompa zimnej wody"></span></li>
+          </ul>
+          <p class="help">Wyszarzone przełączniki pokazują stan z pompy; przy pracującej sprężarce pompa steruje nimi sama.</p>
+          <div class="actions"><button type="button" class="btn btn-primary" id="u-save">Zmień</button></div>
+          <div class="toast toast-ok" id="u-toast" hidden><i data-icon="check"></i>Polecenie wysłane do sterownika. Zastosuje je przy następnym odczycie (10–30 s).</div>
+        </section>
+
+        <div class="stack">
+          <section class="card">
+            <header class="card-head"><h2>Błędy sterownika</h2><span class="card-hint">licznik 1/5 · blokada przy 5</span></header>
+            <div class="alert alert-err">
+              <i data-icon="bell"></i>
+              <div><strong>Błąd 3 · brak przepływu</strong><span>dziś 09:04 · odblokowano 09:12</span></div>
+            </div>
+            <div class="actions actions-split">
+              <button type="button" class="btn" disabled>Odblokuj</button>
+              <button type="button" class="btn btn-danger-ghost" data-modal="potwierdz">Restart sterownika</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <header class="card-head"><h2>Sterownik</h2><button type="button" class="icon-btn sm" aria-label="Zmień dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button></header>
+            <dl class="kv">
+              <div><dt>Nazwa</dt><dd>Pompa ciepła</dd></div>
+              <div><dt>SN</dt><dd><code>A0B1C2D3E4F5</code></dd></div>
+              <div><dt>Root ID</dt><dd><code>6ad24a19…0d56</code> <button type="button" class="link-btn">kopiuj</button></dd></div>
+              <div><dt>Adres IP</dt><dd><a href="#" class="link">192.168.1.120</a> <small>16.10.2026, 16:00</small></dd></div>
+              <div><dt>Firmware</dt><dd>1.3.2 <span class="chip chip-ok">aktualny</span></dd></div>
+              <div><dt>Ostatnie zgłoszenie</dt><dd>16.10.2026, 16:00</dd></div>
+            </dl>
+            <div class="actions"><button type="button" class="btn btn-ghost btn-sm" disabled>Aktualizuj firmware</button></div>
+          </section>
+
+          <section class="card">
+            <header class="card-head"><h2>Udostępnianie</h2><button type="button" class="btn btn-ghost btn-sm" data-modal="udostepnianie">Udostępnij</button></header>
+            <ul class="people">
+              <li><span class="avatar-sm">AK</span><span class="person"><strong>anna.k@example.pl</strong><small>Podgląd, Wykres</small></span><button type="button" class="icon-btn sm danger" aria-label="Cofnij dostęp"><i data-icon="trash"></i></button></li>
+              <li><span class="avatar-sm">MO</span><span class="person"><strong>m.orlowski@example.pl</strong><small>wszystkie zakładki</small></span><button type="button" class="icon-btn sm danger" aria-label="Cofnij dostęp"><i data-icon="trash"></i></button></li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ FOTOWOLTAIKA: PODGLĄD ============ -->
+  <section class="screen" id="s-pv-podglad" data-device="pv" data-view="podglad" hidden>
+    <main class="page page-device">
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Moc teraz</span>
+          <div class="hero-value"><span class="hero-num">2,41</span><span class="hero-unit">kW</span></div>
+          <span class="hero-note">szczyt dnia 3,06 kW o 15:30 · 4 panele · 1 mikrofalownik HMS</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Dziś</span><span class="kpi-value">8,6<small>kWh</small></span></div>
+            <div class="kpi"><span class="kpi-label">Miesiąc</span><span class="kpi-value">164<small>kWh</small></span></div>
+            <div class="kpi"><span class="kpi-label">Łącznie</span><span class="kpi-value">4 230<small>kWh</small></span></div>
+            <div class="kpi"><span class="kpi-label">Falownik</span><span class="kpi-value">31<small>°C</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Moc w ciągu dnia</h2><span class="card-hint">odczyty co 5 min · 16.10.2026</span></header>
+        <div class="chart chart-md" data-chart="pv-day"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Panele</h2><span class="card-hint">mikrofalownik 1164…01 · pasek względem szczytu dnia</span></header>
+        <ul class="panels">
+          <li><span class="panel-name">Port 1</span><span class="bar"><span style="--p:80%"></span></span><span class="panel-val">610 W</span><span class="panel-sub">2,15 kWh dziś</span><span class="chip chip-ok">produkuje</span></li>
+          <li><span class="panel-name">Port 2</span><span class="bar"><span style="--p:78%"></span></span><span class="panel-val">598 W</span><span class="panel-sub">2,14 kWh dziś</span><span class="chip chip-ok">produkuje</span></li>
+          <li><span class="panel-name">Port 3</span><span class="bar"><span style="--p:80%"></span></span><span class="panel-val">612 W</span><span class="panel-sub">2,16 kWh dziś</span><span class="chip chip-ok">produkuje</span></li>
+          <li class="is-low"><span class="panel-name">Port 4</span><span class="bar"><span style="--p:62%"></span></span><span class="panel-val">472 W</span><span class="panel-sub">1,70 kWh · 21 % poniżej średniej</span><span class="chip chip-warn">słabiej</span></li>
+        </ul>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ FOTOWOLTAIKA: WYKRES ============ -->
+  <section class="screen" id="s-pv-wykres" data-device="pv" data-view="wykres" hidden>
+    <main class="page page-device">
+      <div class="filters">
+        <div class="segmented seg-inline" role="radiogroup" aria-label="Okres">
+          <label class="seg"><input type="radio" name="pv-okres" id="pv-okres-d"><span>Dzień</span></label>
+          <label class="seg"><input type="radio" name="pv-okres" id="pv-okres-m" checked><span>Miesiąc</span></label>
+          <label class="seg"><input type="radio" name="pv-okres" id="pv-okres-r"><span>Rok</span></label>
+          <label class="seg"><input type="radio" name="pv-okres" id="pv-okres-c"><span>Całość</span></label>
+        </div>
+        <div class="date-nav"><button type="button" class="icon-btn sm" aria-label="Poprzedni miesiąc"><i data-icon="prev"></i></button><span class="date-cur">październik 2026</span><button type="button" class="icon-btn sm" aria-label="Następny miesiąc" disabled><i data-icon="next"></i></button></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="stat-label">Produkcja</span><span class="stat-value">164<small>kWh</small></span></div>
+        <div class="stat"><span class="stat-label">Najlepszy dzień</span><span class="stat-value">18,4<small>kWh</small><small>· 3.10</small></span></div>
+        <div class="stat"><span class="stat-label">Średnio</span><span class="stat-value">10,3<small>kWh/dzień</small></span></div>
+      </div>
+      <section class="card">
+        <header class="card-head"><h2>Produkcja dzienna</h2><span class="card-hint">kWh · najedź na słupek</span></header>
+        <div class="chart chart-lg" data-chart="pv-month"></div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ HYDROFOR: PODGLĄD ============ -->
+  <section class="screen" id="s-tank-podglad" data-device="tank" data-view="podglad" hidden>
+    <main class="page page-device">
+      <div class="banner banner-off"><i data-icon="offline"></i><div><strong>Offline od 4 h</strong><span>sterownik ma zasilanie tylko w czasie pracy pompy; ostatnie uruchomienie 13:56.</span></div></div>
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Woda dziś</span>
+          <div class="hero-value"><span class="hero-num">377</span><span class="hero-unit">l</span></div>
+          <span class="hero-note">3 uruchomienia · pompa 6 min 17 s · 7 507 l w tym miesiącu</span>
+        </div>
+        <div class="hero-side">
+          <ul class="toggle-list toggle-hero">
+            <li><span class="t-name">Pompa wody</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Pompa wody"></span></li>
+            <li><span class="t-name">Kompresor powietrza</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Kompresor"></span></li>
+          </ul>
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Czas kompresora</span><span class="kpi-value">30<small>s</small></span></div>
+            <div class="kpi"><span class="kpi-label">Przepływ</span><span class="kpi-value">60<small>l/min</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card card-table">
+        <header class="card-head"><h2>Dzisiejsze uruchomienia</h2><span class="card-hint">razem 377 l</span></header>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Godzina</th><th class="num">Kompresor</th><th class="num">Pompa</th><th class="num">Woda</th></tr></thead>
+            <tbody>
+              <tr><td>13:56:31</td><td class="num">30 s</td><td class="num">1 min 59 s</td><td class="num">119 l</td></tr>
+              <tr><td>10:26:16</td><td class="num">30 s</td><td class="num">2 min 43 s</td><td class="num">163 l</td></tr>
+              <tr><td>09:41:20</td><td class="num">30 s</td><td class="num">1 min 35 s</td><td class="num">95 l</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Zużycie w tygodniu</h2><span class="card-hint">litry na dzień</span></header>
+        <div class="chart chart-md" data-chart="tank-week"></div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ WŁĄCZNIK: PODGLĄD ============ -->
+  <section class="screen" id="s-switch-podglad" data-device="switch" data-view="podglad" hidden>
+    <main class="page page-device">
+      <div class="grid-2">
+        <section class="card card-relay is-on">
+          <header class="card-head"><h2>Bojler</h2><span class="switch is-on" role="switch" aria-checked="true" aria-label="Bojler"></span></header>
+          <div class="relay-state"><i class="dot"></i>Harmonogram · włączony do 23:30</div>
+          <div class="countdown"><span class="countdown-num">6:58:12</span><span class="countdown-label">do wyłączenia</span></div>
+          <div class="actions actions-3">
+            <button type="button" class="btn btn-primary">Włącz</button>
+            <button type="button" class="btn">Wyłącz</button>
+            <button type="button" class="btn btn-ghost is-active">Harmonogram</button>
+          </div>
+          <div class="form-row"><label for="sw-h">Czas włączenia</label><div class="range-inputs"><input type="number" id="sw-h" value="0"><span class="unit-txt">h</span><input type="number" id="sw-m" value="30"><span class="unit-txt">min</span></div></div>
+          <p class="help">„Włącz” działa na ten czas; 0 h 0 min = bez limitu.</p>
+        </section>
+        <section class="card card-relay is-blocked">
+          <header class="card-head"><h2>Pompa cyrkulacji</h2><span class="switch" role="switch" aria-checked="false" aria-label="Pompa cyrkulacji"></span></header>
+          <div class="relay-state danger-text"><i class="dot"></i>Wyłączony · harmonogram zablokowany</div>
+          <div class="countdown is-idle"><span class="countdown-num">—</span><span class="countdown-label">następny start z harmonogramu: jutro 06:00 (po odblokowaniu)</span></div>
+          <div class="actions actions-3">
+            <button type="button" class="btn btn-primary">Włącz</button>
+            <button type="button" class="btn is-active">Wyłącz</button>
+            <button type="button" class="btn btn-ghost">Harmonogram</button>
+          </div>
+          <div class="form-row"><label for="sw2-h">Czas włączenia</label><div class="range-inputs"><input type="number" id="sw2-h" value="0"><span class="unit-txt">h</span><input type="number" id="sw2-m" value="30"><span class="unit-txt">min</span></div></div>
+        </section>
+      </div>
+      <section class="card card-table">
+        <header class="card-head"><h2>Dziś</h2><span class="card-hint">razem 5 h 40 min</span></header>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Przekaźnik</th><th>Od</th><th>Do</th><th class="num">Czas</th><th>Źródło</th></tr></thead>
+            <tbody>
+              <tr><td>Bojler</td><td>16:30</td><td><em>trwa</em></td><td class="num">1 h 02 min</td><td>harmonogram</td></tr>
+              <tr><td>Bojler</td><td>05:00</td><td>09:00</td><td class="num">4 h 00 min</td><td>harmonogram</td></tr>
+              <tr><td>Pompa cyrkulacji</td><td>06:00</td><td>06:38</td><td class="num">≈ 38 min</td><td>aplikacja</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ PIEC PELLUX 200: PODGLĄD ============ -->
+  <section class="screen" id="s-boiler-podglad" data-device="boiler" data-view="podglad" hidden>
+    <main class="page page-device">
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Kocioł</span>
+          <div class="hero-value"><span class="hero-num">67</span><span class="hero-unit">°C</span></div>
+          <span class="hero-note">zadana 67 · histereza 10 · <strong>praca</strong> od 14:20 · <span class="flame"><i data-icon="fire"></i>płomień</span></span>
+        </div>
+        <div class="hero-side">
+          <div class="pill-row">
+            <span class="chip chip-warn"><i class="dot"></i>Praca</span>
+            <span class="chip chip-off">Zima</span>
+            <span class="chip chip-off">Tryb: pompa ciepła</span>
+          </div>
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">14<small>kW</small></span></div>
+            <div class="kpi"><span class="kpi-label">Obciążenie</span><span class="kpi-value">58<small>%</small></span></div>
+            <div class="kpi"><span class="kpi-label">Paliwo</span><span class="kpi-value">64<small>%</small></span></div>
+            <div class="kpi"><span class="kpi-label">Spaliny</span><span class="kpi-value">142<small>°C</small></span></div>
+          </div>
+        </div>
+      </section>
+      <div class="grid-3">
+        <section class="card card-circuit">
+          <header class="card-head"><h2>CWU</h2><span class="chip chip-ok"><i class="dot"></i>pompa</span></header>
+          <div class="circuit-val"><span class="big">52</span><span class="unit">°C</span></div>
+          <span class="circuit-sub">zadana 55 · ładowanie od 40 °C</span>
+        </section>
+        <section class="card card-circuit">
+          <header class="card-head"><h2>Mieszacz 1 · CO</h2><span class="chip chip-ok"><i class="dot"></i>pompa</span></header>
+          <div class="circuit-val"><span class="big">41,5</span><span class="unit">°C</span></div>
+          <span class="circuit-sub">zadana 42 · <span class="nowrap">zawór otwiera <i data-icon="up" class="inline-icon"></i></span></span>
+        </section>
+        <section class="card card-circuit">
+          <header class="card-head"><h2>Mieszacz 2</h2><span class="chip chip-off">pompa stoi</span></header>
+          <div class="circuit-val"><span class="big">28</span><span class="unit">°C</span></div>
+          <span class="circuit-sub">zadana 30 · zawór w spoczynku</span>
+        </section>
+      </div>
+      <section class="card">
+        <header class="card-head"><h2>Urządzenia kotła</h2><span class="card-hint">odczyt 16:28 · co 5 min</span></header>
+        <ul class="toggle-list cols-2">
+          <li><span class="t-name">Wentylator <small>58 %</small></span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Wentylator"></span></li>
+          <li><span class="t-name">Podajnik</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Podajnik"></span></li>
+          <li><span class="t-name">Pompa CO</span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CO"></span></li>
+          <li><span class="t-name">Pompa CWU</span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CWU"></span></li>
+          <li><span class="t-name">Pompa cyrkulacji</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Cyrkulacja"></span></li>
+          <li><span class="t-name">Zapalarka</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Zapalarka"></span></li>
+        </ul>
+        <div class="alert alert-warn"><i data-icon="bell"></i><div><strong>Podajnik: brak reakcji od 12 min</strong><span>alarm regulatora ecoMAX · sprawdź zasobnik pelletu</span></div></div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ LOGOWANIE ============ -->
+  <section class="screen screen-auth" id="s-logowanie" data-chrome="none" hidden>
+    <main class="auth">
+      <div class="auth-card">
+        <div class="brand brand-big"><span class="brand-mark"></span><span class="brand-name">CHPC</span></div>
+        <h1>Zaloguj się</h1>
+        <p class="help">Podaj adres e‑mail. Wyślemy kod i link do logowania. Jeśli nie masz konta, założymy je przy pierwszym logowaniu.</p>
+        <div class="auth-step" id="auth-step-1">
+          <label class="field"><span>E‑mail</span><input type="email" id="login-email" placeholder="imie@domena.pl" autocomplete="email"></label>
+          <button type="button" class="btn btn-primary btn-block" id="login-send">Wyślij kod</button>
+        </div>
+        <div class="auth-step" id="auth-step-2" hidden>
+          <p class="help">Kod wysłany na <strong>robert@example.pl</strong>. Ważny 10 minut.</p>
+          <label class="field"><span>Kod z maila</span><input type="text" id="login-code" inputmode="numeric" placeholder="6 cyfr" maxlength="6" class="code"></label>
+          <button type="button" class="btn btn-primary btn-block" data-go="lista">Zaloguj</button>
+          <button type="button" class="link-btn" id="login-back">Inny adres e‑mail</button>
+        </div>
+        <p class="auth-foot">Logowanie „system” pokazuje pole hasła (użytkownik systemowy).</p>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ KONTO ============ -->
+  <section class="screen" id="s-konto" data-chrome="konto" hidden>
+    <main class="page page-narrow">
+      <section class="card">
+        <header class="card-head"><h2>Moje dane</h2></header>
+        <dl class="kv">
+          <div><dt>E‑mail</dt><dd>robert@example.pl <button type="button" class="link-btn">zmień</button></dd></div>
+          <div><dt>Konto od</dt><dd>11.10.2026</dd></div>
+          <div><dt>Zapamiętanie</dt><dd>to urządzenie, do 23.10.2026 <button type="button" class="link-btn">wyloguj wszędzie</button></dd></div>
+        </dl>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Moje sterowniki</h2><span class="card-hint">5 własnych · 1 udostępniony mi</span></header>
+        <ul class="people">
+          <li><span class="tile-icon sm" data-kind="hp"><i data-icon="hp"></i></span><span class="person"><strong>Pompa ciepła</strong><small>własny · udostępniony 2 osobom</small></span></li>
+          <li><span class="tile-icon sm" data-kind="pv"><i data-icon="pv"></i></span><span class="person"><strong>Fotowoltaika</strong><small>własny</small></span></li>
+          <li><span class="tile-icon sm" data-kind="tank"><i data-icon="drop"></i></span><span class="person"><strong>Hydrofor</strong><small>własny</small></span></li>
+          <li><span class="tile-icon sm" data-kind="switch"><i data-icon="switch"></i></span><span class="person"><strong>Włącznik</strong><small>własny</small></span></li>
+          <li><span class="tile-icon sm" data-kind="boiler"><i data-icon="fire"></i></span><span class="person"><strong>Piec Pellux 200</strong><small>udostępniony przez m.orlowski@example.pl · Podgląd, Alarmy</small></span></li>
+        </ul>
+      </section>
+      <section class="card card-danger">
+        <header class="card-head"><h2>Usunięcie konta</h2></header>
+        <p class="help">Usuwa konto, układ kafelków i udostępnienia. Sterowniki zostają w systemie bez właściciela. Potwierdzenie przychodzi mailem.</p>
+        <div class="actions"><button type="button" class="btn btn-danger-ghost" data-modal="potwierdz-konto">Usuń konto…</button></div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ EKRAN ZASTĘPCZY ============ -->
+  <section class="screen" id="s-brak" data-chrome="brak" hidden>
+    <main class="page page-narrow">
+      <div class="empty">
+        <i data-icon="sketch"></i>
+        <h2 id="brak-title">Tego widoku nie ma w makiecie</h2>
+        <p>Zakładka istnieje w aplikacji, ale makieta etapu 2 obejmuje wszystkie zakładki pompy ciepła, ekrany główne pozostałych sterowników, logowanie, konto i okna. Pozostałe widoki powstaną z tych samych komponentów.</p>
+        <button type="button" class="btn btn-ghost" id="brak-back">Wróć</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ DOLNA NAWIGACJA (telefon) ============ -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Widoki sterownika"></nav>
+
+  <!-- ============ OKNA ============ -->
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="scrim" data-close></div>
+
+    <div class="modal" id="modal-dane-sterownika" role="dialog" aria-labelledby="m1-title" hidden>
+      <header class="modal-head"><h2 id="m1-title">Dane sterownika</h2><button type="button" class="icon-btn sm" aria-label="Zamknij" data-close><i data-icon="close"></i></button></header>
+      <div class="modal-body">
+        <label class="field"><span>Nazwa</span><input type="text" id="m1-name" value="Pompa ciepła"></label>
+        <label class="field is-readonly"><span>Rodzaj</span><input type="text" value="Pompa ciepła (heat_pump)" readonly></label>
+        <label class="field is-readonly"><span>SN (Device ID)</span><input type="text" value="A0B1C2D3E4F5" readonly></label>
+        <label class="field is-readonly"><span>Root ID</span><input type="text" value="6ad24a1926642f6e8e1e0d56" readonly></label>
+        <label class="check"><input type="checkbox" id="m1-default" checked><span>Sterownik domyślny</span><small>otwierany po uruchomieniu aplikacji</small></label>
+      </div>
+      <footer class="modal-foot"><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-primary" data-close>Zapisz</button></footer>
+    </div>
+
+    <div class="modal" id="modal-kafelek-pogody" role="dialog" aria-labelledby="m2-title" hidden>
+      <header class="modal-head"><h2 id="m2-title">Kafelek pogody</h2><button type="button" class="icon-btn sm" aria-label="Zamknij" data-close><i data-icon="close"></i></button></header>
+      <div class="modal-body">
+        <label class="field"><span>Miejscowość</span><input type="search" id="m2-q" value="Zakopane"></label>
+        <ul class="choices">
+          <li class="is-selected"><strong>Zakopane</strong><small>Małopolskie · 49,30 N, 19,95 E</small></li>
+          <li><strong>Zakopane, Olcza</strong><small>Małopolskie · 49,31 N, 19,99 E</small></li>
+          <li><strong>Zakopane, Kuźnice</strong><small>Małopolskie · 49,27 N, 19,98 E</small></li>
+        </ul>
+        <label class="field"><span>Nazwa na kafelku</span><input type="text" id="m2-name" value="Zakopane"></label>
+        <p class="help">Współrzędne z geokodera Open‑Meteo; pogodę pobiera włącznik co 15 minut. Najwyżej 8 kafelków na konto.</p>
+      </div>
+      <footer class="modal-foot"><button type="button" class="btn btn-danger-ghost">Usuń kafelek</button><span class="spacer"></span><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-primary" data-close>Zapisz</button></footer>
+    </div>
+
+    <div class="modal" id="modal-udostepnianie" role="dialog" aria-labelledby="m3-title" hidden>
+      <header class="modal-head"><h2 id="m3-title">Udostępnij sterownik</h2><button type="button" class="icon-btn sm" aria-label="Zamknij" data-close><i data-icon="close"></i></button></header>
+      <div class="modal-body">
+        <label class="field"><span>E‑mail osoby</span><input type="email" id="m3-email" placeholder="imie@domena.pl"></label>
+        <fieldset class="checks"><legend>Zakładki, które zobaczy</legend>
+          <label class="check"><input type="checkbox" checked><span>Podgląd</span></label>
+          <label class="check"><input type="checkbox" checked><span>Dane</span></label>
+          <label class="check"><input type="checkbox" checked><span>Wykres</span></label>
+          <label class="check"><input type="checkbox"><span>Harmonogram</span><small>pozwala zmieniać wpisy</small></label>
+          <label class="check"><input type="checkbox"><span>Operacje</span></label>
+          <label class="check"><input type="checkbox"><span>Ustawienia</span><small>pozwala sterować pompą</small></label>
+        </fieldset>
+        <p class="help">Osoba dostanie mail z zaproszeniem; dostęp można cofnąć w każdej chwili.</p>
+      </div>
+      <footer class="modal-foot"><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-primary" data-close>Wyślij zaproszenie</button></footer>
+    </div>
+
+    <div class="modal" id="modal-wpis" role="dialog" aria-labelledby="m4-title" hidden>
+      <header class="modal-head"><h2 id="m4-title">Wpis harmonogramu</h2><button type="button" class="icon-btn sm" aria-label="Zamknij" data-close><i data-icon="close"></i></button></header>
+      <div class="modal-body">
+        <div class="segmented" role="radiogroup" aria-label="Rodzaj">
+          <label class="seg"><input type="radio" name="m4-rodzaj" id="m4-co" checked><span>CO</span></label>
+          <label class="seg"><input type="radio" name="m4-rodzaj" id="m4-cwu"><span>CWU</span></label>
+          <label class="seg"><input type="radio" name="m4-rodzaj" id="m4-off"><span>Przerwa</span></label>
+        </div>
+        <label class="field"><span>Dni</span><select id="m4-dni"><option>Każdy dzień</option><option selected>Dni robocze (bez świąt)</option><option>Dni wolne (soboty, niedziele, święta)</option><option>Poniedziałek</option><option>Konkretna data…</option></select></label>
+        <div class="form-grid">
+          <label for="m4-od">Godziny</label>
+          <div class="range-inputs"><input type="time" id="m4-od" value="05:00"><span class="dash">–</span><input type="time" id="m4-do" value="09:00"></div>
+          <label for="m4-tmin">Temperatura</label>
+          <div class="range-inputs"><input type="number" id="m4-tmin" value="38"><span class="dash">–</span><input type="number" id="m4-tmax" value="45"><span class="unit-txt">°C</span></div>
+        </div>
+        <p class="help">Puste pole temperatury = wartość domyślna sterownika. Okno przez północ (np. 22:00–06:00) działa.</p>
+        <label class="check"><input type="checkbox" id="m4-force"><span>Wymuszony start</span><small>sprężarka rusza od razu na początku wpisu</small></label>
+        <label class="check"><input type="checkbox" id="m4-on" checked><span>Wpis włączony</span></label>
+      </div>
+      <footer class="modal-foot"><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-primary" data-close>Zapisz wpis</button></footer>
+    </div>
+
+    <div class="modal modal-sm" id="modal-potwierdz" role="alertdialog" aria-labelledby="m5-title" hidden>
+      <header class="modal-head"><h2 id="m5-title">Zrestartować sterownik?</h2></header>
+      <div class="modal-body"><p>CHPC uruchomi się ponownie; sprężarka zatrzyma się na czas restartu, a `co` wyśle cały stan od nowa. Trwa to około minuty.</p></div>
+      <footer class="modal-foot"><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-danger" data-close>Restartuj</button></footer>
+    </div>
+
+    <div class="modal modal-sm" id="modal-potwierdz-konto" role="alertdialog" aria-labelledby="m6-title" hidden>
+      <header class="modal-head"><h2 id="m6-title">Usunąć konto?</h2></header>
+      <div class="modal-body"><p>Wyślemy link potwierdzający na <strong>robert@example.pl</strong>. Konto zniknie po kliknięciu linku; do tego czasu nic się nie zmienia.</p></div>
+      <footer class="modal-foot"><button type="button" class="btn" data-close>Anuluj</button><button type="button" class="btn btn-danger" data-close>Wyślij link</button></footer>
+    </div>
+
+    <!-- menu użytkownika (popover pod awatarem) -->
+    <div class="popover" id="modal-user-menu" role="menu" hidden>
+      <div class="popover-head"><span class="avatar">RO</span><div><strong>robert@example.pl</strong><small>5 sterowników</small></div></div>
+      <button type="button" role="menuitem" data-go="konto"><i data-icon="user"></i>Moje dane</button>
+      <button type="button" role="menuitem" data-go="lista"><i data-icon="grid"></i>Lista sterowników</button>
+      <button type="button" role="menuitem"><i data-icon="chip"></i>Projekt kafelka</button>
+      <div class="popover-sep"></div>
+      <button type="button" role="menuitem" data-go="logowanie"><i data-icon="logout"></i>Wyloguj</button>
+    </div>
+
+    <!-- arkusz „Więcej” (telefon) -->
+    <div class="sheet" id="modal-wiecej" role="menu" hidden>
+      <div class="sheet-grip"></div>
+      <div id="wiecej-items"></div>
+      <div class="popover-sep"></div>
+      <button type="button" role="menuitem" data-go="lista"><i data-icon="grid"></i>Lista sterowników</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Pasek makiety: motyw i skok do ekranu (nie jest częścią aplikacji) -->
+<div class="mock-bar" role="toolbar" aria-label="Sterowanie makietą">
+  <select class="mock-jump" id="mock-jump" aria-label="Ekran makiety"></select>
+  <div class="mock-group" aria-label="Motyw">
+    <button type="button" data-theme-set="light">Jasny</button>
+    <button type="button" data-theme-set="dark">Ciemny</button>
+    <button type="button" data-theme-set="system" class="is-on">System</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* ---------- ikony (jeden zestaw, kreska 1.8) ---------- */
+  var P = 'viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  var ICONS = {
+    hp: '<path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/>',
+    pv: '<path d="M4 10h16l2 9H2zM8 10l1-4h6l1 4M6 14.5h12M9 10v9M15 10v9"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    drop: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+    'switch': '<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
+    fire: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3 1-6 1-9z"/>',
+    data: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    chart: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/>',
+    more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    prev: '<path d="M15 5l-7 7 7 7"/>',
+    next: '<path d="M9 5l7 7-7 7"/>',
+    edit: '<path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    check: '<path d="M5 12l5 5 9-10"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    logout: '<path d="M10 4H5v16h5M14 8l5 4-5 4M19 12H9"/>',
+    chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+    move: '<path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off': '<path d="M3 3l18 18M10 6a10 10 0 0 1 12 6s-1 2-3 4M6 8c-2 2-4 4-4 4s4 7 10 7c2 0 3-.5 5-1"/>',
+    download: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+    offline: '<path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01M3 3l18 18"/>',
+    up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    sketch: '<path d="M4 20l4-1 11-11-3-3L5 16zM13 8l3 3"/><path d="M3 21h18" stroke-dasharray="2 3"/>'
+  };
+  document.querySelectorAll('i[data-icon]').forEach(function (el) {
+    var k = el.getAttribute('data-icon');
+    el.outerHTML = '<svg class="ic" aria-hidden="true" ' + P + '>' + (ICONS[k] || '') + '</svg>';
+  });
+  function icon(k) { return '<svg class="ic" aria-hidden="true" ' + P + '>' + (ICONS[k] || '') + '</svg>'; }
+
+  /* ---------- rodzaje sterowników: nazwa, podtytuł, widoki ---------- */
+  var VIEW_LABEL = { podglad: 'Podgląd', dane: 'Dane', wykres: 'Wykres', harmonogram: 'Harmonogram', operacje: 'Operacje', ustawienia: 'Ustawienia', alarmy: 'Alarmy' };
+  var VIEW_ICON = { podglad: 'hp', dane: 'data', wykres: 'chart', harmonogram: 'clock', operacje: 'list', ustawienia: 'settings', alarmy: 'bell' };
+  var DEVICES = {
+    hp:     { name: 'Pompa ciepła',   icon: 'hp',     status: ['ok', 'Online'],  sub: 'tryb automatyczny · SN A0B1…E4F5', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'operacje', 'ustawienia'] },
+    pv:     { name: 'Fotowoltaika',   icon: 'pv',     status: ['ok', 'Online'],  sub: '4 panele · DTU Hoymiles', views: ['podglad', 'dane', 'wykres', 'ustawienia'] },
+    tank:   { name: 'Hydrofor',       icon: 'drop',   status: ['off', 'Offline'], sub: 'ostatnie uruchomienie 13:56', views: ['podglad', 'dane', 'wykres', 'operacje', 'ustawienia'] },
+    'switch': { name: 'Włącznik',     icon: 'switch', status: ['ok', 'Online'],  sub: '2 przekaźniki · firmware 1.2.0', views: ['podglad', 'dane', 'harmonogram', 'operacje', 'ustawienia'] },
+    boiler: { name: 'Piec Pellux 200', icon: 'fire',  status: ['warn', 'Praca'], sub: 'ecoMAX 860P2 · odczyt co 5 min', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'alarmy', 'operacje', 'ustawienia'] }
+  };
+  var topbar = document.getElementById('topbar');
+  var bottomNav = document.getElementById('bottom-nav');
+  var app = document.querySelector('.app');
+  var current = 'lista';
+  var lastDevice = 'hp';
+
+  function viewLink(dev, v, cls) {
+    var id = dev + '-' + v, exists = !!document.getElementById('s-' + id);
+    return '<a href="#' + id + '" class="' + cls + (current === id ? ' is-active' : '') + (exists ? '' : ' is-stub') + '" data-go="' + id + '" data-dev="' + dev + '" data-view="' + v + '">' + icon(VIEW_ICON[v]) + '<span>' + VIEW_LABEL[v] + '</span></a>';
+  }
+  function renderChrome(screen) {
+    var dev = screen.getAttribute('data-device');
+    var chrome = screen.getAttribute('data-chrome');
+    bottomNav.innerHTML = ''; bottomNav.hidden = true;
+    app.classList.toggle('has-side', !!dev);
+    if (chrome === 'none') { topbar.hidden = true; return; }
+    topbar.hidden = false;
+    if (chrome === 'list') {
+      topbar.innerHTML = '<div class="topbar-inner"><div class="brand"><span class="brand-mark"></span><span class="brand-name">CHPC</span></div><h1 class="topbar-title">Sterowniki</h1><div class="topbar-actions">' +
+        '<button type="button" class="icon-btn" title="Zmień układ" aria-label="Zmień układ" data-layout="on">' + icon('grid') + '</button>' +
+        '<button type="button" class="icon-btn avatar" title="Konto" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
+      return;
+    }
+    if (chrome === 'konto' || chrome === 'brak') {
+      topbar.innerHTML = '<div class="topbar-inner"><button type="button" class="icon-btn back" data-go="' + (chrome === 'konto' ? 'lista' : lastDevice + '-podglad') + '" aria-label="Wróć">' + icon('back') + '</button><div class="device-title"><h1>' + (chrome === 'konto' ? 'Moje dane' : DEVICES[lastDevice].name) + '</h1></div>' +
+        '<div class="topbar-actions"><button type="button" class="icon-btn avatar" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
+      return;
+    }
+    var d = DEVICES[dev]; lastDevice = dev;
+    var tabs = d.views.map(function (v) { return viewLink(dev, v, 'tab'); }).join('');
+    topbar.innerHTML = '<div class="topbar-inner"><button type="button" class="icon-btn back" data-go="lista" aria-label="Wróć do listy sterowników">' + icon('back') + '</button>' +
+      '<div class="device-title"><h1>' + d.name + '</h1><span class="device-sub"><span class="chip chip-' + d.status[0] + '">' + (d.status[0] === 'off' ? '' : '<i class="dot"></i>') + d.status[1] + '</span><span class="sep">·</span>' + d.sub + '</span></div>' +
+      '<nav class="tabs" aria-label="Widoki sterownika">' + tabs + '</nav>' +
+      '<div class="topbar-actions"><button type="button" class="icon-btn avatar" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
+    // telefon: 4 pierwsze widoki + „Więcej”
+    var first = d.views.slice(0, 4), rest = d.views.slice(4);
+    bottomNav.innerHTML = first.map(function (v) { return viewLink(dev, v, 'bn'); }).join('') +
+      (rest.length ? '<a href="#wiecej" class="bn' + (rest.indexOf(screen.getAttribute('data-view')) >= 0 ? ' is-active' : '') + '" data-modal="wiecej">' + icon('more') + '<span>Więcej</span></a>' : '');
+    bottomNav.hidden = false;
+    document.getElementById('wiecej-items').innerHTML = rest.map(function (v) {
+      var id = dev + '-' + v; return '<button type="button" role="menuitem" data-go="' + id + '">' + icon(VIEW_ICON[v]) + VIEW_LABEL[v] + '</button>';
+    }).join('');
+  }
+
+  /* ---------- przełączanie ekranów ---------- */
+  var pendingStub = null;
+  function go(id, opts) {
+    // sekcje mają id z przedrostkiem s-, żeby kotwica z adresu nie przewijała strony
+    var target = document.getElementById('s-' + id);
+    if (!target) {
+      // widok, którego nie ma w makiecie
+      var m = /^(\w+)-(\w+)$/.exec(id);
+      if (m && DEVICES[m[1]]) { lastDevice = m[1]; document.getElementById('brak-title').textContent = 'Widok „' + (VIEW_LABEL[m[2]] || m[2]) + '” sterownika „' + DEVICES[m[1]].name + '” nie jest w makiecie'; }
+      target = document.getElementById('s-brak'); id = 'brak';
+    }
+    closeModal();
+    document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s !== target; });
+    current = id; app.setAttribute('data-screen', id);
+    renderChrome(target);
+    document.getElementById('mock-jump').value = id;
+    if (!(opts && opts.keepHash)) { try { history.replaceState(null, '', '#' + id); } catch (e) {} }
+    window.scrollTo(0, 0); requestAnimationFrame(function () { window.scrollTo(0, 0); drawCharts(); });
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go]'); if (!t) return;
+    e.preventDefault(); go(t.getAttribute('data-go'));
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role=link][data-go]')) { e.preventDefault(); go(e.target.getAttribute('data-go')); }
+    if (e.key === 'Escape') closeModal();
+  });
+  window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (h) go(h, { keepHash: true }); });
+  document.getElementById('brak-back').addEventListener('click', function () { go(lastDevice + '-podglad'); });
+
+  /* ---------- przełączniki (atrapa) ---------- */
+  document.addEventListener('click', function (e) {
+    var s = e.target.closest('.switch'); if (!s || s.classList.contains('is-disabled')) return;
+    var on = s.classList.toggle('is-on'); s.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+
+  /* ---------- tryb „Zmień układ” ---------- */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-layout]'); if (!b) return;
+    document.getElementById('s-lista').classList.toggle('is-layout', b.getAttribute('data-layout') === 'on');
+  });
+
+  /* ---------- okna ---------- */
+  var layer = document.getElementById('modal-layer');
+  function closeModal() { layer.hidden = true; layer.querySelectorAll('.modal, .popover, .sheet').forEach(function (m) { m.hidden = true; }); }
+  function openModal(name, anchor) {
+    closeModal(); var m = document.getElementById('modal-' + name); if (!m) return;
+    layer.hidden = false; m.hidden = false;
+    if (m.classList.contains('popover') && anchor) { var r = anchor.getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, window.innerWidth - r.right) + 'px'; }
+    var f = m.querySelector('input:not([readonly]), select, button:not([data-close])'); if (f) f.focus({ preventScroll: true });
+  }
+  document.addEventListener('click', function (e) {
+    var o = e.target.closest('[data-modal]'); if (o) { e.preventDefault(); e.stopPropagation(); openModal(o.getAttribute('data-modal'), o); return; }
+    if (e.target.closest('[data-close]')) { closeModal(); }
+  });
+
+  /* ---------- logowanie (atrapa dwóch kroków) ---------- */
+  document.getElementById('login-send').addEventListener('click', function () { document.getElementById('auth-step-1').hidden = true; document.getElementById('auth-step-2').hidden = false; document.getElementById('login-code').focus(); });
+  document.getElementById('login-back').addEventListener('click', function () { document.getElementById('auth-step-2').hidden = true; document.getElementById('auth-step-1').hidden = false; });
+  document.getElementById('u-save').addEventListener('click', function () { var t = document.getElementById('u-toast'); t.hidden = false; setTimeout(function () { t.hidden = true; }, 4000); });
+
+  /* ---------- dane: tabela odczytów ---------- */
+  (function () {
+    var rows = [], seed = 7, rnd = function () { return ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648); };
+    var blocks = [[16, 0, 50], [15, 40, 50], [15, 20, 50], [13, 10, 40], [8, 40, 30], [5, 0, 60]];
+    blocks.forEach(function (b) {
+      for (var k = 0; k < 3; k++) {
+        var mm = b[1] + k * 10, hh = b[0]; if (mm >= 60) { mm -= 60; hh += 1; }
+        var run = true, pv = hh >= 7 && hh <= 17 ? Math.round(800 + rnd() * 1600) : 0;
+        rows.push({ t: (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm, mode: hh >= 13 && hh < 17 ? 'CO' : 'CWU', w: Math.round(1900 + rnd() * 500), pv: pv, cop: (3.1 + rnd() * 0.9).toFixed(1),
+          tz: (40 + rnd() * 5).toFixed(1), tho: (44 + rnd() * 3).toFixed(1), tbe: (3 + rnd() * 2).toFixed(1), tae: (0.5 + rnd() * 1.5).toFixed(1), eev: Math.round(180 + rnd() * 60), dt: (3 + rnd() * 2).toFixed(1), err: hh === 8 && k === 2 });
+      }
+    });
+    document.getElementById('hp-dane-rows').innerHTML = rows.map(function (r) {
+      return '<tr' + (r.err ? ' class="is-err"' : '') + '><td>' + r.t + (r.err ? ' <span class="chip chip-err">błąd 3</span>' : '') + '</td><td>' + r.mode + '</td><td class="num">' + r.w.toLocaleString('pl-PL') + ' W</td><td class="num">' + (r.pv ? r.pv.toLocaleString('pl-PL') + ' W' : '—') + '</td><td class="num">' + r.cop.replace('.', ',') + '</td><td class="num">' + r.tz.replace('.', ',') + '</td><td class="num">' + r.tho.replace('.', ',') + '</td><td class="num">' + r.tbe.replace('.', ',') + '</td><td class="num">' + r.tae.replace('.', ',') + '</td><td class="num">' + r.eev + '</td><td class="num">' + r.dt.replace('.', ',') + '</td><td class="num"><i class="dot dot-run"></i>tak</td></tr>';
+    }).join('');
+  })();
+
+  /* ---------- wykresy: rysowane z danych, jedna oś na wykres, kursor po najechaniu ---------- */
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, parent) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+  function fmt(n, d) { return n.toFixed(d === undefined ? 1 : d).replace('.', ','); }
+  var seed2 = 11; function rnd2() { return ((seed2 = (seed2 * 1103515245 + 12345) % 2147483648) / 2147483648); }
+  // dzień pompy: 96 próbek co 15 min
+  var DAY = []; (function () {
+    for (var i = 0; i < 96; i++) {
+      var h = i / 4, sun = Math.max(0, Math.sin((h - 6) / 13 * Math.PI));
+      var running = (h >= 5 && h < 9) || (h >= 13 && h < 17) || (h >= 20 && h < 22);
+      var ttar = running ? 40 + ((h * 7) % 5) : 41 - (h % 3) * 0.3;
+      DAY.push({ h: h, run: running, w: running ? 1900 + Math.round(rnd2() * 500) : 0, pv: Math.round(sun * 3000 * (0.7 + 0.3 * rnd2())), ttar: ttar, tho: ttar + (running ? 3 + rnd2() * 2 : 0.5), tbe: 2 + 4 * sun + rnd2(), tae: -1 + 4 * sun + rnd2() });
+    }
+  })();
+  function timeLabel(h) { var hh = Math.floor(h), mm = Math.round((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm; }
+
+  function lineChart(host, opts) {
+    // opts: series [{key,label,color}], y [min,max], unit, ticks, xLabels, data (DAY), hover(i)->html, area key
+    var W = Math.round(host.clientWidth); if (!W) return; if (host.getAttribute('data-w') === String(W)) return; host.setAttribute('data-w', W);
+    host.innerHTML = '';
+    var H = opts.height || 220, m = { l: 44, r: 10, t: 10, b: 24 };
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'chart-svg', role: 'img', 'aria-label': opts.aria || '' }, host);
+    var iw = W - m.l - m.r, ih = H - m.t - m.b, n = opts.data.length;
+    // wykres słupkowy: skala pasmowa (słupek w środku pasma), liniowy: punkt na krawędziach
+    var band = !!opts.band;
+    var x = function (i) { return band ? m.l + (i + 0.5) / n * iw : m.l + i / (n - 1) * iw; }, y = function (v) { return m.t + (1 - (v - opts.y[0]) / (opts.y[1] - opts.y[0])) * ih; };
+    opts.ticks.forEach(function (tv) { el('line', { x1: m.l, x2: W - m.r, y1: y(tv), y2: y(tv), class: 'grid' }, svg); el('text', { x: m.l - 6, y: y(tv) + 4, class: 'tick', 'text-anchor': 'end' }, svg).textContent = tv + (opts.unit || ''); });
+    opts.xLabels.forEach(function (lab, k) { var xi = band ? x(Math.round(k / (opts.xLabels.length - 1) * (n - 1))) : m.l + k / (opts.xLabels.length - 1) * iw; el('text', { x: xi, y: H - 6, class: 'tick', 'text-anchor': band ? 'middle' : k === 0 ? 'start' : k === opts.xLabels.length - 1 ? 'end' : 'middle' }, svg).textContent = lab; });
+    if (opts.area) { var d = 'M' + x(0) + ' ' + y(opts.y[0]); opts.data.forEach(function (p, i) { d += ' L' + x(i) + ' ' + y(p[opts.area.key]); }); d += ' L' + x(n - 1) + ' ' + y(opts.y[0]) + ' Z'; el('path', { d: d, fill: opts.area.color, opacity: '.28' }, svg); }
+    if (opts.bars) { var bw = iw / n * 0.7; opts.data.forEach(function (p, i) { var v = p[opts.bars.key]; if (!v) return; el('rect', { x: x(i) - bw / 2, y: y(v), width: bw, height: y(opts.y[0]) - y(v), rx: 1.5, fill: opts.bars.color }, svg); }); }
+    (opts.series || []).forEach(function (s) { var d = ''; opts.data.forEach(function (p, i) { d += (i ? ' L' : 'M') + x(i) + ' ' + y(p[s.key]); }); el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg); });
+    // kursor
+    var cur = el('g', { class: 'cursor', visibility: 'hidden' }, svg);
+    var cl = el('line', { y1: m.t, y2: H - m.b, class: 'cursor-line' }, cur);
+    var dots = (opts.series || []).map(function (s) { return el('circle', { r: 4, fill: s.color, stroke: 'var(--card)', 'stroke-width': 2 }, cur); });
+    var tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; host.appendChild(tip);
+    function show(evt) {
+      var r = svg.getBoundingClientRect(); var px = (evt.clientX - r.left) / r.width * W; var i = band ? Math.floor((px - m.l) / iw * n) : Math.round((px - m.l) / iw * (n - 1)); i = Math.max(0, Math.min(n - 1, i));
+      cur.setAttribute('visibility', 'visible'); cl.setAttribute('x1', x(i)); cl.setAttribute('x2', x(i));
+      (opts.series || []).forEach(function (s, k) { dots[k].setAttribute('cx', x(i)); dots[k].setAttribute('cy', y(opts.data[i][s.key])); });
+      tip.hidden = false; tip.innerHTML = opts.hover(opts.data[i], i);
+      var left = x(i) / W * r.width; tip.style.left = Math.min(Math.max(left, 90), r.width - 90) + 'px';
+    }
+    svg.addEventListener('mousemove', show); svg.addEventListener('touchstart', function (e) { show(e.touches[0]); }, { passive: true }); svg.addEventListener('touchmove', function (e) { show(e.touches[0]); }, { passive: true });
+    svg.addEventListener('mouseleave', function () { cur.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  }
+  function legend(host, items) { host.innerHTML = items.map(function (s) { return '<span class="lg"><i style="background:' + s.color + '"></i>' + s.label + '</span>'; }).join(''); }
+  var cs = getComputedStyle(document.documentElement);
+  function C(n) { return 'var(' + n + ')'; }
+  var tempSeries = [{ key: 'ttar', label: 'T. zbiornika', color: C('--ch-1') }, { key: 'tho', label: 'T. wody wyj.', color: C('--ch-2') }, { key: 'tbe', label: 'T. przed parownikiem', color: C('--ch-3') }, { key: 'tae', label: 'T. za parownikiem', color: C('--ch-4') }];
+  var X24 = ['0:00', '6:00', '12:00', '18:00', '24:00'];
+  function drawCharts() {
+    var h;
+    if ((h = document.querySelector('[data-chart="hp-temps"]'))) {
+      legend(document.getElementById('hp-legend-temp'), tempSeries);
+      lineChart(h, { data: DAY, series: tempSeries, y: [-5, 55], ticks: [0, 20, 40], unit: ' °C', xLabels: X24, height: 240, aria: 'Temperatury w ciągu dnia',
+        hover: function (p) { return '<strong>' + timeLabel(p.h) + '</strong>' + tempSeries.map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + s.label + ' <b>' + fmt(p[s.key]) + ' °C</b></span>'; }).join(''); } });
+    }
+    if ((h = document.querySelector('[data-chart="hp-power"]'))) {
+      var ps = [{ label: 'Pobór sprężarki', color: C('--ch-1') }, { label: 'Produkcja PV', color: C('--c-sun') }];
+      legend(document.getElementById('hp-legend-power'), ps);
+      lineChart(h, { data: DAY, bars: { key: 'w', color: C('--ch-1') }, area: { key: 'pv', color: C('--c-sun') }, y: [0, 3200], ticks: [0, 1000, 2000, 3000], unit: ' W', xLabels: X24, height: 180, aria: 'Pobór mocy i produkcja PV',
+        hover: function (p) { return '<strong>' + timeLabel(p.h) + '</strong><span><i style="background:' + C('--ch-1') + '"></i>pobór <b>' + p.w + ' W</b></span><span><i style="background:' + C('--c-sun') + '"></i>PV <b>' + p.pv + ' W</b></span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="hp-power-mini"]'))) {
+      lineChart(h, { data: DAY, bars: { key: 'w', color: C('--ch-1') }, area: { key: 'pv', color: C('--c-sun') }, y: [0, 3200], ticks: [0, 1500, 3000], unit: '', xLabels: X24, height: 110, aria: 'Pobór mocy dziś',
+        hover: function (p) { return '<strong>' + timeLabel(p.h) + '</strong><span>pobór <b>' + p.w + ' W</b></span><span>PV <b>' + p.pv + ' W</b></span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="pv-day"]'))) {
+      lineChart(h, { data: DAY, area: { key: 'pv', color: C('--c-sun') }, series: [{ key: 'pv', label: 'Moc', color: C('--c-sun') }], y: [0, 3200], ticks: [0, 1000, 2000, 3000], unit: ' W', xLabels: X24, height: 200, aria: 'Moc PV w ciągu dnia',
+        hover: function (p) { return '<strong>' + timeLabel(p.h) + '</strong><span>moc <b>' + p.pv + ' W</b></span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="pv-month"]'))) {
+      var days = []; for (var d = 1; d <= 31; d++) { var cloudy = (d * 7) % 5 === 0; days.push({ h: d, kwh: d > 16 ? 0 : +(cloudy ? 3 + rnd2() * 3 : 9 + rnd2() * 9).toFixed(1) }); }
+      lineChart(h, { data: days, band: true, bars: { key: 'kwh', color: C('--c-sun') }, y: [0, 20], ticks: [0, 5, 10, 15, 20], unit: '', xLabels: ['1', '8', '16', '24', '31'], height: 220, aria: 'Produkcja dzienna w miesiącu',
+        hover: function (p) { return '<strong>' + p.h + ' października</strong><span>produkcja <b>' + (p.kwh ? fmt(p.kwh) + ' kWh' : 'brak danych') + '</b></span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="tank-week"]'))) {
+      var wk = ['pt', 'sb', 'nd', 'pn', 'wt', 'śr', 'cz'].map(function (n, i) { return { h: n, l: [410, 690, 720, 380, 350, 420, 377][i] }; });
+      lineChart(h, { data: wk, band: true, bars: { key: 'l', color: C('--c-water') }, y: [0, 800], ticks: [0, 200, 400, 600, 800], unit: ' l', xLabels: ['pt', 'sb', 'nd', 'pn', 'wt', 'śr', 'cz'], height: 160, aria: 'Zużycie wody w tygodniu',
+        hover: function (p) { return '<strong>' + p.h + '</strong><span>woda <b>' + p.l + ' l</b></span>'; } });
+    }
+  }
+  drawCharts();
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(drawCharts, 150); });
+
+  /* ---------- pasek makiety ---------- */
+  var root = document.documentElement, bar = document.querySelector('.mock-bar');
+  function setTheme(mode) {
+    if (mode === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode);
+    bar.querySelectorAll('[data-theme-set]').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-theme-set') === mode); });
+    try { localStorage.setItem('chpc-makieta-theme', mode); } catch (e) {}
+  }
+  bar.addEventListener('click', function (e) { var b = e.target.closest('[data-theme-set]'); if (b) setTheme(b.getAttribute('data-theme-set')); });
+  try { var saved = localStorage.getItem('chpc-makieta-theme'); if (saved) setTheme(saved); } catch (e) {}
+  var jump = document.getElementById('mock-jump');
+  var names = { lista: 'Lista sterowników', 'hp-podglad': 'Pompa · Podgląd', 'hp-dane': 'Pompa · Dane', 'hp-wykres': 'Pompa · Wykres', 'hp-harmonogram': 'Pompa · Harmonogram', 'hp-operacje': 'Pompa · Operacje', 'hp-ustawienia': 'Pompa · Ustawienia', 'pv-podglad': 'Fotowoltaika · Podgląd', 'pv-wykres': 'Fotowoltaika · Wykres', 'tank-podglad': 'Hydrofor · Podgląd', 'switch-podglad': 'Włącznik · Podgląd', 'boiler-podglad': 'Piec · Podgląd', logowanie: 'Logowanie', konto: 'Konto', brak: 'Ekran zastępczy' };
+  jump.innerHTML = Object.keys(names).map(function (k) { return '<option value="' + k + '">' + names[k] + '</option>'; }).join('');
+  jump.addEventListener('change', function () { go(jump.value); });
+
+  window.addEventListener('load', function () { window.scrollTo(0, 0); });
+  var start = location.hash.slice(1);
+  go(start && (document.getElementById('s-' + start) || /^\w+-\w+$/.test(start)) ? start : 'lista', { keepHash: true });
+})();
+</script>
+
+</body>
+</html>

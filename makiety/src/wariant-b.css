@@ -19,6 +19,8 @@
   --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
   --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
   --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
   --mock-bg: #1e2126; --mock-fg: #fff; --mock-on: #c7791c; --mock-on-fg: #fff;
 }
 /*DARK*/
@@ -36,6 +38,8 @@
   --hero-bg: #1b1e23; --hero-fg: #f3f4f6; --hero-fg-2: #aeb5bf; --hero-line: #2f343b; --hero-track: #343941; --kpi-bg: #23272d; --kpi-line: #343941;
   --c-heat: #f0a23a; --c-heat-bg: #3b2a0c; --c-water: #4fc3e8; --c-water-bg: #0f3340; --c-sun: #f5d04a; --c-sun-bg: #3d3610;
   --c-switch: #a9a6f0; --c-switch-bg: #27264a; --c-fire: #ff7a62; --c-fire-bg: #40201a; --c-sky: #7fbbe8; --c-sky-bg: #16303f;
+  --err-bg: #42201d; --err-fg: #ff8d84;
+  --ch-1: #c6811f; --ch-2: #c66aa6; --ch-3: #3f9dd0; --ch-4: #4ea85e;
   --mock-bg: #2f343b; --mock-fg: #fff; --mock-on: #f0a23a; --mock-on-fg: #1b1300;
 /*/DARK*/
 /* akcenty wariantu B: wyraźne linie zamiast cieni, nagłówki kapitalikami, boczne menu na komputerze */
@@ -51,6 +55,7 @@
 @media (min-width: 900px) {
   .screen-device { padding-left: 212px; }
   .screen-device .topbar { margin-left: -212px; padding-left: 212px; }
+  .app.has-side .topbar { position: sticky; }
   .tabs { position: fixed; left: 0; top: calc(56px + env(safe-area-inset-top, 0px)); bottom: 0; width: 212px; flex-direction: column; gap: 2px;
     padding: 12px max(10px, env(safe-area-inset-left, 0px)) 12px 10px; background: var(--nav-bg); border-right: 1px solid var(--bar-line); }
   .tab { color: var(--bar-fg); padding: 10px 12px; border-radius: 6px; }

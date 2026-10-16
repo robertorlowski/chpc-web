@@ -45,6 +45,32 @@ Katalog [`src/`](src/):
 
 Edytować należy pliki w `src/` i złożyć ponownie; `propozycja-*.html` są wynikiem składania.
 
-## Etap 2 (po wyborze kierunku)
+## Etap 2 (2026-10-16): pełna makieta w kierunku B „Instrument”
 
-Pełna makieta wybranej propozycji: wszystkie rodzaje sterowników (pompa ciepła, fotowoltaika, hydrofor, włącznik, piec) i wszystkie zakładki (Dane, Wykres, Operacje, Ustawienia, Harmonogram), okna (dane sterownika, kafelek pogody, udostępnianie), logowanie i konto, tryb „Zmień układ” i projektant kafelka, stany pusty / offline / błąd.
+Wybrano propozycję **B**. Pełna makieta to [`makieta.html`](makieta.html) (jeden samodzielny plik; źródła `src/makieta.html`, `src/makieta.css`, tokeny `src/wariant-b.css`). Pasek na dole ma listę ekranów do szybkiego skoku i przełącznik motywu; w aplikacji działa też zwykła nawigacja (kafelki, zakładki, dolna nawigacja, „Więcej”, strzałka wstecz, menu konta).
+
+Ekrany:
+
+| Ekran | Adres | Co pokazuje |
+|---|---|---|
+| Lista sterowników | `#lista` | pasek pogody domu, kafelki 5 rodzajów + „Dom”, ołówek i trybik firmware po najechaniu, tryb **„Zmień układ”** (ikona siatki): strzałki i oko na kafelkach, puste pole „+ kafelek pogody”, kafelek ukryty |
+| Pompa · Podgląd | `#hp-podglad` | temperatura zbiornika z zakresem, sprężarka, moc / PV / COP / na zewnątrz, przekaźniki obiegu, energia dnia, pomiary |
+| Pompa · Dane | `#hp-dane` | nawigacja po dniu, „Wszystkie odczyty”, CSV, tabela odczytów (przewijana w poziomie tylko w kontenerze), wiersz z błędem podświetlony |
+| Pompa · Wykres | `#hp-wykres` | dzień / miesiąc / rok, kafelki pobór / PV / koszt G12w / czas pracy, **dwa wykresy z jedną osią każdy** (temperatury; moc i PV) ze wspólnym kursorem i dymkiem po najechaniu, legenda |
+| Pompa · Harmonogram | `#hp-harmonogram` | tryb pracy, temperatura domyślna, wpisy z zaznaczeniem działającego, „Poza harmonogramem”, okno **Wpis harmonogramu** |
+| Pompa · Operacje | `#hp-operacje` | dzień, filtr Wszystkie / Użytkownik / System, oś czasu zdarzeń (kolor krawędzi = źródło, stan jako chip) |
+| Pompa · Ustawienia | `#hp-ustawienia` | polecenie do sterownika (tryb, temperatury, limit mocy, EEV, przełączniki ze stanem z pompy, wyszarzone gdy pompa steruje sama), komunikat po wysłaniu, **błędy sterownika** z Odblokuj / Restart (okno potwierdzenia), karta **Sterownik** (SN, Root ID, IP, firmware, Aktualizuj), **udostępnianie** |
+| Fotowoltaika · Podgląd | `#pv-podglad` | moc teraz, dziś / miesiąc / łącznie / temperatura, krzywa mocy dnia, panele z paskiem względem szczytu i stanem (słabszy panel oznaczony) |
+| Fotowoltaika · Wykres | `#pv-wykres` | produkcja dzienna w miesiącu (słupki), statystyki |
+| Hydrofor · Podgląd | `#tank-podglad` | **pasek Offline** z przyczyną, woda dziś, przełączniki pompy i kompresora, czas kompresora i przepływ, dzisiejsze uruchomienia, zużycie w tygodniu |
+| Włącznik · Podgląd | `#switch-podglad` | karta na przekaźnik: przełącznik, tryb, odliczanie, Włącz / Wyłącz / Harmonogram, czas włączenia; przekaźnik zablokowany na czerwono; tabela „Dziś” |
+| Piec · Podgląd | `#boiler-podglad` | kocioł z płomieniem, stan / sezon / tryb, moc, obciążenie, paliwo, spaliny, karty CWU i mieszaczy, urządzenia kotła, alarm podajnika |
+| Logowanie | `#logowanie` | e‑mail → kod (dwa kroki) |
+| Konto | `#konto` | dane, zapamiętanie, lista sterowników własnych i udostępnionych, usunięcie konta (okno potwierdzenia) |
+| Okna | — | Dane sterownika (ołówek), Kafelek pogody (z wyszukiwarką), Udostępnij sterownik (zakładki), Wpis harmonogramu, potwierdzenia, menu konta (awatar), arkusz „Więcej” (telefon) |
+
+Zakładki, których nie ma w makiecie (np. Dane hydroforu, Alarmy pieca), prowadzą do ekranu zastępczego z informacją; w menu są oznaczone kropką. Powstaną z tych samych komponentów (tabela, wykres, oś czasu, formularz).
+
+Zasady wykresów: jedna oś na wykres (temperatury i moc osobno, zamiast dwóch osi Y), cienkie słupki i linie 2 px, legenda przy ≥ 2 seriach, dymek i kursor po najechaniu, paleta serii sprawdzona pod kątem daltonizmu osobno dla motywu jasnego i ciemnego (`--ch-1…4` w `wariant-b.css`).
+
+Sprawdzone: 15 ekranów × 360 / 1280 px × jasny / ciemny bez przewijania w poziomie i bez błędów konsoli; okna na 360 i 1280 px.

@@ -67,3 +67,32 @@ ${body}
   if (ART) writeFileSync(join(ART, `propozycja-${v.id}.html`), `${head}\n${body}\n`);
   console.log('zapisano', v.id);
 }
+
+// Pełna makieta (etap 2) w kierunku B: makieta.html + baza.css + makieta.css + tokeny wariantu B.
+{
+  const v = VARIANTS.find((x) => x.id === 'b');
+  const varCss = themeCss(readFileSync(join(HERE, 'wariant-b.css'), 'utf8'), true);
+  const body = readFileSync(join(HERE, 'makieta.html'), 'utf8');
+  const extra = readFileSync(join(HERE, 'makieta.css'), 'utf8');
+  const fontsLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${v.fonts}&family=JetBrains+Mono:wght@500&display=swap">`;
+  const head = `<title>CHPC makieta</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n${fontsLink}\n<style>\n${varCss}\n${base}\n${extra}\n</style>`;
+  const full = `<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<!-- Pełna makieta nowego wyglądu chpc-web (etap 2, kierunek B „${v.name}”): lista sterowników, wszystkie zakładki pompy ciepła,
+     ekrany główne fotowoltaiki, hydroforu, włącznika i pieca, logowanie, konto, okna. Plik samodzielny (oprócz czcionek z Google Fonts).
+     Źródło: makiety/src/ (makieta.html, makieta.css, baza.css, wariant-b.css), składanie: node makiety/src/build.mjs -->
+${head}
+</head>
+<body>
+${body}
+</body>
+</html>
+`;
+  writeFileSync(join(REPO, 'makieta.html'), full);
+  if (ART) writeFileSync(join(ART, 'makieta.html'), `${head}\n${body}\n`);
+  console.log('zapisano makieta');
+}
