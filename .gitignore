@@ -52,3 +52,4 @@ yarn-error.log*
 
 # dokumentacja producenta pieca (cudze prawa autorskie, tylko lokalnie; źródła w README tego katalogu)
 devices/pellet-boiler-pelux200/docs/pellux200-dokumentacja/*.pdf
+makiety/zrzuty/

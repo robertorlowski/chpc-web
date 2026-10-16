@@ -261,3 +261,63 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .mock-jump { border: 0; border-radius: 999px; background: rgba(255,255,255,.1); color: inherit; font: inherit; padding: 4px 8px; max-width: 160px; }
 .mock-jump option { color: #111; }
 @media (max-width: 400px) { .mock-bar { gap: 6px; padding: 5px 6px; } .mock-jump { max-width: 120px; } }
+
+/* ---- etap 2b: pozostałe zakładki ---- */
+.field-inline { flex-direction: row; align-items: center; gap: 8px; }
+.field-inline > span { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--fg-2); }
+.field-inline select { width: auto; padding: 7px 10px; }
+.w-text { width: 220px !important; max-width: 100%; text-align: left !important; }
+.kpis-plain .kpi { color: var(--fg); }
+.kpis-plain .kpi-label { color: var(--fg-3); }
+.chipset { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-check { position: relative; }
+.chip-check input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.chip-check span { display: inline-block; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--line-strong); font-size: 13px; font-weight: 600; color: var(--fg-2); background: var(--card); }
+.chip-check input:checked + span { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.chip-check input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.params { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.params li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.params li:first-child { border-top: 0; padding-top: 2px; }
+.param-name { flex: 1; min-width: 0; font-weight: 500; }
+.param-name small { display: block; color: var(--fg-3); font-weight: 400; }
+.param-val { font-family: var(--font-num); font-weight: 700; font-size: 16px; white-space: nowrap; }
+.param-val .chip { margin-left: 6px; vertical-align: 2px; }
+.card-details { padding: 0; }
+.card-details summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: var(--card-pad); }
+.card-details summary::-webkit-details-marker { display: none; }
+.card-details summary h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-2); }
+.card-details summary::after { content: "▾"; color: var(--fg-3); margin-left: auto; }
+.card-details[open] summary::after { content: "▴"; }
+.card-details > *:not(summary) { margin: 0 var(--card-pad) 12px; }
+.fw-current { display: flex; align-items: center; gap: 14px; }
+.fw-ver { font-family: var(--font-num); font-size: 32px; font-weight: 700; line-height: 1; }
+.fw-ver.sm { font-size: 18px; min-width: 52px; }
+.fw-meta { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.fw-meta small { color: var(--fg-3); }
+.fw-desc { font-size: 14px; color: var(--fg-2); }
+.people .btn { flex: none; }
+.tl-time small { display: block; font-size: 11px; font-weight: 500; color: var(--fg-3); }
+.tl .tl-time { align-self: start; }
+.form-grid label small { display: block; color: var(--fg-3); font-size: 12px; font-weight: 400; }
+.form-row .t-name small { display: block; color: var(--fg-3); }
+.field input[type="file"] { padding: 8px; }
+
+/* dolna nawigacja: na ekranach sterownika (telefon) */
+.bottom-nav[hidden] { display: none !important; }
+@media (max-width: 899px) { .app.has-side .bottom-nav { display: flex; } }
+.card-details summary .card-hint { white-space: normal; text-align: right; min-width: 0; }
+@media (max-width: 560px) { .card-details summary { flex-wrap: wrap; } .card-details summary .card-hint { flex-basis: 100%; text-align: left; } }
+/* okna: treść nie poszerza okna; wąski telefon układa etykietę nad polami */
+.modal, .modal-body { min-width: 0; }
+.form-grid { grid-template-columns: minmax(0, 1fr) auto; }
+.form-grid label { min-width: 0; }
+@media (max-width: 400px) { .modal .form-grid { grid-template-columns: 1fr; row-gap: 4px; } .modal .form-grid label { margin-top: 6px; } }
+/* pasek makiety nad dolną nawigacją (telefon) */
+@media (max-width: 899px) { .app.has-side ~ .mock-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); } }
+/* kafelki KPI poza hero (ustawienia hydroforu): kolory strony, nie hero */
+.kpis-plain .kpi { background: var(--muted-bg); border-color: var(--line); color: var(--fg); }
+.kpis-plain .kpi-value small { color: var(--fg-3); }
+/* firmware i listy: długie opisy zawijają się zamiast ucinać */
+.fw-current { flex-wrap: wrap; }
+.fw-meta { flex-basis: 160px; }
+.people .person strong { white-space: normal; overflow-wrap: anywhere; }

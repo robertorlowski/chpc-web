@@ -41,7 +41,9 @@ Katalog [`src/`](src/):
 - `szkielet.html` – wspólny HTML trzech ekranów i skrypt makiety (motyw, przełączanie ekranów);
 - `baza.css` – wspólny układ i komponenty (kafelki, karty, przełączniki, formularze, nawigacja), zbudowane z tokenów;
 - `wariant-a.css`, `wariant-b.css`, `wariant-c.css` – tokeny i akcenty każdej propozycji; blok `/*DARK*/ … /*/DARK*/` to wartości ciemne, powielane przy składaniu do obu bloków ciemnych;
-- `build.mjs` – składa pliki `propozycja-*.html` (`node makiety/src/build.mjs`).
+- `makieta.html`, `makieta.css` – pełna makieta etapu 2 (ekrany, okna, skrypt nawigacji i wykresów);
+- `sprawdz.mjs` – test automatyczny makiety (niżej);
+- `build.mjs` – składa `propozycja-*.html` i `makieta.html` (`node makiety/src/build.mjs`).
 
 Edytować należy pliki w `src/` i złożyć ponownie; `propozycja-*.html` są wynikiem składania.
 
@@ -69,7 +71,26 @@ Ekrany:
 | Konto | `#konto` | dane, zapamiętanie, lista sterowników własnych i udostępnionych, usunięcie konta (okno potwierdzenia) |
 | Okna | — | Dane sterownika (ołówek), Kafelek pogody (z wyszukiwarką), Udostępnij sterownik (zakładki), Wpis harmonogramu, potwierdzenia, menu konta (awatar), arkusz „Więcej” (telefon) |
 
-Zakładki, których nie ma w makiecie (np. Dane hydroforu, Alarmy pieca), prowadzą do ekranu zastępczego z informacją; w menu są oznaczone kropką. Powstaną z tych samych komponentów (tabela, wykres, oś czasu, formularz).
+### Etap 2b: wszystkie zakładki i okna
+
+Makieta obejmuje każdy widok z menu każdego rodzaju sterownika (34 ekrany, 13 okien), więc ekran zastępczy nie jest już używany:
+
+| Sterownik | Ekrany |
+|---|---|
+| Fotowoltaika | + Dane (`#pv-dane`: odczyty dnia / dni miesiąca, filtr panelu, CSV), Ustawienia (`#pv-ustawienia`: instalacja z DTU, parametry mikrofalownika, sterownik źródłowy) |
+| Hydrofor | + Dane (`#tank-dane`: uruchomienia w miesiącu z „≈” przy czasie przybliżonym, odczyty wodomierza z dodawaniem i usuwaniem), Wykres (`#tank-wykres`: woda w dniach miesiąca), Operacje (`#tank-operacje`), Ustawienia (`#tank-ustawienia`: czas kompresora, przepływ pompy z wodomierza, sterownik z dostępną aktualizacją i oknem potwierdzenia „Aktualizuj”) |
+| Włącznik | + Dane (`#switch-dane`: włączenia w dniu, filtr przekaźnika), Harmonogram (`#switch-harmonogram`: wpisy po przekaźnikach, przekaźnik zablokowany trybem, okno wpisu), Operacje (`#switch-operacje`), Ustawienia (`#switch-ustawienia`: nazwy przekaźników, domyślny czas włączenia, sterownik) |
+| Piec | + Dane (`#boiler-dane`: główne kolumny / wszystkie parametry, alarm w wierszu), Wykres (`#boiler-wykres`: temperatury z wyborem serii chipami, pas palenia pod osią), Harmonogram (`#boiler-harmonogram`: praca kotła, lista trybu, wpisy CWU i pracy kotła, okno wpisu), Alarmy (`#boiler-alarmy`: aktywne i historia), Operacje (`#boiler-operacje`: zlecenia parametrów ze statusem), Ustawienia (`#boiler-ustawienia`: tryb pracy i sezon, główne parametry z oknem grupy, ostatnie zmiany, interwał, ustawienia zaawansowane zwinięte, sterownik) |
+| Firmware | `#firmware-tank`, `#firmware-switch`, `#firmware-boiler` (trybik na kafelku / „Wersje firmware” w ustawieniach): aktualna wersja z opisem i przełącznikiem „Aktualizacje”, sterowniki tego rodzaju, poprzednie wersje (przywróć, usuń), okno „Dodaj wersję” |
+
+### Test automatyczny makiety
+
+```bash
+node makiety/src/sprawdz.mjs           # wynik w konsoli, kod wyjścia 1 przy problemach
+node makiety/src/sprawdz.mjs --shots   # dodatkowo zrzuty każdego ekranu i okna do makiety/zrzuty/ (poza gitem)
+```
+
+Wymaga pakietu `playwright` (jest w `test/e2e/package.json`; inna ścieżka przez `PLAYWRIGHT=<…/playwright/index.mjs>`). Dla każdego z 34 ekranów przy 360, 412 i 1280 px w motywie jasnym i ciemnym sprawdza: brak przewijania strony w poziomie, żaden element nie wystaje poza okno, treść kart nie jest ucięta, pasek górny jest, na telefonie ekran sterownika ma dolną nawigację (a na komputerze nie), wykresy są narysowane, brak błędów konsoli. Dodatkowo: każdy widok z menu ma ekran, każdy przycisk prowadzi do istniejącego ekranu, każde okno otwiera się i zamyka klawiszem Esc, nawigacja kafelek → podgląd → zakładka → wstecz działa. Ostatni przebieg (2026-10-16): 298 sprawdzeń, 0 problemów.
 
 Zasady wykresów: jedna oś na wykres (temperatury i moc osobno, zamiast dwóch osi Y), cienkie słupki i linie 2 px, legenda przy ≥ 2 seriach, dymek i kursor po najechaniu, paleta serii sprawdzona pod kątem daltonizmu osobno dla motywu jasnego i ciemnego (`--ch-1…4` w `wariant-b.css`).
 
