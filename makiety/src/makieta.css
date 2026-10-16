@@ -332,3 +332,15 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .tile-side .warn-line { width: auto; white-space: normal; line-height: 1.3; padding: 6px 10px; font-size: 12px; }
 .tile-facts { margin-top: auto; }
 .tile .relays { margin-bottom: auto; }
+
+/* ---- stan „pracuje” (pompa ciepła: sprężarka, piec: palenie): pulsująca kropka, animowana ikona, poświata krawędzi ---- */
+@keyframes puls { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: .7; } }
+@keyframes fale { 0% { transform: translateY(0); } 100% { transform: translateY(-3px); } }
+@keyframes plomien { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.08) rotate(-3deg); } 60% { transform: scale(.96) rotate(2deg); } }
+@keyframes poswiata { 0%, 100% { box-shadow: inset 3px 0 0 var(--kind-fg); } 50% { box-shadow: inset 3px 0 0 var(--kind-fg), 0 0 18px -4px var(--kind-fg); } }
+.is-running .state .dot, .state-pill.is-running .dot, .chip.is-running .dot { animation: puls 1.6s ease-out infinite; }
+.tile.is-running[data-kind="hp"] .tile-icon .ic { animation: fale 1.2s ease-in-out infinite alternate; }
+.tile.is-running[data-kind="boiler"] .tile-icon .ic { animation: plomien 1.1s ease-in-out infinite; transform-origin: 50% 90%; }
+.tile.is-running::before { animation: poswiata 2.4s ease-in-out infinite; }
+.tile.is-running .tile-icon { box-shadow: 0 0 0 2px var(--kind-bg), 0 0 14px -2px var(--kind-fg); }
+@media (prefers-reduced-motion: reduce) { .is-running .dot, .tile.is-running .ic, .tile.is-running::before { animation: none !important; } }

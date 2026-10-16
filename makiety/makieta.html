@@ -697,6 +697,18 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .tile-facts { margin-top: auto; }
 .tile .relays { margin-bottom: auto; }
 
+/* ---- stan „pracuje” (pompa ciepła: sprężarka, piec: palenie): pulsująca kropka, animowana ikona, poświata krawędzi ---- */
+@keyframes puls { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: .7; } }
+@keyframes fale { 0% { transform: translateY(0); } 100% { transform: translateY(-3px); } }
+@keyframes plomien { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.08) rotate(-3deg); } 60% { transform: scale(.96) rotate(2deg); } }
+@keyframes poswiata { 0%, 100% { box-shadow: inset 3px 0 0 var(--kind-fg); } 50% { box-shadow: inset 3px 0 0 var(--kind-fg), 0 0 18px -4px var(--kind-fg); } }
+.is-running .state .dot, .state-pill.is-running .dot, .chip.is-running .dot { animation: puls 1.6s ease-out infinite; }
+.tile.is-running[data-kind="hp"] .tile-icon .ic { animation: fale 1.2s ease-in-out infinite alternate; }
+.tile.is-running[data-kind="boiler"] .tile-icon .ic { animation: plomien 1.1s ease-in-out infinite; transform-origin: 50% 90%; }
+.tile.is-running::before { animation: poswiata 2.4s ease-in-out infinite; }
+.tile.is-running .tile-icon { box-shadow: 0 0 0 2px var(--kind-bg), 0 0 14px -2px var(--kind-fg); }
+@media (prefers-reduced-motion: reduce) { .is-running .dot, .tile.is-running .ic, .tile.is-running::before { animation: none !important; } }
+
 </style>
 </head>
 <body>
@@ -737,14 +749,14 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
           <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
         </article>
 
-        <article class="tile tile-device is-link" data-kind="hp" data-go="hp-podglad" tabindex="0" role="link" aria-label="Pompa ciepła, otwórz">
+        <article class="tile tile-device is-link is-running" data-kind="hp" data-go="hp-podglad" tabindex="0" role="link" aria-label="Pompa ciepła, otwórz">
           <div class="tile-head">
             <span class="tile-icon"><i data-icon="hp"></i></span>
             <h2 class="tile-name">Pompa ciepła</h2>
             <span class="chip chip-ok"><i class="dot"></i>Online</span>
             <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Dane sterownika" data-modal="dane-sterownika"><i data-icon="edit"></i></button><button type="button" class="icon-btn sm" aria-label="Firmware"><i data-icon="chip"></i></button></span>
           </div>
-          <div class="tile-main"><div class="tile-value"><span class="big">42,5</span><span class="unit">°C</span><span class="big-label">zbiornik · cel 38–45</span></div><div class="tile-side"><span class="state state-on"><i class="dot"></i>Sprężarka pracuje ·&nbsp;49&nbsp;min</span></div></div>
+          <div class="tile-main"><div class="tile-value"><span class="big">42,5</span><span class="unit">°C</span><span class="big-label">zbiornik · cel 38–45</span></div><div class="tile-side"><span class="state state-on" title="Sprężarka pracuje od 49 min"><i class="dot"></i>49&nbsp;min</span></div></div>
           <dl class="tile-facts">
             <div><dt>Tryb</dt><dd>Auto</dd></div>
             <div><dt>Moc</dt><dd>2 140 W</dd></div>
@@ -803,7 +815,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
           <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
         </article>
 
-        <article class="tile tile-device is-link" data-kind="boiler" data-go="boiler-podglad" tabindex="0" role="link" aria-label="Piec Pellux 200, otwórz">
+        <article class="tile tile-device is-link is-running" data-kind="boiler" data-go="boiler-podglad" tabindex="0" role="link" aria-label="Piec Pellux 200, otwórz">
           <div class="tile-head">
             <span class="tile-icon"><i data-icon="fire"></i></span>
             <h2 class="tile-name">Piec Pellux 200</h2>
@@ -858,7 +870,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
           <span class="hero-note">cel 38–45 °C · <strong>CWU</strong> grzane · zmiana 16:00</span>
         </div>
         <div class="hero-side">
-          <div class="state-pill state-on"><i class="dot"></i>Sprężarka pracuje<small>49 min · 1,87 kWh w cyklu</small></div>
+          <div class="state-pill state-on is-running"><i class="dot"></i>Sprężarka pracuje<small>49 min · 1,87 kWh w cyklu</small></div>
           <div class="hero-kpis">
             <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">2 140<small>W</small></span></div>
             <div class="kpi"><span class="kpi-label">PV teraz</span><span class="kpi-value">1 655<small>W</small></span></div>
@@ -1259,7 +1271,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
         </div>
         <div class="hero-side">
           <div class="pill-row">
-            <span class="chip chip-warn"><i class="dot"></i>Praca</span>
+            <span class="chip chip-warn is-running"><i class="dot"></i>Praca</span>
             <span class="chip chip-off">Zima</span>
             <span class="chip chip-off">Tryb: pompa ciepła</span>
           </div>
