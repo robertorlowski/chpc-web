@@ -59,6 +59,21 @@ const DEFAULT_NAMES: Record<DeviceType, string> = {
   [DeviceType.PHOTOVOLTAIC]: 'Fotowoltaika',
 };
 
+// Ostatni stan listy w localStorage (sterowniki, dane kafelków, kafelki pogody, temperatura): po otwarciu lista
+// rysuje się od razu w znanym układzie i rozmiarze, a dane z serwera (ok. 2 s) podmieniają go w tle. Wiek danych
+// w stopkach liczy się z czasu odczytu, więc stare dane nie udają świeżych.
+const CACHE_KEYS = { devices: 'chpc.devices', tiles: 'chpc.deviceTiles', weather: 'chpc.weatherTiles', outdoor: 'chpc.outdoor' };
+function readCache<T>(key: string, fallback: T): T {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeCache(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bez pamięci podręcznej */ }
+}
+
 export function tileName(device: Device, all: Device[]): string {
   const name = device.name?.trim();
   if (name) return name;
@@ -118,8 +133,8 @@ const MAX_COLUMNS = 4;
 export const Devices: React.FC = () => {
   const navigate = useNavigate();
   const { clearDevice, selectDevice } = useDevice();
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [weatherTiles, setWeatherTiles] = useState<WeatherTile[]>([]);
+  const [devices, setDevices] = useState<Device[]>(() => readCache(CACHE_KEYS.devices, []));
+  const [weatherTiles, setWeatherTiles] = useState<WeatherTile[]>(() => readCache(CACHE_KEYS.weather, []));
   // pola szachownicy w trybie „Zmień układ” (id albo null), do zapisu przy „Gotowe”
   const [cells, setCells] = useState<(string | null)[] | null>(null);
   // kafelek wybrany „Przenieś”: następne kliknięcie pola go tam stawia (zamiana, gdy zajęte)
@@ -131,7 +146,7 @@ export const Devices: React.FC = () => {
   const [columns, setColumns] = useState(MAX_COLUMNS);
   // popup „Kafelek pogody”: null = nowy, undefined = zamknięty
   const [editingWeather, setEditingWeather] = useState<WeatherTile | null | undefined>(undefined);
-  const [tiles, setTiles] = useState<DeviceTiles>({});
+  const [tiles, setTiles] = useState<DeviceTiles>(() => readCache(CACHE_KEYS.tiles, {}));
   // do czasu pierwszej odpowiedzi kafelki pokazują duszki (stała wysokość, bez „rozszerzania się” po załadowaniu)
   const [devicesLoaded, setDevicesLoaded] = useState(false);
   const [tilesLoaded, setTilesLoaded] = useState(false);
@@ -145,7 +160,7 @@ export const Devices: React.FC = () => {
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // temperatura z czujnika kotła i pogoda z Open-Meteo (GET /temperature), odświeżane razem z kafelkami;
   // undefined = wczytywanie
-  const [outdoor, setOutdoor] = useState<OutdoorConditions | null | undefined>(undefined);
+  const [outdoor, setOutdoor] = useState<OutdoorConditions | null | undefined>(() => readCache<OutdoorConditions | undefined>(CACHE_KEYS.outdoor, undefined));
   // wzór kafelka (projektant kafelka): najpierw ostatni znany z localStorage, potem z serwera
   const [template, setTemplate] = useState<TileTemplate>(cachedTemplate);
 
@@ -154,6 +169,7 @@ export const Devices: React.FC = () => {
       .then((list) => {
         if (list) {
           setDevices(list);
+          writeCache(CACHE_KEYS.devices, list);
           rememberDeviceCount(list.length);
         } else {
           setError('Nie udało się pobrać urządzeń.');
@@ -165,12 +181,12 @@ export const Devices: React.FC = () => {
 
   const loadTiles = () => {
     DeviceRequests.getDeviceTiles().then((result) => {
-      if (result) setTiles(result);
+      if (result) { setTiles(result); writeCache(CACHE_KEYS.tiles, result); }
       setTilesLoaded(true);
       setNow(Date.now());
     });
-    DeviceRequests.getOutdoorConditions().then(setOutdoor);
-    WeatherTileRequests.list().then((result) => { if (result) setWeatherTiles(result); });
+    DeviceRequests.getOutdoorConditions().then((result) => { setOutdoor(result); if (result) writeCache(CACHE_KEYS.outdoor, result); });
+    WeatherTileRequests.list().then((result) => { if (result) { setWeatherTiles(result); writeCache(CACHE_KEYS.weather, result); } });
   };
 
   // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
@@ -278,18 +294,19 @@ export const Devices: React.FC = () => {
       const bottom = bottomRef.current;
       const spacerElement = spacerRef.current;
       if (!bottom || !spacerElement) { setSpacer(0); return; }
-      spacerElement.style.height = '0px';
       const footer = document.querySelector<HTMLElement>('.device-footer');
       const limit = window.innerHeight - (footer?.offsetHeight ?? 0) - 10;
       // lista na komputerze ma zoom 0,9 (ustawiony na .device-selection; na potomkach computed zoom = 1)
       const zoom = Number(getComputedStyle(bottom.closest('.device-selection') ?? bottom).zoom) || 1;
-      const free = (limit - bottom.getBoundingClientRect().bottom) / zoom;
-      setSpacer(Math.max(0, Math.round(free)));
+      // bez zerowania odstępu w DOM (React nie przywróciłby go przy tej samej wartości): bieżący odstęp się dolicza
+      const free = (limit - bottom.getBoundingClientRect().bottom + spacerElement.getBoundingClientRect().height) / zoom;
+      // co najmniej zwykły odstęp między kafelkami: na telefonie i przy długiej liście dolna część nie przykleja się do górnej
+      setSpacer(Math.max(gap, Math.round(free)));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [layoutKey, tilesLoaded]);
+  }, [layoutKey, tilesLoaded, gap]);
 
   const startReordering = () => {
     setCells(assignSlots(allItems));
@@ -526,7 +543,7 @@ export const Devices: React.FC = () => {
           <>
             <section className={`device-list device-grid${reordering ? ' editing' : ''}`} ref={listRef} style={gridStyle}>
               {topCells.map((slot) => renderCell(slot, 0))}
-              {!devicesLoaded && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
+              {!devicesLoaded && devices.length === 0 && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
           <div key={`skeleton-${index}`} className="device-card">
             <div className="device-choose" aria-hidden="true">
               <TemplateTile template={template} now={now} loading />

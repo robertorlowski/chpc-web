@@ -137,11 +137,12 @@ export function weatherSlots(tile: WeatherTile, now: number, outdoor?: OutdoorCo
   // bez ikony przy temperaturze opis nieba zaczyna się pod liczbą i ma całą szerokość lewej kolumny
   slots.fullLabel = true;
   if (weather) {
-    slots.mainLabel = boiler ? `${weatherDescription(weather.code)} · czujnik kotła` : weatherDescription(weather.code);
+    // źródło temperatury w stopce: pod liczbą zostaje sam opis nieba (dłuższy tekst nie mieścił się na telefonie)
+    slots.mainLabel = weatherDescription(weather.code);
     slots.side1 = <span className="tt-fact"><Pictogram name="waves" /><b>{Math.round(weather.windSpeed)} km/h</b><small>wiatr</small></span>;
     slots.side2 = <span className="tt-fact"><Pictogram name="bubbles" /><b>{Math.round(weather.cloudCover)} %</b><small>chmury</small></span>;
     slots.row = <span className="tt-row"><span className="tt-fact"><Pictogram name="drop" /><b>{precipitationText(weather)}</b></span></span>;
-    slots.footer = <span>Open-Meteo · {agoLabel(now - new Date(weather.at).getTime())}</span>;
+    slots.footer = <span>{boiler ? 'czujnik kotła · ' : ''}Open-Meteo · {agoLabel(now - new Date(weather.at).getTime())}</span>;
   } else {
     slots.mainLabel = boiler ? 'czujnik kotła' : 'brak pogody z włącznika';
     slots.footer = <span>{tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)'}</span>;
@@ -199,7 +200,11 @@ export function TemplateTile({ template, deviceType, name, tile, now, loading, d
   // pola bez treści znikają i kafelek jest niższy (jak na produkcji),
   // bez wartości bocznych wartość główna jest szersza; w projektancie zawsze pełny wzór
   let shape = template;
-  if (!design) {
+  if (!design && loading && !tile && !given) {
+    // duszek przed pierwszą odpowiedzią: wysokość zwykłego kafelka (bez ostrzeżenia, stopka w jednym wierszu), żeby
+    // kafelek nie urósł po wczytaniu danych
+    shape = collapseFooterLine(collapseEmpty(shape, new Set(TILE_SLOT_KEYS.filter((key) => key !== 'warning'))));
+  } else if (!design) {
     shape = collapseEmpty(shape, new Set(TILE_SLOT_KEYS.filter((key) => slots[key] != null)));
     if (!(tile?.foot && tile.updatedAt) || slots.footInSide) shape = collapseFooterLine(shape); // stopka ma jeden wiersz
     if (!slots.side1 && !slots.side2 && !slots.side3) shape = widenMain(shape);
