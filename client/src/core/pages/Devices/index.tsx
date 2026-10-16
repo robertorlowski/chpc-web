@@ -9,6 +9,9 @@
 // z czujnika kotła (GET /temperature), gdy jest świeża. Nie ma sterownika domyślnego ani automatycznego wyboru:
 // lista jest zawsze ekranem startowym (DeviceGuard przekierowuje tu, gdy nie wybrano sterownika). Na dole własna
 // stopka: lewa część wolna, po prawej zajętość bazy danych (GET /api/devices/db-stats).
+// Konta użytkowników: każde konto ma własny układ szachownicy, ukryte kafelki i kafelki pogody (zapis w koncie,
+// PUT /devices/order, PUT /devices/:rootId {hidden}); ołówek tylko przy własnych sterownikach (udostępnione: zakładki
+// w podpowiedzi), trybik firmware, „Projekt kafelka” i zajętość bazy tylko dla użytkownika systemowego.
 // Kafelki odświeżają się jak ekran główny pompy: po komunikacie WebSocket „update” któregokolwiek sterownika (jedno
 // połączenie ?rootIds=…, najwyżej raz na TILES_UPDATE_MIN_MS) i co TILES_REFRESH_MS, gdy żaden nic nie wysyła.
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -25,6 +28,7 @@ import { WeatherTileModal } from '../../components/WeatherTileModal';
 import { cachedTemplate, cacheTemplate, normalizeTemplate, TILE_TEMPLATE, TileTemplate } from '../../tile-template';
 import { SettingsIcon } from '../../components/icons';
 import { useDevice } from '../../context/DeviceContext';
+import { useAuth } from '../../context/AuthContext';
 import './style.css';
 
 const MB = 1024 * 1024;
@@ -62,7 +66,10 @@ const DEFAULT_NAMES: Record<DeviceType, string> = {
 // Ostatni stan listy w localStorage (sterowniki, dane kafelków, kafelki pogody, temperatura): po otwarciu lista
 // rysuje się od razu w znanym układzie i rozmiarze, a dane z serwera (ok. 2 s) podmieniają go w tle. Wiek danych
 // w stopkach liczy się z czasu odczytu, więc stare dane nie udają świeżych.
-const CACHE_KEYS = { devices: 'chpc.devices', tiles: 'chpc.deviceTiles', weather: 'chpc.weatherTiles', outdoor: 'chpc.outdoor' };
+// klucze osobno dla konta: po przelogowaniu nie widać przez chwilę cudzych kafelków
+const cacheKeys = (userId = '') => ({
+  devices: `chpc.devices.${userId}`, tiles: `chpc.deviceTiles.${userId}`, weather: `chpc.weatherTiles.${userId}`, outdoor: 'chpc.outdoor',
+});
 function readCache<T>(key: string, fallback: T): T {
   try {
     return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback;
@@ -100,6 +107,16 @@ const rememberDeviceCount = (count: number) => {
   try { localStorage.setItem(DEVICE_COUNT_KEY, String(count)); } catch { /* bez zapamiętania */ }
 };
 
+// Podpowiedź na kafelku udostępnionego sterownika: właściciel i zakładki z dostępem (kafelek ma stały rozmiar,
+// więc bez dodatkowego wiersza jak przy sekcjach właścicieli).
+function sharedInfo(device: Device): string | undefined {
+  if (device.access !== 'shared') return undefined;
+  const view = getDeviceTypeView(device.deviceType);
+  const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : view.views.find((entry) => entry.path === path)?.label ?? path);
+  const owner = device.owner?.name || device.owner?.email;
+  return `${owner ? `Udostępnia: ${owner}. ` : ''}Dostęp: ${tabs.join(', ')}`;
+}
+
 // odświeżanie stanu kafelków i wieku danych w stopce kafelka
 const TILES_REFRESH_MS = 30 * 1000;
 // po „update” z WebSocket: kafelki najwyżej raz na tyle (pompa wysyła co 10–30 s, włącznik przy każdej zmianie)
@@ -133,6 +150,9 @@ const MAX_COLUMNS = 4;
 export const Devices: React.FC = () => {
   const navigate = useNavigate();
   const { clearDevice, selectDevice } = useDevice();
+  const { user } = useAuth();
+  const isSystem = !!user?.isSystem;
+  const CACHE_KEYS = cacheKeys(user?.id);
   const [devices, setDevices] = useState<Device[]>(() => readCache(CACHE_KEYS.devices, []));
   const [weatherTiles, setWeatherTiles] = useState<WeatherTile[]>(() => readCache(CACHE_KEYS.weather, []));
   // pola szachownicy w trybie „Zmień układ” (id albo null), do zapisu przy „Gotowe”
@@ -422,7 +442,8 @@ export const Devices: React.FC = () => {
           <span>{moving ? 'Kliknij pole, w którym ma stanąć kafelek.' : '„Przenieś” i wybór pola ustawiają układ, „+” w pustym polu dodaje pogodę, oko ukrywa kafelek, pusty wiersz spycha resztę do dołu ekranu.'}</span>
           <div className="device-reorder-buttons">
             <button type="button" onClick={() => { setAddAt(null); setEditingWeather(null); }} disabled={savingOrder}>Dodaj kafelek pogody</button>
-            <button type="button" onClick={() => navigate('/tile-designer')} disabled={savingOrder}>Projekt kafelka</button>
+            {/* wzór kafelka jest wspólny dla wszystkich kont: zmienia go tylko użytkownik systemowy */}
+            {isSystem && <button type="button" onClick={() => navigate('/tile-designer')} disabled={savingOrder}>Projekt kafelka</button>}
             <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
             <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
           </div>
@@ -487,7 +508,8 @@ export const Devices: React.FC = () => {
           return (
             <div key={item.id} className={classes} style={position}>
               {item.kind === 'device' ? (
-                <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(item.device)}>
+                <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(item.device)}
+                  title={sharedInfo(item.device)}>
                   <TemplateTile template={template} deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} />
                 </button>
               ) : (
@@ -526,7 +548,7 @@ export const Devices: React.FC = () => {
                 </>
               ) : (
                 <div className="device-tools">
-                  {item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
+                  {isSystem && item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
                     <button
                       type="button"
                       className="device-firmware"
@@ -537,7 +559,7 @@ export const Devices: React.FC = () => {
                       <SettingsIcon />
                     </button>
                   )}
-                  {editButton}
+                  {(item.kind === 'weather' || item.device.access !== 'shared') && editButton}
                 </div>
               )}
             </div>
@@ -555,7 +577,7 @@ export const Devices: React.FC = () => {
           </div>
         ))}
               {devicesLoaded && devices.length === 0 && !error && (
-                <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
+                <p>Brak sterowników. Sterownik pojawi się tutaj, gdy ktoś Ci go udostępni albo po przypisaniu do konta.</p>
               )}
             </section>
             {bottomCells.length > 0 && (
@@ -577,11 +599,12 @@ export const Devices: React.FC = () => {
       <WeatherTileModal tile={editingWeather} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
     )}
 
-      <footer className="device-footer devices-footer">
+      {/* zajętość bazy tylko dla użytkownika systemowego (konta użytkowników); bez niej stopki nie ma */}
+      {isSystem && <footer className="device-footer devices-footer">
         {/* lewa część zarezerwowana na później (plan 2026-10-04) */}
         <span />
         <DatabaseUsage />
-      </footer>
+      </footer>}
     </>
   );
 };

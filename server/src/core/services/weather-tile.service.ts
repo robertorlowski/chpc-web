@@ -2,12 +2,18 @@
 // miejsca do pobrania przez włącznik (weather_queries w odpowiedzi POST /switch/state) i kafelek „Dom”.
 // Pogodę dla każdego miejsca trzyma w pamięci meteo.service (klucz = id kafelka; dom także pod kluczem
 // ze starszego włącznika, który pobiera jedno miejsce).
+// Konta użytkowników: każde konto ma własne kafelki (ownerId; bez właściciela: „Dom” i kafelki sprzed kont,
+// użytkownika systemowego), pole i ukrycie w układzie konta (tile-layout.service.ts). viewer = undefined
+// (AUTH_DISABLED=1): wszystkie kafelki i układ wspólny jak przed kontami.
 import { Types } from 'mongoose';
 import { DeviceModel } from '../models/device.model';
 import { WeatherTileDocument, WeatherTileModel } from '../models/weather-tile.model';
 import { getWeatherFor, setHomeWeatherKey, WEATHER_LOCATION, Weather } from './meteo.service';
+import { appendToViewerOrder, placeForViewer, setViewerHidden, TileViewer, viewersHiding } from './tile-layout.service';
 
 export const MAX_WEATHER_TILES = 8;
+// tyle miejsc przyjmuje włącznik (WEATHER_MAX_PLACES w devices/switch/src/weather.hpp)
+const MAX_SWITCH_PLACES = 8;
 const NAME_MAX = 40;
 
 export type WeatherTileInput = { name?: unknown; lat?: unknown; lon?: unknown; hidden?: unknown };
@@ -59,17 +65,37 @@ export async function ensureHomeWeatherTile(): Promise<WeatherTileDocument> {
   return home;
 }
 
-export async function listWeatherTiles(): Promise<WeatherTile[]> {
-  await ensureHomeWeatherTile();
-  const tiles = await WeatherTileModel.find().sort({ name: 1 }).lean<WeatherTileDocument[]>();
-  const rank = (tile: WeatherTileDocument) => tile.sortOrder ?? Number.MAX_SAFE_INTEGER;
-  return tiles.sort((a, b) => rank(a) - rank(b)).map(toPublic);
+// kafelki konta: własne, a u użytkownika systemowego także bez właściciela
+const ownedFilter = (viewer: TileViewer) => viewer.isSystem
+  ? { $or: [{ ownerId: String(viewer._id) }, { ownerId: null }, { ownerId: { $exists: false } }] }
+  : { ownerId: String(viewer._id) };
+
+async function findTile(id: string, viewer?: TileViewer): Promise<WeatherTileDocument> {
+  if (!isObjectId(id)) throw new Error('Weather tile not found.');
+  const tile = await WeatherTileModel.findOne({ _id: id, ...(viewer ? ownedFilter(viewer) : {}) }).lean<WeatherTileDocument>();
+  if (!tile) throw new Error('Weather tile not found.');
+  return tile;
 }
 
-export async function createWeatherTile(input: WeatherTileInput): Promise<WeatherTile> {
+export async function listWeatherTiles(viewer?: TileViewer): Promise<WeatherTile[]> {
+  await ensureHomeWeatherTile();
+  const tiles = await WeatherTileModel.find(viewer ? ownedFilter(viewer) : {}).sort({ name: 1 }).lean<WeatherTileDocument[]>();
+  const list = viewer ? await placeForViewer(viewer, tiles.map(toPublic)) : tiles.map(toPublic);
+  const rank = (tile: WeatherTile) => tile.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return list.sort((a, b) => rank(a) - rank(b));
+}
+
+export async function createWeatherTile(input: WeatherTileInput, viewer?: TileViewer): Promise<WeatherTile> {
   const data = parseWeatherTile(input);
   await ensureHomeWeatherTile();
-  if (await WeatherTileModel.countDocuments() >= MAX_WEATHER_TILES) throw new Error(`Najwyżej ${MAX_WEATHER_TILES} kafelków pogody.`);
+  if (await WeatherTileModel.countDocuments(viewer ? ownedFilter(viewer) : {}) >= MAX_WEATHER_TILES) {
+    throw new Error(`Najwyżej ${MAX_WEATHER_TILES} kafelków pogody.`);
+  }
+  if (viewer) {
+    const tile = (await WeatherTileModel.create({ ...data, hidden: false, ownerId: String(viewer._id) })).toObject();
+    const sortOrder = await appendToViewerOrder(viewer, String(tile._id));
+    return { ...toPublic(tile), sortOrder, hidden: false };
+  }
   // nowy kafelek w pierwszym wolnym polu za ostatnim zajętym (sterownik albo kafelek pogody)
   const [lastTile, lastDevice] = await Promise.all([
     WeatherTileModel.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean<WeatherTileDocument>(),
@@ -79,18 +105,28 @@ export async function createWeatherTile(input: WeatherTileInput): Promise<Weathe
   return toPublic(tile.toObject());
 }
 
-export async function updateWeatherTile(id: string, input: WeatherTileInput): Promise<WeatherTile> {
-  if (!isObjectId(id)) throw new Error('Weather tile not found.');
+// Zmiana kafelka; z kontem ukrycie (hidden) trafia do układu konta, nie do dokumentu.
+export async function updateWeatherTile(id: string, input: WeatherTileInput, viewer?: TileViewer): Promise<WeatherTile> {
   const data = parseWeatherTile(input, true);
+  await findTile(id, viewer);
+  if (viewer && data.hidden !== undefined) {
+    await setViewerHidden(viewer, id, data.hidden, await listWeatherTiles(viewer));
+    delete data.hidden;
+  }
   const tile = await WeatherTileModel.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true }).lean<WeatherTileDocument>();
   if (!tile) throw new Error('Weather tile not found.');
-  return toPublic(tile);
+  return viewer ? (await placeForViewer(viewer, [toPublic(tile)]))[0] : toPublic(tile);
 }
 
-export async function removeWeatherTile(id: string): Promise<void> {
-  if (!isObjectId(id)) throw new Error('Weather tile not found.');
-  const tile = await WeatherTileModel.findByIdAndDelete(id).lean<WeatherTileDocument>();
-  if (!tile) throw new Error('Weather tile not found.');
+export async function removeWeatherTile(id: string, viewer?: TileViewer): Promise<void> {
+  const tile = await findTile(id, viewer);
+  if (tile.home) throw new Error('Kafelka „Dom” nie można usunąć.');
+  await WeatherTileModel.deleteOne({ _id: id });
+}
+
+// id kafelków pogody konta (do sprawdzenia układu w PUT /devices/order)
+export async function viewerWeatherTileIds(viewer: TileViewer): Promise<string[]> {
+  return (await WeatherTileModel.find(ownedFilter(viewer)).select('_id').lean<{ _id: unknown }[]>()).map((tile) => String(tile._id));
 }
 
 export const countWeatherTiles = (ids: string[]) => WeatherTileModel.countDocuments({ _id: { $in: ids } });
@@ -102,10 +138,20 @@ export async function setWeatherTilesOrder(entries: { id: string; index: number 
   })));
 }
 
-// Miejsca, dla których włącznik pobiera pogodę: dom zawsze (GET /temperature), pozostałe tylko widoczne.
+// Miejsca, dla których włącznik pobiera pogodę: dom zawsze (GET /temperature), pozostałe tylko widoczne dla
+// właściciela (kafelek bez właściciela: ukryty wspólnie albo przez użytkownika systemowego); najwyżej tyle, ile
+// przyjmuje włącznik, najstarsze kafelki pierwsze.
 export async function weatherQueries(): Promise<{ id: string; lat: number; lon: number }[]> {
   const home = await ensureHomeWeatherTile();
-  const tiles = await WeatherTileModel.find({ $or: [{ home: true }, { hidden: { $ne: true } }] })
-    .select('lat lon home').lean<WeatherTileDocument[]>();
-  return [home, ...tiles.filter((tile) => !tile.home)].map((tile) => ({ id: String(tile._id), lat: tile.lat, lon: tile.lon }));
+  const tiles = await WeatherTileModel.find({ home: { $ne: true } }).sort({ _id: 1 })
+    .select('lat lon hidden ownerId').lean<WeatherTileDocument[]>();
+  const hiding = await viewersHiding(tiles.map((tile) => String(tile._id)));
+  const hidden = (tile: WeatherTileDocument) => {
+    const id = String(tile._id);
+    if (tile.ownerId) return hiding.some((viewer) => viewer.id === tile.ownerId && viewer.hidden.has(id));
+    const system = hiding.find((viewer) => viewer.isSystem);
+    return system ? system.hidden.has(id) : !!tile.hidden;
+  };
+  return [home, ...tiles.filter((tile) => !hidden(tile))].slice(0, MAX_SWITCH_PLACES)
+    .map((tile) => ({ id: String(tile._id), lat: tile.lat, lon: tile.lon }));
 }

@@ -1,6 +1,9 @@
 // Endpointy urządzeń wspólne dla wszystkich rodzajów: lista i wybór w kliencie
 // (/devices), zgłoszenie sterownika (/devices/register), nazwa, sterownik domyślny
 // i ustawienia (/device/properties). Logika w services/device.service.ts.
+// Konta użytkowników (2026-10-11): lista, kafelki, sterownik domyślny i kolejność według zalogowanego (req.user);
+// nazwę, aktualizację firmware i udostępnienia zmienia tylko właściciel albo użytkownik systemowy. Bez req.user
+// (AUTH_DISABLED=1, testy starszych modułów) zachowanie jak przed kontami.
 import { Request, Response } from 'express';
 import { DefinitionConflictError, DeviceProperties, DeviceType } from '../types';
 import { DeviceDocument } from '../models/device.model';
@@ -16,6 +19,12 @@ import {
 } from '../services/firmware.service';
 import { sendMessage } from '../websocket';
 import { serverBaseUrl } from './firmware.controller';
+import { UserEntry, UserModel } from '../models/user.model';
+import { accessibleDevices, canManage, deviceAccess } from '../services/access.service';
+import { placeForViewer, saveViewerOrder, setViewerHidden } from '../services/tile-layout.service';
+import { viewerWeatherTileIds } from '../services/weather-tile.service';
+import { AuthError, userName } from '../services/auth.service';
+import { createShare, deleteShare, listShares, updateShare } from '../services/share.service';
 import { appUserMeta, logPropertiesChange, metaFromRequest, setStatusByRef } from '../services/operation-log.service';
 
 // Kształt urządzenia w API; rootId to _id dokumentu w kolekcji devices.
@@ -68,8 +77,52 @@ export async function updateProperties(req: Request<{}, {}, DeviceProperties>, r
   }
 }
 
-export async function getDevices(_req: Request, res: Response) {
+// Sterowniki widoczne dla użytkownika z właścicielem i rodzajem dostępu; pole szachownicy (sortOrder) i ukrycie
+// (hidden) z układu konta (tile-layout.service.ts).
+async function userDevices(sessionUser: UserEntry) {
+  const access = await accessibleDevices(sessionUser);
+  const devices = (await listDevices()).filter((device) => access.has(String(device._id)));
+  const ownerIds = [...new Set(devices.map((device) => device.ownerId).filter((id): id is string => !!id))];
+  const owners = new Map((await UserModel.find({ _id: { $in: ownerIds } }).lean<UserEntry[]>()).map((owner) => [String(owner._id), owner]));
+  const list = devices.map((device) => {
+    const rootId = String(device._id);
+    const entry = access.get(rootId)!;
+    const owner = device.ownerId ? owners.get(device.ownerId) : undefined;
+    return {
+      ...toPublicDevice(device),
+      id: rootId,
+      access: entry.role,
+      ...(entry.role === 'shared' ? { tabs: entry.tabs } : {}),
+      owner: owner ? { id: String(owner._id), name: userName(owner), email: owner.email ?? null } : null,
+    };
+  });
+  const rank = (device: { sortOrder?: number }) => device.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return (await placeForViewer(sessionUser, list)).sort((a, b) => rank(a) - rank(b)).map(({ id: _id, ...device }) => device);
+}
+
+// Zmiana sterownika z :rootId tylko dla właściciela i użytkownika systemowego (bez req.user: jak przed kontami).
+async function allowManage(req: Request<{ rootId: string }>, res: Response): Promise<boolean> {
+  if (!req.user) return true;
   try {
+    const access = await deviceAccess(req.user, req.params.rootId);
+    if (!access) {
+      res.status(404).json({ message: 'Nie znaleziono sterownika.' });
+      return false;
+    }
+    if (!canManage(access)) {
+      res.status(403).json({ message: 'Tylko właściciel sterownika.' });
+      return false;
+    }
+    return true;
+  } catch {
+    res.status(400).json({ message: 'Nieprawidłowy rootId.' });
+    return false;
+  }
+}
+
+export async function getDevices(req: Request, res: Response) {
+  try {
+    if (req.user) return res.status(200).json(await userDevices(req.user));
     const devices = await listDevices();
     return res.status(200).json(devices.map(toPublicDevice));
   } catch (error) {
@@ -158,6 +211,7 @@ const firmwareError = (res: Response, error: unknown) =>
 // wersji. Sterownik dostaje ofertę w najbliższej odpowiedzi chmury (piec co 15 s, włącznik co 5 s,
 // hydrofor przy następnym uruchomieniu pompy); WebSocket budzi włącznik od razu.
 export async function requestDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
+  if (!(await allowManage(req, res))) return;
   try {
     const firmwareUpdate = await requestFirmwareUpdate(req.params.rootId,
       metaFromRequest(req, appUserMeta('Ustawienia', 'Przycisk „Aktualizuj” w karcie Sterownik.')));
@@ -170,6 +224,7 @@ export async function requestDeviceFirmwareUpdate(req: Request<{ rootId: string 
 
 // DELETE /devices/:rootId/firmware-update — odwołanie zlecenia.
 export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }>, res: Response) {
+  if (!(await allowManage(req, res))) return;
   try {
     await cancelFirmwareUpdate(req.params.rootId,
       metaFromRequest(req, appUserMeta('Ustawienia', 'Przycisk „Anuluj aktualizację” w karcie Sterownik.')));
@@ -197,11 +252,23 @@ export async function updateDevice(
   if (name === undefined && hidden === undefined && pumpConfig === undefined && boilerConfig === undefined) {
     return res.status(400).json({ message: 'name, hidden, pumpConfig albo boilerConfig jest wymagane.' });
   }
+  // z kontem ukrycie kafelka zapisuje się w układzie konta (każdy z dostępem do sterownika, także udostępnionego)
+  if (req.user && hidden !== undefined) {
+    const access = await accessibleDevices(req.user);
+    if (!access.has(req.params.rootId)) return res.status(404).json({ message: 'Nie znaleziono sterownika.' });
+    const mine = await userDevices(req.user);
+    await setViewerHidden(req.user, req.params.rootId, hidden as boolean,
+      mine.map((device) => ({ id: device.rootId, hidden: device.hidden })));
+    if (name === undefined && pumpConfig === undefined && boilerConfig === undefined) {
+      return res.status(200).json((await userDevices(req.user)).find((device) => device.rootId === req.params.rootId));
+    }
+  }
+  if (!(await allowManage(req, res))) return;
 
   try {
     const device = await updateDeviceData(req.params.rootId, {
       ...(name !== undefined ? { name: name.trim() } : {}),
-      ...(hidden !== undefined ? { hidden } : {}),
+      ...(hidden !== undefined && !req.user ? { hidden } : {}),
       ...(pumpConfig !== undefined ? { pumpConfig: parsePumpConfig(pumpConfig) } : {}),
       ...(boilerConfig !== undefined ? { boilerConfig: await parseBoilerConfig(boilerConfig) } : {}),
     });
@@ -212,12 +279,14 @@ export async function updateDevice(
   }
 }
 
-// PUT /devices/:rootId/default {isDefault?: boolean} — domyślnie ustawia.
+// PUT /devices/:rootId/default {isDefault?: boolean} — domyślnie ustawia (dawna gwiazdka; klient już jej nie ma,
+// z kontami tylko użytkownik systemowy).
 export async function updateDefaultDevice(
   req: Request<{ rootId: string }, {}, { isDefault?: boolean }>,
   res: Response,
 ) {
   try {
+    if (req.user && !req.user.isSystem) return res.status(403).json({ message: 'Tylko użytkownik systemowy.' });
     const device = await setDefaultDevice(req.params.rootId, req.body?.isDefault !== false);
     return res.status(200).json(toPublicDevice(device));
   } catch (error) {
@@ -225,9 +294,16 @@ export async function updateDefaultDevice(
   }
 }
 
-// PUT /devices/order {rootIds: string[]} — kolejność kafelków na /devices (tryb „Zmień kolejność”).
+// PUT /devices/order {rootIds: (string | null)[]} — pola szachownicy na /devices (tryb „Zmień układ”): z kontem
+// w układzie konta, bez konta wspólnie (sortOrder w dokumentach).
 export async function updateDevicesOrder(req: Request<{}, {}, { rootIds?: unknown }>, res: Response) {
   try {
+    if (req.user) {
+      const access = await accessibleDevices(req.user);
+      const allowed = new Set([...access.keys(), ...(await viewerWeatherTileIds(req.user))]);
+      await saveViewerOrder(req.user, req.body?.rootIds, allowed);
+      return res.status(200).json(await userDevices(req.user));
+    }
     await setDevicesOrder(req.body?.rootIds);
     return res.status(200).json((await listDevices()).map(toPublicDevice));
   } catch (error) {
@@ -237,10 +313,58 @@ export async function updateDevicesOrder(req: Request<{}, {}, { rootIds?: unknow
 
 // GET /devices/summary — kafelki sterowników dla strony /devices: {[rootId]: DeviceTile}; rodzaj bez
 // danych albo z błędem nie ma wpisu (kafelek zostaje wtedy tylko z nazwą).
-export async function getDeviceTilesEntry(_req: Request, res: Response) {
+export async function getDeviceTilesEntry(req: Request, res: Response) {
   try {
-    return res.status(200).json(await getDeviceTiles());
+    const tiles = await getDeviceTiles();
+    if (!req.user) return res.status(200).json(tiles);
+    const access = await accessibleDevices(req.user);
+    return res.status(200).json(Object.fromEntries(Object.entries(tiles).filter(([rootId]) => access.has(rootId))));
   } catch (error) {
     return res.status(500).json({ message: String(error) });
+  }
+}
+
+const shareError = (res: Response, error: unknown) =>
+  error instanceof AuthError
+    ? res.status(error.status).json({ message: error.message })
+    : res.status(String(error).includes('Cast to ObjectId') ? 404 : 500).json({ message: String(error) });
+
+// Udostępnianie sterownika (karta „Udostępnianie” w Ustawieniach): tylko właściciel i użytkownik systemowy.
+// GET /devices/:rootId/shares, POST {email, tabs}, PUT /devices/:rootId/shares/:id {tabs}, DELETE …/:id
+export async function getDeviceShares(req: Request<{ rootId: string }>, res: Response) {
+  if (!(await allowManage(req, res))) return;
+  try {
+    return res.status(200).json(await listShares(req.params.rootId));
+  } catch (error) {
+    return shareError(res, error);
+  }
+}
+
+export async function addDeviceShare(req: Request<{ rootId: string }>, res: Response) {
+  if (!req.user) return res.status(401).json({ message: 'Zaloguj się.' });
+  if (!(await allowManage(req, res))) return;
+  try {
+    return res.status(201).json(await createShare(req.user, req.params.rootId, req.body ?? {}, req.header('origin')));
+  } catch (error) {
+    return shareError(res, error);
+  }
+}
+
+export async function updateDeviceShare(req: Request<{ rootId: string; id: string }>, res: Response) {
+  if (!(await allowManage(req, res))) return;
+  try {
+    return res.status(200).json(await updateShare(req.params.rootId, req.params.id, req.body ?? {}));
+  } catch (error) {
+    return shareError(res, error);
+  }
+}
+
+export async function removeDeviceShare(req: Request<{ rootId: string; id: string }>, res: Response) {
+  if (!(await allowManage(req, res))) return;
+  try {
+    await deleteShare(req.params.rootId, req.params.id);
+    return res.status(204).end();
+  } catch (error) {
+    return shareError(res, error);
   }
 }

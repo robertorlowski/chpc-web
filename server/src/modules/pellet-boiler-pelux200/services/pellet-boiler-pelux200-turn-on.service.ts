@@ -16,6 +16,7 @@
 // Wcześniej „włącz” szło, gdy kocioł przekroczył próg rozpalenia (25,8 °C przy progu 25): regulator od razu
 // ładował CWU, woda wychłodziła się do 25 °C i pellet się rozpalił (2026-10-10 09:30).
 // Panelu kotła nie da się zablokować — to tylko zlecenia z aplikacji.
+import { internalHeaders } from '../../../core/internal';
 import { sendMessage } from '../../../core/websocket';
 import { PelletBoilerScheduleSettingsModel } from '../models/pellet-boiler-pelux200-schedule.model';
 import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from '../models/pellet-boiler-pelux200-settings.model';
@@ -119,7 +120,8 @@ export type HeatPumpStarter = (heatPumpRootId: string) => Promise<boolean>;
 const internalApiUrl = () => process.env.INTERNAL_API_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3001}/api`;
 export const startHeatPumpViaApi: HeatPumpStarter = async (heatPumpRootId) => {
   const url = `${internalApiUrl()}/device/properties?rootId=${encodeURIComponent(heatPumpRootId)}`;
-  const current = await fetch(url);
+  // wywołania wewnętrzne: bez logowania (core/internal.ts)
+  const current = await fetch(url, { headers: internalHeaders() });
   if (!current.ok) throw new Error(`pompa ciepła: HTTP ${current.status}`);
   const properties = await current.json() as Record<string, unknown>;
   if (properties.work_mode !== 'OFF') return false;
@@ -127,6 +129,7 @@ export const startHeatPumpViaApi: HeatPumpStarter = async (heatPumpRootId) => {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      ...internalHeaders(),
       ...operationHeaders(appUserMeta('Kocioł', 'Przycisk „Uruchom pompę ciepła” w oknie „Uwaga” przy włączaniu kotła (kocioł za zimny).')),
     },
     body: JSON.stringify({ ...properties, work_mode: 'MANUAL' }),

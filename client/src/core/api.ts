@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay, OutdoorConditions, WeatherTile } from './types';
+import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceShare, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, OperationsDay, OutdoorConditions, User, WeatherTile } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -104,6 +104,33 @@ export class FirmwareRequests {
     return Requests.put(`/firmware/${type}`, change, false) as Promise<FirmwareSummary>;
   }
 }
+
+// Konta użytkowników (/api/auth/*, 2026-10-11): logowanie kodem lub linkiem z maila, system, „Zapamiętaj 7 dni”,
+// dane konta, zmiana e-maila, usunięcie konta. Błędy jako ApiError z komunikatem serwera.
+type Session = { token: string; created: boolean; user: User };
+export const AuthRequests = {
+  start: (email: string) => Requests.json<{ email: string; resendAfterSeconds: number }>('POST', '/auth/start', { email }),
+  verifyCode: (email: string, code: string) => Requests.json<Session>('POST', '/auth/verify', { email, code }),
+  verifyLink: (token: string) => Requests.json<Session>('POST', '/auth/verify', { token }),
+  system: (password: string) => Requests.json<Session>('POST', '/auth/system', { password }),
+  remember: (remember: boolean) => Requests.json<{ remember: boolean }>('POST', '/auth/remember', { remember }),
+  logout: () => Requests.json<null>('POST', '/auth/logout'),
+  me: () => Requests.json<User>('GET', '/auth/me'),
+  updateMe: (data: Partial<User>) => Requests.json<User>('PUT', '/auth/me', data),
+  changeEmail: (email: string) => Requests.json<{ email: string }>('POST', '/auth/email-change', { email }),
+  verifyEmail: (code: string) => Requests.json<User>('POST', '/auth/email-change/verify', { code }),
+  deleteAccount: () => Requests.json<{ email: string; devices: number }>('POST', '/auth/delete'),
+  confirmDelete: (token: string) => Requests.json<{ devices: number }>('POST', '/auth/delete/confirm', { token }),
+};
+
+// Udostępnianie sterownika (właściciel): osoby z dostępem i ich zakładki.
+const sharesPath = (rootId: string) => `/devices/${encodeURIComponent(rootId)}/shares`;
+export const ShareRequests = {
+  list: (rootId: string) => Requests.json<DeviceShare[]>('GET', sharesPath(rootId)),
+  add: (rootId: string, email: string, tabs: string[]) => Requests.json<DeviceShare>('POST', sharesPath(rootId), { email, tabs }),
+  update: (rootId: string, id: string, tabs: string[]) => Requests.json<DeviceShare>('PUT', `${sharesPath(rootId)}/${id}`, { tabs }),
+  remove: (rootId: string, id: string) => Requests.json<null>('DELETE', `${sharesPath(rootId)}/${id}`),
+};
 
 // Dziennik operacji wybranego sterownika z dnia (zakładka „Operacje”); null przy błędzie
 export class OperationRequests {

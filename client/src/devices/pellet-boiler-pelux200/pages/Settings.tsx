@@ -12,6 +12,7 @@ import { DeviceAddress } from '../../../core/components/DeviceAddress';
 import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { InfoTip } from '../../../core/components/InfoTip';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
+import { DeviceSharing } from '../../../core/components/DeviceSharing';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
 import { AdvancedSettings } from '../components/AdvancedSettings';
@@ -91,13 +92,15 @@ export const PelletBoilerSettings: React.FC = () => {
         <AdvancedSettings />
 
         <div className="resource settings-device">
-          <ControllerCardTitle disabled={!device} onEdit={() => setEditingDevice(true)} />
+          <ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={() => setEditingDevice(true)} />
           <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
           <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
           <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
           <DeviceAddress device={device} />
           <FirmwareStatus device={device} actionsClassName="boiler-actions" />
         </div>
+        {/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
+        {device && <DeviceSharing device={device} />}
       </section>
 
       {editingDevice && device && (

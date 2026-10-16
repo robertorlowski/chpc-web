@@ -1,0 +1,548 @@
+/* Konta użytkowników (2026-10-11): logowanie, „Moje dane”, okna dialogowe, menu konta w nagłówku,
+   karta „Udostępnianie”. Kolor przycisków jak w aplikacji (#1481a5), przyciski po prawej, zapis skrajnie z prawej. */
+
+.account-page {
+  box-sizing: border-box;
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+  text-align: left;
+}
+
+.account-page.account-narrow {
+  width: min(420px, 100%);
+  padding-top: 2.5rem;
+}
+
+.account-page h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  text-align: center;
+}
+
+.account-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.account-form label,
+.account-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.account-form label > span,
+.account-field > span {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.account-form input,
+.account-form select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.6rem;
+  font-size: 1rem;
+  font-family: inherit;
+  border: 1px solid #888;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+}
+
+.account-form input:disabled {
+  background: #f0f0f0;
+  color: #555;
+}
+
+.account-code {
+  height: 3.2rem !important;
+  font-size: 1.6rem !important;
+  letter-spacing: 0.4rem;
+  text-align: center;
+}
+
+.account-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.account-grid-code {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.account-lead {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #444;
+}
+
+.account-error {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #fdecea;
+  color: #8a1c13;
+  font-size: 0.9rem;
+}
+
+.account-warning {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #fdecea;
+  color: #8a1c13;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.account-ok {
+  margin: 0;
+  color: #1b6b34;
+  font-size: 0.9rem;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.account-actions button,
+.account-row button,
+.account-button-link {
+  margin: 0;
+  min-height: 2.75rem;
+  padding: 0 1.2rem;
+  border: 0;
+  border-radius: 6px;
+  background: #1481a5;
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.account-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.account-actions .account-cancel {
+  background: #757575;
+}
+
+.account-actions .account-danger,
+.account-danger {
+  background: #b3261e;
+}
+
+.account-link {
+  margin: 0;
+  text-align: center;
+}
+
+.account-text-button {
+  border: 0;
+  background: none;
+  color: #0f6585;
+  text-decoration: underline;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.account-card {
+  background: #f0f0f0;
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.account-card h2 {
+  margin: 0;
+  padding-bottom: 0.4rem;
+  font-size: 1.05rem;
+  border-bottom: 1px solid #bbb;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.account-email {
+  overflow-wrap: anywhere;
+}
+
+.account-danger-title {
+  color: #b3261e;
+}
+
+/* okna dialogowe (pytanie o 7 dni, usunięcie konta, udostępnienie) */
+.account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.account-dialog {
+  box-sizing: border-box;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  display: grid;
+  gap: 0.9rem;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.account-dialog h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* mapa lokalizacji konta */
+.location-picker {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.location-map {
+  height: 230px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  z-index: 0;
+}
+
+.location-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.location-locate {
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #1481a5;
+  border-radius: 6px;
+  background: #fff;
+  color: #1481a5;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* menu konta w nagłówku */
+.user-menu {
+  position: relative;
+  margin-left: auto;
+  display: flex;
+  align-items: stretch;
+}
+
+.user-menu-button {
+  width: 3rem;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.user-menu-button svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.user-menu-button.active,
+.user-menu-button:hover {
+  background: #0008;
+}
+
+.user-menu-list {
+  position: absolute;
+  right: 0.25rem;
+  top: calc(100% + 4px);
+  z-index: 1200;
+  width: 250px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+.user-menu-who {
+  padding: 0.8rem 1rem;
+  background: #f0f0f0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.user-menu-who span {
+  font-size: 0.85rem;
+  color: #555;
+  overflow-wrap: anywhere;
+}
+
+.user-menu-list button {
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  border-top: 1px solid #e3e3e3;
+  border-radius: 0;
+  background: #fff;
+  color: #222;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-menu-list button:hover {
+  background: #f4f8fa;
+}
+
+.user-menu-list button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #1481a5;
+  flex-shrink: 0;
+}
+
+.user-menu-list .user-menu-danger,
+.user-menu-list .user-menu-danger svg {
+  color: #b3261e;
+}
+
+/* karta „Udostępnianie” */
+.share-card {
+  text-align: left;
+}
+
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.25rem 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.share-who {
+  flex-grow: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.share-who span {
+  font-size: 0.85rem;
+  color: #555;
+  overflow-wrap: anywhere;
+}
+
+.share-who .share-pending {
+  color: #8a5a00;
+}
+
+.share-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #1481a5;
+  cursor: pointer;
+}
+
+.share-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.share-icon.share-remove {
+  color: #b3261e;
+}
+
+.share-tabs {
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.share-tabs legend {
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.account-form .share-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  font-size: 1rem;
+}
+
+.account-form .share-tab input {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #1481a5;
+}
+
+/* pasek „Udostępnione przez …” pod menu sterownika */
+.shared-banner {
+  padding: 0.45rem 0.9rem;
+  background: #e6f2f6;
+  color: #0d5770;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* sekcje według właściciela na liście sterowników */
+.device-section {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.device-section-title {
+  margin: 0;
+  padding-bottom: 0.35rem;
+  font-size: 1rem;
+  color: #444;
+  border-bottom: 1px solid #ccc;
+  text-align: left;
+}
+
+.device-section-title small {
+  font-weight: 400;
+  color: #555;
+  margin-left: 0.4rem;
+}
+
+.device-access {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: #0d5770;
+  text-align: center;
+}
+
+.app-loading {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #555;
+}
+
+@media (max-width: 560px) {
+  .account-page {
+    padding: 0.75rem 0;
+  }
+
+  .account-page > h1,
+  .account-page > .account-form,
+  .account-page > .account-lead,
+  .account-page > .account-error,
+  .account-page > .account-actions {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* menu sterownika na całą szerokość: ikona konta przy prawej krawędzi (margin-left: auto w .user-menu) */
+.app-header nav {
+  width: 100%;
+}
+
+/* w Ustawieniach sterownika tytuł karty z lewej jak w karcie „Sterownik” */
+.share-card h2 {
+  text-align: left;
+}
+
+/* main jest wierszem flex: pasek w osobnym wierszu na całą szerokość, strona pod nim */
+.app-main:has(> .shared-banner) {
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+
+.app-main > .shared-banner {
+  flex: 0 0 100%;
+  box-sizing: border-box;
+  margin: -1rem 0 0.75rem;
+  text-align: center;
+}
+
+/* „Moje dane”: strzałka powrotu i tytuł z lewej, konto z prawej (pasek bez menu sterownika) */
+.app-header-plain .nav-back {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.app-header-plain .nav-back:hover {
+  background-color: #fff6;
+}
+
+.app-header-plain .nav-back svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.app-header-plain .nav-back + span {
+  margin: 0 auto 0 0.5rem;
+}
+
+/* tytuły kart konta z lewej, jak karty w Ustawieniach */
+.account-card h2 {
+  text-align: left;
+}

@@ -87,7 +87,8 @@ export const FirmwareStatus: React.FC<{ device: Device | null; actionsClassName?
         <div><span className="label">Ostatnie zgłoszenie:</span><span>{formatDateTime(current.firmwareSeenAt)}</span></div>
       )}
       {error && <div className="firmware-update-error" role="alert">{error}</div>}
-      {current && (pending || differs) && (
+      {/* aktualizację zleca tylko właściciel (osoba z udostępnieniem widzi sam stan) */}
+      {current && current.access !== 'shared' && (pending || differs) && (
         <div className={actionsClassName}>
           {pending
             ? <button type="button" className="firmware-cancel" disabled={busy}

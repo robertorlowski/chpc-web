@@ -5,7 +5,8 @@
 // tekst, który się nie mieści, i pola na ołówku i trybiku (prawy dolny róg). Pod spodem podgląd listy i telefonu.
 // „Zapisz” wysyła wzór na serwer (PUT /api/devices/tile-template), lista używa go od następnego wejścia.
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { DeviceRequests } from '../../api';
 import { Device, DeviceTiles } from '../../types';
 import { IconButton } from '../../components/IconButton';
@@ -27,7 +28,13 @@ const pl = (value: number, digits = 1) => value.toLocaleString('pl-PL', { maximu
 
 type Problem = { tile: string; slot: TileSlot; kind: 'overflow' | 'overlap' | 'tools'; other?: TileSlot };
 
+// wzór kafelka jest wspólny dla wszystkich kont: projektant tylko dla użytkownika systemowego (serwer też odrzuca zapis)
 export const TileDesigner: React.FC = () => {
+  const { user } = useAuth();
+  return user?.isSystem ? <TileDesignerEditor /> : <Navigate to="/devices" replace />;
+};
+
+const TileDesignerEditor: React.FC = () => {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>([]);
   const [tiles, setTiles] = useState<DeviceTiles>({});

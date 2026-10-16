@@ -11,6 +11,7 @@ import Notification, { useSaveNotice } from '../../../../core/components/Notific
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../../core/components/DeviceAddress';
 import { FirmwareStatus } from '../../../../core/components/FirmwareStatus';
+import { DeviceSharing } from '../../../../core/components/DeviceSharing';
 import { ControllerCardTitle } from '../../../../core/components/ControllerCardTitle';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
@@ -330,7 +331,7 @@ export const Settings: React.FC = () => {
 				</div>
 
 				<div className="resource settings-errors settings-device">
-					<ControllerCardTitle disabled={!device} onEdit={() => setEditingDevice(true)} />
+					<ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={() => setEditingDevice(true)} />
 					<div>
 						<span className="label">Nazwa:</span>
 						<span>{device?.name?.trim() || '---'}</span>
@@ -347,6 +348,8 @@ export const Settings: React.FC = () => {
 					<FirmwareStatus device={device} actionsClassName="settings-error-actions" />
 				</div>
 
+				{/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
+				{device && <DeviceSharing device={device} />}
 			</section>
 
 			{editingDevice && device && (

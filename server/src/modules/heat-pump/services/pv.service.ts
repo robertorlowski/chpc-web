@@ -6,6 +6,7 @@ import { PvEntryModel } from '../models/pv.model';
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
 import { registerDevice } from '../../../core/services/device.service';
+import { DeviceModel } from '../../../core/models/device.model';
 import { DeviceType } from '../../../core/types';
 
 // Odczyt PV starszy niż ten limit nie opisuje już chwili pomiaru HP: nie
@@ -63,7 +64,12 @@ export const addPvData = async (rootId: string, data: PvEntry) => {
 const photovoltaicEnsured = new Set<string>();
 async function ensurePhotovoltaicDevice(deviceId: string) {
   if (photovoltaicEnsured.has(deviceId)) return;
-  await registerDevice(DeviceType.PHOTOVOLTAIC, deviceId, 'Fotowoltaika');
+  const { device, created } = await registerDevice(DeviceType.PHOTOVOLTAIC, deviceId, 'Fotowoltaika');
+  // właściciel jak pompy ciepła o tym samym SN (konta użytkowników)
+  if (created) {
+    const pump = await DeviceModel.findOne({ deviceType: DeviceType.HP, deviceId }).select('ownerId').lean<{ ownerId?: string | null }>();
+    if (pump?.ownerId) await DeviceModel.updateOne({ _id: device._id }, { $set: { ownerId: pump.ownerId } });
+  }
   photovoltaicEnsured.add(deviceId);
 }
 

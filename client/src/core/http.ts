@@ -1,4 +1,5 @@
 import { getSelectedDevice } from './context/DeviceContext';
+import { getToken, notifyUnauthorized } from './auth';
 
 // Połączenie z serwerem: adresy API i WebSocket oraz zapytania z kontekstem
 // wybranego urządzenia (rootId, deviceId). API poszczególnych rodzajów
@@ -45,17 +46,55 @@ function prefixMocks(path: string) {
 
 }
 
+// Sesja (konta użytkowników): token z core/auth.ts w nagłówku Authorization każdego zapytania; 401 = sesja
+// wygasła albo wylogowano na innym urządzeniu — AuthContext pokazuje wtedy logowanie.
+const authHeader = (): Record<string, string> => {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const apiFetch = async (input: string, init: RequestInit) => {
+  const response = await fetch(input, init);
+  if (response.status === 401 && getToken()) notifyUnauthorized();
+  return response;
+};
+
+// Błąd z kodem i komunikatem serwera (pole message) dla formularzy kont i udostępniania.
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public retryAfterSeconds?: number) {
+    super(message);
+  }
+}
+
 // x-api-key jest wkompilowany w klienta, więc jawny dla każdego; kontrola klucza na serwerze
 // (verifyApiKey) jest obecnie wyłączona.
 export class Requests {
+  // JSON w obie strony, bez kontekstu urządzenia (chyba że includeDevice); rzuca ApiError z komunikatem serwera
+  static async json<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, data?: unknown, includeDevice = false): Promise<T> {
+    let response: Response;
+    try {
+      response = await apiFetch(prefixMocks(withDeviceContext(path, includeDevice)), {
+        method,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', ...authHeader() },
+        body: data === undefined ? undefined : JSON.stringify(data),
+      });
+    } catch {
+      throw new ApiError('Brak połączenia z serwerem.', 0);
+    }
+    const body = response.status === 204 ? null : await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(body?.message ?? `Błąd serwera (${response.status}).`, response.status, body?.retryAfterSeconds);
+    return body as T;
+  }
+
   static async get(path: string, includeDevice = true) {
     // console.log(prefixMocks(path));
     try {
-      const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
+      const response = await apiFetch(prefixMocks(withDeviceContext(path, includeDevice)), {
         method: "GET",
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510'
+          'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader()
         }
       });
 
@@ -71,7 +110,7 @@ export class Requests {
   }
 
   static post(path :string, data = {}, json = true, includeDevice = true) {
-    return fetch(
+    return apiFetch(
       prefixMocks(withDeviceContext(path, includeDevice)),
         Object.assign(
           {
@@ -80,7 +119,8 @@ export class Requests {
             // cache: "no-cache",
             headers: {
               'Content-Type': 'application/json; charset=utf-8',
-              'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510'
+              'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader()
             },
             // redirect: "follow",
             // referrer: "no-referrer",
@@ -101,11 +141,12 @@ export class Requests {
   }
 
   static async delete(path: string, includeDevice = true) {
-    const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
+    const response = await apiFetch(prefixMocks(withDeviceContext(path, includeDevice)), {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader(),
       },
     });
 
@@ -117,11 +158,12 @@ export class Requests {
   // PUT z surową treścią (plik .bin); w odróżnieniu od put rzuca wyjątek z komunikatem serwera
   // (pole message), bo walidacja pliku zwraca konkretną przyczynę odmowy.
   static async putFile(path: string, file: Blob) {
-    const response = await fetch(prefixMocks(path), {
+    const response = await apiFetch(prefixMocks(path), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/octet-stream',
         'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader(),
       },
       body: file,
     });
@@ -132,9 +174,10 @@ export class Requests {
 
   // POST bez treści i bez kontekstu urządzenia; jak putFile rzuca wyjątek z komunikatem serwera
   static async postJson(path: string) {
-    const response = await fetch(prefixMocks(path), {
+    const response = await apiFetch(prefixMocks(path), {
       method: 'POST',
-      headers: { 'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510' },
+      headers: { 'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader() },
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body?.message ?? `HTTP error! status: ${response.status}`);
@@ -143,9 +186,10 @@ export class Requests {
 
   // DELETE bez kontekstu urządzenia; jak putFile rzuca wyjątek z komunikatem serwera
   static async deleteJson(path: string) {
-    const response = await fetch(prefixMocks(path), {
+    const response = await apiFetch(prefixMocks(path), {
       method: 'DELETE',
-      headers: { 'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510' },
+      headers: { 'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader() },
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body?.message ?? `HTTP error! status: ${response.status}`);
@@ -154,11 +198,12 @@ export class Requests {
 
   // method: PUT albo POST z tą samą obsługą błędu (kod i komunikat serwera w wyjątku)
   static async put(path: string, data: unknown, includeDevice = true, method: 'PUT' | 'POST' = 'PUT') {
-    const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
+    const response = await apiFetch(prefixMocks(withDeviceContext(path, includeDevice)), {
       method,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
+          ...authHeader(),
       },
       body: JSON.stringify(data),
     });
