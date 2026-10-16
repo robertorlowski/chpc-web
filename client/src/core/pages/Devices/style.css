@@ -437,13 +437,11 @@
 .device-list .device-cell-swap:hover { background: rgba(20, 129, 165, 0.3); }
 .device-list .device-move.active { background: #ef6c00; }
 
-/* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu; gdy mieści się
-   nad stopką (has-bottom), bez stałych odstępów pod listą (odstęp liczy pages/Devices tak, żeby strona się nie
-   przewijała); gdy się nie mieści (telefon), odstępy zostają i ostatni kafelek wyjeżdża nad stopkę */
+/* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu (odstęp liczy
+   pages/Devices); dolny margines listy też (nad stopką odstęp jak między kafelkami), więc bez stałego marginesu main */
 .device-list-spacer { width: 100%; flex: none; }
 .device-list.device-grid-bottom { margin-top: 0; }
-.device-selection.has-bottom { padding-bottom: 0; }
-.app-main:has(.device-selection.has-bottom) { padding-bottom: 0; }
+body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 
 /* kafelek pogody: bez przycisku wyboru (nie prowadzi do widoku) */
 .device-list .device-choose-static { cursor: default; }

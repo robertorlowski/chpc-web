@@ -308,19 +308,23 @@ export const Devices: React.FC = () => {
   const bottomRef = useRef<HTMLElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const [spacer, setSpacer] = useState(0);
-  // dolna część mieści się nad stopką: bez dolnego marginesu listy (inaczej margines zostaje, żeby ostatni kafelek
-  // dało się przewinąć nad stałą stopkę)
+  // dolny margines listy: nad stałą stopką taki sam odstęp jak między kafelkami (decyzja użytkownika 2026-10-16);
+  // gdy dolna część mieści się na ekranie, odstęp ustawia spacer, a margines znika (strona się nie przewija)
+  const [bottomPad, setBottomPad] = useState(0);
   const [bottomFits, setBottomFits] = useState(false);
   const layoutKey = `${visibleLayout.join(',')}|${columns}|${emptyRow}|${template.h}`;
   useLayoutEffect(() => {
     const measure = () => {
+      const footer = document.querySelector<HTMLElement>('.device-footer');
+      const footerHeight = footer?.offsetHeight ?? 0;
+      // lista na komputerze ma zoom 0,9 (ustawiony na .device-selection; na potomkach computed zoom = 1); wartości w px listy
+      const main = document.querySelector<HTMLElement>('.device-selection');
+      const zoom = (main && Number(getComputedStyle(main).zoom)) || 1;
+      setBottomPad(Math.round(footerHeight / zoom + gap));
       const bottom = bottomRef.current;
       const spacerElement = spacerRef.current;
       if (!bottom || !spacerElement) { setSpacer(0); setBottomFits(false); return; }
-      const footer = document.querySelector<HTMLElement>('.device-footer');
-      const limit = window.innerHeight - (footer?.offsetHeight ?? 0) - 10;
-      // lista na komputerze ma zoom 0,9 (ustawiony na .device-selection; na potomkach computed zoom = 1)
-      const zoom = Number(getComputedStyle(bottom.closest('.device-selection') ?? bottom).zoom) || 1;
+      const limit = window.innerHeight - footerHeight - gap * zoom;
       // bez zerowania odstępu w DOM (React nie przywróciłby go przy tej samej wartości): bieżący odstęp się dolicza
       const free = (limit - bottom.getBoundingClientRect().bottom + spacerElement.getBoundingClientRect().height) / zoom;
       // co najmniej zwykły odstęp między kafelkami: na telefonie i przy długiej liście dolna część nie przykleja się do górnej
@@ -330,7 +334,7 @@ export const Devices: React.FC = () => {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [layoutKey, tilesLoaded, gap]);
+  }, [layoutKey, tilesLoaded, devicesLoaded, gap]);
 
   const startReordering = () => {
     setCells(assignSlots(allItems));
@@ -427,7 +431,7 @@ export const Devices: React.FC = () => {
 
   return (
     <>
-    <main className={`device-selection${bottomCells.length && bottomFits ? ' has-bottom' : ''}`}>
+    <main className="device-selection" style={{ paddingBottom: bottomCells.length && bottomFits ? 0 : bottomPad }}>
       <h1>Lista urządzeń</h1>
       {/* trybik w górnym pasku włącza tryb „Zmień układ” (pola, ukrywanie, kafelki pogody, projekt kafelka) */}
       {headerSlot && devicesLoaded && createPortal(
