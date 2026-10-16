@@ -81,8 +81,10 @@ export interface Device {
   name?: string;
   /** sterownik otwierany po starcie aplikacji; najwyżej jeden */
   isDefault?: boolean;
-  /** miejsce na liście sterowników (0 = pierwszy); brak = na końcu */
+  /** miejsce na liście sterowników (0 = pierwszy, wspólne z kafelkami pogody); brak = na końcu */
   sortOrder?: number;
+  /** kafelek ukryty na liście (widoczny tylko w trybie „Zmień kolejność”) */
+  hidden?: boolean;
   /** wersja firmware zgłoszona przez sterownik przy ostatnim zgłoszeniu (pole version) i kiedy */
   firmwareVersion?: string;
   firmwareSeenAt?: Date;
@@ -210,3 +212,13 @@ export interface DeviceTile {
   /** własny tekst stopki zamiast „dane sprzed …” (np. „ostatnie uruchomienie dziś 14:32”) */
   foot?: string;
 }
+
+// Wzór kafelka listy sterowników (projektant kafelka, GET/PUT /devices/tile-template; kontrakt z
+// client/src/core/tile-template.ts): rozmiar komórki i odstęp w px, pola w % komórki.
+export const TILE_SLOTS = [
+  'icon', 'name', 'status', 'main', 'mainLabel', 'divider', 'side1', 'side2', 'side3', 'row', 'relays', 'warning',
+  'footer',
+] as const;
+export type TileSlot = typeof TILE_SLOTS[number];
+export interface TileField { x: number; y: number; w: number; h: number; a: 'left' | 'center' | 'right'; v: boolean }
+export interface TileTemplate { w: number; h: number; gap: number; f: Record<TileSlot, TileField> }

@@ -1,23 +1,29 @@
-// Strona /devices: kafelki sterowników (GET /api/devices i GET /api/devices/summary: stan, kluczowe wartości,
-// błąd albo ostrzeżenie), wybór sterownika kliknięciem kafelka, ołówek otwierający popup „Dane sterownika”,
-// trybik firmware i tryb „Zmień kolejność” (strzałki, zapis PUT /api/devices/order przy „Gotowe”).
-// Nie ma sterownika domyślnego ani automatycznego wyboru: lista jest zawsze ekranem startowym (DeviceGuard
-// przekierowuje tu, gdy nie wybrano sterownika). Na dole własna stopka: lewa część wolna (zarezerwowana
-// na później), po prawej zajętość bazy danych (GET /api/devices/db-stats).
+// Strona /devices: szachownica kafelków sterowników i kafelków pogody (GET /api/devices, /devices/summary,
+// /weather-tiles; wzór z projektanta kafelka, GET /api/devices/tile-template). Każdy kafelek ma numer pola
+// (sortOrder); kolumn tyle, ile mieści szerokość (1–4), puste pola na komputerze zostają puste, na telefonie
+// (jedna kolumna) kafelki idą po kolei. Wybór sterownika kliknięciem kafelka, ołówek: popup „Dane sterownika” albo
+// „Kafelek pogody”. Trybik w górnym pasku włącza „Zmień układ”: „Przenieś” i wybór pola (zamiana, gdy zajęte),
+// puste pola z „+” (nowy kafelek pogody w tym miejscu), oko (ukrycie kafelka: PUT /devices/:rootId {hidden} albo
+// PUT /weather-tiles/:id, od razu), „Projekt kafelka”; „Gotowe” zapisuje układ (PUT /api/devices/order z null
+// w pustych polach). Ukryte kafelki widać tylko w tym trybie (wyszarzone). Kafelek „Dom” pokazuje temperaturę
+// z czujnika kotła (GET /temperature), gdy jest świeża. Nie ma sterownika domyślnego ani automatycznego wyboru:
+// lista jest zawsze ekranem startowym (DeviceGuard przekierowuje tu, gdy nie wybrano sterownika). Na dole własna
+// stopka: lewa część wolna, po prawej zajętość bazy danych (GET /api/devices/db-stats).
 // Kafelki odświeżają się jak ekran główny pompy: po komunikacie WebSocket „update” któregokolwiek sterownika (jedno
 // połączenie ?rootIds=…, najwyżej raz na TILES_UPDATE_MIN_MS) i co TILES_REFRESH_MS, gdy żaden nic nie wysyła.
-import { useEffect, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { DeviceRequests } from '../../api';
+import { DeviceRequests, WeatherTileRequests } from '../../api';
 import { wsAddressServer } from '../../http';
-import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions } from '../../types';
-import { precipitationText, weatherDescription, WeatherIcon } from '../../components/WeatherIcon';
+import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
-import { DeviceTileCard } from '../../components/DeviceTileCard';
+import { TemplateTile, weatherSlots } from '../../components/TemplateTile';
+import { precipitationText, weatherDescription, WeatherIcon } from '../../components/WeatherIcon';
+import { WeatherTileModal } from '../../components/WeatherTileModal';
+import { cachedTemplate, cacheTemplate, normalizeTemplate, TILE_TEMPLATE, TileTemplate } from '../../tile-template';
 import { SettingsIcon } from '../../components/icons';
-import { Pictogram } from '../../components/pictograms';
 import { useDevice } from '../../context/DeviceContext';
 import './style.css';
 
@@ -84,11 +90,47 @@ const TILES_REFRESH_MS = 30 * 1000;
 // po „update” z WebSocket: kafelki najwyżej raz na tyle (pompa wysyła co 10–30 s, włącznik przy każdej zmianie)
 const TILES_UPDATE_MIN_MS = 5 * 1000;
 
+// kafelek na szachownicy: sterownik albo kafelek pogody; pole = sortOrder
+type ListItem = { kind: 'device'; id: string; device: Device } | { kind: 'weather'; id: string; weather: WeatherTile };
+const rank = (item: ListItem) => (item.kind === 'device' ? item.device.sortOrder : item.weather.sortOrder);
+const isHidden = (item: ListItem) => item.kind === 'device' ? !!item.device.hidden : item.weather.hidden;
+const itemLabel = (item: ListItem, devices: Device[]) => item.kind === 'device' ? tileName(item.device, devices) : item.weather.name;
+
+// Pola szachownicy z sortOrder: kafelek z numerem pola dostaje je, gdy wolne; bez numeru (nowy sterownik), z ujemnym
+// (kafelek „Dom” przed sterownikami) albo przy zajętym polu dostaje pierwsze wolne. Wynik: tablica pól (id albo null).
+function assignSlots(items: ListItem[]): (string | null)[] {
+  const cells: (string | null)[] = [];
+  const sorted = [...items].sort((a, b) => (rank(a) ?? Number.MAX_SAFE_INTEGER) - (rank(b) ?? Number.MAX_SAFE_INTEGER));
+  const firstFree = () => { let i = 0; while (cells[i]) i += 1; return i; };
+  sorted.forEach((item) => {
+    const wanted = rank(item);
+    const slot = wanted !== undefined && wanted >= 0 && !cells[wanted] ? wanted : firstFree();
+    cells[slot] = item.id;
+  });
+  for (let i = 0; i < cells.length; i += 1) if (cells[i] === undefined) cells[i] = null;
+  return cells;
+}
+
+// liczba kolumn szachownicy z szerokości miejsca: tyle kafelków 300 px z odstępem, ile się mieści (1–4)
+const MAX_COLUMNS = 4;
+
 // Sterowniki rejestrują się same (POST /api/devices/register), więc tu można je tylko wybrać i nazwać.
 export const Devices: React.FC = () => {
   const navigate = useNavigate();
   const { clearDevice, selectDevice } = useDevice();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [weatherTiles, setWeatherTiles] = useState<WeatherTile[]>([]);
+  // pola szachownicy w trybie „Zmień układ” (id albo null), do zapisu przy „Gotowe”
+  const [cells, setCells] = useState<(string | null)[] | null>(null);
+  // kafelek wybrany „Przenieś”: następne kliknięcie pola go tam stawia (zamiana, gdy zajęte)
+  const [moving, setMoving] = useState<string | null>(null);
+  // „+” w pustym polu: nowy kafelek pogody trafi do tego pola
+  const [addAt, setAddAt] = useState<number | null>(null);
+  // liczba kolumn z szerokości listy
+  const listRef = useRef<HTMLElement>(null);
+  const [columns, setColumns] = useState(MAX_COLUMNS);
+  // popup „Kafelek pogody”: null = nowy, undefined = zamknięty
+  const [editingWeather, setEditingWeather] = useState<WeatherTile | null | undefined>(undefined);
   const [tiles, setTiles] = useState<DeviceTiles>({});
   // do czasu pierwszej odpowiedzi kafelki pokazują duszki (stała wysokość, bez „rozszerzania się” po załadowaniu)
   const [devicesLoaded, setDevicesLoaded] = useState(false);
@@ -96,7 +138,7 @@ export const Devices: React.FC = () => {
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Device | null>(null);
-  // tryb „Zmień kolejność”: kafelki dostają strzałki, wybór sterownika jest wyłączony; kolejność
+  // tryb „Zmień układ”: kafelki dostają przyciski, wybór sterownika jest wyłączony; układ
   // zapisuje dopiero „Gotowe”, „Anuluj” przywraca listę z serwera
   const [reordering, setReordering] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -104,6 +146,8 @@ export const Devices: React.FC = () => {
   // temperatura z czujnika kotła i pogoda z Open-Meteo (GET /temperature), odświeżane razem z kafelkami;
   // undefined = wczytywanie
   const [outdoor, setOutdoor] = useState<OutdoorConditions | null | undefined>(undefined);
+  // wzór kafelka (projektant kafelka): najpierw ostatni znany z localStorage, potem z serwera
+  const [template, setTemplate] = useState<TileTemplate>(cachedTemplate);
 
   const loadDevices = () => {
     DeviceRequests.getDevices()
@@ -126,12 +170,19 @@ export const Devices: React.FC = () => {
       setNow(Date.now());
     });
     DeviceRequests.getOutdoorConditions().then(setOutdoor);
+    WeatherTileRequests.list().then((result) => { if (result) setWeatherTiles(result); });
   };
 
   // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
   // do widoków jest możliwy tylko przez wybór kafelka
   useEffect(() => {
     clearDevice();
+    DeviceRequests.getTileTemplate().then((result) => {
+      if (result === undefined) return;
+      const next = normalizeTemplate(result) ?? TILE_TEMPLATE;
+      setTemplate(next);
+      cacheTemplate(result ? next : null);
+    });
     setHeaderSlot(document.getElementById(DEVICES_HEADER_ACTIONS_ID));
     loadDevices();
     loadTiles();
@@ -172,26 +223,111 @@ export const Devices: React.FC = () => {
     navigate('/');
   };
 
-  const moveDevice = (index: number, step: -1 | 1) => {
-    setDevices((list) => {
-      const target = index + step;
-      if (target < 0 || target >= list.length) return list;
-      const next = [...list];
-      [next[index], next[target]] = [next[target], next[index]];
+  // liczba kolumn: z szerokości listy i szerokości kafelka ze wzoru (300/340 w + odstęp)
+  const gap = template.gap ?? TILE_TEMPLATE.gap ?? 16;
+  useEffect(() => {
+    const element = listRef.current;
+    if (!element) return undefined;
+    const minWidth = Math.round(template.w * 300 / 340);
+    const observer = new ResizeObserver(([entry]) => {
+      setColumns(Math.max(1, Math.min(MAX_COLUMNS, Math.floor((entry.contentRect.width + gap) / (minWidth + gap)))));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [template.w, gap]);
+
+  // wszystkie kafelki i ich pola; w trybie edycji według lokalnego układu
+  const allItems: ListItem[] = [
+    ...devices.map((device): ListItem => ({ kind: 'device', id: device.rootId, device })),
+    ...weatherTiles.map((weather): ListItem => ({ kind: 'weather', id: weather.id, weather })),
+  ];
+  const byId = new Map(allItems.map((item) => [item.id, item]));
+  const layout = cells ?? assignSlots(allItems);
+  // poza trybem edycji ukryte kafelki znikają (pole zostaje puste)
+  const visibleLayout = reordering ? layout : layout.map((id) => id && byId.get(id) && !isHidden(byId.get(id)!) ? id : null);
+  // telefon (jedna kolumna): bez pustych pól; komputer w trybie edycji: cały prostokąt pól plus jeden wolny wiersz
+  const occupied = visibleLayout.map((id, index) => ({ id, index })).filter(({ id }) => id && byId.has(id));
+  const lastSlot = occupied.length ? occupied[occupied.length - 1].index : -1;
+  const rows = Math.ceil((lastSlot + 1) / columns) + (reordering ? 1 : 0);
+  const cellIndexes = columns === 1
+    ? [...occupied.map(({ index }) => index), ...(reordering ? [lastSlot + 1] : [])]
+    : Array.from({ length: rows * columns }, (_, index) => index);
+  // Pusty wiersz w układzie dzieli listę (decyzja użytkownika 2026-10-16): kafelki pod pierwszym pustym wierszem
+  // stoją przy dole ekranu (odstęp między częściami wypełnia wolne miejsce). W trybie edycji pusty wiersz widać
+  // jako puste pola. Na telefonie (jedna kolumna) pustym wierszem jest puste pole między kafelkami.
+  const rowOf = (slot: number) => columns === 1 ? slot : Math.floor(slot / columns);
+  const emptyRow = (() => {
+    if (reordering) return -1;
+    for (let row = 0; row < rowOf(lastSlot); row += 1) {
+      const start = columns === 1 ? row : row * columns;
+      const end = columns === 1 ? row + 1 : start + columns;
+      if (visibleLayout.slice(start, end).every((id) => !id || !byId.has(id))) return row;
+    }
+    return -1;
+  })();
+  const topCells = emptyRow < 0 ? cellIndexes : cellIndexes.filter((slot) => rowOf(slot) < emptyRow);
+  const bottomCells = emptyRow < 0 ? [] : cellIndexes.filter((slot) => rowOf(slot) > emptyRow);
+  // odstęp między częściami: tyle, żeby dolna część kończyła się nad stałą stopką (mierzone po każdej zmianie
+  // układu i okna; wartości w px listy, która na komputerze ma zoom 0,9)
+  const bottomRef = useRef<HTMLElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const [spacer, setSpacer] = useState(0);
+  const layoutKey = `${visibleLayout.join(',')}|${columns}|${emptyRow}|${template.h}`;
+  useLayoutEffect(() => {
+    const measure = () => {
+      const bottom = bottomRef.current;
+      const spacerElement = spacerRef.current;
+      if (!bottom || !spacerElement) { setSpacer(0); return; }
+      spacerElement.style.height = '0px';
+      const footer = document.querySelector<HTMLElement>('.device-footer');
+      const limit = window.innerHeight - (footer?.offsetHeight ?? 0) - 10;
+      // lista na komputerze ma zoom 0,9 (ustawiony na .device-selection; na potomkach computed zoom = 1)
+      const zoom = Number(getComputedStyle(bottom.closest('.device-selection') ?? bottom).zoom) || 1;
+      const free = (limit - bottom.getBoundingClientRect().bottom) / zoom;
+      setSpacer(Math.max(0, Math.round(free)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [layoutKey, tilesLoaded]);
+
+  const startReordering = () => {
+    setCells(assignSlots(allItems));
+    setMoving(null);
+    setReordering(true);
+  };
+
+  // „Przenieś” → kliknięcie pola: postawienie w pustym polu albo zamiana z kafelkiem, który tam stoi
+  const placeAt = (slot: number) => {
+    if (!moving) return;
+    setCells((current) => {
+      const next = [...(current ?? layout)];
+      while (next.length <= slot) next.push(null);
+      const from = next.indexOf(moving);
+      const other = next[slot];
+      next[slot] = moving;
+      if (from >= 0) next[from] = other;
       return next;
     });
+    setMoving(null);
   };
 
   const saveOrder = async () => {
     setSavingOrder(true);
     try {
-      const sorted = await DeviceRequests.setDevicesOrder(devices.map((device) => device.rootId));
+      const trimmed = [...layout];
+      while (trimmed.length && trimmed[trimmed.length - 1] === null) trimmed.pop();
+      const sorted = await DeviceRequests.setDevicesOrder(trimmed);
       if (!sorted) throw new Error('order');
       setDevices(sorted);
+      const refreshed = await WeatherTileRequests.list();
+      if (refreshed) setWeatherTiles(refreshed);
       setReordering(false);
+      setCells(null);
+      setMoving(null);
       setError('');
     } catch {
-      setError('Nie udało się zapisać kolejności.');
+      setError('Nie udało się zapisać układu.');
     } finally {
       setSavingOrder(false);
     }
@@ -199,8 +335,48 @@ export const Devices: React.FC = () => {
 
   const cancelOrder = () => {
     setReordering(false);
+    setCells(null);
+    setMoving(null);
     setError('');
     loadDevices();
+  };
+
+  // ukrycie / pokazanie od razu (nie czeka na „Gotowe”)
+  const toggleHidden = async (item: ListItem) => {
+    try {
+      if (item.kind === 'device') {
+        const updated = await DeviceRequests.setDeviceHidden(item.id, !item.device.hidden);
+        setDevices((list) => list.map((device) => device.rootId === item.id ? { ...device, hidden: updated.hidden } : device));
+      } else {
+        const updated = await WeatherTileRequests.update(item.id, { hidden: !item.weather.hidden });
+        setWeatherTiles((list) => list.map((tile) => tile.id === item.id ? updated : tile));
+      }
+    } catch {
+      setError('Nie udało się zmienić widoczności kafelka.');
+    }
+  };
+
+  // nowy kafelek pogody: do wybranego pola („+”) albo pierwszego wolnego za ostatnim; w trybie edycji w lokalnym układzie
+  const weatherSaved = (tile: WeatherTile) => {
+    const isNew = !weatherTiles.some((item) => item.id === tile.id);
+    setWeatherTiles((list) => isNew ? [...list, tile] : list.map((item) => item.id === tile.id ? tile : item));
+    if (isNew && cells) {
+      setCells((current) => {
+        const next = [...(current ?? [])];
+        const slot = addAt ?? next.length;
+        while (next.length <= slot) next.push(null);
+        if (next[slot]) next.push(tile.id); else next[slot] = tile.id;
+        return next;
+      });
+    }
+    setAddAt(null);
+    setEditingWeather(undefined);
+  };
+
+  const weatherRemoved = (id: string) => {
+    setWeatherTiles((list) => list.filter((item) => item.id !== id));
+    setCells((current) => current ? current.map((cell) => cell === id ? null : cell) : current);
+    setEditingWeather(undefined);
   };
 
   const saved = (updated: Device) => {
@@ -210,26 +386,30 @@ export const Devices: React.FC = () => {
 
   return (
     <>
-    <main className="device-selection">
+    <main className={`device-selection${bottomCells.length ? ' has-bottom' : ''}`}>
       <h1>Lista urządzeń</h1>
-      {/* trybik w górnym pasku włącza tryb „Zmień kolejność” (przy co najmniej dwóch sterownikach) */}
-      {headerSlot && devices.length > 1 && createPortal(
+      {/* trybik w górnym pasku włącza tryb „Zmień układ” (pola, ukrywanie, kafelki pogody, projekt kafelka) */}
+      {headerSlot && devicesLoaded && createPortal(
         <button type="button" className={`header-gear${reordering ? ' active' : ''}`} disabled={reordering}
-          title="Zmień kolejność" aria-label="Zmień kolejność kafelków" onClick={() => setReordering(true)}>
+          title="Zmień układ" aria-label="Zmień układ kafelków" onClick={startReordering}>
           <SettingsIcon />
         </button>,
         headerSlot,
       )}
       {reordering && (
         <div className="device-reorder-bar">
-          <span>Ustaw kolejność strzałkami na kafelkach.</span>
-          <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
-          <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
+          <span>{moving ? 'Kliknij pole, w którym ma stanąć kafelek.' : '„Przenieś” i wybór pola ustawiają układ, „+” w pustym polu dodaje pogodę, oko ukrywa kafelek, pusty wiersz spycha resztę do dołu ekranu.'}</span>
+          <div className="device-reorder-buttons">
+            <button type="button" onClick={() => { setAddAt(null); setEditingWeather(null); }} disabled={savingOrder}>Dodaj kafelek pogody</button>
+            <button type="button" onClick={() => navigate('/tile-designer')} disabled={savingOrder}>Projekt kafelka</button>
+            <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
+            <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
+          </div>
         </div>
       )}
       {error && <p className="device-selection-error">{error}</p>}
-      {/* temperatura z czujnika kotła (bez niego z prognozy); niebo, opady i wiatr z Open-Meteo (pobiera sterownik
-          włącznika); na telefonie bez opadów i wiatru (style.css) */}
+      {/* temperatura domu z czujnika kotła (bez niego z prognozy); niebo, opady i wiatr z Open-Meteo nad pierwszym
+          wierszem (zostaje mimo kafelka „Dom”, decyzja użytkownika 2026-10-16); na telefonie bez opadów i wiatru */}
       <div className="devices-outdoor" title={outdoor?.temperatureSource === 'forecast'
         ? 'Temperatura i pogoda: prognoza Open-Meteo (brak odczytu z czujnika kotła).'
         : 'Temperatura: czujnik zewnętrzny kotła. Pogoda: prognoza Open-Meteo.'}>
@@ -246,71 +426,135 @@ export const Devices: React.FC = () => {
           </span>
         )}
       </div>
-      <section className="device-list">
-        {devices.map((device, index) => {
-          const label = tileName(device, devices);
-          const tile = tiles[device.rootId];
+      {(() => {
+        const gridStyle = { gap, '--cols': columns, '--tile-max': `${template.w}px` } as CSSProperties;
+        // pola dolnej części są numerowane od jej pierwszego wiersza (grid-row liczony od 1)
+        const renderCell = (slot: number, rowOffset: number) => {
+          const id = visibleLayout[slot];
+          const item = id ? byId.get(id) : undefined;
+          const position = columns === 1 ? undefined : { gridColumn: slot % columns + 1, gridRow: Math.floor(slot / columns) + 1 - rowOffset };
+          if (!item) {
+            if (!reordering) return null;
+            return (
+              <div key={`empty-${slot}`} className="device-cell-empty" style={{ ...position, aspectRatio: `${template.w} / ${template.h}` }}>
+                {moving ? (
+                  <button type="button" className="device-cell-place" onClick={() => placeAt(slot)}>Wstaw tutaj</button>
+                ) : (
+                  <button type="button" className="device-cell-add" title="Dodaj kafelek pogody w tym polu"
+                    onClick={() => { setAddAt(slot); setEditingWeather(null); }}>
+                    <b>+</b><span>pogoda</span>
+                  </button>
+                )}
+              </div>
+            );
+          }
+          const label = itemLabel(item, devices);
+          const hidden = isHidden(item);
+          const tile = item.kind === 'device' ? tiles[item.device.rootId] : undefined;
+          const classes = `device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}${hidden ? ' hidden-tile' : ''}${moving === item.id ? ' moving' : ''}`;
+          const editButton = (
+            <button type="button" className="device-edit"
+              title={item.kind === 'device' ? 'Edytuj dane sterownika' : 'Zmień kafelek pogody'}
+              aria-label={`${item.kind === 'device' ? 'Edytuj dane sterownika' : 'Zmień kafelek pogody'} ${label}`}
+              onClick={() => item.kind === 'device' ? setEditing(item.device) : setEditingWeather(item.weather)}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
+              </svg>
+            </button>
+          );
           return (
-            <div key={device.rootId} className={`device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}`}>
-              <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(device)}>
-                <DeviceTileCard deviceType={device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} />
-              </button>
-              {reordering ? (
-                <div className="device-reorder-arrows">
-                  <button type="button" className="device-move" disabled={index === 0}
-                    title="Przesuń wcześniej" aria-label={`Przesuń ${label} wcześniej`} onClick={() => moveDevice(index, -1)}>
-                    <Pictogram name="chevron-left" />
-                  </button>
-                  <button type="button" className="device-move" disabled={index === devices.length - 1}
-                    title="Przesuń później" aria-label={`Przesuń ${label} później`} onClick={() => moveDevice(index, 1)}>
-                    <Pictogram name="chevron-right" />
-                  </button>
+            <div key={item.id} className={classes} style={position}>
+              {item.kind === 'device' ? (
+                <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(item.device)}>
+                  <TemplateTile template={template} deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} />
+                </button>
+              ) : (
+                <div className="device-choose device-choose-static" title={item.weather.home
+                  ? 'Dom: temperatura z czujnika kotła, gdy jest świeża, inaczej prognoza Open-Meteo.'
+                  : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
+                  <TemplateTile template={template} now={now} level="sky" slots={weatherSlots(item.weather, now, outdoor)} />
                 </div>
+              )}
+              {reordering ? (
+                <>
+                  {/* kafelek, do którego ma trafić przenoszony: zamiana miejsc */}
+                  {moving && moving !== item.id && (
+                    <button type="button" className="device-cell-swap" onClick={() => placeAt(slot)}>Zamień miejscami</button>
+                  )}
+                  <div className="device-reorder-arrows">
+                    <button type="button" className={`device-move${moving === item.id ? ' active' : ''}`}
+                      title={moving === item.id ? 'Anuluj przenoszenie' : 'Przenieś'} aria-pressed={moving === item.id}
+                      aria-label={`Przenieś ${label}`} onClick={() => setMoving(moving === item.id ? null : item.id)}>
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M5 9h14M15 5l4 4-4 4M19 15H5M9 11l-4 4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <span className="device-reorder-middle">
+                      <button type="button" className={`device-eye${hidden ? ' hidden' : ''}`} title={hidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
+                        aria-label={`${hidden ? 'Pokaż' : 'Ukryj'} kafelek ${label}`} aria-pressed={hidden} onClick={() => toggleHidden(item)}>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+                          {hidden && <path d="M4 4L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+                        </svg>
+                      </button>
+                      {editButton}
+                    </span>
+                  </div>
+                </>
               ) : (
                 <div className="device-tools">
-                  {getDeviceTypeView(device.deviceType).firmwareUpdates && (
+                  {item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
                     <button
                       type="button"
                       className="device-firmware"
                       title="Firmware tego rodzaju sterownika"
                       aria-label={`Firmware rodzaju sterownika ${label}`}
-                      onClick={() => navigate(`/firmware/${encodeURIComponent(device.deviceType)}`)}
+                      onClick={() => navigate(`/firmware/${encodeURIComponent(item.device.deviceType)}`)}
                     >
                       <SettingsIcon />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="device-edit"
-                    title="Edytuj dane sterownika"
-                    aria-label={`Edytuj dane sterownika ${label}`}
-                    onClick={() => setEditing(device)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                      <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                      <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
-                    </svg>
-                  </button>
+                  {editButton}
                 </div>
               )}
             </div>
           );
-        })}
-        {!devicesLoaded && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
+        };
+        return (
+          <>
+            <section className={`device-list device-grid${reordering ? ' editing' : ''}`} ref={listRef} style={gridStyle}>
+              {topCells.map((slot) => renderCell(slot, 0))}
+              {!devicesLoaded && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
           <div key={`skeleton-${index}`} className="device-card">
             <div className="device-choose" aria-hidden="true">
-              <DeviceTileCard now={now} loading />
+              <TemplateTile template={template} now={now} loading />
             </div>
           </div>
         ))}
-        {devicesLoaded && devices.length === 0 && !error && (
-          <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
-        )}
-      </section>
+              {devicesLoaded && devices.length === 0 && !error && (
+                <p>Brak sterowników. Sterownik pojawi się tutaj sam po pierwszym połączeniu z internetem.</p>
+              )}
+            </section>
+            {bottomCells.length > 0 && (
+              <>
+                <div className="device-list-spacer" ref={spacerRef} style={{ height: spacer }} aria-hidden="true" />
+                <section className="device-list device-grid device-grid-bottom" ref={bottomRef} style={gridStyle}>
+                  {bottomCells.map((slot) => renderCell(slot, emptyRow + 1))}
+                </section>
+              </>
+            )}
+          </>
+        );
+      })()}
     </main>
 
     {/* poza <main>: tam obowiązuje skala 0,9, a okno i stopka mają mieć zwykły rozmiar */}
     {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
+    {editingWeather !== undefined && (
+      <WeatherTileModal tile={editingWeather} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
+    )}
 
       <footer className="device-footer devices-footer">
         {/* lewa część zarezerwowana na później (plan 2026-10-04) */}

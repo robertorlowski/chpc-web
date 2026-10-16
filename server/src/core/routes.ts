@@ -11,6 +11,8 @@ import { getTemperature } from './controllers/meteo.controller'
 import { getOperations } from './controllers/operation-log.controller'
 import { getDatabaseStatsEntry } from './controllers/database.controller'
 import { getDeviceTilesEntry } from './controllers/device.controller'
+import { deleteTileTemplateEntry, getTileTemplateEntry, putTileTemplateEntry } from './controllers/tile-template.controller'
+import { deleteWeatherTile, getWeatherTiles, postWeatherTile, putWeatherTile } from './controllers/weather-tile.controller'
 import heatPumpRoutes from '../modules/heat-pump/routes'
 import waterPressureTankRoutes from '../modules/water-pressure-tank/routes'
 import pelletBoilerPelux200Routes from '../modules/pellet-boiler-pelux200/routes'
@@ -30,6 +32,10 @@ router.get('/devices/summary', getDeviceTilesEntry)
 // ręczne dodanie (test E2E); klient go nie używa, sterowniki rejestrują się same
 router.post('/devices', addDevice)
 router.post('/devices/register', registerDeviceEntry)
+// wzór kafelka (projektant kafelka w aplikacji); przed /devices/:rootId, bez rootId
+router.get('/devices/tile-template', getTileTemplateEntry)
+router.put('/devices/tile-template', putTileTemplateEntry)
+router.delete('/devices/tile-template', deleteTileTemplateEntry)
 // kolejność kafelków na /devices; przed /devices/:rootId, bez rootId
 router.put('/devices/order', updateDevicesOrder)
 router.put('/devices/:rootId', updateDevice)
@@ -49,6 +55,12 @@ router.get('/firmware/:deviceType/:version', downloadFirmware)
 router.delete('/firmware/:deviceType/:version', deleteFirmware)
 
 router.get('/temperature', getTemperature)
+
+// kafelki pogody na liście sterowników (bez rootId); kolejność razem ze sterownikami: PUT /devices/order
+router.get('/weather-tiles', getWeatherTiles)
+router.post('/weather-tiles', postWeatherTile)
+router.put('/weather-tiles/:id', putWeatherTile)
+router.delete('/weather-tiles/:id', deleteWeatherTile)
 
 // dziennik operacji sterownika z dnia (zakładka „Operacje”)
 router.get('/operations', getOperations)

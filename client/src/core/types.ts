@@ -57,8 +57,11 @@ export type Device = {
   deviceId: string;
   name: string;
   isDefault?: boolean;
-  // miejsce na liście sterowników ustawione w trybie „Zmień kolejność” (0 = pierwszy); lista z serwera jest już posortowana
+  // miejsce na liście sterowników ustawione w trybie „Zmień kolejność” (0 = pierwszy, wspólne z kafelkami pogody);
+  // lista z serwera jest już posortowana
   sortOrder?: number;
+  // kafelek ukryty na liście (widoczny tylko w trybie „Zmień kolejność”)
+  hidden?: boolean;
   // wersja firmware zgłoszona przy ostatnim uruchomieniu sterownika i czas zgłoszenia (ISO);
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
@@ -111,6 +114,20 @@ export type Weather = {
   windSpeed: number;
   isDay: boolean;
   at: string;
+};
+
+// Kafelek pogody na liście sterowników (GET /api/weather-tiles; kontrakt: server/src/core/services/weather-tile.service.ts):
+// miejscowość z pogodą z Open-Meteo pobieraną przez sterownik włącznika. home = kafelek domu (powstaje sam, bez usuwania);
+// sortOrder wspólne ze sterownikami; weather = null bez świeżych danych (45 min).
+export type WeatherTile = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  sortOrder?: number;
+  hidden: boolean;
+  home: boolean;
+  weather: Weather | null;
 };
 
 /** GET /temperature: temperatura (czujnik kotła, bez niego prognoza) i pogoda; null = brak świeżych danych */

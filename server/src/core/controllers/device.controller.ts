@@ -25,6 +25,8 @@ const toPublicDevice = (device: DeviceDocument) => ({
   deviceId: device.deviceId,
   name: device.name,
   isDefault: device.isDefault ?? false,
+  hidden: device.hidden ?? false,
+  sortOrder: device.sortOrder,
   firmwareVersion: device.firmwareVersion,
   firmwareSeenAt: device.firmwareSeenAt,
   firmwareUpdate: device.firmwareUpdate ?? undefined,
@@ -182,20 +184,24 @@ export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }
 // rootId i deviceId nie podlegają edycji. Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
 // Definicja pompy nie zmienia trybu pracy ani temperatur, więc nie budzi schedulera.
 export async function updateDevice(
-  req: Request<{ rootId: string }, {}, { name?: string; pumpConfig?: unknown; boilerConfig?: unknown }>,
+  req: Request<{ rootId: string }, {}, { name?: string; hidden?: unknown; pumpConfig?: unknown; boilerConfig?: unknown }>,
   res: Response,
 ) {
-  const { name, pumpConfig, boilerConfig } = req.body ?? {};
+  const { name, hidden, pumpConfig, boilerConfig } = req.body ?? {};
   if (name !== undefined && typeof name !== 'string') {
     return res.status(400).json({ message: 'name: napis.' });
   }
-  if (name === undefined && pumpConfig === undefined && boilerConfig === undefined) {
-    return res.status(400).json({ message: 'name, pumpConfig albo boilerConfig jest wymagane.' });
+  if (hidden !== undefined && typeof hidden !== 'boolean') {
+    return res.status(400).json({ message: 'hidden: true albo false.' });
+  }
+  if (name === undefined && hidden === undefined && pumpConfig === undefined && boilerConfig === undefined) {
+    return res.status(400).json({ message: 'name, hidden, pumpConfig albo boilerConfig jest wymagane.' });
   }
 
   try {
     const device = await updateDeviceData(req.params.rootId, {
       ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(hidden !== undefined ? { hidden } : {}),
       ...(pumpConfig !== undefined ? { pumpConfig: parsePumpConfig(pumpConfig) } : {}),
       ...(boilerConfig !== undefined ? { boilerConfig: await parseBoilerConfig(boilerConfig) } : {}),
     });

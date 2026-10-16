@@ -7,9 +7,11 @@
 //
 // Pogoda (niebo, opady, wiatr, dzień/noc, temperatura z prognozy) od 2026-10-15: pobiera ją sterownik włącznika
 // z Open-Meteo z domowego łącza (Open-Meteo liczy limit zapytań na adres IP, a Render dzieli adres z innymi usługami —
-// w lipcu 2026 pobieranie z serwera nie działało; włącznik, bo nie każdy dom będzie miał sterownik co) dla
-// WEATHER_LOCATION, które serwer podaje w odpowiedzi POST /switch/state (weather_query), i wysyła w zgłoszeniu stanu
-// (pole weather). Tylko w pamięci; starsza niż WEATHER_MAX_AGE_MS jest pomijana.
+// w lipcu 2026 pobieranie z serwera nie działało; włącznik, bo nie każdy dom będzie miał sterownik co). Miejsca
+// podaje serwer w odpowiedzi POST /switch/state: weather_query (dom, włącznik 1.1.3) i weather_queries
+// [{id, lat, lon}] (kafelki pogody, core/services/weather-tile.service.ts, włącznik od 1.2.0). Włącznik odsyła
+// w zgłoszeniu stanu pole weather: obiekt (dom) albo tablicę [{id, …}]. Tylko w pamięci, klucz = id kafelka
+// (dom także pod HOME_KEY); starsza niż WEATHER_MAX_AGE_MS jest pomijana.
 
 export const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
 export const WEATHER_MAX_AGE_MS = 45 * 60 * 1000;
@@ -33,30 +35,56 @@ export type Weather = {
   windSpeed: number; isDay: boolean; at: string;
 };
 
-let weather: (Omit<Weather, 'at'> & { at: Date }) | null = null;
+type WeatherEntry = Omit<Weather, 'at'> & { at: Date };
+// klucz pogody ze starszego włącznika (jedno miejsce = dom)
+const HOME_KEY = 'home';
+const weatherByKey = new Map<string, WeatherEntry>();
+// id kafelka „Dom” (weather-tile.service); pogoda domu = pod tym id albo pod HOME_KEY
+let homeKey = HOME_KEY;
+export function setHomeWeatherKey(id: string) { homeKey = id; }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
-// Pole weather ze zgłoszenia sterownika {temp, code, cloud, precip, rain, snow, wind, day, age_s}; błędne jest pomijane.
-export function setWeatherFromController(input: unknown, now = new Date()) {
+// Jeden odczyt {temp, code, cloud, precip, rain, snow, wind, day, age_s} pod kluczem; błędny albo starszy od
+// zapamiętanego jest pomijany.
+function storeWeather(key: string, input: unknown, now: Date) {
   const value = (input ?? {}) as Record<string, unknown>;
   const keys = ['temp', 'code', 'cloud', 'precip', 'rain', 'snow', 'wind', 'day', 'age_s'];
   if (!input || typeof input !== 'object' || !keys.every((key) => isNumber(value[key]))) return;
   const ageS = Math.max(0, value.age_s as number);
   const at = new Date(now.getTime() - ageS * 1000);
-  if (weather && weather.at > at) return;
-  weather = {
+  const previous = weatherByKey.get(key);
+  if (previous && previous.at > at) return;
+  weatherByKey.set(key, {
     temperature: value.temp as number, code: Math.round(value.code as number), cloudCover: value.cloud as number,
     precipitation: value.precip as number, rain: value.rain as number, snowfall: value.snow as number,
     windSpeed: value.wind as number, isDay: value.day !== 0, at,
-  };
+  });
 }
 
-// Ostatnia świeża pogoda albo null.
-export function getWeather(now = new Date()): Weather | null {
-  if (!weather || now.getTime() - weather.at.getTime() > WEATHER_MAX_AGE_MS) return null;
-  return { ...weather, at: weather.at.toISOString() };
+// Pole weather ze zgłoszenia sterownika: obiekt (włącznik 1.1.3, dom) albo tablica [{id, …}] (od 1.2.0, kafelki).
+export function setWeatherFromController(input: unknown, now = new Date()) {
+  if (Array.isArray(input)) {
+    input.forEach((item) => {
+      const id = (item as { id?: unknown } | null)?.id;
+      if (typeof id === 'string' && id) storeWeather(id, item, now);
+    });
+    return;
+  }
+  storeWeather(HOME_KEY, input, now);
 }
+
+// Ostatnia świeża pogoda dla klucza (id kafelka) albo null; dla domu nowsza z dwóch (id kafelka i HOME_KEY).
+export function getWeatherFor(key: string, now = new Date()): Weather | null {
+  const candidates = [weatherByKey.get(key), key === homeKey ? weatherByKey.get(HOME_KEY) : undefined]
+    .filter((item): item is WeatherEntry => !!item);
+  const entry = candidates.sort((a, b) => b.at.getTime() - a.at.getTime())[0];
+  if (!entry || now.getTime() - entry.at.getTime() > WEATHER_MAX_AGE_MS) return null;
+  return { ...entry, at: entry.at.toISOString() };
+}
+
+// Ostatnia świeża pogoda domu albo null.
+export const getWeather = (now = new Date()): Weather | null => getWeatherFor(homeKey, now);
 
 // Temperatura zewnętrzna i jej źródło: czujnik kotła, a bez świeżego pomiaru prognoza Open-Meteo; null = brak obu.
 export function getOutdoor(now = new Date()): { temperature: number; source: 'boiler' | 'forecast' } | null {

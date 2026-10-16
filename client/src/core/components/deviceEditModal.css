@@ -71,3 +71,43 @@
 .device-modal-actions .device-modal-cancel {
   background-color: #777;
 }
+
+/* popup „Kafelek pogody” (WeatherTileModal): podpowiedzi geokodera, współrzędne obok siebie, usuwanie po lewej */
+.weather-hits {
+  margin: -0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  overflow: hidden;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.weather-hits li + li { border-top: 1px solid #e0e0e0; }
+
+.weather-hits button {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #222;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.weather-hits button:hover,
+.weather-hits button:focus-visible { background: #e1f1f6; }
+.weather-hits small { color: #607d8b; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.weather-hit-note { padding: 0.4rem 0.6rem; color: #607d8b; font-size: 0.9rem; }
+
+.weather-coords { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.weather-modal-note { margin: 0; font-size: 0.85rem; color: #607d8b; }
+.device-modal-actions .weather-modal-note { margin-right: auto; align-self: center; }
+.device-modal-actions .device-modal-left { margin-right: auto; }
+.device-modal-actions .device-modal-danger { background-color: #c62828; }

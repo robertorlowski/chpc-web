@@ -100,8 +100,8 @@ export class Requests {
       });
   }
 
-  static async delete(path: string) {
-    const response = await fetch(prefixMocks(withDeviceContext(path, true)), {
+  static async delete(path: string, includeDevice = true) {
+    const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -152,9 +152,10 @@ export class Requests {
     return body;
   }
 
-  static async put(path: string, data: unknown, includeDevice = true) {
+  // method: PUT albo POST z tą samą obsługą błędu (kod i komunikat serwera w wyjątku)
+  static async put(path: string, data: unknown, includeDevice = true, method: 'PUT' | 'POST' = 'PUT') {
     const response = await fetch(prefixMocks(withDeviceContext(path, includeDevice)), {
-      method: 'PUT',
+      method,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'x-api-key': 'f3c87b02-4d0d-4e0a-9d5c-30a91ec77510',
