@@ -321,3 +321,14 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .fw-current { flex-wrap: wrap; }
 .fw-meta { flex-basis: 160px; }
 .people .person strong { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---- lista: kafelki równej wysokości; stan i ostrzeżenie w wolnym miejscu po prawej od dużej liczby ---- */
+.tiles { align-items: stretch; }
+.tile-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; }
+.tile-value { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.tile-side { flex: 0 1 auto; max-width: 52%; display: flex; justify-content: flex-end; }
+.tile-side .state { white-space: normal; text-align: left; line-height: 1.3; padding: 6px 10px; }
+.tile-side .state .dot { flex: none; }
+.tile-side .warn-line { width: auto; white-space: normal; line-height: 1.3; padding: 6px 10px; font-size: 12px; }
+.tile-facts { margin-top: auto; }
+.tile .relays { margin-bottom: auto; }
