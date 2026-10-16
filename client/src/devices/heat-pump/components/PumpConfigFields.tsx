@@ -111,8 +111,8 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
 // opisy krótkie i nad / pod strzałkami, żeby się nie nakładały, a okno mieściło się na ekranie telefonu.
 function ConnectionSchema({ connection, liters }: { connection: PumpConnection; liters: number | null }) {
   const cwu = connection === 'cwu';
-  const hot = '#c62828';
-  const cold = '#1565c0';
+  const hot = 'var(--danger)';
+  const cold = 'var(--c-water)';
   return (
     <svg
       viewBox="0 0 300 150"
@@ -127,13 +127,13 @@ function ConnectionSchema({ connection, liters }: { connection: PumpConnection; 
           <path d="M0 0L10 5L0 10z" fill={cold} />
         </marker>
       </defs>
-      <rect x="100" y="8" width="70" height="134" rx={cwu ? 26 : 6} fill="#fff" stroke="#455a64" strokeWidth="2" />
-      <text x="135" y="62" textAnchor="middle" fontSize="11" fontWeight="600" fill="#222">{cwu ? 'Zasobnik' : 'Bufor CO'}</text>
-      <text x="135" y="76" textAnchor="middle" fontSize="11" fontWeight="600" fill="#222">{cwu ? 'CWU' : '/ piec'}</text>
-      {liters !== null && <text x="135" y="91" textAnchor="middle" fontSize="10" fill="#444">{liters} l</text>}
-      <rect x="226" y="52" width="68" height="46" rx="6" fill="#1481a5" />
-      <text x="260" y="72" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">Pompa</text>
-      <text x="260" y="86" textAnchor="middle" fontSize="11" fontWeight="600" fill="#fff">ciepła</text>
+      <rect x="100" y="8" width="70" height="134" rx={cwu ? 26 : 6} style={{ fill: 'var(--card)', stroke: 'var(--fg-3)' }} strokeWidth="2" />
+      <text x="135" y="62" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? 'Zasobnik' : 'Bufor CO'}</text>
+      <text x="135" y="76" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? 'CWU' : '/ piec'}</text>
+      {liters !== null && <text x="135" y="91" textAnchor="middle" fontSize="10" style={{ fill: 'var(--fg-2)' }}>{liters} l</text>}
+      <rect x="226" y="52" width="68" height="46" rx="6" style={{ fill: 'var(--accent)' }} />
+      <text x="260" y="72" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>Pompa</text>
+      <text x="260" y="86" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>ciepła</text>
       <path d="M260 52 V26 H172" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
       <text x="216" y="20" textAnchor="middle" fontSize="10" fill={hot}>gorąca</text>
       <path d="M172 122 H260 V98" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />

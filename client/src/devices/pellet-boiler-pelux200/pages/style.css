@@ -1,7 +1,7 @@
 /* Kocioł pelletowy: karty jak w Ustawieniach pompy (.settings > section > .resource) */
 .settings.boiler-page > section > .resource,
 .settings.boiler-page > section > .resource:first-child {
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
 }
 
@@ -11,7 +11,7 @@
 
 .boiler-stale,
 .boiler-alarm {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -26,7 +26,7 @@
 .boiler-flame {
   width: 1.4rem;
   height: 1.4rem;
-  color: #aaa;
+  color: var(--fg-3);
 }
 
 .boiler-flame-on {
@@ -49,18 +49,18 @@
 
 .boiler-chip-label {
   font-weight: normal;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .boiler-pump {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  color: #999;
+  color: var(--fg-3);
 }
 
 .boiler-pump-on {
-  color: #1481a5;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -86,16 +86,16 @@
 }
 
 .boiler-tile {
-  border: 1px solid #ddd;
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.5rem 0.6rem;
-  background: #fff;
+  background: var(--card);
   min-width: 0;
 }
 
 .boiler-tile-title {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .boiler-tile-current {
@@ -106,13 +106,13 @@
 
 .boiler-tile-target {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 /* CWU wyłączone w regulatorze (nr 122 = Wyłączony): pod zadaną i w Ustawieniach */
 .boiler-tile-off,
 .boiler-parameter-value.boiler-value-off {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -123,7 +123,7 @@
 .boiler-loading {
   padding: 1rem;
   text-align: center;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .boiler-tile-extra {
@@ -195,9 +195,9 @@
 }
 
 .boiler-profiles .boiler-profile {
-  background: #fff;
-  color: #1481a5;
-  border: 1px solid #1481a5;
+  background: var(--card);
+  color: var(--accent);
+  border: 1px solid var(--accent);
 }
 
 
@@ -207,7 +207,7 @@
 
 .boiler-main-title {
   font-weight: 600;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
   padding-bottom: 0.2rem;
   margin-bottom: 0.2rem;
 }
@@ -237,13 +237,13 @@
 .boiler-edit select,
 .boiler-edit input:not([type='checkbox']) {
   height: 2.3rem;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   font-family: inherit;
 }
 
 .boiler-edit select {
-  background-color: #fff;
+  background-color: var(--card);
 }
 
 .boiler-edit {
@@ -257,7 +257,7 @@
 }
 
 .boiler-group-field + .boiler-group-field {
-  border-top: 1px solid #e4e4e4;
+  border-top: 1px solid var(--line);
   padding-top: 0.5rem;
 }
 
@@ -266,7 +266,7 @@
   display: flex !important;
   gap: 0.5rem;
   align-items: flex-start;
-  color: #b00020;
+  color: var(--danger);
   font-size: 0.9rem;
 }
 
@@ -311,7 +311,7 @@
   justify-content: space-between;
   gap: 0.2rem 0.75rem;
   padding: 0.3rem 0;
-  border-bottom: 1px solid #e4e4e4;
+  border-bottom: 1px solid var(--line);
 }
 
 /* okno „Tryb pracy”: nazwa parametru, a pod nią „teraz → nowa” */
@@ -322,20 +322,20 @@
 }
 
 .boiler-command-done {
-  color: #2e7d32;
+  color: var(--ok-fg);
 }
 
 .boiler-command-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 .boiler-command-pending,
 .boiler-command-sent {
-  color: #b26a00;
+  color: var(--warn-fg);
 }
 
 .boiler-command-replaced {
-  color: #777;
+  color: var(--fg-3);
 }
 
 .boiler-table {
@@ -348,7 +348,7 @@
 .boiler-table td {
   padding: 0.25rem 0.4rem;
   text-align: right;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
@@ -386,9 +386,9 @@
   min-height: 32px;
   padding: 0 0.4rem;
   box-sizing: border-box;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--card);
 }
 
 .boiler-form {
@@ -425,11 +425,11 @@
 
 .boiler-hint {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .boiler-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 /* Ustawienia zaawansowane: zwijany panel z grupami parametrów regulatora */
@@ -458,7 +458,7 @@
   cursor: pointer;
   font-weight: 600;
   padding: 0.35rem 0;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
 }
 
 .boiler-group ul {
@@ -469,7 +469,7 @@
 
 .boiler-parameter {
   padding: 0.45rem 0;
-  border-bottom: 1px solid #e4e4e4;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
 
@@ -489,7 +489,7 @@
   gap: 0.3rem;
   white-space: nowrap;
   font-weight: 600;
-  color: #1481a5;
+  color: var(--accent);
 }
 
 .boiler-parameter-description {
@@ -504,21 +504,21 @@
 }
 
 .boiler-rating-safe {
-  color: #2e7d32;
+  color: var(--ok-fg);
 }
 
 .boiler-rating-careful {
-  color: #b26a00;
+  color: var(--warn-fg);
 }
 
 .boiler-rating-service {
-  color: #b00020;
+  color: var(--danger);
 }
 
 @media (max-width: 560px) {
   body .settings.boiler-page > section > .resource,
   body .settings.boiler-page > section > .resource:first-child {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
     margin-left: 0;
     margin-right: 0;
     border-radius: 0;
@@ -543,7 +543,7 @@
 
 /* Harmonogram: listy trybów, czerwona kreska = działa teraz */
 .boiler-mode-now {
-  color: #b00020;
+  color: var(--danger);
   font-weight: normal;
   font-size: 0.9rem;
 }
@@ -570,13 +570,13 @@
 /* Harmonogram: nagłówek rodzaju wpisów */
 .boiler-schedule-kind {
   font-weight: 600;
-  color: #555;
+  color: var(--fg-2);
 }
 
 /* wiersz wpisu harmonogramu kotła: druga i kolejne linie (godziny, ustawienie) zwykłą czcionką */
 .boiler-schedule-line {
   font-size: 0.95rem;
-  color: #333;
+  color: var(--fg);
 }
 
 .boiler-cold-input {
@@ -598,8 +598,8 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #f1f1f1;
-  box-shadow: inset 0 -1px 0 #bbb;
+  background: var(--card);
+  box-shadow: inset 0 -1px 0 var(--line-strong);
 }
 
 .fill-page .boiler-table th:first-child,
@@ -607,13 +607,13 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  background: #f1f1f1;
-  box-shadow: inset -1px 0 0 #ccc;
+  background: var(--card);
+  box-shadow: inset -1px 0 0 var(--line);
 }
 
 .fill-page .boiler-table thead th:first-child {
   z-index: 3;
-  box-shadow: inset -1px -1px 0 #bbb;
+  box-shadow: inset -1px -1px 0 var(--line-strong);
 }
 
 @media (max-width: 560px) {
@@ -630,11 +630,11 @@
 }
 
 .boiler-state-on {
-  color: #1481a5;
+  color: var(--accent);
 }
 
 .boiler-state-off {
-  color: #b00020;
+  color: var(--danger);
 }
 
 /* nieaktywny przycisk (np. „Włącz regulator”, gdy regulator już pracuje) */
@@ -645,12 +645,12 @@
 
 /* ładowanie CWU w trybie pompy ciepła: pasek nad stanem kotła (jak na ekranie pompy ciepła) */
 .cwu-loading {
-  border-left: 4px solid #1481a5;
-  color: #1481a5;
+  border-left: 4px solid var(--accent);
+  color: var(--accent);
 }
 
 .cwu-loading-off {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -660,8 +660,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-left: 4px solid #b00020;
-  color: #b00020;
+  border-left: 4px solid var(--danger);
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -671,7 +671,7 @@
 
 /* tryb „Pompa ciepła” i pracująca sprężarka pompy ciepła: stan „Praca” na niebiesko */
 .boiler-heat-pump-work {
-  color: #1481a5;
+  color: var(--accent);
 }
 
 /* Alarmy kotła (components/Alerts.tsx): czerwony pasek w górnym panelu strony głównej, zakładka Alarmy
@@ -699,16 +699,16 @@
 .boiler-alerts-table td {
   text-align: left;
   padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
 }
 
 .boiler-alert-active td {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .boiler-alert-uncertain td {
-  color: #777;
+  color: var(--fg-3);
 }
 
 .boiler-alert-badge {
@@ -716,8 +716,8 @@
   margin-right: 0.4rem;
   padding: 0 0.35rem;
   border-radius: 0.25rem;
-  background: #b00020;
-  color: #fff;
+  background: var(--danger);
+  color: var(--card);
   font-size: 0.75rem;
 }
 
@@ -731,7 +731,7 @@
     grid-template-columns: auto auto 1fr;
     gap: 0 0.4rem;
     padding: 0.4rem 0;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--line);
   }
 
   .boiler-alerts-table td {
@@ -761,7 +761,7 @@
    2026-10-07); na telefonie bez zmian (pełna szerokość, wiersze jako karty) */
 @media (min-width: 561px) {
   .settings.boiler-page.boiler-alerts-page > section > .resource {
-    width: min(820px, calc(100vw - 2rem));
+    width: min(820px, calc(var(--page-vw, 100vw) - 2rem));
   }
 
   .boiler-alerts-table td:not(:first-child),
@@ -774,34 +774,34 @@
 .boiler-tabs {
   display: flex;
   gap: 0.25rem;
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   margin: 0 auto 0.5rem;
-  border-bottom: 2px solid #1481a5;
+  border-bottom: 2px solid var(--accent);
 }
 
 .boiler-tabs button {
   margin: 0;
   padding: 0.45rem 1rem;
   border-radius: 6px 6px 0 0;
-  background-color: #e3eef2;
-  color: #1481a5;
+  background-color: var(--muted-bg);
+  color: var(--accent);
   font-weight: 500;
 }
 
 .boiler-tabs button.active {
-  background-color: #1481a5;
-  color: #fff;
+  background-color: var(--accent);
+  color: var(--card);
 }
 
-/* Wykres na całe okno (fill-page): zakładki i linia pod nimi na szerokość karty wykresu (style.css: calc(100vw - 2rem)) */
+/* Wykres na całe okno (fill-page): zakładki i linia pod nimi na szerokość karty wykresu (style.css: calc(var(--page-vw, 100vw) - 2rem)) */
 .fill-page > .boiler-tabs {
-  width: calc(100vw - 2rem);
+  width: calc(var(--page-vw, 100vw) - 2rem);
 }
 
 @media (max-width: 560px) {
   .boiler-tabs,
   .fill-page > .boiler-tabs {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
   }
 
   .boiler-tabs button {
@@ -885,9 +885,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff;
-  border: 1px solid #1481a5;
-  color: #0d5770;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--accent-strong);
   font-size: 0.95rem;
 }
 
@@ -895,7 +895,7 @@
 .boiler-chart-title {
   margin-top: 0.4rem;
   font-weight: 600;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .boiler-price {

@@ -6,7 +6,7 @@
   gap: 0.75rem;
   width: 100%;
   margin-bottom: 0.4rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--line);
 }
 
 .controller-card-bar h3.settings-section-title {

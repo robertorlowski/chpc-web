@@ -215,7 +215,7 @@ export function TemplateTile({ template, deviceType, name, tile, now, loading, d
   const labelFs = (shape.f.mainLabel.fs ?? shape.f.mainLabel.h * TILE_SLOTS.mainLabel.k) / 100 * shape.h / shape.w * 100;
   return (
     <span className="tt-box">
-      <span className={`tt tt-${level}${tile?.running ? ' tt-running' : ''}${loading && !tile ? ' tt-loading' : ''}`}
+      <span className={`tt tt-${level}${deviceType ? ` tt-kind-${deviceType}` : ''}${tile?.running ? ' tt-running' : ''}${loading && !tile ? ' tt-loading' : ''}`}
         style={{
           // co najmniej wysokość ze wzoru; w wierszu listy kafelek może być wyższy (wyrównanie do najwyższego)
           minHeight: `${(shape.h / shape.w * 100).toFixed(2)}cqw`,

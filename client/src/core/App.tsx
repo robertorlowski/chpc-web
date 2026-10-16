@@ -1,13 +1,15 @@
 // Szkielet aplikacji: router, logowanie (AuthGate: konta użytkowników od 2026-10-11), strażnik wyboru sterownika
-// (DeviceGuard), menu, trasy z rejestru rodzajów sterowników (device-types.tsx) i stopka „Aktywne urządzenie”.
+// (DeviceGuard), pasek sterownika z zakładkami (Header; na telefonie dolna nawigacja BottomNav) i trasy z rejestru
+// rodzajów sterowników (device-types.tsx). Stopka „Aktywne urządzenie” zniknęła 2026-10-16 (nowy wygląd z makiet/):
+// do listy prowadzi strzałka w pasku i „Więcej” w dolnej nawigacji.
 // Montowany w index.tsx.
 // Serwer: GET /api/devices (lista sterowników). Sterownika domyślnego ani automatycznego wyboru nie ma.
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import { Header } from './components/Header';
+import { BottomNav, Header } from './components/Header';
 import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
 import { Firmware } from './pages/Firmware';
 import { TileDesigner } from './pages/TileDesigner';
-import { deviceLabel, useDevice } from './context/DeviceContext';
+import { useDevice } from './context/DeviceContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Fragment, useEffect, useState } from 'react';
 import { DeviceRequests } from './api';
@@ -51,7 +53,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 	if (status === 'anonymous' || !user) {
 		return (
 			<>
-				<header className="app-header app-header-plain"><span>Logowanie</span></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span><h1 className="app-header-title">Logowanie</h1></header>
 				<main className="app-main"><Login /></main>
 			</>
 		);
@@ -59,7 +61,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 	if (!user.profileComplete) {
 		return (
 			<>
-				<header className="app-header app-header-plain"><span>Nowe konto</span><UserMenu /></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span><h1 className="app-header-title">Nowe konto</h1><UserMenu /></header>
 				<main className="app-main">
 					<div className="account-page account-narrow">
 						<h1>Uzupełnij dane</h1>
@@ -120,37 +122,6 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 	return <>{children}</>;
 }
 
-// Stała stopka z nazwą aktywnego sterownika i przejściem na /devices (zmiana sterownika).
-function DeviceFooter() {
-	const { device } = useDevice();
-	const [deviceCount, setDeviceCount] = useState<number | null>(null);
-
-	// liczba sterowników z serwera przy każdym wyborze urządzenia: sterownik zarejestrowany
-	// w międzyczasie od razu pokazuje stopkę z możliwością przełączenia
-	useEffect(() => {
-		if (!device) return;
-		DeviceRequests.getDevices().then((list) => setDeviceCount(list ? list.length : null));
-	}, [device?.rootId]);
-
-	// przy jednym sterowniku nie ma na co przełączyć; do czasu odpowiedzi serwera stopka jest ukryta
-	if (!device || deviceCount === null || deviceCount < 2) return null;
-
-	return (
-		<footer className="device-footer">
-			<div className="device-footer-info">
-				<span>Aktywne urządzenie</span>
-				<strong>{deviceLabel(device)}</strong>
-				{/* <small>Kod: {device.deviceId}</small> */}
-			</div>
-			<Link className="device-footer-change" to="/devices" aria-label="Zmień urządzenie" title="Zmień urządzenie">
-				<svg viewBox="0 0 24 24" aria-hidden="true">
-					<path d="M7 7h11l-3-3M18 7l-3 3M17 17H6l3 3M6 17l3-3" />
-				</svg>
-			</Link>
-		</footer>
-	);
-}
-
 // Widok ścieżki dla rodzaju wybranego sterownika (rejestr w device-types.tsx); ścieżka, której
 // ten rodzaj nie ma (np. /schedules hydroforu), prowadzi na stronę główną. key daje stronie
 // nowy stan po zmianie sterownika.
@@ -180,20 +151,21 @@ function AppContent() {
 
 	return (
 		<DeviceGuard>
-			<div className="app-container">
+			<div className={`app-container${isDeviceSelection ? '' : ' has-side'}`}>
 				{!isDeviceSelection && <header className="app-header">
 					<Header />
 				</header>}
-				{/* /devices: sam pasek w kolorze menu (bez pozycji menu, bo nie wybrano sterownika) */}
-				{location.pathname === '/devices' && <header className="app-header app-header-plain">
-					<span>Lista sterowników</span>
-					{/* miejsce na przyciski strony (trybik „Zmień kolejność” wstawia tu pages/Devices) */}
+				{/* /devices: pasek z nazwą aplikacji (bez zakładek, bo nie wybrano sterownika) */}
+				{location.pathname === '/devices' && <header className="app-header">
+					<span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span>
+					<h1 className="app-header-title">Sterowniki</h1>
+					{/* miejsce na przyciski strony (trybik „Zmień układ” wstawia tu pages/Devices) */}
 					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 					<UserMenu />
 				</header>}
-				{location.pathname.startsWith('/account') && <header className="app-header app-header-plain">
-					<Link to="/devices" className="nav-back" title="Lista urządzeń" aria-label="Wróć do listy urządzeń"><BackIcon /></Link>
-					<span>Moje dane</span>
+				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || location.pathname === '/tile-designer') && <header className="app-header">
+					<Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników"><BackIcon /></Link>
+					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : 'Projekt kafelka'}</h1>
 					<UserMenu />
 				</header>}
 
@@ -212,8 +184,8 @@ function AppContent() {
 					))}
 				</Routes>
 				</main>
-				{/* na /devices własna stopka z zajętością bazy; „Aktywne urządzenie” prowadzi tutaj, więc jej nie ma */}
-				{location.pathname !== '/devices' && <DeviceFooter />}
+				{/* telefon: dolna nawigacja na stronach sterownika (CSS ukrywa ją od 900 px) */}
+				{!isDeviceSelection && <BottomNav />}
 			</div>
 		</DeviceGuard>
 );

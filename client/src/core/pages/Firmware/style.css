@@ -8,7 +8,7 @@
 
 .firmware-page > p,
 .firmware-card-width {
-  width: min(640px, calc(100vw - 2rem));
+  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
   margin: 0 0 0.5rem;
   box-sizing: border-box;
 }
@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: min(640px, calc(100vw - 2rem));
+  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
 }
 
@@ -35,12 +35,12 @@
 }
 
 .firmware-lead {
-  color: #555;
+  color: var(--fg-2);
 }
 
 .firmware-page .firmware-card,
 .firmware-page .firmware-card:hover {
-  width: min(640px, calc(100vw - 2rem));
+  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -53,7 +53,7 @@
   width: 100%;
   margin: 0.2rem 0 0.25rem;
   padding-top: 0.2rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--line);
 }
 
 /* belka kafelka: tytuł po lewej, ikona akcji po prawej, wspólna linia pod spodem */
@@ -62,7 +62,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--line);
 }
 
 .firmware-bar .firmware-title {
@@ -105,11 +105,11 @@
 
 .firmware-hint {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .firmware-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 .firmware-actions {
@@ -125,8 +125,8 @@
   margin: 0;
   padding: 0 1rem;
   font: inherit;
-  color: #fff;
-  background: #1481a5;
+  color: var(--card);
+  background: var(--accent);
   border: 0;
   border-radius: 6px;
   cursor: pointer;
@@ -143,7 +143,7 @@
   align-items: center;
   gap: 0.75rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
 }
 
 .firmware-version-main {
@@ -175,7 +175,7 @@
 @media (max-width: 560px) {
   body .firmware-page .firmware-card,
   body .firmware-page .firmware-card:hover {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
     border-radius: 0;
   }
 
@@ -200,7 +200,7 @@
   box-sizing: border-box;
   padding: 0.45rem;
   font: inherit;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   resize: vertical;
 }

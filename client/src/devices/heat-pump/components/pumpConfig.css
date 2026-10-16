@@ -3,7 +3,7 @@
   display: grid;
   gap: 0.3rem;
   padding-top: 0.45rem;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid var(--line);
 }
 
 .pump-config h3 {
@@ -20,7 +20,7 @@
 .pump-config-label {
   width: 9.5rem;
   flex: none;
-  color: #444;
+  color: var(--fg-2);
   font-size: 0.9rem;
 }
 
@@ -30,7 +30,7 @@
 
 .pump-config-seg {
   display: flex;
-  border: 1px solid #1481a5;
+  border: 1px solid var(--accent);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -39,15 +39,15 @@
   margin: 0;
   border: 0;
   border-radius: 0;
-  background-color: #fff;
-  color: #1481a5;
+  background-color: var(--card);
+  color: var(--accent);
   padding: 0.35rem 0.9rem;
   min-height: 2rem;
 }
 
 .device-modal .pump-config-seg button.on {
-  background-color: #1481a5;
-  color: #fff;
+  background-color: var(--accent);
+  color: var(--card);
 }
 
 .pump-config-pv-title {
@@ -70,7 +70,7 @@
 
 .device-modal label.pump-config-check span {
   font-size: 0.9rem;
-  color: #222;
+  color: var(--fg);
 }
 
 .device-modal label.pump-config-check.disabled {
@@ -81,7 +81,7 @@
   margin-top: 0.25rem;
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
-  background-color: #f1f1f1;
+  background-color: var(--card);
 }
 
 /* schemat nie rozciąga się na całą szerokość okna: ma własną wysokość i stoi na środku */

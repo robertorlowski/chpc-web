@@ -25,7 +25,7 @@
 .schedule-card {
   box-sizing: border-box;
   padding: 1rem;
-  background: #f1f1f1;
+  background: var(--card);
   border: 1px solid transparent;
   border-radius: 0.5rem;
   text-align: left;
@@ -42,7 +42,7 @@
   width: min(100%, 700px);
   box-sizing: border-box;
   padding: 1rem;
-  background: #f1f1f1;
+  background: var(--card);
   border: 1px solid transparent;
   border-radius: 0.5rem;
   margin: 0; /* .resource dokłada marginesy boczne, przez które karta była węższa od listy */
@@ -50,15 +50,15 @@
 }
 
 .schedule-defaults-resource:hover {
-  border-color: #1481a5;
-  box-shadow: 0 25px 50px -12px #1481a588;
+  border-color: var(--accent);
+  box-shadow: 0 25px 50px -12px var(--accent);
 }
 
 .schedule-defaults-resource .settings-section-title {
   width: 100%;
   margin: 1rem 0 0.25rem;
   padding-top: 0.2rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--line);
 }
 
 .schedule-defaults-resource .settings-section-title:first-child {
@@ -96,7 +96,7 @@
 }
 
 .schedule-card:hover {
-  border-color: #1481a5;
+  border-color: var(--accent);
 }
 
 .schedule-card h3 {
@@ -173,7 +173,7 @@
 
 .schedule-group h4 {
   margin: 0 0 0.4rem;
-  color: #333;
+  color: var(--fg);
 }
 
 /* grupa działająca w zapisanym „Trybie pracy”: rodzaj podkreślony czerwoną linią */
@@ -187,13 +187,13 @@
   display: grid;
   gap: 0.1rem;
   padding: 0.3rem 4.8rem 0.3rem 0.3rem;
-  background: white;
-  border-left: 4px solid #1481a5;
+  background: var(--card);
+  border-left: 4px solid var(--accent);
 }
 
 /* pozycja, która działa teraz (harmonogram albo ustawienie domyślne) */
 .schedule-row-current {
-  border-left-color: #b00020;
+  border-left-color: var(--danger);
 }
 
 .schedule-row-details {
@@ -220,7 +220,7 @@
 .schedule-row-details {
   justify-content: flex-start;
   flex-wrap: nowrap;
-  color: #555;
+  color: var(--fg-2);
   font-size: 0.95rem;
 }
 
@@ -258,7 +258,7 @@
 }
 
 .schedule-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 /* tryb pracy: przyciski od lewej na komputerze, na środku na telefonie */
@@ -276,7 +276,7 @@
 
 .schedule-hint {
   margin: 0.2rem 0 0.4rem;
-  color: #5b5b5b;
+  color: var(--fg-2);
   font-size: 0.85rem;
 }
 

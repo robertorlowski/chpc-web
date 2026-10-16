@@ -2,7 +2,7 @@
    (Settings/style.css) i regułami stron (np. .schedule-card button), niezależnie od kolejności CSS. */
 .work-mode-switch {
   display: inline-flex;
-  border: 1px solid #1481a5;
+  border: 1px solid var(--accent);
   border-radius: 6px;
   overflow: hidden;
   vertical-align: middle;
@@ -12,20 +12,20 @@
   margin: 0;
   border: 0;
   border-radius: 0;
-  background-color: #fff;
-  color: #1481a5;
+  background-color: var(--card);
+  color: var(--accent);
   padding: 0.35rem 0.7rem;
   min-height: 2rem;
   font-size: 0.9rem;
 }
 
 .work-mode-switch button[type] + button[type] {
-  border-left: 1px solid #1481a5;
+  border-left: 1px solid var(--accent);
 }
 
 .work-mode-switch button[type].on {
-  background-color: #1481a5;
-  color: #fff;
+  background-color: var(--accent);
+  color: var(--card);
 }
 
 .work-mode-switch button[type]:disabled {

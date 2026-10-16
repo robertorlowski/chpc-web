@@ -69,18 +69,19 @@
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: #fff;
-  color: #263238;
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--fg);
   text-align: left;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--line);
 }
 
 .device-list .device-choose:hover:not(:disabled),
 .device-list .device-choose:focus-visible {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-hover);
 }
 
 .device-list .device-choose:disabled {
@@ -90,7 +91,7 @@
 
 /* błąd: czerwona ramka wokół całego kafelka */
 .device-card.has-error .device-choose {
-  box-shadow: 0 0 0 2px #c62828, 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 0 0 2px var(--danger);
 }
 
 /* temperatura (czujnik kotła) i pogoda (Open-Meteo) nad kafelkami */
@@ -106,13 +107,13 @@
 .devices-outdoor > span { display: inline-flex; align-items: center; gap: 6px; }
 .devices-outdoor b { font-weight: 600; }
 .devices-outdoor .weather-icon { flex: none; }
-.devices-outdoor-extra { color: #607d8b; }
+.devices-outdoor-extra { color: var(--fg-3); }
 @media (max-width: 560px) {
   .devices-outdoor-extra { display: none !important; }
 }
 
 .device-selection-error {
-  color: #ef6c00;
+  color: var(--warn-fg);
   font-weight: bold;
   margin: 0;
 }
@@ -127,13 +128,13 @@
      co najmniej nagłówek + miejsce na ołówek i trybik, żeby kafelek bez danych ich nie zasłaniał */
   min-height: max(100%, 5.4rem);
   padding: 12px 14px 12px 12px;
-  border-left: 6px solid #1481a5; /* kolor przycisków i paska aplikacji */
+  border-left: 6px solid var(--accent); /* kolor przycisków i paska aplikacji */
   border-radius: 12px;
 }
 
-.tile-warn { border-left-color: #ef6c00; }
-.tile-err { border-left-color: #c62828; }
-.tile-off { border-left-color: #78909c; }
+.tile-warn { border-left-color: var(--warn-fg); }
+.tile-err { border-left-color: var(--danger); }
+.tile-off { border-left-color: var(--fg-3); }
 
 .tile-head {
   display: flex;
@@ -153,7 +154,7 @@
 /* praca pompy ciepła i palenie w piecu: ikona w kolorze aplikacji pulsuje jak dawniej kropka w chipie
    (przygasa i lekko się zmniejsza; !important wygrywa z kolorem piktogramu ustawionym w style) */
 .tile-type-icon-pulse .pictogram {
-  color: #1481a5 !important;
+  color: var(--accent) !important;
   animation: tile-icon-pulse 1.4s ease-in-out infinite;
 }
 
@@ -163,7 +164,7 @@
 }
 
 /* urządzenie pracuje: wartość główna (po lewej) na niebiesko */
-.tile-running .tile-facts-main .tile-fact.big b { color: #1481a5; }
+.tile-running .tile-facts-main .tile-fact.big b { color: var(--accent); }
 
 .tile-name {
   font-size: 1.1rem;
@@ -178,16 +179,16 @@
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
-  background: #e1f1f6;
-  color: #0f6a88;
+  background: var(--run-bg);
+  color: var(--accent-strong);
 }
 
-.tile-chip.warn { background: #fff3e0; color: #ef6c00; }
-.tile-chip.err { background: #fdecea; color: #c62828; }
-.tile-chip.off { background: #eceff1; color: #78909c; }
+.tile-chip.warn { background: var(--hover)e0; color: var(--warn-fg); }
+.tile-chip.err { background: var(--err-bg); color: var(--danger); }
+.tile-chip.off { background: var(--muted-bg); color: var(--fg-3); }
 
 /* pracuje: pełne tło w kolorze aplikacji ze stałą kropką (od 2026-10-13 pulsuje ikona rodzaju, nie kropka) */
-.tile-chip.run { background: #1481a5; color: #fff; }
+.tile-chip.run { background: var(--accent); color: var(--card); }
 .tile-chip.run::before {
   content: '';
   display: inline-block;
@@ -195,7 +196,7 @@
   height: 8px;
   margin-right: 6px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--card);
 }
 
 .tile-facts {
@@ -224,7 +225,7 @@
 }
 
 .tile-main-sep {
-  color: #90a4ae;
+  color: var(--fg-3);
   font-size: 1.6rem;
   line-height: 1.1;
   align-self: flex-start; /* na wysokości liczb, nie środka bloku z podpisem */
@@ -254,7 +255,7 @@
 .tile-fact-icon .pictogram { width: 100%; height: 100%; }
 .tile-fact-text { display: inline-flex; align-items: baseline; gap: 6px; }
 .tile-fact b { font-size: 1.15rem; }
-.tile-fact small { color: #607d8b; font-size: 0.78rem; }
+.tile-fact small { color: var(--fg-3); font-size: 0.78rem; }
 .tile-fact.big .tile-fact-icon { width: 1.5rem; height: 1.5rem; }
 /* wartość główna: etykieta pod liczbą, żeby kafelek mieścił się w 360 px */
 .tile-fact.big .tile-fact-text { flex-direction: column; align-items: flex-start; gap: 0; }
@@ -275,12 +276,12 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #b0bec5;
+  background: var(--line-strong);
 }
 
-.tile-relay-dot.on { background: #1481a5; }
+.tile-relay-dot.on { background: var(--accent); }
 .tile-relay b { font-size: 1.05rem; }
-.tile-relay small { margin-left: auto; color: #607d8b; font-size: 0.82rem; text-align: right; }
+.tile-relay small { margin-left: auto; color: var(--fg-3); font-size: 0.82rem; text-align: right; }
 
 /* błąd albo ostrzeżenie: jasne tło z cienką ramką */
 .tile-note {
@@ -292,8 +293,8 @@
   font-size: 0.85rem;
 }
 
-.tile-note.warn { background: #fffaf2; color: #8a4500; border: 1px solid #f6dcb8; }
-.tile-note.err { background: #fff6f5; color: #a32a24; border: 1px solid #f3cfcc; font-weight: 600; }
+.tile-note.warn { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-fg); }
+.tile-note.err { background: var(--hover)f5; color: var(--err-fg); border: 1px solid var(--err-fg); font-weight: 600; }
 
 .tile-note-icon {
   display: inline-flex;
@@ -316,7 +317,7 @@
 .tile-foot {
   min-height: 1.6rem; /* miejsce na przyciski w prawym dolnym rogu */
   padding-right: 4.5rem;
-  color: #607d8b;
+  color: var(--fg-3);
   font-size: 0.72rem;
   line-height: 1.6rem;
 }
@@ -354,15 +355,15 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background-color: rgba(96, 125, 139, 0.12);
-  color: #607d8b;
+  background-color: var(--muted-bg);
+  color: var(--fg-3);
 }
 
 .device-list .device-edit:hover,
 .device-list .device-edit:focus-visible,
 .device-list .device-firmware:hover,
 .device-list .device-firmware:focus-visible {
-  background-color: rgba(96, 125, 139, 0.28);
+  background-color: var(--line-strong);
 }
 
 .device-edit svg {
@@ -374,7 +375,7 @@
 .device-firmware svg {
   width: 1.15rem;
   height: 1.15rem;
-  fill: #607d8b;
+  fill: var(--fg-3);
 }
 
 /* szachownica: kolumn tyle, ile się mieści (--cols z pages/Devices), kafelek najwyżej szerokości ze wzoru; pole
@@ -398,9 +399,9 @@
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  border: 2px dashed #b0bec5;
+  border: 2px dashed var(--line-strong);
   border-radius: 12px;
-  color: #607d8b;
+  color: var(--fg-3);
 }
 
 .device-list .device-cell-add,
@@ -413,15 +414,15 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #607d8b;
+  color: var(--fg-3);
   font-size: 0.9rem;
 }
 
-.device-list .device-cell-add b { font-size: 1.8rem; line-height: 1; color: #1481a5; }
-.device-list .device-cell-place { border: 1px solid #1481a5; color: #1481a5; font-weight: 600; background: #fff; }
+.device-list .device-cell-add b { font-size: 1.8rem; line-height: 1; color: var(--accent); }
+.device-list .device-cell-place { border: 1px solid var(--accent); color: var(--accent); font-weight: 600; background: var(--card); }
 
 /* przenoszony kafelek i cel zamiany */
-.device-card.moving .device-choose { box-shadow: 0 0 0 3px #ef6c00, 0 2px 8px rgba(0, 0, 0, 0.18); }
+.device-card.moving .device-choose { box-shadow: 0 0 0 3px var(--warn-fg); }
 .device-list .device-cell-swap {
   position: absolute;
   inset: 0;
@@ -429,13 +430,13 @@
   margin: 0;
   border: 0;
   border-radius: 12px;
-  background: rgba(20, 129, 165, 0.15);
-  color: #0f6a88;
+  background: var(--run-bg);
+  color: var(--accent-strong);
   font-weight: 700;
 }
 
-.device-list .device-cell-swap:hover { background: rgba(20, 129, 165, 0.3); }
-.device-list .device-move.active { background: #ef6c00; }
+.device-list .device-cell-swap:hover { background: var(--run-bg); }
+.device-list .device-move.active { background: var(--warn-fg); }
 
 /* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu (odstęp liczy
    pages/Devices); dolny margines listy też (nad stopką odstęp jak między kafelkami), więc bez stałego marginesu main */
@@ -445,7 +446,7 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 
 /* kafelek pogody: bez przycisku wyboru (nie prowadzi do widoku) */
 .device-list .device-choose-static { cursor: default; }
-.device-list .device-choose-static:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
+.device-list .device-choose-static:hover { box-shadow: none; }
 
 /* w trybie „Zmień kolejność” przyciski zasłaniają dół kafelka: stopka schowana */
 .device-card.reordering .tt-f-footer { visibility: hidden; }
@@ -512,11 +513,11 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background-color: rgba(96, 125, 139, 0.12);
-  color: #607d8b;
+  background-color: var(--muted-bg);
+  color: var(--fg-3);
 }
 
-.device-list .device-eye.hidden { background-color: rgba(198, 40, 40, 0.12); color: #c62828; }
+.device-list .device-eye.hidden { background-color: var(--err-bg); color: var(--danger); }
 .device-list .device-eye svg { width: 1.15rem; height: 1.15rem; }
 .device-list .device-reorder-middle .device-edit { pointer-events: auto; }
 
@@ -580,7 +581,7 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   }
 
   .device-card.has-error .device-choose {
-    box-shadow: inset 0 0 0 2px #c62828;
+    box-shadow: inset 0 0 0 2px var(--danger);
   }
 
   .device-move .pictogram {
@@ -588,11 +589,22 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   }
 }
 
-/* Stopka /devices (ten sam pasek co „Aktywne urządzenie”): lewa część wolna, po prawej zajętość bazy. */
+/* Stopka /devices: zajętość bazy po prawej, drobnym tekstem nad dolną krawędzią (nowy wygląd 2026-10-16) */
 .devices-footer {
-  justify-content: space-between;
-  /* wysokość jak stopka „Aktywne urządzenie” na stronach sterownika (przycisk 2 rem + odstępy i obramowanie) */
-  min-height: calc(2rem + 0.4rem + 1px);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0.3rem max(16px, env(safe-area-inset-right, 0px)) calc(0.3rem + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: var(--bg);
+  border-top: 1px solid var(--line-soft);
+  color: var(--fg-3);
+  font-size: 0.8rem;
 }
 
 .devices-footer-db {
@@ -608,16 +620,16 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: #7ee08a;
+  background: var(--ok-fg);
 }
 
 .devices-footer-db-warning,
 .devices-footer-db-warning strong {
-  color: #ffe082;
+  color: var(--warn-fg);
 }
 
 .devices-footer-db-error {
-  color: #ffccbc;
+  color: var(--err-fg);
   font-weight: bold;
 }
 
@@ -631,14 +643,14 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 .header-gear {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 40px;
+  height: 40px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #fff;
+  color: var(--bar-fg);
   cursor: pointer;
 }
 
@@ -651,14 +663,14 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 .header-gear:hover,
 .header-gear:focus-visible,
 .header-gear.active {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--hover);
 }
 
 /* ---- duszek (szkielet) kafelka podczas ładowania ---- */
 .skeleton {
   display: block;
   border-radius: 6px;
-  background: linear-gradient(90deg, #e3e8eb 25%, #f1f4f6 50%, #e3e8eb 75%);
+  background: linear-gradient(90deg, var(--muted-bg) 25%, var(--line) 50%, var(--muted-bg) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }

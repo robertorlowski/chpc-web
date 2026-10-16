@@ -153,7 +153,7 @@ export const HeatPumpTable: React.FC = () => {
       	{loading && 
 	  		(
 				<div className='loader'>
-					<ClipLoader size={60} color="#333" />
+					<ClipLoader size={60} color="currentColor" />
 				</div>
 			)	
 		}
@@ -185,9 +185,9 @@ export const HeatPumpTable: React.FC = () => {
 			boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
 			fontFamily: 'Segoe UI, sans-serif',
 			fontSize: '14px',
-			backgroundColor: '#fff',
+			backgroundColor: 'var(--card)',
 		}}>
-		<thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f8f8', zIndex: 2 }}>
+		<thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--muted-bg)', zIndex: 2 }}>
 		{table.getHeaderGroups().map(headerGroup => (
 			<tr key={headerGroup.id}>
 			{headerGroup.headers.map(header => (
@@ -197,11 +197,11 @@ export const HeatPumpTable: React.FC = () => {
 				style={
 						header.index == 0 ? {
 						padding: '9px 9px',
-						borderBottom: '1px solid #ddd',
+						borderBottom: '1px solid var(--line)',
 						textAlign: 'left',
 						fontWeight: 600,
-						backgroundColor: '#f2f2f2',
-						color: '#333',
+						backgroundColor: 'var(--muted-bg)',
+						color: 'var(--fg)',
 						whiteSpace: 'nowrap',
 						position: 'sticky',
 						top: 0,
@@ -209,11 +209,11 @@ export const HeatPumpTable: React.FC = () => {
 					} :
 					{
 						padding: '9px 9px',
-						borderBottom: '1px solid #ddd',
+						borderBottom: '1px solid var(--line)',
 						textAlign: 'left',
 						fontWeight: 600,
-						backgroundColor: '#f2f2f2',
-						color: '#333',
+						backgroundColor: 'var(--muted-bg)',
+						color: 'var(--fg)',
 						whiteSpace: 'nowrap',
 						position: 'sticky',
 						top: 0,
@@ -241,8 +241,8 @@ export const HeatPumpTable: React.FC = () => {
 			<React.Fragment key={row.id}>
 			<tr
 			style={{
-				backgroundColor: row.index % 2 === 0 ? '#fafafa' : '#fff',
-				borderBottom: '1px solid #eee',
+				backgroundColor: row.index % 2 === 0 ? 'var(--row-bg)' : 'var(--card)',
+				borderBottom: '1px solid var(--line-soft)',
 			}}
 			>
 			{row.getVisibleCells().map(cell => (
@@ -251,8 +251,8 @@ export const HeatPumpTable: React.FC = () => {
 				style={
 						cell.column.getIndex() == 0 ? {
 						padding: '9px 9px',
-						borderBottom: '1px solid #eee',
-						color: '#333',
+						borderBottom: '1px solid var(--line-soft)',
+						color: 'var(--fg)',
 						textAlign: 'center',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
@@ -261,8 +261,8 @@ export const HeatPumpTable: React.FC = () => {
 					:
 					{
 						padding: '9px 9px',
-						borderBottom: '1px solid #eee',
-						color: '#333',
+						borderBottom: '1px solid var(--line-soft)',
+						color: 'var(--fg)',
 						textAlign: 'center',
 						whiteSpace: 'nowrap',
 						fontSize: '13.5px',
@@ -279,10 +279,10 @@ export const HeatPumpTable: React.FC = () => {
 						colSpan={row.getVisibleCells().length}
 						style={{
 							padding: '6px 9px',
-							borderBottom: '1px solid #eee',
+							borderBottom: '1px solid var(--line-soft)',
 							flex: '1 1 100%',  // tr tabeli danych ma display: flex (:where(.data-table) tr w style.css)
-							backgroundColor: '#fdecea',
-							color: '#b3261e',
+							backgroundColor: 'var(--err-bg)',
+							color: 'var(--err-fg)',
 							fontSize: '13.5px',
 							textAlign: 'left',
 						}}

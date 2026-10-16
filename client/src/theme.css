@@ -1,0 +1,70 @@
+/* Tokeny wyglądu aplikacji (kierunek B „Instrument” z makiet/, 2026-10-16): ciemny domyślnie, jasny przy ustawieniu
+   systemu albo wyborze użytkownika (data-theme na <html>, core/theme.ts). Wszystkie kolory w aplikacji mają brać się
+   z tych zmiennych; style stron nie wpisują kolorów wprost. Czcionka Barlow (client/index.html), liczby w Barlow Semi Condensed.
+   Pełna lista i uzasadnienie: makiety/README.md, makiety/src/wariant-b.css. */
+:root {
+  --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-num: "Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+  --radius: 8px; --radius-sm: 6px; --gap: 12px; --page-max: 1240px; --card-pad: 14px;
+
+  /* ciemny (domyślny) */
+  color-scheme: dark;
+  --bg: #121417; --card: #1b1e23; --fg: #e9ebee; --fg-2: #aeb5bf; --fg-3: #7f8893;
+  --line: #2f343b; --line-soft: #272b31; --line-strong: #434a54; --hover: rgba(255,255,255,.06);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #f0a23a; --accent-strong: #f6b55d; --accent-fg: #1b1300;
+  --bar-bg: #0d0f12; --bar-fg: #e9ebee; --bar-line: #23272d;
+  --tab-active-bg: #f0a23a; --tab-active-fg: #1b1300;
+  --nav-bg: #0d0f12; --nav-fg: #8f98a3; --nav-active: #1b1300; --nav-active-bg: #f0a23a;
+  --ok-bg: #163d26; --ok-fg: #7ddb9b; --warn-bg: #45300d; --warn-fg: #f6c86a; --danger: #ff7b72;
+  --err-bg: #42201d; --err-fg: #ff8d84;
+  --muted-bg: #272b31; --muted-fg: #aeb5bf; --run-bg: #3b2a0c; --run-fg: #f6c86a;
+  --switch-off: #3a4049; --switch-knob: #c9ced6; --input-bg: #0f1114; --seg-bg: #0f1114; --row-bg: #20242a; --row-current-bg: #2b2415;
+  --hero-bg: #1b1e23; --hero-fg: #f3f4f6; --hero-fg-2: #aeb5bf; --hero-line: #2f343b; --hero-track: #343941; --kpi-bg: #23272d; --kpi-line: #343941;
+  --c-heat: #f0a23a; --c-heat-bg: #3b2a0c; --c-water: #4fc3e8; --c-water-bg: #0f3340; --c-sun: #f5d04a; --c-sun-bg: #3d3610;
+  --c-switch: #a9a6f0; --c-switch-bg: #27264a; --c-fire: #ff7a62; --c-fire-bg: #40201a; --c-sky: #7fbbe8; --c-sky-bg: #16303f;
+  --ch-1: #c6811f; --ch-2: #c66aa6; --ch-3: #3f9dd0; --ch-4: #4ea85e;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebee; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
+} }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
+  --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
+  --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
+  --bar-bg: #1e2126; --bar-fg: #e9ebee; --bar-line: #2b2f36;
+  --tab-active-bg: #c7791c; --tab-active-fg: #ffffff;
+  --nav-bg: #1e2126; --nav-fg: #a3abb6; --nav-active: #ffffff; --nav-active-bg: #c7791c;
+  --ok-bg: #dff3e3; --ok-fg: #1c6b36; --warn-bg: #fbe8c8; --warn-fg: #8a4e00; --danger: #c62828;
+  --err-bg: #fbe0dd; --err-fg: #a4261b;
+  --muted-bg: #e6e9ed; --muted-fg: #5d6672; --run-bg: #fbe8c8; --run-fg: #8a4e00;
+  --switch-off: #c9ced6; --switch-knob: #ffffff; --input-bg: #ffffff; --seg-bg: #e9ebed; --row-bg: #f7f8f9; --row-current-bg: #fff6e8;
+  --hero-bg: #1e2126; --hero-fg: #f3f4f6; --hero-fg-2: #a3abb6; --hero-line: #1e2126; --hero-track: #3a3f47; --kpi-bg: #272b31; --kpi-line: #343941;
+  --c-heat: #e08a2a; --c-heat-bg: #fbe8c8; --c-water: #1f8fb3; --c-water-bg: #d8eef5; --c-sun: #d9a400; --c-sun-bg: #fbf0c3;
+  --c-switch: #6d6ad6; --c-switch-bg: #e5e4f8; --c-fire: #d1452f; --c-fire-bg: #f9ded9; --c-sky: #4b8fc0; --c-sky-bg: #dcebf6;
+  --ch-1: #c7791c; --ch-2: #b4418f; --ch-3: #2a6fc9; --ch-4: #2e8f3f;
+}
+
+/* animacje stanu „pracuje” (kafelki, pasek sterownika, podgląd) */
+@keyframes puls { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: .7; } }
+@keyframes fale { 0% { transform: translateY(0); } 100% { transform: translateY(-3px); } }
+@keyframes plomien { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.08) rotate(-3deg); } 60% { transform: scale(.96) rotate(2deg); } }
+@keyframes poswiata { 0%, 100% { box-shadow: inset 3px 0 0 var(--kind-fg); } 50% { box-shadow: inset 3px 0 0 var(--kind-fg), 0 0 18px -4px var(--kind-fg); } }

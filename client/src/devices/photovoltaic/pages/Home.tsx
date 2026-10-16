@@ -2,6 +2,7 @@
 // krzywa mocy z dzisiaj oraz panele pogrupowane po mikrofalownikach z mocą i stanem (produkuje,
 // bez produkcji, brak łączności, alarm). GET /photovoltaic/current i /day, odświeżanie co 60 s.
 import { useEffect, useState } from 'react';
+import { cc, tooltipStyle } from '../../../core/chartColors';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PhotovoltaicRequests } from '../api';
 import { PvCurrent, PvDay, PvPanel } from '../types';
@@ -82,11 +83,11 @@ export const PhotovoltaicHome: React.FC = () => {
                 <div className="pv-chart pv-chart-small">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis width={60} tick={{ fontSize: 12 }} tickFormatter={(value: number) => formatPower(value)} />
-                      <Tooltip formatter={(value) => [formatPower(Number(value)), 'Moc']} />
-                      <Area type="monotone" dataKey="moc" stroke="#e0a100" fill="#ffd54f" fillOpacity={0.5} isAnimationActive={false} />
+                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={30} />
+                      <YAxis stroke={cc().line} width={60} tick={{ fill: cc().axis, fontSize: 12 }} tickFormatter={(value: number) => formatPower(value)} />
+                      <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), 'Moc']} />
+                      <Area type="monotone" dataKey="moc" stroke={cc().sun} fill={cc().sun} fillOpacity={0.3} isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

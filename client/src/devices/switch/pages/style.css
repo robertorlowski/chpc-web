@@ -1,7 +1,7 @@
 /* Włącznik: karty jak w Ustawieniach pompy (.settings > section > .resource) i hydroforu */
 .settings.switch-page > section > .resource,
 .settings.switch-page > section > .resource:first-child {
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
 }
 
@@ -34,7 +34,7 @@
 }
 
 .switch-mode-danger {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -42,7 +42,7 @@
   font-size: 2rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #1481a5;
+  color: var(--accent);
   text-align: center;
   margin: 0.25rem 0 0.5rem;
 }
@@ -51,8 +51,8 @@
   display: inline-block;
   padding: 0.1rem 0.5rem;
   border-radius: 4px;
-  background: #fdecea;
-  color: #b00020;
+  background: var(--err-bg);
+  color: var(--danger);
   font-size: 0.85rem;
 }
 
@@ -64,7 +64,7 @@
   margin-top: 0.5rem;
 }
 
-/* „Wyłącz / wyłącz harmonogram”: pastelowa czerwień zamiast jaskrawej (#b00020 „waliła po oczach”) */
+/* „Wyłącz / wyłącz harmonogram”: pastelowa czerwień zamiast jaskrawej (var(--danger) „waliła po oczach”) */
 button.switch-stop {
   background-color: #f6d6d3;
   border: 1px solid #e5b3ae;
@@ -76,7 +76,7 @@ button.switch-stop:hover:not(:disabled) {
 }
 
 button.switch-secondary {
-  background-color: #7a8c93;
+  background-color: var(--fg-3);
 }
 
 button.switch-active {
@@ -104,9 +104,9 @@ button.switch-active {
   min-height: 32px;
   padding: 0 0.4rem;
   box-sizing: border-box;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--card);
 }
 
 .switch-page input[type='number'] {
@@ -128,7 +128,7 @@ button.switch-active {
 .switch-table td {
   padding: 0.25rem 0.4rem;
   text-align: left;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
@@ -138,7 +138,7 @@ button.switch-active {
 }
 
 .switch-row-active td {
-  color: #1481a5;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -165,11 +165,11 @@ button.switch-active {
 
 .switch-hint {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .switch-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 /* minmax(0, 1fr): wiersz nie rozpycha karty szerokością pola (telefon) */
@@ -227,7 +227,7 @@ button.switch-active {
 @media (max-width: 560px) {
   body .settings.switch-page > section > .resource,
   body .settings.switch-page > section > .resource:first-child {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
     margin-left: 0;
     margin-right: 0;
     border-radius: 0;

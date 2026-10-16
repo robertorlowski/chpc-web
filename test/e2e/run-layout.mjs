@@ -1,11 +1,13 @@
-// Układ widoków pozostałych rodzajów sterowników (piec, hydrofor, włącznik, fotowoltaika) na lokalnym chpc-web:
-// dla każdego urządzenia danego rodzaju z lokalnej bazy każdy widok przy 360, 768 i 1280 px — strona bez
-// przewijania w poziomie (wyjątek: tabele i wykresy we własnym przewijanym kontenerze), bez błędów konsoli,
-// zrzut ekranu. Pompę ciepła sprawdza run-e2e.mjs (krok 12).
+// Układ widoków wszystkich rodzajów sterowników (pompa ciepła, piec, hydrofor, włącznik, fotowoltaika) na lokalnym
+// chpc-web: dla każdego rodzaju z lokalnej bazy każdy widok przy 360, 768 i 1280 px, w motywie ciemnym i jasnym —
+// strona bez przewijania w poziomie (wyjątek: tabele i wykresy we własnym przewijanym kontenerze), żaden element nie
+// wystaje poza okno, bez błędów konsoli, zrzut ekranu. Od 2026-10-16 (nowy wygląd): także pasek górny, boczne menu na
+// komputerze i dolna nawigacja na telefonie.
 //
-// Wymaga uruchomionego "npm run local" i urządzeń w bazie lokalnej (np. scripts/seed-local.mjs,
-// scripts/seed-pv-local.mjs --keep, symulatory). Wyniki: test/raport-testow/uklad-wyniki.json i zrzuty
-// test/raport-testow/zrzuty/uklad-<rodzaj>-<widok>-<szerokość>.png (poza gitem).
+// Wymaga uruchomionego "npm run local" (albo serwera z SYSTEM_PASSWORD) i urządzeń w bazie lokalnej (np.
+// scripts/seed-local.mjs, scripts/seed-pv-local.mjs --keep, symulatory). Logowanie: konto systemowe z hasłem
+// E2E_SYSTEM_PASSWORD (domyślnie demo123). Przeglądarka: Chromium Playwright, albo BROWSER_CHANNEL=msedge.
+// Wyniki: test/raport-testow/uklad-wyniki.json i zrzuty test/raport-testow/zrzuty/uklad-<rodzaj>-<widok>-<szerokość>-<motyw>.png (poza gitem).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,14 +20,19 @@ mkdirSync(SHOTS, { recursive: true });
 
 const API = 'http://localhost:4001/api';
 const WEB = 'http://localhost:5173';
+const PASSWORD = process.env.E2E_SYSTEM_PASSWORD ?? 'demo123';
 const WIDTHS = [360, 768, 1280];
-// widoki z menu rodzaju (client/src/devices/<rodzaj>/device-type.tsx) i strony spoza menu
+const THEMES = ['dark', 'light'];
+// widoki z menu rodzaju (client/src/devices/<rodzaj>/device-type.tsx)
 const VIEWS = {
-  'pellet-boiler-pelux200': ['/', '/data', '/chart', '/schedules', '/settings', '/alarms'],
-  'water-pressure-tank': ['/', '/data', '/chart', '/settings'],
-  switch: ['/', '/data', '/schedules', '/settings'],
+  heat_pump: ['/', '/data', '/chart', '/schedules', '/operations', '/settings'],
+  'pellet-boiler-pelux200': ['/', '/data', '/chart', '/schedules', '/alarms', '/operations', '/settings'],
+  'water-pressure-tank': ['/', '/data', '/chart', '/operations', '/settings'],
+  switch: ['/', '/data', '/schedules', '/operations', '/settings'],
   photovoltaic: ['/', '/data', '/chart', '/settings'],
 };
+// strony bez sterownika
+const PAGES = ['/devices', '/account'];
 
 const results = [];
 const check = (step, ok, detail = '') => {
@@ -34,59 +41,104 @@ const check = (step, ok, detail = '') => {
 };
 
 const devices = await (await fetch(`${API}/devices`)).json();
-const browser = await chromium.launch({ channel: 'msedge' });
-const page = await browser.newPage();
-const consoleErrors = [];
-page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-page.on('pageerror', (error) => consoleErrors.push(String(error)));
-await page.addInitScript(() => sessionStorage.setItem('chpc.defaultApplied', '1'));
+const browser = await chromium.launch(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {});
 
-for (const [type, views] of Object.entries(VIEWS)) {
-  const device = devices.find((d) => d.deviceType === type);
-  if (!device) {
-    check(`${type}: urządzenie w bazie lokalnej`, false, 'brak — pominięto widoki');
-    continue;
+// elementy wychodzące poza okno (poza przewijanymi kontenerami: tabele, wykresy) i przewijanie strony w poziomie
+const measure = () => {
+  const vw = document.documentElement.clientWidth;
+  const scrollable = (e) => {
+    for (let p = e.parentElement; p; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowX;
+      if (o === 'auto' || o === 'scroll' || o === 'hidden') return true;
+    }
+    return false;
+  };
+  const over = [...document.querySelectorAll('body *')]
+    .filter((e) => {
+      const b = e.getBoundingClientRect();
+      return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden'
+        && (b.right > vw + 1 || b.left < -1) && !scrollable(e);
+    })
+    .slice(0, 5)
+    .map((e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ')[0] : ''} (${Math.round(e.getBoundingClientRect().right)} px)`);
+  const header = document.querySelector('header.app-header');
+  const side = document.querySelector('nav.app-tabs');
+  const bottom = document.querySelector('nav.bottom-nav');
+  const visible = (el) => !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+  return { scrollWidth: document.documentElement.scrollWidth, vw, over, path: location.pathname,
+    header: visible(header), side: visible(side), bottom: visible(bottom) };
+};
+
+for (const theme of THEMES) {
+  const context = await browser.newContext({ colorScheme: theme, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  page.on('pageerror', (error) => consoleErrors.push(String(error)));
+  await page.addInitScript(() => sessionStorage.setItem('chpc.defaultApplied', '1'));
+
+  // logowanie kontem systemowym („system” w polu e-mail pokazuje pole hasła)
+  await page.goto(`${WEB}/`);
+  await page.waitForTimeout(1500);
+  if (await page.locator('input').count()) {
+    await page.fill('input', 'system');
+    await page.waitForTimeout(300);
+    await page.fill('input[type=password]', PASSWORD);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+    const no = page.getByRole('button', { name: /^Nie/ });
+    if (await no.count()) await no.first().click();
   }
-  await page.goto(`${WEB}/devices`);
-  await page.evaluate((d) => localStorage.setItem('chpc.selectedDevice', JSON.stringify(d)),
-    { rootId: device.rootId, deviceId: device.deviceId, deviceType: device.deviceType, name: device.name ?? '' });
-  for (const view of views) {
+  check(`${theme}: zalogowano`, await page.locator('header.app-header').count() > 0);
+
+  // nawigacja wewnątrz aplikacji (React Router), bez przeładowania: wejście na „/” z adresu cofa na listę
+  const open = (path) => page.evaluate((p) => { history.pushState({}, '', p); window.dispatchEvent(new PopStateEvent('popstate')); }, path);
+
+  const testView = async (label, view, device) => {
     for (const width of WIDTHS) {
       consoleErrors.length = 0;
       await page.setViewportSize({ width, height: 900 });
-      await page.goto(`${WEB}${view}`);
-      await page.waitForTimeout(2500);
-      const r = await page.evaluate(() => {
-        const vw = document.documentElement.clientWidth;
-        // elementy wychodzące poza ekran, poza przewijanymi kontenerami (tabele, wykresy)
-        const scrollable = (e) => {
-          for (let p = e.parentElement; p; p = p.parentElement) {
-            const o = getComputedStyle(p).overflowX;
-            if (o === 'auto' || o === 'scroll' || o === 'hidden') return true;
-          }
-          return false;
-        };
-        const over = [...document.querySelectorAll('body *')]
-          .filter((e) => {
-            const b = e.getBoundingClientRect();
-            return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden'
-              && (b.right > vw + 1 || b.left < -1) && !scrollable(e);
-          })
-          .slice(0, 5)
-          .map((e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ')[0] : ''} (${Math.round(e.getBoundingClientRect().right)} px)`);
-        return { scrollWidth: document.documentElement.scrollWidth, vw, over, path: location.pathname };
-      });
-      const name = `uklad-${type}-${view === '/' ? 'glowny' : view.slice(1)}-${width}`;
+      await open(view);
+      await page.waitForTimeout(2200);
+      const r = await page.evaluate(measure);
+      const name = `uklad-${label}-${view === '/' ? 'glowny' : view.slice(1)}-${width}-${theme}`;
       await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
       const ok = r.scrollWidth <= r.vw + 1 && r.over.length === 0;
-      check(`${type} ${view} @ ${width}px: bez przewijania w poziomie`, ok,
+      check(`${label} ${view} @ ${width}px ${theme}: bez przewijania w poziomie`, ok,
         ok ? '' : `szerokość ${r.scrollWidth}px > ${r.vw}px; ${r.over.join('; ')}`);
-      // 4xx/5xx z API i błędy skryptu; ostrzeżenia Reacta/Recharts pomijane
       const errors = consoleErrors.filter((e) => !/Warning:|width\(0\) and height\(0\)/.test(e));
-      check(`${type} ${view} @ ${width}px: bez błędów konsoli`, errors.length === 0, errors.slice(0, 3).join(' | '));
-      check(`${type} ${view} @ ${width}px: widok otwarty (bez przekierowania)`, r.path === view, r.path);
+      check(`${label} ${view} @ ${width}px ${theme}: bez błędów konsoli`, errors.length === 0, errors.slice(0, 3).join(' | '));
+      check(`${label} ${view} @ ${width}px ${theme}: widok otwarty (bez przekierowania)`, r.path === view, r.path);
+      check(`${label} ${view} @ ${width}px ${theme}: pasek górny`, r.header);
+      if (device) {
+        if (width >= 900) check(`${label} ${view} @ ${width}px ${theme}: boczne menu, bez dolnej nawigacji`, r.side && !r.bottom, `menu ${r.side}, dół ${r.bottom}`);
+        else check(`${label} ${view} @ ${width}px ${theme}: dolna nawigacja, bez bocznego menu`, r.bottom && !r.side, `menu ${r.side}, dół ${r.bottom}`);
+      }
     }
+  };
+
+  for (const view of PAGES) await testView('strona', view, false);
+
+  for (const [type, views] of Object.entries(VIEWS)) {
+    const device = devices.find((d) => d.deviceType === type);
+    if (!device) {
+      check(`${type}: urządzenie w bazie lokalnej`, false, 'brak — pominięto widoki');
+      continue;
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await open('/devices');
+    await page.waitForTimeout(1200);
+    // wybór kafelka jak użytkownik (zapisuje chpc.selectedDevice i otwiera widok główny); po nazwie z pola kafelka,
+    // bo has-text na całej karcie łapie też np. „brak pogody z włącznika” na kafelku Dom
+    const tile = page.locator(`.device-card:has(.tt-f-name:has-text("${device.name || device.deviceId}")) button.device-choose`).first();
+    if (await tile.count()) await tile.click(); else {
+      await page.evaluate((d) => localStorage.setItem('chpc.selectedDevice', JSON.stringify(d)),
+        { rootId: device.rootId, deviceId: device.deviceId, deviceType: device.deviceType, name: device.name ?? '' });
+    }
+    await page.waitForTimeout(1500);
+    for (const view of views) await testView(type, view, true);
   }
+  await context.close();
 }
 
 await browser.close();

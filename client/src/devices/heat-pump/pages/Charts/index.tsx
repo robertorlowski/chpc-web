@@ -3,6 +3,7 @@
 // z bilansu serwera (GET /hp/monthly-summary, group day/month). Dane pobierane przy zmianie okresu,
 // daty lub filtra; oś czasu dnia bieżącego przesuwa się co minutę, ale nowe dane nie są dociągane.
 import './style.css';
+import { cc } from '../../../../core/chartColors';
 import { useEffect, useState } from 'react';
 import {
   LineChart,
@@ -228,7 +229,7 @@ const ChartTooltip: React.FC<ChartTooltipProps> = ({
         <span className="chart-tooltip-item" key={`${String(item.dataKey ?? item.name)}-${index}`}>
           <i
             className="chart-tooltip-color"
-            style={{ backgroundColor: item.color ?? '#666' }}
+            style={{ backgroundColor: item.color ?? cc().axis }}
           />
           {formatTooltipLabel(item.dataKey ?? item.name)}:{' '}{formatTooltipValue(item, isDay)}
         </span>
@@ -563,7 +564,7 @@ export const HeatPumpChart: React.FC = () => {
 
       {loading && (
         <div className="loader">
-          <ClipLoader size={60} color="#333" />
+          <ClipLoader size={60} color={cc().axis} />
         </div>
       )}
 
@@ -638,9 +639,9 @@ export const HeatPumpChart: React.FC = () => {
       <div className="chart-area fill-area">
       <ResponsiveContainer width="100%" height="100%">
         {isDay ? <LineChart data={filteredData}>
-          <CartesianGrid strokeDasharray="1 1" />
+          <CartesianGrid stroke={cc().grid} strokeDasharray="1 1" />
           {allData ? (
-            <XAxis
+            <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
               type="number"
               dataKey="timeValue"
               domain={[0, dayEndMinutes]}
@@ -649,9 +650,9 @@ export const HeatPumpChart: React.FC = () => {
               allowDataOverflow={false}
             />
           ) : (
-            <XAxis dataKey="time" />
+            <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="time" />
           )}
-          <YAxis
+          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
             yAxisId="left"
             label={{
               value: isDay ? 'Temperatura [°C]' : 'Energia [kWh]',
@@ -659,7 +660,7 @@ export const HeatPumpChart: React.FC = () => {
               position: 'insideLeft',
             }}
           />
-          <YAxis
+          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
             yAxisId="right"
             orientation="right"
             label={{
@@ -679,7 +680,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="Watts"
             name="Energia pob. [W]"
-            stroke="#5f5050"
+            stroke={cc().s1}
             strokeWidth={1}
             dot={{ r: 1 }}
             hide={!cPower}
@@ -690,7 +691,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="pv"
             name="PV [W]"
-            stroke="#ec30a4"
+            stroke={cc().sun}
             strokeWidth={1}
             dot={{ r: 1 }}
             hide={!cPV}
@@ -701,7 +702,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="cost"
             name="Koszt [PLN]"
-            stroke="#e06b2f"
+            stroke={cc().s2}
             strokeWidth={1}
             dot={{ r: 2 }}
             hide={isDay || !cCost}
@@ -712,7 +713,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="Tbe"
             name="T. przed parownikiem [°C]"
-            stroke="#463de0"
+            stroke={cc().s3}
             strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
@@ -724,7 +725,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="Tae"
             name="T. za parownikiem [°C]"
-            stroke="#0ace55"
+            stroke={cc().s4}
             strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
@@ -736,7 +737,7 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="Tho"
             name="T. wody wyj. [°C]"
-            stroke="#c4922f"
+            stroke={cc().water}
             strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
@@ -748,16 +749,16 @@ export const HeatPumpChart: React.FC = () => {
             type="monotone"
             dataKey="Ttarget"
             name="T. docelowa [°C]"
-            stroke="#ec1b4f"
+            stroke={cc().danger}
             strokeWidth={1}
             dot={{ r: 1 }}
             connectNulls
             hide={period !== 'day' || !cTemp}
           />
         </LineChart> : <ComposedChart data={filteredData}>
-          <CartesianGrid strokeDasharray="1 1" />
-          <XAxis dataKey="time" />
-          <YAxis
+          <CartesianGrid stroke={cc().grid} strokeDasharray="1 1" />
+          <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="time" />
+          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
             yAxisId="left"
             label={{
               value: 'Energia [kWh]',
@@ -765,7 +766,7 @@ export const HeatPumpChart: React.FC = () => {
               position: 'insideLeft',
             }}
           />
-          <YAxis
+          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
             yAxisId="right"
             orientation="right"
             label={{
@@ -784,14 +785,14 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="left"
             dataKey="Watts"
             name="Energia pobrana [kWh]"
-            fill="#1481a5"
+            fill={cc().s1}
             hide={!cPower}
           />
           <Line
             yAxisId="left"
             dataKey="pv"
             name="PV [kWh]"
-            stroke="#ec30a4"
+            stroke={cc().sun}
             strokeWidth={3}
             type="monotone"
             dot={{ r: 2 }}
@@ -801,7 +802,7 @@ export const HeatPumpChart: React.FC = () => {
             yAxisId="right"
             dataKey="cost"
             name="Koszt [PLN]"
-            stroke="#e06b2f"
+            stroke={cc().s2}
             strokeWidth={3}
             type="monotone"
             dot={{ r: 2 }}

@@ -11,9 +11,9 @@ import { Schedules } from './pages/Schedules';
 import { PumpConfigFields } from './components/PumpConfigFields';
 
 const HeatPumpIcon = () => (
-	<svg x="0px" y="0px" width="25" height="25" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff">
+	<svg x="0px" y="0px" width="25" height="25" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
 		<path d="M11.0007 3C11.0007 3 9.86264 7.5 11.9313 12C14 16.5 13.5 21 13.5 21M18.9313 21C18.9313 21 19.6008 16.5 17.5007 13C15.4007 9.5 16.0007 6 16.0007 6M7.92989 21C7.92989 21 8.5993 16.5 6.49927 13C4.39924 9.5 4.99927 6 4.99927 6"
-			stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+			stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 	</svg>
 );
 

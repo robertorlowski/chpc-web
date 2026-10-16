@@ -1,4 +1,4 @@
-/* Ustawienia pompy. Uwaga: CSS stron trafia do jednego pakietu, więc reguły bez prefiksu (img, button, span.label, input.temperature) działają w całej aplikacji, także w widokach hydroforu. */
+/* Ustawienia pompy. Uwaga: CSS stron trafia do jednego pakietu, więc reguły bez prefiksu (img, span.label, input.temperature) działają w całej aplikacji, także w widokach hydroforu. */
 img {
 	margin-bottom: 1.5rem;
 }
@@ -15,26 +15,10 @@ span.label {
 }
 
 img:hover {
-	filter: drop-shadow(0 0 2em #1481a5aa);
+	filter: drop-shadow(0 0 2em var(--accent));
 }
 
-button {
-  background-color: #1481a5; 
-  border: none;
-  color: white;
-  padding: 9px 24px;
-  margin-left: 9px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 6px
-}
-
-button:disabled {
-    background-color: darkgray;
-}
+/* przyciski: globalnie w style.css (od 2026-10-16) */
 
 .header3 {
     display: flex;
@@ -43,7 +27,7 @@ button:disabled {
 
 
 .settings > section > .resource:first-child {
-    width: min(450px, calc(100vw - 2rem));
+    width: min(450px, calc(var(--page-vw, 100vw) - 2rem));
     box-sizing: border-box;
 }
 
@@ -55,7 +39,7 @@ button:disabled {
 
 .error.show {
 	display: block;
-	color: red;
+	color: var(--danger);
 	font-weight: 500;
 }
 
@@ -72,7 +56,7 @@ button:disabled {
   width: 100%;
   margin: 0.2rem 0 0.25rem;
   padding-top: 0.2rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--line);
 }
 
 .settings-section-title + hr {
@@ -95,7 +79,7 @@ button:disabled {
 
 /* osobna sekcja błędów sterownika na dole strony */
 .settings > section > .resource.settings-errors {
-    width: min(450px, calc(100vw - 2rem));
+    width: min(450px, calc(var(--page-vw, 100vw) - 2rem));
     box-sizing: border-box;
 }
 
@@ -104,7 +88,7 @@ button:disabled {
 }
 
 .settings-error-text {
-  color: #b3261e;
+  color: var(--danger);
   font-weight: 600;
 }
 

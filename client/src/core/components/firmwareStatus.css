@@ -9,26 +9,26 @@
 }
 
 .firmware-pill.ok {
-  background: #e3f2e6;
-  color: #2b7a3d;
+  background: var(--ok-bg);
+  color: var(--ok-fg);
 }
 
 .firmware-pill.warn {
-  background: #fdf0d5;
-  color: #9a5b00;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 
 .firmware-pill.off {
-  background: #e8edef;
-  color: #5b6a72;
+  background: var(--muted-bg);
+  color: var(--fg-2);
 }
 
 /* „Anuluj aktualizację” na dole karty „Sterownik” */
 button.firmware-cancel {
-  background: #7a8c93;
+  background: var(--fg-3);
 }
 
 .firmware-update-error {
-  color: #c62828;
+  color: var(--danger);
   margin-top: 0.3rem;
 }

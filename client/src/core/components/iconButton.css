@@ -12,7 +12,7 @@ button.icon-button[type] {
   background: none;
   border: 0;
   border-radius: 4px;
-  color: #1481a5;
+  color: var(--accent);
   line-height: 0;
   cursor: pointer;
 }
@@ -24,11 +24,11 @@ button.icon-button[type] svg {
 
 button.icon-button[type]:hover,
 button.icon-button[type].active {
-  color: #0c5c77;
+  color: var(--accent-strong);
 }
 
 button.icon-button[type]:focus-visible {
-  outline: 2px solid #1481a5;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -39,9 +39,9 @@ button.icon-button[type]:disabled {
 
 /* usuwanie: szary, czerwony po najechaniu */
 button.icon-button.icon-button-danger[type] {
-  color: #7a8c93;
+  color: var(--fg-3);
 }
 
 button.icon-button.icon-button-danger[type]:hover:not(:disabled) {
-  color: #b00020;
+  color: var(--danger);
 }

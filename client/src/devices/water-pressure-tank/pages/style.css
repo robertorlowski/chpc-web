@@ -2,7 +2,7 @@
 /* :first-child wygrywa z globalną regułą Ustawień pompy (.settings > section > .resource:first-child) */
 .settings.water-page > section > .resource,
 .settings.water-page > section > .resource:first-child {
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
 }
 
@@ -20,7 +20,7 @@
 .water-table td {
   padding: 0.25rem 0.4rem;
   text-align: right;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
 }
 
 .water-table th:first-child,
@@ -35,7 +35,7 @@
 }
 
 .water-run-active td {
-  color: #1481a5;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -97,9 +97,9 @@
   min-height: 32px;
   padding: 0 0.4rem;
   box-sizing: border-box;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--card);
 }
 
 .water-page input[type='checkbox'],
@@ -164,23 +164,23 @@
 .water-tabs {
   display: flex;
   gap: 0.25rem;
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   margin: 0 auto 0.5rem;
-  border-bottom: 2px solid #1481a5;
+  border-bottom: 2px solid var(--accent);
 }
 
 .water-tabs button {
   margin: 0;
   padding: 0.45rem 1rem;
   border-radius: 6px 6px 0 0;
-  background-color: #e3eef2;
-  color: #1481a5;
+  background-color: var(--muted-bg);
+  color: var(--accent);
   font-weight: 500;
 }
 
 .water-tabs button.active {
-  background-color: #1481a5;
-  color: #fff;
+  background-color: var(--accent);
+  color: var(--card);
 }
 
 .water-check {
@@ -272,22 +272,22 @@
 }
 
 button.water-secondary {
-  background-color: #7a8c93;
+  background-color: var(--fg-3);
 }
 
 .water-hint {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .water-error {
-  color: #b00020;
+  color: var(--danger);
 }
 
 @media (max-width: 560px) {
   body .settings.water-page > section > .resource,
   body .settings.water-page > section > .resource:first-child {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
     margin-left: 0;
     margin-right: 0;
     border-radius: 0;
@@ -298,7 +298,7 @@ button.water-secondary {
   }
 
   .water-tabs {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
   }
 
   .water-tabs button {

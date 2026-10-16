@@ -7,6 +7,7 @@
 // odczyty: od 2026-10-07 serwer nie zapisuje identycznych odczytów (seria = rekord początkowy i końcowy, nowy
 // co najwyżej co 10 min), więc odstępy między punktami są nierówne.
 import { FormEvent, useEffect, useState } from 'react';
+import { cc, tooltipStyle } from '../../../core/chartColors';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
 import { DeviceRequests } from '../../../core/api';
@@ -19,13 +20,15 @@ import './style.css';
 
 type SeriesKey = 'mixer1_temp' | 'water_heater_temp' | 'heating_temp' | 'mixer2_temp' | 'outside_temp';
 
-const SERIES: { key: SeriesKey; label: string; color: string; visible: boolean }[] = [
-  { key: 'heating_temp', label: 'Kocioł', color: '#8e44ad', visible: true },
-  { key: 'water_heater_temp', label: 'CWU', color: '#1481a5', visible: true },
-  { key: 'mixer1_temp', label: 'Mieszacz 1', color: '#d0521b', visible: true },
-  { key: 'mixer2_temp', label: 'Mieszacz 2', color: '#2e7d32', visible: true },
-  { key: 'outside_temp', label: 'Zewnętrzna', color: '#777777', visible: false },
+// kolory serii z tokenów motywu (--ch-1…4 i tekst pomocniczy); czytane przy renderze, bo zależą od motywu
+const SERIES_DEF: { key: SeriesKey; label: string; color: keyof ReturnType<typeof cc>; visible: boolean }[] = [
+  { key: 'heating_temp', label: 'Kocioł', color: 's1', visible: true },
+  { key: 'water_heater_temp', label: 'CWU', color: 's2', visible: true },
+  { key: 'mixer1_temp', label: 'Mieszacz 1', color: 's3', visible: true },
+  { key: 'mixer2_temp', label: 'Mieszacz 2', color: 's4', visible: true },
+  { key: 'outside_temp', label: 'Zewnętrzna', color: 'axis', visible: false },
 ];
+const seriesColors = () => { const c = cc(); return SERIES_DEF.map((series) => ({ ...series, color: c[series.color] })); };
 
 const timeLabel = (ms: number) =>
   Number.isFinite(ms) ? new Date(ms).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
@@ -114,11 +117,11 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
           <div className="boiler-chart fill-area">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={8} />
-                <YAxis width={48} tickFormatter={(value) => formatNumber(Number(value))} />
-                <Tooltip formatter={(value) => [`${formatNumber(Number(value))} kg`, 'Pellet']} />
-                <Bar dataKey="kg" fill="#b5651d" isAnimationActive={false} />
+                <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={8} />
+                <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={48} tickFormatter={(value) => formatNumber(Number(value))} />
+                <Tooltip {...tooltipStyle()} formatter={(value) => [`${formatNumber(Number(value))} kg`, 'Pellet']} />
+                <Bar dataKey="kg" fill={cc().heat} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -126,11 +129,11 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
           <div className="boiler-chart fill-area">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={8} />
-                <YAxis width={48} tickFormatter={(value) => formatNumber(Number(value))} />
-                <Tooltip formatter={(value) => [`${formatMoney(Number(value))} zł`, 'Koszt']} />
-                <Bar dataKey="cost" fill="#1481a5" isAnimationActive={false} />
+                <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={8} />
+                <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={48} tickFormatter={(value) => formatNumber(Number(value))} />
+                <Tooltip {...tooltipStyle()} formatter={(value) => [`${formatMoney(Number(value))} zł`, 'Koszt']} />
+                <Bar dataKey="cost" fill={cc().s1} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -162,7 +165,7 @@ export const PelletBoilerChart: React.FC = () => {
   const [date, setDate] = useState(todayWarsaw());
   const [readings, setReadings] = useState<PelletBoilerReading[] | null>(null);
   const [visible, setVisible] = useState<Record<SeriesKey, boolean>>(
-    () => Object.fromEntries(SERIES.map((series) => [series.key, series.visible])) as Record<SeriesKey, boolean>);
+    () => Object.fromEntries(seriesColors().map((series) => [series.key, series.visible])) as Record<SeriesKey, boolean>);
 
   useEffect(() => {
     setReadings(null);
@@ -172,7 +175,7 @@ export const PelletBoilerChart: React.FC = () => {
   // serwer zwraca malejąco, wykres idzie od rana
   const data = [...(readings ?? [])].reverse().filter((r) => r.createdAt).map((r) => ({
     time: new Date(r.createdAt as string).getTime(),
-    ...Object.fromEntries(SERIES.map((series) => [series.key, r[series.key]])),
+    ...Object.fromEntries(seriesColors().map((series) => [series.key, r[series.key]])),
   }));
 
   return (
@@ -203,12 +206,12 @@ export const PelletBoilerChart: React.FC = () => {
             <div className="boiler-chart fill-area">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']}
+                  <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                  <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']}
                     tickFormatter={timeLabel} minTickGap={24} />
-                  <YAxis width={44} unit="°" domain={['auto', 'auto']} />
-                  <Tooltip labelFormatter={(value) => timeLabel(Number(value))} formatter={(value, name) => [formatTemp(Number(value)), SERIES.find((s) => s.key === name)?.label ?? name]} />
-                  {SERIES.filter((series) => visible[series.key]).map((series) => (
+                  <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={44} unit="°" domain={['auto', 'auto']} />
+                  <Tooltip {...tooltipStyle()} labelFormatter={(value) => timeLabel(Number(value))} formatter={(value, name) => [formatTemp(Number(value)), seriesColors().find((s) => s.key === name)?.label ?? name]} />
+                  {seriesColors().filter((series) => visible[series.key]).map((series) => (
                     <Line key={series.key} type="monotone" dataKey={series.key} stroke={series.color}
                       strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                   ))}
@@ -218,7 +221,7 @@ export const PelletBoilerChart: React.FC = () => {
           )}
 
           <div className="boiler-series">
-            {SERIES.map((series) => (
+            {seriesColors().map((series) => (
               <label key={series.key}>
                 <input type="checkbox" checked={visible[series.key]}
                   onChange={(event) => setVisible({ ...visible, [series.key]: event.currentTarget.checked })} />

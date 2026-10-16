@@ -5,6 +5,7 @@
 // „Moc paneli”: panele do pokazania wybiera się polami wyboru, pogrupowanymi według mikrofalowników (sterowników);
 // domyślnie widoczne są panele pierwszego mikrofalownika, bo wszystkie 10 krzywych naraz jest nieczytelne.
 import { useEffect, useState } from 'react';
+import { cc, tooltipStyle } from '../../../core/chartColors';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
@@ -26,7 +27,8 @@ const PERIODS: { value: Period; label: string }[] = [
 
 const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
 // kolory linii paneli (10 portów u nas)
-const COLORS = ['#1481a5', '#e0a100', '#2e7d32', '#b00020', '#6a1b9a', '#00838f', '#ef6c00', '#5d4037', '#3949ab', '#7cb342'];
+// kolory paneli: serie motywu, potem słońce i woda (do 10 portów)
+const COLORS = () => { const c = cc(); return [c.s1, c.s3, c.s4, c.s2, c.sun, c.water, c.heat, c.accent, c.danger, c.ok]; };
 
 const bucketLabel = (period: PvSummaryPeriod, key: string) =>
   period === 'month' ? String(Number(key.slice(8, 10))) : period === 'year' ? MONTHS[Number(key.slice(5, 7)) - 1] : key;
@@ -84,7 +86,7 @@ export const PhotovoltaicChart: React.FC = () => {
     const groups = new Map<string, { key: string; port: number; color: string }[]>();
     (day?.panels ?? []).forEach((panel, index) => {
       const list = groups.get(panel.serial) ?? [];
-      list.push({ key: panel.key, port: panel.port, color: COLORS[index % COLORS.length] });
+      list.push({ key: panel.key, port: panel.port, color: COLORS()[index % COLORS.length] });
       groups.set(panel.serial, list);
     });
     return [...groups].sort((a, b) => a[0].localeCompare(b[0])).map(([serial, panels]) => ({ serial, panels }));
@@ -142,36 +144,36 @@ export const PhotovoltaicChart: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   {view === 'energy' ? (
                     <BarChart data={panelEnergy}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 11 }} />
-                      <YAxis width={44} tick={{ fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
+                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                      <XAxis stroke={cc().line} dataKey="label" interval={0} tick={{ fill: cc().axis, fontSize: 11 }} />
+                      <YAxis stroke={cc().line} width={44} tick={{ fill: cc().axis, fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
                         label={{ value: 'kWh', position: 'insideTopLeft', offset: -2, fontSize: 12 }} />
-                      <Tooltip formatter={(_value, _name, item) => [formatEnergy(item.payload.energyWh), 'Produkcja']}
+                      <Tooltip {...tooltipStyle()} formatter={(_value, _name, item) => [formatEnergy(item.payload.energyWh), 'Produkcja']}
                         labelFormatter={(label, payload) => payload?.[0]?.payload?.name ?? label} />
                       <Bar dataKey="kwh" isAnimationActive={false}>
                         {panelEnergy.map((p) => (
-                          <Cell key={p.label} fill={p.energyWh < averageWh * 0.85 ? '#b00020' : '#e0a100'} />
+                          <Cell key={p.label} fill={p.energyWh < averageWh * 0.85 ? cc().danger : cc().sun} />
                         ))}
                       </Bar>
                     </BarChart>
                   ) : view === 'power' && panelsData.length ? (
                     <LineChart data={panelsData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis width={56} tickFormatter={(value: number) => formatPower(value)} />
-                      <Tooltip formatter={(value, name) => [formatPower(Number(value)), panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))]} />
+                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={30} />
+                      <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={56} tickFormatter={(value: number) => formatPower(value)} />
+                      <Tooltip {...tooltipStyle()} formatter={(value, name) => [formatPower(Number(value)), panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))]} />
                       <Legend formatter={(name) => panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))} />
                       {day!.panels.map((panel, index) => (shown.has(panel.key) ? (
-                        <Line key={panel.key} type="monotone" dataKey={panel.key} dot={false} stroke={COLORS[index % COLORS.length]} isAnimationActive={false} />
+                        <Line key={panel.key} type="monotone" dataKey={panel.key} dot={false} stroke={COLORS()[index % COLORS.length]} isAnimationActive={false} />
                       ) : null))}
                     </LineChart>
                   ) : (
                     <AreaChart data={dayData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis width={56} tickFormatter={(value: number) => formatPower(value)} />
-                      <Tooltip formatter={(value) => [formatPower(Number(value)), 'Moc']} />
-                      <Area type="monotone" dataKey="moc" stroke="#e0a100" fill="#ffd54f" fillOpacity={0.5} isAnimationActive={false} />
+                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={30} />
+                      <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={56} tickFormatter={(value: number) => formatPower(value)} />
+                      <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), 'Moc']} />
+                      <Area type="monotone" dataKey="moc" stroke={cc().sun} fill={cc().sun} fillOpacity={0.3} isAnimationActive={false} />
                     </AreaChart>
                   )}
                 </ResponsiveContainer>
@@ -233,16 +235,16 @@ export const PhotovoltaicChart: React.FC = () => {
               <div className="pv-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={summaryData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" interval="preserveStartEnd" />
-                    <YAxis width={44} tick={{ fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
+                    <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                    <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" />
+                    <YAxis stroke={cc().line} width={44} tick={{ fill: cc().axis, fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
                       label={{ value: 'kWh', position: 'insideTopLeft', offset: -2, fontSize: 12 }} />
-                    <Tooltip
+                    <Tooltip {...tooltipStyle()}
                       formatter={(_value, _name, item) => [`${formatEnergy(item.payload.energyWh)}, szczyt ${formatPower(item.payload.peakW)}`
                         + (period === 'month' ? '' : `, dni z danymi: ${item.payload.days}`), 'Produkcja']}
                       labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltip ?? label}
                     />
-                    <Bar dataKey="kwh" fill="#e0a100" />
+                    <Bar dataKey="kwh" fill={cc().sun} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

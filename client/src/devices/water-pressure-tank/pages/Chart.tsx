@@ -3,6 +3,7 @@
 // porównanie z wodomierzem (GET /water-pressure-tank/meter/summary).
 // Dane pobierane przy zmianie okresu lub daty, bez odświeżania cyklicznego.
 import { useEffect, useState } from 'react';
+import { cc, tooltipStyle } from '../../../core/chartColors';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useFillHeight } from '../../../core/components/useFillHeight';
 import { InfoTip } from '../../../core/components/InfoTip';
@@ -131,16 +132,16 @@ export const WaterPressureTankChart: React.FC = () => {
               <div className="water-chart fill-area">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={meterData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" interval="preserveStartEnd" />
-                      <YAxis width={70} tickFormatter={axisFormatter(Math.max(0, ...meterData.flatMap((item) => [item.wodomierz ?? 0, item['z czasu pompy'] ?? 0])))} />
-                      <Tooltip
+                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="month" interval="preserveStartEnd" />
+                      <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={70} tickFormatter={axisFormatter(Math.max(0, ...meterData.flatMap((item) => [item.wodomierz ?? 0, item['z czasu pompy'] ?? 0])))} />
+                      <Tooltip {...tooltipStyle()}
                         formatter={(item) => `${formatLiters(Number(item))} l`}
                         labelFormatter={(label, payload) => payload?.[0]?.payload?.monthName ?? label}
                       />
                       <Legend />
-                      <Bar dataKey="wodomierz" fill="#1481a5" />
-                      <Bar dataKey="z czasu pompy" fill="#9bbfcc" />
+                      <Bar dataKey="wodomierz" fill={cc().water} />
+                      <Bar dataKey="z czasu pompy" fill={cc().muted} />
                     </BarChart>
                   </ResponsiveContainer>
               </div>
@@ -150,18 +151,18 @@ export const WaterPressureTankChart: React.FC = () => {
               <div className="water-chart fill-area">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" interval="preserveStartEnd" />
-                    <YAxis width={70} tickFormatter={hasFlow
+                    <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
+                    <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={70} tickFormatter={hasFlow
                       ? axisFormatter(Math.max(0, ...data.map((item) => item.woda)))
                       : (value: number) => `${value.toLocaleString('pl-PL')} min`} />
-                    <Tooltip
+                    <Tooltip {...tooltipStyle()}
                       formatter={(value, _name, item) => hasFlow
                         ? [`${formatLiters(Number(value))} l, pompa ${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Woda']
                         : [`${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Pompa']}
                       labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipLabel ?? label}
                     />
-                    <Bar dataKey="woda" fill="#1481a5" />
+                    <Bar dataKey="woda" fill={cc().water} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

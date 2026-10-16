@@ -1,7 +1,7 @@
 /* Fotowoltaika: karty jak w Ustawieniach pompy (.settings > section > .resource) */
 .settings.pv-page > section > .resource,
 .settings.pv-page > section > .resource:first-child {
-  width: min(560px, calc(100vw - 2rem));
+  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
   box-sizing: border-box;
 }
 
@@ -10,18 +10,18 @@
 }
 
 .pv-on {
-  color: #2e7d32;
+  color: var(--ok-fg);
   font-weight: 600;
 }
 
 .pv-bad {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .pv-hint {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .pv-summary {
@@ -37,12 +37,12 @@
 .pv-now-power {
   font-size: 2.6rem;
   font-weight: 700;
-  color: #e0a100;
+  color: var(--c-sun);
   line-height: 1.1;
 }
 
 .pv-now-caption {
-  color: #555;
+  color: var(--fg-2);
   margin-bottom: 0.6rem;
 }
 
@@ -56,7 +56,7 @@
 .pv-tiles > div {
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--card);
   border-radius: 6px;
   padding: 0.4rem 0.2rem;
 }
@@ -67,7 +67,7 @@
 
 .pv-tiles span {
   font-size: 0.8rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .pv-row {
@@ -92,7 +92,7 @@
 
 .pv-inverter-title {
   font-weight: 600;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
   padding-bottom: 0.2rem;
   margin-bottom: 0.2rem;
 }
@@ -108,7 +108,7 @@
 
 .pv-panel-bar {
   height: 0.7rem;
-  background: #e4e4e4;
+  background: var(--line);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -116,7 +116,7 @@
 .pv-panel-bar > span {
   display: block;
   height: 100%;
-  background: #e0a100;
+  background: var(--c-sun);
 }
 
 .pv-panel-power {
@@ -126,16 +126,16 @@
 
 .pv-panel-state {
   font-size: 0.82rem;
-  color: #555;
+  color: var(--fg-2);
 }
 
 .pv-panel-produces .pv-panel-state {
-  color: #2e7d32;
+  color: var(--ok-fg);
 }
 
 .pv-panel-offline .pv-panel-state,
 .pv-panel-alarm .pv-panel-state {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -184,9 +184,9 @@
   min-height: 32px;
   padding: 0 0.4rem;
   box-sizing: border-box;
-  border: 1px solid #bbb;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
-  background: #fff;
+  background: var(--card);
 }
 
 .pv-page input[type='radio'],
@@ -235,7 +235,7 @@
 .pv-table td {
   padding: 0.25rem 0.4rem;
   text-align: right;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
@@ -269,7 +269,7 @@
   cursor: pointer;
   font-weight: 600;
   padding: 0.35rem 0;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--line);
 }
 
 .pv-group ul {
@@ -280,7 +280,7 @@
 
 .pv-parameter {
   padding: 0.45rem 0;
-  border-bottom: 1px solid #e4e4e4;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
 
@@ -306,13 +306,13 @@
 .pv-parameter-rating {
   font-size: 0.85rem;
   font-style: italic;
-  color: #555;
+  color: var(--fg-2);
 }
 
 @media (max-width: 560px) {
   body .settings.pv-page > section > .resource,
   body .settings.pv-page > section > .resource:first-child {
-    width: 100vw;
+    width: var(--page-vw, 100vw);
     margin-left: 0;
     margin-right: 0;
     border-radius: 0;
@@ -361,7 +361,7 @@
   align-items: center;
   gap: 0.2rem 0.7rem;
   padding: 0.3rem 0.6rem;
-  background: #fff;
+  background: var(--card);
   border: 1px solid #d5dfe6;
   border-radius: 6px;
 }

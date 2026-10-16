@@ -5,15 +5,15 @@
   flex-direction: column;
   align-items: center;
   gap: 0.8rem;
-  width: min(1240px, calc(100vw - 2rem));
+  width: min(1240px, calc(var(--page-vw, 100vw) - 2rem));
   margin: 0 auto;
   padding: 0 0 1rem;
 }
 .tile-designer-header { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
 .tile-designer-header h2 { flex: 1 1 auto; margin: 0; padding-top: 0; text-align: center; }
 .tile-designer-spacer { flex: none; width: calc(1.6em + 0.2rem); }
-.tile-designer-lead { margin: 0; max-width: 80ch; color: #555; text-align: center; }
-.tile-designer-error { margin: 0; color: #c62828; font-weight: 600; }
+.tile-designer-lead { margin: 0; max-width: 80ch; color: var(--fg-2); text-align: center; }
+.tile-designer-error { margin: 0; color: var(--danger); font-weight: 600; }
 
 .tile-designer-grid {
   display: grid;
@@ -32,8 +32,8 @@
 .tile-designer-card {
   max-width: 100%;
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  background: var(--card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0);
 }
 .tile-designer-tools {
   position: absolute;
@@ -41,43 +41,43 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 1px dashed #90a4ae;
+  border: 1px dashed var(--fg-3);
   border-radius: 8px;
-  color: #90a4ae;
+  color: var(--fg-3);
   font-size: 0.7rem;
   pointer-events: none;
 }
-.tile-designer-note { font-size: 0.8rem; color: #607d8b; }
+.tile-designer-note { font-size: 0.8rem; color: var(--fg-3); }
 .tile-designer-report { margin: 0; font-size: 0.85rem; max-width: 70ch; }
-.tile-designer-report.ok { color: #2e7d32; }
-.tile-designer-report.bad { color: #c62828; }
+.tile-designer-report.ok { color: var(--ok-fg); }
+.tile-designer-report.bad { color: var(--danger); }
 
 .tile-designer-inspector {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #cfd8dc;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--card);
 }
 .tile-designer-inspector h3 { margin: 0; font-size: 0.95rem; }
 .tile-designer-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 .tile-designer-row2 .wide { grid-column: 1 / -1; }
-.tile-designer-inspector label { display: grid; gap: 2px; font-size: 0.78rem; color: #607d8b; }
+.tile-designer-inspector label { display: grid; gap: 2px; font-size: 0.78rem; color: var(--fg-3); }
 .tile-designer-inspector input[type=number],
 .tile-designer-inspector select {
   width: 100%;
   box-sizing: border-box;
   padding: 4px 6px;
-  border: 1px solid #b0bec5;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   font: inherit;
   font-size: 0.88rem;
-  color: #263238;
-  background: #fff;
+  color: var(--fg);
+  background: var(--card);
 }
-.tile-designer-inspector input[type=range] { width: 100%; accent-color: #1481a5; }
-.tile-designer-value { padding-top: 4px; color: #263238; font-size: 0.88rem; }
+.tile-designer-inspector input[type=range] { width: 100%; accent-color: var(--accent); }
+.tile-designer-value { padding-top: 4px; color: var(--fg); font-size: 0.88rem; }
 
 .tile-designer-fields { display: flex; flex-wrap: wrap; gap: 4px; }
 .tile-designer-inspector .tile-designer-fields label {
@@ -85,13 +85,13 @@
   align-items: center;
   gap: 4px;
   padding: 1px 8px 1px 4px;
-  border: 1px solid #cfd8dc;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  color: #263238;
+  color: var(--fg);
   cursor: pointer;
 }
-.tile-designer-inspector .tile-designer-fields label.current { border-color: #1481a5; background: #e1f1f6; }
-.tile-designer-inspector .tile-designer-fields label.bad { border-color: #c62828; color: #c62828; }
+.tile-designer-inspector .tile-designer-fields label.current { border-color: var(--accent); background: var(--run-bg); }
+.tile-designer-inspector .tile-designer-fields label.bad { border-color: var(--danger); color: var(--danger); }
 
 /* przyciski do prawej, „Zapisz” skrajnie z prawej */
 .tile-designer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
@@ -103,12 +103,12 @@
   min-height: 90px;
   box-sizing: border-box;
   padding: 6px;
-  border: 1px solid #b0bec5;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   font: 12px ui-monospace, Menlo, Consolas, monospace;
 }
-.tile-designer-state { font-size: 0.8rem; color: #607d8b; }
-.tile-designer-state.dirty { color: #ef6c00; font-weight: 600; }
+.tile-designer-state { font-size: 0.8rem; color: var(--fg-3); }
+.tile-designer-state.dirty { color: var(--warn-fg); font-weight: 600; }
 
 .tile-designer-preview { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; width: 100%; }
 .tile-designer-preview h3 { margin: 0.6rem 0 0; }
@@ -123,7 +123,7 @@
   max-width: 100%;
   box-sizing: border-box;
   padding: 10px;
-  border: 1px solid #cfd8dc;
+  border: 1px solid var(--line);
   border-radius: 12px;
 }
 .tile-designer-phone .device-card { flex: none; width: 100%; max-width: none; }

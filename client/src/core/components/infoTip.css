@@ -7,10 +7,10 @@
   min-width: 20px;
   margin: 0 0 0 0.35rem;
   padding: 0;
-  border: 1.5px solid #1481a5;
+  border: 1.5px solid var(--accent);
   border-radius: 50%;
-  background: #fff;
-  color: #1481a5;
+  background: var(--card);
+  color: var(--accent);
   font: italic 700 12px Georgia, 'Times New Roman', serif;
   line-height: 1;
   vertical-align: middle;
@@ -27,8 +27,8 @@
 
 .info-tip.open,
 .info-tip:hover {
-  background: #1481a5;
-  color: #fff;
+  background: var(--accent);
+  color: var(--card);
 }
 
 .info-tip-bubble {
@@ -37,11 +37,11 @@
   z-index: 1300;
   box-sizing: border-box;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #cfd8dc;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
-  color: #333;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0);
   font-size: 0.85rem;
   font-weight: 400;
   font-style: normal;

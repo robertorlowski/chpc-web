@@ -31,8 +31,8 @@
 }
 
 .period-selector button.active {
-  color: white;
-  background: #333;
+  color: var(--accent-fg);
+  background: var(--fg);
 }
 
 .loader {
@@ -152,31 +152,31 @@
 }
 
 .power-color {
-  background: #1481a5;
+  background: var(--ch-1);
 }
 
 .pv-color {
-  background: #ec30a4;
+  background: var(--c-sun);
 }
 
 .cost-color {
-  background: #e06b2f;
+  background: var(--ch-2);
 }
 
 .tbe-color {
-  background: #463de0;
+  background: var(--ch-3);
 }
 
 .tae-color {
-  background: #0ace55;
+  background: var(--ch-4);
 }
 
 .tho-color {
-  background: #c4922f;
+  background: var(--c-water);
 }
 
 .target-color {
-  background: #ec1b4f;
+  background: var(--danger);
 }
 
 @media (max-width: 600px) {

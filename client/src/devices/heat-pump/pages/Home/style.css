@@ -15,13 +15,13 @@
 .hp-page .field.correct {
 	margin-left: 0.2rem;
 	font-weight: bold;
-	color: blue;
+	color: var(--accent);
 }
 
 .hp-page .field.incorrect {
 	margin-left: 0.2rem;
 	font-weight: bold;
-	color: red;
+	color: var(--danger);
 }
 
 .hp-page table {
@@ -159,7 +159,7 @@ td.label.hp-temp-label {
 @media (max-width: 380px) {
 	/* karty na całą szerokość ekranu, treść zawija się w karcie zamiast z niej wystawać */
 	.hp-page {
-		width: calc(100vw - 2rem);
+		width: calc(var(--page-vw, 100vw) - 2rem);
 	}
 
 	.hp-page > section {
@@ -231,12 +231,12 @@ td.label.hp-temp-label {
 
 /* ładowanie CWU w kotle (kocioł w trybie pompy ciepła): pasek nad danymi pompy */
 .cwu-loading {
-  border-left: 4px solid #1481a5;
-  color: #1481a5;
+  border-left: 4px solid var(--accent);
+  color: var(--accent);
 }
 
 .cwu-loading-off {
-  color: #b00020;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -250,15 +250,15 @@ td.label.hp-temp-label {
 }
 
 .hp-stale.warn {
-  background: #fffaf2;
-  border: 1px solid #f6dcb8;
-  color: #8a4500;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-fg);
+  color: var(--warn-fg);
 }
 
 .hp-stale.err {
-  background: #fff6f5;
-  border: 1px solid #f3cfcc;
-  color: #a32a24;
+  background: var(--hover)f5;
+  border: 1px solid var(--err-fg);
+  color: var(--err-fg);
 }
 
 .hp-stale-data .heat.body,
