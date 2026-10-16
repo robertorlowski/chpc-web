@@ -558,7 +558,7 @@
         </div>
         <div class="hero-side">
           <div class="pill-row">
-            <span class="chip chip-warn is-running"><i class="dot"></i>Praca</span>
+            <span class="state state-on is-running" title="Kocioł pali od 14:20"><i class="dot"></i>2&nbsp;h&nbsp;08&nbsp;min</span>
             <span class="chip chip-off">Zima</span>
             <span class="chip chip-off">Tryb: pompa ciepła</span>
           </div>
@@ -1500,11 +1500,11 @@
   var VIEW_LABEL = { podglad: 'Podgląd', dane: 'Dane', wykres: 'Wykres', harmonogram: 'Harmonogram', operacje: 'Operacje', ustawienia: 'Ustawienia', alarmy: 'Alarmy' };
   var VIEW_ICON = { podglad: 'hp', dane: 'data', wykres: 'chart', harmonogram: 'clock', operacje: 'list', ustawienia: 'settings', alarmy: 'bell' };
   var DEVICES = {
-    hp:     { name: 'Pompa ciepła',   icon: 'hp',     status: ['ok', 'Online'],  sub: 'tryb automatyczny · SN A0B1…E4F5', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'operacje', 'ustawienia'] },
+    hp:     { name: 'Pompa ciepła',   icon: 'hp',     status: ['ok', 'Online'],  running: '49 min', sub: 'tryb automatyczny · SN A0B1…E4F5', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'operacje', 'ustawienia'] },
     pv:     { name: 'Fotowoltaika',   icon: 'pv',     status: ['ok', 'Online'],  sub: '4 panele · DTU Hoymiles', views: ['podglad', 'dane', 'wykres', 'ustawienia'] },
     tank:   { name: 'Hydrofor',       icon: 'drop',   status: ['off', 'Offline'], sub: 'ostatnie uruchomienie 13:56', views: ['podglad', 'dane', 'wykres', 'operacje', 'ustawienia'] },
     'switch': { name: 'Włącznik',     icon: 'switch', status: ['ok', 'Online'],  sub: '2 przekaźniki · firmware 1.2.0', views: ['podglad', 'dane', 'harmonogram', 'operacje', 'ustawienia'] },
-    boiler: { name: 'Piec Pellux 200', icon: 'fire',  status: ['warn', 'Praca'], sub: 'ecoMAX 860P2 · odczyt co 5 min', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'alarmy', 'operacje', 'ustawienia'] }
+    boiler: { name: 'Piec Pellux 200', icon: 'fire',  status: ['ok', 'Online'],  running: '2 h 08 min', sub: 'ecoMAX 860P2 · odczyt co 5 min', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'alarmy', 'operacje', 'ustawienia'] }
   };
   var topbar = document.getElementById('topbar');
   var bottomNav = document.getElementById('bottom-nav');
@@ -1538,7 +1538,7 @@
     var d = DEVICES[dev]; lastDevice = dev;
     var tabs = d.views.map(function (v) { return viewLink(dev, v, 'tab'); }).join('');
     topbar.innerHTML = '<div class="topbar-inner"><button type="button" class="icon-btn back" data-go="lista" aria-label="Wróć do listy sterowników">' + icon('back') + '</button>' +
-      '<div class="device-title"><h1>' + d.name + '</h1><span class="device-sub"><span class="chip chip-' + d.status[0] + '">' + (d.status[0] === 'off' ? '' : '<i class="dot"></i>') + d.status[1] + '</span><span class="sep">·</span>' + d.sub + '</span></div>' +
+      '<div class="device-title"><h1>' + d.name + '</h1><span class="device-sub"><span class="chip chip-' + d.status[0] + '">' + (d.status[0] === 'off' ? '' : '<i class="dot"></i>') + d.status[1] + '</span>' + (d.running ? '<span class="state state-on sub-run" title="Pracuje od ' + d.running + '"><i class="dot"></i>' + d.running + '</span>' : '') + '<span class="sep">·</span>' + d.sub + '</span></div>' +
       '<nav class="tabs" aria-label="Widoki sterownika">' + tabs + '</nav>' +
       '<div class="topbar-actions"><button type="button" class="icon-btn avatar" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
     // telefon: 4 pierwsze widoki + „Więcej”

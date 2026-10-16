@@ -353,3 +353,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .pump.is-on { color: var(--c-water); border-color: var(--c-water); background: var(--c-water-bg); }
 .pump.is-on .dot { background: currentColor; animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pump .dot { animation: none !important; } }
+
+/* ---- pasek sterownika: czas pracy obok chipu Online (pompa, piec) ---- */
+.device-sub .sub-run { font-size: 11px; padding: 1px 8px; margin-left: 6px; }
+.device-sub .sub-run .dot { width: 6px; height: 6px; margin-right: 5px; animation: puls 1.6s ease-out infinite; }
+.pill-row .state.is-running .dot { animation: puls 1.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .device-sub .sub-run .dot, .pill-row .state .dot { animation: none !important; } }
