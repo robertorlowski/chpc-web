@@ -344,3 +344,12 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .tile.is-running::before { animation: poswiata 2.4s ease-in-out infinite; }
 .tile.is-running .tile-icon { box-shadow: 0 0 0 2px var(--kind-bg), 0 0 14px -2px var(--kind-fg); }
 @media (prefers-reduced-motion: reduce) { .is-running .dot, .tile.is-running .ic, .tile.is-running::before { animation: none !important; } }
+
+/* ---- kafelek pompy: wskaźniki pomp obiegu CO / CWU ---- */
+.tile-side { flex-direction: column; align-items: flex-end; gap: 6px; }
+.pumps { display: inline-flex; gap: 4px; }
+.pump { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--fg-3); background: transparent; }
+.pump .dot { width: 6px; height: 6px; margin-right: 5px; background: var(--line-strong); }
+.pump.is-on { color: var(--c-water); border-color: var(--c-water); background: var(--c-water-bg); }
+.pump.is-on .dot { background: currentColor; animation: puls 1.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pump .dot { animation: none !important; } }
