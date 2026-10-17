@@ -1,7 +1,7 @@
 // Zakładka Ustawienia pompy (/settings) w układzie makiety „Instrument” (#s-hp-ustawienia): po lewej karta „Ustaw”
 // (operacja ręczna, POST /operation/set: tryb pracy, temperatura od–do, limit mocy, EEV, przełączniki wymuszenia
 // i pomp obiegu), po prawej karty „Błędy sterownika” (ostatni błąd, licznik, Odblokuj i Restart przez
-// POST /operation/action), „Sterownik” (nazwa, SN, Root ID, adres IP, firmware; popup DeviceEditModal) i „Udostępnianie”.
+// POST /operation/action), „Sterownik” (core ControllerCard: nazwa, SN, Root ID, adres IP, firmware, klucz poczty; popup DeviceEditModal) i „Udostępnianie”.
 // Wartości początkowe (placeholdery i przełączniki) to rzeczywisty stan pompy z telemetrii (GET /operation),
 // a nie ostatnio wysłane ustawienie. Stan jest wczytywany tylko przy wejściu na stronę.
 import '../style.css';
@@ -11,11 +11,8 @@ import { HpEntry, OperationEntry, pumpWorkMode } from '../../types';
 import { useEffect, useMemo, useState } from 'react';
 import Notification, { useSaveNotice } from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
-import { DeviceAddress } from '../../../../core/components/DeviceAddress';
-import { FirmwareStatus } from '../../../../core/components/FirmwareStatus';
+import { ControllerCard } from '../../../../core/components/ControllerCard';
 import { DeviceSharing } from '../../../../core/components/DeviceSharing';
-import { IconButton } from '../../../../core/components/IconButton';
-import { EditIcon } from '../../../../core/components/icons';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
 import { Segmented, WORK_MODE_OPTIONS } from '../../components/Segmented';
@@ -42,7 +39,6 @@ export const Settings: React.FC = () => {
 	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
 	// sprężarka pracuje: pompa sama steruje pompami, a wymuszenie przyjmuje tylko w spoczynku
 	const [running, setRunning] = useState(false);
-	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
 		HpRequests.getHpLastError()
@@ -148,15 +144,6 @@ export const Settings: React.FC = () => {
 			setValueOperation({});
 		}));
 	}
-
-	// Root ID do schowka (jak „kopiuj” w makiecie); bez schowka (http w sieci lokalnej) przycisk nic nie robi
-	const copyRootId = () => {
-		if (!device?.rootId || !navigator.clipboard) return;
-		navigator.clipboard.writeText(device.rootId).then(() => {
-			setCopied(true);
-			window.setTimeout(() => setCopied(false), 2000);
-		}).catch(() => undefined);
-	};
 
 	const locked = isLocked(errorCount);
 	const errorText = lastError?.error_code ? errorDescription(lastError.error_code) : '';
@@ -270,25 +257,7 @@ export const Settings: React.FC = () => {
 						</div>
 					</section>
 
-					<section className="card">
-						<header className="card-head">
-							<h2>Sterownik</h2>
-							<IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!device || device.access === 'shared'} onClick={() => setEditingDevice(true)} />
-						</header>
-						<dl className="kv">
-							<div><dt>Nazwa</dt><dd>{device?.name?.trim() || '---'}</dd></div>
-							<div><dt>SN</dt><dd><code>{device?.deviceId ?? '---'}</code></dd></div>
-							<div>
-								<dt>Root ID</dt>
-								<dd><code>{device?.rootId ?? '---'}</code> {device && <button type="button" className="link-btn" onClick={copyRootId}>{copied ? 'skopiowano' : 'kopiuj'}</button>}</dd>
-							</div>
-						</dl>
-						{/* adres IP i firmware z komponentów core (wiersze etykieta + wartość, układ jak .kv w ../style.css) */}
-						<div className="kv-extra">
-							<DeviceAddress device={device} />
-							<FirmwareStatus device={device} actionsClassName="actions" />
-						</div>
-					</section>
+					<ControllerCard device={device} onEdit={() => setEditingDevice(true)} />
 
 					{/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
 					{device && <DeviceSharing device={device} />}

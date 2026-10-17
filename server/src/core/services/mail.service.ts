@@ -2,9 +2,11 @@
 // sterownika, powiadomienie administratora o rejestracji. SMTP tylko ze zmiennych środowiskowych (SMTP_HOST,
 // SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_ADMIN; Render: Environment, lokalnie server/.env).
 // Bez SMTP_HOST (testy, środowisko bez poczty) mail trafia do outbox w pamięci i do logu.
+// MAIL_RELAY=1: serwer nie łączy się z pocztą, mail idzie do kolejki i wysyła go sterownik (mail-relay.service.ts).
 // Office 365 wysyła tylko z adresu konta SMTP_USER, chyba że ma ono uprawnienie „Send As” do MAIL_FROM
 // (próba 2026-10-11: inny nadawca = 5.2.252 SendAsDenied), dlatego przy odmowie mail idzie z SMTP_USER.
 import nodemailer, { Transporter } from 'nodemailer';
+import { enqueueMail, relayEnabled } from './mail-relay.service';
 
 export interface OutgoingMail {
   to: string;
@@ -37,6 +39,11 @@ const smtpTransport = () => {
 export const adminEmail = () => process.env.MAIL_ADMIN ?? '';
 
 export async function sendMail(mail: OutgoingMail): Promise<void> {
+  // MAIL_RELAY=1 (Render na darmowym planie blokuje SMTP): mail wysyła sterownik z domowego łącza
+  if (relayEnabled()) {
+    await enqueueMail(mail);
+    return;
+  }
   const smtp = smtpTransport();
   if (!smtp) {
     outbox.push(mail);

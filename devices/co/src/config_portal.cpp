@@ -9,6 +9,9 @@
 #include <device_config.hpp>
 
 namespace {
+// przekaźnik poczty (od 1.3.0): odcisk klucza i stan na /install
+CloudClient *cloudSource = nullptr;
+
 WebServer server(80);
 const Telemetry *telemetrySource = nullptr;
 const PvTelemetry *pvTelemetrySource = nullptr;
@@ -180,6 +183,7 @@ placeholder="bez zmian">
 <label for="rootid">Root ID</label>
 <input id="rootid" value="%ROOTID%" placeholder="brak" readonly>
 %REGISTRATION%
+%MAIL%
 <button type="submit">%BUTTON%</button>
 <p class="sub" style="text-align:center;margin:22px 0 0"><a href="/">Podgląd telemetrii</a></p>
 </form></body></html>)HTML";
@@ -201,7 +205,7 @@ String escapeHtml(const String &value)
   return escaped;
 }
 
-// Wypełnia znaczniki %MESSAGE%, %SSID%, %SERIAL%, %ROOTID%, %REGISTRATION%
+// Wypełnia znaczniki %MESSAGE%, %SSID%, %SERIAL%, %ROOTID%, %REGISTRATION%, %MAIL%
 // i %BUTTON% w PAGE_TEMPLATE. Hasło Wi-Fi nigdy nie trafia do strony.
 String renderPage(const String &message)
 {
@@ -215,6 +219,11 @@ String renderPage(const String &message)
     ? F("<p class=\"st on\">Zarejestrowany w chmurze</p>")
     : F("<p class=\"st off\">Niezarejestrowany. Sterownik zarejestruje się "
         "po połączeniu z internetem.</p>"));
+  // przekaźnik poczty: odcisk do porównania z aplikacją przed zatwierdzeniem klucza
+  page.replace("%MAIL%", cloudSource
+    ? "<label>Poczta (klucz płytki)</label><input value=\"" + escapeHtml(cloudSource->mailFingerprint())
+      + "\" readonly><small>" + escapeHtml(cloudSource->mailStatus()) + "</small>"
+    : String());
   page.replace("%BUTTON%", deviceRegistered()
     ? F("Zapisz i uruchom ponownie") : F("Zarejestruj i uruchom ponownie"));
   return page;
@@ -294,9 +303,11 @@ void handleSave()
 }
 
 void beginConfigPortal(const Telemetry &telemetry,
-  const PvTelemetry &pvTelemetry)
+  const PvTelemetry &pvTelemetry, CloudClient &cloud)
 {
   if (running) return;
+
+  cloudSource = &cloud;
 
   telemetrySource = &telemetry;
   pvTelemetrySource = &pvTelemetry;

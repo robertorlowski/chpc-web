@@ -2,11 +2,14 @@
 // i pobieranie obrazu firmware (OTA na zlecenie „Aktualizuj”, od 1.1.0).
 // Kontrakt: CLAUDE.md, punkty 3 (rejestracja, 404/409) i 8 (WebSocket).
 // Certyfikat serwera nie jest weryfikowany (brak CA w kliencie).
+// Od 1.3.0 zapasowy przekaźnik poczty (devices/common/mail_relay): klucz płytki w zgłoszeniu (mailKey),
+// zaszyfrowane dane SMTP z odpowiedzi do zadania przekaźnika, WebSocket „mail” je budzi.
 #include <cloud_client.hpp>
 
 #include <Update.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <Preferences.h>
 #include <device_config.hpp>
 #include <mbedtls/sha256.h>
 
@@ -57,6 +60,13 @@ CloudClient *CloudClient::instance = nullptr;
 void CloudClient::begin()
 {
   instance = this;
+  // klucz przekaźnika poczty w NVS sterownika (tworzony przy pierwszym starcie 1.3.0) i zadanie przekaźnika
+  Preferences preferences;
+  if (preferences.begin(PREFERENCES_NAMESPACE, false)) {
+    mailRelay.begin(preferences, CLOUD_BASE_URL);
+    preferences.end();
+  }
+  if (deviceRegistered()) mailRelay.setDevice(deviceConfig().rootId, deviceSerial());
   if (deviceRegistered()) startWebSocket();
 }
 
@@ -116,6 +126,8 @@ void CloudClient::registerDevice()
   request["deviceId"] = serial;
   request["version"] = FW_VERSION;
   request["ip"] = sentIp.toString();
+  // klucz publiczny płytki dla przekaźnika poczty (chmura zatwierdza go w aplikacji)
+  if (mailRelay.publicKey().length() > 0) request["mailKey"] = mailRelay.publicKey();
   String response = send(String(CLOUD_BASE_URL) + "devices/register", request);
   if (response.length() == 0) return;
 
@@ -140,6 +152,8 @@ void CloudClient::registerDevice()
     }
     stopWebSocket();
   }
+  mailRelay.setDevice(rootId, serial);
+  mailRelay.onRegisterReply(reply["mail"]);
   registeredIp = sentIp;
 }
 
@@ -164,6 +178,7 @@ String CloudClient::post(const String &path, const JsonDocument &data)
     // The stored rootId belongs to another device. Forgetting it lets the
     // registration fetch the right one; the WebSocket reopens with it.
     clearRootId();
+    mailRelay.setDevice("", deviceSerial());
     registrationAttempted = false;
     registeredIp = IPAddress();
     stopWebSocket();
@@ -309,6 +324,16 @@ uint32_t CloudClient::webSocketDisconnectCount() const
   return webSocketDisconnects;
 }
 
+String CloudClient::mailStatus()
+{
+  return mailRelay.statusText();
+}
+
+String CloudClient::mailFingerprint() const
+{
+  return mailRelay.fingerprint();
+}
+
 void CloudClient::handleWebSocketEvent(
   WStype_t type, uint8_t *payload, size_t length)
 {
@@ -323,10 +348,11 @@ void CloudClient::handleWebSocketEvent(
     {
       JsonDocument message;
       DeserializationError error = deserializeJson(message, payload, length);
-      if (!error
-        && message["type"] == "operation"
-        && message["rootId"] == deviceConfig().rootId.c_str())
-        instance->operationRequested = true;
+      if (!error && message["rootId"] == deviceConfig().rootId.c_str()) {
+        if (message["type"] == "operation") instance->operationRequested = true;
+        // mail w kolejce chmury albo zatwierdzony klucz: przekaźnik poczty pyta od razu (własne zadanie)
+        else if (message["type"] == "mail") instance->mailRelay.wake();
+      }
       break;
     }
     case WStype_DISCONNECTED:

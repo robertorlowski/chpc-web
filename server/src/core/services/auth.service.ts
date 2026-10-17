@@ -9,6 +9,7 @@ import { DeviceShareModel } from '../models/device-share.model';
 import { DeviceModel } from '../models/device.model';
 import { UserEntry, UserLocation, UserModel } from '../models/user.model';
 import { forgetDeviceInfo } from './device-info.service';
+import { assertMailAvailable } from './mail-relay.service';
 import {
   adminEmail, clientBaseUrl, deleteAccountMail, emailChangeMail, emailChangedMail, loginMail, registrationAdminMail, sendMail,
 } from './mail.service';
@@ -173,6 +174,8 @@ export async function logout(token: string) {
 export async function startLogin(emailValue: unknown, origin?: string) {
   const email = normalizeEmail(emailValue);
   if (!email) throw new AuthError('Podaj poprawny adres e-mail.');
+  // przekaźnik poczty bez sterownika w sieci: błąd przed utworzeniem kodu (inaczej kolejna próba czekałaby 60 s)
+  await assertMailAvailable();
   const { code, token, expiresAt } = await createCode('login', email, { link: true });
   const url = `${clientBaseUrl(origin)}/login?token=${encodeURIComponent(token as string)}`;
   await sendMail(loginMail(email, code, url, expiresAt));
@@ -268,6 +271,7 @@ export async function startEmailChange(user: UserEntry, emailValue: unknown) {
   if (!email) throw new AuthError('Podaj poprawny adres e-mail.');
   if (email === user.email) throw new AuthError('To jest obecny adres konta.');
   if (await UserModel.exists({ email })) throw new AuthError('Ten adres ma już inne konto.', 409);
+  await assertMailAvailable();
   const { code, expiresAt } = await createCode('email-change', email, { userId: String(user._id) });
   await sendMail(emailChangeMail(email, code, expiresAt));
   return { email, resendAfterSeconds: Math.round(RESEND_MS / 1000) };
@@ -290,6 +294,7 @@ export async function verifyEmailChange(user: UserEntry, codeValue: unknown) {
 export async function startDeleteAccount(user: UserEntry, origin?: string) {
   if (user.isSystem || !user.email) throw new AuthError('Użytkownika systemowego nie można usunąć.', 403);
   const devices = await DeviceModel.countDocuments({ ownerId: String(user._id) });
+  await assertMailAvailable();
   const { token } = await createCode('delete-account', user.email, { userId: String(user._id), link: true });
   const url = `${clientBaseUrl(origin)}/account/delete?token=${encodeURIComponent(token as string)}`;
   await sendMail(deleteAccountMail(user.email, url, devices));

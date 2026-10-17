@@ -11,6 +11,8 @@
 // OTA tylko na zlecenie z aplikacji („Aktualizuj”): chmura wysyła ofertę wyłącznie wtedy (od 1.1.0
 // także w odpowiedzi na stan, więc bez restartu). Od 1.1.3 co 15 min pobiera pogodę z Open-Meteo dla współrzędnych
 // z chmury (weather_queries, starsza chmura: weather_query) i wysyła ją w zgłoszeniu stanu (weather.hpp).
+// Od 1.3.0 przekaźnik poczty (devices/common/mail_relay): klucz płytki w zgłoszeniu (mailKey), komunikat WebSocket
+// „mail” budzi zadanie, które wysyła maile chmury z domowego łącza (dane SMTP z chmury, tylko w RAM).
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
@@ -25,6 +27,7 @@
 #include <mbedtls/sha256.h>
 
 #include <firmware.hpp>
+#include <mail_relay.hpp>
 #include <ota.hpp>
 #include <protocol.hpp>
 #include <relays.hpp>
@@ -106,6 +109,9 @@ constexpr const char *KEY_BOOTS = "boots";
 // Pogoda z Open-Meteo dla miejsc z chmury (weather.hpp, od 1.1.3; od 1.2.0 wiele miejsc = kafelki pogody),
 // wysyłana w zgłoszeniu stanu.
 WeatherPlaces weatherPlaces;
+
+// Przekaźnik poczty (od 1.3.0): własne zadanie FreeRTOS, pętla podaje mu Root ID, odpowiedź na zgłoszenie i „mail”.
+mail_relay::MailRelay mailRelay;
 
 OtaOffer otaOffer;
 bool otaOfferReceived = false;
@@ -250,13 +256,14 @@ void forgetRootIdOnError()
   logf("chmura: HTTP %d, zgłoszę się ponownie", lastHttpStatus);
   rootId = "";
   preferences.remove(KEY_ROOT_ID);
+  mailRelay.setDevice("", serial);
   registeredThisBoot = false;
   lastRegisterAttemptMs = 0;
   stopWebSocket();
 }
 
 // Komunikaty WebSocket serwera: {"type":"operation"} po zmianie trybu albo harmonogramu
-// w aplikacji. Pozostałe ("update" dla przeglądarek) są pomijane.
+// w aplikacji i {"type":"mail"} dla przekaźnika poczty. Pozostałe ("update" dla przeglądarek) są pomijane.
 void handleWebSocketEvent(WStype_t type, uint8_t *payload, size_t length)
 {
   if (type == WStype_CONNECTED) {
@@ -265,10 +272,12 @@ void handleWebSocketEvent(WStype_t type, uint8_t *payload, size_t length)
     logf("WebSocket: rozłączony");
   } else if (type == WStype_TEXT) {
     JsonDocument message;
-    if (!deserializeJson(message, reinterpret_cast<const char *>(payload), length)
-      && strcmp(message["type"] | "", "operation") == 0) {
+    if (!deserializeJson(message, reinterpret_cast<const char *>(payload), length)) {
+      const char *kind = message["type"] | "";
       // zmiana w aplikacji: zgłoszenie stanu w najbliższym obiegu pętli (nie w callbacku)
-      exchangeDue = true;
+      if (strcmp(kind, "operation") == 0) exchangeDue = true;
+      // mail w kolejce chmury albo zatwierdzony klucz: zadanie przekaźnika poczty pyta od razu
+      else if (strcmp(kind, "mail") == 0) mailRelay.wake();
     }
   }
 }
@@ -296,6 +305,8 @@ void registerDevice()
   request["version"] = FW_VERSION;
   request["ip"] = WiFi.localIP().toString();
   request["relays"] = RELAY_COUNT;
+  // klucz publiczny płytki dla przekaźnika poczty (chmura zatwierdza go w aplikacji)
+  if (mailRelay.publicKey().length() > 0) request["mailKey"] = mailRelay.publicKey();
   String body;
   serializeJson(request, body);
 
@@ -320,6 +331,8 @@ void registerDevice()
     preferences.putUShort(KEY_DEFAULT_MINUTES, minutes);
   }
   otaOfferReceived = parseOtaOffer(reply["settings"], otaOffer);
+  mailRelay.setDevice(rootId, serial);
+  mailRelay.onRegisterReply(reply["mail"]);
   registeredThisBoot = true;
   exchangeDue = true;
   if (!webSocketStarted) startWebSocket();
@@ -745,6 +758,9 @@ void handleInstall()
   page += "<div>Przekaźników: <b>" + String(RELAY_COUNT) + "</b></div>";
   page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
   page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div></div>";
+  // przekaźnik poczty: odcisk klucza do porównania z aplikacją przed zatwierdzeniem
+  page += "<div class=\"card\"><h2>Poczta</h2><div>Odcisk klucza: <b>" + htmlEscape(mailRelay.fingerprint()) + "</b></div>";
+  page += "<div><small>" + htmlEscape(mailRelay.statusText()) + "</small></div></div>";
   // firmware na końcu strony (jak we wszystkich sterownikach)
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
   page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
@@ -861,6 +877,8 @@ void setup()
   loadConfig();
   parseCloudUrl();
   serial = readSerial();
+  // klucz przekaźnika poczty (tworzony przy pierwszym starcie 1.3.0) i jego zadanie
+  if (!mailRelay.begin(preferences, cloudUrl)) logf("poczta: klucz niedostępny, przekaźnik poczty wyłączony");
   logf("start: firmware %s, SN %s, rootId %s, przekaźników %u, chmura %s", FW_VERSION, serial.c_str(),
     rootId.length() > 0 ? rootId.c_str() : "brak", static_cast<unsigned>(RELAY_COUNT), CLOUD_URL);
   logf("start: przyczyna %s, start nr %u", diag.reset, static_cast<unsigned>(diag.boot));

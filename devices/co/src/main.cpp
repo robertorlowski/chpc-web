@@ -177,7 +177,7 @@ void setup()
   timeSyncInterval = timeSynchronized
     ? TIME_SYNC_INTERVAL : TIME_SYNC_RETRY_INTERVAL;
 
-  beginConfigPortal(telemetry, pvTelemetry);
+  beginConfigPortal(telemetry, pvTelemetry, cloudClient);
   cloudClient.begin();
 }
 

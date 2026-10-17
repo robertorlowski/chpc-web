@@ -28,7 +28,9 @@ struct DeviceConfig {
 // 1.2.1: ekran: jedna wyśrodkowana linia „T: od - do” (Tmin–Tmax z pompy) zamiast T.HP i T.od-do.
 // 1.2.5: diagnostyka magistrali (bus_diagnostics.hpp): ramki nieoczekiwane, wiek odpowiedzi CHPC, zrzuty
 // i dłuższy timeout odczytu CHPC na zlecenie z chmury (pole diag w odpowiedzi hp/add).
-constexpr const char *FW_VERSION = "1.2.5";
+// 1.3.0: zapasowy przekaźnik poczty (devices/common/mail_relay, własne zadanie FreeRTOS, poza magistralą):
+// klucz płytki w zgłoszeniu (mailKey), wysyłka maili chmury, gdy włącznik ich nie wyśle; dane SMTP tylko w RAM.
+constexpr const char *FW_VERSION = "1.3.0";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

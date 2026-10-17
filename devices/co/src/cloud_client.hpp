@@ -4,12 +4,14 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WebSocketsClient.h>
+#include <mail_relay.hpp>
 #include <ota.hpp>
 
 // Klient chmury chpc-web (https://chpc-web.onrender.com/api/): POST JSON
 // (hp/add, pv/add) z ?deviceId=<SN>[&rootId=<id>], rejestracja
 // (devices/register) i WebSocket /ws?rootId=… Komunikat {type:"operation"}
 // tylko ustawia flagę; POST wykonuje main.cpp, gdy magistrala jest wolna.
+// {type:"mail"} budzi przekaźnik poczty (mail_relay, własne zadanie).
 class CloudClient {
 public:
   void begin();
@@ -38,6 +40,9 @@ public:
   unsigned long lastAnswerAt() const;
   uint32_t requestErrorCount() const;
   uint32_t webSocketDisconnectCount() const;
+  // Przekaźnik poczty (od 1.3.0): stan i odcisk klucza do strony /install.
+  String mailStatus();
+  String mailFingerprint() const;
 
 private:
   static CloudClient *instance;
@@ -49,6 +54,8 @@ private:
   String send(const String &url, const JsonDocument &data);
 
   HTTPClient http;
+  // zapasowy przekaźnik poczty: własne zadanie FreeRTOS, nie blokuje pętli ani magistrali
+  mail_relay::MailRelay mailRelay;
   WebSocketsClient webSocket;
   bool webSocketStarted = false;
   bool operationRequested = false;

@@ -55,6 +55,10 @@ const CONTROLLER_ROUTES = new Set([
   'GET /pellet-boiler-pelux200/commands/next',
   'POST /pellet-boiler-pelux200/commands/result',
   'POST /switch/state',
+  // przekaźnik poczty (treść zaszyfrowana kluczem płytki, mail-relay.service.ts)
+  'GET /mail/config',
+  'GET /mail/next',
+  'POST /mail/result',
 ]);
 
 function isPublic(req: Request) {

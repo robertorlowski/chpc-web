@@ -78,6 +78,17 @@ const DeviceSchema = new Schema<DeviceDocument>(
       type: new Schema({ version: { type: String, required: true }, requestedAt: { type: Date, required: true } }, { _id: false }),
       default: undefined,
     },
+    // przekaźnik poczty (włącznik, co): klucz publiczny P-256 płytki ze zgłoszenia (pole mailKey). Zatwierdzony
+    // (mailKey) dostaje zaszyfrowane dane SMTP i maile; inny klucz czeka w mailKeyPending na zatwierdzenie
+    // w aplikacji (użytkownik systemowy), żeby nikt znający SN nie podstawił swojego (mail-relay.service.ts)
+    mailKey: {
+      type: new Schema({ publicKey: String, fingerprint: String, approvedAt: Date, seenAt: Date }, { _id: false }),
+      default: undefined,
+    },
+    mailKeyPending: {
+      type: new Schema({ publicKey: String, fingerprint: String, seenAt: Date }, { _id: false }),
+      default: undefined,
+    },
     // adres IPv4 sterownika w sieci lokalnej ze zgłoszenia (pole ip) i czas tego zgłoszenia
     ipAddress: { type: String, trim: true },
     ipSeenAt: { type: Date },

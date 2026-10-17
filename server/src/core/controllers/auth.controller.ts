@@ -6,12 +6,15 @@ import {
   AuthError, confirmDeleteAccount, logout, publicUser, setRemember, startDeleteAccount, startEmailChange, startLogin,
   systemLogin, updateProfile, verifyEmailChange, verifyLogin,
 } from '../services/auth.service';
+import { MailUnavailableError } from '../services/mail-relay.service';
 
 const fail = (res: Response, error: unknown) => {
   if (error instanceof AuthError) {
     if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
     return res.status(error.status).json({ message: error.message, retryAfterSeconds: error.retryAfterSeconds });
   }
+  // przekaźnik poczty (MAIL_RELAY=1) bez sterownika w sieci: komunikat zamiast „Błąd serwera”
+  if (error instanceof MailUnavailableError) return res.status(error.status).json({ message: error.message });
   console.error('[konta]', error);
   return res.status(500).json({ message: 'Błąd serwera — spróbuj ponownie.' });
 };

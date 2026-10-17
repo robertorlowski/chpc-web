@@ -11,7 +11,9 @@ constexpr const char *DEVICE_TYPE = "switch";
 // 1.1.2: diagnostyka w zgłoszeniu stanu (przyczyna startu, numer startu, zerwania Wi-Fi, RSSI, czas HTTP).
 // 1.1.3: pogoda z Open-Meteo pobierana z domowego łącza i wysyłana w zgłoszeniu stanu (weather.hpp).
 // 1.2.0: pogoda dla wielu miejsc z chmury (weather_queries, kafelki pogody na liście sterowników), tablica weather.
-constexpr const char *FW_VERSION = "1.2.0";
+// 1.3.0: przekaźnik poczty (devices/common/mail_relay): klucz płytki w zgłoszeniu (mailKey), dane SMTP z chmury tylko
+//        w RAM, wysyłka maili chmury (kody logowania) z domowego łącza, bo Render blokuje SMTP.
+constexpr const char *FW_VERSION = "1.3.0";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 
