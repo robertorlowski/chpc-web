@@ -7,7 +7,8 @@ import { HpEntry, OperationEntry } from '../types'
 import { clearOperation, consumeManualForceOnStart, getOperationData, takeOperationActions } from '../services/operation.service'
 import { HpEntryModel } from '../models/hp.model'
 import { getFreshPvSummary } from '../services/pv.service'
-import { getTemperature } from '../../../core/services/meteo.service'
+import { getTemperature, setWeatherFromController } from '../../../core/services/meteo.service'
+import { backupWeatherQueries } from '../../../core/services/weather-tile.service'
 import { warsawDateRangeBoundsUTC, warsawDayBoundsUTC } from '../../../core/time'
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service'
 import { systemMeta } from '../../../core/services/operation-log.service'
@@ -243,6 +244,8 @@ export async function getHpMonthlySummary(req: Request, res: Response) {
 // Kolejność ma znaczenie: pobranie operacji -> clearOperation -> consumeManualForceOnStart
 // (ustawia operację dla NASTĘPNEJ odpowiedzi) -> zapis telemetrii -> odpowiedź.
 // Odpowiedź zawsze niesie operację, także gdy HP jest puste (CHPC nie odpowiada).
+// Zapasowa pogoda (co od 1.3.1, core meteo.service): pole weather z telemetrii trafia do pogody kafelków (i nie
+// do rekordu ani pamięci telemetrii), a odpowiedź niesie weather_queries z miejscami bez świeżej pogody od włącznika.
 export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   const data :HpEntry = req.body;
   console.log("Add HP data");
@@ -250,6 +253,11 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
   try {
     const rootId = req.deviceRootId as string;
     markHpContact(rootId);
+    const body = data as unknown as Record<string, unknown> | undefined;
+    if (body && body.weather !== undefined) {
+      setWeatherFromController(body.weather, new Date(), 'co');
+      delete body.weather;
+    }
     noteHpDiagnostics(rootId, data);
     // akcje jednorazowe (odblokowanie, restart) trafiają do sterownika tylko raz
     const operation: OperationEntry = { ...getOperationData(rootId), ...takeOperationActions(rootId) };
@@ -295,11 +303,15 @@ export const addHp = async (req: Request<{}, {}, HpEntry>, res: Response) => {
     });
     // diag: zlecenie diagnostyki magistrali (PUT /hp/diagnostics, co od 1.2.5); brak pola = wyłączona
     const diag = getHpDiagRequest(rootId)?.request;
+    // pogoda jest poboczna: błąd listy miejsc nie może zatrzymać operacji dla pompy (pole wtedy pominięte,
+    // co zostawia swoją listę bez zmian)
+    const weatherQueries = await backupWeatherQueries().catch(() => null);
     return res.status(201).json({
       operation: controllerOperation,
       ...(typeof outdoor === 'number' && Number.isFinite(outdoor) ? { t_out: outdoor } : {}),
       ...(firmware ? { firmware } : {}),
       ...(diag ? { diag } : {}),
+      ...(weatherQueries ? { weather_queries: weatherQueries } : {}),
     });
   } catch (error) {
     return res.status(500).send({ error: error })

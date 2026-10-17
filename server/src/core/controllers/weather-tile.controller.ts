@@ -1,4 +1,5 @@
-// Kafelki pogody na liście sterowników: GET /weather-tiles (lista z bieżącą pogodą), POST (nowy {name, lat, lon}),
+// Kafelki pogody na liście sterowników: GET /weather-tiles (lista z bieżącą pogodą), POST (nowy {name, lat, lon}
+// albo kafelek bieżącej lokalizacji {current: true, name?}),
 // PUT /:id ({name?, lat?, lon?, hidden?}), DELETE /:id. Bez rootId. Kolejność razem ze sterownikami: PUT /devices/order.
 // Z kontem (req.user) tylko kafelki konta, a pole i ukrycie w układzie konta (weather-tile.service.ts).
 import { Request, Response } from 'express';

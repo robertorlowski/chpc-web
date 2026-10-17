@@ -18,6 +18,7 @@ import { PelletBoilerScheduleSettingsModel } from '../src/modules/pellet-boiler-
 import { heatPumpRunningInHeatPumpMode, runWinterCycle, stopWinterCycle, winterFromMax } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-winter-cycle.service'
 import { migrateBoilerDefinitions } from '../src/modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-heat-pump-link.service'
 import { DeviceModel } from '../src/core/models/device.model'
+import { pelletBoilerTile } from '../src/modules/pellet-boiler-pelux200/tile'
 
 const TYPE = 'pellet-boiler-pelux200';
 const register = (deviceId: string, deviceType = TYPE) =>
@@ -996,5 +997,31 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(at(0, null, day)).toBe('summer');
     // bez sezonu w ustawieniach poza harmonogramem: harmonogram sezonem nie steruje
     expect(scheduleState(settings, [], 'pellet', day).state.season).toBeUndefined();
+  });
+
+  it('kafelek jak w makiecie: przy paleniu początek palenia z pierwszego odczytu z płomieniem, pompy CO / CWU, pola Paliwo i Moc', async () => {
+    const rootId = (await register('B1C2D3E4F5TL')).body.rootId as string;
+    const now = Date.now();
+    const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000);
+    // postój, potem rozpalanie (2) i praca (3) od 128 min
+    await PelletBoilerPelux200Model.collection.insertMany([
+      { rootId, state: 5, heating_temp: 40, createdAt: at(200), updatedAt: at(200) },
+      { rootId, state: 2, heating_temp: 45, createdAt: at(128), updatedAt: at(128) },
+      { rootId, state: 3, heating_temp: 60, createdAt: at(60), updatedAt: at(60) },
+      { rootId, state: 3, heating_temp: 67, heating_target: 67, water_heater_temp: 52, fuel_level: 64, boiler_power: 14,
+        heating_pump: true, water_heater_pump: false, createdAt: at(0.5), updatedAt: at(0.5) },
+    ]);
+    const tile = await pelletBoilerTile(rootId, {} as never, new Date(now));
+    expect(tile?.running).toBe(true);
+    expect(new Date(tile!.since!).getTime()).toBe(at(128).getTime());
+    expect(tile?.pumps).toEqual([{ label: 'CO', on: true }, { label: 'CWU', on: false }]);
+    expect(tile?.main?.label).toBe('kocioł → 67');
+    expect(tile?.row?.map((item) => item.label)).toEqual(['Paliwo', 'Moc']);
+    // postój (inny kocioł): bez czasu palenia
+    const idle = (await register('B1C2D3E4F5TM')).body.rootId as string;
+    await PelletBoilerPelux200Model.collection.insertOne({ rootId: idle, state: 5, heating_temp: 66, createdAt: at(1), updatedAt: at(1) });
+    const idleTile = await pelletBoilerTile(idle, {} as never, new Date(now));
+    expect(idleTile?.running).toBe(false);
+    expect(idleTile?.since).toBeUndefined();
   });
 });

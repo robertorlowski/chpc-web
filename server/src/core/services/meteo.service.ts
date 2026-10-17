@@ -12,9 +12,17 @@
 // [{id, lat, lon}] (kafelki pogody, core/services/weather-tile.service.ts, włącznik od 1.2.0). Włącznik odsyła
 // w zgłoszeniu stanu pole weather: obiekt (dom) albo tablicę [{id, …}]. Tylko w pamięci, klucz = id kafelka
 // (dom także pod HOME_KEY); starsza niż WEATHER_MAX_AGE_MS jest pomijana.
+//
+// Zapasowo (od 2026-10-17, jak przekaźnik poczty) pogodę pobiera sterownik co (od 1.3.1): w odpowiedzi POST /hp/add
+// dostaje weather_queries tylko z miejscami, dla których włącznik nie dostarczył odczytu od WEATHER_BACKUP_AFTER_MS
+// (switchWeatherStale; po starcie serwera najpierw tyle samo czeka na włącznik), i odsyła pole weather w następnym
+// hp/add. Gdy włącznik wróci, lista co jest pusta. Odczyty obu sterowników trafiają do tej samej mapy (nowszy wygrywa).
 
 export const OUTDOOR_MAX_AGE_MS = 15 * 60 * 1000;
 export const WEATHER_MAX_AGE_MS = 45 * 60 * 1000;
+// włącznik pobiera co 15 min (po błędzie ponowienie po 5 min), więc 25 min bez jego odczytu = włącznik nie działa
+export const WEATHER_BACKUP_AFTER_MS = 25 * 60 * 1000;
+const startedAt = Date.now();
 // dom: ul. Jana Pawła II, Biały Dunajec (zweryfikowane w OpenStreetMap 2026-10-14); przy kontach użytkowników
 // położenie z adresu albo miejscowości
 export const WEATHER_LOCATION = { lat: 49.374298, lon: 20.007237 };
@@ -39,20 +47,25 @@ type WeatherEntry = Omit<Weather, 'at'> & { at: Date };
 // klucz pogody ze starszego włącznika (jedno miejsce = dom)
 const HOME_KEY = 'home';
 const weatherByKey = new Map<string, WeatherEntry>();
+// chwila ostatniego odczytu od włącznika dla klucza (do decyzji o zapasowym pobieraniu przez co)
+const switchWeatherAt = new Map<string, number>();
 // id kafelka „Dom” (weather-tile.service); pogoda domu = pod tym id albo pod HOME_KEY
 let homeKey = HOME_KEY;
 export function setHomeWeatherKey(id: string) { homeKey = id; }
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
+export type WeatherSource = 'switch' | 'co';
+
 // Jeden odczyt {temp, code, cloud, precip, rain, snow, wind, day, age_s} pod kluczem; błędny albo starszy od
 // zapamiętanego jest pomijany.
-function storeWeather(key: string, input: unknown, now: Date) {
+function storeWeather(key: string, input: unknown, now: Date, source: WeatherSource) {
   const value = (input ?? {}) as Record<string, unknown>;
   const keys = ['temp', 'code', 'cloud', 'precip', 'rain', 'snow', 'wind', 'day', 'age_s'];
   if (!input || typeof input !== 'object' || !keys.every((key) => isNumber(value[key]))) return;
   const ageS = Math.max(0, value.age_s as number);
   const at = new Date(now.getTime() - ageS * 1000);
+  if (source === 'switch') switchWeatherAt.set(key, Math.max(switchWeatherAt.get(key) ?? 0, at.getTime()));
   const previous = weatherByKey.get(key);
   if (previous && previous.at > at) return;
   weatherByKey.set(key, {
@@ -62,16 +75,25 @@ function storeWeather(key: string, input: unknown, now: Date) {
   });
 }
 
-// Pole weather ze zgłoszenia sterownika: obiekt (włącznik 1.1.3, dom) albo tablica [{id, …}] (od 1.2.0, kafelki).
-export function setWeatherFromController(input: unknown, now = new Date()) {
+// Pole weather ze zgłoszenia sterownika: obiekt (włącznik 1.1.3, dom) albo tablica [{id, …}] (włącznik od 1.2.0,
+// co od 1.3.1).
+export function setWeatherFromController(input: unknown, now = new Date(), source: WeatherSource = 'switch') {
   if (Array.isArray(input)) {
     input.forEach((item) => {
       const id = (item as { id?: unknown } | null)?.id;
-      if (typeof id === 'string' && id) storeWeather(id, item, now);
+      if (typeof id === 'string' && id) storeWeather(id, item, now, source);
     });
     return;
   }
-  storeWeather(HOME_KEY, input, now);
+  storeWeather(HOME_KEY, input, now, source);
+}
+
+// true = włącznik nie dostarczył pogody dla klucza od WEATHER_BACKUP_AFTER_MS (dom: także pod HOME_KEY), a serwer
+// działa co najmniej tyle (po starcie najpierw czeka na włącznik); wtedy pogodę pobiera co.
+export function switchWeatherStale(key: string, now = new Date()): boolean {
+  if (now.getTime() - startedAt < WEATHER_BACKUP_AFTER_MS) return false;
+  const last = Math.max(switchWeatherAt.get(key) ?? 0, key === homeKey ? switchWeatherAt.get(HOME_KEY) ?? 0 : 0);
+  return now.getTime() - last > WEATHER_BACKUP_AFTER_MS;
 }
 
 // Ostatnia świeża pogoda dla klucza (id kafelka) albo null; dla domu nowsza z dwóch (id kafelka i HOME_KEY).

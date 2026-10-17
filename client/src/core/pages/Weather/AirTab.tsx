@@ -1,0 +1,109 @@
+// Zakładka „Powietrze” strony pogody (makieta #pogoda-powietrze): europejski indeks jakości powietrza (EAQI) z oceną,
+// PM2.5, PM10, NO₂, ozon, słupki na 24 h i pyłki (Open-Meteo Air Quality, CAMS Europe; pobierane dopiero po otwarciu
+// zakładki). Pyłki są tylko w Europie i w sezonie; poza nim Open-Meteo podaje brak albo 0.
+import { useEffect, useState } from 'react';
+import { AirQuality, fetchAirQuality, hourOf } from './forecast';
+
+const HOURS = 24;
+// progi EAQI (Europejska Agencja Środowiska): ocena słowna i kolor (dobra / umiarkowana–dostateczna / zła)
+const AQI_LEVELS: { max: number; label: string; tone: 'ok' | 'warn' | 'err' }[] = [
+  { max: 20, label: 'bardzo dobra', tone: 'ok' }, { max: 40, label: 'dobra', tone: 'ok' },
+  { max: 60, label: 'umiarkowana', tone: 'warn' }, { max: 80, label: 'dostateczna', tone: 'warn' },
+  { max: 100, label: 'zła', tone: 'err' }, { max: Infinity, label: 'bardzo zła', tone: 'err' },
+];
+const aqiLevel = (value: number) => AQI_LEVELS.find((level) => value <= level.max)!;
+const CHIP: Record<'ok' | 'warn' | 'err', string> = { ok: 'chip-ok', warn: 'chip-warn', err: 'chip-err' };
+
+const POLLEN: { key: keyof Omit<AirQuality['hourly'], 'time' | 'european_aqi'>; label: string }[] = [
+  { key: 'alder_pollen', label: 'Olsza' }, { key: 'birch_pollen', label: 'Brzoza' }, { key: 'grass_pollen', label: 'Trawy' },
+  { key: 'mugwort_pollen', label: 'Bylica' }, { key: 'ragweed_pollen', label: 'Ambrozja' },
+];
+// stężenie pyłków [ziarna/m³] słownie; progi przybliżone, wspólne dla gatunków
+function pollenLevel(value: number | null): { label: string; chip: string } {
+  if (value === null || value < 1) return { label: value === null ? 'brak danych' : 'poza sezonem', chip: 'chip-off' };
+  if (value < 10) return { label: 'niskie', chip: 'chip-ok' };
+  if (value < 50) return { label: 'średnie', chip: 'chip-warn' };
+  if (value < 200) return { label: 'wysokie', chip: 'chip-err' };
+  return { label: 'bardzo wysokie', chip: 'chip-err' };
+}
+
+const micro = (value: number | null) => value === null ? '—' : String(Math.round(value));
+
+export function AirTab({ lat, lon }: { lat: number; lon: number }) {
+  const [air, setAir] = useState<AirQuality | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    fetchAirQuality(lat, lon)
+      .then((data) => { if (!cancelled) { setAir(data); setError(''); } })
+      .catch(() => { if (!cancelled) setError('Nie udało się pobrać jakości powietrza z Open-Meteo.'); });
+    return () => { cancelled = true; };
+  }, [lat, lon]);
+
+  if (error) return <div className="alert alert-err"><div><strong>{error}</strong></div></div>;
+  if (!air) return <p className="app-loading">Pobieram jakość powietrza…</p>;
+
+  const { current, hourly } = air;
+  const start = Math.max(0, hourly.time.findIndex((time) => time >= current.time.slice(0, 13) + ':00'));
+  const hours = hourly.time.slice(start, start + HOURS).map((time, offset) => ({ time, aqi: hourly.european_aqi[start + offset] }));
+  const worst = hours.reduce<(typeof hours)[number] | null>((found, hour) => (hour.aqi !== null && (!found || hour.aqi > (found.aqi ?? -1)) ? hour : found), null);
+  const level = current.european_aqi !== null ? aqiLevel(current.european_aqi) : null;
+  // pyłki: najwyższe stężenie w najbliższych 24 h
+  const pollen = POLLEN.map((item) => {
+    const values = hourly[item.key].slice(start, start + HOURS).filter((value): value is number => value !== null);
+    return { ...item, value: values.length ? Math.max(...values) : null };
+  });
+
+  return (
+    <>
+      <section className="card card-hero">
+        <div className="hero-main">
+          <span className="hero-label">Jakość powietrza · indeks europejski</span>
+          <div className="hero-value"><span className="hero-num">{micro(current.european_aqi)}</span><span className="hero-unit">EAQI</span></div>
+          {level && <div className="wx-hero-desc"><span className={`chip ${CHIP[level.tone]}`}>{level.label}</span></div>}
+          {worst?.aqi != null && worst.aqi > (current.european_aqi ?? 0) && (
+            <span className="hero-note">najgorzej {worst.time.slice(0, 10) > current.time.slice(0, 10) ? 'jutro ' : ''}o {hourOf(worst.time)}: {worst.aqi} ({aqiLevel(worst.aqi).label}) · wietrz, gdy jest lepiej</span>
+          )}
+        </div>
+        <div className="hero-side"><div className="hero-kpis">
+          <div className="kpi"><span className="kpi-label">PM2.5</span><span className="kpi-value">{micro(current.pm2_5)}<small>µg/m³</small></span></div>
+          <div className="kpi"><span className="kpi-label">PM10</span><span className="kpi-value">{micro(current.pm10)}<small>µg/m³</small></span></div>
+          <div className="kpi"><span className="kpi-label">NO₂</span><span className="kpi-value">{micro(current.nitrogen_dioxide)}<small>µg/m³</small></span></div>
+          <div className="kpi"><span className="kpi-label">Ozon</span><span className="kpi-value">{micro(current.ozone)}<small>µg/m³</small></span></div>
+        </div></div>
+      </section>
+
+      <section className="card">
+        <div className="card-head"><h2>Najbliższe 24 godziny</h2><span className="card-hint">EAQI</span></div>
+        <div className="wx-aq" role="list" aria-label="Jakość powietrza w najbliższych 24 godzinach">
+          {hours.map((hour, index) => (
+            <div key={hour.time} className="wx-aq-col" role="listitem" title={`${hourOf(hour.time)} · EAQI ${hour.aqi ?? '—'}`}>
+              <span className={`wx-aq-bar wx-aq-${hour.aqi !== null ? aqiLevel(hour.aqi).tone : 'ok'}`} style={{ '--h': `${Math.min(100, Math.round(((hour.aqi ?? 0) / 80) * 100))}%` } as React.CSSProperties} />
+              <span className="wx-aq-time">{index % 3 === 0 ? Number(hourOf(hour.time).slice(0, 2)) : ''}</span>
+            </div>
+          ))}
+        </div>
+        <div className="legend">
+          <span className="lg"><i className="wx-aq-ok" />do 40 dobra</span>
+          <span className="lg"><i className="wx-aq-warn" />40–80 umiarkowana / dostateczna</span>
+          <span className="lg"><i className="wx-aq-err" />ponad 80 zła</span>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="card-head"><h2>Pyłki</h2><span className="card-hint">najwyżej w 24 h</span></div>
+        <dl className="kv">
+          {pollen.map((item) => {
+            const state = pollenLevel(item.value);
+            return (
+              <div key={item.key}>
+                <dt>{item.label}</dt>
+                <dd><span className={`chip ${state.chip}`}>{state.label}</span>{item.value !== null && item.value >= 1 && <small> {Math.round(item.value)} ziaren/m³</small>}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      </section>
+    </>
+  );
+}

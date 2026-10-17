@@ -7,8 +7,9 @@
 // na pola makiety osobno dla każdego rodzaju (shapeTile). Kafelek pogody (WeatherTileCard) z GET /api/weather-tiles.
 // Ikony rodzajów i narzędzi to ikony makiety (ListIcon, kreska 1.8), żeby animacje .is-running z makieta.css działały.
 import { ReactNode } from 'react';
-import { DeviceTile, DeviceType, OutdoorConditions, TileFact, WeatherTile } from '../types';
+import { DeviceTile, DeviceType, TileFact, Weather, WeatherTile } from '../types';
 import { precipitationText, weatherDescription, WeatherIcon } from './WeatherIcon';
+import { currentPlaceProblem, useCurrentPlace } from '../currentPlace';
 
 // „8 s”, „5 min”, „3 h”, „2 dni” — wiek danych w stopce kafelka (używane też w OfflineBanner)
 export function ageLabel(ms: number): string {
@@ -33,6 +34,9 @@ const ICON_PATHS: Record<string, string> = {
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z',
   'eye-off': 'M3 3l18 18M10 6a10 10 0 0 1 12 6s-1 2-3 4M6 8c-2 2-4 4-4 4s4 7 10 7c2 0 3-.5 5-1',
   close: 'M6 6l12 12M18 6L6 18',
+  bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
+  pin: 'M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12zM12 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3z',
+  locate: 'M3 11l18-8-8 18-2-8z',
   grid: '',
   'switch': '',
 };
@@ -84,6 +88,14 @@ const ICON_LABELS: Partial<Record<TileFact['icon'], string>> = {
   timer: 'Pompa', repeat: 'Uruchomień', bubbles: 'Kompresor', target: 'Cel', drop: 'Woda', sun: 'Moc',
 };
 type Fact = { dt: string; dd: string };
+
+// czas pracy w plakietce stanu: „49 min”, „2 h 08 min” (jak w makiecie)
+function workTime(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
+}
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
 const fact = (item: TileFact, dt?: string): Fact => ({ dt: dt ?? (item.label || ICON_LABELS[item.icon] || ''), dd: item.value });
 
 type Shape = {
@@ -92,6 +104,8 @@ type Shape = {
   label?: string;
   /** stan pracy w .tile-side (sprężarka, palenie, pompa hydroforu) */
   state?: { text: string; title: string };
+  /** wskaźniki pomp obiegu pod stanem (kocioł: CO, CWU) */
+  pumps?: { label: string; on: boolean }[];
   facts: Fact[];
   foot?: string;
 };
@@ -99,7 +113,7 @@ type Shape = {
 // Rozkład danych kafelka (DeviceTile) na pola makiety: wartość główna z opisem, stan pracy po prawej, pola dt/dd.
 // Każdy rodzaj inaczej składa opis pod dużą liczbą (jak w makiecie: „zbiornik · cel 38–45”, „dziś · 7 507 l
 // w miesiącu”, „moc teraz · 4 panele”, „kocioł · zadana 67”).
-function shapeTile(kind: TileKind, tile: DeviceTile): Shape {
+function shapeTile(kind: TileKind, tile: DeviceTile, now: number): Shape {
   const side = tile.side ?? [];
   const row = tile.row ?? [];
   const shape: Shape = { facts: [] };
@@ -130,9 +144,15 @@ function shapeTile(kind: TileKind, tile: DeviceTile): Shape {
       break;
     }
     case 'boiler': {
+      // makieta: „kocioł · zadana 67”, pola CWU / Paliwo / Moc, przy paleniu czas palenia i pompy CO / CWU
       shape.label = label.replace(' → ', ' · zadana ');
-      shape.facts = [...side.map((item) => fact(item)), ...row.map((item) => fact(item))];
-      if (tile.running) shape.state = { text: 'pali', title: 'Kocioł pali' };
+      shape.facts = [...side.map((item) => fact(item, item.icon === 'tap' ? 'CWU' : undefined)), ...row.map((item) => fact(item))];
+      if (tile.running) {
+        shape.state = tile.since
+          ? { text: workTime(now - new Date(tile.since).getTime()), title: `Kocioł pali od ${clock(tile.since)}` }
+          : { text: 'pali', title: 'Kocioł pali' };
+      }
+      shape.pumps = tile.pumps;
       break;
     }
     default:
@@ -194,7 +214,7 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
   if (loading && !tile) return <>{head}<Skeleton /></>;
   if (!tile) return <>{head}{hidden && <footer className="tile-foot">{HIDDEN_FOOT}</footer>}</>;
 
-  const shape = shapeTile(kind, tile);
+  const shape = shapeTile(kind, tile, now);
   const age = tile.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '';
   const foot = hidden ? HIDDEN_FOOT : [shape.foot, age].filter(Boolean).join(' · ');
   return (
@@ -219,9 +239,18 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
             {shape.unit && <span className="unit">{shape.unit}</span>}
             {shape.label && <span className="big-label">{shape.label}</span>}
           </div>
-          {shape.state && (
+          {(shape.state || shape.pumps?.length) && (
             <div className="tile-side">
-              <span className="state state-on" title={shape.state.title}><i className="dot" />{shape.state.text}</span>
+              {shape.state && <span className="state state-on" title={shape.state.title}><i className="dot" />{shape.state.text}</span>}
+              {shape.pumps?.length ? (
+                <span className="pumps" aria-label="Pompy obiegu">
+                  {shape.pumps.map((pump) => (
+                    <span key={pump.label} className={`pump${pump.on ? ' is-on' : ''}`} title={`Pompa ${pump.label} ${pump.on ? 'pracuje' : 'stoi'}`}>
+                      <i className="dot" />{pump.label}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
             </div>
           )}
         </div>
@@ -237,34 +266,54 @@ const number1 = (value: number) => value.toLocaleString('pl-PL', { minimumFracti
 const number01 = (value: number) => value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
 
 // Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka
-// „Open-Meteo · X min temu”. Dom: temperatura z czujnika kotła, gdy jest świeża (outdoor z GET /temperature).
-export function WeatherTileCard({ tile, now, outdoor, hidden, tools }: {
-  tile: WeatherTile; now: number; outdoor?: OutdoorConditions | null; hidden?: boolean; tools?: ReactNode;
+// „Open-Meteo · X min temu”. Także „Dom” pokazuje temperaturę z Open-Meteo (bez czujnika kotła, od 2026-10-17).
+// Kafelek bieżącej lokalizacji (current): nazwa miejscowości i pogoda z przeglądarki (CurrentWeatherTileCard).
+export function WeatherTileCard({ tile, now, hidden, tools }: {
+  tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode;
 }) {
+  if (tile.current) return <CurrentWeatherTileCard tile={tile} now={now} hidden={hidden} tools={tools} />;
   const weather = tile.weather;
-  const boiler = tile.home && outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number';
-  const temperature = boiler ? outdoor!.temperature! : weather?.temperature;
+  const foot = hidden ? HIDDEN_FOOT : weather
+    ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`
+    : tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)';
+  return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel="brak pogody z włącznika" />;
+}
+
+function CurrentWeatherTileCard({ tile, now, hidden, tools }: {
+  tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode;
+}) {
+  const { status, place } = useCurrentPlace(!hidden);
+  const problem = currentPlaceProblem(status);
+  const weather = place?.weather ?? null;
+  const foot = hidden ? HIDDEN_FOOT : problem && !weather ? problem
+    : weather ? `Twoja lokalizacja · Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : 'ustalam położenie…';
+  const chip = <span className="chip chip-loc" title="Bieżąca lokalizacja tego urządzenia"><ListIcon name="locate" />tu jesteś</span>;
+  return <WeatherTileBody name={place?.name ?? tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} chip={chip}
+    emptyLabel={problem ? 'brak położenia' : 'ustalam położenie…'} />;
+}
+
+function WeatherTileBody({ name, weather, foot, hidden, tools, chip, emptyLabel }: {
+  name: string; weather: Weather | null; foot: string; hidden?: boolean; tools?: ReactNode; chip?: ReactNode; emptyLabel: string;
+}) {
+  const temperature = weather?.temperature;
   const facts: Fact[] = weather ? [
     { dt: 'Wiatr', dd: `${Math.round(weather.windSpeed)} km/h` },
     { dt: 'Chmury', dd: `${Math.round(weather.cloudCover)} %` },
     { dt: 'Opad', dd: weather.snowfall > 0 ? `${number01(weather.snowfall)} cm` : `${number01(weather.precipitation)} mm` },
   ] : [];
-  const foot = hidden ? HIDDEN_FOOT : weather
-    ? `${boiler ? 'czujnik kotła · ' : ''}Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`
-    : tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)';
   return (
     <>
       <div className="tile-head">
         <span className="tile-icon">{weather ? <WeatherIcon weather={weather} /> : <ListIcon name="sun" />}</span>
-        <h2 className="tile-name">{tile.name}</h2>
-        {hidden && <span className="chip chip-off">Ukryty</span>}
+        <h2 className="tile-name">{name}</h2>
+        {hidden ? <span className="chip chip-off">Ukryty</span> : chip}
         {tools && <span className="tile-tools">{tools}</span>}
       </div>
       <div className="tile-main">
         <div className="tile-value" title={weather ? precipitationText(weather) : undefined}>
           <span className="big">{typeof temperature === 'number' ? number1(temperature) : '---'}</span>
           <span className="unit">°C</span>
-          <span className="big-label">{weather ? weatherDescription(weather.code) : boiler ? 'czujnik kotła' : 'brak pogody z włącznika'}</span>
+          <span className="big-label">{weather ? weatherDescription(weather.code) : emptyLabel}</span>
         </div>
       </div>
       {facts.length > 0 && <Facts facts={facts} />}

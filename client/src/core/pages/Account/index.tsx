@@ -194,7 +194,7 @@ export function DeleteAccountConfirm() {
   return (
     <div className="auth">
       <div className="auth-card">
-        <div className="brand brand-big"><span className="brand-mark" /><span className="brand-name">CHPC</span></div>
+        <div className="brand brand-big"><span className="brand-mark" /><span className="brand-name">My Home</span></div>
         <h1>Usunięcie konta</h1>
         {state.done === undefined && !state.error && <p className="help">Usuwanie…</p>}
         {state.done !== undefined && <p className="help">Konto i wszystkie dane zostały usunięte{state.done ? ` (sterowniki: ${state.done})` : ''}.</p>}

@@ -5,12 +5,17 @@
 // MyHome-HeatPump-… i odpowiada na zapytania innych urządzeń do adresu 0x10.
 // Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
 // Od 1.2.5 diagnostyka magistrali na zlecenie z chmury (bus_diagnostics.hpp).
+// Od 1.3.1 zapasowa pogoda z Open-Meteo (devices/common/weather, fetchWeather): miejsca bez świeżej pogody
+// od włącznika podaje chmura w odpowiedzi hp/add, odczyty idą w następnym hp/add.
 // Od 1.2.0 tryb pracy MANUAL / AUTO / OFF z jedną temperaturą od–do, bez przekaźników CO/CWU,
 // przycisk OFF → CLOUD → MANUAL (ręczny lokalnie), konfiguracja pompy z chmury (PV, zbiornik).
 // Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
 // na osobnej płytce (devices/pellet-boiler-pelux200).
 #include <Arduino.h>
+#include <HTTPClient.h>
 #include <Preferences.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <access_point_policy.hpp>
 #include <bus_diagnostics.hpp>
 #include <cloud_client.hpp>
@@ -28,6 +33,7 @@
 #include <pv_telemetry.hpp>
 #include <serial_bus.hpp>
 #include <telemetry.hpp>
+#include <weather.hpp>
 
 // Próg mocy PV [W]: od niego `pv_power` = true, a przy wymuszeniu PV z konfiguracji pompy (pv_force)
 // kontroler wymusza start sprężarki (force), żeby zużyć nadwyżkę z paneli.
@@ -104,6 +110,10 @@ uint32_t cloudResponseParseErrors = 0;
 uint32_t hpJsonErrors = 0;
 uint32_t pvFrameErrors = 0;
 bool cloudPostPending = false;
+// Zapasowa pogoda (od 1.3.1): miejsca z odpowiedzi hp/add (weather_queries; pusta lista, gdy włącznik dostarcza
+// pogodę), pobierane po jednym z odstępem WEATHER_SPACING_MS, tylko przy wolnej magistrali.
+WeatherPlaces weatherPlaces;
+constexpr uint16_t WEATHER_HTTP_TIMEOUT_MS = 4000;
 bool pvReceived = false;
 unsigned long pvReceivedAt = 0;
 bool buttonStableState = false;
@@ -147,6 +157,7 @@ void applyServerOperation(JsonObjectConst operation);
 void scheduleNextDeviceRead();
 void applyControllerOutputs(void);
 void tryFirmwareUpdate();
+void fetchWeather(size_t index);
 void processControlButton();
 void applyPendingControllerMode();
 void holdModeScreen();
@@ -239,6 +250,11 @@ void loop()
   }
 
   if (otaOfferReceived && serialBus.isIdle()) tryFirmwareUpdate();
+
+  if (!cloudPostPending && serialBus.isIdle() && WiFi.status() == WL_CONNECTED) {
+    const int duePlace = weatherPlaces.dueIndex(millis());
+    if (duePlace >= 0) fetchWeather(static_cast<size_t>(duePlace));
+  }
 
   if (serialBus.takeControlCommandWritten()) {
     readAfterCommandPending = true;
@@ -621,7 +637,10 @@ void applyControllerOutputs()
 // HP.Ttarget, but always answers with the operation, so the controller gets
 // its work mode while the pump is disconnected.
 void postTelemetryToCloud() {
-  String response = cloudClient.post("hp/add", telemetry.document());
+  // kopia telemetrii z odczytami zapasowej pogody (pole weather tylko, gdy są świeże odczyty)
+  JsonDocument body = telemetry.document();
+  weatherPlaces.write(body, millis());
+  String response = cloudClient.post("hp/add", body);
   if (response == "" ) {
     return;
   } 
@@ -655,6 +674,33 @@ void postTelemetryToCloud() {
   // Oferta OTA jest w odpowiedzi tylko przy zleceniu „Aktualizuj”; jej brak =
   // zlecenia nie ma (albo zostało odwołane).
   otaOfferReceived = parseOtaOffer(responseDocument.as<JsonVariantConst>(), otaOffer);
+
+  // Zapasowa pogoda: miejsca, dla których chmura nie ma świeżej pogody od włącznika (pusta lista = nic).
+  // Starsza chmura bez pola zostawia listę bez zmian (w praktyce pustą).
+  weatherPlaces.update(responseDocument.as<JsonVariantConst>());
+}
+
+// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp, jak we włączniku): blokujący GET HTTPS, najwyżej
+// 2 × WEATHER_HTTP_TIMEOUT_MS; wołany tylko przy wolnej magistrali, więc nie przerywa rozmowy z CHPC i DTU.
+// Nieudane pobranie zostawia poprzedni odczyt do WEATHER_MAX_AGE_MS, ponowienie po WEATHER_RETRY_MS.
+void fetchWeather(size_t index)
+{
+  const WeatherLocation location = weatherPlaces.at(index).location;
+  WiFiClientSecure client;
+  client.setInsecure();  // dane pogodowe, bez wpływu na sterowanie pompą
+  HTTPClient request;
+  request.setConnectTimeout(WEATHER_HTTP_TIMEOUT_MS);
+  request.setTimeout(WEATHER_HTTP_TIMEOUT_MS);
+  bool ok = false;
+  WeatherReading reading;
+  if (request.begin(client, openMeteoUrl(location).c_str())) {
+    if (request.GET() == 200) {
+      const String body = request.getString();
+      ok = parseOpenMeteoCurrent(body.c_str(), body.length(), reading);
+    }
+    request.end();
+  }
+  weatherPlaces.onFetched(index, ok, reading, millis());
 }
 
 // Aktualizacja na zlecenie z aplikacji (oferta z hp/add), tylko przy postoju

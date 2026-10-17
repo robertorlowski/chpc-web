@@ -242,7 +242,8 @@ const HP: React.FC = () => {
         </div>
         <div className="hero-side">
           <div className={`state-pill ${running ? 'state-on is-running' : 'is-idle'}`}>
-            <i className="dot" />{_hp ? (running ? 'Sprężarka pracuje' : 'Sprężarka stoi') : 'Brak danych z pompy'}
+            {/* kropka przed napisem w jednej linii (pod nimi czas i energia cyklu) */}
+            <span className="state-pill-title"><i className="dot" />{_hp ? (running ? 'Sprężarka pracuje' : 'Sprężarka stoi') : 'Brak danych z pompy'}</span>
             {_hp && <small>{minutes(_hp.lt_hp_on)} · {fmt(Number(_hp.lt_pow) / 1000, 2)} kWh {running ? 'w cyklu' : 'w ostatnim cyklu'}</small>}
           </div>
           <div className="hero-kpis">

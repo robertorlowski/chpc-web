@@ -1,5 +1,6 @@
 // Testy kafelków pogody (baza w mongodb-memory-server): kafelek „Dom” powstaje sam, dodawanie i walidacja,
-// limit, ukrywanie, kolejność wspólna ze sterownikami, miejsca dla włącznika i pogoda dla wielu miejsc.
+// limit, ukrywanie, kolejność wspólna ze sterownikami, miejsca dla włącznika i pogoda dla wielu miejsc,
+// kafelek bieżącej lokalizacji (bez współrzędnych, jeden, bez pobierania przez włącznik), zapasowa pogoda z co.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -8,7 +9,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import app from '../src/core/app'
 import { DeviceModel } from '../src/core/models/device.model'
 import { WeatherTileModel } from '../src/core/models/weather-tile.model'
-import { MAX_WEATHER_TILES } from '../src/core/services/weather-tile.service'
+import { backupWeatherQueries, MAX_WEATHER_TILES } from '../src/core/services/weather-tile.service'
+import { setWeatherFromController, WEATHER_BACKUP_AFTER_MS } from '../src/core/services/meteo.service'
 
 const reading = (temp: number) => ({ temp, code: 3, cloud: 100, precip: 0, rain: 0, snow: 0, wind: 6, day: 1, age_s: 10 })
 
@@ -98,5 +100,45 @@ describe('Kafelki pogody', () => {
     await state({ weather: reading(7.2) })
     expect((await request(app).get('/api/temperature')).body.temperature).toBe(7.2)
     expect((await request(app).get('/api/weather-tiles')).body[0].weather.temperature).toBe(7.2)
+  })
+
+  it('kafelek bieżącej lokalizacji: bez współrzędnych, najwyżej jeden, włącznik go nie pobiera', async () => {
+    const device = (await request(app).post('/api/devices/register').send({ deviceId: 'AABBCCDDEEF2', deviceType: 'switch' })).body
+    const created = await request(app).post('/api/weather-tiles').send({ current: true }).expect(201)
+    expect(created.body).toMatchObject({ name: 'Moja lokalizacja', lat: null, lon: null, current: true, home: false, weather: null })
+    expect((await request(app).post('/api/weather-tiles').send({ current: true })).status).toBe(400)
+    expect((await request(app).post('/api/weather-tiles').send({ current: true, name: 'X', lat: 50, lon: 19 })).status).toBe(400)
+
+    const renamed = await request(app).put(`/api/weather-tiles/${created.body.id}`).send({ name: 'Telefon' }).expect(200)
+    expect(renamed.body).toMatchObject({ name: 'Telefon', current: true, lat: null })
+    expect((await request(app).put(`/api/weather-tiles/${created.body.id}`).send({ lat: 50 })).status).toBe(400)
+    expect((await request(app).put(`/api/weather-tiles/${created.body.id}`).send({ current: false })).status).toBe(400)
+
+    const answer = await request(app).post(`/api/switch/state?rootId=${device.rootId}`)
+      .send({ uptimeS: 60, relays: [{ on: false, changedS: 60 }] }).expect(200)
+    expect(answer.body.weather_queries.map((q: { id: string }) => q.id)).not.toContain(created.body.id)
+
+    await request(app).delete(`/api/weather-tiles/${created.body.id}`).expect(204)
+    await request(app).post('/api/weather-tiles').send({ current: true }).expect(201)
+  })
+
+  it('zapasowa pogoda: co dostaje miejsca bez świeżej pogody od włącznika i odsyła odczyty w hp/add', async () => {
+    const hp = (await request(app).post('/api/devices/register').send({ deviceId: 'AABBCCDDEEF3', deviceType: 'heat_pump' })).body
+    const home = (await request(app).get('/api/weather-tiles')).body[0]
+    const krakow = (await request(app).post('/api/weather-tiles').send({ name: 'Kraków', lat: 50.06, lon: 19.94 })).body
+
+    // tuż po starcie serwera co czeka na włącznik
+    const answer = await request(app).post(`/api/hp/add?rootId=${hp.rootId}`).send({ HP: {}, weather: [{ id: krakow.id, ...reading(9.9) }] }).expect(201)
+    expect(answer.body.weather_queries).toEqual([])
+    expect((await request(app).get('/api/weather-tiles')).body.find((t: { id: string }) => t.id === krakow.id).weather.temperature).toBe(9.9)
+    expect((await request(app).get(`/api/hp?rootId=${hp.rootId}`)).body.weather).toBeUndefined()
+
+    // włącznik milczy dłużej niż WEATHER_BACKUP_AFTER_MS: co dostaje wszystkie miejsca
+    const later = new Date(Date.now() + WEATHER_BACKUP_AFTER_MS + 60_000)
+    expect((await backupWeatherQueries(later)).map((q) => q.id)).toEqual([home.id, krakow.id])
+    // odczyt od co nie wyłącza zapasu, odczyt od włącznika tak
+    setWeatherFromController([{ id: krakow.id, ...reading(8) }], later, 'co')
+    setWeatherFromController([{ id: home.id, ...reading(7) }], later, 'switch')
+    expect((await backupWeatherQueries(later)).map((q) => q.id)).toEqual([krakow.id])
   })
 })

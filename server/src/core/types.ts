@@ -216,6 +216,10 @@ export interface DeviceTile {
   updatedAt?: string;
   /** własny tekst stopki zamiast „dane sprzed …” (np. „ostatnie uruchomienie dziś 14:32”) */
   foot?: string;
+  /** początek bieżącej pracy przy running (ISO; kocioł: palenie): klient pokazuje czas pracy („2 h 08 min”) */
+  since?: string;
+  /** wskaźniki pomp obiegu (kocioł: CO, CWU); on = pompa pracuje */
+  pumps?: { label: string; on: boolean }[];
 }
 
 // Wzór kafelka listy sterowników (projektant kafelka, GET/PUT /devices/tile-template; kontrakt z

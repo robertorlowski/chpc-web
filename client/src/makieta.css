@@ -87,6 +87,8 @@
 .hero-side { display: flex; flex-direction: column; gap: 12px; }
 .state-pill { display: flex; flex-direction: column; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--run-bg); color: var(--run-fg); font-weight: 700; font-size: 14px; }
 .state-pill small { font-weight: 500; opacity: .9; margin-top: 2px; }
+/* kropka stanu w tej samej linii co napis (pill jest kolumną: tytuł, pod nim opis) */
+.state-pill-title { display: flex; align-items: center; }
 .hero-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 @media (min-width: 420px) { .hero-kpis { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 760px) { .hero-kpis { grid-template-columns: repeat(2, 1fr); } }
@@ -521,3 +523,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .btn:hover:not(:disabled) { filter: none; }
 .page h2, .page h3 { padding: 0; margin: 0; text-align: left; }
 .page .card { text-align: left; }
+
+/* ---- z makiety (2026-10-17): uwaga informacyjna (strona pogody) i chip kafelka bieżącej lokalizacji ---- */
+.alert-info { background: var(--muted-bg); color: var(--fg); border-left: 3px solid var(--c-sky); }
+.alert-info .ic { color: var(--c-sky); }
+.chip-loc { background: var(--c-sky-bg); color: var(--c-sky); gap: 4px; }
+.chip-loc .ic { width: 12px; height: 12px; }

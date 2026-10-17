@@ -21,6 +21,11 @@
 // sterowników, najwyżej WEATHER_MAX_PLACES), włącznik pobiera każde osobno (jedno zapytanie naraz, odstęp
 // WEATHER_SPACING_MS) i odsyła tablicę weather: [{id, temp, ..., age_s}, ...]. Starsza chmura podaje samo
 // weather_query {lat, lon}: wtedy jedno miejsce bez id i pole weather jako obiekt, jak w 1.1.3.
+//
+// Od 2026-10-17 plik jest wspólny (devices/common/weather, lib_extra_dirs = ../common): sterownik co (od 1.3.1)
+// pobiera pogodę zapasowo, jak przekaźnik poczty. Chmura podaje mu w odpowiedzi na hp/add tylko miejsca, dla
+// których włącznik nie dostarczył świeżej pogody (pusta lista = nic do pobrania), a co odsyła tablicę weather
+// w następnym hp/add. Pusta lista weather_queries usuwa wszystkie miejsca.
 
 constexpr unsigned long WEATHER_INTERVAL_MS = 15UL * 60UL * 1000UL;
 constexpr unsigned long WEATHER_RETRY_MS = 5UL * 60UL * 1000UL;

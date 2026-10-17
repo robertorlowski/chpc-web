@@ -38,7 +38,8 @@ export const precipitationText = (weather: Weather) => {
 };
 
 const SUN = '#f2a900';
-const MOON = '#3f51b5';
+// jaśniejszy fiolet: granatowy (#3f51b5) ginął na ciemnym tle (makieta, 2026-10-17)
+const MOON = '#7986cb';
 const CLOUD = '#78909c';
 const CLOUD_LIGHT = '#b0bec5';
 const WATER = '#1e88e5';
@@ -53,10 +54,12 @@ const sunOrMoon = (day: boolean, small: boolean) => day
 
 const upperCloud = (color: string) => <path d="M7 14h10a4 4 0 0 0 .5-7.97A5.6 5.6 0 0 0 6.6 7 3.5 3.5 0 0 0 7 14z" fill={color} />;
 
-export const WeatherIcon: React.FC<{ weather: Weather }> = ({ weather }) => {
-  const kind = kindOf(weather.code);
+// Ikona z samego kodu WMO i pory dnia (prognoza godzinowa i dzienna na stronie pogody, pages/Weather).
+export const WeatherCodeIcon: React.FC<{ code: number; isDay: boolean; size?: number }> = ({ code, isDay, size = 22 }) => {
+  const kind = kindOf(code);
+  const weather = { isDay };
   return (
-    <svg className="weather-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <svg className="weather-icon" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       {kind === 'clear' && sunOrMoon(weather.isDay, false)}
       {kind === 'partly' && <>{sunOrMoon(weather.isDay, true)}<path d="M9 20h9a4 4 0 0 0 .5-7.97A5.3 5.3 0 0 0 8.4 13 3.5 3.5 0 0 0 9 20z" fill={CLOUD_LIGHT} /></>}
       {kind === 'cloudy' && <path d="M7 19h10a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.2 11.1 4 4 0 0 0 7 19z" fill={CLOUD} />}
@@ -68,3 +71,5 @@ export const WeatherIcon: React.FC<{ weather: Weather }> = ({ weather }) => {
     </svg>
   );
 };
+
+export const WeatherIcon: React.FC<{ weather: Weather }> = ({ weather }) => <WeatherCodeIcon code={weather.code} isDay={weather.isDay} />;

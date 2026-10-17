@@ -154,7 +154,8 @@ export class WeatherTileRequests {
     return Requests.get('/weather-tiles', false) as Promise<WeatherTile[] | null>;
   }
 
-  static create(data: { name: string; lat: number; lon: number }): Promise<WeatherTile> {
+  // stałe miejsce {name, lat, lon} albo kafelek bieżącej lokalizacji {current: true}
+  static create(data: { name: string; lat: number; lon: number } | { current: true; name?: string }): Promise<WeatherTile> {
     return Requests.put('/weather-tiles', data, false, 'POST') as Promise<WeatherTile>;
   }
 

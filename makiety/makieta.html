@@ -724,6 +724,71 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .pill-row .state.is-running .dot { animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .device-sub .sub-run .dot, .pill-row .state .dot { animation: none !important; } }
 
+/* ---- strona pogody (kafelek pogody → #pogoda-teraz / #pogoda-dni): prognoza Open-Meteo ---- */
+.weather-page > .segmented { align-self: flex-start; }
+.wx-place { display: inline-flex; align-items: center; gap: 6px; }
+.wx-place .ic, .wx-place svg { width: 16px; height: 16px; }
+.wx-hero-desc { font-size: 18px; font-weight: 600; }
+.wx-hero-range { margin-top: 6px; font-family: var(--font-num); font-size: 17px; font-weight: 600; color: var(--hero-fg-2); }
+.wx-summary { font-weight: 600; }
+.wx-hourly { overflow-x: auto; margin: 0 calc(-1 * var(--card-pad)); padding: 0 var(--card-pad) 6px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.wx-hourly-row { display: flex; }
+.wx-hour { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wx-hour-time { font-size: 12px; color: var(--fg-2); white-space: nowrap; }
+.wx-hour.is-midnight .wx-hour-time { color: var(--accent); font-weight: 700; }
+.wx-hour-temp { font-family: var(--font-num); font-size: 18px; font-weight: 700; }
+.wx-hourly-line { display: block; color: var(--fg-3); }
+.wx-hourly-line circle { fill: var(--fg); }
+.wx-hour-rain { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 3px; font-size: 12px; color: var(--fg-2); }
+.wx-drop { color: var(--c-water); flex: none; }
+.wx-tomorrow { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+.wx-tomorrow-label { display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-2); }
+.wx-tomorrow-value { font-family: var(--font-num); font-size: 34px; font-weight: 700; white-space: nowrap; }
+.wx-days { list-style: none; margin: 0; padding: 0; }
+.wx-day { display: grid; grid-template-columns: minmax(0, 1fr) 44px 64px 36px 36px; align-items: center; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.wx-day:first-child { border-top: 0; }
+.wx-day-name { display: flex; flex-direction: column; font-weight: 600; min-width: 0; }
+.wx-day-name small { font-size: 12px; font-weight: 400; color: var(--fg-3); }
+.wx-day.is-past { color: var(--fg-2); }
+.wx-day-rain { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; color: var(--fg-2); }
+.wx-day-icons { display: flex; gap: 8px; }
+.wx-icon-gap { width: 28px; }
+.wx-day-max, .wx-day-min { font-family: var(--font-num); font-size: 20px; font-weight: 700; text-align: right; }
+.wx-day-min { color: var(--fg-2); }
+.wx-foot { font-size: 12px; color: var(--fg-3); text-align: right; }
+@media (min-width: 600px) { .wx-day { grid-template-columns: minmax(0, 1fr) 56px 76px 48px 48px; gap: 12px; } }
+.wx-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.wx-tabs::-webkit-scrollbar { display: none; }
+.wx-tabs .seg { flex: none; }
+.wx-tabs .seg span { white-space: nowrap; }
+.wx-hero-time { font-size: 44px; }
+.alert-info { background: var(--muted-bg); color: var(--fg); border-left: 3px solid var(--c-sky); }
+.alert-info .ic { color: var(--c-sky); }
+.wx-pv-days { list-style: none; margin: 0; padding: 0; }
+.wx-pv-day { display: grid; grid-template-columns: minmax(84px, 1fr) 26px minmax(60px, 2fr) 72px; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.wx-pv-day:first-child { border-top: 0; }
+.wx-pv-bar { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+.wx-pv-bar span { display: block; height: 100%; width: var(--p); background: var(--c-sun); }
+.wx-pv-val { font-family: var(--font-num); font-size: 18px; font-weight: 700; text-align: right; white-space: nowrap; }
+.wx-pv-val small { font-size: 12px; color: var(--fg-2); }
+.wx-aq { display: flex; align-items: stretch; gap: 3px; height: 120px; }
+.wx-aq-col { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.wx-aq-bar { width: 100%; height: var(--h); border-radius: 3px 3px 0 0; }
+.wx-aq-time { height: 12px; font-size: 10px; line-height: 12px; color: var(--fg-3); }
+.wx-aq-ok { background: var(--ok-fg); }
+.wx-aq-warn { background: var(--warn-fg); }
+.wx-aq-err { background: var(--err-fg); }
+.wx-wind-arrow { color: var(--c-sky); }
+.wx-hour-gust { font-size: 12px; color: var(--fg-3); }
+
+/* ---- kafelek pogody w bieżącej lokalizacji urządzenia: chip „tu jesteś”, przycisk w oknie kafelka pogody ---- */
+.chip-loc { background: var(--c-sky-bg); color: var(--c-sky); gap: 4px; }
+.chip-loc .ic { width: 12px; height: 12px; }
+.wx-locate { align-self: flex-start; gap: 8px; }
+.wx-locate .ic { width: 16px; height: 16px; }
+.wx-or { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg-3); }
+.wx-or::before, .wx-or::after { content: ""; flex: 1; border-top: 1px solid var(--line-soft); }
+
 </style>
 </head>
 <body>
@@ -733,6 +798,17 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   <header class="topbar" id="topbar"></header>
 
   <!-- ============ LISTA STEROWNIKÓW ============ -->
+  <!-- ikony pogody (kod WMO, dzień / noc) jak core/components/WeatherIcon.tsx w kliencie -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="wx-clear-d" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#f2a900"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="#f2a900" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="wx-clear-n" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="#7986cb"/></symbol>
+    <symbol id="wx-partly-d" viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="3.6" fill="#f2a900"/><path d="M8.5 1.5v2M1.5 8.5h2M3.6 3.6l1.4 1.4M13.4 3.6L12 5" stroke="#f2a900" stroke-width="2" stroke-linecap="round"/><path d="M9 20h9a4 4 0 0 0 .5-7.97A5.3 5.3 0 0 0 8.4 13 3.5 3.5 0 0 0 9 20z" fill="#b0bec5"/></symbol>
+    <symbol id="wx-partly-n" viewBox="0 0 24 24"><path d="M13 9.5A5 5 0 0 1 7 3.6a5 5 0 1 0 6 5.9z" fill="#7986cb"/><path d="M9 20h9a4 4 0 0 0 .5-7.97A5.3 5.3 0 0 0 8.4 13 3.5 3.5 0 0 0 9 20z" fill="#b0bec5"/></symbol>
+    <symbol id="wx-cloudy" viewBox="0 0 24 24"><path d="M7 19h10a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.2 11.1 4 4 0 0 0 7 19z" fill="#78909c"/></symbol>
+    <symbol id="wx-fog" viewBox="0 0 24 24"><path d="M4 9h16M6 13h12M4 17h16" stroke="#b0bec5" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="wx-rain" viewBox="0 0 24 24"><path d="M7 14h10a4 4 0 0 0 .5-7.97A5.6 5.6 0 0 0 6.6 7 3.5 3.5 0 0 0 7 14z" fill="#78909c"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3" stroke="#1e88e5" stroke-width="2" stroke-linecap="round"/></symbol>
+  </svg>
+
   <section class="screen" id="s-lista" data-chrome="list">
     <main class="page page-lista">
       <div class="outdoor-strip">
@@ -748,7 +824,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 
       <div class="tiles">
 
-        <article class="tile tile-weather" data-kind="weather">
+        <article class="tile tile-weather is-link" data-kind="weather" data-go="pogoda-teraz" tabindex="0" role="link" aria-label="Pogoda Dom, otwórz">
           <div class="tile-head">
             <span class="tile-icon"><i data-icon="sun"></i></span>
             <h2 class="tile-name">Dom</h2>
@@ -761,6 +837,23 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
             <div><dt>Opad</dt><dd>0,2 mm</dd></div>
           </dl>
           <footer class="tile-foot">Open‑Meteo · 6 min temu</footer>
+          <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
+        </article>
+
+        <article class="tile tile-weather is-link" data-kind="weather" data-go="pogoda-teraz" tabindex="0" role="link" aria-label="Pogoda w Twojej lokalizacji (Zakopane), otwórz">
+          <div class="tile-head">
+            <span class="tile-icon"><i data-icon="sun"></i></span>
+            <h2 class="tile-name">Zakopane</h2>
+            <span class="chip chip-loc" title="Bieżąca lokalizacja tego urządzenia"><i data-icon="locate"></i>tu jesteś</span>
+            <span class="tile-tools"><button type="button" class="icon-btn sm" aria-label="Edytuj kafelek lokalizacji" data-modal="kafelek-pogody"><i data-icon="edit"></i></button></span>
+          </div>
+          <div class="tile-main"><div class="tile-value"><span class="big">9,1</span><span class="unit">°C</span><span class="big-label">bezchmurnie</span></div></div>
+          <dl class="tile-facts">
+            <div><dt>Wiatr</dt><dd>4 km/h</dd></div>
+            <div><dt>Chmury</dt><dd>5 %</dd></div>
+            <div><dt>Opad</dt><dd>0 mm</dd></div>
+          </dl>
+          <footer class="tile-foot">Twoja lokalizacja · Open‑Meteo · 2 min temu</footer>
           <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
         </article>
 
@@ -1941,10 +2034,189 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   </section>
 
   <!-- ============ LOGOWANIE ============ -->
+  <!-- ===== Pogoda: strona kafelka pogody (kliknięcie kafelka na liście), zakładki Teraz / Dni; prognoza z Open-Meteo pobierana przez przeglądarkę ===== -->
+  <section class="screen" id="s-pogoda-teraz" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="teraz"></div>
+      <section class="hero card card-hero wx-hero">
+        <div class="hero-main">
+          <span class="hero-label wx-place"><i data-icon="pin"></i>Dom</span>
+          <div class="hero-value"><span class="hero-num">6</span><span class="hero-unit">°C</span></div>
+          <div class="wx-hero-desc">Małe zachmurzenie</div>
+          <div class="wx-hero-range">↑16° / ↓3°</div>
+          <span class="hero-note">Odczuwalna 6°</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Wiatr</span><span class="kpi-value">7<small>km/h SW</small></span></div>
+            <div class="kpi"><span class="kpi-label">Wilgotność</span><span class="kpi-value">81<small>%</small></span></div>
+            <div class="kpi"><span class="kpi-label">Ciśnienie</span><span class="kpi-value">1021<small>hPa</small></span></div>
+            <div class="kpi"><span class="kpi-label">Słońce</span><span class="kpi-value">07:01<small>– 17:29</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Najbliższe 48 godzin</h2><span class="card-hint">przewiń w bok</span></header>
+        <p class="wx-summary">Przeważnie bezchmurnie. Min. temp. 3 °C.</p>
+        <div class="wx-hourly" id="wx-hourly" role="list" aria-label="Prognoza na 48 godzin"></div>
+      </section>
+      <section class="card wx-tomorrow">
+        <div><span class="wx-tomorrow-label">Jutrzejsza temperatura</span><strong>Temperatury nieco niższe niż dzisiaj</strong></div>
+        <span class="wx-tomorrow-value">2°↓</span>
+      </section>
+      <p class="wx-foot">Prognoza Open-Meteo · pobrana 22:53</p>
+    </main>
+  </section>
+
+  <section class="screen" id="s-pogoda-dni" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="dni"></div>
+      <section class="card">
+        <header class="card-head"><h2>Prognoza dzienna</h2><span class="card-hint">dzień · noc</span></header>
+        <ul class="wx-days" id="wx-days"></ul>
+        <div class="actions"><button type="button" class="btn btn-ghost" id="wx-more">Prognoza 16-dniowa ›</button></div>
+      </section>
+      <p class="wx-foot">Prognoza Open-Meteo · pobrana 22:53</p>
+    </main>
+  </section>
+
+  <section class="screen" id="s-pogoda-pv" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="pv"></div>
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Produkcja PV jutro · prognoza</span>
+          <div class="hero-value"><span class="hero-num">9,4</span><span class="hero-unit">kWh</span></div>
+          <span class="hero-note">dziś 8,6 kWh z prognozowanych 9,1 kWh (trafność 95 %) · szczyt jutro ok. 1,6 kW o 13:00 · dzień krótszy o 3 min</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Wschód</span><span class="kpi-value">07:02</span></div>
+            <div class="kpi"><span class="kpi-label">Zachód</span><span class="kpi-value">17:27</span></div>
+            <div class="kpi"><span class="kpi-label">Długość dnia</span><span class="kpi-value">10 h 25<small>min</small></span></div>
+            <div class="kpi"><span class="kpi-label">UV maks.</span><span class="kpi-value">2<small>niski</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Moc PV jutro</h2><span class="legend" id="wx-pv-legend"></span></header>
+        <div class="chart" data-chart="wx-pv"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Najbliższe dni</h2><span class="card-hint">prognoza produkcji</span></header>
+        <ul class="wx-pv-days" id="wx-pv-days"></ul>
+        <p class="help">Prognoza z nasłonecznienia Open-Meteo na nachylenie i kierunek paneli z ustawień fotowoltaiki (35°, południe, 4 panele), poprawiona o stosunek rzeczywistej produkcji do prognozy z ostatnich 30 dni.</p>
+      </section>
+      <p class="wx-foot">Prognoza Open-Meteo · pobrana 22:53 · produkcja z DTU</p>
+    </main>
+  </section>
+
+  <section class="screen" id="s-pogoda-ogrzewanie" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="ogrzewanie"></div>
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Najlepsze okno na CWU · pompa ciepła</span>
+          <div class="hero-value"><span class="hero-num wx-hero-time">13:00–16:00</span></div>
+          <div class="wx-hero-desc">niedziela 18.10</div>
+          <span class="hero-note">najcieplej (13–14 °C), cała niedziela w tańszej strefie G12w, w tym czasie PV ok. 1,4 kW</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Najzimniej</span><span class="kpi-value">−1<small>°C · wt. 05:00</small></span></div>
+            <div class="kpi"><span class="kpi-label">Średnia jutro</span><span class="kpi-value">8<small>°C</small></span></div>
+            <div class="kpi"><span class="kpi-label">Stopniodni 7 dni</span><span class="kpi-value">71<small>K·d</small></span></div>
+            <div class="kpi"><span class="kpi-label">Sugerowany tryb</span><span class="kpi-value">Pompa<small>ciepła</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Najbliższe 48 godzin</h2><span class="legend" id="wx-heat-legend"></span></header>
+        <div class="chart" data-chart="wx-heat"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Uwagi na najbliższe dni</h2></header>
+        <div class="alert alert-warn"><i data-icon="bell"></i><div><strong>Przymrozek w nocy z pon. na wt.</strong><span>do −1 °C ok. 05:00 · pompa ciepła włączy ochronę przed mrozem (pompa zimnej wody)</span></div></div>
+        <div class="alert alert-info"><i data-icon="fire"></i><div><strong>Od sob. 24.10 chłodniej</strong><span>średnia dobowa ok. 5 °C · przy grzaniu CO pompa ciepła może nie nadążyć, rozważ tryb Pellet</span></div></div>
+        <p class="help">Stopniodni: suma (18 °C − średnia dobowa) z dni chłodniejszych niż 18 °C, miara potrzeb ogrzewania. Strefy G12w: tańsza 13–15 i 22–6 w dni robocze oraz całe weekendy i święta.</p>
+      </section>
+      <p class="wx-foot">Prognoza Open-Meteo · pobrana 22:53 · taryfa G12w</p>
+    </main>
+  </section>
+
+  <section class="screen" id="s-pogoda-powietrze" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="powietrze"></div>
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Jakość powietrza · indeks europejski</span>
+          <div class="hero-value"><span class="hero-num">32</span><span class="hero-unit">EAQI</span></div>
+          <div class="wx-hero-desc"><span class="chip chip-ok">dobra</span></div>
+          <span class="hero-note">najgorzej jutro 19:00–22:00: 64 (dostateczna) · wietrz rano, wieczorem dym z kominów</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">PM2.5</span><span class="kpi-value">12<small>µg/m³</small></span></div>
+            <div class="kpi"><span class="kpi-label">PM10</span><span class="kpi-value">19<small>µg/m³</small></span></div>
+            <div class="kpi"><span class="kpi-label">NO₂</span><span class="kpi-value">7<small>µg/m³</small></span></div>
+            <div class="kpi"><span class="kpi-label">Ozon</span><span class="kpi-value">48<small>µg/m³</small></span></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Najbliższe 24 godziny</h2><span class="card-hint">EAQI</span></header>
+        <div class="wx-aq" id="wx-aq" role="list" aria-label="Jakość powietrza w najbliższych 24 godzinach"></div>
+        <div class="legend wx-aq-legend"><span class="lg"><i class="wx-aq-ok"></i>do 40 dobra</span><span class="lg"><i class="wx-aq-warn"></i>40–80 umiarkowana / dostateczna</span><span class="lg"><i class="wx-aq-err"></i>ponad 80 zła</span></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Pyłki</h2><span class="card-hint">sezon: marzec–wrzesień</span></header>
+        <dl class="kv">
+          <div><dt>Olsza</dt><dd><span class="chip chip-off">poza sezonem</span></dd></div>
+          <div><dt>Brzoza</dt><dd><span class="chip chip-off">poza sezonem</span></dd></div>
+          <div><dt>Trawy</dt><dd><span class="chip chip-off">poza sezonem</span></dd></div>
+          <div><dt>Bylica</dt><dd><span class="chip chip-off">poza sezonem</span></dd></div>
+          <div><dt>Ambrozja</dt><dd><span class="chip chip-ok">niskie</span> <small>2 ziarna/m³</small></dd></div>
+        </dl>
+      </section>
+      <p class="wx-foot">Jakość powietrza Open-Meteo (CAMS Europe) · pobrana 22:53</p>
+    </main>
+  </section>
+
+  <section class="screen" id="s-pogoda-wiatr" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+    <main class="page page-narrow weather-page">
+      <div class="segmented seg-inline wx-tabs" data-wx-tab="wiatr"></div>
+      <section class="hero card card-hero">
+        <div class="hero-main">
+          <span class="hero-label">Wiatr teraz</span>
+          <div class="hero-value"><span class="hero-num">7</span><span class="hero-unit">km/h SW</span></div>
+          <span class="hero-note">porywy do 18 km/h · najsilniej czw. 22.10: porywy do 65 km/h z południa</span>
+        </div>
+        <div class="hero-side">
+          <div class="hero-kpis">
+            <div class="kpi"><span class="kpi-label">Opad dziś</span><span class="kpi-value">0,0<small>mm</small></span></div>
+            <div class="kpi"><span class="kpi-label">Opad 7 dni</span><span class="kpi-value">23<small>mm</small></span></div>
+            <div class="kpi"><span class="kpi-label">Śnieg 7 dni</span><span class="kpi-value">0<small>cm</small></span></div>
+            <div class="kpi"><span class="kpi-label">Burze 7 dni</span><span class="kpi-value">brak</span></div>
+          </div>
+        </div>
+      </section>
+      <div class="alert alert-warn"><i data-icon="bell"></i><div><strong>Czwartek 22.10: silny wiatr z południa</strong><span>porywy do 65 km/h, możliwy halny · zabezpiecz rzeczy na zewnątrz</span></div></div>
+      <section class="card">
+        <header class="card-head"><h2>Wiatr · najbliższe 48 godzin</h2><span class="card-hint">średnia · porywy</span></header>
+        <div class="wx-hourly" id="wx-wind" role="list" aria-label="Wiatr w najbliższych 48 godzinach"></div>
+      </section>
+      <section class="card">
+        <header class="card-head"><h2>Opady · najbliższe dni</h2><span class="card-hint">suma dobowa</span></header>
+        <div class="chart" data-chart="wx-rain"></div>
+      </section>
+      <p class="wx-foot">Prognoza Open-Meteo · pobrana 22:53</p>
+    </main>
+  </section>
+
   <section class="screen screen-auth" id="s-logowanie" data-chrome="none" hidden>
     <main class="auth">
       <div class="auth-card">
-        <div class="brand brand-big"><span class="brand-mark"></span><span class="brand-name">CHPC</span></div>
+        <div class="brand brand-big"><span class="brand-mark"></span><span class="brand-name">My Home</span></div>
         <h1>Zaloguj się</h1>
         <p class="help">Podaj adres e‑mail. Wyślemy kod i link do logowania. Jeśli nie masz konta, założymy je przy pierwszym logowaniu.</p>
         <div class="auth-step" id="auth-step-1">
@@ -2025,6 +2297,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     <div class="modal" id="modal-kafelek-pogody" role="dialog" aria-labelledby="m2-title" hidden>
       <header class="modal-head"><h2 id="m2-title">Kafelek pogody</h2><button type="button" class="icon-btn sm" aria-label="Zamknij" data-close><i data-icon="close"></i></button></header>
       <div class="modal-body">
+        <button type="button" class="btn btn-ghost wx-locate" data-close><i data-icon="locate"></i>Użyj mojej lokalizacji</button>
+        <p class="help">Kafelek pokaże pogodę tam, gdzie jest telefon lub komputer, na którym go oglądasz. Położenie zostaje w przeglądarce: nie trafia na serwer, tylko do Open‑Meteo i serwisu nazw miejscowości. Najwyżej jeden taki kafelek na konto.</p>
+        <div class="wx-or"><span>albo stałe miejsce</span></div>
         <label class="field"><span>Miejscowość</span><input type="search" id="m2-q" value="Zakopane"></label>
         <ul class="choices">
           <li class="is-selected"><strong>Zakopane</strong><small>Małopolskie · 49,30 N, 19,95 E</small></li>
@@ -2217,6 +2492,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     offline: '<path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01M3 3l18 18"/>',
     up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    locate: '<path d="M3 11l18-8-8 18-2-8z"/>',
+    pin: '<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
     sketch: '<path d="M4 20l4-1 11-11-3-3L5 16zM13 8l3 3"/><path d="M3 21h18" stroke-dasharray="2 3"/>'
   };
   document.querySelectorAll('i[data-icon]').forEach(function (el) {
@@ -2253,7 +2530,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     if (chrome === 'none') { topbar.hidden = true; return; }
     topbar.hidden = false;
     if (chrome === 'list') {
-      topbar.innerHTML = '<div class="topbar-inner"><div class="brand"><span class="brand-mark"></span><span class="brand-name">CHPC</span></div><h1 class="topbar-title">Sterowniki</h1><div class="topbar-actions">' +
+      topbar.innerHTML = '<div class="topbar-inner"><div class="brand"><span class="brand-mark"></span><span class="brand-name">My Home</span></div><h1 class="topbar-title">Sterowniki</h1><div class="topbar-actions">' +
         '<button type="button" class="icon-btn" title="Zmień układ" aria-label="Zmień układ" data-layout="on">' + icon('grid') + '</button>' +
         '<button type="button" class="icon-btn avatar" title="Konto" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
       return;
@@ -2296,6 +2573,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     current = id; app.setAttribute('data-screen', id);
     renderChrome(target);
     document.getElementById('mock-jump').value = id;
+    // pasek zakładek pogody: wybrana zakładka widoczna (pasek przewija się w bok na telefonie)
+    var wxOn = target.querySelector('.wx-tabs .is-on'); if (wxOn) wxOn.parentNode.scrollLeft = wxOn.offsetLeft - 12;
     if (!(opts && opts.keepHash)) { try { history.replaceState(null, '', '#' + id); } catch (e) {} }
     window.scrollTo(0, 0); requestAnimationFrame(function () { window.scrollTo(0, 0); drawCharts(); });
   }
@@ -2359,6 +2638,79 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   })();
 
   /* ---------- dane: tabele PV, hydroforu i pieca ---------- */
+  // pogoda: prognoza 48 h (kolumny, linia temperatur, szansa opadu) i lista dni (dzień · noc), dane przykładowe ze zrzutów 17.10
+  (function () {
+    function wx(name, size) { return '<svg class="weather-icon" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><use href="#wx-' + name + '"/></svg>'; }
+    var drop = '<svg class="wx-drop" viewBox="0 0 10 12" width="8" height="10" aria-hidden="true"><path d="M5 0C3.3 3 1 5.2 1 7.6A4 4 0 0 0 9 7.6C9 5.2 6.7 3 5 0z" fill="currentColor"/></svg>';
+    var COL = 58, hours = [];
+    var temps = [6, 6, 5, 5, 5, 4, 4, 3, 3, 4, 6, 8, 10, 12, 13, 14, 14, 13, 11, 9, 8, 7, 6, 6, 5, 5, 5, 4, 4, 4, 4, 5, 6, 7, 8, 9, 9, 9, 8, 7, 6, 6, 5, 5, 5, 5, 4, 4];
+    for (var i = 0; i < 48; i++) {
+      var h = (23 + i) % 24, day = h >= 7 && h < 18;
+      var icon = i > 30 ? (i > 36 ? 'cloudy' : 'rain') : day ? (h > 12 ? 'partly-d' : 'clear-d') : 'partly-n';
+      hours.push({ t: h === 0 ? (i < 24 ? 'niedz.' : 'pon.') : (h < 10 ? '0' : '') + h + ':00', mid: h === 0, temp: temps[i], icon: icon, rain: i > 30 && i < 38 ? 20 : i > 24 ? 5 : 2 });
+    }
+    var hi = Math.max.apply(null, temps), lo = Math.min.apply(null, temps), w = hours.length * COL;
+    var y = function (t) { return 6 + (hi - t) / (hi - lo) * 28; };
+    var row1 = hours.map(function (o) { return '<div class="wx-hour' + (o.mid ? ' is-midnight' : '') + '" role="listitem" style="width:' + COL + 'px"><span class="wx-hour-time">' + o.t + '</span>' + wx(o.icon, 28) + '<span class="wx-hour-temp">' + o.temp + '°</span></div>'; }).join('');
+    var pts = hours.map(function (o, k) { return (k * COL + COL / 2) + ',' + y(o.temp); }).join(' ');
+    var line = '<svg class="wx-hourly-line" width="' + w + '" height="40" viewBox="0 0 ' + w + ' 40" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      hours.map(function (o, k) { return '<circle cx="' + (k * COL + COL / 2) + '" cy="' + y(o.temp) + '" r="3.5"/>'; }).join('') + '</svg>';
+    var row2 = hours.map(function (o) { return '<span class="wx-hour-rain" style="width:' + COL + 'px">' + drop + o.rain + '%</span>'; }).join('');
+    document.getElementById('wx-hourly').innerHTML = '<div class="wx-hourly-row" style="width:' + w + 'px">' + row1 + '</div>' + line + '<div class="wx-hourly-row" style="width:' + w + 'px">' + row2 + '</div>';
+
+    var days = [
+      ['Wczoraj', '16.10', null, 'partly-d', 'clear-n', 16, 0, true], ['Dzisiaj', '17.10', 4, 'partly-d', 'partly-n', 16, 3], ['niedz.', '18.10', 5, 'partly-d', 'cloudy', 14, 3],
+      ['pon.', '19.10', 20, 'cloudy', 'fog', 9, 4], ['wt.', '20.10', 20, 'partly-d', 'partly-n', 13, '−1'], ['śr.', '21.10', 5, 'partly-d', 'rain', 17, 6],
+      ['czw.', '22.10', 66, 'rain', 'rain', 14, 7], ['pt.', '23.10', 56, 'rain', 'partly-n', 10, 3],
+      ['sob.', '24.10', 30, 'cloudy', 'cloudy', 9, 2], ['niedz.', '25.10', 10, 'partly-d', 'clear-n', 11, 1], ['pon.', '26.10', 15, 'partly-d', 'partly-n', 12, 3], ['wt.', '27.10', 40, 'rain', 'rain', 10, 5],
+      ['śr.', '28.10', 45, 'rain', 'cloudy', 9, 4], ['czw.', '29.10', 20, 'cloudy', 'partly-n', 8, 1], ['pt.', '30.10', 10, 'partly-d', 'clear-n', 10, 0], ['sob.', '31.10', 10, 'clear-d', 'clear-n', 11, -1], ['niedz.', '01.11', 25, 'cloudy', 'cloudy', 9, 2]
+    ];
+    var all = false, list = document.getElementById('wx-days'), more = document.getElementById('wx-more');
+    function render() {
+      list.innerHTML = days.slice(0, all ? days.length : 8).map(function (d) {
+        return '<li class="wx-day' + (d[7] ? ' is-past' : '') + '"><span class="wx-day-name">' + d[0] + '<small>' + d[1] + '</small></span><span class="wx-day-rain">' + (d[2] === null ? '' : drop + d[2] + '%') + '</span>' +
+          '<span class="wx-day-icons">' + wx(d[3], 28) + wx(d[4], 28) + '</span><span class="wx-day-max">' + d[5] + '°</span><span class="wx-day-min">' + d[6] + '°</span></li>';
+      }).join('');
+      more.textContent = all ? 'Krótsza prognoza ›' : 'Prognoza 16-dniowa ›';
+    }
+    more.addEventListener('click', function () { all = !all; render(); });
+    render();
+  })();
+
+  // pogoda: zakładki wspólne dla sześciu ekranów, produkcja PV w dniach, jakość powietrza 24 h, wiatr 48 h
+  (function () {
+    var TABS = [['teraz', 'Teraz'], ['dni', 'Najbliższe dni'], ['pv', 'Słońce i PV'], ['ogrzewanie', 'Ogrzewanie'], ['powietrze', 'Powietrze'], ['wiatr', 'Wiatr i opady']];
+    document.querySelectorAll('.wx-tabs').forEach(function (bar) {
+      var own = bar.getAttribute('data-wx-tab');
+      bar.setAttribute('role', 'radiogroup'); bar.setAttribute('aria-label', 'Widok pogody');
+      bar.innerHTML = TABS.map(function (t) {
+        return '<label class="seg' + (t[0] === own ? ' is-on' : '') + '"><input type="radio" name="wx-tab-' + own + '"' + (t[0] === own ? ' checked' : ' data-go="pogoda-' + t[0] + '"') + '><span>' + t[1] + '</span></label>';
+      }).join('');
+    });
+    function wx(name, size) { return '<svg class="weather-icon" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><use href="#wx-' + name + '"/></svg>'; }
+
+    var pv = [['Dzisiaj', '17.10', 'partly-d', 8.6, 'wyprodukowano · prognoza 9,1'], ['niedz.', '18.10', 'partly-d', 9.4], ['pon.', '19.10', 'cloudy', 3.2], ['wt.', '20.10', 'partly-d', 7.8], ['śr.', '21.10', 'partly-d', 8.9], ['czw.', '22.10', 'rain', 2.1], ['pt.', '23.10', 'rain', 4.5]];
+    document.getElementById('wx-pv-days').innerHTML = pv.map(function (d) {
+      return '<li class="wx-pv-day"><span class="wx-day-name">' + d[0] + '<small>' + (d[4] || d[1]) + '</small></span>' + wx(d[2], 26) +
+        '<span class="wx-pv-bar"><span style="--p:' + Math.round(d[3] * 10) + '%"></span></span><span class="wx-pv-val">' + d[3].toFixed(1).replace('.', ',') + ' <small>kWh</small></span></li>';
+    }).join('');
+
+    var aq = [34, 34, 28, 24, 22, 20, 22, 26, 30, 28, 24, 20, 18, 18, 20, 22, 26, 34, 46, 58, 64, 62, 60, 52];
+    document.getElementById('wx-aq').innerHTML = aq.map(function (v, i) {
+      var h = (23 + i) % 24, level = v > 80 ? 'err' : v > 40 ? 'warn' : 'ok';
+      return '<div class="wx-aq-col" role="listitem" title="' + (h < 10 ? '0' : '') + h + ':00 · EAQI ' + v + '"><span class="wx-aq-bar wx-aq-' + level + '" style="--h:' + Math.round(v / 80 * 100) + '%"></span><span class="wx-aq-time">' + (i % 3 === 0 ? h : '') + '</span></div>';
+    }).join('');
+
+    var COL = 58, cols = [];
+    for (var i = 0; i < 48; i++) {
+      var h = (23 + i) % 24, speed = Math.round(6 + 5 * Math.sin(i / 5) + (h >= 11 && h <= 16 ? 4 : 0)), dir = 225 + Math.round(40 * Math.sin(i / 9));
+      cols.push('<div class="wx-hour' + (h === 0 ? ' is-midnight' : '') + '" role="listitem" style="width:' + COL + 'px"><span class="wx-hour-time">' + (h === 0 ? (i < 24 ? 'niedz.' : 'pon.') : (h < 10 ? '0' : '') + h + ':00') + '</span>' +
+        '<svg class="wx-wind-arrow" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="transform:rotate(' + (dir + 180) + 'deg)"><path d="M12 3l5 9h-3.5v9h-3v-9H7z" fill="currentColor"/></svg>' +
+        '<span class="wx-hour-temp">' + speed + '</span><span class="wx-hour-gust">' + Math.round(speed * 2.2) + '</span></div>');
+    }
+    document.getElementById('wx-wind').innerHTML = '<div class="wx-hourly-row" style="width:' + (48 * COL) + 'px">' + cols.join('') + '</div>';
+  })();
+
   (function () {
     var seed = 3, rnd = function () { return ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648); };
     var pv = [];
@@ -2467,6 +2819,27 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
       lineChart(h, { data: wk, band: true, bars: { key: 'l', color: C('--c-water') }, y: [0, 800], ticks: [0, 200, 400, 600, 800], unit: ' l', xLabels: ['pt', 'sb', 'nd', 'pn', 'wt', 'śr', 'cz'], height: 160, aria: 'Zużycie wody w tygodniu',
         hover: function (p) { return '<strong>' + p.h + '</strong><span>woda <b>' + p.l + ' l</b></span>'; } });
     }
+    if ((h = document.querySelector('[data-chart="wx-pv"]'))) {
+      var pvf = [0, 0.02, 0.15, 0.45, 0.85, 1.2, 1.45, 1.55, 1.5, 1.25, 0.75, 0.25, 0.03], pva = [0, 0.02, 0.12, 0.4, 0.8, 1.15, 1.35, 1.45, 1.35, 1.1, 0.6, 0.2, 0.02];
+      var pvd = pvf.map(function (v, i) { return { h: 6 + i, f: v, a: pva[i] }; });
+      var pvs = [{ key: 'a', label: 'dziś (DTU)', color: C('--fg-2') }];
+      legend(document.getElementById('wx-pv-legend'), [{ label: 'jutro (prognoza)', color: C('--c-sun') }].concat(pvs));
+      lineChart(h, { data: pvd, band: true, bars: { key: 'f', color: C('--c-sun') }, series: pvs, y: [0, 2], ticks: [0, 1, 2], unit: ' kW', xLabels: ['6:00', '9:00', '12:00', '15:00', '18:00'], height: 200, aria: 'Prognoza mocy PV na jutro',
+        hover: function (p) { return '<strong>' + p.h + ':00</strong><span><i style="background:' + C('--c-sun') + '"></i>jutro <b>' + fmt(p.f, 2) + ' kW</b></span><span><i style="background:' + C('--fg-2') + '"></i>dziś <b>' + fmt(p.a, 2) + ' kW</b></span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="wx-heat"]'))) {
+      var ht = [6, 6, 5, 5, 5, 4, 4, 3, 3, 4, 6, 8, 10, 12, 13, 14, 14, 13, 11, 9, 8, 7, 6, 6, 5, 5, 5, 4, 4, 4, 4, 5, 6, 7, 8, 9, 9, 9, 8, 7, 6, 6, 5, 5, 5, 5, 4, 4];
+      var hd = ht.map(function (t, i) { var hh = (23 + i) % 24, weekend = i < 25; return { i: i, hh: hh, t: t, cheap: weekend || hh < 6 || (hh >= 13 && hh < 15) || hh >= 22 }; });
+      var hs = [{ key: 't', label: 'Temperatura', color: C('--ch-1') }];
+      legend(document.getElementById('wx-heat-legend'), hs.concat([{ label: 'tańsza strefa G12w', color: C('--ok-fg') }]));
+      lineChart(h, { data: hd, series: hs, bands: { key: 'cheap', color: C('--ok-fg') }, y: [-2, 16], ticks: [0, 5, 10, 15], unit: ' °C', xLabels: ['23:00', 'nd 11:00', '23:00', 'pn 11:00', '22:00'], height: 200, aria: 'Temperatura i strefy G12w w najbliższych 48 godzinach',
+        hover: function (p) { return '<strong>' + (p.i < 1 ? 'sob.' : p.i < 25 ? 'niedz.' : 'pon.') + ' ' + p.hh + ':00</strong><span>temperatura <b>' + p.t + ' °C</b></span><span>' + (p.cheap ? 'tańsza strefa' : 'droższa strefa') + '</span>'; } });
+    }
+    if ((h = document.querySelector('[data-chart="wx-rain"]'))) {
+      var rn = ['dziś', 'niedz.', 'pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.'], rv = [0, 0.2, 3.1, 1.5, 0.3, 9.8, 7.4, 0.6];
+      lineChart(h, { data: rn.map(function (n, i) { return { h: n, mm: rv[i] }; }), band: true, bars: { key: 'mm', color: C('--c-water') }, y: [0, 12], ticks: [0, 4, 8, 12], unit: ' mm', xLabels: rn, height: 180, aria: 'Suma opadu w najbliższych dniach',
+        hover: function (p) { return '<strong>' + p.h + '</strong><span>opad <b>' + fmt(p.mm) + ' mm</b></span>'; } });
+    }
   }
   drawCharts();
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(drawCharts, 150); });
@@ -2481,7 +2854,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   bar.addEventListener('click', function (e) { var b = e.target.closest('[data-theme-set]'); if (b) setTheme(b.getAttribute('data-theme-set')); });
   try { var saved = localStorage.getItem('chpc-makieta-theme'); if (saved) setTheme(saved); } catch (e) {}
   var jump = document.getElementById('mock-jump');
-  var names = { lista: 'Lista sterowników', 'hp-podglad': 'Pompa · Podgląd', 'hp-dane': 'Pompa · Dane', 'hp-wykres': 'Pompa · Wykres', 'hp-harmonogram': 'Pompa · Harmonogram', 'hp-operacje': 'Pompa · Operacje', 'hp-ustawienia': 'Pompa · Ustawienia', 'pv-podglad': 'Fotowoltaika · Podgląd', 'pv-dane': 'Fotowoltaika · Dane', 'pv-wykres': 'Fotowoltaika · Wykres', 'pv-ustawienia': 'Fotowoltaika · Ustawienia', 'tank-podglad': 'Hydrofor · Podgląd', 'tank-dane': 'Hydrofor · Dane', 'tank-wykres': 'Hydrofor · Wykres', 'tank-operacje': 'Hydrofor · Operacje', 'tank-ustawienia': 'Hydrofor · Ustawienia', 'switch-podglad': 'Włącznik · Podgląd', 'switch-dane': 'Włącznik · Dane', 'switch-harmonogram': 'Włącznik · Harmonogram', 'switch-operacje': 'Włącznik · Operacje', 'switch-ustawienia': 'Włącznik · Ustawienia', 'boiler-podglad': 'Piec · Podgląd', 'boiler-dane': 'Piec · Dane', 'boiler-wykres': 'Piec · Wykres', 'boiler-harmonogram': 'Piec · Harmonogram', 'boiler-alarmy': 'Piec · Alarmy', 'boiler-operacje': 'Piec · Operacje', 'boiler-ustawienia': 'Piec · Ustawienia', 'firmware-tank': 'Firmware · Hydrofor', 'firmware-switch': 'Firmware · Włącznik', 'firmware-boiler': 'Firmware · Piec', logowanie: 'Logowanie', konto: 'Konto', brak: 'Ekran zastępczy' };
+  var names = { lista: 'Lista sterowników', 'hp-podglad': 'Pompa · Podgląd', 'hp-dane': 'Pompa · Dane', 'hp-wykres': 'Pompa · Wykres', 'hp-harmonogram': 'Pompa · Harmonogram', 'hp-operacje': 'Pompa · Operacje', 'hp-ustawienia': 'Pompa · Ustawienia', 'pv-podglad': 'Fotowoltaika · Podgląd', 'pv-dane': 'Fotowoltaika · Dane', 'pv-wykres': 'Fotowoltaika · Wykres', 'pv-ustawienia': 'Fotowoltaika · Ustawienia', 'tank-podglad': 'Hydrofor · Podgląd', 'tank-dane': 'Hydrofor · Dane', 'tank-wykres': 'Hydrofor · Wykres', 'tank-operacje': 'Hydrofor · Operacje', 'tank-ustawienia': 'Hydrofor · Ustawienia', 'switch-podglad': 'Włącznik · Podgląd', 'switch-dane': 'Włącznik · Dane', 'switch-harmonogram': 'Włącznik · Harmonogram', 'switch-operacje': 'Włącznik · Operacje', 'switch-ustawienia': 'Włącznik · Ustawienia', 'boiler-podglad': 'Piec · Podgląd', 'boiler-dane': 'Piec · Dane', 'boiler-wykres': 'Piec · Wykres', 'boiler-harmonogram': 'Piec · Harmonogram', 'boiler-alarmy': 'Piec · Alarmy', 'boiler-operacje': 'Piec · Operacje', 'boiler-ustawienia': 'Piec · Ustawienia', 'firmware-tank': 'Firmware · Hydrofor', 'firmware-switch': 'Firmware · Włącznik', 'firmware-boiler': 'Firmware · Piec', 'pogoda-teraz': 'Pogoda · Teraz', 'pogoda-dni': 'Pogoda · Najbliższe dni', 'pogoda-pv': 'Pogoda · Słońce i PV', 'pogoda-ogrzewanie': 'Pogoda · Ogrzewanie', 'pogoda-powietrze': 'Pogoda · Powietrze', 'pogoda-wiatr': 'Pogoda · Wiatr i opady', logowanie: 'Logowanie', konto: 'Konto', brak: 'Ekran zastępczy' };
   jump.innerHTML = Object.keys(names).map(function (k) { return '<option value="' + k + '">' + names[k] + '</option>'; }).join('');
   jump.addEventListener('change', function () { go(jump.value); });
 

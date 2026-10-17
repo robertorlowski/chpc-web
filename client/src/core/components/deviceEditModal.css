@@ -122,3 +122,9 @@
 
 .device-modal-actions .device-modal-left { margin-right: auto; }
 .device-modal-actions .device-modal-danger { background-color: var(--danger); }
+
+/* okno kafelka pogody: przycisk bieżącej lokalizacji i rozdzielacz „albo stałe miejsce” (makieta #modal-kafelek-pogody) */
+.wx-locate { align-self: flex-start; gap: 8px; }
+.wx-locate .ic { width: 16px; height: 16px; }
+.wx-or { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg-3); }
+.wx-or::before, .wx-or::after { content: ""; flex: 1; border-top: 1px solid var(--line-soft); }

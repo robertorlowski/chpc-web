@@ -423,22 +423,19 @@ export const Devices: React.FC = () => {
   // przycisk w kafelku nie wybiera sterownika (kafelek jest odnośnikiem)
   const stop = (event: MouseEvent) => event.stopPropagation();
 
-  // pasek pogody domu: temperatura (czujnik kotła, bez niego prognoza), opis nieba, wiatr, źródło i wiek
+  // pasek pogody domu: temperatura i opis nieba z Open-Meteo (bez czujnika kotła, od 2026-10-17), wiatr, wiek
   const outdoorStrip = (() => {
-    const temperature = outdoor === undefined ? '…' : typeof outdoor?.temperature === 'number'
-      ? `${outdoor.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
     const weather = outdoor?.weather;
+    const temperature = outdoor === undefined ? '…' : weather
+      ? `${weather.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
     const desc = weather
       ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`, 'Dom'].join(' · ')
       : outdoor === undefined ? '' : 'brak pogody z włącznika · Dom';
-    const source = weather ? `${outdoor?.temperatureSource === 'boiler' ? 'czujnik kotła · ' : ''}Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`
-      : outdoor?.temperatureSource === 'boiler' ? 'czujnik kotła' : '';
+    const source = weather ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : '';
     return (
-      <div className="outdoor-strip" title={outdoor?.temperatureSource === 'forecast'
-        ? 'Temperatura i pogoda: prognoza Open-Meteo (brak odczytu z czujnika kotła).'
-        : 'Temperatura: czujnik zewnętrzny kotła. Pogoda: prognoza Open-Meteo.'}>
+      <div className="outdoor-strip" title="Temperatura i pogoda: Open-Meteo (pobiera włącznik).">
         <span className="outdoor-temp">{temperature}</span>
-        <span className="outdoor-desc">{desc}{outdoor?.temperatureSource === 'forecast' ? ' (prognoza)' : ''}</span>
+        <span className="outdoor-desc">{desc}</span>
         {source && <span className="outdoor-src">{source}</span>}
       </div>
     );
@@ -468,7 +465,8 @@ export const Devices: React.FC = () => {
     const hidden = isHidden(item);
     const tile = item.kind === 'device' ? tiles[item.device.rootId] : undefined;
     const kind = item.kind === 'device' ? TILE_KINDS[item.device.deviceType] : 'weather';
-    const link = item.kind === 'device' && !reordering;
+    // kafelek pogody prowadzi do strony pogody (/weather/:id), sterownika — do jego widoków
+    const link = !reordering;
     const canEdit = item.kind === 'weather' || item.device.access !== 'shared';
     const tools = (
       <>
@@ -492,7 +490,10 @@ export const Devices: React.FC = () => {
     if (tile?.running && !hidden) classes.push('is-running');
     if (hidden) classes.push('is-hidden');
     if (moving === item.id) classes.push('is-moving');
-    const open = () => { if (item.kind === 'device') chooseDevice(item.device); };
+    const open = () => {
+      if (item.kind === 'device') chooseDevice(item.device);
+      else navigate(`/weather/${encodeURIComponent(item.id)}`, { state: { tile: item.weather } });
+    };
     const onKey = (event: KeyboardEvent) => {
       if (link && (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) { event.preventDefault(); open(); }
     };
@@ -501,13 +502,13 @@ export const Devices: React.FC = () => {
         role={link ? 'link' : undefined} tabIndex={link ? 0 : undefined}
         aria-label={link ? `${label}, otwórz` : `${label}${hidden ? ' (ukryty)' : ''}`}
         onClick={link ? open : undefined} onKeyDown={link ? onKey : undefined}
-        title={item.kind === 'device' ? sharedInfo(item.device) : item.weather.home
-          ? 'Dom: temperatura z czujnika kotła, gdy jest świeża, inaczej prognoza Open-Meteo.'
+        title={item.kind === 'device' ? sharedInfo(item.device) : item.weather.lat === null || item.weather.lon === null
+          ? 'Pogoda w bieżącej lokalizacji tego urządzenia · Open-Meteo'
           : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
         {item.kind === 'device' ? (
           <DeviceTileCard deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} hidden={hidden} tools={tools} />
         ) : (
-          <WeatherTileCard tile={item.weather} now={now} outdoor={outdoor} hidden={hidden} tools={tools} />
+          <WeatherTileCard tile={item.weather} now={now} hidden={hidden} tools={tools} />
         )}
         {reordering && (
           <>
@@ -582,13 +583,13 @@ export const Devices: React.FC = () => {
 
       {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
       {editingWeather !== undefined && (
-        <WeatherTileModal tile={editingWeather} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
+        <WeatherTileModal tile={editingWeather} canAddCurrent={!weatherTiles.some((tile) => tile.current)} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
       )}
 
       {/* stopka listy (.statusbar z makiety): zajętość bazy tylko dla użytkownika systemowego, po prawej nazwa aplikacji */}
       <footer className="statusbar devices-footer">
         {isSystem ? <DatabaseUsage /> : <span />}
-        <span className="version">chpc-web</span>
+        <span className="version">My Home</span>
       </footer>
     </>
   );

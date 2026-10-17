@@ -5,28 +5,40 @@
 // Konta użytkowników: każde konto ma własne kafelki (ownerId; bez właściciela: „Dom” i kafelki sprzed kont,
 // użytkownika systemowego), pole i ukrycie w układzie konta (tile-layout.service.ts). viewer = undefined
 // (AUTH_DISABLED=1): wszystkie kafelki i układ wspólny jak przed kontami.
+// Kafelek bieżącej lokalizacji (current): bez współrzędnych i bez pogody z włącznika — położenie i pogodę
+// pobiera przeglądarka (client core/currentPlace.ts); najwyżej jeden na konto.
 import { Types } from 'mongoose';
 import { DeviceModel } from '../models/device.model';
 import { WeatherTileDocument, WeatherTileModel } from '../models/weather-tile.model';
-import { getWeatherFor, setHomeWeatherKey, WEATHER_LOCATION, Weather } from './meteo.service';
+import { getWeatherFor, setHomeWeatherKey, switchWeatherStale, WEATHER_LOCATION, Weather } from './meteo.service';
 import { appendToViewerOrder, placeForViewer, setViewerHidden, TileViewer, viewersHiding } from './tile-layout.service';
 
 export const MAX_WEATHER_TILES = 8;
 // tyle miejsc przyjmuje włącznik (WEATHER_MAX_PLACES w devices/switch/src/weather.hpp)
 const MAX_SWITCH_PLACES = 8;
 const NAME_MAX = 40;
+export const CURRENT_PLACE_NAME = 'Moja lokalizacja';
 
-export type WeatherTileInput = { name?: unknown; lat?: unknown; lon?: unknown; hidden?: unknown };
+export type WeatherTileInput = { name?: unknown; lat?: unknown; lon?: unknown; hidden?: unknown; current?: unknown };
 export type WeatherTile = {
-  id: string; name: string; lat: number; lon: number; sortOrder?: number; hidden: boolean; home: boolean;
-  weather: Weather | null;
+  id: string; name: string; lat: number | null; lon: number | null; sortOrder?: number; hidden: boolean; home: boolean;
+  current: boolean; weather: Weather | null;
 };
 
 const isObjectId = (value: unknown): value is string => typeof value === 'string' && Types.ObjectId.isValid(value);
 
-// Sprawdza pola z aplikacji; przy create wszystkie wymagane, przy update tylko podane.
-export function parseWeatherTile(input: WeatherTileInput, partial = false) {
-  const out: { name?: string; lat?: number; lon?: number; hidden?: boolean } = {};
+// Sprawdza pola z aplikacji; przy create wszystkie wymagane, przy update tylko podane. Kafelek bieżącej
+// lokalizacji (current: true przy create albo istniejący current przy update) nie przyjmuje współrzędnych,
+// a nazwa jest opcjonalna (domyślnie „Moja lokalizacja”).
+export function parseWeatherTile(input: WeatherTileInput, partial = false, current = input.current === true) {
+  const out: { name?: string; lat?: number; lon?: number; hidden?: boolean; current?: boolean } = {};
+  if (input.current !== undefined && (partial || typeof input.current !== 'boolean')) throw new Error('current: tylko przy dodawaniu, true albo false.');
+  if (current) {
+    if (input.lat !== undefined || input.lon !== undefined) throw new Error('Kafelek bieżącej lokalizacji nie ma współrzędnych.');
+    if (input.name === undefined && !partial) input = { ...input, name: CURRENT_PLACE_NAME };
+    if (!partial) out.current = true;
+    partial = true;
+  }
   if (input.name !== undefined || !partial) {
     if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > NAME_MAX) {
       throw new Error(`name: napis do ${NAME_MAX} znaków.`);
@@ -49,8 +61,9 @@ export function parseWeatherTile(input: WeatherTileInput, partial = false) {
 }
 
 const toPublic = (tile: WeatherTileDocument): WeatherTile => ({
-  id: String(tile._id), name: tile.name, lat: tile.lat, lon: tile.lon, sortOrder: tile.sortOrder,
-  hidden: tile.hidden ?? false, home: tile.home ?? false, weather: getWeatherFor(String(tile._id)),
+  id: String(tile._id), name: tile.name, lat: tile.current ? null : tile.lat ?? null, lon: tile.current ? null : tile.lon ?? null,
+  sortOrder: tile.sortOrder, hidden: tile.hidden ?? false, home: tile.home ?? false, current: tile.current ?? false,
+  weather: tile.current ? null : getWeatherFor(String(tile._id)),
 });
 
 // Kafelek „Dom” z WEATHER_LOCATION, gdy go nie ma (pierwsze uruchomienie po wdrożeniu); przed sterownikami
@@ -91,6 +104,9 @@ export async function createWeatherTile(input: WeatherTileInput, viewer?: TileVi
   if (await WeatherTileModel.countDocuments(viewer ? ownedFilter(viewer) : {}) >= MAX_WEATHER_TILES) {
     throw new Error(`Najwyżej ${MAX_WEATHER_TILES} kafelków pogody.`);
   }
+  if (data.current && await WeatherTileModel.exists({ current: true, ...(viewer ? { ownerId: String(viewer._id) } : {}) })) {
+    throw new Error('Kafelek bieżącej lokalizacji już jest (najwyżej jeden na konto).');
+  }
   if (viewer) {
     const tile = (await WeatherTileModel.create({ ...data, hidden: false, ownerId: String(viewer._id) })).toObject();
     const sortOrder = await appendToViewerOrder(viewer, String(tile._id));
@@ -107,8 +123,8 @@ export async function createWeatherTile(input: WeatherTileInput, viewer?: TileVi
 
 // Zmiana kafelka; z kontem ukrycie (hidden) trafia do układu konta, nie do dokumentu.
 export async function updateWeatherTile(id: string, input: WeatherTileInput, viewer?: TileViewer): Promise<WeatherTile> {
-  const data = parseWeatherTile(input, true);
-  await findTile(id, viewer);
+  const existing = await findTile(id, viewer);
+  const data = parseWeatherTile(input, true, existing.current === true);
   if (viewer && data.hidden !== undefined) {
     await setViewerHidden(viewer, id, data.hidden, await listWeatherTiles(viewer));
     delete data.hidden;
@@ -143,7 +159,7 @@ export async function setWeatherTilesOrder(entries: { id: string; index: number 
 // przyjmuje włącznik, najstarsze kafelki pierwsze.
 export async function weatherQueries(): Promise<{ id: string; lat: number; lon: number }[]> {
   const home = await ensureHomeWeatherTile();
-  const tiles = await WeatherTileModel.find({ home: { $ne: true } }).sort({ _id: 1 })
+  const tiles = await WeatherTileModel.find({ home: { $ne: true }, current: { $ne: true } }).sort({ _id: 1 })
     .select('lat lon hidden ownerId').lean<WeatherTileDocument[]>();
   const hiding = await viewersHiding(tiles.map((tile) => String(tile._id)));
   const hidden = (tile: WeatherTileDocument) => {
@@ -153,5 +169,11 @@ export async function weatherQueries(): Promise<{ id: string; lat: number; lon: 
     return system ? system.hidden.has(id) : !!tile.hidden;
   };
   return [home, ...tiles.filter((tile) => !hidden(tile))].slice(0, MAX_SWITCH_PLACES)
-    .map((tile) => ({ id: String(tile._id), lat: tile.lat, lon: tile.lon }));
+    .map((tile) => ({ id: String(tile._id), lat: tile.lat as number, lon: tile.lon as number }));
+}
+
+// Miejsca dla zapasowego pobierania przez sterownik co (odpowiedź POST /hp/add, co od 1.3.1): te same co dla
+// włącznika, ale tylko bez świeżej pogody od włącznika (meteo.service, switchWeatherStale); pusta lista = włącznik działa.
+export async function backupWeatherQueries(now = new Date()): Promise<{ id: string; lat: number; lon: number }[]> {
+  return (await weatherQueries()).filter((query) => switchWeatherStale(query.id, now));
 }

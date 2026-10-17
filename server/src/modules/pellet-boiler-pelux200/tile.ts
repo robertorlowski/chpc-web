@@ -1,13 +1,12 @@
-// Kafelek kotła Pellux 200 na stronie /devices (GET /devices/summary): stan regulatora, temperatura kotła
-// i CWU z zadanymi, tryb pracy, poziom pelletu i moc. Błąd (czerwony): aktywny alarm regulatora albo brak
+// Kafelek kotła Pellux 200 na stronie /devices (GET /devices/summary), układ z makiety (2026-10-17): temperatura
+// kotła z zadaną, przy paleniu czas od początku palenia (since) i wskaźniki pomp CO / CWU, pola CWU, paliwo i moc. Błąd (czerwony): aktywny alarm regulatora albo brak
 // odczytu dłużej niż godzinę (od 3 odstępów odpytywania do godziny to uwaga, pomarańczowa). Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
 // zlecenie zmiany parametru zakończone błędem w ciągu doby.
 import { Device, DeviceTile } from '../../core/types';
 import { formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
 import { PelletBoilerCommandModel } from './models/pellet-boiler-pelux200-command.model';
-import { PelletBoilerSettingsEntry, PelletBoilerSettingsModel } from './models/pellet-boiler-pelux200-settings.model';
+import { PelletBoilerPelux200Model } from './models/pellet-boiler-pelux200.model';
 import { listAlerts } from './services/pellet-boiler-pelux200-alert.service';
-import { effectiveBoilerMode } from './services/pellet-boiler-pelux200-heat-pump-link.service';
 import { getPelletBoilerPelux200Last, getPollIntervalSeconds, readingResponding } from './services/pellet-boiler-pelux200.service';
 import { PelletBoilerPelux200Entry } from './types';
 
@@ -17,21 +16,34 @@ export const LOW_FUEL_PERCENT = 15;
 const COMMAND_ERROR_WINDOW_MS = 24 * 3600 * 1000;
 
 const target = (value?: number) => (typeof value === 'number' ? ` → ${value}` : '');
+// początek palenia szukany najwyżej dobę wstecz (dłuższe palenie: kafelek pokazuje czas od tej granicy)
+const BURN_LOOKBACK_MS = 24 * 3600 * 1000;
+
+// Początek bieżącego palenia: pierwszy odczyt po ostatnim odczycie bez płomienia (odczyty są zapisywane tylko przy
+// zmianie, więc to dokładność odstępu odpytywania). Indeks {rootId, createdAt}; ok. 0,1 s na produkcji (2026-10-17).
+async function burnStart(rootId: string, lastAt: Date): Promise<Date> {
+  const lookback = new Date(lastAt.getTime() - BURN_LOOKBACK_MS);
+  const notBurning = await PelletBoilerPelux200Model
+    .findOne({ rootId, createdAt: { $gte: lookback, $lte: lastAt }, state: { $nin: [...FLAME_STATES] } })
+    .sort({ createdAt: -1 }).select({ createdAt: 1 }).lean<{ createdAt: Date }>();
+  const first = await PelletBoilerPelux200Model
+    .findOne({ rootId, createdAt: { $gt: notBurning?.createdAt ?? lookback, $lte: lastAt } })
+    .sort({ createdAt: 1 }).select({ createdAt: 1 }).lean<{ createdAt: Date }>();
+  return first?.createdAt ?? lastAt;
+}
 
 export async function pelletBoilerTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
   const last = await getPelletBoilerPelux200Last(rootId) as (PelletBoilerPelux200Entry & { createdAt?: Date }) | undefined;
   if (!last?.createdAt) return { level: 'off', chip: 'Brak danych' };
 
   const at = new Date(last.createdAt);
-  const [pollSeconds, settings, alerts, failed] = await Promise.all([
+  const [pollSeconds, alerts, failed] = await Promise.all([
     getPollIntervalSeconds(rootId),
-    PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>(),
     listAlerts(rootId),
     PelletBoilerCommandModel
       .findOne({ rootId, status: { $in: ['done', 'error'] } }).sort({ doneAt: -1 })
       .lean<{ status: string; label?: string; doneAt?: Date }>(),
   ]);
-  const mode = await effectiveBoilerMode(rootId, settings);
   const activeAlerts = alerts.alerts.filter((alert) => alert.active);
   const alarm = activeAlerts.length > 0 || last.alarm === true || last.state === 8;
   const responding = readingResponding(at, pollSeconds, now.getTime());
@@ -56,15 +68,22 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
     note = { level: 'warn', text: `Zmiana „${failed.label ?? 'parametru'}” nie powiodła się (${formatWhen(new Date(failed.doneAt), now)})` };
   }
 
+  // pola jak w makiecie: CWU (side), Paliwo, Moc; tryb pracy (pompa ciepła / pellet) jest w pasku i podglądzie
   const row = [];
-  if (mode) row.push({ icon: 'sliders' as const, value: mode === 'heat-pump' ? 'Pompa ciepła' : 'Pellet', label: '' });
-  if (typeof last.fuel_level === 'number') row.push({ icon: 'pellet' as const, value: formatUnit(last.fuel_level, '%'), label: 'pellet' });
-  if ((last.boiler_power ?? 0) > 0) row.push({ icon: 'bolt' as const, value: formatUnit(last.boiler_power, 'kW', 1), label: '' });
+  if (typeof last.fuel_level === 'number') row.push({ icon: 'pellet' as const, value: formatUnit(last.fuel_level, '%'), label: 'Paliwo' });
+  if (typeof last.boiler_power === 'number') row.push({ icon: 'bolt' as const, value: formatUnit(last.boiler_power, 'kW', 1), label: 'Moc' });
+  const running = level !== 'err' && last.state !== undefined && FLAME_STATES.has(last.state);
+  const pumps = [
+    ...(typeof last.heating_pump === 'boolean' ? [{ label: 'CO', on: last.heating_pump }] : []),
+    ...(typeof last.water_heater_pump === 'boolean' ? [{ label: 'CWU', on: last.water_heater_pump }] : []),
+  ];
 
   return {
     level,
     chip,
-    running: level !== 'err' && last.state !== undefined && FLAME_STATES.has(last.state),
+    running,
+    ...(running ? { since: (await burnStart(rootId, at)).toISOString() } : {}),
+    ...(pumps.length ? { pumps } : {}),
     main: { icon: 'flame', value: formatTemperature(last.heating_temp), label: `kocioł${target(last.heating_target)}` },
     side: [{ icon: 'tap', value: formatTemperature(last.water_heater_temp), label: `CWU${target(last.water_heater_target)}` }],
     row,

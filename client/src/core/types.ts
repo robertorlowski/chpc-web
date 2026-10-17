@@ -158,15 +158,17 @@ export type Weather = {
 
 // Kafelek pogody na liście sterowników (GET /api/weather-tiles; kontrakt: server/src/core/services/weather-tile.service.ts):
 // miejscowość z pogodą z Open-Meteo pobieraną przez sterownik włącznika. home = kafelek domu (powstaje sam, bez usuwania);
-// sortOrder wspólne ze sterownikami; weather = null bez świeżych danych (45 min).
+// sortOrder wspólne ze sterownikami; weather = null bez świeżych danych (45 min). current = kafelek bieżącej
+// lokalizacji (bez współrzędnych i pogody z serwera; położenie i pogoda z przeglądarki, core/currentPlace.ts).
 export type WeatherTile = {
   id: string;
   name: string;
-  lat: number;
-  lon: number;
+  lat: number | null;
+  lon: number | null;
   sortOrder?: number;
   hidden: boolean;
   home: boolean;
+  current: boolean;
   weather: Weather | null;
 };
 
@@ -261,6 +263,10 @@ export type DeviceTile = {
   note?: { level: 'warn' | 'err'; text: string };
   updatedAt?: string;
   foot?: string;
+  /** początek bieżącej pracy przy running (ISO; kocioł: palenie) — czas pracy w plakietce stanu */
+  since?: string;
+  /** wskaźniki pomp obiegu (kocioł: CO, CWU) */
+  pumps?: { label: string; on: boolean }[];
 };
 export type DeviceTiles = Record<string, DeviceTile>;
 

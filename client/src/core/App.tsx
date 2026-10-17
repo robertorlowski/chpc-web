@@ -7,6 +7,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { BottomNav, Header } from './components/Header';
 import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
+import Weather, { WEATHER_TITLE_ID } from './pages/Weather';
 import { Firmware } from './pages/Firmware';
 import { TileDesigner } from './pages/TileDesigner';
 import { useDevice } from './context/DeviceContext';
@@ -53,7 +54,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 	if (status === 'anonymous' || !user) {
 		return (
 			<>
-				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span><h1 className="app-header-title">Logowanie</h1><UserMenu /></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">Logowanie</h1><UserMenu /></header>
 				<main className="app-main"><Login /></main>
 			</>
 		);
@@ -61,7 +62,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 	if (!user.profileComplete) {
 		return (
 			<>
-				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span><h1 className="app-header-title">Nowe konto</h1><UserMenu /></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">Nowe konto</h1><UserMenu /></header>
 				<main className="app-main">
 					<div className="account-page account-narrow">
 						<h1>Uzupełnij dane</h1>
@@ -114,8 +115,9 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 
 	if (startOnList && location.pathname === '/') return <Navigate to="/devices" replace />;
 
-	// /firmware/:deviceType wskazuje rodzaj w adresie, /account to dane konta, a /tile-designer dotyczy wszystkich kafelków: bez wyboru sterownika
-	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware') && !location.pathname.startsWith('/account') && location.pathname !== '/tile-designer') {
+	// /firmware/:deviceType wskazuje rodzaj w adresie, /weather/:id kafelek pogody, /account to dane konta,
+	// a /tile-designer dotyczy wszystkich kafelków: bez wyboru sterownika
+	if (!device && location.pathname !== '/devices' && !location.pathname.startsWith('/firmware') && !location.pathname.startsWith('/weather/') && !location.pathname.startsWith('/account') && location.pathname !== '/tile-designer') {
 		return <Navigate to="/devices" replace />;
 	}
 
@@ -146,8 +148,9 @@ function DeviceRoute({ path }: { path: string }) {
 // Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
-	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /account i /tile-designer
-	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || location.pathname.startsWith('/account') || location.pathname === '/tile-designer';
+	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /weather/:id (pogoda kafelka), /account i /tile-designer
+	const isWeather = location.pathname.startsWith('/weather/');
+	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || isWeather || location.pathname.startsWith('/account') || location.pathname === '/tile-designer';
 
 	return (
 		<DeviceGuard>
@@ -157,15 +160,16 @@ function AppContent() {
 				</header>}
 				{/* /devices: pasek z nazwą aplikacji (bez zakładek, bo nie wybrano sterownika) */}
 				{location.pathname === '/devices' && <header className="app-header">
-					<span className="brand"><span className="brand-mark" /><span className="brand-name">CHPC</span></span>
+					<span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span>
 					<h1 className="app-header-title">Sterowniki</h1>
 					{/* miejsce na przyciski strony (trybik „Zmień układ” wstawia tu pages/Devices) */}
 					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 					<UserMenu />
 				</header>}
-				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || location.pathname === '/tile-designer') && <header className="app-header">
+				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || isWeather || location.pathname === '/tile-designer') && <header className="app-header">
 					<Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników"><BackIcon /></Link>
-					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : 'Projekt kafelka'}</h1>
+					{/* pogoda: nazwę miejsca („ · Dom”) wstawia strona Weather */}
+					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : isWeather ? <>Pogoda<span id={WEATHER_TITLE_ID} /></> : 'Projekt kafelka'}</h1>
 					<UserMenu />
 				</header>}
 
@@ -178,6 +182,7 @@ function AppContent() {
 					{/* link z maila po zalogowaniu (adres zostaje /login): lista sterowników */}
 					<Route path="/login" element={<Navigate to="/devices" replace />} />
 					<Route path="/firmware/:deviceType" element={<Firmware />} />
+					<Route path="/weather/:id" element={<Weather />} />
 					<Route path="/tile-designer" element={<TileDesigner />} />
 					{allDevicePaths().map((path) => (
 						<Route key={path} path={path} element={<DeviceRoute path={path} />} />

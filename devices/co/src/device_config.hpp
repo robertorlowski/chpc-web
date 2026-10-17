@@ -30,7 +30,9 @@ struct DeviceConfig {
 // i dłuższy timeout odczytu CHPC na zlecenie z chmury (pole diag w odpowiedzi hp/add).
 // 1.3.0: zapasowy przekaźnik poczty (devices/common/mail_relay, własne zadanie FreeRTOS, poza magistralą):
 // klucz płytki w zgłoszeniu (mailKey), wysyłka maili chmury, gdy włącznik ich nie wyśle; dane SMTP tylko w RAM.
-constexpr const char *FW_VERSION = "1.3.0";
+// 1.3.1: zapasowa pogoda z Open-Meteo (devices/common/weather): miejsca bez świeżej pogody od włącznika
+// z odpowiedzi hp/add (weather_queries), odczyty w polu weather następnego hp/add.
+constexpr const char *FW_VERSION = "1.3.1";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";
