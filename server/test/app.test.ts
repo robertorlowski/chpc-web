@@ -469,20 +469,22 @@ describe('API with MongoDB', () => {
   it('shows the heat pump tile when CHPC numbers arrive as strings (raw cache)', async () => {
     const posted = await request(app)
       .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
-      .send({ HP: { Ttarget: '47.3', Tmin: '38.0', Tmax: '45.0', Watts: '1500', HPS: 1 }, work_mode: 'AUTO', time: '2026.10.08 12:30:00' });
+      .send({ HP: { Ttarget: '47.3', Tmin: '38.0', Tmax: '45.0', Watts: '1500', Tsump: '62.5', Tho: '0', HPS: 1 }, work_mode: 'AUTO', time: '2026.10.08 12:30:00' });
     expect(posted.status).toBe(201);
 
     const tile = (await request(app).get('/api/devices/summary')).body[rootId];
     expect(tile.main.value).toBe('47,3 °C');
     expect(tile.side[0].value).toBe('38–45 °C');
     expect(tile.side[1].value).toContain('1500');
+    expect(tile.side[2]).toEqual({ icon: 'thermo', value: '62,5 °C', label: 'T. sprężarki' });
+    expect(tile.side[3]).toEqual({ icon: 'thermo', value: '0 °C', label: 'T. wody wyjściowej' });
     expect(tile.running).toBe(true);
   });
 
   it('does not show old heat pump values on the tile once the link is lost (> 5 min)', async () => {
     await request(app)
       .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
-      .send({ HP: { Ttarget: '50.8', Tmin: '40.0', Tmax: '47.0', Watts: '20', HPS: 0 }, work_mode: 'OFF', time: '2026.10.08 12:40:00' });
+      .send({ HP: { Ttarget: '50.8', Tmin: '40.0', Tmax: '47.0', Watts: '20', Tsump: '35.2', HPS: 0 }, work_mode: 'OFF', time: '2026.10.08 12:40:00' });
 
     const fresh = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 60 * 1000));
     expect(fresh?.main?.value).toBe('50,8 °C');
@@ -490,6 +492,8 @@ describe('API with MongoDB', () => {
     expect(fresh?.side).toEqual([
       { icon: 'target', value: '40–47 °C', label: 'min–max' },
       { icon: 'bolt', value: '20 W', label: 'moc' },
+      { icon: 'thermo', value: '35,2 °C', label: 'T. sprężarki' },
+      { icon: 'thermo', value: '---', label: 'T. wody wyjściowej' },
     ]);
 
     const device = { properties: { temp_min: '40', temp_max: '45' } } as never;
@@ -501,6 +505,8 @@ describe('API with MongoDB', () => {
     expect(lostFor10min?.side).toEqual([
       { icon: 'target', value: '40–45 °C', label: 'od–do' },
       { icon: 'bolt', value: '---', label: 'moc' },
+      { icon: 'thermo', value: '---', label: 'T. sprężarki' },
+      { icon: 'thermo', value: '---', label: 'T. wody wyjściowej' },
     ]);
 
     const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));

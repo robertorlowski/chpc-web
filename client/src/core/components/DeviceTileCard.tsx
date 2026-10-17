@@ -123,7 +123,7 @@ function shapeTile(kind: TileKind, tile: DeviceTile, now: number): Shape {
     case 'hp': {
       const target = side.find((item) => item.icon === 'target');
       shape.label = target ? `${label} · cel ${target.value}` : label;
-      shape.facts = [...row.map((item) => fact(item)), ...side.filter((item) => item !== target).map((item) => fact(item))];
+      shape.facts = [...side.filter((item) => item !== target), ...row.filter((item) => item.icon !== 'sliders')].map((item) => fact(item));
       if (tile.running) shape.state = { text: 'pracuje', title: 'Sprężarka pracuje' };
       break;
     }

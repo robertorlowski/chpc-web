@@ -1,5 +1,6 @@
 // Kafelek pompy ciepła na stronie /devices (GET /devices/summary): stan sprężarki, temperatura zbiornika,
-// zakres temperatur, moc i tryb pracy. Błąd (czerwony): blokada po 5 błędach, aktywny błąd albo brak
+// zakres temperatur, moc, temperatury sprężarki i wody wyjściowej oraz tryb pracy dla nagłówka.
+// Błąd (czerwony): blokada po 5 błędach, aktywny błąd albo brak
 // telemetrii dłużej niż godzinę (od 5 min do godziny to uwaga, pomarańczowa; co wysyła co 10–30 s, a po utracie
 // odpowiedzi CHPC przestaje wysyłać pole HP, więc telemetria przestaje być zapisywana). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
 // który już ustąpił.
@@ -75,6 +76,8 @@ export async function heatPumpTile(rootId: string, device: Device, now = new Dat
   const watts = toNumber(hp.Watts);
   // moc, którą pompa pobiera teraz (w postoju zwykle kilka W); bez łączności „---”
   side.push({ icon: 'bolt' as const, value: live && watts !== undefined ? formatUnit(watts, 'W') : '---', label: 'moc' });
+  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tsump)) : '---', label: 'T. sprężarki' });
+  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tho)) : '---', label: 'T. wody wyjściowej' });
 
   return {
     level,

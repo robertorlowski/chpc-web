@@ -1,6 +1,6 @@
 // Widok główny pompy (/ i /hp) w układzie makiety „Instrument” (#s-hp-podglad): karta hero z temperaturą zbiornika
 // (HP.Ttarget, czujnik w środku zbiornika, nie zadana) na pasku zakresu Tmin–Tmax, stan sprężarki i cztery KPI
-// (moc, PV teraz, COP, na zewnątrz); karta „Pomiary”, karta „Obieg” (stan przekaźników z telemetrii) i karta
+// (moc, PV teraz, tryb, na zewnątrz); karta „Pomiary”, karta „Obieg” (stan przekaźników z telemetrii) i karta
 // „Energia dziś” (zużycie i koszt G12w liczone w przeglądarce z GET /hp/4day, mini wykres mocy i PV).
 // Dane bieżące z GET /hp (HP z CHPC, PV, t_out, COP zbiornika) i dzwonek błędu z GET /hp/last-error; odświeża je
 // komunikat WebSocket „update” (po zapisie telemetrii) i zegar co 30 s. Energia dnia odświeżana co 5 min.
@@ -41,11 +41,11 @@ const timeOfDay = (time?: string) => time?.split(' ')[1]?.slice(0, 5) ?? '';
 
 // co od 1.2.0: MANUAL / AUTO / OFF; starsze co: M, A, PV, CWU
 const modeLabel = (mode?: string): string => (
-  mode === 'OFF' ? 'wyłączona'
-    : mode === 'A' || mode === 'AUTO' ? 'tryb automatyczny'
-    : mode === 'PV' ? 'tryb automatyczny z PV'
-    : mode === 'CWU' ? 'tryb CWU'
-    : mode === 'M' || mode === 'MANUAL' ? 'tryb ręczny'
+  mode === 'OFF' ? 'Wyłączony'
+    : mode === 'A' || mode === 'AUTO' ? 'Automatyczny'
+    : mode === 'PV' ? 'Automatyczny z PV'
+    : mode === 'CWU' ? 'CWU'
+    : mode === 'M' || mode === 'MANUAL' ? 'Ręczny'
     : '---'
 );
 
@@ -236,7 +236,7 @@ const HP: React.FC = () => {
             <span className="range-max">{fmtInt(_hp?.Tmax)}</span>
           </div>
           <span className="hero-note">
-            cel {fmtInt(_hp?.Tmin)}–{fmtInt(_hp?.Tmax)} °C · <strong>{modeLabel(_data?.work_mode)}</strong>
+            cel {fmtInt(_hp?.Tmin)}–{fmtInt(_hp?.Tmax)} °C
             {_data?.time && <> · odczyt {timeOfDay(_data.time)}</>}
           </span>
         </div>
@@ -249,7 +249,7 @@ const HP: React.FC = () => {
           <div className="hero-kpis">
             <div className="kpi"><span className="kpi-label">Moc</span><span className="kpi-value">{fmtInt(_hp?.Watts)}<small>W</small></span></div>
             <div className="kpi"><span className="kpi-label">PV teraz</span><span className="kpi-value">{fmtInt(_pv?.total_power)}<small>W</small></span></div>
-            <div className="kpi"><span className="kpi-label">COP</span><span className="kpi-value">{fmt(_data?.cop)}</span></div>
+            <div className="kpi"><span className="kpi-label">Tryb</span><span className="kpi-value hp-mode-value">{modeLabel(_data?.work_mode)}</span></div>
             {/* 0,0 °C to też odczyt (dawniej warunek na prawdziwość pokazywał wtedy „---”) */}
             <div className="kpi"><span className="kpi-label">Na zewnątrz</span><span className="kpi-value">{typeof _data?.t_out === 'number' ? fmt(_data.t_out) : '---'}<small>°C</small></span></div>
           </div>
