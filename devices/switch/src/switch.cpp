@@ -13,6 +13,7 @@
 // z chmury (weather_queries, starsza chmura: weather_query) i wysyła ją w zgłoszeniu stanu (weather.hpp).
 // Od 1.3.0 przekaźnik poczty (devices/common/mail_relay): klucz płytki w zgłoszeniu (mailKey), komunikat WebSocket
 // „mail” budzi zadanie, które wysyła maile chmury z domowego łącza (dane SMTP z chmury, tylko w RAM).
+// Od 1.3.1 kod pogody jest współdzielony z `co` przez devices/common/weather.
 #include <Arduino.h>
 #include <cstdarg>
 #include <HTTPClient.h>
