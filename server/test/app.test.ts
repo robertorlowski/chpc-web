@@ -477,7 +477,7 @@ describe('API with MongoDB', () => {
     expect(tile.side[0].value).toBe('38–45 °C');
     expect(tile.side[1].value).toContain('1500');
     expect(tile.side[2]).toEqual({ icon: 'thermo', value: '62,5 °C', label: 'T. sprężarki' });
-    expect(tile.side[3]).toEqual({ icon: 'thermo', value: '0 °C', label: 'T. wody wyjściowej' });
+    expect(tile.side[3]).toEqual({ icon: 'thermo', value: '0 °C', label: 'T. wody wyj.' });
     expect(tile.running).toBe(true);
   });
 
@@ -493,7 +493,7 @@ describe('API with MongoDB', () => {
       { icon: 'target', value: '40–47 °C', label: 'min–max' },
       { icon: 'bolt', value: '20 W', label: 'moc' },
       { icon: 'thermo', value: '35,2 °C', label: 'T. sprężarki' },
-      { icon: 'thermo', value: '---', label: 'T. wody wyjściowej' },
+      { icon: 'thermo', value: '---', label: 'T. wody wyj.' },
     ]);
 
     const device = { properties: { temp_min: '40', temp_max: '45' } } as never;
@@ -506,7 +506,7 @@ describe('API with MongoDB', () => {
       { icon: 'target', value: '40–45 °C', label: 'od–do' },
       { icon: 'bolt', value: '---', label: 'moc' },
       { icon: 'thermo', value: '---', label: 'T. sprężarki' },
-      { icon: 'thermo', value: '---', label: 'T. wody wyjściowej' },
+      { icon: 'thermo', value: '---', label: 'T. wody wyj.' },
     ]);
 
     const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));

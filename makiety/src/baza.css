@@ -105,7 +105,7 @@ svg { display: block; }
 .big-label { flex-basis: 100%; font-size: 13px; color: var(--fg-2); margin-top: 2px; }
 .tile-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 .tile-facts div { min-width: 0; }
-.tile-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); }
+.tile-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-facts dd { margin: 0; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .state { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--muted-bg); color: var(--muted-fg); }

@@ -77,7 +77,7 @@ export async function heatPumpTile(rootId: string, device: Device, now = new Dat
   // moc, którą pompa pobiera teraz (w postoju zwykle kilka W); bez łączności „---”
   side.push({ icon: 'bolt' as const, value: live && watts !== undefined ? formatUnit(watts, 'W') : '---', label: 'moc' });
   side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tsump)) : '---', label: 'T. sprężarki' });
-  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tho)) : '---', label: 'T. wody wyjściowej' });
+  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tho)) : '---', label: 'T. wody wyj.' });
 
   return {
     level,
