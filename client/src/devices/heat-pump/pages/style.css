@@ -1,0 +1,142 @@
+/* Strony pompy ciepła w wyglądzie „Instrument” (2026-10-17): markup z makiety (makiety/src/makieta.html, ekrany
+   #s-hp-*), klasy z client/src/makieta.css. Tu tylko to, czego makieta nie ma albo co w aplikacji wygląda inaczej
+   (przyciski globalne, komponenty core w karcie „Sterownik”, wykresy Recharts zamiast SVG makiety). Kolory wyłącznie
+   z tokenów theme.css. Każda strona ma korzeń .page.hp-view. */
+
+/* strona: boczny odstęp 16 px jak .page w makiecie (baza.css), dolny odstęp daje .app-main */
+.hp-view {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  /* karty na całą szerokość strony (globalny main w style.css jest flexem w wierszu z align-items: flex-start) */
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* paski na górze ekranu (OfflineBanner, wstrzymanie przez kocioł) w siatce strony, bez bocznych marginesów */
+.hp-view .offline-banner { margin: 0; }
+
+/* komunikat po zapisie (core/components/Notification) stoi w miejscu, bez wpływu na układ */
+.hp-view .notification { margin: 0; }
+
+/* ---- przełącznik jako przycisk: globalne reguły button (tło, odstępy) nie mogą go zmieniać ---- */
+.hp-view button.switch[type] {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  line-height: 0;
+}
+
+.hp-view button.switch[type]:disabled { background: var(--switch-off); color: inherit; }
+.hp-view button.switch[type].is-on:disabled { background: var(--muted-fg); border-color: var(--muted-fg); }
+
+/* ---- przyciski makiety: wariant „ghost” nie bierze tła z globalnego button ---- */
+.hp-view button.btn[type] { margin: 0; }
+.hp-view button.btn-ghost[type] { background: transparent; color: var(--accent); }
+.hp-view button.btn-ghost[type]:hover:not(:disabled) { background: var(--hover); filter: none; }
+.hp-view button.btn-danger-ghost[type] { background: transparent; color: var(--danger); }
+.hp-view button.btn-danger-ghost[type]:hover:not(:disabled) { background: var(--err-bg); filter: none; }
+.hp-view button.btn[type]:disabled { background: var(--muted-bg); color: var(--muted-fg); opacity: .6; }
+.hp-view button.btn-primary[type]:disabled { background: var(--muted-bg); }
+.hp-view button.link-btn[type] { margin: 0; padding: 0; background: none; color: var(--accent); }
+
+/* ---- nawigacja po dacie: strzałki to IconButton (core), data to select wyglądający jak tekst ---- */
+.hp-view .date-nav .date-nav-btn { width: 34px; height: 34px; border-radius: 50%; color: var(--fg); }
+.hp-view .date-nav .date-nav-btn:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.hp-view .date-nav .date-nav-btn:disabled { opacity: .35; }
+.hp-view .date-cur { position: relative; display: inline-flex; align-items: baseline; }
+.hp-view .date-cur select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.hp-view .date-cur select:disabled { cursor: default; }
+.hp-view .date-cur:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+
+/* ---- pola liczbowe: bez strzałek przeglądarki (wartości wpisywane z klawiatury) ---- */
+.hp-view .range-inputs input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.hp-view .range-inputs input[aria-invalid="true"] { border-color: var(--danger); }
+.hp-view .field-error { margin: 0; font-size: 13px; color: var(--danger); }
+
+/* ---- pomiary: wartość niepoprawna (temperatura parownika poniżej zera) ---- */
+.hp-view .measures dd.is-bad { color: var(--danger); }
+
+/* ---- stan sprężarki: postój w kolorze wyciszonym ---- */
+.hp-view .state-pill.is-idle { background: var(--kpi-bg); color: var(--hero-fg-2); border: 1px solid var(--kpi-line); }
+
+/* ---- hero: dane nieaktualne (Offline) przygaszone ---- */
+.hp-view .card-hero.is-stale .hero-main,
+.hp-view .card-hero.is-stale .hero-side { opacity: .55; }
+
+/* ---- wykresy Recharts: wysokości jak w makiecie (lineChart height 110 / 180 / 240) ---- */
+.hp-view .chart-sm { height: 110px; }
+.hp-view .chart-md { height: 180px; }
+.hp-view .chart-lg { height: 240px; }
+
+/* legenda w nagłówku karty: pozycje przełączają serie (przycisk bez wyglądu przycisku) */
+.hp-view .legend button.lg[type] {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hp-view .legend button.lg[type]:hover { background: var(--hover); filter: none; }
+.hp-view .legend .lg.is-off { opacity: .45; text-decoration: line-through; }
+.hp-view .legend .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+
+/* dymek wykresu Recharts w kolorach karty (jak .chart .tip w makiecie) */
+.hp-view .chart-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-hover);
+}
+.hp-view .chart-tooltip strong { margin-bottom: 2px; }
+.hp-view .chart-tooltip i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.hp-view .chart-tooltip b { margin-left: 4px; font-weight: 700; }
+
+/* ---- ładowanie: wskaźnik w miejscu treści, bez przyciemniania całego okna ---- */
+.hp-view .loading { display: flex; justify-content: center; padding: 16px; color: var(--fg-3); }
+
+/* ---- karta „Sterownik”: wiersze z komponentów core (DeviceAddress, FirmwareStatus) w układzie listy .kv ---- */
+.hp-view .kv-extra { display: flex; flex-direction: column; }
+.hp-view .kv-extra > div:not(.actions) {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-soft);
+  align-items: baseline;
+  text-align: left;
+}
+@media (max-width: 400px) { .hp-view .kv-extra > div:not(.actions) { grid-template-columns: 110px 1fr; } }
+.hp-view .kv-extra .label { color: var(--fg-3); font-size: 13px; }
+.hp-view .kv-extra > div > :not(.label) { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.hp-view .kv-extra small { color: var(--fg-3); font-weight: 400; margin-left: 4px; }
+.hp-view .kv-extra .firmware-update-error { grid-column: 1 / -1; }
+.hp-view .kv-extra .actions { margin-top: 4px; gap: 8px; }
+.hp-view .kv-extra .actions button { margin: 0; }
+
+/* udostępnianie (core/components/DeviceSharing) w pionie kart po prawej, bez własnych marginesów */
+.hp-view .stack > .account-card { margin: 0; max-width: none; width: auto; }
+
+/* ---- okno wpisu harmonogramu (klasy .modal z makiety; warstwa stała, zamykana tłem i Esc) ---- */
+.hp-view .modal-layer { position: fixed; z-index: 1100; } /* ponad stałym paskiem (z-index 1000) */
+.hp-view .modal form { display: contents; }
+.hp-view .modal-foot button { margin: 0; }
+.hp-view .field select { appearance: auto; }
+
+/* telefon: nagłówek karty z legendą zawija się (makieta), przyciski w stopce okna na całą szerokość */
+@media (max-width: 400px) {
+  .hp-view .modal-foot { flex-wrap: wrap; }
+}

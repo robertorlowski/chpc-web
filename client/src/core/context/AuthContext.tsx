@@ -1,5 +1,5 @@
 // Konto zalogowanego (konta użytkowników, 2026-10-11): stan sesji dla AuthGate (core/App.tsx), zalogowanie po
-// kodzie lub linku z maila (token najpierw w sessionStorage), odpowiedź na pytanie o 7 dni (Tak = localStorage),
+// kodzie lub linku z maila (token najpierw w sessionStorage), odpowiedź na pytanie o 14 dni (Tak = localStorage),
 // wylogowanie i reakcja na 401 z serwera (sesja wygasła, konto usunięte) — powrót do ekranu logowania.
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { AuthRequests } from '../api';

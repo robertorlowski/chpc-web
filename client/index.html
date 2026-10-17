@@ -7,6 +7,11 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#0d0f12" />
     <title>CHPC</title>
+    <!-- motyw przed pierwszym rysowaniem (jak core/theme.ts): bez wyboru jasny, „system” bez data-theme -->
+    <script>
+      try { var t = localStorage.getItem('chpc.theme'); if (t !== 'system') document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light'); }
+      catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    </script>
     <!-- krój aplikacji (kierunek B z makiet/): Barlow, liczby w Barlow Semi Condensed; bez sieci zostaje czcionka systemowa -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

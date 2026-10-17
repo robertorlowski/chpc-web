@@ -1,14 +1,19 @@
-// Zakładka Dane fotowoltaiki (/data), dwa widoki:
-// - Odczyty dnia: od najnowszego, najwyżej jeden na minutę — cała instalacja albo jeden panel
-//   (port mikrofalownika); GET /photovoltaic/readings;
-// - Dni miesiąca: produkcja i szczyt mocy w każdym dniu; GET /photovoltaic/summary?period=month.
+// Zakładka Dane fotowoltaiki (/data), układ „Instrument” z makiety (#s-pv-dane): pasek filtrów (przełącznik
+// Odczyty dnia / Dni miesiąca, nawigacja po dacie, wybór panelu, przycisk CSV) i karta z tabelą (.table-wrap przewija
+// się w poziomie, strona nie). Dwa widoki:
+// - Odczyty dnia: od najnowszego, najwyżej jeden na minutę — cała instalacja albo jeden panel (port mikrofalownika);
+//   GET /photovoltaic/readings;
+// - Dni miesiąca: produkcja (z paskiem względem najlepszego dnia) i szczyt mocy w każdym dniu;
+//   GET /photovoltaic/summary?period=month.
 // Oba z eksportem CSV.
 import { useEffect, useState } from 'react';
 import { PhotovoltaicRequests } from '../api';
-import { PvReadingRow, PvSummary } from '../types';
+import { PvPanelState, PvReadingRow, PvSummary } from '../types';
 import {
-  STATE_LABELS, downloadText, formatDay, formatEnergy, formatPower, formatTemp, formatTime, panelName, toCsv, todayWarsaw,
+  STATE_LABELS, downloadText, formatDay, formatEnergy, formatMonth, formatPower, formatTemp, formatTime, panelName, plural, toCsv,
+  todayWarsaw,
 } from '../utils/pv';
+import { DateNav, DownloadIcon, Segmented } from '../components/ui';
 import './style.css';
 
 type View = 'readings' | 'days';
@@ -18,6 +23,8 @@ const number = (value: number | undefined, digits = 1) =>
 
 const WEEKDAYS = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'so'];
 const weekday = (day: string) => WEEKDAYS[new Date(`${day}T12:00:00`).getDay()];
+
+const STATE_CHIP: Record<PvPanelState, string> = { produces: 'chip-ok', idle: 'chip-off', offline: 'chip-err', alarm: 'chip-err' };
 
 export const PhotovoltaicData: React.FC = () => {
   const [view, setView] = useState<View>('readings');
@@ -48,6 +55,7 @@ export const PhotovoltaicData: React.FC = () => {
 
   const days = [...(month?.buckets ?? [])].reverse();
   const peak = Math.max(0, ...days.map((d) => d.energyWh));
+  const canExport = view === 'readings' ? !!rows?.length : days.length > 0;
 
   const exportCsv = () => {
     if (view === 'days') {
@@ -65,106 +73,108 @@ export const PhotovoltaicData: React.FC = () => {
     downloadText(csv, `fotowoltaika-${date}${panel ? `-${panel}` : ''}.csv`);
   };
 
+  const hint = view === 'readings'
+    ? ['co minutę', 'od najnowszego', rows?.length ? plural(rows.length, ['odczyt', 'odczyty', 'odczytów']) : ''].filter(Boolean).join(' · ')
+    : [formatMonth(date), days.length ? plural(days.length, ['dzień', 'dni', 'dni']) + ' z danymi' : ''].filter(Boolean).join(' · ');
+
   return (
-    <div className="settings pv-page">
-      <h2>Dane</h2>
-      <section>
-        <div className="resource pv-data">
-          <div className="pv-periods pv-views" role="radiogroup" aria-label="Widok">
-            <label><input type="radio" name="pv-view" checked={view === 'readings'} onChange={() => setView('readings')} />Odczyty dnia</label>
-            <label><input type="radio" name="pv-view" checked={view === 'days'} onChange={() => setView('days')} />Dni miesiąca</label>
-          </div>
-          <div className="pv-toolbar">
-            {view === 'readings' ? (
+    <div className="page page-device pv-page">
+      <div className="filters">
+        <Segmented<View> name="pv-dane-z" label="Zakres" value={view} onChange={setView}
+          options={[{ value: 'readings', label: 'Odczyty dnia' }, { value: 'days', label: 'Dni miesiąca' }]} />
+        <DateNav unit={view === 'readings' ? 'day' : 'month'} date={date} onChange={setDate} />
+        {view === 'readings' && (
+          <label className="field field-inline">
+            <span>Panel</span>
+            <select value={panel} onChange={(event) => setPanel(event.currentTarget.value)}>
+              <option value="">Cała instalacja</option>
+              {panels.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+            </select>
+          </label>
+        )}
+        <button type="button" className="btn btn-ghost btn-sm" disabled={!canExport} onClick={exportCsv}><DownloadIcon />CSV</button>
+      </div>
+
+      <section className="card card-table">
+        <header className="card-head">
+          <h2>{view === 'readings' ? 'Odczyty dnia' : 'Dni miesiąca'}</h2>
+          <span className="card-hint">{hint}</span>
+        </header>
+
+        {view === 'days' && (
+          <>
+            {month === undefined && <p className="help">Wczytywanie…</p>}
+            {month === null && <p className="help danger-text">Nie udało się pobrać danych.</p>}
+            {month && !days.length && <p className="help">Brak danych z tego miesiąca.</p>}
+            {!!days.length && (
               <>
-                <input type="date" value={date} max={todayWarsaw()}
-                  onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
-                <select value={panel} onChange={(event) => setPanel(event.currentTarget.value)} aria-label="Zakres danych">
-                  <option value="">Cała instalacja</option>
-                  {panels.map((item) => <option key={item.key} value={item.key}>Panel {item.label}</option>)}
-                </select>
-              </>
-            ) : (
-              <input type="month" value={date.slice(0, 7)}
-                onChange={(event) => event.currentTarget.value && setDate(`${event.currentTarget.value}-01`)} />
-            )}
-            <button type="button" className="pv-toolbar-end"
-              disabled={view === 'readings' ? !rows?.length : !days.length} onClick={exportCsv}>CSV</button>
-          </div>
-
-          {view === 'days' && (
-            <>
-              {month === undefined && <div className="pv-hint">Wczytywanie…</div>}
-              {month === null && <div className="pv-bad">Nie udało się pobrać danych.</div>}
-              {month && !days.length && <div className="pv-hint">Brak danych z tego miesiąca.</div>}
-              {!!days.length && (
-                <>
-                  <div className="pv-total">
-                    Razem: <strong>{formatEnergy(month!.energyWh)}</strong> w {days.length} dniach,
-                    średnio {formatEnergy(month!.energyWh / days.length)} dziennie
-                  </div>
-                  <div className="pv-table-scroll">
-                    <table className="pv-table">
-                      <thead><tr><th>Dzień</th><th>Produkcja</th><th className="pv-col-bar" /><th>Szczyt</th></tr></thead>
-                      <tbody>
-                        {days.map((d) => (
-                          <tr key={d.key}>
-                            <td>{formatDay(d.key)} <span className="pv-hint">{weekday(d.key)}</span></td>
-                            <td>{formatEnergy(d.energyWh)}</td>
-                            <td className="pv-col-bar">
-                              <span className="pv-panel-bar"><span style={{ width: `${Math.round(100 * d.energyWh / (peak || 1))}%` }} /></span>
-                            </td>
-                            <td>{formatPower(d.peakW)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {view === 'readings' && (
-            <>
-              {rows === undefined && <div className="pv-hint">Wczytywanie…</div>}
-              {rows === null && <div className="pv-bad">Nie udało się pobrać danych.</div>}
-              {rows?.length === 0 && (
-                <div className="pv-hint">
-                  Brak odczytów{panel ? ' tego panelu' : ''} z tego dnia.
-                  {panel && ' Szczegóły paneli są od 26.09.2026 (wcześniej tylko sumy instalacji).'}
-                </div>
-              )}
-              {!!rows?.length && (
-                <div className="pv-table-scroll">
-                  <table className="pv-table">
-                    <thead>
-                      {panel ? (
-                        <tr><th>Czas</th><th>Moc</th><th>U PV</th><th>I PV</th><th>U sieci</th><th>Hz</th><th>Temp.</th><th>Dziś</th><th>Stan</th></tr>
-                      ) : (
-                        <tr><th>Czas</th><th>Moc</th><th>Dziś</th><th>Licznik</th><th>Temp.</th></tr>
-                      )}
-                    </thead>
+                <div className="table-wrap">
+                  <table className="data">
+                    <thead><tr><th>Dzień</th><th className="num">Produkcja</th><th className="pv-col-bar" aria-label="Pasek produkcji" /><th className="num">Szczyt</th></tr></thead>
                     <tbody>
-                      {rows.map((r) => panel ? (
-                        <tr key={r.t} className={r.state === 'offline' || r.state === 'alarm' ? 'pv-bad' : ''}>
-                          <td>{formatTime(r.t)}</td><td>{formatPower(r.power)}</td><td>{number(r.pv_voltage)} V</td>
-                          <td>{number(r.pv_current, 2)} A</td><td>{number(r.grid_voltage)} V</td><td>{number(r.grid_frequency, 2)}</td>
-                          <td>{formatTemp(r.temperature)}</td><td>{formatEnergy(r.prod_today)}</td><td>{r.state ? STATE_LABELS[r.state] : '---'}</td>
-                        </tr>
-                      ) : (
-                        <tr key={r.t}>
-                          <td>{formatTime(r.t)}</td><td>{formatPower(r.power)}</td><td>{formatEnergy(r.todayWh)}</td>
-                          <td>{formatEnergy(r.totalWh)}</td><td>{formatTemp(r.temperature)}</td>
+                      {days.map((d) => (
+                        <tr key={d.key}>
+                          <td>{formatDay(d.key)} <small className="pv-dim">{weekday(d.key)}</small></td>
+                          <td className="num">{formatEnergy(d.energyWh)}</td>
+                          <td className="pv-col-bar">
+                            <span className="pv-bar" aria-hidden="true"><span style={{ width: `${Math.round(100 * d.energyWh / (peak || 1))}%` }} /></span>
+                          </td>
+                          <td className="num">{formatPower(d.peakW)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+                <div className="table-foot">
+                  Razem <strong>{formatEnergy(month!.energyWh)}</strong> w {plural(days.length, ['dniu', 'dniach', 'dniach'])},
+                  średnio {formatEnergy(month!.energyWh / days.length)} dziennie.
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {view === 'readings' && (
+          <>
+            {rows === undefined && <p className="help">Wczytywanie…</p>}
+            {rows === null && <p className="help danger-text">Nie udało się pobrać danych.</p>}
+            {rows?.length === 0 && (
+              <p className="help">
+                Brak odczytów{panel ? ' tego panelu' : ''} z tego dnia.
+                {panel && ' Szczegóły paneli są od 26.09.2026 (wcześniej tylko sumy instalacji).'}
+              </p>
+            )}
+            {!!rows?.length && (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead>
+                    {panel ? (
+                      <tr><th>Czas</th><th className="num">Moc</th><th className="num">U PV</th><th className="num">I PV</th><th className="num">U sieci</th><th className="num">f</th><th className="num">Temp.</th><th className="num">Dziś</th><th>Stan</th></tr>
+                    ) : (
+                      <tr><th>Czas</th><th className="num">Moc</th><th className="num">Dziś</th><th className="num">Licznik</th><th className="num">Temp.</th></tr>
+                    )}
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => panel ? (
+                      // czerwony wiersz tylko przy alarmie; brak łączności (noc) pokazuje sam chip
+                      <tr key={r.t} className={r.state === 'alarm' ? 'is-err' : undefined}>
+                        <td>{formatTime(r.t)}</td><td className="num">{formatPower(r.power)}</td><td className="num">{number(r.pv_voltage)} V</td>
+                        <td className="num">{number(r.pv_current, 2)} A</td><td className="num">{number(r.grid_voltage)} V</td><td className="num">{number(r.grid_frequency, 2)} Hz</td>
+                        <td className="num">{formatTemp(r.temperature)}</td><td className="num">{formatEnergy(r.prod_today)}</td>
+                        <td>{r.state ? <span className={`chip ${STATE_CHIP[r.state]}`}>{STATE_LABELS[r.state]}</span> : '---'}</td>
+                      </tr>
+                    ) : (
+                      <tr key={r.t}>
+                        <td>{formatTime(r.t)}</td><td className="num">{formatPower(r.power)}</td><td className="num">{formatEnergy(r.todayWh)}</td>
+                        <td className="num">{formatEnergy(r.totalWh)}</td><td className="num">{formatTemp(r.temperature)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );

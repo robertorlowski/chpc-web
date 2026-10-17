@@ -1,397 +1,94 @@
-/* Fotowoltaika: karty jak w Ustawieniach pompy (.settings > section > .resource) */
-.settings.pv-page > section > .resource,
-.settings.pv-page > section > .resource:first-child {
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
+/* Fotowoltaika, wygląd „Instrument” (makiety/src/makieta.html, ekrany #s-pv-*). Komponenty makiety (.page, .card,
+   .card-hero, .kpi, .panels, .filters, .date-nav, .segmented, .stat, .table-wrap, .kv, .params …) są globalnie
+   w client/src/makieta.css; tutaj tylko to, czego makieta nie ma albo co w kliencie leży poza nią (odstępy strony,
+   przycisk-ikona, wysokość wykresu Recharts, ukryte pole daty w nawigacji, chipy wyboru paneli). Kolory z tokenów. */
+
+/* odstępy strony jak w makiecie (baza.css .page); .app-main daje górę i dół pod pasek i dolną nawigację */
+.pv-page.page {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: 28px;
   box-sizing: border-box;
 }
 
-.pv-page .settings-section-title {
-  margin-bottom: 0.5rem;
-}
-
-.pv-on {
-  color: var(--ok-fg);
-  font-weight: 600;
-}
-
-.pv-bad {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.pv-hint {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.pv-summary {
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-/* bieżąca moc i kafelki produkcji */
-.pv-now {
-  text-align: center;
-}
-
-.pv-now-power {
-  font-size: 2.6rem;
-  font-weight: 700;
-  color: var(--c-sun);
-  line-height: 1.1;
-}
-
-.pv-now-caption {
-  color: var(--fg-2);
-  margin-bottom: 0.6rem;
-}
-
-.pv-tiles {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
-
-.pv-tiles > div {
-  display: flex;
-  flex-direction: column;
-  background: var(--card);
-  border-radius: 6px;
-  padding: 0.4rem 0.2rem;
-}
-
-.pv-tiles strong {
-  font-size: 1.05rem;
-}
-
-.pv-tiles span {
-  font-size: 0.8rem;
-  color: var(--fg-2);
-}
-
-.pv-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.pv-row .label {
-  min-width: 10rem;
-}
-
-.pv-row code {
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
-/* panele: nazwa, pasek mocy, moc, stan */
-.pv-inverter {
-  margin-top: 0.6rem;
-}
-
-.pv-inverter-title {
-  font-weight: 600;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0.2rem;
-  margin-bottom: 0.2rem;
-}
-
-.pv-panel {
-  display: grid;
-  grid-template-columns: 3.6rem minmax(0, 1fr) 4.6rem 7.5rem;
+/* przycisk-ikona makiety (baza.css .icon-btn) */
+.pv-page .icon-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-  font-size: 0.92rem;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
 }
 
-.pv-panel-bar {
-  height: 0.7rem;
-  background: var(--line);
-  border-radius: 4px;
-  overflow: hidden;
-}
+.pv-page .icon-btn:hover:not(:disabled) { background: var(--hover); }
+.pv-page .icon-btn.sm { width: 34px; height: 34px; }
 
-.pv-panel-bar > span {
-  display: block;
+/* przełącznik segmentowy w pasku filtrów nie łamie etykiet („Produkcja paneli”) */
+.pv-page .seg span { white-space: nowrap; }
+
+/* pasek „Offline od …” w siatce strony, bez bocznych marginesów z style.css */
+.pv-page .offline-banner { margin: 0; }
+
+/* wykresy Recharts: kontener potrzebuje stałej wysokości (makieta: pv-day 200 px, pv-month 220 px) */
+.pv-page .chart-md { height: 200px; }
+.pv-page .chart-lg { height: 320px; }
+
+/* nawigacja po dacie: niewidoczne pole daty pod etykietą (kliknięcie otwiera kalendarz przeglądarki) */
+.pv-page .date-cur { position: relative; cursor: pointer; }
+
+.pv-page .date-pick {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  background: var(--c-sun);
-}
-
-.pv-panel-power {
-  text-align: right;
-  font-weight: 600;
-}
-
-.pv-panel-state {
-  font-size: 0.82rem;
-  color: var(--fg-2);
-}
-
-.pv-panel-produces .pv-panel-state {
-  color: var(--ok-fg);
-}
-
-.pv-panel-offline .pv-panel-state,
-.pv-panel-alarm .pv-panel-state {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* wykresy i pasek narzędzi */
-.pv-chart {
-  width: 100%;
-  height: 320px;
-}
-
-.pv-chart-small {
-  height: 200px;
-}
-
-/* wykres na całe okno (fill-page, useFillHeight): wysokość z miejsca w karcie */
-.fill-page .pv-chart {
-  height: auto;
-  min-height: 180px;
-}
-
-.pv-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.pv-toolbar button {
-  margin-left: 0;
-}
-
-.pv-toolbar .pv-toolbar-end {
-  margin-left: auto;
-}
-
-.pv-periods {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.pv-page input,
-.pv-page select {
-  font: inherit;
-  font-size: 0.95rem;
-  min-height: 32px;
-  padding: 0 0.4rem;
-  box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--card);
-}
-
-.pv-page input[type='radio'],
-.pv-page input[type='checkbox'] {
-  min-height: 0;
-}
-
-.pv-total {
-  margin-top: 0.4rem;
-  margin-bottom: 0.4rem;
-}
-
-.pv-views,
-.pv-day-views {
-  margin: 0.4rem 0;
-}
-
-/* pasek produkcji w tabeli dni miesiąca */
-.pv-table .pv-col-bar {
-  width: 40%;
-}
-
-.pv-table .pv-col-bar .pv-panel-bar {
-  display: block;
-}
-
-.pv-check {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin-top: 0.4rem;
-}
-
-/* tabela danych we własnym kontenerze: przewija się tylko ona, nie strona */
-.pv-table-scroll {
-  overflow-x: auto;
-}
-
-.pv-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.pv-table th,
-.pv-table td {
-  padding: 0.25rem 0.4rem;
-  text-align: right;
-  border-bottom: 1px solid var(--line);
-  white-space: nowrap;
-}
-
-.pv-table th:first-child,
-.pv-table td:first-child {
-  text-align: left;
-}
-
-.pv-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* lista parametrów (zwijana) */
-.pv-toggle {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  align-items: center;
   margin: 0;
   padding: 0;
   border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
+  opacity: 0;
   cursor: pointer;
-  text-align: left;
 }
 
-.pv-group summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--line);
+/* wybór paneli na wykresie „Moc paneli”: chipy pogrupowane według mikrofalowników, kolorowa kropka krzywej */
+.pv-chipsets { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.pv-chipsets .chip-check:first-child span { font-weight: 700; }
+
+.pv-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 0;
 }
 
-.pv-group ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* tabela „Dni miesiąca”: pasek produkcji względem najlepszego dnia */
+.pv-page .pv-col-bar { width: 40%; min-width: 120px; }
+
+.pv-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--muted-bg);
+  overflow: hidden;
 }
 
-.pv-parameter {
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--line);
-  overflow-wrap: anywhere;
-}
+.pv-bar > span { display: block; height: 100%; background: var(--c-sun); border-radius: 999px; }
+.pv-dim { color: var(--fg-3); }
 
-.pv-parameter-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.pv-parameter-label {
-  font-weight: 600;
-}
-
-.pv-parameter-status {
-  white-space: nowrap;
-  font-size: 0.85rem;
-}
-
-.pv-parameter-description {
-  font-size: 0.9rem;
-}
-
-.pv-parameter-rating {
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--fg-2);
-}
+/* ustawienia: druga linia w wartości (numer seryjny i produkcja mikrofalownika) i grupy listy parametrów */
+.pv-kv-line { display: block; margin-top: 2px; }
+.pv-param-group { display: flex; flex-direction: column; gap: 4px; }
+.pv-param-title { font-size: 13px; font-weight: 700; color: var(--fg-2); text-transform: uppercase; letter-spacing: .06em; }
+.pv-param-title small { font-weight: 500; color: var(--fg-3); text-transform: none; letter-spacing: 0; }
+.pv-page .params li { align-items: flex-start; }
+.pv-page .param-name small em { font-style: italic; }
+.pv-page .card-details > p.help { margin-top: -6px; }
 
 @media (max-width: 560px) {
-  body .settings.pv-page > section > .resource,
-  body .settings.pv-page > section > .resource:first-child {
-    width: var(--page-vw, 100vw);
-    margin-left: 0;
-    margin-right: 0;
-    border-radius: 0;
-  }
-
-  .pv-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .pv-panel {
-    grid-template-columns: 3.2rem minmax(0, 1fr) 4.2rem;
-  }
-
-  .pv-panel-state {
-    grid-column: 2 / 4;
-  }
-
-  .pv-row .label {
-    min-width: 8.5rem;
-  }
-
-  .pv-chart {
-    height: 260px;
-  }
-
-  .fill-page .pv-chart {
-    height: auto;
-  }
-
-  .pv-table {
-    font-size: 0.8rem;
-  }
-}
-
-/* „Moc paneli”: wybór paneli pogrupowany według mikrofalowników (sterowników) */
-.pv-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.6rem;
-  margin: 0.2rem 0 0.5rem;
-}
-
-.pv-picker-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.2rem 0.7rem;
-  padding: 0.3rem 0.6rem;
-  background: var(--card);
-  border: 1px solid #d5dfe6;
-  border-radius: 6px;
-}
-
-.pv-picker-group label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.pv-picker-title {
-  font-weight: 600;
-}
-
-.pv-picker-swatch {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-}
-
-/* ikona „i” obok przycisku rozwijania listy parametrów, w tej samej linii */
-.settings-section-title:has(> .pv-toggle) {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.settings-section-title > .pv-toggle {
-  flex: 1;
-  min-width: 0;
+  .pv-page .chart-lg { height: 260px; }
 }

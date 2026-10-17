@@ -1,22 +1,26 @@
-// Zakładka Wykres fotowoltaiki (/chart), jak w Hoymiles S-Miles Cloud: Dzień — krzywa mocy
-// (przedziały 5 min, opcjonalnie każdy panel osobno), Miesiąc — produkcja w dniach, Rok — w
-// miesiącach, Całość — w latach. GET /photovoltaic/day i /photovoltaic/summary. Karta na całe okno (useFillHeight,
-// klasa fill-page): wykres wypełnia wolne miejsce, jak na wykresach pompy ciepła, hydroforu i pieca.
-// „Moc paneli”: panele do pokazania wybiera się polami wyboru, pogrupowanymi według mikrofalowników (sterowników);
-// domyślnie widoczne są panele pierwszego mikrofalownika, bo wszystkie 10 krzywych naraz jest nieczytelne.
+// Zakładka Wykres fotowoltaiki (/chart), układ „Instrument” z makiety (#s-pv-wykres): pasek filtrów (okres Dzień /
+// Miesiąc / Rok / Całość i nawigacja po dacie), trzy kafelki statystyk (produkcja, najlepszy dzień / miesiąc / rok
+// albo szczyt mocy, średnia) i karta z wykresem Recharts w kolorach z core/chartColors (cc()). Dzień — krzywa mocy
+// (przedziały 5 min), w dniu ze szczegółami paneli także „Moc paneli” (linie wybranych portów, wybór chipami
+// pogrupowanymi według mikrofalowników; domyślnie pierwszy mikrofalownik, bo 10 krzywych naraz jest nieczytelne)
+// i „Produkcja paneli” (słupki kWh, na czerwono panele ponad 15 % poniżej średniej). Miesiąc — produkcja w dniach,
+// Rok — w miesiącach, Całość — w latach. GET /photovoltaic/day i /photovoltaic/summary.
 import { useEffect, useState } from 'react';
 import { cc, tooltipStyle } from '../../../core/chartColors';
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { useFillHeight } from '../../../core/components/useFillHeight';
-import { InfoTip } from '../../../core/components/InfoTip';
 import { PhotovoltaicRequests } from '../api';
 import { PvDay, PvSummary, PvSummaryPeriod } from '../types';
-import { formatDay, formatEnergy, formatPower, formatTime, panelName, shortSerial, todayWarsaw } from '../utils/pv';
+import {
+  MONTHS_SHORT, NumberUnit, formatDay, formatEnergy, formatMonth, formatPower, formatTime, panelName, shortSerial, splitEnergy, splitPower,
+  todayWarsaw,
+} from '../utils/pv';
+import { DateNav, Segmented } from '../components/ui';
 import './style.css';
 
 type Period = 'day' | PvSummaryPeriod;
+type DayView = 'total' | 'power' | 'energy';
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: 'day', label: 'Dzień' },
@@ -25,20 +29,29 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: 'total', label: 'Całość' },
 ];
 
-const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
-// kolory linii paneli (10 portów u nas)
-// kolory paneli: serie motywu, potem słońce i woda (do 10 portów)
+// panel „słabiej”: produkcja poniżej 85 % średniej paneli
+const LOW_RATIO = 0.85;
+
+// kolory linii paneli: serie motywu, potem słońce i woda (do 10 portów u nas)
 const COLORS = () => { const c = cc(); return [c.s1, c.s3, c.s4, c.s2, c.sun, c.water, c.heat, c.accent, c.danger, c.ok]; };
 
 const bucketLabel = (period: PvSummaryPeriod, key: string) =>
-  period === 'month' ? String(Number(key.slice(8, 10))) : period === 'year' ? MONTHS[Number(key.slice(5, 7)) - 1] : key;
+  period === 'month' ? String(Number(key.slice(8, 10))) : period === 'year' ? MONTHS_SHORT[Number(key.slice(5, 7)) - 1] : key;
+
+const bucketName = (period: PvSummaryPeriod, key: string) =>
+  period === 'month' ? formatDay(key) : period === 'year' ? formatMonth(key) : key;
+
+const Stat = ({ label, value, extra }: { label: string; value: NumberUnit; extra?: string }) => (
+  <div className="stat">
+    <span className="stat-label">{label}</span>
+    <span className="stat-value">{value[0]}{value[1] && <small>{value[1]}</small>}{extra && <small>· {extra}</small>}</span>
+  </div>
+);
 
 export const PhotovoltaicChart: React.FC = () => {
-  const cardRef = useFillHeight<HTMLDivElement>(360);
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(todayWarsaw());
-  // dzień: cała instalacja, moc każdego panelu albo produkcja paneli (słupki do porównania)
-  const [dayView, setDayView] = useState<'total' | 'power' | 'energy'>('total');
+  const [dayView, setDayView] = useState<DayView>('total');
   // wybrane panele (klucze serial-port) w widoku „Moc paneli”; null = domyślnie pierwszy mikrofalownik
   const [selectedPanels, setSelectedPanels] = useState<Set<string> | null>(null);
   const [day, setDay] = useState<PvDay | null | undefined>(undefined);
@@ -79,7 +92,7 @@ export const PhotovoltaicChart: React.FC = () => {
   }));
   const averageWh = panelEnergy.length ? panelEnergy.reduce((sum, p) => sum + p.energyWh, 0) / panelEnergy.length : 0;
   const hasPanels = !!day?.panels.length;
-  const view = hasPanels ? dayView : 'total';
+  const view: DayView = period === 'day' && hasPanels ? dayView : 'total';
 
   // panele pogrupowane według mikrofalowników (numer seryjny), z kolorem krzywej stałym niezależnie od wyboru
   const inverters = (() => {
@@ -100,163 +113,144 @@ export const PhotovoltaicChart: React.FC = () => {
     keys.forEach((key) => (on ? next.add(key) : next.delete(key)));
     setSelectedPanels(next);
   };
-  const summaryData = (summary?.buckets ?? []).map((b) => ({
-    label: period === 'day' ? b.key : bucketLabel(period as PvSummaryPeriod, b.key),
+
+  const buckets = summary?.buckets ?? [];
+  const summaryData = buckets.map((b) => ({
+    label: bucketLabel(period as PvSummaryPeriod, b.key),
     kwh: Math.round(b.energyWh / 100) / 10,
     energyWh: b.energyWh,
     peakW: b.peakW,
     days: b.days,
-    tooltip: period === 'month' ? formatDay(b.key) : period === 'year' ? `${MONTHS[Number(b.key.slice(5, 7)) - 1]} ${b.key.slice(0, 4)}` : b.key,
+    tooltip: bucketName(period as PvSummaryPeriod, b.key),
   }));
+  const best = buckets.reduce<PvSummary['buckets'][number] | null>((top, b) => (!top || b.energyWh > top.energyWh ? b : top), null);
+
+  // kafelki statystyk: dzień — produkcja, szczyt mocy, liczba przedziałów; okresy — produkcja, najlepszy kubełek, średnia
+  const stats = period === 'day' ? (
+    <>
+      <Stat label="Produkcja" value={splitEnergy(day?.energyWh)} />
+      <Stat label="Szczyt mocy" value={splitPower(day?.peakW)} extra={day?.peakAt ? formatTime(day.peakAt) : undefined} />
+      <Stat label="Odczyty" value={[dayData.length ? String(dayData.length) : '---', dayData.length ? 'co 5 min' : '']} />
+    </>
+  ) : (
+    <>
+      <Stat label="Produkcja" value={splitEnergy(summary?.energyWh)} />
+      <Stat label={period === 'month' ? 'Najlepszy dzień' : period === 'year' ? 'Najlepszy miesiąc' : 'Najlepszy rok'}
+        value={splitEnergy(best?.energyWh)}
+        extra={best ? (period === 'month' ? `${Number(best.key.slice(8, 10))}.${Number(best.key.slice(5, 7))}` : bucketLabel(period as PvSummaryPeriod, best.key)) : undefined} />
+      <Stat label="Średnio" value={buckets.length ? (() => { const [n, u] = splitEnergy(summary!.energyWh / buckets.length); return [n, `${u}/${period === 'month' ? 'dzień' : period === 'year' ? 'mies.' : 'rok'}`] as NumberUnit; })() : ['---', '']} />
+    </>
+  );
+
+  const title = period === 'month' ? 'Produkcja dzienna' : period === 'year' ? 'Produkcja miesięczna' : period === 'total' ? 'Produkcja roczna'
+    : view === 'power' ? 'Moc paneli' : view === 'energy' ? 'Produkcja paneli' : 'Moc w ciągu dnia';
+  const hint = period !== 'day' ? 'kWh · najedź na słupek'
+    : view === 'energy' ? `kWh · średnio ${formatEnergy(averageWh)} na panel` : `W · przedziały 5 min · ${formatDay(date)}`;
+  const status = period === 'day'
+    ? (day === undefined ? 'Wczytywanie…' : day === null ? 'Nie udało się pobrać danych.' : !dayData.length ? 'Brak odczytów z tego dnia.' : '')
+    : (summary === undefined ? 'Wczytywanie…' : summary === null ? 'Nie udało się pobrać danych.' : !summaryData.length ? 'Brak danych w tym okresie.' : '');
 
   return (
-    <div className="settings pv-page fill-page">
-      <h2>Produkcja energii</h2>
-      <section>
-        <div className="resource" ref={cardRef}>
-          <div className="pv-toolbar">
-            <div className="pv-periods" role="radiogroup" aria-label="Okres">
-              {PERIODS.map((item) => (
-                <label key={item.value}>
-                  <input type="radio" name="pv-period" value={item.value} checked={period === item.value}
-                    onChange={() => setPeriod(item.value)} />
-                  {item.label}
-                </label>
-              ))}
-            </div>
-            {period === 'day' && (
-              <input type="date" value={date} max={todayWarsaw()}
-                onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
-            )}
-            {period === 'month' && (
-              <input type="month" value={date.slice(0, 7)}
-                onChange={(event) => event.currentTarget.value && setDate(`${event.currentTarget.value}-01`)} />
-            )}
-            {period === 'year' && (
-              <input type="number" min={2020} max={2100} value={date.slice(0, 4)}
-                onChange={(event) => event.currentTarget.value.length === 4 && setDate(`${event.currentTarget.value}-01-01`)} />
-            )}
-          </div>
+    <div className="page page-device pv-page">
+      <div className="filters">
+        <Segmented<Period> name="pv-okres" label="Okres" value={period} options={PERIODS} onChange={setPeriod} />
+        {period !== 'total' && <DateNav unit={period} date={date} onChange={setDate} />}
+        {period === 'day' && (
+          <Segmented<DayView> name="pv-day-view" label="Widok dnia" value={view} onChange={setDayView} options={[
+            { value: 'total', label: 'Instalacja' },
+            { value: 'power', label: 'Moc paneli', disabled: !hasPanels },
+            { value: 'energy', label: 'Produkcja paneli', disabled: !hasPanels },
+          ]} />
+        )}
+      </div>
 
-          {period === 'day' && (
-            <>
-              <div className="pv-chart fill-area">
-                <ResponsiveContainer width="100%" height="100%">
-                  {view === 'energy' ? (
-                    <BarChart data={panelEnergy}>
-                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
-                      <XAxis stroke={cc().line} dataKey="label" interval={0} tick={{ fill: cc().axis, fontSize: 11 }} />
-                      <YAxis stroke={cc().line} width={44} tick={{ fill: cc().axis, fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
-                        label={{ value: 'kWh', position: 'insideTopLeft', offset: -2, fontSize: 12 }} />
-                      <Tooltip {...tooltipStyle()} formatter={(_value, _name, item) => [formatEnergy(item.payload.energyWh), 'Produkcja']}
-                        labelFormatter={(label, payload) => payload?.[0]?.payload?.name ?? label} />
-                      <Bar dataKey="kwh" isAnimationActive={false}>
-                        {panelEnergy.map((p) => (
-                          <Cell key={p.label} fill={p.energyWh < averageWh * 0.85 ? cc().danger : cc().sun} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  ) : view === 'power' && panelsData.length ? (
-                    <LineChart data={panelsData}>
-                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
-                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={56} tickFormatter={(value: number) => formatPower(value)} />
-                      <Tooltip {...tooltipStyle()} formatter={(value, name) => [formatPower(Number(value)), panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))]} />
-                      <Legend formatter={(name) => panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))} />
-                      {day!.panels.map((panel, index) => (shown.has(panel.key) ? (
-                        <Line key={panel.key} type="monotone" dataKey={panel.key} dot={false} stroke={COLORS()[index % COLORS.length]} isAnimationActive={false} />
-                      ) : null))}
-                    </LineChart>
-                  ) : (
-                    <AreaChart data={dayData}>
-                      <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
-                      <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} width={56} tickFormatter={(value: number) => formatPower(value)} />
-                      <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), 'Moc']} />
-                      <Area type="monotone" dataKey="moc" stroke={cc().sun} fill={cc().sun} fillOpacity={0.3} isAnimationActive={false} />
-                    </AreaChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-              <div className="pv-total">
-                {day === undefined ? 'Wczytywanie…' : day === null ? 'Nie udało się pobrać danych.' : !dayData.length ? 'Brak odczytów z tego dnia.' : (
-                  <>Produkcja: <strong>{formatEnergy(day.energyWh)}</strong>, szczyt {formatPower(day.peakW)} o {formatTime(day.peakAt)}</>
-                )}
-              </div>
-              <div className="pv-periods pv-day-views" role="radiogroup" aria-label="Widok dnia">
-                {([['total', 'Instalacja'], ['power', 'Moc paneli'], ['energy', 'Produkcja paneli']] as const).map(([value, label]) => (
-                  <label key={value}>
-                    <input type="radio" name="pv-day-view" value={value} checked={view === value}
-                      disabled={value !== 'total' && !hasPanels} onChange={() => setDayView(value)} />
-                    {label}
+      <div className="stat-row">{stats}</div>
+
+      <section className="card">
+        <header className="card-head"><h2>{title}</h2><span className="card-hint">{hint}</span></header>
+
+        {view === 'power' && hasPanels && (
+          <div className="pv-chipsets" role="group" aria-label="Panele na wykresie">
+            {inverters.map((inverter) => {
+              const keys = inverter.panels.map((panel) => panel.key);
+              const count = keys.filter((key) => shown.has(key)).length;
+              return (
+                <div key={inverter.serial} className="chipset">
+                  <label className="chip-check">
+                    <input type="checkbox" checked={count === keys.length}
+                      ref={(element) => { if (element) element.indeterminate = count > 0 && count < keys.length; }}
+                      onChange={(event) => togglePanels(keys, event.currentTarget.checked)} />
+                    <span>Mikrofalownik {shortSerial(inverter.serial)}</span>
                   </label>
-                ))}
-              </div>
-              {view === 'power' && hasPanels && (
-                <div className="pv-picker" role="group" aria-label="Panele na wykresie">
-                  {inverters.map((inverter) => {
-                    const keys = inverter.panels.map((panel) => panel.key);
-                    const count = keys.filter((key) => shown.has(key)).length;
-                    return (
-                      <div key={inverter.serial} className="pv-picker-group">
-                        <label className="pv-picker-title">
-                          <input type="checkbox" checked={count === keys.length}
-                            ref={(element) => { if (element) element.indeterminate = count > 0 && count < keys.length; }}
-                            onChange={(event) => togglePanels(keys, event.currentTarget.checked)} />
-                          Mikrofalownik {shortSerial(inverter.serial)}
-                        </label>
-                        {inverter.panels.map((panel) => (
-                          <label key={panel.key} className="pv-picker-port">
-                            <input type="checkbox" checked={shown.has(panel.key)}
-                              onChange={(event) => togglePanels([panel.key], event.currentTarget.checked)} />
-                            <span className="pv-picker-swatch" style={{ background: panel.color }} />
-                            port {panel.port}
-                          </label>
-                        ))}
-                      </div>
-                    );
-                  })}
+                  {inverter.panels.map((panel) => (
+                    <label key={panel.key} className="chip-check">
+                      <input type="checkbox" checked={shown.has(panel.key)} onChange={(event) => togglePanels([panel.key], event.currentTarget.checked)} />
+                      <span><i className="pv-swatch" style={{ background: panel.color }} />port {panel.port}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
-              {day && !hasPanels && dayData.length > 0 && (
-                <div className="pv-hint">Brak szczegółów paneli z tego dnia (są od 26.09.2026).</div>
-              )}
-              {view === 'energy' && (
-                <div className="pv-hint">
-                  Średnio {formatEnergy(averageWh)} na panel
-                  <InfoTip>Na czerwono panele z produkcją niższą o ponad 15% od średniej (zacienienie, zabrudzenie, usterka). Etykieta: końcówka numeru mikrofalownika / port.</InfoTip>
-                </div>
-              )}
-            </>
-          )}
+              );
+            })}
+          </div>
+        )}
 
-          {period !== 'day' && (
-            <>
-              <div className="pv-chart fill-area">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={summaryData}>
-                    <CartesianGrid stroke={cc().grid} strokeDasharray="3 3" />
-                    <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="label" interval="preserveStartEnd" />
-                    <YAxis stroke={cc().line} width={44} tick={{ fill: cc().axis, fontSize: 12 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')}
-                      label={{ value: 'kWh', position: 'insideTopLeft', offset: -2, fontSize: 12 }} />
-                    <Tooltip {...tooltipStyle()}
-                      formatter={(_value, _name, item) => [`${formatEnergy(item.payload.energyWh)}, szczyt ${formatPower(item.payload.peakW)}`
-                        + (period === 'month' ? '' : `, dni z danymi: ${item.payload.days}`), 'Produkcja']}
-                      labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltip ?? label}
-                    />
-                    <Bar dataKey="kwh" fill={cc().sun} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="pv-total">
-                {summary === undefined ? 'Wczytywanie…' : summary === null ? 'Nie udało się pobrać danych.' : (
-                  <>Razem: <strong>{formatEnergy(summary.energyWh)}</strong>{summaryData.length ? '' : ' (brak danych w tym okresie)'}
-                    <InfoTip>Produkcja liczona z dni, z których są dane w systemie (licznik dzienny DTU).</InfoTip></>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        {status ? <p className={`help${status.startsWith('Nie') ? ' danger-text' : ''}`}>{status}</p> : (
+          <div className="chart chart-lg">
+            <ResponsiveContainer width="100%" height="100%">
+              {period !== 'day' ? (
+                <BarChart data={summaryData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={cc().grid} vertical={false} />
+                  <XAxis dataKey="label" stroke={cc().line} tickLine={false} tick={{ fill: cc().axis, fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={36} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')} />
+                  <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }}
+                    formatter={(_value, _name, item) => [`${formatEnergy(item.payload.energyWh)}, szczyt ${formatPower(item.payload.peakW)}`
+                      + (period === 'month' ? '' : `, dni z danymi: ${item.payload.days}`), 'Produkcja']}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltip ?? label} />
+                  <Bar dataKey="kwh" fill={cc().sun} radius={[1.5, 1.5, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+                </BarChart>
+              ) : view === 'energy' ? (
+                <BarChart data={panelEnergy} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={cc().grid} vertical={false} />
+                  <XAxis dataKey="label" stroke={cc().line} tickLine={false} interval={0} tick={{ fill: cc().axis, fontSize: 11 }} />
+                  <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={36} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => value.toLocaleString('pl-PL')} />
+                  <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }} formatter={(_value, _name, item) => [formatEnergy(item.payload.energyWh), 'Produkcja']}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.name ?? label} />
+                  <Bar dataKey="kwh" radius={[1.5, 1.5, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+                    {panelEnergy.map((p) => <Cell key={p.label} fill={p.energyWh < averageWh * LOW_RATIO ? cc().danger : cc().sun} />)}
+                  </Bar>
+                </BarChart>
+              ) : view === 'power' ? (
+                <LineChart data={panelsData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={cc().grid} vertical={false} />
+                  <XAxis dataKey="label" stroke={cc().line} tickLine={false} tick={{ fill: cc().axis, fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
+                  <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={52} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => `${value} W`} />
+                  <Tooltip {...tooltipStyle()} formatter={(value, name) => [formatPower(Number(value)), panelName(String(name).split('-')[0], Number(String(name).split('-')[1]))]} />
+                  {day!.panels.map((panel, index) => (shown.has(panel.key) ? (
+                    <Line key={panel.key} type="monotone" dataKey={panel.key} dot={false} strokeWidth={2} stroke={COLORS()[index % COLORS.length]} isAnimationActive={false} />
+                  ) : null))}
+                </LineChart>
+              ) : (
+                <AreaChart data={dayData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={cc().grid} vertical={false} />
+                  <XAxis dataKey="label" stroke={cc().line} tickLine={false} tick={{ fill: cc().axis, fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
+                  <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={52} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => `${value} W`} />
+                  <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), 'Moc']} />
+                  <Area type="monotone" dataKey="moc" stroke={cc().sun} strokeWidth={2} fill={cc().sun} fillOpacity={0.28} isAnimationActive={false} />
+                </AreaChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {period === 'day' && day && !hasPanels && dayData.length > 0 && (
+          <p className="help">Brak szczegółów paneli z tego dnia (są od 26.09.2026).</p>
+        )}
+        {view === 'energy' && (
+          <p className="help">Na czerwono panele z produkcją niższą o ponad 15 % od średniej (zacienienie, zabrudzenie, usterka). Etykieta: końcówka numeru mikrofalownika / port.</p>
+        )}
+        {period !== 'day' && summaryData.length > 0 && (
+          <p className="help">Produkcja liczona z dni, z których są dane w systemie (licznik dzienny DTU).</p>
+        )}
       </section>
     </div>
   );

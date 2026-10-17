@@ -1,5 +1,6 @@
-/* Tokeny wyglądu aplikacji (kierunek B „Instrument” z makiet/, 2026-10-16): ciemny domyślnie, jasny przy ustawieniu
-   systemu albo wyborze użytkownika (data-theme na <html>, core/theme.ts). Wszystkie kolory w aplikacji mają brać się
+/* Tokeny wyglądu aplikacji (kierunek B „Instrument” z makiet/, 2026-10-16): motyw wybiera data-theme na <html>
+   (core/theme.ts; bez wyboru użytkownika jasny od 2026-10-17). Przy „Jak system” (bez data-theme) ciemny, chyba że
+   system prosi o jasny. Wszystkie kolory w aplikacji mają brać się
    z tych zmiennych; style stron nie wpisują kolorów wprost. Czcionka Barlow (client/index.html), liczby w Barlow Semi Condensed.
    Pełna lista i uzasadnienie: makiety/README.md, makiety/src/wariant-b.css. */
 :root {

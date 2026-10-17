@@ -1,288 +1,95 @@
-/* Włącznik: karty jak w Ustawieniach pompy (.settings > section > .resource) i hydroforu */
-.settings.switch-page > section > .resource,
-.settings.switch-page > section > .resource:first-child {
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
-  box-sizing: border-box;
+/* Włącznik: strony z klas makiety „Instrument” (client/src/makieta.css: .page, .card, .card-relay, .countdown,
+   .actions-3, .filters, .date-nav, .entries, .form-grid, .kv, .modal …). Tu tylko to, czego makieta nie ma albo
+   co w kliencie wygląda inaczej (reguły globalne style.css, komponenty core). Kolory z tokenów. */
+
+/* boczne marginesy strony jak w makiecie (.page z baza.css); .page w kliencie ich nie ma */
+.switch-page {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: 16px;
 }
 
-.switch-page .settings-section-title {
-  margin-bottom: 0.5rem;
-}
-
-/* nagłówek karty przekaźnika: nazwa po lewej, przełącznik stanu po prawej */
-.switch-relay-header {
-  display: flex;
+/* przyciski-ikony z makiety (baza.css .icon-btn nie jest w kliencie): nawigacja po dacie, zamknięcie okna */
+.switch-page .icon-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.switch-relay-header h3 {
-  margin: 0;
-}
-
-/* globalna reguła img daje display: block i margines dolny (jak .water-switch) */
-.switch-indicator {
-  display: inline-block;
-  height: 28px;
-  margin: 0;
-  vertical-align: middle;
-}
-
-.switch-mode {
-  margin: 0.4rem 0;
-}
-
-.switch-mode-danger {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.switch-countdown {
-  font-size: 2rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent);
-  text-align: center;
-  margin: 0.25rem 0 0.5rem;
-}
-
-.switch-offline {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 4px;
-  background: var(--err-bg);
-  color: var(--danger);
-  font-size: 0.85rem;
-}
-
-.switch-actions {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
-/* „Wyłącz / wyłącz harmonogram”: pastelowa czerwień zamiast jaskrawej (var(--danger) „waliła po oczach”) */
-button.switch-stop {
-  background-color: #f6d6d3;
-  border: 1px solid #e5b3ae;
-  color: #8c2a24;
-}
+.switch-page .icon-btn.sm { width: 34px; height: 34px; }
+.switch-page .icon-btn:hover:not(:disabled) { background: var(--hover); filter: none; }
+.switch-page .icon-btn:disabled { background: transparent; color: inherit; }
 
-button.switch-stop:hover:not(:disabled) {
-  background-color: #f0c4bf;
-}
+/* .relay-state ustawia kolor później niż .danger-text, więc czerwony opis trybu wymaga mocniejszego selektora */
+.switch-page .relay-state.danger-text { color: var(--danger); }
 
-button.switch-secondary {
-  background-color: var(--fg-3);
-}
+/* pasek „Offline” w karcie przekaźnika: bez marginesów karty .resource */
+.switch-page .card .offline-banner { margin: 0; }
 
-button.switch-active {
-  outline: 3px solid #f2b705;
-  outline-offset: 1px;
-}
+/* przyciski bez globalnego marginesu i zmiany tła po najechaniu (style.css button) */
+.switch-page .btn { margin: 0; }
+.switch-page .filters .btn { margin-left: auto; }
+.switch-page .btn:disabled { background: var(--muted-bg); color: var(--muted-fg); }
+.switch-page .btn-primary:disabled { background: var(--accent); color: var(--accent-fg); }
+.switch-page .btn-ghost:disabled { background: transparent; color: var(--accent); }
+.switch-page .btn .ic { width: 16px; height: 16px; margin-right: 6px; }
 
-/* „Włącz na [h] [min] Uruchom” w jednej linii, zawijane na telefonie */
-.switch-timer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-}
+/* „Czas włączenia” h / min w karcie przekaźnika */
+.switch-page .card-relay .range-inputs input[type='number'] { width: 56px; }
 
-.switch-timer button {
-  margin-left: 0;
-}
-
-.switch-page input,
-.switch-page select {
+/* data w nawigacji po dniach: tekst jest przyciskiem (kalendarz przeglądarki), pole daty ukryte pod nim */
+.switch-page .date-cur { position: relative; display: inline-flex; align-items: center; padding: 0; }
+.switch-page .date-pick {
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
-  font-size: 0.95rem;
-  min-height: 32px;
-  padding: 0 0.4rem;
-  box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--card);
-}
-
-.switch-page input[type='number'] {
-  width: 4.5rem;
-  text-align: right;
-}
-
-.switch-page input[type='checkbox'] {
-  min-height: 0;
-}
-
-.switch-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.95rem;
-}
-
-.switch-table th,
-.switch-table td {
-  padding: 0.25rem 0.4rem;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
+  font-weight: 700;
   white-space: nowrap;
+  cursor: pointer;
+}
+.switch-page .date-pick:hover { filter: none; text-decoration: underline; }
+.switch-page .date-pick small { font-weight: 500; color: var(--fg-3); margin-left: 4px; }
+.switch-page .date-hidden {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.switch-table td.switch-num,
-.switch-table th.switch-num {
-  text-align: right;
-}
+/* ikony edycji i usuwania wpisu (core/components/IconButton) w rzędzie akcji wpisu */
+.switch-page .entry-actions { gap: 4px; }
+.switch-page .entry-actions button.icon-button[type] { padding: 6px; }
 
-.switch-row-active td {
-  color: var(--accent);
-  font-weight: 600;
-}
+/* okno wpisu jako formularz: .modal to <form> */
+.switch-page form.modal { margin: 0; }
+.switch-page .modal .field input,
+.switch-page .modal .field select { box-sizing: border-box; }
 
-.switch-total {
-  margin-top: 0.5rem;
-  text-align: right;
-}
+/* nazwy przekaźników: pole na całą kolumnę (w-text z makiety ma stałe 220 px, na telefonie więcej niż pół karty) */
+.switch-page .form-grid .range-inputs { min-width: 0; }
+.switch-page .form-grid input.w-text { width: 220px !important; max-width: 100%; box-sizing: border-box; }
 
-.switch-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
+/* udostępnianie (core/components/DeviceSharing) jako karta w kolumnie */
+.switch-page .share-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 
-.switch-toolbar button {
-  margin-left: 0;
-}
-
-.switch-toolbar .switch-toolbar-end {
-  margin-left: auto;
-}
-
-.switch-hint {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.switch-error {
-  color: var(--danger);
-}
-
-/* minmax(0, 1fr): wiersz nie rozpycha karty szerokością pola (telefon) */
-.switch-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.4rem;
-}
-
-/* etykiety w tej samej kolumnie co w karcie „Sterownik” (span.label 11rem, na telefonie 9.5rem) */
-.switch-form label {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-}
-
-.switch-form span.label {
-  flex: 0 0 11rem;
-  min-width: 0;
-}
-
-.switch-form input[type='text'] {
-  flex: 0 1 14rem;
-  min-width: 0;
-}
-
-.switch-form input[type='number'] {
-  width: 5rem;
-}
-
-.switch-unit {
-  margin-left: 0.4rem;
-}
-
-/* pod polem: szerokość etykiety + jej globalny margines 15px (.label w Charts/style.css) */
-.switch-page .switch-form .switch-form-hint {
-  margin-left: calc(11rem + 15px);
-  text-align: left;
-}
-
-.switch-form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.switch-form-actions button {
-  margin-left: 0;
-}
-
-.switch-table-scroll {
-  overflow-x: auto;
-}
-
+/* telefon: wartość główna odliczania mniejsza, przyciski Włącz / Wyłącz / Harmonogram mieszczą się w 3 kolumnach */
 @media (max-width: 560px) {
-  body .settings.switch-page > section > .resource,
-  body .settings.switch-page > section > .resource:first-child {
-    width: var(--page-vw, 100vw);
-    margin-left: 0;
-    margin-right: 0;
-    border-radius: 0;
-  }
-
-  .switch-table {
-    font-size: 0.85rem;
-  }
-
-  /* „Dziś” na głównej: bez przewijania strony, nazwa i źródło mogą się zawinąć */
-  .switch-table-wrap td {
-    white-space: normal;
-  }
-
-  .switch-table-wrap td.switch-nowrap {
-    white-space: nowrap;
-  }
-
-  .switch-form span.label {
-    flex-basis: 9.5rem;
-  }
-
-  .switch-form input[type='text'] {
-    flex: 1 1 0;
-    width: 0;
-  }
-
-  .switch-page .switch-form .switch-form-hint {
-    margin-left: calc(9.5rem + 15px);
-  }
-}
-
-/* „Wyłącz” na dole karty: na całą szerokość */
-.switch-page button.switch-stop-wide {
-  display: block;
-  width: 100%;
-  margin: 0.9rem 0 0;
-}
-
-/* „Włącz teraz” i „Włącz wg harmonogramu”: po 50 % szerokości karty (z odstępem), w jednej linii także na telefonie */
-.switch-actions {
-  flex-wrap: nowrap;
-}
-
-.switch-page .switch-actions button {
-  flex: 1 1 0;
-  min-width: 0;
-  margin: 0; /* globalny margines przycisków przesuwał pierwszy przycisk względem „Wyłącz” */
-}
-
-@media (max-width: 560px) {
-  .switch-page .switch-actions button {
-    padding-left: 0.4rem;
-    padding-right: 0.4rem;
-    font-size: 0.9rem;
-    line-height: 1.15;
-  }
+  .switch-page .countdown-num { font-size: 32px; }
+  .switch-page .actions-3 .btn { padding-left: 6px; padding-right: 6px; font-size: 14px; }
+  .switch-page .filters .segmented { width: 100%; }
 }

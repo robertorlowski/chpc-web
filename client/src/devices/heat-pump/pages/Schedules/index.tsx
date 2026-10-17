@@ -1,8 +1,10 @@
-// Zakładka Harmonogram pompy (/schedules): tryb pracy i ustawienia domyślne urządzenia (GET/PUT
-// /device/properties: work_mode MANUAL / AUTO / OFF, temperatura od–do), jedna lista wpisów (/schedules:
-// praca albo przerwa OFF) i pozycja „Poza harmonogramem”. Czerwona kreska = pozycja działająca teraz
-// (GET /schedules/current, odświeżane co minutę i po każdym zapisie). Harmonogram działa tylko w trybie
+// Zakładka Harmonogram pompy (/schedules) w układzie makiety „Instrument” (#s-hp-harmonogram): karta „Tryb pracy”
+// (przełącznik Ręczny / Automatyczny / Wyłączony i temperatura domyślna od–do; GET/PUT /device/properties) i karta
+// „Wpisy” z listą (/schedules: praca albo przerwa OFF) oraz pozycją „Poza harmonogramem”. Wpis, który działa teraz
+// (GET /schedules/current, odświeżane co minutę i po każdym zapisie), ma znacznik „działa teraz” i podświetlenie.
+// Wpis dodaje i zmienia się w oknie „Wpis harmonogramu” (klasy .modal z makiety). Harmonogram działa tylko w trybie
 // automatycznym; dawne wpisy CO i CWU są pokazywane jak praca.
+import '../style.css';
 import './style.css';
 import { FormEvent, useEffect, useState } from 'react';
 import { HpRequests } from '../../api';
@@ -12,8 +14,9 @@ import { CurrentSchedule, PumpWorkMode, pumpWorkMode, ScheduleEntry, ScheduleTyp
 import { DeviceProperties } from '../../../../core/types';
 import Notification, { useSaveNotice } from '../../../../core/components/Notification';
 import { IconButton } from '../../../../core/components/IconButton';
-import { EditIcon, PlusIcon, TrashIcon } from '../../../../core/components/icons';
-import { WORK_MODE_HINTS, WorkModeSwitch } from '../../components/WorkModeSwitch';
+import { EditIcon, TrashIcon } from '../../../../core/components/icons';
+import { Segmented, WORK_MODE_HINTS, WORK_MODE_OPTIONS } from '../../components/Segmented';
+import { CloseIcon } from '../../components/icons';
 
 const weekDays = [
   ['Poniedziałek', WeekDay.MONDAY],
@@ -26,10 +29,18 @@ const weekDays = [
 ] as const;
 
 const scheduleDayOptions = [
-  ['Codziennie', WeekDay.ANY_DAY],
-  ['Dni robocze (poniedziałek–piątek)', WeekDay.WORKDAYS],
-  ['Dni wolne', WeekDay.DAYS_OFF],
+  ['Każdy dzień', WeekDay.ANY_DAY],
+  ['Dni robocze (bez świąt)', WeekDay.WORKDAYS],
+  ['Dni wolne (soboty, niedziele, święta)', WeekDay.DAYS_OFF],
   ...weekDays,
+] as const;
+
+// wartość listy „Dni” dla wpisu z konkretną datą (pole daty pod listą)
+const DATE_OPTION = 'date';
+
+const ENTRY_TYPE_OPTIONS = [
+  { value: 'heat', label: 'Praca' },
+  { value: 'off', label: 'Przerwa' },
 ] as const;
 
 const emptyForm = {
@@ -47,10 +58,10 @@ const emptyForm = {
 // Opis dnia wpisu; data jednorazowa ma pierwszeństwo przed dniem tygodnia (jak w schedulerze).
 const formatScheduleTarget = (schedule: ScheduleEntry): string => {
   if (schedule.date) return new Date(schedule.date).toLocaleDateString('pl-PL');
-  if (schedule.dayOfWeek === WeekDay.ANY_DAY) return 'Codziennie';
+  if (schedule.dayOfWeek === WeekDay.ANY_DAY) return 'Każdy dzień';
   if (schedule.dayOfWeek === WeekDay.WORKDAYS) return 'Dni robocze';
   if (schedule.dayOfWeek === WeekDay.DAYS_OFF) return 'Dni wolne';
-  return weekDays.find(([, value]) => value === schedule.dayOfWeek)?.[0] || 'Codziennie';
+  return weekDays.find(([, value]) => value === schedule.dayOfWeek)?.[0] || 'Każdy dzień';
 };
 
 // Temperatura od–do jak na serwerze (pump-mode.service.ts): 1–50 °C, od ≤ do.
@@ -144,6 +155,14 @@ export const Schedules: React.FC = () => {
     const timer = window.setInterval(loadCurrentSchedule, 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // okno wpisu zamyka Esc
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') resetForm(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForm]);
 
   // PUT zastępuje całe properties: wysyłane są wczytane pola bez dawnych par co_*/cwu_* i dawnego trybu.
   // Zapis kasuje ręczne ustawienia z zakładki Ustawienia, a pompa dostaje nowe wartości w kilka sekund.
@@ -263,157 +282,165 @@ export const Schedules: React.FC = () => {
 
   const savedMin = text(properties?.temp_min) || tempMin;
   const savedMax = text(properties?.temp_max) || tempMax;
-  // czerwona kreska przy „Poza harmonogramem”, gdy żaden wpis nie działa; w trybie OFF nic nie jest zaznaczone
+  // „Poza harmonogramem” podświetlone, gdy żaden wpis nie działa; w trybie OFF nic nie jest zaznaczone
   const isDefaultCurrent = Boolean(currentSchedule && !currentSchedule.scheduleId && currentSchedule.work_mode !== 'OFF');
   const isScheduleCurrent = (schedule: ScheduleEntry) =>
     Boolean(schedule._id && currentSchedule?.scheduleId === schedule._id);
+  // okno przez północ (start > koniec): koniec następnego dnia
+  const overnight = (schedule: ScheduleEntry) => schedule.startTime > schedule.endTime;
 
   const describeEntry = (schedule: ScheduleEntry) => {
-    if (schedule.type === ScheduleType.OFF) return 'przerwa (OFF)';
-    const temperatures = `${schedule.minTemperature ?? savedMin} – ${schedule.maxTemperature ?? savedMax} °C`;
-    return `praca ${temperatures}${schedule.forceStart ? ' · wymuszenie' : ''}${schedule.enabled ? '' : ' · wyłączony'}`;
+    if (schedule.type === ScheduleType.OFF) return 'Przerwa · pompa wyłączona';
+    const temperatures = `${schedule.minTemperature ?? savedMin}–${schedule.maxTemperature ?? savedMax} °C`;
+    return `Praca · ${temperatures}${schedule.forceStart ? ' · wymuszony start' : ''}${schedule.enabled ? '' : ' · wpis wyłączony'}`;
+  };
+
+  // lista „Dni” w oknie: dzień tygodnia albo „Konkretna data…” (pole daty pod listą)
+  const dayValue = useDate ? DATE_OPTION : form.dayOfWeek;
+  const changeDay = (value: string) => {
+    if (value === DATE_OPTION) { setUseDate(true); return; }
+    setUseDate(false);
+    updateForm('dayOfWeek', value);
   };
 
   return (
-    <div className="schedules-page">
+    <div className="page page-device hp-view hp-schedules">
       <Notification message={saveNotice} />
-      <h2>Harmonogram</h2>
-      <section className="schedule-defaults-section">
-        <div className="resource schedule-defaults-resource">
-          <h3 className="settings-section-title">Ustawienia harmonogramu</h3>
-          <div className="schedule-mode-row">
-            <span className="label">Tryb pracy:</span>
-            <div className="schedule-mode-switch">
-              <WorkModeSwitch value={mode} onChange={setMode} />
-            </div>
-          </div>
-          <p className="schedule-hint">{WORK_MODE_HINTS[mode]}</p>
-          <h4 className="schedule-defaults-title">Ustawienia domyślne</h4>
-          <div className="settings-default-temperatures">
-            <div>
-              <label className="label" htmlFor="schedule-temp-min">Temperatura od / do:</label>
-              <input id="schedule-temp-min" className="temperature" type="number" value={tempMin}
-                onChange={(event) => setTempMin(event.target.value)} />
-              <input aria-label="Temperatura do" className="temperature" type="number" value={tempMax}
-                onChange={(event) => setTempMax(event.target.value)} />
-            </div>
-            {defaultError && <p className="schedule-error">{defaultError}</p>}
-            <div className="settings-section-actions">
-              <button type="button" disabled={defaultSaving || noticeBusy || !properties} onClick={handleSaveDefaultProperties}>
-                {defaultSaving ? 'Zapisywanie...' : 'Zapisz'}
-              </button>
-            </div>
+      <section className="card">
+        <header className="card-head"><h2>Tryb pracy</h2><span className="card-hint">decyduje, czy wpisy działają</span></header>
+        <Segmented name="tryb" label="Tryb pracy" value={mode} options={WORK_MODE_OPTIONS} onChange={setMode} />
+        <p className="help">{WORK_MODE_HINTS[mode]}</p>
+        <div className="form-row">
+          <label htmlFor="t-min">Temperatura domyślna</label>
+          <div className="range-inputs">
+            <input type="number" id="t-min" inputMode="numeric" aria-label="Temperatura od" value={tempMin}
+              aria-invalid={Boolean(defaultError)} onChange={(event) => setTempMin(event.target.value)} />
+            <span className="dash">–</span>
+            <input type="number" id="t-max" inputMode="numeric" aria-label="Temperatura do" value={tempMax}
+              aria-invalid={Boolean(defaultError)} onChange={(event) => setTempMax(event.target.value)} />
+            <span className="unit-txt">°C</span>
           </div>
         </div>
+        {defaultError && <p className="field-error">{defaultError}</p>}
+        <div className="actions">
+          <button type="button" className="btn btn-primary" disabled={defaultSaving || noticeBusy || !properties} onClick={handleSaveDefaultProperties}>
+            {defaultSaving ? 'Zapisywanie…' : 'Zapisz'}
+          </button>
+        </div>
       </section>
-      <div className={`schedules-layout${showForm ? '' : ' schedules-layout-list-only'}`}>
-        {showForm && <form className="schedule-card" onSubmit={handleSubmit}>
-          <h3>{editingId ? 'Edycja wpisu' : 'Wpis harmonogramu'}</h3>
 
-          <div className="schedule-form-row">
-            <span>Rodzaj</span>
-            <div className="work-mode-switch" role="group" aria-label="Rodzaj wpisu">
-              <button type="button" className={form.off ? '' : 'on'} aria-pressed={!form.off}
-                onClick={() => updateForm('off', false)}>Praca</button>
-              <button type="button" className={form.off ? 'on' : ''} aria-pressed={form.off}
-                onClick={() => updateForm('off', true)}>Przerwa (OFF)</button>
-            </div>
-          </div>
-
-          <label className="schedule-toggle">
-            <input type="checkbox" checked={useDate} onChange={(event) => setUseDate(event.target.checked)} />
-            Data jednorazowa
-          </label>
-
-          {useDate ? (
-            <label>
-              Data
-              <input type="date" required value={form.date} onChange={(event) => updateForm('date', event.target.value)} />
-            </label>
-          ) : (
-            <label>
-              Dni
-              <select required value={form.dayOfWeek} onChange={(event) => updateForm('dayOfWeek', event.target.value)}>
-                {scheduleDayOptions.map(([name, value]) => <option key={value} value={value}>{name}</option>)}
-              </select>
-            </label>
-          )}
-
-          <div className="schedule-fields">
-            <label>Godzina od<input type="time" required value={form.startTime} onChange={(event) => updateForm('startTime', event.target.value)} /></label>
-            <label>Godzina do<input type="time" required value={form.endTime} onChange={(event) => updateForm('endTime', event.target.value)} /></label>
-          </div>
-
-          {!form.off && <>
-            <div className="schedule-fields">
-              <label>Temperatura od [°C]<input type="number" step="1" placeholder={savedMin} value={form.minTemperature} onChange={(event) => updateForm('minTemperature', event.target.value)} /></label>
-              <label>Temperatura do [°C]<input type="number" step="1" placeholder={savedMax} value={form.maxTemperature} onChange={(event) => updateForm('maxTemperature', event.target.value)} /></label>
-            </div>
-
-            <label className="schedule-toggle">
-              <input type="checkbox" checked={form.forceStart} onChange={(event) => updateForm('forceStart', event.target.checked)} />
-              Wymuszenie pracy
-            </label>
-          </>}
-
-          <label className="schedule-toggle">
-            <input type="checkbox" checked={form.enabled} onChange={(event) => updateForm('enabled', event.target.checked)} />
-            Włączony
-          </label>
-
-          {error && <p className="schedule-error">{error}</p>}
-          <div className="schedule-form-actions">
-            <button type="button" className="schedule-cancel" onClick={resetForm}>Anuluj</button>
-            <button type="submit" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie...' : 'Zapisz'}</button>
-          </div>
-        </form>}
-
-        <section className="schedule-card">
-          <div className="schedule-list-header">
-            <h3 className="settings-section-title">Harmonogramy</h3>
-            {!showForm && (
-              <IconButton label="Dodaj wpis" icon={<PlusIcon />} onClick={() => { resetForm(); setShowForm(true); }} />
+      <section className="card">
+        <header className="card-head">
+          <h2>Wpisy</h2>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { resetForm(); setShowForm(true); }}>+ Dodaj wpis</button>
+        </header>
+        {properties && savedMode !== 'AUTO' && (
+          <p className="help">
+            Harmonogram nie działa w trybie {savedMode === 'OFF' ? 'wyłączonym' : 'ręcznym'} — działa tylko w trybie automatycznym.
+          </p>
+        )}
+        {!showForm && error && <p className="field-error">{error}</p>}
+        {loading ? <p className="help">Ładowanie…</p> : (
+          <ul className="entries">
+            {schedules.length === 0 && <li className="help">Brak wpisów.</li>}
+            {sortedSchedules.map((schedule, index) => (
+              <li
+                className={`entry${isScheduleCurrent(schedule) ? ' is-current' : ''}${schedule.type === ScheduleType.OFF ? ' is-off' : ''}${schedule.enabled ? '' : ' is-disabled'}`}
+                key={schedule._id || `${schedule.startTime}-${index}`}>
+                <span className="entry-when">
+                  <strong>{formatScheduleTarget(schedule)}</strong> {schedule.startTime}–{schedule.endTime}
+                  {overnight(schedule) && <small> (+1 dzień)</small>}
+                </span>
+                <span className="entry-what">{describeEntry(schedule)}</span>
+                {isScheduleCurrent(schedule) && <span className="entry-tag">działa teraz</span>}
+                <span className="entry-actions">
+                  <IconButton label="Edytuj wpis" icon={<EditIcon />} onClick={() => startEditingSchedule(schedule)} />
+                  <IconButton variant="danger" label="Usuń wpis" icon={<TrashIcon />}
+                    disabled={!schedule._id || deleting === schedule._id} onClick={() => handleDelete(schedule)} />
+                </span>
+              </li>
+            ))}
+            {properties && (
+              <li className={`entry is-default${isDefaultCurrent ? ' is-current' : ''}`}>
+                <span className="entry-when"><strong>Poza harmonogramem</strong></span>
+                <span className="entry-what">
+                  {savedMode === 'OFF' ? 'Pompa wyłączona' : `Praca · ustawienie domyślne ${savedMin || '–'}–${savedMax || '–'} °C`}
+                </span>
+                {isDefaultCurrent && <span className="entry-tag">działa teraz</span>}
+              </li>
             )}
+          </ul>
+        )}
+      </section>
+
+      {showForm && (
+        <div className="modal-layer">
+          <div className="scrim" onClick={resetForm} />
+          <div className="modal" role="dialog" aria-labelledby="wpis-title">
+            <form onSubmit={handleSubmit}>
+              <header className="modal-head">
+                <h2 id="wpis-title">{editingId ? 'Edycja wpisu' : 'Wpis harmonogramu'}</h2>
+                <IconButton label="Zamknij" icon={<CloseIcon />} onClick={resetForm} />
+              </header>
+              <div className="modal-body">
+                <Segmented name="wpis-rodzaj" label="Rodzaj" value={form.off ? 'off' : 'heat'} options={ENTRY_TYPE_OPTIONS}
+                  onChange={(value) => updateForm('off', value === 'off')} />
+                <label className="field">
+                  <span>Dni</span>
+                  <select value={dayValue} onChange={(event) => changeDay(event.target.value)}>
+                    {scheduleDayOptions.map(([name, value]) => <option key={value} value={value}>{name}</option>)}
+                    <option value={DATE_OPTION}>Konkretna data…</option>
+                  </select>
+                </label>
+                {useDate && (
+                  <label className="field">
+                    <span>Data</span>
+                    <input type="date" required value={form.date} onChange={(event) => updateForm('date', event.target.value)} />
+                  </label>
+                )}
+                <div className="form-grid">
+                  <label htmlFor="wpis-od">Godziny</label>
+                  <div className="range-inputs">
+                    <input type="time" id="wpis-od" required value={form.startTime} onChange={(event) => updateForm('startTime', event.target.value)} />
+                    <span className="dash">–</span>
+                    <input type="time" aria-label="Godzina do" required value={form.endTime} onChange={(event) => updateForm('endTime', event.target.value)} />
+                  </div>
+                  {!form.off && <>
+                    <label htmlFor="wpis-tmin">Temperatura</label>
+                    <div className="range-inputs">
+                      <input type="number" id="wpis-tmin" step="1" placeholder={savedMin} value={form.minTemperature}
+                        onChange={(event) => updateForm('minTemperature', event.target.value)} />
+                      <span className="dash">–</span>
+                      <input type="number" aria-label="Temperatura do" step="1" placeholder={savedMax} value={form.maxTemperature}
+                        onChange={(event) => updateForm('maxTemperature', event.target.value)} />
+                      <span className="unit-txt">°C</span>
+                    </div>
+                  </>}
+                </div>
+                <p className="help">
+                  {form.off ? 'W oknie przerwy pompa jest wyłączona.' : 'Puste pole temperatury = wartość domyślna sterownika.'} Okno przez północ (np. 22:00–06:00) działa.
+                </p>
+                {!form.off && (
+                  <label className="check">
+                    <input type="checkbox" checked={form.forceStart} onChange={(event) => updateForm('forceStart', event.target.checked)} />
+                    <span>Wymuszony start</span>
+                    <small>sprężarka rusza od razu na początku wpisu</small>
+                  </label>
+                )}
+                <label className="check">
+                  <input type="checkbox" checked={form.enabled} onChange={(event) => updateForm('enabled', event.target.checked)} />
+                  <span>Wpis włączony</span>
+                </label>
+                {error && <p className="field-error">{error}</p>}
+              </div>
+              <footer className="modal-foot">
+                <button type="button" className="btn" onClick={resetForm}>Anuluj</button>
+                <button type="submit" className="btn btn-primary" disabled={saving || noticeBusy}>{saving ? 'Zapisywanie…' : 'Zapisz wpis'}</button>
+              </footer>
+            </form>
           </div>
-          {properties && savedMode !== 'AUTO' && (
-            <p className="schedule-hint">
-              Harmonogram nie działa w trybie {savedMode === 'OFF' ? 'OFF' : 'ręcznym'} — działa tylko w trybie automatycznym.
-            </p>
-          )}
-          {!showForm && error && <p className="schedule-error">{error}</p>}
-          {loading ? <p>Ładowanie...</p> : (
-            <div className="schedule-list">
-              {schedules.length === 0 && <p>Brak wpisów.</p>}
-              {sortedSchedules.map((schedule, index) => (
-                <article
-                  className={`schedule-row${isScheduleCurrent(schedule) ? ' schedule-row-current' : ''}${schedule.enabled ? '' : ' schedule-row-disabled'}`}
-                  key={schedule._id || `${schedule.startTime}-${index}`}>
-                  <div className="schedule-row-main">
-                    <b>{formatScheduleTarget(schedule)} {schedule.startTime}–{schedule.endTime}</b>
-                  </div>
-                  <div className="schedule-row-details">
-                    <span>{describeEntry(schedule)}</span>
-                    <IconButton className="schedule-edit" label="Edytuj wpis" icon={<EditIcon />}
-                      onClick={() => startEditingSchedule(schedule)} />
-                    <IconButton className="schedule-delete" variant="danger" label="Usuń wpis" icon={<TrashIcon />}
-                      disabled={!schedule._id || deleting === schedule._id} onClick={() => handleDelete(schedule)} />
-                  </div>
-                </article>
-              ))}
-              {properties && (
-                <article className={`schedule-row schedule-row-default${isDefaultCurrent ? ' schedule-row-current' : ''}`}>
-                  <div className="schedule-row-main"><b>Poza harmonogramem</b></div>
-                  <div className="schedule-row-details">
-                    <span>
-                      {savedMode === 'OFF' ? 'pompa wyłączona' : `ustawienie domyślne: ${savedMin || '–'}–${savedMax || '–'} °C`}
-                    </span>
-                  </div>
-                </article>
-              )}
-            </div>
-          )}
-        </section>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

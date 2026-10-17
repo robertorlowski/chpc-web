@@ -1,9 +1,11 @@
 // Ikona konta po prawej stronie nagłówka (konta użytkowników, 2026-10-11): imię i e-mail, „Moje dane”, „Wyloguj”,
 // „Usuń konto” (otwiera okno potwierdzenia na stronie /account). Zamykane kliknięciem obok i klawiszem Esc.
+// Przed awatarem ikona zmiany motywu (ThemeToggle); bez zalogowania (ekran logowania) zostaje sama ikona.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, userDisplayName } from '../context/AuthContext';
-import { getTheme, setTheme, THEME_LABELS, ThemeChoice } from '../theme';
+import { setTheme, THEME_LABELS, ThemeChoice, useTheme } from '../theme';
+import { ThemeToggle } from './ThemeToggle';
 import './account.css';
 
 // „RO” z imienia i nazwiska (albo pierwsze dwie litery e-maila) do kółka w pasku
@@ -17,7 +19,7 @@ export function UserMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [theme, chooseTheme] = useState<ThemeChoice>(getTheme);
+  const { choice: theme } = useTheme();
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export function UserMenu() {
     };
   }, [open]);
 
-  if (!user) return null;
+  if (!user) return <div className="user-menu"><ThemeToggle /></div>;
   const go = (path: string) => {
     setOpen(false);
     navigate(path);
@@ -41,6 +43,7 @@ export function UserMenu() {
 
   return (
     <div className="user-menu" ref={box}>
+      <ThemeToggle />
       <button type="button" className={`user-menu-button${open ? ' active' : ''}`} aria-haspopup="menu" aria-expanded={open}
         aria-label={`Konto: ${userDisplayName(user)}`} title={userDisplayName(user)} onClick={() => setOpen((value) => !value)}>
         <span className="user-menu-avatar" aria-hidden="true">{initials(userDisplayName(user))}</span>
@@ -59,7 +62,7 @@ export function UserMenu() {
           <div className="user-menu-theme" role="group" aria-label="Motyw">
             {(Object.keys(THEME_LABELS) as ThemeChoice[]).map((choice) => (
               <button key={choice} type="button" className={theme === choice ? 'active' : ''} aria-pressed={theme === choice}
-                onClick={() => { setTheme(choice); chooseTheme(choice); }}>{THEME_LABELS[choice]}</button>
+                onClick={() => setTheme(choice)}>{THEME_LABELS[choice]}</button>
             ))}
           </div>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); void logout(); }}>

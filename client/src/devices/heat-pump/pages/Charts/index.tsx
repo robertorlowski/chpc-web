@@ -1,15 +1,20 @@
-// Zakładka Wykres pompy (/chart). Dzień: przebieg mocy, PV i temperatur z GET /hp/4day oraz zużycie
-// i koszt liczone w przeglądarce (energy-cost-g12w.ts). Miesiąc i Rok: słupki energii, PV i koszt
-// z bilansu serwera (GET /hp/monthly-summary, group day/month). Dane pobierane przy zmianie okresu,
-// daty lub filtra; oś czasu dnia bieżącego przesuwa się co minutę, ale nowe dane nie są dociągane.
+// Zakładka Wykres pompy (/chart) w układzie makiety „Instrument” (#s-hp-wykres): pasek filtrów (okres Dzień /
+// Miesiąc / Rok, nawigacja po dacie, „Cały dzień”), cztery kafelki statystyk i karty wykresów. Dzień: karta
+// „Temperatury” i karta „Moc i produkcja PV” z GET /hp/4day, zużycie i koszt liczone w przeglądarce
+// (energy-cost-g12w.ts), czas pracy sprężarki z rekordów. Miesiąc i Rok: karta „Energia i koszt” (słupki energii,
+// PV i koszt) z bilansu serwera (GET /hp/monthly-summary, group day/month). Legenda w nagłówku karty przełącza
+// serie. Dane pobierane przy zmianie okresu, daty lub filtra; oś czasu dnia bieżącego przesuwa się co minutę,
+// ale nowe dane nie są dociągane. Kolory wykresów z tokenów przez cc() (core/chartColors.ts).
+import '../style.css';
 import './style.css';
 import { cc } from '../../../../core/chartColors';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   LineChart,
   ComposedChart,
   Line,
   Bar,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -17,17 +22,25 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { THPL } from '../../types';
-import DateDict from '../../components/DateDict';
 import {
+  compressorSeconds,
   fetchData,
   fetchMonthlySummary,
   formatDateYMD,
+  formatDuration,
 } from '../../utils/utils';
 import { ClipLoader } from 'react-spinners';
-import { useFillHeight } from '../../../../core/components/useFillHeight';
 import { energyCostG12w } from '../../utils/energy-cost-g12w';
+import { Segmented } from '../../components/Segmented';
+import { DateNav, formatDayLabel, isToday, useHpDates } from '../../components/DateNav';
 
 type ChartPeriod = 'day' | 'month' | 'year';
+
+const PERIOD_OPTIONS = [
+  { value: 'day', label: 'Dzień' },
+  { value: 'month', label: 'Miesiąc' },
+  { value: 'year', label: 'Rok' },
+] as const;
 
 type ChartPoint = {
   time: string;
@@ -41,30 +54,10 @@ type ChartPoint = {
   Ttarget?: number;
 };
 
-// selectedDate bywa YYYY.MM.DD (DateDict, formatDateYMD) albo YYYY-MM-DD (wybór roku i miesiąca).
-// Format z kropkami trafia do new Date(value), który Chromium/Edge czytają jako datę lokalną;
-// inne przeglądarki mogą zwrócić Invalid Date.
+// selectedDate bywa YYYY.MM.DD (dni z danymi, formatDateYMD) albo YYYY-MM-DD (wybór roku i miesiąca).
 const parseSelectedDate = (value: string): Date => {
-  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-
-  if (iso) {
-    return new Date(
-      Number(iso[1]),
-      Number(iso[2]) - 1,
-      Number(iso[3]),
-    );
-  }
-
-  const polish = value.match(/^(\d{2})[./-](\d{2})[./-](\d{4})/);
-
-  if (polish) {
-    return new Date(
-      Number(polish[3]),
-      Number(polish[2]) - 1,
-      Number(polish[1]),
-    );
-  }
-
+  const iso = value.match(/^(\d{4})[-.](\d{2})[-.](\d{2})/);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
   return new Date(value);
 };
 
@@ -132,10 +125,6 @@ const isCompressorWorking = (row: THPL): boolean => {
   );
 };
 
-const getMonthName = (month: number): string => {
-  return String(month + 1);
-};
-
 // Minuty od północy: oś X dnia jest liczbowa (0–1440), żeby odstępy odpowiadały czasowi, a luki były widoczne.
 const getTimeValue = (time: string): number => {
   const match = time.match(/[ T](\d{2}):(\d{2})/);
@@ -152,7 +141,7 @@ const formatTimeValue = (value: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(restMinutes).padStart(2, '0')}`;
 };
 
-const dayTicks = Array.from({ length: 13 }, (_, index) => index * 120);
+const dayTicks = Array.from({ length: 5 }, (_, index) => index * 360);
 
 const getDayTicks = (endMinutes: number): number[] => {
   const ticks = dayTicks.filter((tick) => tick < endMinutes);
@@ -164,83 +153,70 @@ const getDayTicks = (endMinutes: number): number[] => {
   return ticks;
 };
 
-// Watts w widoku Dzień to chwilowa moc [W], w Miesiącu i Roku energia [kWh]; etykieta jest wspólna.
-const formatTooltipLabel = (name: unknown): string => ({
-  Watts: 'Energia pob.',
-  pv: 'PV',
-  cost: 'Koszt',
-  Tbe: 'T. przed parownikiem',
-  Tae: 'T. za parownikiem',
-  Tho: 'T. wody wyj.',
-  Ttarget: 'T. docelowa',
-  'Energia pob. [W]': 'Energia pob.',
-  'PV [W]': 'PV',
-  'Koszt [PLN]': 'Koszt',
-  'Energia pobrana [kWh]': 'Energia pobrana',
-  'PV [kWh]': 'PV [kWh]',
-}[String(name)] ?? String(name));
+const fmt = (value: number, digits = 2) => value.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-const formatTooltipValue = (item: ChartTooltipItem, isDay: boolean): string => {
-  const dataKey = String(item.dataKey ?? item.name);
-  const value = String(item.value ?? '---');
-  const unit = dataKey === 'cost'
-    ? 'PLN'
-    : ['Tbe', 'Tae', 'Tho', 'Ttarget'].includes(dataKey)
-      ? '\u00B0C'
-      : dataKey === 'Watts' || dataKey === 'pv'
-        ? (isDay ? 'W' : 'kWh')
-        : '';
+// Serie wykresów: klucz danych, etykieta legendy, kolor z tokenów (cc()), jednostka w dymku.
+type SeriesKey = 'Watts' | 'pv' | 'cost' | 'Tbe' | 'Tae' | 'Tho' | 'Ttarget';
+type Series = { key: SeriesKey; label: string; color: string; unit: string; digits: number };
 
-  return unit ? `${value}${unit}` : value;
-};
-
-type ChartTooltipItem = {
-  dataKey?: string | number;
-  name?: string | number;
-  value?: unknown;
-  color?: string;
-};
+const tempSeries = (colors: ReturnType<typeof cc>): Series[] => [
+  { key: 'Ttarget', label: 'T. zbiornika', color: colors.s1, unit: ' °C', digits: 1 },
+  { key: 'Tho', label: 'T. wody wyj.', color: colors.s2, unit: ' °C', digits: 1 },
+  { key: 'Tbe', label: 'T. przed parownikiem', color: colors.s3, unit: ' °C', digits: 1 },
+  { key: 'Tae', label: 'T. za parownikiem', color: colors.s4, unit: ' °C', digits: 1 },
+];
+const powerSeries = (colors: ReturnType<typeof cc>): Series[] => [
+  { key: 'Watts', label: 'Pobór sprężarki', color: colors.s1, unit: ' W', digits: 0 },
+  { key: 'pv', label: 'Produkcja PV', color: colors.sun, unit: ' W', digits: 0 },
+];
+const energySeries = (colors: ReturnType<typeof cc>): Series[] => [
+  { key: 'Watts', label: 'Energia pobrana', color: colors.s1, unit: ' kWh', digits: 2 },
+  { key: 'pv', label: 'Z PV', color: colors.sun, unit: ' kWh', digits: 2 },
+  { key: 'cost', label: 'Koszt G12w', color: colors.s2, unit: ' PLN', digits: 2 },
+];
 
 type ChartTooltipProps = {
   active?: boolean;
-  payload?: ChartTooltipItem[];
+  payload?: Array<{ dataKey?: string | number; value?: unknown; color?: string }>;
   label?: string | number;
-  isDay: boolean;
-  allData: boolean;
+  series: Series[];
+  labelFormat: (label: string | number | undefined) => string;
 };
 
-const ChartTooltip: React.FC<ChartTooltipProps> = ({
-  active,
-  payload,
-  label,
-  isDay,
-  allData,
-}) => {
+// Dymek w kolorach karty: etykieta osi i wartości widocznych serii z jednostką.
+const ChartTooltip: React.FC<ChartTooltipProps> = ({ active, payload, label, series, labelFormat }) => {
   if (!active || !payload?.length) return null;
-
-  const labelText = isDay && allData
-    ? formatTimeValue(Number(label))
-    : String(label ?? '');
-
   return (
     <div className="chart-tooltip">
-      <span className="chart-tooltip-label">{labelText}</span>
-      {payload.map((item, index) => (
-        <span className="chart-tooltip-item" key={`${String(item.dataKey ?? item.name)}-${index}`}>
-          <i
-            className="chart-tooltip-color"
-            style={{ backgroundColor: item.color ?? cc().axis }}
-          />
-          {formatTooltipLabel(item.dataKey ?? item.name)}:{' '}{formatTooltipValue(item, isDay)}
-        </span>
-      ))}
+      <strong>{labelFormat(label)}</strong>
+      {payload.map((item) => {
+        const info = series.find((entry) => entry.key === String(item.dataKey));
+        if (!info || item.value === undefined || item.value === null) return null;
+        return (
+          <span key={info.key}><i style={{ background: info.color }} />{info.label}<b>{fmt(Number(item.value), info.digits)}{info.unit}</b></span>
+        );
+      })}
     </div>
   );
 };
 
+// Legenda w nagłówku karty: kliknięcie pozycji chowa albo pokazuje serię.
+const Legend: React.FC<{ series: Series[]; hidden: Set<SeriesKey>; onToggle: (key: SeriesKey) => void }> = ({ series, hidden, onToggle }) => (
+  <div className="legend">
+    {series.map((entry) => (
+      <button type="button" key={entry.key} className={`lg${hidden.has(entry.key) ? ' is-off' : ''}`}
+        aria-pressed={!hidden.has(entry.key)} title={hidden.has(entry.key) ? 'Pokaż serię' : 'Ukryj serię'}
+        onClick={() => onToggle(entry.key)}>
+        <i style={{ background: entry.color }} />{entry.label}
+      </button>
+    ))}
+  </div>
+);
+
+const MONTH_NAMES = Array.from({ length: 12 }, (_, month) =>
+  new Date(2026, month, 1).toLocaleDateString('pl-PL', { month: 'long' }));
+
 export const HeatPumpChart: React.FC = () => {
-  // strona na całe okno: wykres wypełnia miejsce między kontrolkami a legendą (core/components/useFillHeight.ts)
-  const pageRef = useFillHeight<HTMLDivElement>(420);
   const [filteredData, setFilteredData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -248,15 +224,15 @@ export const HeatPumpChart: React.FC = () => {
   );
   const [period, setPeriod] = useState<ChartPeriod>('day');
   const [allData, setAllData] = useState(true);
-  // kwh: całe zużycie pompy; kwhPV: energia z sieci (zużycie po odjęciu PV) — „Zużycie: sieć / całość”
+  // kwh: całe zużycie pompy; kwhGrid: energia z sieci (zużycie po odjęciu PV)
   const [kwh, setKwh] = useState(0);
-  const [kwhPV, setKwhPV] = useState(0);
-  const [cTemp, setTemp] = useState(true);
-  const [cPower, setPower] = useState(true);
-  const [cPV, setPV] = useState(false);
-  const [cCost, setCostVisible] = useState(true);
+  const [kwhGrid, setKwhGrid] = useState(0);
   const [cost, setCost] = useState(0);
+  const [workSeconds, setWorkSeconds] = useState(0);
+  const [hidden, setHidden] = useState<Set<SeriesKey>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  // dni z danymi (nawigacja w widoku Dzień); bez danych dziś hook przełącza na najnowszy dzień
+  const dates = useHpDates(selectedDate, setSelectedDate);
 
   const selected = parseSelectedDate(selectedDate);
   const selectedYear = selected.getFullYear();
@@ -275,15 +251,34 @@ export const HeatPumpChart: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
-  const years = Array.from(
-    { length: 4 },
-    (_, index) => new Date().getFullYear() - 3 + index,
-  );
+  // Pozycje nawigacji po dacie: Dzień = dni z danymi, Miesiąc = miesiące ostatnich czterech lat do bieżącego,
+  // Rok = cztery ostatnie lata. Wartości Miesiąc / Rok to pierwszy dzień okresu (YYYY-MM-DD).
+  const now = new Date();
+  const years = Array.from({ length: 4 }, (_, index) => now.getFullYear() - index);
+  const navItems = useMemo(() => {
+    if (period === 'day') return dates.map((date) => ({ value: date, label: formatDayLabel(date) }));
+    if (period === 'year') return years.map((year) => ({ value: toDateString(new Date(year, 0, 1)), label: String(year) }));
+    const months: Array<{ value: string; label: string }> = [];
+    for (const year of years) {
+      for (let month = year === now.getFullYear() ? now.getMonth() : 11; month >= 0; month -= 1) {
+        months.push({ value: toDateString(new Date(year, month, 1)), label: `${MONTH_NAMES[month]} ${year}` });
+      }
+    }
+    return months;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, dates]);
+  const navValue = period === 'day' ? selectedDate
+    : period === 'month' ? toDateString(new Date(selectedYear, selectedMonth, 1))
+      : toDateString(new Date(selectedYear, 0, 1));
 
-  const changeYear = (year: number) => {
-    setSelectedDate(
-      toDateString(new Date(year, selectedMonth, 1)),
-    );
+  // powrót do widoku Dzień z daty miesiąca / roku: najnowszy dzień z danymi nie późniejszy niż wybrana data
+  const changePeriod = (next: ChartPeriod) => {
+    setPeriod(next);
+    setHidden(new Set());
+    if (next === 'day' && dates.length > 0 && !dates.includes(selectedDate)) {
+      const wanted = formatDateYMD(selected);
+      setSelectedDate(dates.find((date) => date <= wanted) ?? dates[0]);
+    }
   };
 
   useEffect(() => {
@@ -316,15 +311,16 @@ export const HeatPumpChart: React.FC = () => {
           );
 
           setKwh(Number(total.energy.toFixed(2)));
-          setKwhPV(Number(total.grid.toFixed(2)));
+          setKwhGrid(Number(total.grid.toFixed(2)));
           setCost(Number(total.cost.toFixed(2)));
+          setWorkSeconds(0);
           setFilteredData(Array.from({ length: 12 }, (_, monthIndex) => {
             const item = monthlyData.find(
               (summary) => summary.month === monthIndex + 1,
             );
 
             return {
-              time: getMonthName(monthIndex),
+              time: String(monthIndex + 1),
               Watts: Number(Number(item?.consumptionKWh || 0).toFixed(2)),
               pv: Number(Number(item?.pvUsedKWh || 0).toFixed(2)),
               cost: Number(Number(item?.totalVariableCostPLN || 0).toFixed(2)),
@@ -353,8 +349,9 @@ export const HeatPumpChart: React.FC = () => {
           );
 
           setKwh(Number(total.energy.toFixed(2)));
-          setKwhPV(Number(total.grid.toFixed(2)));
+          setKwhGrid(Number(total.grid.toFixed(2)));
           setCost(Number(total.cost.toFixed(2)));
+          setWorkSeconds(0);
           setFilteredData(dates.map((date) => {
             const day = Number(date.slice(8, 10));
             const item = dailyData.find((summary) => summary.day === day);
@@ -414,39 +411,30 @@ export const HeatPumpChart: React.FC = () => {
         );
 
         setKwh(Number(periodTotal.energy.toFixed(2)));
-        setKwhPV(Number((periodTotal.energy - periodTotal.pv).toFixed(2)));
+        setKwhGrid(Number((periodTotal.energy - periodTotal.pv).toFixed(2)));
         setCost(periodTotal.cost);
+        setWorkSeconds(compressorSeconds(data));
 
-        if (period === 'day') {
-          // tylko co piąty rekord (po filtrze) trafia na wykres; „Cały dzień” wyłączony zostawia
-          // tylko pracę sprężarki na osi kategorii (bez luk czasowych)
-          const points = data
-            .filter((row) => row?.time)
-            .filter((row) => allData || isCompressorWorking(row))
-            .filter((_, index) => index % 5 === 0)
-            .sort((a, b) => a.time.localeCompare(b.time))
-            .map((row) => ({
-              ...row,
-              timeValue: getTimeValue(row.time),
-              time: row.time.split(' ')[1]?.slice(0, 5) || row.time,
-              Tbe: row.Tbe != null ? Number(row.Tbe) : undefined,
-              Tae: row.Tae != null ? Number(row.Tae) : undefined,
-              Tho: row.Tho != null ? Number(row.Tho) : undefined,
-              Ttarget: row.Ttarget != null ? Number(row.Ttarget) : undefined,
-              Watts: row.Watts != null ? Number(row.Watts) : undefined,
-              pv: row.pv != null ? Number(row.pv) : undefined,
-            }));
+        // tylko co piąty rekord (po filtrze) trafia na wykres; „Cały dzień” wyłączony zostawia
+        // tylko pracę sprężarki na osi kategorii (bez luk czasowych)
+        const points = data
+          .filter((row) => row?.time)
+          .filter((row) => allData || isCompressorWorking(row))
+          .filter((_, index) => index % 5 === 0)
+          .sort((a, b) => a.time.localeCompare(b.time))
+          .map((row) => ({
+            ...row,
+            timeValue: getTimeValue(row.time),
+            time: row.time.split(' ')[1]?.slice(0, 5) || row.time,
+            Tbe: row.Tbe != null ? Number(row.Tbe) : undefined,
+            Tae: row.Tae != null ? Number(row.Tae) : undefined,
+            Tho: row.Tho != null ? Number(row.Tho) : undefined,
+            Ttarget: row.Ttarget != null ? Number(row.Ttarget) : undefined,
+            Watts: row.Watts != null ? Number(row.Watts) : undefined,
+            pv: row.pv != null ? Number(row.pv) : undefined,
+          }));
 
-          setFilteredData(points);
-        } else {
-          // gałąź nieosiągalna: Miesiąc i Rok kończą się wyżej (dane z monthly-summary)
-          setFilteredData(dailyResults.map((item) => ({
-            time: String(Number(item.date.slice(8, 10))),
-            Watts: Number(item.energy.toFixed(2)),
-            pv: Number(item.pv.toFixed(2)),
-            cost: Number(item.cost.toFixed(2)),
-          })));
-        }
+        setFilteredData(points);
       } catch (error) {
         console.error('Błąd ładowania danych:', error);
       } finally {
@@ -462,360 +450,119 @@ export const HeatPumpChart: React.FC = () => {
   }, [selectedDate, period, allData]);
 
   const isDay = period === 'day';
+  const colors = cc();
+  const temps = tempSeries(colors);
+  const powers = powerSeries(colors);
+  const energies = energySeries(colors);
+  const toggle = (key: SeriesKey) => setHidden((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
-  const renderLegend = () => (
-    <div className="custom-legend">
-      {cPower && (
-          <span>
-            <i className="legend-color power-color" />
-            Energia pob.
-        </span>
-      )}
-
-      {cPV && (
-        <span>
-          <i className="legend-color pv-color" />
-          PV
-        </span>
-      )}
-
-      {!isDay && cCost && (
-        <span>
-          <i className="legend-color cost-color" />
-          Szcowany koszt [PLN]
-        </span>
-      )}
-
-      {isDay && cTemp && (
-        <>
-          <span>
-            <i className="legend-color tbe-color" />
-            T. przed parownikiem
-          </span>
-          <span>
-            <i className="legend-color tae-color" />
-            T. za parownikiem
-          </span>
-          <span>
-            <i className="legend-color tho-color" />
-            T. wody wyj.
-          </span>
-          <span>
-            <i className="legend-color target-color" />
-            T. docelowa
-          </span>
-        </>
-      )}
-    </div>
-  );
+  const axisTick = { fill: colors.axis, fontSize: 11 };
+  // oś dnia: liczbowa (minuty) przy „Cały dzień”, kategorie (godziny pracy sprężarki) bez luk w przeciwnym razie
+  const dayAxis = allData
+    ? <XAxis tick={axisTick} stroke={colors.line} type="number" dataKey="timeValue" domain={[0, dayEndMinutes]}
+        ticks={visibleDayTicks} tickFormatter={formatTimeValue} allowDataOverflow={false} />
+    : <XAxis tick={axisTick} stroke={colors.line} dataKey="time" minTickGap={40} />;
+  const dayLabel = (label: string | number | undefined) => (allData ? formatTimeValue(Number(label)) : String(label ?? ''));
+  const periodLabel = (label: string | number | undefined) => (period === 'month'
+    ? `${label} ${MONTH_NAMES[selectedMonth]}`
+    : `${MONTH_NAMES[Number(label) - 1] ?? label} ${selectedYear}`);
+  const dateNote = isDay && isToday(selectedDate) ? 'dziś' : undefined;
 
   return (
-    <div className="charts-page fill-page" ref={pageRef}>
-      <div className="period-selector">
-        <button
-          className={period === 'day' ? 'active' : ''}
-          onClick={() => setPeriod('day')}
-        >
-          Dzień
-        </button>
-
-        <button
-          className={period === 'month' ? 'active' : ''}
-          onClick={() => setPeriod('month')}
-        >
-          Miesiąc
-        </button>
-
-        <button
-          className={period === 'year' ? 'active' : ''}
-          onClick={() => setPeriod('year')}
-        >
-          Rok
-        </button>
-      </div>
-
-      {isDay && (
-        <div className="period-filter">
-          <label>Dzień:
-          <DateDict
-            id="date-select"
-            initValue={selectedDate}
-            onDateChange={setSelectedDate}
-          />
-          </label>
-        </div>
-      )}
-
-      {period !== 'day' && (
-        <div className="period-filter">
-          <label>
-            Rok:
-            <select value={selectedYear} onChange={(event) => changeYear(Number(event.target.value))}>{years.map((year) => <option key={year} value={year}>{year}</option>)}</select>
-          </label>
-
-          {period === 'month' && (
-            <label>
-              Miesiąc:
-              <select value={selectedMonth} onChange={(event) => setSelectedDate(toDateString(new Date(selectedYear, Number(event.target.value), 1)))}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{getMonthName(month)}</option>)}</select>
-            </label>
-          )}
-        </div>
-      )}
-
-      {loading && (
-        <div className="loader">
-          <ClipLoader size={60} color={cc().axis} />
-        </div>
-      )}
-
-      <div className="chart-checkbox">
+    <div className="page page-device hp-view hp-charts">
+      <div className="filters">
+        <Segmented inline name="hp-okres" label="Okres" value={period} options={PERIOD_OPTIONS} onChange={changePeriod} />
+        <DateNav unit={isDay ? 'dzień' : period === 'month' ? 'miesiąc' : 'rok'} items={navItems} value={navValue}
+          onChange={setSelectedDate} note={dateNote} />
         {isDay && (
-          <>
-            <label className="label">
-              <input
-                type="checkbox"
-                checked={allData}
-                onChange={(event) =>
-                  setAllData(event.target.checked)
-                }
-              />
-              Cały dzień
-            </label>
-
-            <label className="label">
-              <input
-                type="checkbox"
-                checked={cTemp}
-                onChange={(event) =>
-                  setTemp(event.target.checked)
-                }
-              />
-              Temperatura
-            </label>
-          </>
-        )}
-
-        <label className="label">
-          <input
-            type="checkbox"
-            checked={cPower}
-            onChange={(event) =>
-              setPower(event.target.checked)
-            }
-          />
-          Energia pob.
-        </label>
-
-        {!isDay && (
-          <label className="label">
-            <input
-              type="checkbox"
-              checked={cCost}
-              onChange={(event) => setCostVisible(event.target.checked)}
-            />
-            Koszt
+          <label className="check">
+            <input type="checkbox" checked={allData} onChange={(event) => setAllData(event.target.checked)} />
+            <span>Cały dzień</span>
+            <small>bez zaznaczenia tylko praca sprężarki</small>
           </label>
         )}
-
-        <label className="label">
-          <input
-            type="checkbox"
-            checked={cPV}
-            onChange={(event) => setPV(event.target.checked)}
-          />
-          PV
-        </label>
       </div>
 
-      <div className="energy-summary">
-        <span>
-        Zużycie: {kwhPV.toFixed(2)} / {kwh.toFixed(2)} kWh
-        </span>
-        <span>
-        Koszt: {cost.toFixed(2)} PLN
-        </span>
+      <div className="stat-row">
+        <div className="stat"><span className="stat-label">Pobór</span><span className="stat-value">{fmt(kwh)}<small>kWh</small></span></div>
+        <div className="stat"><span className="stat-label">Z sieci</span><span className="stat-value">{fmt(kwhGrid)}<small>kWh</small></span></div>
+        <div className="stat"><span className="stat-label">Koszt G12w</span><span className="stat-value">{fmt(cost)}<small>PLN</small></span></div>
+        {isDay
+          ? <div className="stat"><span className="stat-label">Czas pracy</span><span className="stat-value">{formatDuration(workSeconds).replace(/ (h|min)/g, ' $1')}</span></div>
+          : <div className="stat"><span className="stat-label">Z PV</span><span className="stat-value">{fmt(Math.max(0, kwh - kwhGrid))}<small>kWh</small></span></div>}
       </div>
 
-      <div className="chart-area fill-area">
-      <ResponsiveContainer width="100%" height="100%">
-        {isDay ? <LineChart data={filteredData}>
-          <CartesianGrid stroke={cc().grid} strokeDasharray="1 1" />
-          {allData ? (
-            <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
-              type="number"
-              dataKey="timeValue"
-              domain={[0, dayEndMinutes]}
-              ticks={visibleDayTicks}
-              tickFormatter={formatTimeValue}
-              allowDataOverflow={false}
-            />
-          ) : (
-            <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="time" />
-          )}
-          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
-            yAxisId="left"
-            label={{
-              value: isDay ? 'Temperatura [°C]' : 'Energia [kWh]',
-              angle: -90,
-              position: 'insideLeft',
-            }}
-          />
-          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
-            yAxisId="right"
-            orientation="right"
-            label={{
-              value: isDay ? 'Moc [W]' : 'Koszt [PLN]',
-              angle: -90,
-              position: 'insideRight',
-            }}
-          />
-          <Tooltip
-            content={<ChartTooltip isDay={isDay} allData={allData} />}
-            position={{ x: 0, y: -30 }}
-            allowEscapeViewBox={{ x: false, y: true }}
-            wrapperStyle={{ width: '100%', pointerEvents: 'none' }}
-          />
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="Watts"
-            name="Energia pob. [W]"
-            stroke={cc().s1}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            hide={!cPower}
-          />
-
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="pv"
-            name="PV [W]"
-            stroke={cc().sun}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            hide={!cPV}
-          />
-
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="cost"
-            name="Koszt [PLN]"
-            stroke={cc().s2}
-            strokeWidth={1}
-            dot={{ r: 2 }}
-            hide={isDay || !cCost}
-          />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="Tbe"
-            name="T. przed parownikiem [°C]"
-            stroke={cc().s3}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            connectNulls
-            hide={period !== 'day' || !cTemp}
-          />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="Tae"
-            name="T. za parownikiem [°C]"
-            stroke={cc().s4}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            connectNulls
-            hide={period !== 'day' || !cTemp}
-          />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="Tho"
-            name="T. wody wyj. [°C]"
-            stroke={cc().water}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            connectNulls
-            hide={period !== 'day' || !cTemp}
-          />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="Ttarget"
-            name="T. docelowa [°C]"
-            stroke={cc().danger}
-            strokeWidth={1}
-            dot={{ r: 1 }}
-            connectNulls
-            hide={period !== 'day' || !cTemp}
-          />
-        </LineChart> : <ComposedChart data={filteredData}>
-          <CartesianGrid stroke={cc().grid} strokeDasharray="1 1" />
-          <XAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line} dataKey="time" />
-          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
-            yAxisId="left"
-            label={{
-              value: 'Energia [kWh]',
-              angle: -90,
-              position: 'insideLeft',
-            }}
-          />
-          <YAxis tick={{ fill: cc().axis, fontSize: 12 }} stroke={cc().line}
-            yAxisId="right"
-            orientation="right"
-            label={{
-              value: 'Koszt [PLN]',
-              angle: -90,
-              position: 'insideRight',
-            }}
-          />
-          <Tooltip
-            content={<ChartTooltip isDay={false} allData={allData} />}
-            position={{ x: 0, y: -48 }}
-            allowEscapeViewBox={{ x: false, y: true }}
-            wrapperStyle={{ width: '100%', pointerEvents: 'none' }}
-          />
-          <Bar
-            yAxisId="left"
-            dataKey="Watts"
-            name="Energia pobrana [kWh]"
-            fill={cc().s1}
-            hide={!cPower}
-          />
-          <Line
-            yAxisId="left"
-            dataKey="pv"
-            name="PV [kWh]"
-            stroke={cc().sun}
-            strokeWidth={3}
-            type="monotone"
-            dot={{ r: 2 }}
-            hide={!cPV}
-          />
-          <Line
-            yAxisId="right"
-            dataKey="cost"
-            name="Koszt [PLN]"
-            stroke={cc().s2}
-            strokeWidth={3}
-            type="monotone"
-            dot={{ r: 2 }}
-            hide={!cCost}
-          />
-        </ComposedChart>}
-      </ResponsiveContainer>
-      </div>
-      <div className="chart-legend-bottom">
-        {renderLegend()}
-      </div>
+      {isDay ? (
+        <>
+          <section className="card">
+            <header className="card-head">
+              <h2>Temperatury</h2>
+              <Legend series={temps} hidden={hidden} onToggle={toggle} />
+            </header>
+            <div className="chart chart-lg">
+              {loading && <div className="loading chart-loading"><ClipLoader size={32} color={colors.axis} /></div>}
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredData} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                  <CartesianGrid stroke={colors.grid} vertical={false} />
+                  {dayAxis}
+                  <YAxis tick={axisTick} stroke={colors.line} unit=" °C" width={54} />
+                  <Tooltip content={<ChartTooltip series={temps} labelFormat={dayLabel} />} />
+                  {temps.map((entry) => (
+                    <Line key={entry.key} type="monotone" dataKey={entry.key} stroke={entry.color} strokeWidth={2} dot={false}
+                      connectNulls hide={hidden.has(entry.key)} isAnimationActive={false} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+          <section className="card">
+            <header className="card-head">
+              <h2>Moc i produkcja PV</h2>
+              <Legend series={powers} hidden={hidden} onToggle={toggle} />
+            </header>
+            <div className="chart chart-md">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={filteredData} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                  <CartesianGrid stroke={colors.grid} vertical={false} />
+                  {dayAxis}
+                  <YAxis tick={axisTick} stroke={colors.line} unit=" W" width={54} />
+                  <Tooltip content={<ChartTooltip series={powers} labelFormat={dayLabel} />} />
+                  <Area type="monotone" dataKey="pv" stroke="none" fill={colors.sun} fillOpacity={0.28} hide={hidden.has('pv')} isAnimationActive={false} />
+                  <Bar dataKey="Watts" fill={colors.s1} barSize={allData ? 2 : undefined} hide={hidden.has('Watts')} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="help">Temperatury i moc są na osobnych wykresach z jedną osią każdy; wspólna oś czasu.</p>
+          </section>
+        </>
+      ) : (
+        <section className="card">
+          <header className="card-head">
+            <h2>Energia i koszt</h2>
+            <Legend series={energies} hidden={hidden} onToggle={toggle} />
+          </header>
+          <div className="chart chart-lg">
+            {loading && <div className="loading chart-loading"><ClipLoader size={32} color={colors.axis} /></div>}
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={filteredData} margin={{ top: 8, right: 0, bottom: 0, left: -12 }}>
+                <CartesianGrid stroke={colors.grid} vertical={false} />
+                <XAxis tick={axisTick} stroke={colors.line} dataKey="time" />
+                <YAxis yAxisId="left" tick={axisTick} stroke={colors.line} unit=" kWh" width={64} />
+                <YAxis yAxisId="right" orientation="right" tick={axisTick} stroke={colors.line} unit=" zł" width={56} hide={hidden.has('cost')} />
+                <Tooltip content={<ChartTooltip series={energies} labelFormat={periodLabel} />} />
+                <Bar yAxisId="left" dataKey="Watts" fill={colors.s1} radius={[2, 2, 0, 0]} hide={hidden.has('Watts')} isAnimationActive={false} />
+                <Line yAxisId="left" dataKey="pv" stroke={colors.sun} strokeWidth={2} type="monotone" dot={{ r: 2 }} hide={hidden.has('pv')} isAnimationActive={false} />
+                <Line yAxisId="right" dataKey="cost" stroke={colors.s2} strokeWidth={2} type="monotone" dot={{ r: 2 }} hide={hidden.has('cost')} isAnimationActive={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="help">{period === 'month' ? 'Dni miesiąca' : 'Miesiące roku'}: energia pobrana i część z PV w kWh, koszt w taryfie G12w z bilansu serwera.</p>
+        </section>
+      )}
     </div>
   );
 };
-
-

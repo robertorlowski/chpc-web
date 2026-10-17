@@ -1,5 +1,6 @@
 import "./theme.css"
 import "./style.css"
+import "./makieta.css"
 import { createRoot } from 'react-dom/client';
 import { DeviceProvider } from './core/context/DeviceContext';
 import { App } from './core/App';

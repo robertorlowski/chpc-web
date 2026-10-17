@@ -1,22 +1,22 @@
-// Widok główny włącznika (/): dla każdego przekaźnika stan (przełącznik jak „CO pompa”), tryb,
-// odliczanie do końca włączenia, przyciski „Włącz teraz” i „Włącz wg harmonogramu” (na środku), czas włączenia
-// pod nimi i szeroki „Wyłącz” na dole („Włącz teraz” na ten czas, 0 h 0 min = bez limitu; PUT /switch/mode)
-// oraz dzisiejsze włączenia (GET /switch/activations). Dane odświeża WebSocket „update” (zmiana stanu
-// zgłoszona przez sterownik) i odpytywanie co 5 s (tryb timer i harmonogram zmieniają się z czasem).
+// Widok główny włącznika (/), układ z makiety „Instrument” (makiety/src/makieta.html, #s-switch-podglad):
+// karta na przekaźnik (.card-relay: nazwa, przełącznik stanu ze sterownika, opis trybu, duże odliczanie do wyłączenia
+// albo następny start, przyciski Włącz / Wyłącz / Harmonogram i „Czas włączenia” h/min; „Włącz” na ten czas,
+// 0 h 0 min = bez limitu; PUT /switch/mode) oraz karta „Dziś” z włączeniami (GET /switch/activations).
+// Dane odświeża WebSocket „update” (zmiana stanu zgłoszona przez sterownik) i odpytywanie co 5 s
+// (tryb timer i harmonogram zmieniają się z czasem).
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { wsAddressServer } from '../../../core/http';
 import { getSelectedDevice } from '../../../core/context/DeviceContext';
+import { OfflineBanner } from '../../../core/components/OfflineBanner';
 import { SwitchRequests } from '../api';
 import { RelayMode, SwitchActivation, SwitchRelay } from '../types';
 import {
   describeMode, formatCountdown, formatDuration, formatMoment, formatTime,
   relayLabel, secondsInDay, todayWarsaw, warsawDayBounds,
 } from '../utils/format';
-import swith_on from '../../../assets/swith_on.svg';
-import swith_off from '../../../assets/swith_off.svg';
+import { ActivationsTable } from '../components/ActivationsTable';
 import './style.css';
-import { OfflineBanner } from '../../../core/components/OfflineBanner';
 
 const REFRESH_MS = 5_000;
 
@@ -35,53 +35,69 @@ const RelayCard: React.FC<{
     setMinutes(String(defaultMinutes % 60));
   }, [defaultMinutes]);
 
+  const label = relayLabel(relay);
   const mode = describeMode(relay);
   // „Włącz” na czas z pól pod przyciskami; 0 h 0 min = bez limitu
   const timerMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
   const timeValid = timerMinutes >= 0 && timerMinutes <= 10080;
   const turnOn = () => (timerMinutes > 0 ? onMode('timer', timerMinutes) : onMode('on'));
   const title = relay.on ? 'Przekaźnik włączony (stan ze sterownika)' : 'Przekaźnik wyłączony (stan ze sterownika)';
+  const manualOn = relay.mode === 'on' || relay.mode === 'timer';
+
+  // odliczanie: do końca włączenia (timer albo okno harmonogramu); bez niego następny start z harmonogramu
+  const counting = relay.desiredOn && relay.until;
+  const idleLabel = relay.mode === 'on'
+    ? 'włączony bez limitu czasu'
+    : relay.nextStart
+      ? `następny start z harmonogramu: ${formatMoment(relay.nextStart)}${relay.mode === 'off' ? ' (po odblokowaniu)' : ''}`
+      : relay.mode === 'off' ? 'harmonogram zablokowany' : 'brak zaplanowanych włączeń';
 
   return (
-    <div className="resource">
-      <div className="switch-relay-header">
-        <h3 className="settings-section-title">{relayLabel(relay)}</h3>
-        <img className="switch-indicator" title={title} alt={title} src={relay.on ? swith_on : swith_off} />
-      </div>
-      <div className={`switch-mode${mode.danger ? ' switch-mode-danger' : ''}`}>{mode.text}</div>
+    <section className={`card card-relay${relay.desiredOn ? ' is-on' : ''}${relay.mode === 'off' ? ' is-blocked' : ''}`}>
+      <header className="card-head">
+        <h2>{label}</h2>
+        <span className={`switch${relay.on ? ' is-on' : ''}${relay.online ? '' : ' is-disabled'}`} role="switch"
+          aria-checked={relay.on} aria-label={label} title={title} />
+      </header>
+      <div className={`relay-state${mode.danger ? ' danger-text' : ''}`}><i className="dot" />{mode.text}</div>
       {!relay.online && (
         <OfflineBanner since={relay.lastSeenAt ?? undefined} now={now} detail={relay.lastSeenAt ? undefined : 'sterownik jeszcze się nie zgłosił.'} />
       )}
-      {relay.on !== relay.desiredOn && relay.online && (
-        <div className="switch-hint">Czeka na sterownik…</div>
-      )}
-      {relay.desiredOn && relay.until && (
-        <div className="switch-countdown" title={`Wyłączenie o ${formatTime(relay.until)}`}>
-          {formatCountdown(relay.until, now)}
+      {counting ? (
+        <div className="countdown" title={`Wyłączenie o ${formatTime(relay.until)}`}>
+          <span className="countdown-num">{formatCountdown(relay.until!, now)}</span>
+          <span className="countdown-label">do wyłączenia</span>
+        </div>
+      ) : (
+        <div className="countdown is-idle">
+          <span className="countdown-num">{relay.mode === 'on' ? '∞' : '—'}</span>
+          <span className="countdown-label">{idleLabel}</span>
         </div>
       )}
-      <div className="switch-actions">
-        <button type="button" disabled={busy || !timeValid}
-          className={relay.mode === 'on' || relay.mode === 'timer' ? 'switch-active' : ''}
-          onClick={turnOn}>Włącz teraz</button>
-        <button type="button" disabled={busy || relay.mode === 'schedule'} className="switch-secondary"
-          onClick={() => onMode('schedule')}>Włącz wg harmonogramu</button>
+      {relay.on !== relay.desiredOn && relay.online && <p className="help">Czeka na sterownik…</p>}
+      <div className="actions actions-3">
+        <button type="button" className={`btn btn-primary${manualOn ? ' is-active' : ''}`} disabled={busy || !timeValid}
+          onClick={turnOn}>Włącz</button>
+        <button type="button" className={`btn${relay.mode === 'off' ? ' is-active' : ''}`} disabled={busy}
+          onClick={() => onMode('off')}>Wyłącz</button>
+        <button type="button" className={`btn btn-ghost${relay.mode === 'schedule' ? ' is-active' : ''}`} disabled={busy}
+          onClick={() => onMode('schedule')}>Harmonogram</button>
       </div>
-      <div className="switch-timer">
-        <span>Czas włączenia</span>
-        <input type="number" min={0} max={168} value={hours} aria-label="Godziny"
-          onChange={(event) => setHours(event.currentTarget.value)} /> h
-        <input type="number" min={0} max={59} value={minutes} aria-label="Minuty"
-          onChange={(event) => setMinutes(event.currentTarget.value)} /> min
+      <div className="form-row">
+        <label htmlFor={`sw${relay.relay}-h`}>Czas włączenia</label>
+        <div className="range-inputs">
+          <input type="number" id={`sw${relay.relay}-h`} min={0} max={168} value={hours} aria-label="Godziny"
+            onChange={(event) => setHours(event.currentTarget.value)} />
+          <span className="unit-txt">h</span>
+          <input type="number" id={`sw${relay.relay}-m`} min={0} max={59} value={minutes} aria-label="Minuty"
+            onChange={(event) => setMinutes(event.currentTarget.value)} />
+          <span className="unit-txt">min</span>
+        </div>
       </div>
-      <div className="switch-hint">
-        {!timeValid ? 'Najwyżej 7 dni (168 h).' : timerMinutes === 0 ? '0 h 0 min: „Włącz teraz” bez limitu czasu.' : '0 h 0 min = bez limitu czasu.'}
-      </div>
-      {/* „Wyłącz” na dole karty, na całą szerokość */}
-      <button type="button" disabled={busy}
-        className={`switch-stop switch-stop-wide${relay.mode === 'off' ? ' switch-active' : ''}`}
-        onClick={() => onMode('off')}>Wyłącz / wyłącz harmonogram</button>
-    </div>
+      <p className={`help${timeValid ? '' : ' danger-text'}`}>
+        {!timeValid ? 'Najwyżej 7 dni (168 h).' : '„Włącz” działa na ten czas; 0 h 0 min = bez limitu.'}
+      </p>
+    </section>
   );
 };
 
@@ -143,38 +159,29 @@ export const SwitchHome: React.FC = () => {
   const sorted = [...(activations ?? [])].reverse();
 
   return (
-    <div className="settings switch-page">
-      <h2>Włącznik</h2>
-      <section>
-        {relays === null && <div className="resource">Wczytywanie…</div>}
-        {relays?.length === 0 && <div className="resource">Sterownik nie zgłosił jeszcze przekaźników.</div>}
-        {error && <div className="resource switch-error">{error}</div>}
-        {relays?.map((relay) => (
-          <RelayCard key={relay.relay} relay={relay} now={now} defaultMinutes={defaultMinutes}
-            busy={busy === relay.relay} onMode={(mode, minutes) => changeMode(relay.relay, mode, minutes)} />
-        ))}
-
-        <div className="resource">
-          <h3 className="settings-section-title">Dziś</h3>
-          {activations === null && <div>Wczytywanie…</div>}
-          {activations?.length === 0 && <div>Dziś nie było włączeń.</div>}
-          {sorted.length > 0 && (
-            <>
-              <table className="switch-table switch-table-wrap">
-                <tbody>
-                  {sorted.map((activation) => (
-                    <tr key={activation._id} className={activation.offAt ? '' : 'switch-row-active'}>
-                      {(relays?.length ?? 0) > 1 && <td>{names.get(activation.relay)}</td>}
-                      <td className="switch-nowrap">{formatMoment(activation.onAt)} – {activation.offAt ? formatMoment(activation.offAt) : '…'}</td>
-                      <td className="switch-num switch-nowrap">{activation.offAt ? formatDuration(activation.durationS) : 'w toku'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="switch-total">Razem: <strong>{formatDuration(total)}</strong></div>
-            </>
-          )}
+    <div className="page page-device switch-page">
+      {relays === null && <section className="card"><p className="help">Wczytywanie…</p></section>}
+      {relays?.length === 0 && <section className="card"><p className="help">Sterownik nie zgłosił jeszcze przekaźników.</p></section>}
+      {error && <section className="card card-danger"><p className="danger-text">{error}</p></section>}
+      {relays && relays.length > 0 && (
+        <div className="grid-2">
+          {relays.map((relay) => (
+            <RelayCard key={relay.relay} relay={relay} now={now} defaultMinutes={defaultMinutes}
+              busy={busy === relay.relay} onMode={(mode, minutes) => changeMode(relay.relay, mode, minutes)} />
+          ))}
         </div>
+      )}
+
+      <section className="card card-table">
+        <header className="card-head">
+          <h2>Dziś</h2>
+          {sorted.length > 0 && <span className="card-hint">razem {formatDuration(total)}</span>}
+        </header>
+        {activations === null && <p className="help">Wczytywanie…</p>}
+        {activations?.length === 0 && <p className="help">Dziś nie było włączeń.</p>}
+        {sorted.length > 0 && (
+          <ActivationsTable activations={sorted} names={names} showRelay={(relays?.length ?? 0) > 1} moment={formatMoment} />
+        )}
       </section>
     </div>
   );

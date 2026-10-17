@@ -1,10 +1,11 @@
-// Kafelek sterownika na stronie /devices według wzoru (core/tile-template.ts): prostokąt z paskiem stanu po lewej,
-// pola w miejscach ze wzoru. Treść jak w dawnym DeviceTileCard: ikona rodzaju (pulsuje przy pracy pompy i paleniu
-// w piecu), nazwa, chip ze stanem, wartość główna (z drugą po „/”), wartości boczne, wiersz wartości, przekaźniki
-// włącznika, błąd lub ostrzeżenie i stopka z wiekiem danych. Dane z GET /api/devices/summary (DeviceTile).
+// Kafelek według wzoru z projektanta (core/tile-template.ts): prostokąt z paskiem stanu po lewej, pola w miejscach
+// ze wzoru. Od 2026-10-17 lista /devices rysuje kafelki w stałym układzie makiety „Instrument”
+// (components/DeviceTileCard), a ten komponent zostaje tylko dla projektanta kafelka (pages/TileDesigner, trasa
+// /tile-designer bez przycisku na liście). Treść: ikona rodzaju (pulsuje przy pracy pompy i paleniu w piecu), nazwa,
+// chip ze stanem, wartość główna (z drugą po „/”), wartości boczne, wiersz wartości, przekaźniki włącznika, błąd lub
+// ostrzeżenie i stopka z wiekiem danych. Dane z GET /api/devices/summary (DeviceTile).
 // Czcionki w jednostkach cqh kafelka (container-type: size), więc kafelek skaluje się z szerokością.
-// Tryb design (projektant kafelka, pages/TileDesigner): puste pola z nazwą, zaznaczone pole z uchwytem rozmiaru,
-// pola z błędem w czerwonej ramce.
+// Tryb design (projektant kafelka): puste pola z nazwą, zaznaczone pole z uchwytem rozmiaru, pola z błędem w czerwonej ramce.
 import { CSSProperties, ReactNode } from 'react';
 import { DeviceTile, DeviceType, OutdoorConditions, TileFact, WeatherTile } from '../types';
 import { precipitationText, weatherDescription, WeatherIcon } from './WeatherIcon';

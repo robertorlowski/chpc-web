@@ -1,17 +1,16 @@
-// Panel „Ustawienia zaawansowane” w Ustawieniach pieca: wszystkie parametry regulatora z ostatniego
-// odczytu sterownika (GET /pellet-boiler-pelux200/settings), w grupach, z opisem i oceną zmiany
-// (docs/parametry-kotla.md). Gdy ADVANCED_SETTINGS_EDIT w config.ts jest włączone, każdy parametr z nazwą
-// ma ikonę zmiany — ten sam panel co w „Głównych
-// parametrach” (MainParameters.tsx), przy parametrach serwisowych z dodatkowym potwierdzeniem.
-// Zwinięty na start; dane pobierane przy pierwszym rozwinięciu i po każdym zleceniu zmiany.
+// Karta „Ustawienia zaawansowane” w Ustawieniach pieca (zwijana, .card-details z makiety): wszystkie parametry
+// regulatora z ostatniego odczytu sterownika (GET /pellet-boiler-pelux200/settings), w zwijanych grupach jako lista
+// .params (nazwa, numer, zakres, nazwa PyPlumIO; opis i ocena zmiany z docs/parametry-kotla.md w dymku „i”).
+// Gdy ADVANCED_SETTINGS_EDIT w config.ts jest włączone, każdy parametr z nazwą ma ołówek — to samo okno zmiany co
+// w „Głównych parametrach” (MainParameters.tsx), przy parametrach serwisowych z dodatkowym potwierdzeniem.
+// Zwinięta na start; dane pobierane przy pierwszym rozwinięciu i po każdym zleceniu zmiany.
 import { useCallback, useEffect, useState } from 'react';
-import { IconButton } from '../../../core/components/IconButton';
-import { InfoTip } from '../../../core/components/InfoTip';
-import { EditIcon } from '../../../core/components/icons';
+import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerParameter, PelletBoilerSettings } from '../types';
 import { formatDateTime, formatNumber } from '../utils/boiler';
 import { COMMANDS_CHANGED, EditPanel, Item, ratingClass } from './MainParameters';
+import { IconBtn } from './ui';
 import { ADVANCED_SETTINGS_EDIT } from '../config';
 import { ModeProfiles } from './ModeProfiles';
 import { useLastReading } from '../utils/useLastReading';
@@ -24,29 +23,26 @@ const formatValue = (parameter: PelletBoilerParameter, value: number) => {
 };
 
 const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void; disabled?: boolean }> = ({ parameter, onEdit, disabled }) => (
-  <li className="boiler-parameter">
-    <div className="boiler-parameter-head">
-      <span className="boiler-parameter-label">
-        {parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}
-        {(parameter.description || parameter.rating) && (
-          <InfoTip label="Opis parametru">
-            {parameter.description && <div className="boiler-parameter-description">{parameter.description}</div>}
-            {parameter.rating && <div className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</div>}
-          </InfoTip>
-        )}
-      </span>
-      <span className="boiler-parameter-value">
-        {parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}
-        {parameter.name && ADVANCED_SETTINGS_EDIT && (
-          <IconButton label={`Zmień: ${parameter.label ?? parameter.name}`} icon={<EditIcon />} disabled={disabled} onClick={onEdit} />
-        )}
-      </span>
-    </div>
-    <div className="boiler-hint">
-      nr {parameter.index}
-      {parameter.name && <> · zakres {formatValue(parameter, parameter.min)} – {formatValue(parameter, parameter.max)}</>}
-      {parameter.name && <> · <code>{parameter.name}</code></>}
-    </div>
+  <li>
+    <span className="param-name">
+      {parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}
+      {(parameter.description || parameter.rating) && (
+        <InfoTip label="Opis parametru">
+          {parameter.description && <TipParagraph>{parameter.description}</TipParagraph>}
+          {parameter.rating && <span className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</span>}
+        </InfoTip>
+      )}
+      <small>
+        nr {parameter.index}
+        {parameter.name && <> · {formatValue(parameter, parameter.min)} – {formatValue(parameter, parameter.max)}</>}
+        {parameter.name && <> · <code>{parameter.name}</code></>}
+        {parameter.rating && <> · {parameter.rating.toLowerCase()}</>}
+      </small>
+    </span>
+    <span className="param-val">{parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}</span>
+    {parameter.name && ADVANCED_SETTINGS_EDIT && (
+      <IconBtn name="edit" label={`Zmień: ${parameter.label ?? parameter.name}`} disabled={disabled} onClick={onEdit} />
+    )}
   </li>
 );
 
@@ -60,12 +56,12 @@ export const AdvancedSettings: React.FC = () => {
   const [editing, setEditing] = useState<{ item: Item; parameter: PelletBoilerParameter } | null>(null);
 
   const reload = useCallback(() => { PelletBoilerRequests.getSettings().then(setSettings); }, []);
-  const toggle = () => {
-    const next = !open;
+  const toggle = (event: React.SyntheticEvent<HTMLDetailsElement>) => {
+    const next = event.currentTarget.open;
     setOpen(next);
     if (next && settings === undefined) reload();
   };
-  // nowe wartości po zleceniu (stąd albo z „Głównych parametrów”), gdy panel był już wczytany
+  // nowe wartości po zleceniu (stąd albo z „Głównych parametrów”), gdy karta była już wczytana
   useEffect(() => {
     if (settings === undefined) return undefined;
     window.addEventListener(COMMANDS_CHANGED, reload);
@@ -73,70 +69,63 @@ export const AdvancedSettings: React.FC = () => {
   }, [settings, reload]);
 
   const count = (settings?.groups ?? []).reduce((sum, group) => sum + group.parameters.length, 0);
+  const mixerCount = (settings?.mixers ?? []).filter((mixer) => !mixer.assumed).reduce((sum, mixer) => sum + mixer.parameters.length, 0);
+  const hint = settings?.readAt
+    ? `${count} parametrów kotła · ${mixerCount} mieszacza · ${ADVANCED_SETTINGS_EDIT ? 'edycja' : 'podgląd'}`
+    : 'wszystkie parametry regulatora';
 
   return (
-    <div className="resource boiler-advanced">
-      <h3 className="settings-section-title">
-        <button type="button" className="boiler-advanced-toggle" aria-expanded={open} onClick={toggle}>
-          <span>Ustawienia zaawansowane</span>
-          <span aria-hidden="true">{open ? '▲' : '▼'}</span>
-        </button>
-      </h3>
-      {open && (
-        <div className="boiler-advanced-body">
-          {settings === undefined && <div className="boiler-hint">Wczytywanie…</div>}
-          {settings === null && <div className="boiler-error">Nie udało się pobrać ustawień kotła.</div>}
-          {settings && !settings.readAt && (
-            <div className="boiler-hint">
-              Brak odczytu. Sterownik pieca wysyła ustawienia regulatora po każdym uruchomieniu,
-              gdy słyszy kocioł (firmware 1.1.0 lub nowszy).
-            </div>
+    <details className="card card-details" open={open} onToggle={toggle}>
+      <summary><h2>Ustawienia zaawansowane</h2><span className="card-hint">{hint}</span></summary>
+      {settings === undefined && <p className="help">Wczytywanie…</p>}
+      {settings === null && <p className="help danger-text">Nie udało się pobrać ustawień kotła.</p>}
+      {settings && !settings.readAt && (
+        <p className="help">
+          Brak odczytu. Sterownik pieca wysyła ustawienia regulatora po każdym uruchomieniu,
+          gdy słyszy kocioł (firmware 1.1.0 lub nowszy).
+        </p>
+      )}
+      {settings?.readAt && (
+        <>
+          <p className="help">
+            Odczyt z regulatora: {formatDateTime(settings.readAt)}.{' '}
+            {ADVANCED_SETTINGS_EDIT
+              ? 'Ołówek zleca zmianę (sterownik pieca wyśle ją do regulatora zwykle w kilka sekund); parametry „Tylko serwis” i „Nie ruszać” wymagają potwierdzenia.'
+              : <>Tylko podgląd: zmiana tych parametrów jest wyłączona w aplikacji (<code>ADVANCED_SETTINGS_EDIT = false</code>). Główne nastawy zmienisz w „Głównych parametrach”.</>}
+          </p>
+          {heatPumpLinked && (
+            <details className="boiler-group">
+              <summary>
+                Pompa ciepła / Pellet <span className="card-hint">nastawy trybów</span>
+                <InfoTip>Te nastawy zleca przełącznik „Pompa ciepła” / „Pellet” w Trybie pracy (tylko wartości różne od obecnych). Przy pracującym regulatorze najpierw go wyłącza, a nastawy idą po zgłoszeniu stanu „wyłączony”. CWU w każdym trybie ustawia harmonogram (zakładka Harmonogram).</InfoTip>
+              </summary>
+              <ModeProfiles settings={settings} />
+            </details>
           )}
-          {settings?.readAt && (
-            <>
-              <div className="boiler-hint">
-                Odczyt z regulatora: {formatDateTime(settings.readAt)} · {count} parametrów kotła
-                <InfoTip>
-                  {ADVANCED_SETTINGS_EDIT
-                    ? 'Ołówek zleca zmianę (sterownik pieca wyśle ją do regulatora zwykle w kilka sekund); parametry „Tylko serwis” i „Nie ruszać” wymagają potwierdzenia.'
-                    : 'Tylko podgląd: zmiana tych parametrów jest wyłączona w aplikacji. Główne nastawy zmienisz w sekcji „Główne parametry”.'}
-                </InfoTip>
-              </div>
-              {heatPumpLinked && (
-                <details className="boiler-group">
-                  <summary>
-                    Pompa ciepła / Pellet <span className="boiler-hint">(nastawy trybów)</span>
-                    <InfoTip>Te nastawy zleca przycisk „Pompa ciepła” / „Pellet” w Trybie pracy (tylko wartości różne od obecnych). Przy pracującym regulatorze najpierw go wyłącza, a nastawy idą po zgłoszeniu stanu „wyłączony”. CWU w każdym trybie ustawia harmonogram (zakładka Harmonogram).</InfoTip>
-                  </summary>
-                  <ModeProfiles settings={settings} />
-                </details>
-              )}
-              {settings.groups?.map((group) => (
-                <details key={group.key} className="boiler-group">
-                  <summary>{group.label} <span className="boiler-hint">({group.parameters.length})</span></summary>
-                  <ul>{group.parameters.map((p) => (
-                    <ParameterRow key={p.index} parameter={p}
-                      disabled={!responding} onEdit={() => setEditing({ item: { kind: 'ecomax', index: p.index }, parameter: p })} />
-                  ))}</ul>
-                </details>
-              ))}
-              {settings.mixers?.filter((mixer) => !mixer.assumed).map((mixer) => (
-                <details key={`mixer-${mixer.mixer}`} className="boiler-group">
-                  <summary>Mieszacz {mixer.mixer} <span className="boiler-hint">({mixer.parameters.length})</span></summary>
-                  <ul>{mixer.parameters.map((p) => (
-                    <ParameterRow key={p.index} parameter={p}
-                      disabled={!responding} onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />
-                  ))}</ul>
-                </details>
-              ))}
-            </>
-          )}
-        </div>
+          {settings.groups?.map((group) => (
+            <details key={group.key} className="boiler-group">
+              <summary>{group.label} <span className="card-hint">{group.parameters.length}</span></summary>
+              <ul className="params">{group.parameters.map((p) => (
+                <ParameterRow key={p.index} parameter={p}
+                  disabled={!responding} onEdit={() => setEditing({ item: { kind: 'ecomax', index: p.index }, parameter: p })} />
+              ))}</ul>
+            </details>
+          ))}
+          {settings.mixers?.filter((mixer) => !mixer.assumed).map((mixer) => (
+            <details key={`mixer-${mixer.mixer}`} className="boiler-group">
+              <summary>Mieszacz {mixer.mixer} <span className="card-hint">{mixer.parameters.length}</span></summary>
+              <ul className="params">{mixer.parameters.map((p) => (
+                <ParameterRow key={p.index} parameter={p}
+                  disabled={!responding} onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />
+              ))}</ul>
+            </details>
+          ))}
+        </>
       )}
       {editing && (
         <EditPanel item={editing.item} parameter={editing.parameter} reason="Zmiana w „Ustawienia zaawansowane”." onClose={() => setEditing(null)}
           onSent={() => setEditing(null)} />
       )}
-    </div>
+    </details>
   );
 };

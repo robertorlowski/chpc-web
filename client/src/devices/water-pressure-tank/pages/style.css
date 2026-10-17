@@ -1,308 +1,195 @@
-/* Hydrofor: karty jak w Ustawieniach pompy (.settings > section > .resource) */
-/* :first-child wygrywa z globalną regułą Ustawień pompy (.settings > section > .resource:first-child) */
-.settings.water-page > section > .resource,
-.settings.water-page > section > .resource:first-child {
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
+/* Hydrofor: strony w układzie makiety „Instrument” (klasy .page, .card, .card-hero, .kpi, .filters, .table-wrap,
+   .stat, .chart, .people, .form-grid … z client/src/makieta.css). Tu tylko to, czego makieta nie ma:
+   marginesy strony, wysokości wykresów Recharts, wiersze karty „Sterownik” z komponentów core. Kolory z tokenów. */
+
+/* marginesy boczne jak .page makiety (baza.css); dół nad dolną nawigacją daje .app-main.
+   Globalna reguła main (style.css) daje align-items: flex-start, więc karty trzeba rozciągnąć na szerokość strony. */
+.page.tank-page {
+  align-items: stretch;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
 }
 
-.water-page .settings-section-title {
-  margin-bottom: 0.5rem;
+/* hero bez przepływu: czas pracy pompy zamiast litrów (krótszy napis w tej samej czcionce) */
+.tank-page .tank-hero-text {
+  font-size: 40px;
 }
 
-.water-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.95rem;
+/* wykresy Recharts: wysokość jak w makiecie (tydzień 160 px, okres 220 px) */
+.tank-page .chart-md {
+  height: 160px;
 }
 
-.water-table th,
-.water-table td {
-  padding: 0.25rem 0.4rem;
-  text-align: right;
-  border-bottom: 1px solid var(--line);
+.tank-page .chart-lg {
+  height: 220px;
 }
 
-.water-table th:first-child,
-.water-table td:first-child {
-  text-align: left;
+/* przycisk CSV w pasku filtrów: ikona z makiety */
+.tank-page .filters .btn .ic {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: -3px;
 }
 
-/* data i godzina (ze znacznikiem ≈) w jednej linii */
-.water-table td:first-child,
-.water-table td:nth-child(2) {
-  white-space: nowrap;
-}
-
-.water-run-active td {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* przełączniki pracy (pompa, kompresor) pod nagłówkiem, jak na widoku pompy ciepła;
-   na wąskim ekranie zawijane do drugiego wiersza */
-.water-switches {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.25rem 1.5rem;
-  margin: 0 1rem 1rem;
-}
-
-.water-switches > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-}
-
-/* globalna reguła img daje display: block i margines dolny 1.5rem (zerowane też w .hp-page) */
-.water-switch {
-  display: inline-block;
-  height: 26px;
-  margin: 0;
-  vertical-align: middle;
-}
-
-.water-total {
-  margin-top: 0.5rem;
-  text-align: right;
-}
-
-.water-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.water-toolbar button {
-  margin-left: 0;
-}
-
-.water-toolbar .water-toolbar-end {
-  margin-left: auto;
-}
-
-.water-toolbar-center {
-  justify-content: center;
-}
-
-/* pola przeglądarki nie dziedziczą czcionki strony */
-.water-page input,
-.water-page select {
-  font: inherit;
-  font-size: 0.95rem;
-  min-height: 32px;
-  padding: 0 0.4rem;
-  box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--card);
-}
-
-.water-page input[type='checkbox'],
-.water-page input[type='radio'] {
-  min-height: 0;
-}
-
-/* etykieta z polem w jednej linii */
-.water-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.water-field input[type='month'] {
-  min-width: 11rem;
-}
-
-.water-field input[type='number'] {
-  width: 6rem;
-}
-
-/* formularz odczytu: etykiety po lewej, pola wyrównane do prawej */
-.water-form .water-field {
-  justify-content: space-between;
-}
-
-.water-form .water-field input {
-  width: 15rem;
-  max-width: 62%;
-}
-
-.water-form .water-field-wide input {
-  flex: 1;
-  width: auto;
-  max-width: none;
-}
-
-/* odczyt wodomierza: etykiety stałej szerokości, pola wyrównane do lewej */
-.water-form.water-form-left .water-field {
-  justify-content: flex-start;
-}
-
-.water-form.water-form-left span.label {
-  min-width: 6.5rem;
-}
-
-.water-form.water-form-left .water-field input[type='date'] {
-  width: 11rem;
-}
-
-.water-form.water-form-left .water-field input[type='text'] {
-  width: 11rem;
-}
-
-.water-form.water-form-left .water-field-wide input[type='text'] {
-  flex: 1;
-  width: auto;
-}
-
-/* zakładki w Danych, szerokości karty */
-.water-tabs {
-  display: flex;
-  gap: 0.25rem;
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
-  margin: 0 auto 0.5rem;
-  border-bottom: 2px solid var(--accent);
-}
-
-.water-tabs button {
-  margin: 0;
-  padding: 0.45rem 1rem;
-  border-radius: 6px 6px 0 0;
-  background-color: var(--muted-bg);
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.water-tabs button.active {
-  background-color: var(--accent);
-  color: var(--card);
-}
-
-.water-check {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
-}
-
-.water-check-bottom {
-  margin: 0.5rem 0 0;
-}
-
-/* Ustawienia: wszystkie pola tej samej szerokości */
-.water-settings-form label > input:not([type='checkbox']),
-.water-settings-form label > select {
-  width: 12rem;
-  max-width: 100%;
-}
-
-/* wartości liczbowe wyrównane do prawej */
-.water-settings-form input[type='number'] {
-  text-align: right;
-}
-
-/* wybór okresu wykresu: kropki dzień / miesiąc / rok */
-.water-periods {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.water-periods label {
-  display: flex;
-  gap: 0.3rem;
-  align-items: center;
-  cursor: pointer;
-}
-
-.water-chart {
-  width: 100%;
-  height: 280px;
-}
-
-/* wykres na całe okno (fill-page, useFillHeight): wysokość z miejsca w karcie */
-.fill-page .water-chart {
-  height: auto;
-  min-height: 180px;
-}
-
-.water-form {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.water-form label {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.water-form span.label {
-  min-width: 13.5rem;
-}
-
-.water-form input[type='number'],
-.water-form input[type='text'],
-.water-form input[type='datetime-local'],
-.water-form select {
+/* strzałki nawigacji po dacie (core IconButton) w ramce .date-nav */
+.tank-page .date-nav button.icon-button[type] {
+  width: 32px;
   height: 32px;
-  box-sizing: border-box;
-}
-
-.water-form input[type='number'] {
-  width: 6rem;
-}
-
-.water-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.water-actions button {
-  margin-left: 0;
-}
-
-button.water-secondary {
-  background-color: var(--fg-3);
-}
-
-.water-hint {
-  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
   color: var(--fg-2);
 }
 
-.water-error {
-  color: var(--danger);
+.tank-page .date-nav button.icon-button[type]:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--fg);
 }
 
-@media (max-width: 560px) {
-  body .settings.water-page > section > .resource,
-  body .settings.water-page > section > .resource:first-child {
-    width: var(--page-vw, 100vw);
-    margin-left: 0;
-    margin-right: 0;
-    border-radius: 0;
-  }
+.tank-page .date-nav .ic {
+  width: 18px;
+  height: 18px;
+}
 
-  .water-table {
-    font-size: 0.85rem;
-  }
+/* formularz odczytu wodomierza: pole daty szersze niż liczby; na telefonie pola zawijają się */
+.tank-meter-inputs {
+  flex-wrap: wrap;
+}
 
-  .water-tabs {
-    width: var(--page-vw, 100vw);
-  }
+.tank-meter-inputs input[type='date'] {
+  width: auto;
+  text-align: left;
+}
 
-  .water-tabs button {
-    flex: 1;
-    padding: 0.45rem 0.3rem;
+/* karta „Sterownik”: wiersze jak dl.kv makiety (etykieta 140 px, wartość), także z komponentów core
+   (DeviceAddress, FirmwareStatus: <div><span class="label">…</span>…</div>) */
+.tank-kv {
+  display: flex;
+  flex-direction: column;
+}
+
+.tank-kv > div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-soft);
+  align-items: baseline;
+}
+
+.tank-kv > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.tank-kv .label {
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.tank-kv > div > :not(.label) {
+  font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tank-kv a {
+  color: var(--accent);
+}
+
+/* SN i Root ID jak <code> makiety: tło tylko pod tekstem, nie na całą kolumnę */
+.tank-kv code {
+  justify-self: start;
+}
+
+.tank-kv small {
+  color: var(--fg-3);
+  font-weight: 400;
+}
+
+@media (max-width: 400px) {
+  .tank-kv > div {
+    grid-template-columns: 110px 1fr;
   }
+}
+
+/* „Aktualizuj” / „Anuluj aktualizację” z FirmwareStatus: przycisk makiety skrajnie z prawej */
+.tank-kv > .tank-kv-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 0;
+  padding: 4px 0 0;
+}
+
+.tank-kv > .tank-kv-actions button {
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.tank-kv > .tank-kv-actions button.firmware-cancel {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line-strong);
+}
+
+/* błąd zlecenia aktualizacji (FirmwareStatus) w jednej kolumnie */
+.tank-kv > .firmware-update-error {
+  grid-template-columns: 1fr;
+}
+
+/* karta „Udostępnianie” (core DeviceSharing, .account-card) jak karta makiety: ramka, nagłówek kapitalikami,
+   przycisk „Udostępnij” po prawej jak .btn-ghost.btn-sm */
+.tank-page .share-card {
+  margin: 0;
+  width: auto;
+  max-width: none;
+  box-sizing: border-box;
+  padding: var(--card-pad);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tank-page .share-card > h2 {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  text-align: left;
+}
+
+.tank-page .share-card .account-lead {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-3);
+}
+
+.tank-page .share-card .account-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.tank-page .share-card .account-actions > button {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line-strong);
 }

@@ -1,12 +1,16 @@
-// Zakładka Dane włącznika (/data): włączenia przekaźników w wybranym dniu (GET /switch/activations)
-// z czasem włączenia i wyłączenia, czasem trwania, łącznym czasem w dniu i eksportem CSV.
-import { useEffect, useState } from 'react';
+// Zakładka Dane włącznika (/data), układ z makiety „Instrument” (#s-switch-dane): pasek filtrów (dzień strzałkami
+// ‹ › albo z kalendarza po kliknięciu daty, przekaźnik przyciskami przy więcej niż jednym, CSV) i karta
+// „Włączenia w dniu” (GET /switch/activations) z czasem włączenia i wyłączenia, czasem trwania, łącznym czasem
+// w dniu i przypisem o czasie przybliżonym.
+import { useEffect, useRef, useState } from 'react';
 import { SwitchRequests } from '../api';
 import { SwitchActivation, SwitchRelay } from '../types';
 import {
-  activationsToCsv, downloadText, formatDuration, formatTimeSeconds, relayLabel,
-  secondsInDay, todayWarsaw, warsawDayBounds,
+  activationsToCsv, downloadText, formatDateLabel, formatDuration, formatTimeSeconds, relayLabel,
+  secondsInDay, shiftDate, todayWarsaw, warsawDayBounds,
 } from '../utils/format';
+import { DownloadIcon, NextIcon, PrevIcon } from '../components/icons';
+import { ActivationsTable } from '../components/ActivationsTable';
 import './style.css';
 
 const TIME_ZONE = 'Europe/Warsaw';
@@ -25,6 +29,7 @@ export const SwitchData: React.FC = () => {
   const [relayFilter, setRelayFilter] = useState(0);
   const [relays, setRelays] = useState<SwitchRelay[]>([]);
   const [activations, setActivations] = useState<SwitchActivation[] | null>(null);
+  const dateInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     SwitchRequests.getRelays().then((result) => result && setRelays(result));
@@ -35,65 +40,68 @@ export const SwitchData: React.FC = () => {
     SwitchRequests.getActivations(date).then((result) => setActivations(result ?? []));
   }, [date]);
 
+  const today = todayWarsaw();
   const names = new Map(relays.map((relay) => [relay.relay, relayLabel(relay)]));
   const shown = (activations ?? []).filter((activation) => !relayFilter || activation.relay === relayFilter);
   const now = Date.now();
   const { start, end } = warsawDayBounds(date);
   const total = shown.reduce((sum, activation) => sum + secondsInDay(activation, start, end, now), 0);
 
-  return (
-    <div className="settings switch-page">
-      <h2>Dane</h2>
-      <section>
-        <div className="resource">
-          <div className="switch-toolbar">
-            <label>Dzień:{' '}
-              <input type="date" value={date} onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
-            </label>
-            {relays.length > 1 && (
-              <select value={relayFilter} onChange={(event) => setRelayFilter(Number(event.currentTarget.value))}>
-                <option value={0}>Wszystkie przekaźniki</option>
-                {relays.map((relay) => <option key={relay.relay} value={relay.relay}>{relayLabel(relay)}</option>)}
-              </select>
-            )}
-            <button className="switch-toolbar-end" type="button" disabled={shown.length === 0}
-              onClick={() => downloadText(activationsToCsv(shown, names), `wlacznik-${date}.csv`)}>
-              CSV
-            </button>
-          </div>
+  // kalendarz przeglądarki pod datą (pole jest niewidoczne, otwiera je kliknięcie daty)
+  const openPicker = () => {
+    const input = dateInput.current;
+    if (!input) return;
+    if (typeof input.showPicker === 'function') input.showPicker();
+    else input.focus();
+  };
 
-          {activations === null && <div>Wczytywanie…</div>}
-          {activations !== null && shown.length === 0 && <div>Brak włączeń w tym dniu.</div>}
-          {shown.length > 0 && (
-            <>
-              <div className="switch-table-scroll">
-                <table className="switch-table">
-                  <thead>
-                    <tr>
-                      {relays.length > 1 && <th>Przekaźnik</th>}
-                      <th>Włączenie</th>
-                      <th>Wyłączenie</th>
-                      <th className="switch-num">Czas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((activation) => (
-                      <tr key={activation._id} className={activation.offAt ? '' : 'switch-row-active'}>
-                        {relays.length > 1 && <td>{names.get(activation.relay)}</td>}
-                        <td>{momentIn(activation.onAt, date)}</td>
-                        <td title={activation.approximate ? 'Czas przybliżony: sterownik stracił zasilanie albo łączność' : undefined}>
-                          {activation.offAt ? `${activation.approximate ? '≈ ' : ''}${momentIn(activation.offAt, date)}` : '—'}
-                        </td>
-                        <td className="switch-num">{activation.offAt ? formatDuration(activation.durationS) : 'w toku'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="switch-total">Razem w dniu: <strong>{formatDuration(total)}</strong></div>
-            </>
-          )}
+  return (
+    <div className="page page-device switch-page">
+      <div className="filters">
+        <div className="date-nav">
+          <button type="button" className="icon-btn sm" aria-label="Poprzedni dzień" onClick={() => setDate(shiftDate(date, -1))}><PrevIcon /></button>
+          <span className="date-cur">
+            <button type="button" className="date-pick" title="Wybierz dzień z kalendarza" onClick={openPicker}>
+              {formatDateLabel(date)}{date === today && <small>dziś</small>}
+            </button>
+            <input ref={dateInput} type="date" className="date-hidden" tabIndex={-1} aria-label="Dzień" value={date} max={today}
+              onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
+          </span>
+          <button type="button" className="icon-btn sm" aria-label="Następny dzień" disabled={date >= today}
+            onClick={() => setDate(shiftDate(date, 1))}><NextIcon /></button>
         </div>
+        {relays.length > 1 && (
+          <div className="segmented seg-inline" role="radiogroup" aria-label="Przekaźnik">
+            <label className="seg">
+              <input type="radio" name="sw-dane-r" checked={relayFilter === 0} onChange={() => setRelayFilter(0)} />
+              <span>Wszystkie</span>
+            </label>
+            {relays.map((relay) => (
+              <label className="seg" key={relay.relay}>
+                <input type="radio" name="sw-dane-r" checked={relayFilter === relay.relay} onChange={() => setRelayFilter(relay.relay)} />
+                <span>{relayLabel(relay)}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <button type="button" className="btn btn-ghost btn-sm" disabled={shown.length === 0}
+          onClick={() => downloadText(activationsToCsv(shown, names), `wlacznik-${date}.csv`)}>
+          <DownloadIcon />CSV
+        </button>
+      </div>
+
+      <section className="card card-table">
+        <header className="card-head">
+          <h2>Włączenia w dniu</h2>
+          {shown.length > 0 && <span className="card-hint">razem w dniu {formatDuration(total)}</span>}
+        </header>
+        {activations === null && <p className="help">Wczytywanie…</p>}
+        {activations !== null && shown.length === 0 && <p className="help">Brak włączeń w tym dniu.</p>}
+        {shown.length > 0 && (
+          <ActivationsTable activations={shown} names={names} showRelay={relays.length > 1}
+            moment={(iso) => momentIn(iso, date)} />
+        )}
+        <footer className="table-foot">„≈” = koniec po utracie zasilania (ostatnie zgłoszenie przed restartem). Włączenie przez północ liczy się do dnia startu.</footer>
       </section>
     </div>
   );

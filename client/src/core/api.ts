@@ -105,7 +105,7 @@ export class FirmwareRequests {
   }
 }
 
-// Konta użytkowników (/api/auth/*, 2026-10-11): logowanie kodem lub linkiem z maila, system, „Zapamiętaj 7 dni”,
+// Konta użytkowników (/api/auth/*, 2026-10-11): logowanie kodem lub linkiem z maila, system, „Zapamiętaj 14 dni”,
 // dane konta, zmiana e-maila, usunięcie konta. Błędy jako ApiError z komunikatem serwera.
 type Session = { token: string; created: boolean; user: User };
 export const AuthRequests = {

@@ -1,13 +1,15 @@
-// Zakładka „Operacje” (/operations): dziennik operacji wybranego sterownika z dnia (GET /api/operations?date=).
-// „Zaplanowane” (tylko dziś): zlecenia w toku i przejścia harmonogramu do końca doby; „Wykonane”: reszta dnia,
-// najnowsze u góry. Przy każdej operacji: godzina, kto (użytkownik albo system) i skąd, co, status oraz dlaczego
-// i przy jakich warunkach. Filtr Wszystkie / Użytkownik / System, dzień strzałkami ‹ › albo z kalendarza (dziennik
-// trzyma 5 dni). Dziś odświeżanie co 30 s i po komunikacie WebSocket „update”. Na telefonie karty, na komputerze tabela.
+// Zakładka „Operacje” (/operations; pompa ciepła, hydrofor, włącznik i piec): dziennik operacji wybranego sterownika
+// z dnia (GET /api/operations?date=) w wyglądzie „Instrument” z makiet/ (#s-*-operacje, 2026-10-17). Filtry: dzień
+// (.date-nav: strzałki albo kalendarz; dziennik trzyma 5 dni) i źródło (.segmented: Wszystkie / Użytkownik / System).
+// Karta „Zaplanowane” (tylko dziś: zlecenia w toku i przejścia harmonogramu do końca doby) i karta „Operacje w dniu”
+// (wykonane, najnowsze u góry) z osią czasu .timeline: godzina, kto i skąd, co (dlaczego, warunki, błąd), chip stanu.
+// Dziś odświeżanie co 30 s i po komunikacie WebSocket „update”.
 import { useCallback, useEffect, useState } from 'react';
 import { OperationRequests } from '../../api';
 import { getSelectedDevice } from '../../context/DeviceContext';
 import { wsAddressServer } from '../../http';
 import { OperationEntry, OperationStatus, OperationsDay } from '../../types';
+import { IconButton } from '../../components/IconButton';
 import './style.css';
 
 const TIME_ZONE = 'Europe/Warsaw';
@@ -22,15 +24,16 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'system', label: 'System' },
 ];
 
+// chip stanu (.chip-* z makiety): zielony wykonane, pomarańczowy w toku, czerwony błąd, szary reszta
 const STATUS: Record<OperationStatus, { text: string; className: string }> = {
-  planned: { text: 'Zaplanowana', className: 'op-chip-planned' },
-  pending: { text: 'Czeka na sterownik', className: 'op-chip-wait' },
-  sent: { text: 'Wysłana do sterownika', className: 'op-chip-sent' },
+  planned: { text: 'zaplanowana', className: 'chip-off' },
+  pending: { text: 'czeka na sterownik', className: 'chip-warn' },
+  sent: { text: 'wysłana · czeka', className: 'chip-warn' },
   // odebrana przez sterownik, który nie potwierdza wykonania (pompa ciepła, hydrofor): status końcowy
-  delivered: { text: 'Dostarczona', className: 'op-chip-ok' },
-  done: { text: 'Wykonana', className: 'op-chip-ok' },
-  error: { text: 'Błąd', className: 'op-chip-err' },
-  replaced: { text: 'Zastąpiona', className: 'op-chip-gone' },
+  delivered: { text: 'dostarczona', className: 'chip-ok' },
+  done: { text: 'wykonana', className: 'chip-ok' },
+  error: { text: 'błąd', className: 'chip-err' },
+  replaced: { text: 'zastąpiona', className: 'chip-off' },
 };
 
 const todayWarsaw = () => new Date().toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
@@ -50,76 +53,40 @@ const actorName = (entry: OperationEntry) => entry.actor.name
 const matches = (entry: OperationEntry, filter: Filter) =>
   filter === 'all' || (filter === 'system' ? entry.actor.type === 'system' : entry.actor.type !== 'system');
 
-// wpis warunkowy (np. cykl Zimy): bez godziny, status „Czeka na warunek”; po wykonaniu jest w „Wykonanych” z godziną
+// wpis warunkowy (np. cykl Zimy): bez godziny, status „czeka na warunek”; po wykonaniu jest w wykonanych z godziną
 const when = (entry: OperationEntry) => (entry.conditional ? '—' : time(entry.at));
 const statusText = (entry: OperationEntry) => {
-  if (entry.conditional && entry.status === 'planned') return 'Czeka na warunek';
+  if (entry.conditional && entry.status === 'planned') return 'czeka na warunek';
   const status = STATUS[entry.status];
   return (entry.status === 'done' || entry.status === 'delivered') && entry.statusAt ? `${status.text} ${time(entry.statusAt, true)}` : status.text;
 };
 
-const PersonIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-    <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
-  </svg>
-);
-const SystemIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="4" y="6" width="16" height="12" rx="2" /><path d="M9 12h6M12 3v3M8 21h8" />
-  </svg>
-);
-
-// Dlaczego i warunki; przy błędzie najpierw przyczyna błędu
-const Why: React.FC<{ entry: OperationEntry }> = ({ entry }) => (
-  <>
-    {entry.error && <span className="op-error"><b>Błąd:</b> {entry.error} </span>}
-    {entry.reason && <span><b>Dlaczego:</b> {entry.reason} </span>}
-    {entry.conditions && <span><b>Warunki:</b> {entry.conditions}</span>}
-  </>
-);
-
-const Who: React.FC<{ entry: OperationEntry }> = ({ entry }) => (
-  <span className="op-who">
-    {entry.actor.type === 'system' ? <SystemIcon /> : <PersonIcon />}
-    <span>{actorName(entry)} · {entry.source}</span>
-  </span>
-);
-
-const Chip: React.FC<{ entry: OperationEntry }> = ({ entry }) => (
-  <span className={`op-chip ${STATUS[entry.status].className}`}>{statusText(entry)}</span>
-);
+// kolor lewej kreski wpisu: użytkownik (akcent), system (niebieski), błąd (czerwony)
+const lineClass = (entry: OperationEntry) =>
+  entry.status === 'error' ? 'tl-err' : entry.actor.type === 'system' ? 'tl-sys' : 'tl-user';
 
 const key = (entry: OperationEntry, index: number) => entry.id ?? `${entry.at}-${index}`;
 
-const Cards: React.FC<{ entries: OperationEntry[]; planned?: boolean }> = ({ entries, planned }) => (
-  <div className="op-cards">
-    {entries.map((entry, index) => (
-      <div key={key(entry, index)} className={`op-card${planned && entry.status === 'planned' ? ' op-card-planned' : ''}`}>
-        <div className="op-card-top">
-          <span className="op-time">{when(entry)}</span>
-          <Chip entry={entry} />
-        </div>
-        <div className="op-what">{entry.action}</div>
-        <Who entry={entry} />
-        {(entry.reason || entry.conditions || entry.error) && <div className="op-why"><Why entry={entry} /></div>}
-      </div>
-    ))}
-  </div>
-);
+const PrevIcon = () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>;
+const NextIcon = () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>;
 
-const Rows: React.FC<{ title: string; entries: OperationEntry[]; planned?: boolean }> = ({ title, entries, planned }) => (
-  <>
-    <tr className="op-group"><td colSpan={5}>{title}</td></tr>
+// Oś czasu: godzina, kto i skąd, co (dlaczego, warunki; przy błędzie najpierw przyczyna), chip stanu.
+const Timeline: React.FC<{ entries: OperationEntry[]; planned?: boolean }> = ({ entries, planned }) => (
+  <ol className="timeline">
     {entries.map((entry, index) => (
-      <tr key={key(entry, index)} className={planned && entry.status === 'planned' ? 'op-row-planned' : ''}>
-        <td className="op-time">{when(entry)}</td>
-        <td><Who entry={entry} /></td>
-        <td className="op-what">{entry.action}</td>
-        <td><Chip entry={entry} /></td>
-        <td className="op-why"><Why entry={entry} /></td>
-      </tr>
+      <li key={key(entry, index)} className={`tl ${lineClass(entry)}${planned && entry.status === 'planned' ? ' tl-planned' : ''}`}>
+        <span className="tl-time">{when(entry)}</span>
+        <span className="tl-who">{actorName(entry)} · {entry.source}</span>
+        <span className="tl-what">
+          <strong>{entry.action}</strong>
+          {entry.error && <span className="tl-error"> Błąd: {entry.error}</span>}
+          {entry.reason && <> {entry.reason}</>}
+          {entry.conditions && <small className="tl-cond">Warunki: {entry.conditions}</small>}
+        </span>
+        <span className={`tl-state chip ${STATUS[entry.status].className}`}>{statusText(entry)}</span>
+      </li>
     ))}
-  </>
+  </ol>
 );
 
 export const OperationsPage: React.FC = () => {
@@ -156,61 +123,47 @@ export const OperationsPage: React.FC = () => {
   const minDate = shiftDate(today, -RETENTION_DAYS);
   const planned = (day?.planned ?? []).filter((entry) => matches(entry, filter));
   const done = (day?.done ?? []).filter((entry) => matches(entry, filter));
-  const empty = day && planned.length === 0 && done.length === 0;
+  const count = (n: number) => `${n} ${n === 1 ? 'zdarzenie' : n >= 2 && n <= 4 ? 'zdarzenia' : 'zdarzeń'}`;
 
   return (
-    <div className="settings operations-page">
-      <h2>Operacje</h2>
-      <section>
-        <div className="resource">
-          <div className="op-toolbar">
-            <div className="op-day">
-              <button type="button" aria-label="Poprzedni dzień" disabled={date <= minDate} onClick={() => setDate(shiftDate(date, -1))}>‹</button>
-              <label className="op-date">
-                <span>{dateLabel(date)}{date === today ? ' (dziś)' : ''}</span>
-                <input type="date" value={date} min={minDate} max={today} aria-label="Dzień"
-                  onClick={(event) => event.currentTarget.showPicker?.()}
-                  onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
-              </label>
-              <button type="button" aria-label="Następny dzień" disabled={date >= today} onClick={() => setDate(shiftDate(date, 1))}>›</button>
-            </div>
-            <div className="op-filter" role="group" aria-label="Kto">
-              {FILTERS.map((item) => (
-                <button key={item.key} type="button" className={filter === item.key ? 'op-filter-active' : ''}
-                  aria-pressed={filter === item.key} onClick={() => setFilter(item.key)}>{item.label}</button>
-              ))}
-            </div>
-          </div>
-
-          {day === undefined && <div>Wczytywanie…</div>}
-          {day === null && <div className="op-error">Nie udało się wczytać dziennika.</div>}
-          {empty && <div>Brak operacji w tym dniu.</div>}
-
-          {day && !empty && (
-            <>
-              <div className="op-mobile">
-                {day.today && (
-                  <>
-                    <div className="op-section">Zaplanowane <small>od teraz do końca dnia</small></div>
-                    {planned.length ? <Cards entries={planned} planned /> : <div className="op-none">Nic nie czeka.</div>}
-                  </>
-                )}
-                <div className="op-section">Wykonane <small>najnowsze u góry</small></div>
-                {done.length ? <Cards entries={done} /> : <div className="op-none">Brak.</div>}
-              </div>
-
-              <table className="op-table">
-                <thead>
-                  <tr><th>Godzina</th><th>Kto</th><th>Operacja</th><th>Status</th><th>Dlaczego i warunki</th></tr>
-                </thead>
-                <tbody>
-                  {day.today && <Rows title={planned.length ? 'Zaplanowane' : 'Zaplanowane — nic nie czeka'} entries={planned} planned />}
-                  <Rows title={done.length ? 'Wykonane' : 'Wykonane — brak'} entries={done} />
-                </tbody>
-              </table>
-            </>
-          )}
+    <div className="page operations-page">
+      <div className="filters">
+        <div className="date-nav">
+          <IconButton label="Poprzedni dzień" icon={<PrevIcon />} disabled={date <= minDate} onClick={() => setDate(shiftDate(date, -1))} />
+          <label className="date-cur">
+            {dateLabel(date)}{date === today && <small>dziś</small>}
+            <input type="date" value={date} min={minDate} max={today} aria-label="Dzień"
+              onClick={(event) => event.currentTarget.showPicker?.()}
+              onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
+          </label>
+          <IconButton label="Następny dzień" icon={<NextIcon />} disabled={date >= today} onClick={() => setDate(shiftDate(date, 1))} />
         </div>
+        <div className="segmented seg-inline" role="radiogroup" aria-label="Źródło">
+          {FILTERS.map((item) => (
+            <label key={item.key} className="seg">
+              <input type="radio" name="op-src" checked={filter === item.key} onChange={() => setFilter(item.key)} />
+              <span>{item.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {day?.today && (
+        <section className="card">
+          <header className="card-head"><h2>Zaplanowane</h2><span className="card-hint">od teraz do końca dnia</span></header>
+          {planned.length ? <Timeline entries={planned} planned /> : <p className="help">Nic nie czeka.</p>}
+        </section>
+      )}
+
+      <section className="card">
+        <header className="card-head">
+          <h2>Operacje w dniu</h2>
+          {day && <span className="card-hint">{done.length ? `${count(done.length)} · najnowsze u góry` : 'brak'}</span>}
+        </header>
+        {day === undefined && <p className="help">Wczytywanie…</p>}
+        {day === null && <div className="alert alert-err" role="alert"><div><strong>Nie udało się wczytać dziennika.</strong></div></div>}
+        {day && done.length === 0 && <p className="help">Brak operacji w tym dniu.</p>}
+        {day && done.length > 0 && <Timeline entries={done} />}
       </section>
     </div>
   );

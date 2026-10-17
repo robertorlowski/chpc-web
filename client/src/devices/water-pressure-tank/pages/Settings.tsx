@@ -1,14 +1,17 @@
-// Zakładka Ustawienia hydroforu (/settings): czas kompresora (PUT /device/properties),
-// przepływ pompy wyliczony z odczytów wodomierza (GET /water-pressure-tank/flow) i dane sterownika.
+// Zakładka Ustawienia hydroforu (/settings) w układzie makiety „Instrument” (#s-tank-ustawienia), dwie kolumny:
+// po lewej karta „Kompresor” (czas pracy, PUT /device/properties) i „Przepływ pompy” (FlowDetails,
+// GET /water-pressure-tank/flow), po prawej karta „Sterownik” (nazwa, SN, Root ID, adres IP, firmware
+// z przyciskiem „Aktualizuj” — komponenty core) i „Udostępnianie” (DeviceSharing).
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { DeviceProperties } from '../../../core/types';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
-import { ControllerCardTitle } from '../../../core/components/ControllerCardTitle';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
 import { DeviceSharing } from '../../../core/components/DeviceSharing';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
+import { IconButton } from '../../../core/components/IconButton';
+import { EditIcon } from '../../../core/components/icons';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { WaterPressureTankRequests } from '../api';
 import { WaterFlow } from '../types';
@@ -55,39 +58,50 @@ export const WaterPressureTankSettings: React.FC = () => {
   };
 
   return (
-    <div className="settings water-page">
+    <main className="page page-device tank-page">
       <Notification message={notice} />
-      <h2>Ustawienia</h2>
-      <section>
-        <form className="resource water-form water-settings-form" onSubmit={save}>
-          <h3 className="settings-section-title">Kompresor</h3>
-          <label>
-            <span className="label">Czas pracy kompresora [s]:</span>
-            <input type="number" min={1} max={3600} value={compressor}
-              onChange={(event) => setCompressor(event.currentTarget.value)} />
-          </label>
-          {error && <div className="water-error">{error}</div>}
-          <div className="water-actions">
-            <button type="submit" disabled={properties === null || busy}>Zapisz</button>
-          </div>
-        </form>
+      <div className="grid-2 grid-settings">
+        <div className="stack">
+          <form className="card" onSubmit={save}>
+            <header className="card-head"><h2>Kompresor</h2><span className="card-hint">od następnego uruchomienia pompy</span></header>
+            <div className="form-grid">
+              <label htmlFor="tank-compressor">Czas pracy kompresora</label>
+              <div className="range-inputs">
+                <input type="number" id="tank-compressor" min={1} max={3600} value={compressor}
+                  onChange={(event) => setCompressor(event.currentTarget.value)} />
+                <span className="unit-txt">s</span>
+              </div>
+            </div>
+            <p className="help">1–3600 s. Sterownik włącza kompresor raz, 1 s po starcie; zmianę pobiera przy zgłoszeniu.</p>
+            {error && <p className="help danger-text">{error}</p>}
+            <div className="actions"><button type="submit" className="btn btn-primary" disabled={properties === null || busy}>Zapisz</button></div>
+          </form>
 
-        <div className="resource">
-          <h3 className="settings-section-title">Przepływ pompy</h3>
-          <FlowDetails flow={flow} />
+          <section className="card">
+            <header className="card-head"><h2>Przepływ pompy</h2><span className="card-hint">z wodomierza</span></header>
+            <FlowDetails flow={flow} />
+          </section>
         </div>
 
-        <div className="resource settings-device">
-          <ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={() => setEditingDevice(true)} />
-          <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
-          <div><span className="label">Identyfikator:</span><code>{device?.deviceId ?? '---'}</code></div>
-          <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
-          <DeviceAddress device={device} />
-          <FirmwareStatus device={device} actionsClassName="water-actions" />
+        <div className="stack">
+          <section className="card">
+            <header className="card-head">
+              <h2>Sterownik</h2>
+              <IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!device || device.access === 'shared'} onClick={() => setEditingDevice(true)} />
+            </header>
+            {/* wiersze jak dl.kv makiety; DeviceAddress i FirmwareStatus (core) dają <div><span class="label">…</span>…</div> */}
+            <div className="tank-kv">
+              <div><span className="label">Nazwa</span><span>{device?.name?.trim() || '—'}</span></div>
+              <div><span className="label">SN</span><code>{device?.deviceId ?? '—'}</code></div>
+              <div><span className="label">Root ID</span><code>{device?.rootId ?? '—'}</code></div>
+              <DeviceAddress device={device} />
+              <FirmwareStatus device={device} actionsClassName="actions tank-kv-actions" />
+            </div>
+          </section>
+          {/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
+          {device && <DeviceSharing device={device} />}
         </div>
-        {/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
-        {device && <DeviceSharing device={device} />}
-      </section>
+      </div>
 
       {editingDevice && device && (
         <DeviceEditModal
@@ -96,6 +110,6 @@ export const WaterPressureTankSettings: React.FC = () => {
           onSaved={(updated) => { selectDevice(updated); setEditingDevice(false); }}
         />
       )}
-    </div>
+    </main>
   );
 };

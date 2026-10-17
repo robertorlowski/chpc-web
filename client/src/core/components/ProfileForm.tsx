@@ -1,5 +1,6 @@
 // Dane konta (PUT /api/auth/me): imię, nazwisko i kraj obowiązkowe (decyzja 2026-10-11), adres opcjonalny,
-// jedna lokalizacja konta na mapie. Formularz rejestracji (pierwsze logowanie) i karta „Dane” w „Moje dane”.
+// jedna lokalizacja konta na mapie. Formularz rejestracji (pierwsze logowanie, App.tsx) i karta „Moje dane”
+// (pages/Account). Pola .field z makiety (components/account.css), przyciski w .actions, zapis skrajnie z prawej.
 import { FormEvent, useState } from 'react';
 import { AuthRequests } from '../api';
 import { ApiError } from '../http';
@@ -43,30 +44,30 @@ export function ProfileForm({ user, onSaved, onCancel }: Props) {
   };
 
   return (
-    <form className="account-form" onSubmit={save}>
+    <form className="auth-step profile-form" onSubmit={save}>
       <div className="account-grid-2">
-        <label><span>Imię *</span><input required maxLength={80} autoComplete="given-name" {...field('firstName')} /></label>
-        <label><span>Nazwisko *</span><input required maxLength={80} autoComplete="family-name" {...field('lastName')} /></label>
+        <label className="field"><span>Imię *</span><input required maxLength={80} autoComplete="given-name" {...field('firstName')} /></label>
+        <label className="field"><span>Nazwisko *</span><input required maxLength={80} autoComplete="family-name" {...field('lastName')} /></label>
       </div>
-      <label><span>Ulica i numer</span><input maxLength={120} autoComplete="street-address" {...field('street')} /></label>
+      <label className="field"><span>Ulica i numer</span><input maxLength={120} autoComplete="street-address" {...field('street')} /></label>
       <div className="account-grid-code">
-        <label><span>Kod</span><input maxLength={20} autoComplete="postal-code" {...field('postalCode')} /></label>
-        <label><span>Miejscowość</span><input maxLength={120} autoComplete="address-level2" {...field('city')} /></label>
+        <label className="field"><span>Kod</span><input maxLength={20} autoComplete="postal-code" {...field('postalCode')} /></label>
+        <label className="field"><span>Miejscowość</span><input maxLength={120} autoComplete="address-level2" {...field('city')} /></label>
       </div>
-      <label>
+      <label className="field">
         <span>Kraj *</span>
         <select required {...field('country')}>
           {countries.map((country) => <option key={country}>{country}</option>)}
         </select>
       </label>
-      <div className="account-field">
+      <div className="field">
         <span>Lokalizacja — kliknij na mapie</span>
         <LocationPicker value={location} onChange={setLocation} />
       </div>
-      {error && <p className="account-error">{error}</p>}
-      <div className="account-actions">
-        {onCancel && <button type="button" className="account-cancel" onClick={onCancel} disabled={saving}>Anuluj</button>}
-        <button type="submit" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
+      {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
+      <div className="actions actions-gap">
+        {onCancel && <button type="button" className="btn" onClick={onCancel} disabled={saving}>Anuluj</button>}
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
       </div>
     </form>
   );

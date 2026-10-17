@@ -1,14 +1,25 @@
-// Karta „Udostępnianie” w Ustawieniach sterownika (konta użytkowników, 2026-10-11): osoby z dostępem i ich
-// zakładki, okno „Udostępnij” (e-mail i zakładki rodzaju sterownika), zmiana zakładek i odebranie dostępu.
-// Tylko właściciel i użytkownik systemowy (osoba z udostępnieniem karty nie widzi; serwer też odmawia).
+// Karta „Udostępnianie” w Ustawieniach sterownika (konta użytkowników, 2026-10-11) w wyglądzie „Instrument”
+// (makieta #s-hp-ustawienia: .card z .card-head i przyciskiem „Udostępnij”, lista .people z awatarem, e-mailem
+// i zakładkami, ikony zmiany zakładek i cofnięcia dostępu). Okno „Udostępnij sterownik” (.modal: e-mail i zakładki
+// rodzaju sterownika jako .checks) służy też do zmiany zakładek. Tylko właściciel i użytkownik systemowy
+// (osoba z udostępnieniem karty nie widzi; serwer też odmawia). Do wstawienia w .stack / .grid-settings.
 import { FormEvent, useEffect, useState } from 'react';
 import { ShareRequests } from '../api';
 import { getDeviceTypeView } from '../device-types';
 import { ApiError } from '../http';
 import { Device, DeviceShare } from '../types';
+import { IconButton } from './IconButton';
+import { EditIcon, TrashIcon } from './icons';
 import './account.css';
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+
+// „AK” z imienia i nazwiska albo z e-maila do kółka przy osobie
+function initials(name: string | null, email: string): string {
+  const source = name?.trim() || email;
+  const parts = source.split(/[\s@._-]+/).filter(Boolean);
+  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : source.slice(0, 2)).toUpperCase();
+}
 
 function ShareDialog({ device, share, onClose, onSaved }: {
   device: Device; share: DeviceShare | null; onClose: () => void; onSaved: () => void;
@@ -19,6 +30,12 @@ function ShareDialog({ device, share, onClose, onSaved }: {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const toggle = (path: string) => setTabs((current) => (current.includes(path) ? current.filter((tab) => tab !== path) : [...current, path]));
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -36,28 +53,32 @@ function ShareDialog({ device, share, onClose, onSaved }: {
   };
 
   return (
-    <div className="account-backdrop" onClick={(event) => event.target === event.currentTarget && onClose()}>
-      <form className="account-dialog account-form" role="dialog" aria-labelledby="share-title" onSubmit={save}>
-        <h2 id="share-title">{share ? 'Zakładki' : 'Udostępnij'} „{device.name || device.deviceId}”</h2>
-        <label>
-          <span>E-mail osoby</span>
-          <input type="email" required disabled={!!share} autoFocus={!share} value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <fieldset className="share-tabs">
-          <legend>Zakładki, które zobaczy</legend>
-          {views.map((view) => (
-            <label key={view.path} className="share-tab">
-              <input type="checkbox" checked={tabs.includes(view.path)} onChange={() => toggle(view.path)} />
-              {view.path === '/' ? 'Podgląd' : view.label}
-            </label>
-          ))}
-        </fieldset>
-        {!share && <p className="account-lead">Jeśli ta osoba nie ma konta, dostanie zaproszenie mailem.</p>}
-        {error && <p className="account-error">{error}</p>}
-        <div className="account-actions">
-          <button type="button" className="account-cancel" onClick={onClose} disabled={busy}>Anuluj</button>
-          <button type="submit" disabled={busy || tabs.length === 0}>{share ? 'Zapisz' : 'Udostępnij'}</button>
+    <div className="modal-layer">
+      <div className="scrim" onClick={onClose} />
+      <form className="modal" role="dialog" aria-modal="true" aria-labelledby="share-title" onSubmit={save}>
+        <header className="modal-head"><h2 id="share-title">{share ? 'Zakładki' : 'Udostępnij sterownik'}</h2></header>
+        <div className="modal-body">
+          <p>{device.name || device.deviceId}</p>
+          <label className="field">
+            <span>E-mail osoby</span>
+            <input type="email" required disabled={!!share} autoFocus={!share} placeholder="imie@domena.pl" value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+          <fieldset className="checks">
+            <legend>Zakładki, które zobaczy</legend>
+            {views.map((view) => (
+              <label key={view.path} className="check">
+                <input type="checkbox" checked={tabs.includes(view.path)} onChange={() => toggle(view.path)} />
+                <span>{view.path === '/' ? 'Podgląd' : view.label}</span>
+              </label>
+            ))}
+          </fieldset>
+          {!share && <p className="help">Jeśli ta osoba nie ma konta, dostanie zaproszenie mailem; dostęp można cofnąć w każdej chwili.</p>}
+          {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
         </div>
+        <footer className="modal-foot">
+          <button type="button" className="btn" onClick={onClose} disabled={busy}>Anuluj</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || tabs.length === 0}>{share ? 'Zapisz' : 'Wyślij zaproszenie'}</button>
+        </footer>
       </form>
     </div>
   );
@@ -69,6 +90,8 @@ export function DeviceSharing({ device }: { device: Device }) {
   const [editing, setEditing] = useState<DeviceShare | null | undefined>(undefined);
   const views = getDeviceTypeView(device.deviceType);
   const tabLabel = (path: string) => (path === '/' ? 'Podgląd' : views.views.find((view) => view.path === path)?.label ?? path);
+  const tabsText = (share: DeviceShare) =>
+    share.tabs.length === views.views.length ? 'wszystkie zakładki' : share.tabs.map(tabLabel).join(', ');
 
   const load = () => ShareRequests.list(device.rootId).then(setShares).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Nie udało się pobrać listy.'));
   useEffect(() => { void load(); }, [device.rootId]);
@@ -85,31 +108,31 @@ export function DeviceSharing({ device }: { device: Device }) {
   };
 
   return (
-    <section className="account-card share-card">
-      <h2>Udostępnianie</h2>
-      <p className="account-lead">Osoby z dostępem do tego sterownika i zakładki, które widzą.</p>
-      {shares?.map((share) => (
-        <div key={share.id} className="share-row">
-          <div className="share-who">
-            <strong>{share.registered ? share.name || share.email : `Zaproszenie wysłane ${formatDate(share.createdAt)}`}</strong>
-            <span>{share.email}</span>
-            <span className={share.registered ? '' : 'share-pending'}>
-              {share.tabs.map(tabLabel).join(', ')}{share.registered ? '' : ' — czeka na rejestrację'}
-            </span>
-          </div>
-          <button type="button" className="share-icon" aria-label={`Zmień zakładki: ${share.email}`} title="Zmień zakładki" onClick={() => setEditing(share)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z" /></svg>
-          </button>
-          <button type="button" className="share-icon share-remove" aria-label={`Odbierz dostęp: ${share.email}`} title="Odbierz dostęp" onClick={() => void remove(share)}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>
-          </button>
-        </div>
-      ))}
-      {shares?.length === 0 && <p className="account-lead">Nikt poza Tobą nie ma dostępu.</p>}
-      {error && <p className="account-error">{error}</p>}
-      <div className="account-actions">
-        <button type="button" onClick={() => setEditing(null)}>Udostępnij</button>
-      </div>
+    <section className="card">
+      <header className="card-head controller-card-head">
+        <h2>Udostępnianie</h2>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>Udostępnij</button>
+      </header>
+      {shares && shares.length > 0 && (
+        <ul className="people">
+          {shares.map((share) => (
+            <li key={share.id}>
+              <span className="avatar-sm" aria-hidden="true">{initials(share.name, share.email)}</span>
+              <span className="person">
+                <strong>{share.registered ? share.name || share.email : share.email}</strong>
+                {share.registered && share.name && <small>{share.email}</small>}
+                <small className={share.registered ? '' : 'share-pending'}>
+                  {share.registered ? tabsText(share) : `zaproszenie wysłane ${formatDate(share.createdAt)} · czeka na rejestrację · ${tabsText(share)}`}
+                </small>
+              </span>
+              <IconButton label={`Zmień zakładki: ${share.email}`} icon={<EditIcon />} onClick={() => setEditing(share)} />
+              <IconButton variant="danger" label={`Cofnij dostęp: ${share.email}`} icon={<TrashIcon />} onClick={() => void remove(share)} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {shares?.length === 0 && <p className="help">Nikt poza Tobą nie ma dostępu. „Udostępnij” wysyła zaproszenie na e-mail z wybranymi zakładkami.</p>}
+      {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
       {editing !== undefined && (
         <ShareDialog device={device} share={editing} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); }} />
       )}

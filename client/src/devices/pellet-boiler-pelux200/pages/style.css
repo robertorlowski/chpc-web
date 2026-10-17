@@ -1,923 +1,133 @@
-/* Kocioł pelletowy: karty jak w Ustawieniach pompy (.settings > section > .resource) */
-.settings.boiler-page > section > .resource,
-.settings.boiler-page > section > .resource:first-child {
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
-  box-sizing: border-box;
-}
-
-.boiler-page .settings-section-title {
-  margin-bottom: 0.5rem;
-}
-
-.boiler-stale,
-.boiler-alarm {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* Strona główna: płomień przy stanie, pasek trybów i pomp, kafelki temperatur */
-.boiler-title {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.boiler-flame {
-  width: 1.4rem;
-  height: 1.4rem;
-  color: var(--fg-3);
-}
-
-.boiler-flame-on {
-  color: #e8590c;
-}
-
-.boiler-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1rem;
-  align-items: center;
-}
-
-.boiler-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  font-weight: 600;
-}
-
-.boiler-chip-label {
-  font-weight: normal;
-  color: var(--fg-2);
-}
-
-.boiler-pump {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--fg-3);
-}
-
-.boiler-pump-on {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.boiler-pump-icon {
-  width: 1.3rem;
-  height: 1.3rem;
-}
-
-/* trzy kafelki w rzędzie (kocioł, CWU, spalony pellet), pod nimi dwa mieszacze na całą szerokość
-   (uwagi użytkownika 2026-10-07): siatka 6 kolumn, zwykły kafelek 2 kolumny, mieszacz (wide) 3 */
-.boiler-tiles {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.boiler-tiles > .boiler-tile {
-  grid-column: span 2;
-}
-
-.boiler-tiles > .boiler-tile-wide {
-  grid-column: span 3;
-}
-
-.boiler-tile {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0.5rem 0.6rem;
-  background: var(--card);
-  min-width: 0;
-}
-
-.boiler-tile-title {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.boiler-tile-current {
-  font-size: 1.6rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.boiler-tile-target {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-/* CWU wyłączone w regulatorze (nr 122 = Wyłączony): pod zadaną i w Ustawieniach */
-.boiler-tile-off,
-.boiler-parameter-value.boiler-value-off {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.boiler-tile-off {
-  font-size: 0.85rem;
-}
-
-.boiler-loading {
-  padding: 1rem;
-  text-align: center;
-  color: var(--fg-2);
-}
-
-.boiler-tile-extra {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem 0.7rem;
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
-}
-
-.boiler-tile-extra .boiler-pump-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-}
-
-/* checkboxy bez ramki i wysokości pól tekstowych (.boiler-page input) */
-.boiler-page input[type='checkbox'] {
-  min-height: 0;
-  padding: 0;
-  margin: 0;
-}
-
-/* „Pokaż wszystkie parametry” po prawej, nad tabelą */
-.boiler-data-all {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 0.5rem;
-}
-
-/* Wykres: wysokość jak w innych wykresach, przełączniki serii pod spodem */
-.boiler-chart {
-  width: 100%;
-  height: 320px;
-}
-
-.boiler-series {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.3rem 1rem;
-  margin-top: 0.5rem;
-}
-
-.boiler-series label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.boiler-series-swatch {
-  display: inline-block;
-  width: 0.9rem;
-  height: 0.25rem;
-  border-radius: 2px;
-}
-
-/* Ustawienia: tryb pracy, główne parametry z ikoną zmiany, ostatnie zmiany */
-.boiler-profiles {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
-}
-
-.boiler-profiles button {
-  flex: 1;
-  margin: 0;
-}
-
-.boiler-profiles .boiler-profile {
-  background: var(--card);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-}
-
-
-.boiler-main-section + .boiler-main-section {
-  margin-top: 0.6rem;
-}
-
-.boiler-main-title {
-  font-weight: 600;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0.2rem;
-  margin-bottom: 0.2rem;
-}
-
-.boiler-main-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2rem;
-}
-
-.boiler-main-label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.boiler-edit select,
-.boiler-edit input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.45rem;
-  font-size: 1rem;
-}
-
-/* lista wyboru wygląda jak pole edycyjne (ramka i wysokość z .device-modal input) */
-.boiler-edit select,
-.boiler-edit input:not([type='checkbox']) {
-  height: 2.3rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  font-family: inherit;
-}
-
-.boiler-edit select {
-  background-color: var(--card);
-}
-
-.boiler-edit {
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-}
-
-/* panel grupy parametrów: pole i zwijany zakres z opisem pod nim */
-.boiler-group-field details summary {
-  cursor: pointer;
-}
-
-.boiler-group-field + .boiler-group-field {
-  border-top: 1px solid var(--line);
-  padding-top: 0.5rem;
-}
-
-/* potwierdzenie zmiany parametru serwisowego w panelu zmiany */
-.boiler-confirm {
-  display: flex !important;
-  gap: 0.5rem;
-  align-items: flex-start;
-  color: var(--danger);
-  font-size: 0.9rem;
-}
-
-/* zwykła opcja w panelu (np. „Po zmianie włączyć regulator”), bez czerwieni ostrzeżenia */
-.boiler-confirm.boiler-option {
-  color: inherit;
-}
-
-.boiler-confirm input {
-  width: auto !important;
-  margin-top: 0.2rem;
-}
-
-/* zwykły znacznik na stronie (np. „Grzej CWU peletem”): pole wyrównane do środka napisu */
-.boiler-check {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.boiler-check input {
-  width: auto;
-  margin: 0;
-}
-
-/* znacznik nieaktywny (np. „CWU - grzanie peletem” w trybie Pellet): wyszarzony razem z napisem */
-.boiler-check.boiler-check-disabled {
-  color: #9aa5aa;
-  cursor: default;
-}
-
-.boiler-commands {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.boiler-commands li {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.2rem 0.75rem;
-  padding: 0.3rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-/* okno „Tryb pracy”: nazwa parametru, a pod nią „teraz → nowa” */
-.boiler-commands-stacked li {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-}
-
-.boiler-command-done {
-  color: var(--ok-fg);
-}
-
-.boiler-command-error {
-  color: var(--danger);
-}
-
-.boiler-command-pending,
-.boiler-command-sent {
-  color: var(--warn-fg);
-}
-
-.boiler-command-replaced {
-  color: var(--fg-3);
-}
-
-.boiler-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.boiler-table th,
-.boiler-table td {
-  padding: 0.25rem 0.4rem;
-  text-align: right;
-  border-bottom: 1px solid var(--line);
-  white-space: nowrap;
-}
-
-.boiler-table th:first-child,
-.boiler-table td:first-child,
-.boiler-table th:nth-child(2),
-.boiler-table td:nth-child(2) {
-  text-align: left;
-}
-
-/* tabela danych we własnym kontenerze: przewija się tylko ona, nie strona */
-.boiler-table-scroll {
-  overflow-x: auto;
-}
-
-.boiler-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.boiler-toolbar button {
-  margin-left: 0;
-}
-
-.boiler-toolbar .boiler-toolbar-end {
-  margin-left: auto;
-}
-
-.boiler-page input {
-  font: inherit;
-  font-size: 0.95rem;
-  min-height: 32px;
-  padding: 0 0.4rem;
-  box-sizing: border-box;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--card);
-}
-
-.boiler-form {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.boiler-form label {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.boiler-form span.label {
-  min-width: 13.5rem;
-}
-
-.boiler-form input[type='number'] {
-  width: 8rem;
-  text-align: right;
-}
-
-.boiler-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.boiler-actions button {
-  margin-left: 0;
-}
-
-.boiler-hint {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.boiler-error {
-  color: var(--danger);
-}
-
-/* Ustawienia zaawansowane: zwijany panel z grupami parametrów regulatora */
-.boiler-advanced-toggle {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.boiler-advanced-body {
-  margin-top: 0.5rem;
-  display: grid;
-  gap: 0.4rem;
-}
-
-.boiler-group summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.boiler-group ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.boiler-parameter {
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--line);
-  overflow-wrap: anywhere;
-}
-
-.boiler-parameter-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.boiler-parameter-label {
-  font-weight: 600;
-}
-
-.boiler-parameter-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  white-space: nowrap;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.boiler-parameter-description {
-  font-size: 0.9rem;
-  margin-top: 0.15rem;
-}
-
-.boiler-parameter-rating {
-  font-size: 0.85rem;
-  margin-top: 0.15rem;
-  font-style: italic;
-}
-
-.boiler-rating-safe {
-  color: var(--ok-fg);
-}
-
-.boiler-rating-careful {
-  color: var(--warn-fg);
-}
-
-.boiler-rating-service {
-  color: var(--danger);
-}
-
-@media (max-width: 560px) {
-  body .settings.boiler-page > section > .resource,
-  body .settings.boiler-page > section > .resource:first-child {
-    width: var(--page-vw, 100vw);
-    margin-left: 0;
-    margin-right: 0;
-    border-radius: 0;
-  }
-
-  .boiler-form span.label {
-    min-width: 9.5rem;
-  }
-
-  .boiler-table {
-    font-size: 0.8rem;
-  }
-
-  .boiler-tile-current {
-    font-size: 1.35rem;
-  }
-
-  .boiler-chart {
-    height: 260px;
-  }
-}
-
-/* Harmonogram: listy trybów, czerwona kreska = działa teraz */
-.boiler-mode-now {
-  color: var(--danger);
-  font-weight: normal;
-  font-size: 0.9rem;
-}
-
-/* Ustawienia zaawansowane → Pompa ciepła / Pellet: tabela nastaw trybów */
-.boiler-profiles-table {
-  display: grid;
-  gap: 0.5rem;
-  padding-top: 0.4rem;
-}
-
-.boiler-profiles-table td:first-child {
-  white-space: normal;
-  text-align: left;
-}
-
-.boiler-profiles-table td input,
-.boiler-profiles-table td select {
-  width: 5.5rem;
-  min-height: 28px;
-  text-align: right;
-}
-
-/* Harmonogram: nagłówek rodzaju wpisów */
-.boiler-schedule-kind {
-  font-weight: 600;
-  color: var(--fg-2);
-}
-
-/* wiersz wpisu harmonogramu kotła: druga i kolejne linie (godziny, ustawienie) zwykłą czcionką */
-.boiler-schedule-line {
-  font-size: 0.95rem;
-  color: var(--fg);
-}
-
-.boiler-cold-input {
-  width: 3.5rem;
-}
-
-/* Wykres i Dane na całe okno (fill-page): wykres bez stałej wysokości, tabela przewijana w obu
-   kierunkach z przyklejonym wierszem nagłówka i kolumną „Czas” (tło jak karta, żeby nie prześwitywało) */
-.fill-page .boiler-chart {
-  height: auto;
-  min-height: 180px;
-}
-
-.fill-page .boiler-table-scroll {
-  overflow: auto;
-}
-
-.fill-page .boiler-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--card);
-  box-shadow: inset 0 -1px 0 var(--line-strong);
-}
-
-.fill-page .boiler-table th:first-child,
-.fill-page .boiler-table td:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--card);
-  box-shadow: inset -1px 0 0 var(--line);
-}
-
-.fill-page .boiler-table thead th:first-child {
-  z-index: 3;
-  box-shadow: inset -1px -1px 0 var(--line-strong);
-}
-
-@media (max-width: 560px) {
-  .fill-page .boiler-chart {
-    height: auto;
-  }
-}
-
-/* Stan wielkimi literami w Harmonogramie (tryb i kocioł): włączony niebieski, wyłączony czerwony */
-.boiler-state-on,
-.boiler-state-off {
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.boiler-state-on {
-  color: var(--accent);
-}
-
-.boiler-state-off {
-  color: var(--danger);
-}
-
-/* nieaktywny przycisk (np. „Włącz regulator”, gdy regulator już pracuje) */
-.boiler-profile:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-/* ładowanie CWU w trybie pompy ciepła: pasek nad stanem kotła (jak na ekranie pompy ciepła) */
-.cwu-loading {
-  border-left: 4px solid var(--accent);
-  color: var(--accent);
-}
-
-.cwu-loading-off {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* automatyczne przejście na Pellet po rozpalaniu w trybie pompy ciepła: czerwony komunikat z „OK” */
-.boiler-auto-pellet {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-left: 4px solid var(--danger);
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.boiler-auto-pellet button {
-  flex: 0 0 auto;
-}
-
-/* tryb „Pompa ciepła” i pracująca sprężarka pompy ciepła: stan „Praca” na niebiesko */
-.boiler-heat-pump-work {
-  color: var(--accent);
-}
-
-/* Alarmy kotła (components/Alerts.tsx): czerwony pasek w górnym panelu strony głównej, zakładka Alarmy
-   (/alarms) z tabelą; na telefonie wiersze tabeli jako karty. */
-.boiler-alert-banner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  text-decoration: none;
-}
-
-.boiler-alerts-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
-
-.boiler-alerts-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.boiler-alerts-table th,
-.boiler-alerts-table td {
-  text-align: left;
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.boiler-alert-active td {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.boiler-alert-uncertain td {
-  color: var(--fg-3);
-}
-
-.boiler-alert-badge {
-  display: inline-block;
-  margin-right: 0.4rem;
-  padding: 0 0.35rem;
-  border-radius: 0.25rem;
-  background: var(--danger);
-  color: var(--card);
-  font-size: 0.75rem;
-}
-
-@media (max-width: 560px) {
-  .boiler-alerts-table thead {
-    display: none;
-  }
-
-  .boiler-alerts-table tr {
-    display: grid;
-    grid-template-columns: auto auto 1fr;
-    gap: 0 0.4rem;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .boiler-alerts-table td {
-    border: none;
-    padding: 0;
-  }
-
-  /* nazwa w pierwszym wierszu, pod nią od – do i czas */
-  .boiler-alerts-table td:first-child {
-    grid-column: 1 / -1;
-  }
-
-  .boiler-alerts-table td:nth-child(2)::after {
-    content: ' –';
-  }
-
-  .boiler-alerts-table td:last-child::before {
-    content: '(';
-  }
-
-  .boiler-alerts-table td:last-child::after {
-    content: ')';
-  }
-}
-
-/* strona /alarms na komputerze szersza niż karty Ustawień, daty i czas trwania bez zawijania (uwaga użytkownika
-   2026-10-07); na telefonie bez zmian (pełna szerokość, wiersze jako karty) */
-@media (min-width: 561px) {
-  .settings.boiler-page.boiler-alerts-page > section > .resource {
-    width: min(820px, calc(var(--page-vw, 100vw) - 2rem));
-  }
-
-  .boiler-alerts-table td:not(:first-child),
-  .boiler-alerts-table th:not(:first-child) {
-    white-space: nowrap;
-  }
-}
-
-/* zakładki Wykresu (Temperatury / Spalony pellet), wzór z Danych hydroforu (.water-tabs) */
-.boiler-tabs {
-  display: flex;
-  gap: 0.25rem;
-  width: min(560px, calc(var(--page-vw, 100vw) - 2rem));
-  margin: 0 auto 0.5rem;
-  border-bottom: 2px solid var(--accent);
-}
-
-.boiler-tabs button {
-  margin: 0;
-  padding: 0.45rem 1rem;
-  border-radius: 6px 6px 0 0;
-  background-color: var(--muted-bg);
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.boiler-tabs button.active {
-  background-color: var(--accent);
-  color: var(--card);
-}
-
-/* Wykres na całe okno (fill-page): zakładki i linia pod nimi na szerokość karty wykresu (style.css: calc(var(--page-vw, 100vw) - 2rem)) */
-.fill-page > .boiler-tabs {
-  width: calc(var(--page-vw, 100vw) - 2rem);
-}
-
-@media (max-width: 560px) {
-  .boiler-tabs,
-  .fill-page > .boiler-tabs {
-    width: var(--page-vw, 100vw);
-  }
-
-  .boiler-tabs button {
-    flex: 1;
-    padding: 0.45rem 0.3rem;
-  }
-}
-
-/* kafelek spalonego pelletu: na komputerze jak CWU (liczba, pod nią miesiąc); na telefonie (≤ 560 px) kocioł i CWU
-   po pół rzędu, pellet na całą szerokość z miesiącem obok liczby, mieszacze po pół (uwaga użytkownika 2026-10-07) */
-.boiler-fuel-values {
-  display: flex;
-  flex-direction: column;
-}
-
-@media (max-width: 560px) {
-  .boiler-tiles > .boiler-tile {
-    grid-column: span 3;
-  }
-
-  .boiler-tiles > .boiler-fuel-tile {
-    grid-column: span 6;
-  }
-
-  .boiler-fuel-values {
-    flex-direction: row;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0 1.25rem;
-  }
-}
-
-/* „Pozostałe” na stronie głównej: etykieta w jednej linii (np. „Temperatura pokojowa” przy 360 px),
-   zawija się najwyżej wartość */
-.boiler-other > div:has(> span.label) {
-  display: flex;
-  align-items: baseline;
-}
-.boiler-other span.label {
-  white-space: nowrap;
-  flex: 0 0 auto;
-  /* najdłuższa etykieta („Temperatura pokojowa:”) i odstęp, wartości w jednej kolumnie */
-  min-width: 10.4rem;
-  margin-right: 0.3rem;
-}
-
-/* „Offline od …” w panelu trybu i pomp: cała szerokość, nad elementami panelu */
-.boiler-status .offline-banner,
-.boiler-status .boiler-alert-banner {
-  flex-basis: 100%;
-  margin: 0;
-}
-
-/* okno „Uwaga” przy włączaniu regulatora: szersze, trzy przyciski w jednym rzędzie na komputerze,
-   na telefonie zawijane i rozciągnięte (Anuluj i Pellet w pierwszym rzędzie, pompa ciepła w drugim) */
-.device-modal.boiler-turn-on {
-  width: min(520px, 100%);
-}
-
-.boiler-turn-on .device-modal-actions {
-  flex-wrap: wrap;
-}
-
-.boiler-turn-on .device-modal-actions button {
-  flex: 1 1 auto;
-  padding: 9px 12px;
-}
-
-@media (max-width: 560px) {
-  .device-modal-backdrop:has(.boiler-turn-on) {
-    padding: 0.5rem;
-  }
-
-  .device-modal.boiler-turn-on {
-    padding: 1rem 0.75rem;
-  }
-}
-
-/* linia „Zmiany w toku: N · zobacz w Operacjach” w Ustawieniach (zamiast dawnych „Ostatnich zmian”) */
-.boiler-in-progress {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--card);
-  border: 1px solid var(--accent);
-  color: var(--accent-strong);
-  font-size: 0.95rem;
-}
-
-/* Wykres „Spalony pellet”: tytuły dwóch wykresów (kg i koszt) i pole ceny pelletu z „Zapisz” po prawej */
-.boiler-chart-title {
-  margin-top: 0.4rem;
-  font-weight: 600;
-  color: var(--fg-2);
-}
-
-.boiler-price {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.boiler-price label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.boiler-price input {
-  width: 7rem;
-}
-
-/* dopisek pod nagłówkiem kotła: brak danych z pompy ciepła w trybie Pompa ciepła */
-.boiler-title-note {
-  margin: -0.6rem 0 0.6rem;
-  text-align: center;
-}
+/* Kocioł pelletowy Pellux 200, wygląd „Instrument” (makiety/src/makieta.html, ekrany #s-boiler-*). Strony budują treść
+   z klas makiety w client/src/makieta.css (.page, .card, .card-hero, .kpi, .card-circuit, .toggle-list, .switch,
+   .segmented, .entries, .table-wrap, .timeline, .params, .kv, .modal …); tutaj tylko to, czego makieta.css nie ma:
+   odstęp strony, przycisk-ikona (.icon-btn z baza.css makiety), nawigacja po dacie z polem daty, wysokości wykresów,
+   wiersze core w karcie „Sterownik”, pola w oknach, grupy ustawień zaawansowanych. Kolory wyłącznie z tokenów
+   (client/src/theme.css). */
+
+/* ---- strona: odstęp od krawędzi jak w makiecie (16 px), akapity bez marginesów ---- */
+.boiler-page { padding: 0 16px; box-sizing: border-box; }
+.boiler-page p { margin: 0; }
+.boiler-page .offline-banner { margin: 0; }
+.boiler-page .card-head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---- okrągły przycisk-ikona makiety (baza.css: .icon-btn, .icon-btn.sm, .danger) ---- */
+.boiler-page .icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-height: 0; margin: 0; padding: 0;
+  border-radius: 50%; border: 0; background: transparent; cursor: pointer; color: var(--fg-2); flex: none;
+}
+.boiler-page .icon-btn .ic { width: 20px; height: 20px; }
+.boiler-page .icon-btn:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.boiler-page .icon-btn.danger:hover:not(:disabled) { color: var(--danger); }
+.boiler-page .icon-btn:disabled { opacity: .35; cursor: default; }
+.boiler-page .card-head .icon-btn { margin: -6px -6px -6px 0; }
+.boiler-page .btn .ic { width: 16px; height: 16px; margin-right: 6px; }
+
+/* ---- nawigacja po dacie: data w środku to pole daty (kliknięcie otwiera kalendarz) ---- */
+.boiler-page .date-cur { position: relative; cursor: pointer; display: inline-flex; align-items: baseline; }
+.boiler-page .date-cur input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; margin: 0; padding: 0; border: 0; min-height: 0; }
+.boiler-page .boiler-period-input {
+  font: inherit; font-weight: 700; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 8px 10px; min-height: 0; margin: 0; width: auto;
+}
+
+/* ---- przełącznik segmentowy tylko do odczytu (lista trybu w Harmonogramie) ---- */
+.boiler-page .seg input:disabled + span { cursor: default; }
+.boiler-page .seg input:disabled:not(:checked) + span { opacity: .6; }
+.boiler-page .seg input:disabled:checked + span { opacity: .85; }
+
+/* ---- strona główna: hero, pastylka stanu, komunikaty ---- */
+.boiler-page .card-hero .unit { font-size: 22px; color: var(--hero-fg-2); }
+.boiler-page .hero-note strong { color: var(--hero-fg); }
+.boiler-page .state-err { background: var(--err-bg); color: var(--err-fg); }
+.boiler-page .banner-run { background: var(--run-bg); color: var(--run-fg); border: 1px solid var(--run-fg); }
+.boiler-page .banner-run .danger-text { font-size: 13px; }
+.boiler-page .alert div span { display: block; }
+.boiler-page .boiler-alert-link { text-decoration: none; color: var(--err-fg); }
+.boiler-page .boiler-alert-link:hover { filter: brightness(1.1); }
+.boiler-page .boiler-alert-btn { margin-left: 8px; min-height: 0; }
+.boiler-page .circuit-sub .inline-icon { color: var(--fg); }
+
+/* ---- dane: tabela przewija się w obu kierunkach z przyklejonym nagłówkiem, wysokość do dołu okna ---- */
+.boiler-page .boiler-table-fill { overflow: auto; max-height: calc(100vh - 250px); min-height: 240px; }
+@media (max-width: 899px) { .boiler-page .boiler-table-fill { max-height: calc(100vh - 330px); } }
+
+/* ---- wykresy Recharts: stała wysokość (makieta: 220 / 240 px) ---- */
+.boiler-page .boiler-chart { height: 220px; }
+.boiler-page .boiler-chart-lg { height: 300px; }
+@media (max-width: 560px) { .boiler-page .boiler-chart-lg { height: 240px; } }
+.boiler-page .legend .lg { display: inline-flex; align-items: center; }
+
+/* ---- harmonogram: wpis wyłączony przygaszony ---- */
+.boiler-page .entry.is-off .entry-when, .boiler-page .entry.is-off .entry-what { opacity: .6; }
+.boiler-page .entry-what .danger-text { display: inline-block; margin-top: 4px; }
+
+/* ---- ustawienia: wiersz regulatora, lista parametrów, ostatnie zmiany ---- */
+.boiler-page .boiler-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.boiler-page .form-row > .btn, .boiler-page .boiler-btn-row .btn { white-space: nowrap; }
+.boiler-page .t-name .chip { margin-left: 4px; vertical-align: 1px; }
+.boiler-page .param-val .chip { margin-left: 6px; vertical-align: 2px; }
+.boiler-page .boiler-prev { color: var(--fg-3); font-weight: 500; }
+.boiler-page .check.boiler-check-disabled { opacity: .5; }
+.boiler-page .check .info-tip, .boiler-page .param-name .info-tip, .boiler-page .form-grid label .info-tip { margin-left: 4px; }
+.boiler-page .card-hint .link { font-size: 12px; }
+
+/* ocena zmiany parametru w dymku „i” (docs/parametry-kotla.md) */
+.boiler-parameter-rating { display: block; margin-top: 4px; font-weight: 700; }
+.boiler-rating-safe { color: var(--ok-fg); }
+.boiler-rating-careful { color: var(--warn-fg); }
+.boiler-rating-service { color: var(--danger); }
+.boiler-page .boiler-confirm span { color: var(--danger); }
+
+/* ustawienia zaawansowane: grupy parametrów zwijane w karcie .card-details */
+.boiler-page .boiler-group { border-top: 1px solid var(--line-soft); }
+.boiler-page .boiler-group summary { cursor: pointer; font-weight: 600; padding: 10px 0; list-style: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.boiler-page .boiler-group summary::-webkit-details-marker { display: none; }
+.boiler-page .boiler-group summary::before { content: "▸"; color: var(--fg-3); font-size: 12px; }
+.boiler-page .boiler-group[open] summary::before { content: "▾"; }
+.boiler-page .boiler-group .params { padding-bottom: 8px; }
+.boiler-page .boiler-group .params li { padding-left: 16px; }
+.boiler-page .boiler-group .param-name small code { font-size: 11px; }
+.boiler-page .boiler-profiles-table { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+.boiler-page .boiler-profiles-table .table-wrap { margin: 0; padding: 0; }
+.boiler-page .boiler-profiles-table td input, .boiler-page .boiler-profiles-table td select {
+  width: 72px; padding: 6px 8px; min-height: 0; margin: 0; font: inherit; font-weight: 600; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--input-bg); color: var(--fg);
+}
+
+/* karta „Sterownik”: wiersze core (DeviceAddress, FirmwareStatus: <div><span.label>…</span><span>…</span></div>) jak .kv */
+.boiler-kv { display: flex; flex-direction: column; }
+.boiler-kv > div { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line-soft); align-items: baseline; min-width: 0; }
+.boiler-kv > div:first-child { border-top: 0; padding-top: 0; }
+.boiler-kv .label { color: var(--fg-3); font-size: 13px; }
+.boiler-kv > div > span:not(.label), .boiler-kv > div > code { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.boiler-kv small { color: var(--fg-3); font-weight: 400; margin-left: 4px; }
+.boiler-kv a { color: var(--accent); }
+.boiler-kv .firmware-pill { margin-right: 4px; }
+.boiler-kv > div.firmware-update-error { display: block; color: var(--danger); font-size: 13px; }
+.boiler-kv > div.boiler-kv-actions { display: flex; justify-content: flex-end; border-top: 0; padding: 6px 0 0; }
+.boiler-kv .boiler-kv-actions button {
+  margin: 0; min-height: 0; padding: 6px 12px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer;
+  background: transparent; color: var(--accent); border: 1px solid var(--line-strong);
+}
+.boiler-kv .boiler-kv-actions button:hover:not(:disabled) { background: var(--hover); }
+@media (max-width: 400px) { .boiler-kv > div { grid-template-columns: 110px 1fr; } }
+
+/* ---- okna: listy wyboru i pola daty w .range-inputs jak pola liczbowe ---- */
+.boiler-page .range-inputs select {
+  padding: 8px 10px; font: inherit; font-weight: 600; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--input-bg);
+  color: var(--fg); min-height: 0; margin: 0; max-width: 100%;
+}
+.boiler-page .range-inputs input[type="date"] { width: auto; }
+.boiler-page .range-inputs input, .boiler-page .field input, .boiler-page .field select { margin: 0; min-height: 0; box-sizing: border-box; }
+.boiler-page .modal-body > p { font-size: 14px; color: var(--fg-2); }
+.boiler-page .modal-body .params li { padding: 6px 0; }
+.boiler-page .modal-foot .btn { white-space: nowrap; }
+@media (max-width: 400px) { .boiler-page .modal-foot { flex-wrap: wrap; } }
+
+/* „Pozostałe”: dopisek przy wartości (np. „w miesiącu 4 kg”) z odstępem */
+.boiler-page .measures dd small { margin-left: 4px; }
+/* Harmonogram: stan „Teraz” jest zdaniem, więc zawija się (makieta: .measures dd nowrap) */
+.boiler-page .measures dd { white-space: normal; text-align: right; }
+.boiler-page .boiler-profiles-table table.data { white-space: normal; }
+.boiler-page .boiler-profiles-table table.data th, .boiler-page .boiler-profiles-table table.data td { padding: 6px 8px; }

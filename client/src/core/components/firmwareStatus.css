@@ -1,34 +1,31 @@
-/* Plakietki stanu firmware (wspólne dla Ustawień sterownika i strony /firmware). */
-.firmware-pill {
-  display: inline-block;
-  padding: 0.05rem 0.6rem;
-  border-radius: 99px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  white-space: nowrap;
+/* Wiersze firmware w karcie „Sterownik” (components/FirmwareStatus.tsx, ControllerCard.tsx): chip stanu obok wersji,
+   podpis pod wartością. Kilka <dl class="kv"> w jednej karcie (DeviceAddress + FirmwareStatus wstawione osobno)
+   wygląda jak jedna lista: bez odstępu karty między nimi i z linią rozdzielającą. */
+.kv dd .chip {
+  vertical-align: 1px;
 }
 
-.firmware-pill.ok {
-  background: var(--ok-bg);
-  color: var(--ok-fg);
+.kv dd small.block {
+  display: block;
+  margin-left: 0;
 }
 
-.firmware-pill.warn {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
+.card > .kv + .kv {
+  margin-top: calc(-1 * var(--gap));
 }
 
-.firmware-pill.off {
-  background: var(--muted-bg);
-  color: var(--fg-2);
+/* .kv-rows: lista wstawiana za innymi wierszami karty (DeviceAddress, FirmwareStatus) — pierwszy wiersz z linią jak kolejne */
+.card > .kv + .kv > div:first-child,
+.kv-rows > div:first-child {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 8px;
 }
 
-/* „Anuluj aktualizację” na dole karty „Sterownik” */
-button.firmware-cancel {
-  background: var(--fg-3);
+.kv-rows + .actions {
+  margin-top: 0;
 }
 
-.firmware-update-error {
-  color: var(--danger);
-  margin-top: 0.3rem;
+/* przycisk kopiowania Root ID (ControllerCard) obok skróconej wartości */
+.kv dd .link-btn {
+  margin-left: 4px;
 }

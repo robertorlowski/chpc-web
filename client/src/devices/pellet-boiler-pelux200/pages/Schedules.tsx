@@ -1,32 +1,27 @@
-// Zakładka Harmonogram kotła (/schedules): w oknach godzin „Tryb Zima” (nr 125, od 2026-10-04; od 2026-10-15 bez
-// wyboru Lato / Zima, z dwoma progami: Zima poniżej, Lato powyżej temperatury zewnętrznej) i CWU od–do; osobne listy i osobne
-// wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez
-// północ należy do dnia startu). W grupie trybu kolejno: wpisy trybu pracy, wpisy CWU, „Poza harmonogramem”.
-// Działa lista trybu, w którym kocioł jest teraz (z odczytu ustawień). Serwer co minutę wylicza stan i przy
-// jego zmianie zleca kotłowi jednym zleceniem sezon (nr 125), zadaną CWU (nr 119 = do) i histerezę
-// (nr 123 = do − od). Harmonogram działa po „Włącz regulator” w Ustawieniach; włączania i wyłączania
-// kotła w harmonogramie nie ma (usunięte 2026-10-04). Czerwona kreska: wpis albo ustawienie domyślne, które
-// działa teraz (GET /schedules/current, odświeżane co minutę; tam też temperatura zewnętrzna z czujnika kotła).
-// Wiersz wpisu w dwóch liniach: dzień pogrubiony, pod nim godziny i ustawienie. Wygląd z harmonogramów pompy.
-// „Poza harmonogramem” ma taki sam wiersz z ołówkiem; edycja w tym samym panelu co wpis, zapis od razu
-// (PUT schedule-settings, zmienia się tylko edytowany tryb). „CWU bez zmiany” (2026-10-13): poza wpisami harmonogram nie
-// zmienia CWU w kotle; w trybie pompy ciepła czerwona informacja, gdy zadana w kotle jest wyższa niż temperatura włączonej
-// pompy ciepła (cwuTooHigh, heatPumpCwuMax).
-import '../../heat-pump/pages/Schedules/style.css';
-import './style.css';
+// Zakładka Harmonogram kotła (/schedules), układ „Instrument” (#s-boiler-harmonogram): w oknach godzin „Tryb Zima”
+// (nr 125; od 2026-10-15 z dwoma progami: Zima poniżej, Lato powyżej temperatury zewnętrznej) i CWU od–do; osobne listy
+// i osobne wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez północ
+// należy do dnia startu). Karta „Harmonogram”: czy działa (po „Włącz regulator” w Ustawieniach), która lista trybu
+// działa (z odczytu ustawień, nr 99 < 50 °C = pompa ciepła; przełącznik tylko do odczytu), temperatura zewnętrzna, stan
+// teraz i cykl Zimy. Dla każdego trybu karty „Tryb Zima · tryb” i „CWU · tryb” z wpisami (.entries: dzień, godziny,
+// ustawienie, „działa teraz” przy wpisie z GET /schedules/current, odświeżanym co minutę) i wierszem „Poza harmonogramem”
+// z ołówkiem. Wpisy i „Poza harmonogramem” edytuje się w oknie modalnym; zapis od razu (PUT schedule-settings zmienia
+// tylko edytowany tryb). Serwer co minutę wylicza stan i przy jego zmianie zleca kotłowi jednym zleceniem sezon (nr 125),
+// zadaną CWU (nr 119 = do) i histerezę (nr 123 = do − od). „CWU bez zmiany” (2026-10-13): poza wpisami harmonogram nie
+// zmienia CWU w kotle; w trybie pompy ciepła ostrzeżenie, gdy zadana w kotle jest wyższa niż temperatura włączonej pompy
+// ciepła (cwuTooHigh, heatPumpCwuMax). Bez powiązanej pompy ciepła (definicja kotła) tylko lista „Pellet”.
 import { FormEvent, useEffect, useState } from 'react';
 import { WeekDay } from '../../../core/types';
-import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
-import { IconButton } from '../../../core/components/IconButton';
-import { EditIcon, PlusIcon, TrashIcon } from '../../../core/components/icons';
 import { PelletBoilerRequests } from '../api';
 import { WinterCycleStatus } from '../components/WinterCycleStatus';
+import { IconBtn, Modal, Segmented } from '../components/ui';
 import {
   PelletBoilerCurrentSchedule, PelletBoilerMode, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason,
   seasonThresholds,
 } from '../types';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
+import './style.css';
 
 const weekDays = [
   ['Poniedziałek', WeekDay.MONDAY], ['Wtorek', WeekDay.TUESDAY], ['Środa', WeekDay.WEDNESDAY],
@@ -34,14 +29,16 @@ const weekDays = [
 ] as const;
 const dayOptions = [
   ['Każdy dzień', WeekDay.ANY_DAY],
-  ['Dni robocze (poniedziałek–piątek)', WeekDay.WORKDAYS],
+  ['Dni robocze (bez świąt)', WeekDay.WORKDAYS],
   ['Dni wolne (weekendy i święta)', WeekDay.DAYS_OFF],
   ...weekDays,
 ] as const;
+// wartość w polu „Dni” oznaczająca konkretną datę
+const DATE_OPTION = 'date';
 export const MODE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
 const MODES: PelletBoilerMode[] = ['heat-pump', 'pellet'];
 const SEASON_LABEL: Record<PelletBoilerSeason, string> = { winter: 'Zima', summer: 'Lato' };
-const SEASONS: PelletBoilerSeason[] = ['summer', 'winter'];
+const SEASON_OPTIONS = [{ value: 'summer' as PelletBoilerSeason, label: 'Lato' }, { value: 'winter' as PelletBoilerSeason, label: 'Zima' }];
 // tryb pompy ciepła: CWU najwyżej 45 °C (wyżej pompa ciepła nie dogrzeje); serwer sprawdza to samo
 const cwuMax = (mode: PelletBoilerMode) => (mode === 'heat-pump' ? 45 : 80);
 
@@ -64,29 +61,17 @@ const emptyForm = {
   // „Tryb Zima”: season zostaje tylko dla dawnych wpisów Lato (formularz go nie pokazuje)
   season: 'winter' as PelletBoilerSeason, tempEnabled: true, winterBelow: '5', summerAbove: '7',
 };
-
-// Lato / Zima jako dwa przyciski (wygląd jak przełącznik sezonu w Ustawieniach)
-const SeasonChoice: React.FC<{ value?: PelletBoilerSeason; onChange: (season: PelletBoilerSeason) => void }> = ({ value, onChange }) => (
-  <div className="boiler-profiles">
-    {SEASONS.map((season) => (
-      <button key={season} type="button" className={value === season ? 'boiler-profile-active' : 'boiler-profile'}
-        onClick={() => onChange(season)}>
-        {SEASON_LABEL[season]}
-      </button>
-    ))}
-  </div>
-);
+const TYPE_OPTIONS = [{ value: 'cwu' as const, label: 'CWU' }, { value: 'season' as const, label: 'Tryb Zima' }];
 
 export const PelletBoilerSchedules: React.FC = () => {
   const [settings, setSettings] = useState<PelletBoilerScheduleSettings | null>(null);
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
   const [schedules, setSchedules] = useState<PelletBoilerSchedule[] | null>(null);
   // Bez powiązanej pompy ciepła (definicja kotła) kocioł pracuje tylko na pellecie: jedna lista wpisów (Pellet),
-  // bez sekcji „Pompa ciepła”, nagłówka trybu i wyboru trybu we wpisie.
+  // bez wyboru trybu we wpisie.
   const heatPumpLinked = useHeatPumpLinked();
   const visibleModes = heatPumpLinked ? MODES : MODES.filter((mode) => mode === 'pellet');
   const [form, setForm] = useState(emptyForm);
-  const [useDate, setUseDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,7 +80,6 @@ export const PelletBoilerSchedules: React.FC = () => {
   const [defaultsForm, setDefaultsForm] = useState<{
     mode: PelletBoilerMode; season?: PelletBoilerSeason; cwuFrom: string; cwuTo: string; cwuUnchanged: boolean;
   } | null>(null);
-  const formOpen = showForm || defaultsForm !== null;
   // przyciski zapisu nieaktywne w trakcie zapisu i dopóki widać komunikat (useSaveNotice)
   const { notice, showNotice, run, busy } = useSaveNotice();
 
@@ -149,24 +133,26 @@ export const PelletBoilerSchedules: React.FC = () => {
 
   const resetForm = () => {
     setForm(emptyForm);
-    setUseDate(false);
     setEditingId(null);
     setShowForm(false);
     setDefaultsForm(null);
+    setError('');
   };
   const update = (field: keyof typeof form, value: string | boolean) => setForm((old) => ({ ...old, [field]: value }));
   const openForm = (mode: PelletBoilerMode, type: 'cwu' | 'season') => {
     setForm({ ...emptyForm, mode, type, ...(type === 'season' ? { startTime: '22:00', endTime: '06:00' } : {}) });
-    setUseDate(false);
     setEditingId(null);
     setShowForm(true);
     setDefaultsForm(null);
     setError('');
   };
+  const useDate = form.dayOfWeek === DATE_OPTION;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
+    if (!form.startTime || !form.endTime) return setError('Wpisz godziny od i do.');
+    if (useDate && !form.date) return setError('Wpisz datę.');
     const when = {
       mode: form.mode, enabled: form.enabled,
       ...(useDate ? { date: form.date } : { dayOfWeek: Number(form.dayOfWeek) as WeekDay }),
@@ -206,7 +192,7 @@ export const PelletBoilerSchedules: React.FC = () => {
     const thresholds = seasonThresholds(schedule);
     setForm({
       type: schedule.type ?? 'cwu', mode: schedule.mode, enabled: schedule.enabled,
-      dayOfWeek: String(schedule.dayOfWeek ?? WeekDay.ANY_DAY), date: schedule.date ? schedule.date.slice(0, 10) : '',
+      dayOfWeek: schedule.date ? DATE_OPTION : String(schedule.dayOfWeek ?? WeekDay.ANY_DAY), date: schedule.date ? schedule.date.slice(0, 10) : '',
       startTime: schedule.startTime, endTime: schedule.endTime,
       cwuFrom: String(schedule.cwuFrom ?? emptyForm.cwuFrom), cwuTo: String(schedule.cwuTo ?? emptyForm.cwuTo),
       season: schedule.season ?? emptyForm.season,
@@ -214,7 +200,6 @@ export const PelletBoilerSchedules: React.FC = () => {
       winterBelow: thresholds ? String(thresholds.winterBelow) : emptyForm.winterBelow,
       summerAbove: thresholds ? String(thresholds.summerAbove) : emptyForm.summerAbove,
     });
-    setUseDate(Boolean(schedule.date));
     setEditingId(schedule._id ?? null);
     setShowForm(true);
     setDefaultsForm(null);
@@ -233,264 +218,281 @@ export const PelletBoilerSchedules: React.FC = () => {
 
   const running = (mode: PelletBoilerMode) => !!current?.enabled && current.mode === mode;
   const outdoor = current?.outdoorTemperature;
+  const loaded = schedules !== null && settings !== null && heatPumpLinked !== undefined;
+  // nagłówek karty trybu: „· pompa ciepła” tylko z powiązaną pompą ciepła
+  const modeSuffix = (mode: PelletBoilerMode) => (heatPumpLinked ? ` · ${MODE_LABEL[mode].toLowerCase()}` : '');
+
+  // Wiersz wpisu: dzień pogrubiony, godziny (z „+1 dzień” przez północ), ustawienie, „działa teraz”, ołówek i kosz.
+  const row = (schedule: PelletBoilerSchedule, isCurrent: boolean, what: React.ReactNode) => (
+    <li key={schedule._id} className={`entry${isCurrent ? ' is-current' : ''}${schedule.enabled ? '' : ' is-off'}`}>
+      <span className="entry-when">
+        <strong>{formatDay(schedule)}</strong> {schedule.startTime}–{schedule.endTime}
+        {schedule.startTime > schedule.endTime && <> <small>(+1 dzień)</small></>}
+      </span>
+      <span className="entry-what">{what}{!schedule.enabled && ' · wyłączony'}</span>
+      {isCurrent && <span className="entry-tag">działa teraz</span>}
+      <span className="entry-actions">
+        <IconBtn name="edit" label="Edytuj wpis" onClick={() => edit(schedule)} />
+        <IconBtn name="trash" label="Usuń wpis" danger onClick={() => remove(schedule)} />
+      </span>
+    </li>
+  );
 
   return (
-    <div className="schedules-page boiler-schedules">
+    <div className="page page-device boiler-page">
       <Notification message={notice} />
-      <h2>Harmonogram</h2>
-      <div className={`schedules-layout${formOpen ? '' : ' schedules-layout-list-only'}`}>
-        {defaultsForm && (
-          <form className="schedule-card" onSubmit={saveDefaults}>
-            <h3>Poza harmonogramem{heatPumpLinked ? ` · ${MODE_LABEL[defaultsForm.mode]}` : ''}</h3>
-            <div>
-              Tryb pracy
-              <InfoTip>{defaultsForm.season
-                ? `Poza wpisami harmonogram ustawia ${SEASON_LABEL[defaultsForm.season]}. Bez wyboru nie zmieniałby trybu pracy.`
-                : 'Bez wyboru harmonogram nie zmienia trybu pracy poza wpisami.'}</InfoTip>
-            </div>
-            <SeasonChoice value={defaultsForm.season} onChange={(season) => setDefaultsForm({ ...defaultsForm, season })} />
-            <label className="schedule-toggle">
-              <input type="checkbox" checked={defaultsForm.cwuUnchanged}
-                onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuUnchanged: event.target.checked })} />
-              CWU bez zmiany (temperatura z panelu kotła)
-            </label>
-            <div className="schedule-fields">
-              <label>CWU od [°C]<input type="number" min={10} max={cwuMax(defaultsForm.mode)} required value={defaultsForm.cwuFrom}
-                disabled={defaultsForm.cwuUnchanged}
-                onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuFrom: event.target.value })} /></label>
-              <label>
-                <span>
-                  CWU do [°C]
-                  <InfoTip>
-                    <TipParagraph>„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).{defaultsForm.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}</TipParagraph>
-                    {defaultsForm.mode === 'heat-pump' && current?.pelletCwu?.enabled && (
-                      <TipParagraph>Teraz włączone jest „CWU - grzanie peletem”: w trybie Pompa ciepła obowiązują CWU od–do z trybu Pellet.</TipParagraph>
-                    )}
-                  </InfoTip>
-                </span>
-                <input type="number" min={10} max={cwuMax(defaultsForm.mode)} required value={defaultsForm.cwuTo}
-                  disabled={defaultsForm.cwuUnchanged}
-                  onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuTo: event.target.value })} /></label>
-            </div>
-            {defaultsForm.cwuUnchanged && defaultsForm.mode === 'heat-pump' && (
-              <div className="boiler-error">
-                {typeof current?.heatPumpCwuMax === 'number'
-                  ? `Pompa ciepła grzeje do ${current.heatPumpCwuMax} °C – wyższa zadana CWU w kotle jest za wysoka.`
-                  : 'Zadana CWU w kotle wyższa niż temperatura pompy ciepła jest za wysoka – pompa jej nie dogrzeje.'}
-                {typeof current?.boilerCwu?.cwuTo === 'number' && ` Teraz w kotle: ${current.boilerCwu.cwuTo} °C.`}
-              </div>
-            )}
-            <div className="schedule-form-actions">
-              <button type="button" className="schedule-cancel" onClick={resetForm}>Anuluj</button>
-              <button type="submit" disabled={busy}>{busy ? 'Zapisywanie...' : 'Zapisz zmiany'}</button>
-            </div>
-            {error && <p className="schedule-error">{error}</p>}
-          </form>
+      <section className="card">
+        <header className="card-head"><h2>Harmonogram</h2><span className="card-hint">liczony co minutę</span></header>
+        {settings && (
+          <div className="form-row">
+            <span className="t-name">
+              Harmonogram {settings.enabled ? 'działa' : 'nie działa'}
+              <small>{settings.enabled ? 'wyłącza go „Wyłącz regulator” w Ustawieniach' : 'działa po „Włącz regulator” w Ustawieniach'}</small>
+            </span>
+            <span className={`chip ${settings.enabled ? 'chip-ok' : 'chip-off'}`}>{settings.enabled ? 'działa' : 'nie działa'}</span>
+          </div>
         )}
-        {showForm && (
-          <form className="schedule-card" onSubmit={submit}>
-            <h3>{editingId ? 'Edycja wpisu' : 'Nowy wpis'}</h3>
-            <label>
-              Rodzaj
-              <select value={form.type} onChange={(event) => update('type', event.target.value)}>
-                <option value="season">Tryb Zima</option>
-                <option value="cwu">CWU</option>
+        {heatPumpLinked && (
+          <>
+            {/* lista trybu wybiera się sama (odczyt ustawień kotła): przełącznik tylko do odczytu */}
+            <Segmented name="boiler-schedule-mode" label="Lista trybu" disabled value={current?.mode ?? null}
+              options={MODES.map((mode) => ({ value: mode, label: `Lista: ${MODE_LABEL[mode].toLowerCase()}` }))} onChange={() => undefined} />
+            <p className="help">
+              Działa lista trybu z ostatniego odczytu ustawień (minimalna temperatura kotła nr 99 &lt; 50 °C = pompa ciepła).
+              Tryb pracy przełącza się w Ustawieniach.
+              {current && !current.mode && ' Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.'}
+            </p>
+          </>
+        )}
+        <dl className="measures">
+          <div><dt>Temperatura na zewnątrz</dt><dd>{typeof outdoor === 'number' ? `${outdoor.toFixed(1)} °C` : '---'}</dd></div>
+          {current?.enabled && current.state && (
+            <div>
+              <dt>Teraz{heatPumpLinked ? ` (${MODE_LABEL[current.state.mode]})` : ''}</dt>
+              <dd>
+                {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
+                {current.state.cwuUnchanged ? `CWU bez zmiany (w kotle: ${boilerCwuText(current.boilerCwu)})` : `CWU ${cwuText(current.state.cwuFrom, current.state.cwuTo)}`}
+              </dd>
+            </div>
+          )}
+        </dl>
+        {current?.enabled && current.state && (
+          <p className="help">
+            Zmiany sezonu i CWU idą do kotła jednym zleceniem przy przejściu między wpisami.{' '}
+            {current.state.mode === 'heat-pump'
+              ? 'W trybie Pompa ciepła CWU zmienione na panelu wraca do harmonogramu w ciągu minuty (pompa ciepła nie dogrzeje wyższej temperatury); przy „CWU bez zmiany” poza wpisami zostaje.'
+              : 'Ręczna zmiana CWU zostaje do następnego przejścia między wpisami.'}
+            {' '}Sezon wybrany przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu.
+          </p>
+        )}
+        <WinterCycleStatus cycle={current?.winterCycle} />
+        {current?.lastError && <p className="help danger-text">Ostatni błąd: {current.lastError}</p>}
+        {error && !showForm && !defaultsForm && <p className="help danger-text">{error}</p>}
+      </section>
+
+      {!loaded && <section className="card"><span className="help">Ładowanie...</span></section>}
+      {loaded && visibleModes.map((mode) => {
+        const seasons = schedules.filter((s) => s.mode === mode && s.type === 'season');
+        const cwu = schedules.filter((s) => s.mode === mode && (s.type ?? 'cwu') === 'cwu');
+        const now = running(mode);
+        const defaultCurrent = now && !current?.scheduleId && !current?.seasonScheduleId;
+        const defaults = settings.defaults[mode];
+        // tryb kotła z odczytu ustawień (nr 99), niezależnie od harmonogramu
+        const listHint = heatPumpLinked ? (current?.mode === mode ? 'lista aktywna' : 'lista nieaktywna') : '';
+        return (
+          <div key={mode} className="stack">
+            <section className="card">
+              <header className="card-head">
+                <h2>Tryb Zima{modeSuffix(mode)}</h2>
+                <span className="card-head-tools">
+                  {listHint && <span className="card-hint">{listHint}</span>}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => openForm(mode, 'season')}>+ Dodaj wpis</button>
+                </span>
+              </header>
+              {seasons.length === 0 && <span className="help">Brak wpisów: poza wpisami obowiązuje sezon z „Poza harmonogramem”.</span>}
+              {seasons.length > 0 && (
+                <ul className="entries">
+                  {seasons.map((schedule) => {
+                    const thresholds = seasonThresholds(schedule);
+                    return row(schedule, now && schedule._id === current?.seasonScheduleId, (
+                      <>
+                        {SEASON_LABEL[schedule.season ?? 'winter']}
+                        {thresholds && <> · poniżej {thresholds.winterBelow} °C, Lato powyżej {thresholds.summerAbove} °C</>}
+                      </>
+                    ));
+                  })}
+                </ul>
+              )}
+            </section>
+            <section className="card">
+              <header className="card-head">
+                <h2>CWU{modeSuffix(mode)}</h2>
+                <span className="card-head-tools">
+                  {listHint && <span className="card-hint">{listHint}</span>}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => openForm(mode, 'cwu')}>+ Dodaj wpis</button>
+                </span>
+              </header>
+              <ul className="entries">
+                {cwu.map((schedule) => row(schedule, now && schedule._id === current?.scheduleId, <>CWU {cwuText(schedule.cwuFrom ?? 0, schedule.cwuTo ?? 0)}</>))}
+                {/* „Poza harmonogramem” jak wpis: ołówek otwiera okno, bez usuwania */}
+                <li className={`entry is-default${defaultCurrent ? ' is-current' : ''}`}>
+                  <span className="entry-when"><strong>Poza harmonogramem</strong></span>
+                  <span className="entry-what">
+                    {defaults.season ? SEASON_LABEL[defaults.season] : 'Sezon bez zmiany'} · {defaults.cwuUnchanged
+                      ? `CWU bez zmiany (w kotle: ${boilerCwuText(current?.boilerCwu)})` : `CWU ${cwuText(defaults.cwuFrom, defaults.cwuTo)}`}
+                    {/* tryb pompy ciepła z zadaną CWU, której pompa nie dogrzeje (np. ustawioną na panelu przy „CWU bez zmiany”) */}
+                    {mode === 'heat-pump' && current?.cwuTooHigh && (
+                      <><br /><span className="danger-text">Zadana CWU {current.boilerCwu?.cwuTo} °C jest wyższa niż temperatura pompy ciepła ({current.heatPumpCwuMax} °C) – pompa jej nie dogrzeje.</span></>
+                    )}
+                  </span>
+                  {defaultCurrent && <span className="entry-tag">działa teraz</span>}
+                  <span className="entry-actions">
+                    <IconBtn name="edit" label={`Edytuj „Poza harmonogramem”: ${MODE_LABEL[mode]}`} onClick={() => editDefaults(mode)} />
+                  </span>
+                </li>
+              </ul>
+            </section>
+          </div>
+        );
+      })}
+
+      {defaultsForm && (
+        <Modal title={`Poza harmonogramem${heatPumpLinked ? ` · ${MODE_LABEL[defaultsForm.mode].toLowerCase()}` : ''}`} onClose={resetForm} onSubmit={saveDefaults}
+          footer={<>
+            <button type="button" className="btn" onClick={resetForm}>Anuluj</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Zapisywanie...' : 'Zapisz'}</button>
+          </>}>
+          <Segmented name="boiler-defaults-season" label="Sezon poza harmonogramem" value={defaultsForm.season ?? null} options={SEASON_OPTIONS}
+            onChange={(season) => setDefaultsForm({ ...defaultsForm, season })} />
+          <p className="help">{defaultsForm.season
+            ? `Poza wpisami harmonogram ustawia ${SEASON_LABEL[defaultsForm.season]}.`
+            : 'Bez wyboru harmonogram nie zmienia sezonu poza wpisami.'}</p>
+          <label className="check">
+            <input type="checkbox" checked={defaultsForm.cwuUnchanged}
+              onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuUnchanged: event.target.checked })} />
+            <span>CWU bez zmiany</span>
+            <small>temperatura z panelu kotła</small>
+          </label>
+          <div className="form-grid">
+            <label htmlFor="boiler-defaults-from">CWU od / do</label>
+            <div className="range-inputs">
+              <input id="boiler-defaults-from" type="number" min={10} max={cwuMax(defaultsForm.mode)} required value={defaultsForm.cwuFrom}
+                disabled={defaultsForm.cwuUnchanged} aria-label="CWU od [°C]"
+                onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuFrom: event.target.value })} />
+              <span className="dash">–</span>
+              <input type="number" min={10} max={cwuMax(defaultsForm.mode)} required value={defaultsForm.cwuTo}
+                disabled={defaultsForm.cwuUnchanged} aria-label="CWU do [°C]"
+                onChange={(event) => setDefaultsForm({ ...defaultsForm, cwuTo: event.target.value })} />
+              <span className="unit-txt">°C</span>
+            </div>
+          </div>
+          <p className="help">
+            „Do” = zadana CWU, „od” = start ładowania (histereza = do − od).{defaultsForm.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}
+            {defaultsForm.mode === 'heat-pump' && current?.pelletCwu?.enabled && ' Teraz włączone jest „CWU - grzanie peletem”: w trybie Pompa ciepła obowiązują CWU od–do z trybu Pellet.'}
+          </p>
+          {defaultsForm.cwuUnchanged && defaultsForm.mode === 'heat-pump' && (
+            <p className="help danger-text">
+              {typeof current?.heatPumpCwuMax === 'number'
+                ? `Pompa ciepła grzeje do ${current.heatPumpCwuMax} °C – wyższa zadana CWU w kotle jest za wysoka.`
+                : 'Zadana CWU w kotle wyższa niż temperatura pompy ciepła jest za wysoka – pompa jej nie dogrzeje.'}
+              {typeof current?.boilerCwu?.cwuTo === 'number' && ` Teraz w kotle: ${current.boilerCwu.cwuTo} °C.`}
+            </p>
+          )}
+          {error && <p className="help danger-text">{error}</p>}
+        </Modal>
+      )}
+
+      {showForm && (
+        <Modal title={editingId ? 'Edycja wpisu' : 'Wpis harmonogramu kotła'} onClose={resetForm} onSubmit={submit}
+          footer={<>
+            <button type="button" className="btn" onClick={resetForm}>Anuluj</button>
+            <button type="submit" className="btn btn-primary" disabled={saving || busy}>{saving ? 'Zapisywanie...' : 'Zapisz wpis'}</button>
+          </>}>
+          <Segmented name="boiler-entry-type" label="Rodzaj" value={form.type} options={TYPE_OPTIONS} onChange={(type) => update('type', type)} />
+          {heatPumpLinked && (
+            <label className="field">
+              <span>Lista trybu</span>
+              <select value={form.mode} onChange={(event) => update('mode', event.target.value)}>
+                {MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
               </select>
             </label>
-            {heatPumpLinked && (
-              <label>
-                Dla trybu kotła
-                <select value={form.mode} onChange={(event) => update('mode', event.target.value)}>
-                  {MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
-                </select>
-              </label>
-            )}
-            <label className="schedule-toggle">
-              <input type="checkbox" checked={useDate} onChange={(event) => setUseDate(event.target.checked)} />
-              Data jednorazowa
+          )}
+          <label className="field">
+            <span>Dni</span>
+            <select value={form.dayOfWeek} onChange={(event) => update('dayOfWeek', event.target.value)}>
+              {dayOptions.map(([name, value]) => <option key={value} value={value}>{name}</option>)}
+              <option value={DATE_OPTION}>Konkretna data…</option>
+            </select>
+          </label>
+          {useDate && (
+            <label className="field">
+              <span>Data</span>
+              <input type="date" required value={form.date} onChange={(event) => update('date', event.target.value)} />
             </label>
-            {useDate ? (
-              <label>Data<input type="date" required value={form.date} onChange={(event) => update('date', event.target.value)} /></label>
-            ) : (
-              <label>
-                Dzień
-                <select required value={form.dayOfWeek} onChange={(event) => update('dayOfWeek', event.target.value)}>
-                  {dayOptions.map(([name, value]) => <option key={value} value={value}>{name}</option>)}
-                </select>
-              </label>
-            )}
-            <div className="schedule-fields">
-              <label>Od<input type="time" required value={form.startTime} onChange={(event) => update('startTime', event.target.value)} /></label>
-              <label>Do<input type="time" required value={form.endTime} onChange={(event) => update('endTime', event.target.value)} /></label>
+          )}
+          <div className="form-grid">
+            <label htmlFor="boiler-entry-from">Godziny</label>
+            <div className="range-inputs">
+              <input id="boiler-entry-from" type="time" required value={form.startTime} onChange={(event) => update('startTime', event.target.value)} />
+              <span className="dash">–</span>
+              <input type="time" required value={form.endTime} aria-label="Do" onChange={(event) => update('endTime', event.target.value)} />
             </div>
-            {form.startTime && form.endTime && form.startTime > form.endTime && (
-              <div className="boiler-hint">Przez północ: do {form.endTime} następnego dnia.</div>
-            )}
-            {form.type === 'season' ? (
+            {form.type === 'cwu' && (
               <>
-                <div>
-                  Według temperatury zewnętrznej
-                  <InfoTip>
-                    <TipParagraph>Wpis włącza Zimę (kocioł grzeje CO i CWU) w podanych godzinach. Poza nimi obowiązuje tryb „Poza harmonogramem”.</TipParagraph>
-                    <TipParagraph>Z temperaturami (czujnik kotła): poniżej pierwszej kocioł przechodzi na Zimę, powyżej drugiej wraca na Lato. Między nimi nic się nie zmienia. Bez temperatur Zima trwa przez całe okno.</TipParagraph>
-                    {form.mode === 'heat-pump' && <TipParagraph>W trybie Pompa ciepła Zima z harmonogramu włącza cykl Zimy: kocioł przechodzi na Zimę dopiero po nagrzaniu przez pompę ciepła.</TipParagraph>}
-                    <TipParagraph>Lato/Zima wybrane przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu, także gdy wpis z progiem nie działa.</TipParagraph>
-                  </InfoTip>
-                </div>
-                <label className="schedule-toggle">
-                  <input type="checkbox" checked={form.tempEnabled} onChange={(event) => update('tempEnabled', event.target.checked)} />
-                  <span>Według temperatury zewnętrznej (czujnik kotła)</span>
-                </label>
-                <label className="schedule-toggle">
-                  <span>
-                    Uruchom tryb Zima, gdy temperatura spadnie poniżej{' '}
-                    <input type="number" className="boiler-cold-input" min={-30} max={30} step={0.5} aria-label="Zima poniżej [°C]"
-                      disabled={!form.tempEnabled} value={form.winterBelow} onChange={(event) => update('winterBelow', event.target.value)} /> °C
-                  </span>
-                </label>
-                <label className="schedule-toggle">
-                  <span>
-                    Uruchom tryb Lato, gdy temperatura wzrośnie powyżej{' '}
-                    <input type="number" className="boiler-cold-input" min={-30} max={30} step={0.5} aria-label="Lato powyżej [°C]"
-                      disabled={!form.tempEnabled} value={form.summerAbove} onChange={(event) => update('summerAbove', event.target.value)} /> °C
-                  </span>
-                </label>
-              </>
-            ) : (
-              <>
-                <div className="schedule-fields">
-                  <label>CWU od [°C]<input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} /></label>
-                  <label>
-                    <span>
-                      CWU do [°C]
-                      <InfoTip>
-                        <TipParagraph>„Do” = zadana CWU, „od” = start ładowania (histereza = do − od).{form.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}</TipParagraph>
-                        {form.mode === 'heat-pump' && current?.pelletCwu?.enabled && (
-                          <TipParagraph>Teraz włączone jest „CWU - grzanie peletem”: w trybie Pompa ciepła obowiązują CWU od–do z trybu Pellet.</TipParagraph>
-                        )}
-                      </InfoTip>
-                    </span>
-                    <input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuTo} onChange={(event) => update('cwuTo', event.target.value)} /></label>
+                <label htmlFor="boiler-entry-cwu">CWU od / do</label>
+                <div className="range-inputs">
+                  <input id="boiler-entry-cwu" type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuFrom} onChange={(event) => update('cwuFrom', event.target.value)} />
+                  <span className="dash">–</span>
+                  <input type="number" min={10} max={cwuMax(form.mode)} required value={form.cwuTo} aria-label="CWU do [°C]" onChange={(event) => update('cwuTo', event.target.value)} />
+                  <span className="unit-txt">°C</span>
                 </div>
               </>
             )}
-            <label className="schedule-toggle">
-              <input type="checkbox" checked={form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
-              Aktywny
-            </label>
-            <div className="schedule-form-actions">
-              <button type="button" className="schedule-cancel" onClick={resetForm}>{editingId ? 'Anuluj' : 'Zamknij'}</button>
-              <button type="submit" disabled={saving || busy}>{saving ? 'Zapisywanie...' : editingId ? 'Zapisz zmiany' : 'Zapisz'}</button>
-            </div>
-            {error && <p className="schedule-error">{error}</p>}
-          </form>
-        )}
-
-        <section className="schedule-card">
-          {settings && (
-            <div className="boiler-hint">
-              Harmonogram: <span className={settings.enabled ? 'boiler-state-on' : 'boiler-state-off'}>
-                {settings.enabled ? 'DZIAŁA' : 'NIE DZIAŁA'}
-              </span>{settings.enabled ? '' : ' — działa po „Włącz regulator” w Ustawieniach'}
-            </div>
+          </div>
+          {form.startTime && form.endTime && form.startTime > form.endTime && (
+            <p className="help">Przez północ: do {form.endTime} następnego dnia.</p>
           )}
-          <div>Temperatura na zewnątrz: <b>{typeof outdoor === 'number' ? `${outdoor.toFixed(1)} °C` : '---'}</b></div>
-          {current && !current.mode && <div className="boiler-hint">Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.</div>}
-          <WinterCycleStatus cycle={current?.winterCycle} />
-          {schedules === null || settings === null || heatPumpLinked === undefined ? <p>Ładowanie...</p> : (
-            <div className="schedule-groups">
-              {visibleModes.map((mode) => {
-                const seasons = schedules.filter((s) => s.mode === mode && s.type === 'season');
-                const cwu = schedules.filter((s) => s.mode === mode && (s.type ?? 'cwu') === 'cwu');
-                const now = running(mode);
-                // dwie linie: dzień pogrubiony, pod nim godziny i ustawienie (extra: dodatkowa linia)
-                const row = (schedule: PelletBoilerSchedule, isCurrent: boolean, what: React.ReactNode, extra?: React.ReactNode) => (
-                  <article key={schedule._id} className={`schedule-row${isCurrent ? ' schedule-row-current' : ''}`}>
-                    <div className="schedule-row-main">
-                      <input type="checkbox" checked={schedule.enabled} readOnly aria-label="Aktywny" />
-                      <span><b>{formatDay(schedule)}</b></span>
-                    </div>
-                    <div className="boiler-schedule-line">
-                      {schedule.startTime} – {schedule.endTime}{schedule.startTime > schedule.endTime ? ' (+1 dzień)' : ''} · {what}
-                      {!schedule.enabled && ' · wyłączony'}
-                    </div>
-                    {extra && <div className="boiler-schedule-line">{extra}</div>}
-                    <IconButton className="schedule-edit" label="Edytuj wpis" icon={<EditIcon />} onClick={() => edit(schedule)} />
-                    <IconButton className="schedule-delete" variant="danger" label="Usuń wpis" icon={<TrashIcon />} onClick={() => remove(schedule)} />
-                  </article>
-                );
-                const defaultCurrent = now && !current?.scheduleId && !current?.seasonScheduleId;
-                const defaults = settings.defaults[mode];
-                return (
-                  <section key={mode} className="schedule-group">
-                    {/* tryb kotła z odczytu ustawień (nr 99), niezależnie od harmonogramu: WŁĄCZONA niebieski, drugi WYŁĄCZONY czerwony */}
-                    {heatPumpLinked && (
-                      <h4>{MODE_LABEL[mode]} · <span className={current?.mode === mode ? 'boiler-state-on' : 'boiler-state-off'}>
-                        {mode === 'heat-pump' ? (current?.mode === mode ? 'WŁĄCZONA' : 'WYŁĄCZONA') : (current?.mode === mode ? 'WŁĄCZONY' : 'WYŁĄCZONY')}
-                      </span></h4>
-                    )}
-
-                    <div className="schedule-list-header">
-                      <span className="boiler-schedule-kind">Tryb Zima</span>
-                      {!formOpen && <IconButton label={`Dodaj tryb Zima: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'season')} />}
-                    </div>
-                    <div className="schedule-list">
-                      {seasons.length === 0 && <div className="boiler-hint">brak wpisów</div>}
-                      {seasons.map((schedule) => row(schedule, now && schedule._id === current?.seasonScheduleId,
-                        <>{SEASON_LABEL[schedule.season ?? 'winter']}</>,
-                        (() => {
-                          const thresholds = seasonThresholds(schedule);
-                          return thresholds ? <>poniżej {thresholds.winterBelow} °C, Lato powyżej {thresholds.summerAbove} °C</> : undefined;
-                        })()))}
-                    </div>
-
-                    <div className="schedule-list-header">
-                      <span className="boiler-schedule-kind">CWU</span>
-                      {!formOpen && <IconButton label={`Dodaj CWU: ${MODE_LABEL[mode]}`} icon={<PlusIcon />} onClick={() => openForm(mode, 'cwu')} />}
-                    </div>
-                    <div className="schedule-list">
-                      {cwu.length === 0 && <div className="boiler-hint">brak wpisów</div>}
-                      {cwu.map((schedule) => row(schedule, now && schedule._id === current?.scheduleId,
-                        <>CWU {cwuText(schedule.cwuFrom ?? 0, schedule.cwuTo ?? 0)}</>))}
-                    </div>
-
-                    {/* „Poza harmonogramem” jak wpis: dwie linie i ołówek (edycja w panelu), bez usuwania */}
-                    <article className={`schedule-row schedule-row-default${defaultCurrent ? ' schedule-row-current' : ''}`}>
-                      <div className="schedule-row-main"><span><b>Poza harmonogramem</b></span></div>
-                      <div className="boiler-schedule-line">
-                        {defaults.season ? SEASON_LABEL[defaults.season] : 'Tryb pracy bez zmiany'} · {defaults.cwuUnchanged
-                          ? `CWU bez zmiany (w kotle: ${boilerCwuText(current?.boilerCwu)})` : `CWU ${cwuText(defaults.cwuFrom, defaults.cwuTo)}`}
-                      </div>
-                      {/* tryb pompy ciepła z zadaną CWU, której pompa nie dogrzeje (np. ustawioną na panelu przy „CWU bez zmiany”) */}
-                      {mode === 'heat-pump' && current?.cwuTooHigh && (
-                        <div className="boiler-error">
-                          Zadana CWU {current.boilerCwu?.cwuTo} °C jest wyższa niż temperatura pompy ciepła ({current.heatPumpCwuMax} °C) – pompa jej nie dogrzeje.
-                        </div>
-                      )}
-                      <IconButton className="schedule-delete" label={`Edytuj „Poza harmonogramem”: ${MODE_LABEL[mode]}`} icon={<EditIcon />}
-                        onClick={() => editDefaults(mode)} />
-                    </article>
-                  </section>
-                );
-              })}
-              {current?.enabled && current.state && (
-                <div className="boiler-hint">
-                  Teraz{heatPumpLinked ? ` (${MODE_LABEL[current.state.mode]})` : ''}: {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
-                  {current.state.cwuUnchanged ? `CWU bez zmiany (w kotle: ${boilerCwuText(current.boilerCwu)})` : `CWU ${cwuText(current.state.cwuFrom, current.state.cwuTo)}`}.
-                  <InfoTip>
-                    <TipParagraph>Zmiany sezonu i CWU idą do kotła jednym zleceniem przy przejściu między wpisami.</TipParagraph>
-                    <TipParagraph>{current.state.mode === 'heat-pump'
-                      ? 'W trybie Pompa ciepła CWU zmienione na panelu wraca do harmonogramu w ciągu minuty (pompa ciepła nie dogrzeje wyższej temperatury); przy „CWU bez zmiany” poza wpisami zostaje.'
-                      : 'Ręczna zmiana CWU zostaje do następnego przejścia między wpisami.'}</TipParagraph>
-                    <TipParagraph>Sezon wybrany przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu.</TipParagraph>
-                  </InfoTip>
+          {form.type === 'cwu' ? (
+            <p className="help">
+              „Od” = start ładowania (zadana − histereza), „do” = zadana. Serwer zleca nr 119 = do i nr 123 = do − od tylko przy zmianie stanu.
+              {form.mode === 'heat-pump' && ' Pompa ciepła: najwyżej 45 °C.'}
+              {form.mode === 'heat-pump' && current?.pelletCwu?.enabled && ' Teraz włączone jest „CWU - grzanie peletem”: w trybie Pompa ciepła obowiązują CWU od–do z trybu Pellet.'}
+            </p>
+          ) : (
+            <>
+              <label className="check">
+                <input type="checkbox" checked={form.tempEnabled} onChange={(event) => update('tempEnabled', event.target.checked)} />
+                <span>Według temperatury zewnętrznej</span>
+                <small>czujnik kotła; bez progów Zima trwa przez całe okno</small>
+              </label>
+              <div className="form-grid">
+                <label htmlFor="boiler-entry-winter">Zima poniżej</label>
+                <div className="range-inputs">
+                  <input id="boiler-entry-winter" type="number" min={-30} max={30} step={0.5} disabled={!form.tempEnabled}
+                    value={form.winterBelow} onChange={(event) => update('winterBelow', event.target.value)} />
+                  <span className="unit-txt">°C</span>
                 </div>
-              )}
-              {current?.lastError && <div className="boiler-error">Ostatni błąd: {current.lastError}</div>}
-            </div>
+                <label htmlFor="boiler-entry-summer">Lato powyżej</label>
+                <div className="range-inputs">
+                  <input id="boiler-entry-summer" type="number" min={-30} max={30} step={0.5} disabled={!form.tempEnabled}
+                    value={form.summerAbove} onChange={(event) => update('summerAbove', event.target.value)} />
+                  <span className="unit-txt">°C</span>
+                </div>
+              </div>
+              <p className="help">
+                Wpis włącza Zimę (kocioł grzeje CO i CWU) w podanych godzinach; poza nimi obowiązuje sezon z „Poza harmonogramem”.
+                Z progami: poniżej pierwszego kocioł przechodzi na Zimę, powyżej drugiego wraca na Lato, między nimi nic się nie zmienia.
+                {form.mode === 'heat-pump' && ' W trybie Pompa ciepła Zima z harmonogramu włącza cykl Zimy: kocioł przechodzi na Zimę dopiero po nagrzaniu przez pompę ciepła.'}
+              </p>
+            </>
           )}
-        </section>
-      </div>
+          <label className="check">
+            <input type="checkbox" checked={form.enabled} onChange={(event) => update('enabled', event.target.checked)} />
+            <span>Aktywny</span>
+          </label>
+          {error && <p className="help danger-text">{error}</p>}
+        </Modal>
+      )}
     </div>
   );
 };

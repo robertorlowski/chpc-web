@@ -1,4 +1,4 @@
-// Token sesji (konta użytkowników, 2026-10-11): w localStorage po „Zapamiętać … na najbliższe 7 dni? — Tak”,
+// Token sesji (konta użytkowników, 2026-10-11): w localStorage po „Zapamiętać … na najbliższe 14 dni? — Tak”,
 // inaczej w sessionStorage (znika po zamknięciu przeglądarki). http.ts dodaje go jako Authorization: Bearer;
 // odpowiedź 401 wysyła zdarzenie UNAUTHORIZED_EVENT, na które AuthContext wylogowuje.
 const KEY = 'chpc.session';

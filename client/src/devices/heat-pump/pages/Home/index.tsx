@@ -1,10 +1,12 @@
-// Widok główny pompy (/ i /hp): bieżąca telemetria z GET /hp (HP z CHPC, przekaźniki co, PV,
-// temperatura zewnętrzna, COP zbiornika) i dzwonek błędu z GET /hp/last-error. Bez odpytywania
-// cyklicznego: dane odświeża komunikat WebSocket „update”, który serwer wysyła po zapisie telemetrii.
-// Na górze informacja o ładowaniu CWU w kotle (GET /hp/cwu-loading, co minutę i przy „update”): kocioł
-// w trybie pompy ciepła ładuje CWU, pompa grzeje wtedy 47–49 °C; „pompa ciepła wyłączona” przy trybie OFF.
-// Czerwony pasek „Pompa ciepła wstrzymana” w górnym panelu (jak „Offline od …”), gdy serwer wstrzymuje pompę, bo kocioł
-// pali albo jest gorący (pelletBlock z GET /hp/cwu-loading): tryb w Ustawieniach zostaje, sterownik dostaje OFF.
+// Widok główny pompy (/ i /hp) w układzie makiety „Instrument” (#s-hp-podglad): karta hero z temperaturą zbiornika
+// (HP.Ttarget, czujnik w środku zbiornika, nie zadana) na pasku zakresu Tmin–Tmax, stan sprężarki i cztery KPI
+// (moc, PV teraz, COP, na zewnątrz); karta „Pomiary”, karta „Obieg” (stan przekaźników z telemetrii) i karta
+// „Energia dziś” (zużycie i koszt G12w liczone w przeglądarce z GET /hp/4day, mini wykres mocy i PV).
+// Dane bieżące z GET /hp (HP z CHPC, PV, t_out, COP zbiornika) i dzwonek błędu z GET /hp/last-error; odświeża je
+// komunikat WebSocket „update” (po zapisie telemetrii) i zegar co 30 s. Energia dnia odświeżana co 5 min.
+// Na górze paski: „Offline od …” (OfflineBanner), „Pompa ciepła wstrzymana” (kocioł pali albo jest gorący,
+// pelletBlock z GET /hp/cwu-loading) i „Ładowanie CWU” w kotle (kocioł w trybie pompy ciepła).
+import '../style.css';
 import './style.css';
 import { HpRequests } from '../../api';
 import { wsAddressServer } from '../../../../core/http';
@@ -13,14 +15,47 @@ import { DeviceRequests } from '../../../../core/api';
 import { PumpConnection } from '../../../../core/types';
 import { HpCwuLoading, HpEntry, HpMetrics, PvMetrics } from '../../types';
 import React, { useEffect, useRef, useState } from 'react';
-import swith_on from '../../../../assets/swith_on.svg';
-import swith_off from '../../../../assets/swith_off.svg';
-import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { Area, Bar, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { cc } from '../../../../core/chartColors';
+import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { fetchData, formatDateYMD } from '../../utils/utils';
+import { energyCostG12w } from '../../utils/energy-cost-g12w';
 import { OfflineBanner } from '../../../../core/components/OfflineBanner';
+import { Switch } from '../../components/Switch';
+import { BellIcon } from '../../components/icons';
 
 // Telemetria starsza niż to jest nieaktualna (jak „Brak łączności” na kafelku listy): od 5 min uwaga, po godzinie błąd;
 // wartości z pompy są wtedy ukryte.
 const STALE_AFTER_MS = 5 * 60 * 1000;
+const TODAY_REFRESH_MS = 5 * 60 * 1000;
+
+const fmt = (value: unknown, digits = 1): string => {
+  const number = Number(value);
+  return value === undefined || value === null || value === '' || Number.isNaN(number)
+    ? '---'
+    : number.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
+const fmtInt = (value: unknown): string => fmt(value, 0);
+const minutes = (seconds?: number) => (seconds ? `${Math.floor(seconds / 60)} min` : '---');
+const timeOfDay = (time?: string) => time?.split(' ')[1]?.slice(0, 5) ?? '';
+
+// co od 1.2.0: MANUAL / AUTO / OFF; starsze co: M, A, PV, CWU
+const modeLabel = (mode?: string): string => (
+  mode === 'OFF' ? 'wyłączona'
+    : mode === 'A' || mode === 'AUTO' ? 'tryb automatyczny'
+    : mode === 'PV' ? 'tryb automatyczny z PV'
+    : mode === 'CWU' ? 'tryb CWU'
+    : mode === 'M' || mode === 'MANUAL' ? 'tryb ręczny'
+    : '---'
+);
+
+const minutesOfDay = (time: string): number => {
+  const match = time.match(/[ T](\d{2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+};
+const hhmm = (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+
+type TodayEnergy = { kwh: number; pvUsedKwh: number; costPln: number; points: Array<{ t: number; w: number; pv: number }> };
 
 // Stany _data, _hp i _pv to cała odpowiedź GET /hp oraz jej pola HP i PV; _lastError z /hp/last-error.
 const HP: React.FC = () => {
@@ -31,6 +66,7 @@ const HP: React.FC = () => {
   const [_data, setData] = useState<HpEntry | null>(null);
   const [_lastError, setLastError] = useState<HpEntry | null>(null);
   const [cwuLoading, setCwuLoading] = useState<HpCwuLoading | null>(null);
+  const [today, setToday] = useState<TodayEnergy | null>(null);
   const ws = useRef<WebSocket | null>(null);
 
   // Wiek ostatniego zapisanego odczytu i kontakt z co: co 30 s zegar i ponowne pobranie GET /hp, bo bez odczytów
@@ -46,17 +82,15 @@ const HP: React.FC = () => {
   const readAt = _data?.createdAt ? new Date(_data.createdAt).getTime() : undefined;
   const dataAge = readAt === undefined || Number.isNaN(readAt) ? undefined : Math.max(0, now - readAt);
   const stale = dataAge !== undefined && dataAge > STALE_AFTER_MS;
-  // Nieaktualny odczyt nie jest pokazywany jako stan pompy: temperatury, moc i pompy to „---”, a nad danymi jest komunikat
-  // „Dane nieaktualne” z godziną ostatniego odczytu. PV i temperatura zewnętrzna idą z innych źródeł i zostają.
+  // Nieaktualny odczyt nie jest pokazywany jako stan pompy: temperatury, moc i przekaźniki to „---”, a nad kartami
+  // jest pasek „Offline od …”. PV i temperatura zewnętrzna idą z innych źródeł i zostają.
   const _hp = stale ? null : _hpLast;
   // co zgłasza się co 10–30 s także przy wyłączonej pompie (HP puste): świeży kontakt = pompa (CHPC) nie odpowiada
   const contactAt = _data?.contactAt ? new Date(_data.contactAt).getTime() : NaN;
   const coResponding = !Number.isNaN(contactAt) && now - contactAt <= STALE_AFTER_MS;
 
-  // Nagłówek według podłączenia pompy z okna „Dane sterownika” (pumpConfig.connection): „CWU” albo „CO”;
-  // bez zapisanej definicji „CWU”, bo to wartość, którą okno „Dane sterownika” pokazuje jako wybraną
-  // (domyślne podłączenie, PumpConfigFields). Najpierw z zapisanego wyboru, potem ze świeżej listy urządzeń, bo wybór
-  // w localStorage mógł zostać zapisany przed zmianą definicji.
+  // Podłączenie pompy z okna „Dane sterownika” (pumpConfig.connection): „CWU” albo „CO”; bez zapisanej definicji
+  // „CWU” (domyślne podłączenie, PumpConfigFields). Najpierw z zapisanego wyboru, potem ze świeżej listy urządzeń.
   const [connection, setConnection] = useState<PumpConnection | undefined>(getSelectedDevice()?.pumpConfig?.connection);
   useEffect(() => {
     const rootId = getSelectedDevice()?.rootId;
@@ -80,6 +114,25 @@ const HP: React.FC = () => {
       .then(resp => setLastError(resp))
       .catch(err => console.log(err));
   };
+
+  // Energia dziś: wszystkie rekordy dnia (koszt liczy się z pełnego przebiegu mocy, przerwy > 15 min pomijane
+  // jak na serwerze) i co piąty rekord na mini wykres. Pobierane osobno od telemetrii bieżącej, co 5 min.
+  const loadToday = () => {
+    fetchData(true, formatDateYMD(new Date())).then((rows) => {
+      const result = energyCostG12w(rows, { maxGapMinutes: 15 });
+      const points = rows
+        .filter((row) => row?.time)
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .filter((_, index) => index % 5 === 0)
+        .map((row) => ({ t: minutesOfDay(row.time), w: Number(row.Watts) || 0, pv: Number(row.pv) || 0 }));
+      setToday({ kwh: result.consumptionKWh, pvUsedKwh: result.pvUsedKWh, costPln: result.totalVariableCostPLN, points });
+    }).catch(() => setToday(null));
+  };
+  useEffect(() => {
+    loadToday();
+    const timer = window.setInterval(loadToday, TODAY_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
    HpRequests.getCoData()
@@ -129,273 +182,153 @@ const HP: React.FC = () => {
     };
   }, []);
 
-  // dzwonek błędu sterownika (ostatnie 24 h albo blokada); null, gdy błędu nie ma
-  const errorBell = (_lastError?.error_code || isLocked(_hp?.ERRc)) ? (
-    <svg
-      className="hp-error-bell"
-      viewBox="0 0 24 24"
-      role="img"
-      aria-label="Błąd sterownika"
-    >
-      <title>
-        {[
-          isLocked(_hp?.ERRc) ? `Sterowanie zablokowane (${_hp?.ERRc}/${ERROR_LOCK_LIMIT} błędów)` : '',
-          errorLine(_lastError),
-        ].filter(Boolean).join('\n')}
-      </title>
-      <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" />
-    </svg>
-  ) : null;
+  // Pasek zakresu: położenie Ttarget między Tmin i Tmax (granice, na których pompa pracuje teraz; w trybie CWU
+  // to granice CWU), przycięte do 0–100 %.
+  const tMin = Number(_hp?.Tmin);
+  const tMax = Number(_hp?.Tmax);
+  const tNow = Number(_hp?.Ttarget);
+  const hasRange = Number.isFinite(tMin) && Number.isFinite(tMax) && tMax > tMin;
+  const position = hasRange && Number.isFinite(tNow) ? Math.max(0, Math.min(100, ((tNow - tMin) / (tMax - tMin)) * 100)) : 0;
 
-  // Uwagi do układu niżej: duże „T:” to HP.Ttarget, czyli czujnik w środku zbiornika, nie temperatura
-  // zadana (niebieska i pogrubiona, gdy sprężarka pracuje). „Temp. CO min/max” to HP.Tmin/Tmax, czyli granice, na których pompa
-  // pracuje teraz (w trybie CWU to granice CWU). Tryb pracy pochodzi z telemetrii, czyli jest trybem
-  // zgłoszonym przez co. Temp. min/max i COP to estymacja COP zbiornika liczona w co.
+  const running = Number(_hp?.HPS) > 0;
+  const locked = isLocked(_hp?.ERRc);
+  const errorText = _lastError?.error_code ? errorDescription(_lastError.error_code) : '';
+  const colors = cc();
+
   return (
-    <div className="settings hp-page">
-      <h2>{connection === 'co' ? 'CO' : 'CWU'}</h2>
-      <section>
-        {cwuLoading?.active && (
-          <div className="resource cwu-loading">
-            <strong>Ładowanie CWU</strong>
-            {cwuLoading.since && <span> od {new Date(cwuLoading.since).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}</span>}
-            {cwuLoading.pumpOff && <span className="cwu-loading-off"> — pompa ciepła wyłączona</span>}
-          </div>
-        )}
-        <div className="resource">
-          {stale && dataAge !== undefined && (
-            <OfflineBanner since={readAt} now={now} detail={coResponding ? 'sterownik działa, pompa (CHPC) nie odpowiada.' : 'brak łączności ze sterownikiem.'} />
-          )}
-          {cwuLoading?.pelletBlock && (
-            <div className="offline-banner" role="alert">
-              <strong>Pompa ciepła wstrzymana</strong> – kocioł pali albo jest gorący; ruszy, gdy kocioł spadnie poniżej {cwuLoading.resumeBelow ?? 50} °C.
-            </div>
-          )}
-          <div className={`heet${stale ? ' hp-stale-data' : ''}`}>
-            <div className="heat head">
-              <div>
-                <span>{_data?.time}</span>
-              </div>
-              <div>
-                <span>Tryb pracy </span>
-                <span className="field">
-                  {/* co od 1.2.0: MANUAL / AUTO / OFF; starsze co: M, A, PV, CWU */}
-                  {_data?.work_mode === 'OFF'
-                    ? 'OFF'
-                    : _data?.work_mode === 'A' || _data?.work_mode === 'AUTO'
-                    ? 'automatyczny'
-                    : _data?.work_mode === 'PV'
-                    ? 'automatyczny z PV'
-                    : _data?.work_mode === 'CWU'
-                    ? 'CWU'
-                    : _data?.work_mode === 'M' || _data?.work_mode === 'MANUAL'
-                    ? 'ręczny'
-                    : '---'}
-                </span>
-              </div>
-            </div>
-            <div className="heat body">
-              {/* telefon: dzwonek w osobnym wierszu nad temperaturą; bez błędu element nie istnieje, więc nie zajmuje miejsca */}
-              {errorBell && <div className="hp-bell-mobile">{errorBell}</div>}
-              <table
-                className="heat table"
-                style={{ fontSize: '32px'}}
-              >
-                <tbody>
-                  <tr>
-                    <td className="label hp-temp-label">
-                      <span className="hp-bell-slot">{errorBell}</span>
-                      T:
-                    </td>
-                    <td className={_data?.HP?.HPS ? 'field correct' : 'field '}>
-                      {_hp?.Ttarget || '---'}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              {/* przełączniki „CO pompa” / „CWU pompa” usunięte 2026-10-05: co od 1.2.0 nie ma przekaźników CO/CWU */}
-            </div>
-            <div className="heat footer">
-              <div>
-                Moc PV:
-                <span
-                  className={_data?.pv_power ? 'field correct' : 'field'}
-                  style={{ marginLeft: '5px' }}
-                >
-                  {_pv && _pv.total_power ? _pv.total_power : '---'}
-                </span>{' '}
-                W
-              </div>
-              <div>
-                Temp. zewnętrzna:
-                <span
-                  className={'field'}
-                  style={{ marginLeft: '5px' }}
-                >
-                  {/* 0,0 °C to też odczyt (dawniej warunek na prawdziwość pokazywał wtedy „---”) */}
-                  {typeof _data?.t_out === 'number' ? _data.t_out.toFixed(1) : '---'}
-                </span>{' '}
-                °C
-              </div>
-            </div>
+    <div className="page page-device hp-view hp-home">
+      {stale && dataAge !== undefined && (
+        <OfflineBanner since={readAt} now={now} detail={coResponding ? 'sterownik działa, pompa (CHPC) nie odpowiada.' : 'brak łączności ze sterownikiem.'} />
+      )}
+      {cwuLoading?.pelletBlock && (
+        <div className="banner banner-off" role="alert">
+          <div>
+            <strong>Pompa ciepła wstrzymana</strong>
+            <span>Kocioł pali albo jest gorący; pompa ruszy, gdy kocioł spadnie poniżej {cwuLoading.resumeBelow ?? 50} °C.</span>
           </div>
         </div>
-
-        <br />
-        <div className="resource">
-          <h3>Pompa ciepła</h3>
-          <hr />
-          <div className="hp-data">
-            <table>
-              <tbody>
-                <tr>
-                  <td className="label">Temp. min:</td>
-                  <td className="field">{_hp?.Tmin || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Temp. max:</td>
-                  <td className="field">{_hp?.Tmax || '---'}</td>
-                </tr>                  
-
-                {/* <tr>
-                  <td className="label">Temp. cold out:</td>
-                  <td className={_hp?.Tco < 0 ? 'field incorrect' : 'field'}>{_hp?.Tco || '---'}</td>
-                </tr> */}
-                <tr>
-                  <td className="label">Temp. komp.:</td>
-                  <td className="field">{_hp?.Tsump || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Temp. w. wyj:</td>
-                  <td className="field">{_hp?.Tho || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">EEV max:</td>
-                  <td className="field">{_hp?.EEVmax || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">EEV min:</td>
-                  <td className="field">{_hp?.EEVmin || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label" title="Maksymalna moc sprężarki (WWatt); powyżej 3200 W włącza ochronę przepływu">Limit mocy:</td>
-                  <td className="field">{_hp?.WWatt || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Pompa ciepła:</td>
-                  <td className="field">
-                      <img title="Właćzuna " src={_hp?.CO ? swith_on : swith_off} />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <table>
-              <tbody>
-                <tr>
-                  <td className="label">Temp. BE:</td>
-                  <td className={_hp?.Tbe !== undefined && _hp?.Tbe < 0 ? 'field incorrect' : 'field'}>{_hp?.Tbe ?? '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Temp. AE:</td>
-                  <td className={_hp?.Tae !== undefined && _hp?.Tae < 0 ? 'field incorrect' : 'field'}>{_hp?.Tae ?? '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Moc:</td>
-                  <td className="field">{_hp?.Watts || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">EEV pozycja:</td>
-                  <td className="field">{_hp?.EEV_pos || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">EEV dt:</td>
-                  <td className="field">{_hp?.EEV_dt || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">EEV temp.:</td>
-                  <td className="field">{_hp?.EEV || '---'}</td>
-                </tr>
-                
-              </tbody>
-            </table>
-          </div>
-          <hr />
-          <div className="hp-data">
-            <table>
-              <tbody>
-                <tr>
-                  <td className="label">Obieg gorący:</td>
-                  <td className="field">
-                    <img title="Hot circle state" src={_hp?.HCS ? swith_on : swith_off} />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="label">Obieg zimny:</td>
-                  <td className="field">
-                    <img title="Cold circle state" src={_hp?.CCS ? swith_on : swith_off} />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="label">Przepływ:</td>
-                  <td className="field">
-                    {_hp?.FLW === undefined
-                      ? '---'
-                      : <img title="Przepływ wody przez parownik" src={Number(_hp.FLW) ? swith_on : swith_off} />}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <table>
-              <tbody>
-                <tr>
-                  <td className="label">Kompresor:</td>
-                  <td className="field">
-                    <img title="Kompresor wł/wył" src={_hp?.HPS ? swith_on : swith_off} />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="label">Praca wym.:</td>
-                  <td className="field">
-                    <img title="Praca wymuszona (t. min = t. max)" src={_hp?.F ? swith_on : swith_off} />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <hr />
-          <div className="hp-data">
-            <table>
-              <tbody>
-                <tr>
-                  <td className="label">Czas pracy:</td>
-                  <td className="field">
-                    {_hp?.lt_hp_on ? Math.floor(_hp?.lt_hp_on / 60) + ' min.' : '---'}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="label" title="Energia pobrana w bieżącym lub ostatnim cyklu sprężarki">Energia cyklu:</td>
-                  <td className="field">{_hp?.lt_pow ? _hp?.lt_pow + ' Wh' : '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Temp. min:</td>
-                  <td className="field">{_data?.t_min || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">Temp. max:</td>
-                  <td className="field">{_data?.t_max || '---'}</td>
-                </tr>
-                <tr>
-                  <td className="label">COP:</td>
-                  <td className="field">{_data?.cop || '---'}</td>
-                </tr>
-              </tbody>
-            </table>
+      )}
+      {cwuLoading?.active && (
+        <div className="alert alert-warn hp-cwu-loading">
+          <div>
+            <strong>Ładowanie CWU w kotle</strong>
+            <span>
+              {cwuLoading.since && `od ${new Date(cwuLoading.since).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}`}
+              {cwuLoading.pumpOff && ' · pompa ciepła wyłączona'}
+            </span>
           </div>
         </div>
+      )}
 
+      <section className={`hero card card-hero${stale ? ' is-stale' : ''}`}>
+        <div className="hero-main">
+          <span className="hero-label">Temperatura zbiornika {connection === 'co' ? 'CO' : 'CWU'}</span>
+          <div className="hero-value">
+            <span className="hero-num">{fmt(_hp?.Ttarget)}</span>
+            <span className="hero-unit">°C</span>
+          </div>
+          <div className="range" aria-label={hasRange ? `Zakres ${fmt(tMin)} do ${fmt(tMax)} stopni, teraz ${fmt(tNow)}` : 'Zakres nieznany'}>
+            <span className="range-min">{fmtInt(_hp?.Tmin)}</span>
+            <span className="range-bar">
+              <span className="range-fill" style={{ '--p': `${position}%` } as React.CSSProperties} />
+              <span className="range-pin" style={{ '--p': `${position}%` } as React.CSSProperties} />
+            </span>
+            <span className="range-max">{fmtInt(_hp?.Tmax)}</span>
+          </div>
+          <span className="hero-note">
+            cel {fmtInt(_hp?.Tmin)}–{fmtInt(_hp?.Tmax)} °C · <strong>{modeLabel(_data?.work_mode)}</strong>
+            {_data?.time && <> · odczyt {timeOfDay(_data.time)}</>}
+          </span>
+        </div>
+        <div className="hero-side">
+          <div className={`state-pill ${running ? 'state-on is-running' : 'is-idle'}`}>
+            <i className="dot" />{_hp ? (running ? 'Sprężarka pracuje' : 'Sprężarka stoi') : 'Brak danych z pompy'}
+            {_hp && <small>{minutes(_hp.lt_hp_on)} · {fmt(Number(_hp.lt_pow) / 1000, 2)} kWh {running ? 'w cyklu' : 'w ostatnim cyklu'}</small>}
+          </div>
+          <div className="hero-kpis">
+            <div className="kpi"><span className="kpi-label">Moc</span><span className="kpi-value">{fmtInt(_hp?.Watts)}<small>W</small></span></div>
+            <div className="kpi"><span className="kpi-label">PV teraz</span><span className="kpi-value">{fmtInt(_pv?.total_power)}<small>W</small></span></div>
+            <div className="kpi"><span className="kpi-label">COP</span><span className="kpi-value">{fmt(_data?.cop)}</span></div>
+            {/* 0,0 °C to też odczyt (dawniej warunek na prawdziwość pokazywał wtedy „---”) */}
+            <div className="kpi"><span className="kpi-label">Na zewnątrz</span><span className="kpi-value">{typeof _data?.t_out === 'number' ? fmt(_data.t_out) : '---'}<small>°C</small></span></div>
+          </div>
+        </div>
       </section>
+
+      <section className="card">
+        <header className="card-head"><h2>Pomiary</h2><span className="card-hint">{_data?.time ? `odczyt ${_data.time.split(' ')[1] ?? ''}` : ''}</span></header>
+        <dl className="measures">
+          <div><dt>T. przed parownikiem</dt><dd className={Number(_hp?.Tbe) < 0 ? 'is-bad' : ''}>{fmt(_hp?.Tbe)} °C</dd></div>
+          <div><dt>T. za parownikiem</dt><dd className={Number(_hp?.Tae) < 0 ? 'is-bad' : ''}>{fmt(_hp?.Tae)} °C</dd></div>
+          <div><dt>T. wody wyj.</dt><dd>{fmt(_hp?.Tho)} °C</dd></div>
+          <div><dt>T. sprężarki</dt><dd>{fmt(_hp?.Tsump)} °C</dd></div>
+          <div><dt>EEV pozycja</dt><dd>{fmtInt(_hp?.EEV_pos)} <small>/ {fmtInt(_hp?.EEVmin)}–{fmtInt(_hp?.EEVmax)}</small></dd></div>
+          <div><dt>EEV przegrzanie</dt><dd>{fmt(_hp?.EEV_dt)} K <small>czujnik {fmt(_hp?.EEV)} °C</small></dd></div>
+          <div><dt title="Maksymalna moc sprężarki (WWatt); powyżej 3200 W włącza ochronę przepływu">Limit mocy</dt><dd>{fmtInt(_hp?.WWatt)} W</dd></div>
+          <div><dt title="Energia pobrana w bieżącym lub ostatnim cyklu sprężarki">Energia cyklu</dt><dd>{fmtInt(_hp?.lt_pow)} Wh</dd></div>
+          <div><dt>Czas pracy cyklu</dt><dd>{_hp ? minutes(_hp.lt_hp_on) : '---'}</dd></div>
+          <div><dt title="Estymacja COP zbiornika liczona w co: zakres temperatur cyklu grzania">COP zbiornika</dt><dd>{fmt(_data?.cop)} <small>{fmt(_data?.t_min)}–{fmt(_data?.t_max)} °C</small></dd></div>
+          <div>
+            <dt>Błędy</dt>
+            <dd>
+              {errorText || locked
+                ? <span className="danger-text"><BellIcon /> {locked ? 'sterowanie zablokowane' : `błąd ${_lastError?.error_code}`}</span>
+                : <span className="ok-text">brak</span>}
+              {' '}<small>licznik {_hp?.ERRc ?? '---'}/{ERROR_LOCK_LIMIT}</small>
+            </dd>
+          </div>
+        </dl>
+        {errorText && <p className="help hp-error-line">{_lastError?.time} · {errorText}</p>}
+      </section>
+
+      <div className="grid-2">
+        <section className="card">
+          <header className="card-head"><h2>Obieg</h2><span className="card-hint">stan przekaźników</span></header>
+          <ul className="toggle-list">
+            <li><span className="t-name">Pompa ciepła <small>(zgoda na start sprężarki)</small></span><Switch on={Boolean(_hp?.CO)} label="Pompa ciepła" /></li>
+            <li><span className="t-name">Obieg gorący</span><Switch on={Boolean(_hp?.HCS)} label="Obieg gorący" /></li>
+            <li><span className="t-name">Obieg zimny</span><Switch on={Boolean(_hp?.CCS)} label="Obieg zimny" /></li>
+            {/* FLW: CHPC od 2026-10-11; starszy firmware go nie wysyła */}
+            <li><span className="t-name">Przepływ przez parownik{_hp && _hp.FLW === undefined && <small> (brak czujnika)</small>}</span><Switch on={Boolean(Number(_hp?.FLW))} label="Przepływ" /></li>
+            <li><span className="t-name">Praca wymuszona <small>(t. min = t. max)</small></span><Switch on={Boolean(_hp?.F)} label="Praca wymuszona" /></li>
+          </ul>
+        </section>
+        <section className="card">
+          <header className="card-head"><h2>Energia dziś</h2><span className="card-hint">{today ? `G12w · ${fmt(today.costPln, 2)} PLN` : ''}</span></header>
+          <div className="energy">
+            <div className="energy-num"><span>{today ? fmt(today.kwh, 2) : '---'}</span><small>kWh pobrane</small></div>
+            <div className="energy-num"><span>{today ? fmt(today.pvUsedKwh, 2) : '---'}</span><small>kWh z PV</small></div>
+            <div className="energy-num"><span>{_pv?.total_prod_today !== undefined ? fmt(_pv.total_prod_today / 1000, 2) : '---'}</span><small>kWh PV dziś</small></div>
+          </div>
+          <div className="chart chart-sm" aria-label="Pobór mocy i produkcja PV dziś">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={today?.points ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <XAxis type="number" dataKey="t" domain={[0, 1440]} ticks={[0, 360, 720, 1080, 1440]} tickFormatter={hhmm}
+                  tick={{ fill: colors.axis, fontSize: 11 }} stroke={colors.line} />
+                <YAxis tick={{ fill: colors.axis, fontSize: 11 }} stroke={colors.line} width={48} />
+                <Tooltip content={<MiniTooltip />} />
+                <Area type="monotone" dataKey="pv" name="PV" stroke="none" fill={colors.sun} fillOpacity={0.28} isAnimationActive={false} />
+                <Bar dataKey="w" name="pobór" fill={colors.s1} isAnimationActive={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
+
+// Dymek mini wykresu: godzina, pobór i PV.
+const MiniTooltip: React.FC<{ active?: boolean; payload?: Array<{ payload?: { t: number; w: number; pv: number } }> }> = ({ active, payload }) => {
+  const point = payload?.[0]?.payload;
+  if (!active || !point) return null;
+  return (
+    <div className="chart-tooltip">
+      <strong>{hhmm(point.t)}</strong>
+      <span><i style={{ background: cc().s1 }} />pobór <b>{fmtInt(point.w)} W</b></span>
+      <span><i style={{ background: cc().sun }} />PV <b>{fmtInt(point.pv)} W</b></span>
+    </div>
+  );
+};
 
 export default HP;

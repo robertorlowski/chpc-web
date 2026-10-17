@@ -1,20 +1,23 @@
-// Strona /devices: szachownica kafelków sterowników i kafelków pogody (GET /api/devices, /devices/summary,
-// /weather-tiles; wzór z projektanta kafelka, GET /api/devices/tile-template). Każdy kafelek ma numer pola
-// (sortOrder); kolumn tyle, ile mieści szerokość (1–4), puste pola na komputerze zostają puste, na telefonie
-// (jedna kolumna) kafelki idą po kolei. Wybór sterownika kliknięciem kafelka, ołówek: popup „Dane sterownika” albo
-// „Kafelek pogody”. Trybik w górnym pasku włącza „Zmień układ”: „Przenieś” i wybór pola (zamiana, gdy zajęte),
-// puste pola z „+” (nowy kafelek pogody w tym miejscu), oko (ukrycie kafelka: PUT /devices/:rootId {hidden} albo
-// PUT /weather-tiles/:id, od razu), „Projekt kafelka”; „Gotowe” zapisuje układ (PUT /api/devices/order z null
-// w pustych polach). Ukryte kafelki widać tylko w tym trybie (wyszarzone). Kafelek „Dom” pokazuje temperaturę
-// z czujnika kotła (GET /temperature), gdy jest świeża. Nie ma sterownika domyślnego ani automatycznego wyboru:
-// lista jest zawsze ekranem startowym (DeviceGuard przekierowuje tu, gdy nie wybrano sterownika). Na dole własna
-// stopka: lewa część wolna, po prawej zajętość bazy danych (GET /api/devices/db-stats).
-// Konta użytkowników: każde konto ma własny układ szachownicy, ukryte kafelki i kafelki pogody (zapis w koncie,
-// PUT /devices/order, PUT /devices/:rootId {hidden}); ołówek tylko przy własnych sterownikach (udostępnione: zakładki
-// w podpowiedzi), trybik firmware, „Projekt kafelka” i zajętość bazy tylko dla użytkownika systemowego.
+// Strona /devices w wyglądzie „Instrument” (2026-10-17, makiety/src/makieta.html, ekran #s-lista): pasek pogody domu
+// (.outdoor-strip), w trybie „Zmień układ” pasek .layout-bar, szachownica kafelków .tiles (sterowniki z GET /api/devices
+// i /devices/summary, kafelki pogody z /weather-tiles) i stopka .statusbar z zajętością bazy (GET /api/devices/db-stats).
+// Kafelek ma stały układ z makiety (core/components/DeviceTileCard), a nie wzór z projektanta kafelka (/tile-designer
+// zostaje w kodzie, ale przycisk „Projekt kafelka” jest ukryty, decyzja 2026-10-17).
+// Każdy kafelek ma numer pola (sortOrder); kolumn tyle, ile mieści szerokość (kafelek co najmniej 300 px, 1–4), puste
+// pola na komputerze zostają puste, na telefonie (jedna kolumna) kafelki idą po kolei. Wybór sterownika kliknięciem
+// kafelka, ołówek w nagłówku (po najechaniu): popup „Dane sterownika” albo „Kafelek pogody”, trybik: firmware rodzaju.
+// Ikona siatki w górnym pasku włącza „Zmień układ”: „Przenieś” i wybór pola (zamiana, gdy zajęte), puste pola
+// „+ kafelek pogody” (nowy kafelek w tym miejscu), oko (ukrycie kafelka: PUT /devices/:rootId {hidden} albo
+// PUT /weather-tiles/:id, od razu); „Gotowe” zapisuje układ (PUT /api/devices/order z null w pustych polach). Ukryte
+// kafelki widać tylko w tym trybie (wyszarzone, chip „Ukryty”). Kafelek „Dom” pokazuje temperaturę z czujnika kotła
+// (GET /temperature), gdy jest świeża. Nie ma sterownika domyślnego ani automatycznego wyboru: lista jest zawsze
+// ekranem startowym (DeviceGuard przekierowuje tu, gdy nie wybrano sterownika).
+// Konta użytkowników: każde konto ma własny układ szachownicy, ukryte kafelki i kafelki pogody (zapis w koncie);
+// ołówek tylko przy własnych sterownikach (udostępnione: zakładki w podpowiedzi), trybik firmware i zajętość bazy tylko
+// dla użytkownika systemowego.
 // Kafelki odświeżają się jak ekran główny pompy: po komunikacie WebSocket „update” któregokolwiek sterownika (jedno
 // połączenie ?rootIds=…, najwyżej raz na TILES_UPDATE_MIN_MS) i co TILES_REFRESH_MS, gdy żaden nic nie wysyła.
-import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DeviceRequests, WeatherTileRequests } from '../../api';
@@ -22,11 +25,9 @@ import { wsAddressServer } from '../../http';
 import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
-import { TemplateTile, weatherSlots } from '../../components/TemplateTile';
-import { precipitationText, weatherDescription, WeatherIcon } from '../../components/WeatherIcon';
+import { ageLabel, DeviceTileCard, ListIcon, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
+import { precipitationText, weatherDescription } from '../../components/WeatherIcon';
 import { WeatherTileModal } from '../../components/WeatherTileModal';
-import { cachedTemplate, cacheTemplate, normalizeTemplate, TILE_TEMPLATE, TileTemplate } from '../../tile-template';
-import { SettingsIcon } from '../../components/icons';
 import { useDevice } from '../../context/DeviceContext';
 import { useAuth } from '../../context/AuthContext';
 import './style.css';
@@ -36,19 +37,19 @@ const megabytes = (bytes: number) => (bytes / MB).toLocaleString('pl-PL', { maxi
 // próg ostrzeżenia o zapełnieniu bazy (żółty tekst)
 const DATABASE_WARNING_PERCENT = 80;
 
-// Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0 jako procent („Baza danych 44%”), szczegóły w
-// podpowiedzi po najechaniu; „nie odpowiada”, gdy serwer nie ma połączenia.
+// Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0 jako procent („Baza danych 44 %”, .db-usage z makiety),
+// szczegóły w podpowiedzi po najechaniu; „nie odpowiada”, gdy serwer nie ma połączenia.
 function DatabaseUsage() {
   const [stats, setStats] = useState<DatabaseStats | null | undefined>(undefined);
   useEffect(() => { DeviceRequests.getDatabaseStats().then(setStats); }, []);
-  if (stats === undefined) return <span className="devices-footer-db">Baza danych: …</span>;
-  if (!stats?.ok) return <span className="devices-footer-db devices-footer-db-error">Baza danych: nie odpowiada</span>;
+  if (stats === undefined) return <span className="db-usage">Baza danych: …</span>;
+  if (!stats?.ok) return <span className="db-usage db-usage-error"><i className="dot" />Baza danych: nie odpowiada</span>;
   const percent = Math.round((stats.usedBytes / stats.limitBytes) * 100);
   return (
-    <span className={`devices-footer-db${percent >= DATABASE_WARNING_PERCENT ? ' devices-footer-db-warning' : ''}`}
+    <span className={`db-usage${percent >= DATABASE_WARNING_PERCENT ? ' db-usage-warning' : ''}`}
       title={`Zajęte ${megabytes(stats.usedBytes)} MB z ${megabytes(stats.limitBytes)} MB, wolne ${megabytes(Math.max(stats.limitBytes - stats.usedBytes, 0))} MB. Dane ${megabytes(stats.dataBytes)} MB, indeksy ${megabytes(stats.indexBytes)} MB; ${stats.collections} kolekcji, ${stats.documents.toLocaleString('pl-PL')} dokumentów; odpowiedź bazy ${stats.pingMs} ms`}>
-      <span className="devices-footer-db-dot" aria-hidden="true" />
-      Baza danych {percent}%
+      <i className={`dot${percent >= DATABASE_WARNING_PERCENT ? '' : ' dot-ok'}`} aria-hidden="true" />
+      Baza danych {percent} %
     </span>
   );
 }
@@ -89,7 +90,7 @@ export function tileName(device: Device, all: Device[]): string {
   return same.length > 1 ? `${base} …${device.deviceId.slice(-4)}` : base;
 }
 
-// miejsce w górnym pasku (App.tsx), do którego strona wstawia trybik „Zmień kolejność”
+// miejsce w górnym pasku (App.tsx), do którego strona wstawia ikonę siatki „Zmień układ”
 export const DEVICES_HEADER_ACTIONS_ID = 'devices-header-actions';
 
 // liczba kafelków z poprzedniej wizyty: tyle duszków pokazuje strona, zanim przyjdzie lista (localStorage może
@@ -107,8 +108,7 @@ const rememberDeviceCount = (count: number) => {
   try { localStorage.setItem(DEVICE_COUNT_KEY, String(count)); } catch { /* bez zapamiętania */ }
 };
 
-// Podpowiedź na kafelku udostępnionego sterownika: właściciel i zakładki z dostępem (kafelek ma stały rozmiar,
-// więc bez dodatkowego wiersza jak przy sekcjach właścicieli).
+// Podpowiedź na kafelku udostępnionego sterownika: właściciel i zakładki z dostępem.
 function sharedInfo(device: Device): string | undefined {
   if (device.access !== 'shared') return undefined;
   const view = getDeviceTypeView(device.deviceType);
@@ -143,8 +143,11 @@ function assignSlots(items: ListItem[]): (string | null)[] {
   return cells;
 }
 
-// liczba kolumn szachownicy z szerokości miejsca: tyle kafelków 300 px z odstępem, ile się mieści (1–4)
+// szachownica: kolumn tyle, ile kafelków o szerokości co najmniej TILE_MIN_WIDTH z odstępem GAP się mieści (1–4),
+// jak siatka auto-fill 300 px w makiecie (.tiles); GAP = --gap z theme.css
 const MAX_COLUMNS = 4;
+const TILE_MIN_WIDTH = 300;
+const GAP = 12;
 
 // Sterowniki rejestrują się same (POST /api/devices/register), więc tu można je tylko wybrać i nazwać.
 export const Devices: React.FC = () => {
@@ -159,7 +162,7 @@ export const Devices: React.FC = () => {
   const [cells, setCells] = useState<(string | null)[] | null>(null);
   // kafelek wybrany „Przenieś”: następne kliknięcie pola go tam stawia (zamiana, gdy zajęte)
   const [moving, setMoving] = useState<string | null>(null);
-  // „+” w pustym polu: nowy kafelek pogody trafi do tego pola
+  // „+ kafelek pogody” w pustym polu: nowy kafelek pogody trafi do tego pola
   const [addAt, setAddAt] = useState<number | null>(null);
   // liczba kolumn z szerokości listy
   const listRef = useRef<HTMLElement>(null);
@@ -167,7 +170,7 @@ export const Devices: React.FC = () => {
   // popup „Kafelek pogody”: null = nowy, undefined = zamknięty
   const [editingWeather, setEditingWeather] = useState<WeatherTile | null | undefined>(undefined);
   const [tiles, setTiles] = useState<DeviceTiles>(() => readCache(CACHE_KEYS.tiles, {}));
-  // do czasu pierwszej odpowiedzi kafelki pokazują duszki (stała wysokość, bez „rozszerzania się” po załadowaniu)
+  // do czasu pierwszej odpowiedzi kafelki pokazują duszki
   const [devicesLoaded, setDevicesLoaded] = useState(false);
   const [tilesLoaded, setTilesLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -181,8 +184,6 @@ export const Devices: React.FC = () => {
   // temperatura z czujnika kotła i pogoda z Open-Meteo (GET /temperature), odświeżane razem z kafelkami;
   // undefined = wczytywanie
   const [outdoor, setOutdoor] = useState<OutdoorConditions | null | undefined>(() => readCache<OutdoorConditions | undefined>(CACHE_KEYS.outdoor, undefined));
-  // wzór kafelka (projektant kafelka): najpierw ostatni znany z localStorage, potem z serwera
-  const [template, setTemplate] = useState<TileTemplate>(cachedTemplate);
 
   const loadDevices = () => {
     DeviceRequests.getDevices()
@@ -209,16 +210,10 @@ export const Devices: React.FC = () => {
     WeatherTileRequests.list().then((result) => { if (result) { setWeatherTiles(result); writeCache(CACHE_KEYS.weather, result); } });
   };
 
-  // wejście na listę kasuje bieżący wybór (także w localStorage): menu i stopka znikają, a powrót
+  // wejście na listę kasuje bieżący wybór (także w localStorage): menu znika, a powrót
   // do widoków jest możliwy tylko przez wybór kafelka
   useEffect(() => {
     clearDevice();
-    DeviceRequests.getTileTemplate().then((result) => {
-      if (result === undefined) return;
-      const next = normalizeTemplate(result) ?? TILE_TEMPLATE;
-      setTemplate(next);
-      cacheTemplate(result ? next : null);
-    });
     setHeaderSlot(document.getElementById(DEVICES_HEADER_ACTIONS_ID));
     loadDevices();
     loadTiles();
@@ -259,18 +254,16 @@ export const Devices: React.FC = () => {
     navigate('/');
   };
 
-  // liczba kolumn: z szerokości listy i szerokości kafelka ze wzoru (300/340 w + odstęp)
-  const gap = template.gap ?? TILE_TEMPLATE.gap ?? 16;
+  // liczba kolumn z szerokości listy
   useEffect(() => {
     const element = listRef.current;
     if (!element) return undefined;
-    const minWidth = Math.round(template.w * 300 / 340);
     const observer = new ResizeObserver(([entry]) => {
-      setColumns(Math.max(1, Math.min(MAX_COLUMNS, Math.floor((entry.contentRect.width + gap) / (minWidth + gap)))));
+      setColumns(Math.max(1, Math.min(MAX_COLUMNS, Math.floor((entry.contentRect.width + GAP) / (TILE_MIN_WIDTH + GAP)))));
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [template.w, gap]);
+  }, []);
 
   // wszystkie kafelki i ich pola; w trybie edycji według lokalnego układu
   const allItems: ListItem[] = [
@@ -304,7 +297,7 @@ export const Devices: React.FC = () => {
   const topCells = emptyRow < 0 ? cellIndexes : cellIndexes.filter((slot) => rowOf(slot) < emptyRow);
   const bottomCells = emptyRow < 0 ? [] : cellIndexes.filter((slot) => rowOf(slot) > emptyRow);
   // odstęp między częściami: tyle, żeby dolna część kończyła się nad stałą stopką (mierzone po każdej zmianie
-  // układu i okna; wartości w px listy, która na komputerze ma zoom 0,9)
+  // układu i okna)
   const bottomRef = useRef<HTMLElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const [spacer, setSpacer] = useState(0);
@@ -312,29 +305,26 @@ export const Devices: React.FC = () => {
   // gdy dolna część mieści się na ekranie, odstęp ustawia spacer, a margines znika (strona się nie przewija)
   const [bottomPad, setBottomPad] = useState(0);
   const [bottomFits, setBottomFits] = useState(false);
-  const layoutKey = `${visibleLayout.join(',')}|${columns}|${emptyRow}|${template.h}`;
+  const layoutKey = `${visibleLayout.join(',')}|${columns}|${emptyRow}`;
   useLayoutEffect(() => {
     const measure = () => {
-      const footer = document.querySelector<HTMLElement>('.device-footer');
+      const footer = document.querySelector<HTMLElement>('.devices-footer');
       const footerHeight = footer?.offsetHeight ?? 0;
-      // lista na komputerze ma zoom 0,9 (ustawiony na .device-selection; na potomkach computed zoom = 1); wartości w px listy
-      const main = document.querySelector<HTMLElement>('.device-selection');
-      const zoom = (main && Number(getComputedStyle(main).zoom)) || 1;
-      setBottomPad(Math.round(footerHeight / zoom + gap));
+      setBottomPad(footerHeight + GAP);
       const bottom = bottomRef.current;
       const spacerElement = spacerRef.current;
       if (!bottom || !spacerElement) { setSpacer(0); setBottomFits(false); return; }
-      const limit = window.innerHeight - footerHeight - gap * zoom;
+      const limit = window.innerHeight - footerHeight - GAP;
       // bez zerowania odstępu w DOM (React nie przywróciłby go przy tej samej wartości): bieżący odstęp się dolicza
-      const free = (limit - bottom.getBoundingClientRect().bottom + spacerElement.getBoundingClientRect().height) / zoom;
+      const free = limit - bottom.getBoundingClientRect().bottom + spacerElement.getBoundingClientRect().height;
       // co najmniej zwykły odstęp między kafelkami: na telefonie i przy długiej liście dolna część nie przykleja się do górnej
-      setSpacer(Math.max(gap, Math.round(free)));
-      setBottomFits(free >= gap);
+      setSpacer(Math.max(GAP, Math.round(free)));
+      setBottomFits(free >= GAP);
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [layoutKey, tilesLoaded, devicesLoaded, gap]);
+  }, [layoutKey, tilesLoaded, devicesLoaded]);
 
   const startReordering = () => {
     setCells(assignSlots(allItems));
@@ -401,7 +391,8 @@ export const Devices: React.FC = () => {
     }
   };
 
-  // nowy kafelek pogody: do wybranego pola („+”) albo pierwszego wolnego za ostatnim; w trybie edycji w lokalnym układzie
+  // nowy kafelek pogody: do wybranego pola („+ kafelek pogody”) albo pierwszego wolnego za ostatnim; w trybie edycji
+  // w lokalnym układzie
   const weatherSaved = (tile: WeatherTile) => {
     const isNew = !weatherTiles.some((item) => item.id === tile.id);
     setWeatherTiles((list) => isNew ? [...list, tile] : list.map((item) => item.id === tile.id ? tile : item));
@@ -429,186 +420,176 @@ export const Devices: React.FC = () => {
     setEditing(null);
   };
 
-  return (
-    <>
-    <main className="device-selection" style={{ paddingBottom: bottomCells.length && bottomFits ? 0 : bottomPad }}>
-      <h1>Lista urządzeń</h1>
-      {/* trybik w górnym pasku włącza tryb „Zmień układ” (pola, ukrywanie, kafelki pogody, projekt kafelka) */}
-      {headerSlot && devicesLoaded && createPortal(
-        <button type="button" className={`header-gear${reordering ? ' active' : ''}`} disabled={reordering}
-          title="Zmień układ" aria-label="Zmień układ kafelków" onClick={startReordering}>
-          <SettingsIcon />
-        </button>,
-        headerSlot,
-      )}
-      {reordering && (
-        <div className="device-reorder-bar">
-          <span>{moving ? 'Kliknij pole, w którym ma stanąć kafelek.' : '„Przenieś” i wybór pola ustawiają układ, „+” w pustym polu dodaje pogodę, oko ukrywa kafelek, pusty wiersz spycha resztę do dołu ekranu.'}</span>
-          <div className="device-reorder-buttons">
-            <button type="button" onClick={() => { setAddAt(null); setEditingWeather(null); }} disabled={savingOrder}>Dodaj kafelek pogody</button>
-            {/* wzór kafelka jest wspólny dla wszystkich kont: zmienia go tylko użytkownik systemowy */}
-            {isSystem && <button type="button" onClick={() => navigate('/tile-designer')} disabled={savingOrder}>Projekt kafelka</button>}
-            <button type="button" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
-            <button type="button" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
-          </div>
-        </div>
-      )}
-      {error && <p className="device-selection-error">{error}</p>}
-      {/* temperatura domu z czujnika kotła (bez niego z prognozy); niebo, opady i wiatr z Open-Meteo nad pierwszym
-          wierszem (zostaje mimo kafelka „Dom”, decyzja użytkownika 2026-10-16); na telefonie bez opadów i wiatru */}
-      <div className="devices-outdoor" title={outdoor?.temperatureSource === 'forecast'
+  // przycisk w kafelku nie wybiera sterownika (kafelek jest odnośnikiem)
+  const stop = (event: MouseEvent) => event.stopPropagation();
+
+  // pasek pogody domu: temperatura (czujnik kotła, bez niego prognoza), opis nieba, wiatr, źródło i wiek
+  const outdoorStrip = (() => {
+    const temperature = outdoor === undefined ? '…' : typeof outdoor?.temperature === 'number'
+      ? `${outdoor.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
+    const weather = outdoor?.weather;
+    const desc = weather
+      ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`, 'Dom'].join(' · ')
+      : outdoor === undefined ? '' : 'brak pogody z włącznika · Dom';
+    const source = weather ? `${outdoor?.temperatureSource === 'boiler' ? 'czujnik kotła · ' : ''}Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`
+      : outdoor?.temperatureSource === 'boiler' ? 'czujnik kotła' : '';
+    return (
+      <div className="outdoor-strip" title={outdoor?.temperatureSource === 'forecast'
         ? 'Temperatura i pogoda: prognoza Open-Meteo (brak odczytu z czujnika kotła).'
         : 'Temperatura: czujnik zewnętrzny kotła. Pogoda: prognoza Open-Meteo.'}>
-        {outdoor?.weather && <WeatherIcon weather={outdoor.weather} />}
-        <span>
-          <b>{outdoor === undefined ? '…' : typeof outdoor?.temperature === 'number'
-            ? `${outdoor.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C'}</b>
-          {outdoor?.temperatureSource === 'forecast' && <span className="devices-outdoor-extra"> (prognoza)</span>}
-          {outdoor?.weather && <> {weatherDescription(outdoor.weather.code)}</>}
-        </span>
-        {outdoor?.weather && (
-          <span className="devices-outdoor-extra">
-            {precipitationText(outdoor.weather)} · wiatr {Math.round(outdoor.weather.windSpeed)} km/h
-          </span>
-        )}
+        <span className="outdoor-temp">{temperature}</span>
+        <span className="outdoor-desc">{desc}{outdoor?.temperatureSource === 'forecast' ? ' (prognoza)' : ''}</span>
+        {source && <span className="outdoor-src">{source}</span>}
       </div>
-      {(() => {
-        const gridStyle = { gap, '--cols': columns, '--tile-max': `${template.w}px` } as CSSProperties;
-        // pola dolnej części są numerowane od jej pierwszego wiersza (grid-row liczony od 1)
-        const renderCell = (slot: number, rowOffset: number) => {
-          const id = visibleLayout[slot];
-          const item = id ? byId.get(id) : undefined;
-          const position = columns === 1 ? undefined : { gridColumn: slot % columns + 1, gridRow: Math.floor(slot / columns) + 1 - rowOffset };
-          if (!item) {
-            if (!reordering) return null;
-            return (
-              <div key={`empty-${slot}`} className="device-cell-empty" style={{ ...position, aspectRatio: `${template.w} / ${template.h}` }}>
-                {moving ? (
-                  <button type="button" className="device-cell-place" onClick={() => placeAt(slot)}>Wstaw tutaj</button>
-                ) : (
-                  <button type="button" className="device-cell-add" title="Dodaj kafelek pogody w tym polu"
-                    onClick={() => { setAddAt(slot); setEditingWeather(null); }}>
-                    <b>+</b><span>pogoda</span>
-                  </button>
-                )}
-              </div>
-            );
-          }
-          const label = itemLabel(item, devices);
-          const hidden = isHidden(item);
-          const tile = item.kind === 'device' ? tiles[item.device.rootId] : undefined;
-          const classes = `device-card${reordering ? ' reordering' : ''}${tile?.level === 'err' ? ' has-error' : ''}${hidden ? ' hidden-tile' : ''}${moving === item.id ? ' moving' : ''}`;
-          const editButton = (
-            <button type="button" className="device-edit"
-              title={item.kind === 'device' ? 'Edytuj dane sterownika' : 'Zmień kafelek pogody'}
-              aria-label={`${item.kind === 'device' ? 'Edytuj dane sterownika' : 'Zmień kafelek pogody'} ${label}`}
-              onClick={() => item.kind === 'device' ? setEditing(item.device) : setEditingWeather(item.weather)}>
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M4 20H8L18.5 9.5C19.3 8.7 19.3 7.3 18.5 6.5L17.5 5.5C16.7 4.7 15.3 4.7 14.5 5.5L4 16V20Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                <path d="M13 7L17 11" stroke="currentColor" strokeWidth="2" />
-              </svg>
-            </button>
-          );
-          return (
-            <div key={item.id} className={classes} style={position}>
-              {item.kind === 'device' ? (
-                <button type="button" className="device-choose" disabled={reordering} onClick={() => chooseDevice(item.device)}
-                  title={sharedInfo(item.device)}>
-                  <TemplateTile template={template} deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} />
-                </button>
-              ) : (
-                <div className="device-choose device-choose-static" title={item.weather.home
-                  ? 'Dom: temperatura z czujnika kotła, gdy jest świeża, inaczej prognoza Open-Meteo.'
-                  : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
-                  <TemplateTile template={template} now={now} level="sky" slots={weatherSlots(item.weather, now, outdoor)} />
-                </div>
-              )}
-              {reordering ? (
-                <>
-                  {/* kafelek, do którego ma trafić przenoszony: zamiana miejsc */}
-                  {moving && moving !== item.id && (
-                    <button type="button" className="device-cell-swap" onClick={() => placeAt(slot)}>Zamień miejscami</button>
-                  )}
-                  <div className="device-reorder-arrows">
-                    <button type="button" className={`device-move${moving === item.id ? ' active' : ''}`}
-                      title={moving === item.id ? 'Anuluj przenoszenie' : 'Przenieś'} aria-pressed={moving === item.id}
-                      aria-label={`Przenieś ${label}`} onClick={() => setMoving(moving === item.id ? null : item.id)}>
-                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M5 9h14M15 5l4 4-4 4M19 15H5M9 11l-4 4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <span className="device-reorder-middle">
-                      <button type="button" className={`device-eye${hidden ? ' hidden' : ''}`} title={hidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
-                        aria-label={`${hidden ? 'Pokaż' : 'Ukryj'} kafelek ${label}`} aria-pressed={hidden} onClick={() => toggleHidden(item)}>
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-                          {hidden && <path d="M4 4L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
-                        </svg>
-                      </button>
-                      {editButton}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="device-tools">
-                  {isSystem && item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
-                    <button
-                      type="button"
-                      className="device-firmware"
-                      title="Firmware tego rodzaju sterownika"
-                      aria-label={`Firmware rodzaju sterownika ${label}`}
-                      onClick={() => navigate(`/firmware/${encodeURIComponent(item.device.deviceType)}`)}
-                    >
-                      <SettingsIcon />
-                    </button>
-                  )}
-                  {(item.kind === 'weather' || item.device.access !== 'shared') && editButton}
-                </div>
-              )}
-            </div>
-          );
-        };
-        return (
+    );
+  })();
+
+  const gridStyle = { '--cols': columns } as CSSProperties;
+
+  // pola dolnej części są numerowane od jej pierwszego wiersza (grid-row liczony od 1)
+  const renderCell = (slot: number, rowOffset: number) => {
+    const id = visibleLayout[slot];
+    const item = id ? byId.get(id) : undefined;
+    const position = columns === 1 ? undefined : { gridColumn: slot % columns + 1, gridRow: Math.floor(slot / columns) + 1 - rowOffset };
+    if (!item) {
+      if (!reordering) return null;
+      return (
+        <article key={`empty-${slot}`} className="tile tile-empty" aria-label="Puste pole" style={position}>
+          {moving ? (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => placeAt(slot)}>Wstaw tutaj</button>
+          ) : (
+            <button type="button" className="btn btn-ghost btn-sm" title="Dodaj kafelek pogody w tym polu"
+              onClick={() => { setAddAt(slot); setEditingWeather(null); }}>+ kafelek pogody</button>
+          )}
+        </article>
+      );
+    }
+    const label = itemLabel(item, devices);
+    const hidden = isHidden(item);
+    const tile = item.kind === 'device' ? tiles[item.device.rootId] : undefined;
+    const kind = item.kind === 'device' ? TILE_KINDS[item.device.deviceType] : 'weather';
+    const link = item.kind === 'device' && !reordering;
+    const canEdit = item.kind === 'weather' || item.device.access !== 'shared';
+    const tools = (
+      <>
+        {canEdit && (
+          <button type="button" className="icon-btn sm" onClick={(event) => { stop(event); item.kind === 'device' ? setEditing(item.device) : setEditingWeather(item.weather); }}
+            title={item.kind === 'device' ? 'Dane sterownika' : 'Zmień kafelek pogody'}
+            aria-label={`${item.kind === 'device' ? 'Dane sterownika' : 'Zmień kafelek pogody'} ${label}`}>
+            <ListIcon name="edit" />
+          </button>
+        )}
+        {isSystem && item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
+          <button type="button" className="icon-btn sm" title="Firmware tego rodzaju sterownika" aria-label={`Firmware rodzaju sterownika ${label}`}
+            onClick={(event) => { stop(event); navigate(`/firmware/${encodeURIComponent(item.device.deviceType)}`); }}>
+            <ListIcon name="chip" />
+          </button>
+        )}
+      </>
+    );
+    const classes = ['tile', item.kind === 'device' ? 'tile-device' : 'tile-weather'];
+    if (link) classes.push('is-link');
+    if (tile?.running && !hidden) classes.push('is-running');
+    if (hidden) classes.push('is-hidden');
+    if (moving === item.id) classes.push('is-moving');
+    const open = () => { if (item.kind === 'device') chooseDevice(item.device); };
+    const onKey = (event: KeyboardEvent) => {
+      if (link && (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) { event.preventDefault(); open(); }
+    };
+    return (
+      <article key={item.id} className={classes.join(' ')} data-kind={kind} style={position}
+        role={link ? 'link' : undefined} tabIndex={link ? 0 : undefined}
+        aria-label={link ? `${label}, otwórz` : `${label}${hidden ? ' (ukryty)' : ''}`}
+        onClick={link ? open : undefined} onKeyDown={link ? onKey : undefined}
+        title={item.kind === 'device' ? sharedInfo(item.device) : item.weather.home
+          ? 'Dom: temperatura z czujnika kotła, gdy jest świeża, inaczej prognoza Open-Meteo.'
+          : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
+        {item.kind === 'device' ? (
+          <DeviceTileCard deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} hidden={hidden} tools={tools} />
+        ) : (
+          <WeatherTileCard tile={item.weather} now={now} outdoor={outdoor} hidden={hidden} tools={tools} />
+        )}
+        {reordering && (
           <>
-            <section className={`device-list device-grid${reordering ? ' editing' : ''}`} ref={listRef} style={gridStyle}>
-              {topCells.map((slot) => renderCell(slot, 0))}
-              {!devicesLoaded && devices.length === 0 && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
-          <div key={`skeleton-${index}`} className="device-card">
-            <div className="device-choose" aria-hidden="true">
-              <TemplateTile template={template} now={now} loading />
-            </div>
-          </div>
-        ))}
-              {devicesLoaded && devices.length === 0 && !error && (
-                <p>Brak sterowników. Sterownik pojawi się tutaj, gdy ktoś Ci go udostępni albo po przypisaniu do konta.</p>
-              )}
-            </section>
-            {bottomCells.length > 0 && (
-              <>
-                <div className="device-list-spacer" ref={spacerRef} style={{ height: spacer }} aria-hidden="true" />
-                <section className="device-list device-grid device-grid-bottom" ref={bottomRef} style={gridStyle}>
-                  {bottomCells.map((slot) => renderCell(slot, emptyRow + 1))}
-                </section>
-              </>
+            {/* kafelek, do którego ma trafić przenoszony: zamiana miejsc */}
+            {moving && moving !== item.id && (
+              <button type="button" className="tile-swap btn btn-primary btn-sm" onClick={() => placeAt(slot)}>Zamień miejscami</button>
             )}
+            <div className="tile-layout">
+              <button type="button" className={`icon-btn sm${moving === item.id ? ' is-active' : ''}`}
+                title={moving === item.id ? 'Anuluj przenoszenie' : 'Przenieś'} aria-pressed={moving === item.id}
+                aria-label={`Przenieś ${label}`} onClick={() => setMoving(moving === item.id ? null : item.id)}>
+                <ListIcon name="move" />
+              </button>
+              <button type="button" className={`icon-btn sm${hidden ? ' is-active' : ''}`} title={hidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
+                aria-label={`${hidden ? 'Pokaż' : 'Ukryj'} kafelek ${label}`} aria-pressed={hidden} onClick={() => toggleHidden(item)}>
+                <ListIcon name={hidden ? 'eye-off' : 'eye'} />
+              </button>
+            </div>
           </>
-        );
-      })()}
-    </main>
+        )}
+      </article>
+    );
+  };
 
-    {/* poza <main>: tam obowiązuje skala 0,9, a okno i stopka mają mieć zwykły rozmiar */}
-    {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
-    {editingWeather !== undefined && (
-      <WeatherTileModal tile={editingWeather} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
-    )}
+  return (
+    <>
+      <main className={`page page-lista device-selection${reordering ? ' is-layout' : ''}`}
+        style={{ paddingBottom: bottomCells.length && bottomFits ? 0 : bottomPad }}>
+        <h1 className="sr-only">Lista urządzeń</h1>
+        {/* ikona siatki w górnym pasku włącza tryb „Zmień układ” (pola, ukrywanie, kafelki pogody) */}
+        {headerSlot && devicesLoaded && createPortal(
+          <button type="button" className={`icon-btn header-layout${reordering ? ' is-active' : ''}`} disabled={reordering}
+            title="Zmień układ" aria-label="Zmień układ kafelków" onClick={startReordering}>
+            <ListIcon name="grid" />
+          </button>,
+          headerSlot,
+        )}
+        {outdoorStrip}
+        {reordering && (
+          <div className="layout-bar">
+            <span>{moving ? 'Kliknij pole, w którym ma stanąć kafelek.' : 'Tryb „Zmień układ”: strzałki przenoszą kafelek, oko go ukrywa, puste pole może dostać kafelek pogody, pusty wiersz spycha resztę do dołu ekranu.'}</span>
+            <span className="layout-bar-buttons">
+              <button type="button" className="btn btn-sm" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
+            </span>
+          </div>
+        )}
+        {error && <p className="device-selection-error">{error}</p>}
+        <section className="tiles device-grid" ref={listRef} style={gridStyle} aria-label="Kafelki sterowników">
+          {topCells.map((slot) => renderCell(slot, 0))}
+          {!devicesLoaded && devices.length === 0 && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
+            <article key={`skeleton-${index}`} className="tile tile-device tile-loading" aria-busy="true">
+              <span className="skeleton skeleton-icon" />
+              <span className="skeleton skeleton-main" />
+              <span className="skeleton skeleton-row" />
+              <span className="skeleton skeleton-foot" />
+            </article>
+          ))}
+          {devicesLoaded && devices.length === 0 && !error && (
+            <p className="devices-empty">Brak sterowników. Sterownik pojawi się tutaj, gdy ktoś Ci go udostępni albo po przypisaniu do konta.</p>
+          )}
+        </section>
+        {bottomCells.length > 0 && (
+          <>
+            <div className="device-list-spacer" ref={spacerRef} style={{ height: spacer }} aria-hidden="true" />
+            <section className="tiles device-grid device-grid-bottom" ref={bottomRef} style={gridStyle} aria-label="Kafelki przy dole ekranu">
+              {bottomCells.map((slot) => renderCell(slot, emptyRow + 1))}
+            </section>
+          </>
+        )}
+      </main>
 
-      {/* zajętość bazy tylko dla użytkownika systemowego (konta użytkowników); bez niej stopki nie ma */}
-      {isSystem && <footer className="device-footer devices-footer">
-        {/* lewa część zarezerwowana na później (plan 2026-10-04) */}
-        <span />
-        <DatabaseUsage />
-      </footer>}
+      {editing && <DeviceEditModal device={editing} onClose={() => setEditing(null)} onSaved={saved} />}
+      {editingWeather !== undefined && (
+        <WeatherTileModal tile={editingWeather} onClose={() => setEditingWeather(undefined)} onSaved={weatherSaved} onRemoved={weatherRemoved} />
+      )}
+
+      {/* stopka listy (.statusbar z makiety): zajętość bazy tylko dla użytkownika systemowego, po prawej nazwa aplikacji */}
+      <footer className="statusbar devices-footer">
+        {isSystem ? <DatabaseUsage /> : <span />}
+        <span className="version">chpc-web</span>
+      </footer>
     </>
   );
 };

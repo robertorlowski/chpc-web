@@ -16,7 +16,7 @@ import {
 export const CODE_TTL_MS = 10 * 60 * 1000;
 export const RESEND_MS = 60 * 1000;
 export const MAX_ATTEMPTS = 5;
-export const SESSION_REMEMBER_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_REMEMBER_MS = 14 * 24 * 60 * 60 * 1000;
 // sesja bez „Zapamiętaj”: klient trzyma token do zamknięcia przeglądarki, serwer najwyżej 24 h od ostatniego użycia
 export const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
 const SESSION_TOUCH_MS = 5 * 60 * 1000;
@@ -150,7 +150,7 @@ export async function sessionFromToken(token: string): Promise<{ session: Sessio
   return { session, user };
 }
 
-// „Zapamiętać Twoje dane … na najbliższe 7 dni?”: tak = 7 dni od zalogowania, nie = 24 h od ostatniego użycia.
+// „Zapamiętać Twoje dane … na najbliższe 14 dni?”: tak = 14 dni od zalogowania, nie = 24 h od ostatniego użycia.
 export async function setRemember(token: string, remember: boolean) {
   const key = sha256(token);
   const session = await SessionModel.findOne({ tokenHash: key });

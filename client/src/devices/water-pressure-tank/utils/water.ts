@@ -1,5 +1,6 @@
-// Formaty hydroforu: litry, czasy i daty w strefie Europe/Warsaw, eksport CSV. Wodę i efektywny
-// czas pompy liczy serwer (pola waterLiters i pumpSeconds uruchomień).
+// Formaty hydroforu: litry, czasy i daty w strefie Europe/Warsaw, nazwy okresów do nawigacji po dacie,
+// przesuwanie dnia / miesiąca, eksport CSV. Wodę i efektywny czas pompy liczy serwer (pola waterLiters
+// i pumpSeconds uruchomień).
 import { WaterPressureTankRun } from '../types';
 
 const TIME_ZONE = 'Europe/Warsaw';
@@ -35,6 +36,32 @@ export const compressorSeconds = (run: WaterPressureTankRun) => secondsBetween(r
 
 // Dzisiejsza data w Warszawie jako YYYY-MM-DD (format en-CA).
 export const todayWarsaw = () => new Date().toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
+
+// Data uruchomienia jako dzień warszawski YYYY-MM-DD (grupowanie uruchomień po dniach).
+export const dayWarsaw = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
+
+// Przesunięcie dnia YYYY-MM-DD o n dni (w kalendarzu, bez strefy: same daty).
+export const shiftDay = (date: string, n: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + n)).toISOString().slice(0, 10);
+};
+
+// Przesunięcie miesiąca YYYY-MM o n miesięcy.
+export const shiftMonth = (month: string, n: number) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, monthNumber - 1 + n, 1)).toISOString().slice(0, 7);
+};
+
+// Nazwy okresów w nawigacji po dacie: „16 października 2026”, „październik 2026”, „2026”.
+export const dayLabel = (date: string) =>
+  new Date(`${date}T12:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+export const monthLabel = (month: string) =>
+  new Date(`${month}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+
+// Skrót dnia tygodnia („pt”, „sb”) dla daty YYYY-MM-DD, jak na osi wykresu tygodnia w makiecie
+// (dwuliterowe, bo „niedz.” z toLocaleDateString nie mieści się na telefonie).
+const WEEK_DAYS_SHORT = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
+export const weekDayShort = (date: string) => WEEK_DAYS_SHORT[new Date(`${date}T12:00:00`).getDay()];
 
 // Pierwszy i ostatni dzień miesiąca "YYYY-MM" jako YYYY-MM-DD (parametry from/to dla GET /runs).
 export const monthBounds = (month: string) => {

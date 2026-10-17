@@ -1,5 +1,5 @@
 // Ustawienia zaawansowane → grupa „Pompa ciepła / Pellet”: nastawy kotła stosowane po wyborze trybu
-// pracy (Ustawienia → Tryb pracy), w dwóch kolumnach. Zapis w ustawieniach harmonogramu na serwerze
+// pracy (Ustawienia → Tryb pracy), w dwóch kolumnach (tabela .data w .table-wrap, przycisk zapisu z prawej). Zapis w ustawieniach harmonogramu na serwerze
 // (PUT /schedule-settings, pole profiles; wartości surowe jak w zleceniach). Edycja zawsze możliwa —
 // to ustawienia aplikacji, nie regulatora; regulator sprawdzi zakres przy przełączeniu trybu.
 import { FormEvent, useEffect, useState } from 'react';
@@ -71,11 +71,12 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
     } });
   };
 
-  if (!values) return <div className="boiler-hint">Wczytywanie nastaw trybów…</div>;
+  if (!values) return <p className="help">Wczytywanie nastaw trybów…</p>;
 
   return (
     <form className="boiler-profiles-table" onSubmit={save}>
-      <table className="boiler-table">
+      <div className="table-wrap">
+      <table className="data">
         <thead>
           <tr><th>Parametr</th>{MODES.map((mode) => <th key={mode.key}>{mode.label}</th>)}</tr>
         </thead>
@@ -109,9 +110,10 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
           })}
         </tbody>
       </table>
-      {error && <div className="boiler-error">{error}</div>}
-      {notice && <div className="boiler-hint">{notice}</div>}
-      <div className="boiler-actions"><button type="submit" disabled={busy}>Zapisz nastawy</button></div>
+      </div>
+      {error && <p className="help danger-text">{error}</p>}
+      {notice && <p className="help">{notice}</p>}
+      <div className="actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Zapisz nastawy</button></div>
     </form>
   );
 };

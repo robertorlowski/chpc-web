@@ -1,0 +1,13 @@
+/* Dane pompy: tabela przewija się w karcie (pionowo z przyklejonym nagłówkiem i poziomo), strona nie rośnie poza okno. */
+.hp-data .table-wrap {
+  max-height: max(240px, calc(100vh - 56px - 12px - 60px - 110px - 32px)); /* pasek, odstęp, filtry, nagłówek i stopka karty, dół */
+  overflow: auto;
+}
+
+/* telefon: dolna nawigacja (68 px) zabiera miejsce, filtry zajmują dwa wiersze */
+@media (max-width: 900px) {
+  .hp-data .table-wrap { max-height: max(240px, calc(100vh - 56px - 12px - 100px - 110px - 84px)); }
+}
+
+.hp-data table.data td .chip { margin-left: 6px; vertical-align: 1px; }
+.hp-data .filters .check small { white-space: nowrap; }

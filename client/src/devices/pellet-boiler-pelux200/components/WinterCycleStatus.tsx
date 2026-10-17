@@ -1,5 +1,6 @@
 // Stan cyklu Zimy w trybie pompy ciepła (serwer: pellet-boiler-pelux200-winter-cycle.service.ts), w Ustawieniach
-// przy przycisku Lato / Zima i w Harmonogramie: Zima przy kotle albo pompie (HP.Ttarget) ≥ max pompy ciepła − 3 °C, Lato przy < 30 °C i stojącej pompie CO.
+// przy przełączniku Lato / Zima i w Harmonogramie (akapit pomocniczy .help): Zima przy kotle albo pompie (HP.Ttarget)
+// ≥ max pompy ciepła − 3 °C, Lato przy < 30 °C i stojącej pompie CO.
 import { PelletBoilerWinterCycle } from '../types';
 import { formatDateTime, formatNumber } from '../utils/boiler';
 
@@ -11,7 +12,7 @@ export function WinterCycleStatus({ cycle }: { cycle?: PelletBoilerWinterCycle |
   const temperature = cycle.temperature === null ? 'brak świeżego odczytu' : `teraz ${formatNumber(cycle.temperature)} °C`;
   const pump = typeof cycle.pumpTemperature === 'number' ? `, pompa ${formatNumber(cycle.pumpTemperature)} °C` : '';
   return (
-    <div className="boiler-hint boiler-winter-cycle">
+    <p className="help boiler-winter-cycle">
       {cycle.phase === 'waiting'
         ? <>Zima z pompą ciepła: kocioł na Lecie czeka na {formatNumber(cycle.winterFrom ?? 45)} °C w kotle albo na pompie ({temperature}{pump}) od {formatDateTime(cycle.since)}
           {cycle.forcedAt ? `; wymuszony start pompy ciepła ${time(cycle.forcedAt)}` : ''}.</>
@@ -24,6 +25,6 @@ export function WinterCycleStatus({ cycle }: { cycle?: PelletBoilerWinterCycle |
             + ` albo wzrośnie do ${formatNumber(cycle.mixer.reference + 5)} °C${pump ? ` (${pump.slice(2)})` : ''}`
           : ', utrzyma temperaturę przez 15 min albo wzrośnie o 5 °C'}.
       </>}
-    </div>
+    </p>
   );
 }

@@ -1,240 +1,126 @@
-/* Konta użytkowników (2026-10-11): logowanie, „Moje dane”, okna dialogowe, menu konta w nagłówku,
-   karta „Udostępnianie”. Kolor przycisków jak w aplikacji (var(--accent)), przyciski po prawej, zapis skrajnie z prawej. */
+/* Konta użytkowników (2026-10-11) w wyglądzie „Instrument” z makiet/ (2026-10-17): logowanie (.auth-card), „Moje dane”
+   (karty .card z .kv), okna .modal, menu konta w pasku (UserMenu, ThemeToggle), mapa lokalizacji konta, karta
+   „Udostępnianie” (.people). Komponenty makiety (.auth, .auth-card, .field, .kv, .modal, .people, .btn…) są
+   w makieta.css; tu tylko to, czego makieta nie ma. Kolory wyłącznie z tokenów theme.css. */
 
-.account-page {
-  box-sizing: border-box;
-  width: min(560px, 100%);
-  margin: 0 auto;
-  padding: 1rem;
-  display: grid;
-  gap: 1rem;
+/* ---- logowanie: karta na środku pod paskiem (App.tsx), bez .screen-auth makiety ---- */
+.auth {
+  /* na środku okna jak .screen-auth makiety (pasek 56 px i odstęp .app-main nad kartą) */
+  margin: clamp(24px, calc(50vh - 290px), 320px) auto 24px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
   text-align: left;
 }
 
-.account-page.account-narrow {
-  width: min(420px, 100%);
-  padding-top: 2.5rem;
-}
-
-.account-page h1 {
+.auth-card h1 {
   margin: 0;
-  font-size: 1.75rem;
+  padding: 0;
+  text-align: left;
+}
+
+.auth-card .alert {
+  text-align: left;
+}
+
+/* dwa odnośniki pod przyciskiem „Zaloguj” */
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.link-btn:disabled {
+  opacity: .5;
+  cursor: default;
+  text-decoration: none;
+}
+
+/* odnośnik w roli przycisku (strona usunięcia konta) */
+a.btn {
+  display: inline-block;
   text-align: center;
+  text-decoration: none;
 }
 
-.account-form {
-  display: grid;
-  gap: 0.8rem;
+/* ---- „Moje dane”, „Uzupełnij dane” (App.tsx: .account-page.account-narrow z h1 i .account-lead) ---- */
+.account-page {
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px));
 }
 
-.account-form label,
-.account-field {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.account-form label > span,
-.account-field > span {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.account-form input,
-.account-form select {
-  box-sizing: border-box;
+.account-page.account-narrow {
   width: 100%;
-  height: 2.5rem;
-  padding: 0 0.6rem;
-  font-size: 1rem;
-  font-family: inherit;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--fg);
+  max-width: 560px;
+  margin: 12px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  text-align: left;
 }
 
-.account-form input:disabled {
-  background: var(--muted-bg);
-  color: var(--fg-2);
+.account-page.account-narrow > h1 {
+  margin: 0;
+  font-size: 24px;
 }
 
-.account-code {
-  height: 3.2rem !important;
-  font-size: 1.6rem !important;
-  letter-spacing: 0.4rem;
-  text-align: center;
+.account-lead {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-3);
+}
+
+/* formularz danych konta i kroki zmiany e-maila: pola jak w makiecie, dwa pola w wierszu */
+.profile-form,
+.account-inline {
+  min-width: 0;
 }
 
 .account-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 10px;
 }
 
 .account-grid-code {
   display: grid;
   grid-template-columns: 7rem minmax(0, 1fr);
-  gap: 0.6rem;
+  gap: 10px;
 }
 
-.account-lead {
+@media (max-width: 400px) {
+  .account-grid-2,
+  .account-grid-code {
+    grid-template-columns: 1fr;
+  }
+}
+
+.actions-gap {
+  gap: 8px;
+}
+
+/* ---- okna (.modal z makiety) nad stałym paskiem aplikacji (z-index 1000) ---- */
+.modal-layer {
+  z-index: 1200;
+}
+
+.modal-head h2,
+.modal-body p {
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: var(--fg-2);
 }
 
-.account-error {
-  margin: 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
-  background: var(--err-bg);
-  color: var(--err-fg);
-  font-size: 0.9rem;
-}
-
-.account-warning {
-  margin: 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
-  background: var(--err-bg);
-  color: var(--err-fg);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.account-ok {
-  margin: 0;
-  color: var(--ok-fg);
-  font-size: 0.9rem;
-}
-
-.account-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.account-actions button,
-.account-row button,
-.account-button-link {
-  margin: 0;
-  min-height: 2.75rem;
-  padding: 0 1.2rem;
-  border: 0;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--card);
-  font-size: 1rem;
-  font-family: inherit;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-
-.account-actions button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.account-actions .account-cancel {
-  background: var(--fg-3);
-}
-
-.account-actions .account-danger,
-.account-danger {
-  background: var(--danger);
-}
-
-.account-link {
-  margin: 0;
-  text-align: center;
-}
-
-.account-text-button {
-  border: 0;
-  background: none;
-  color: var(--accent-strong);
-  text-decoration: underline;
-  font-size: 0.95rem;
-  cursor: pointer;
-  padding: 0.5rem;
-}
-
-.account-card {
-  background: var(--muted-bg);
-  padding: 0.9rem 1rem;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.account-card h2 {
-  margin: 0;
-  padding-bottom: 0.4rem;
-  font-size: 1.05rem;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-.account-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.account-email {
-  overflow-wrap: anywhere;
-}
-
-.account-danger-title {
-  color: var(--danger);
-}
-
-/* okna dialogowe (pytanie o 7 dni, usunięcie konta, udostępnienie) */
-.account-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.account-dialog {
-  box-sizing: border-box;
-  width: min(440px, 100%);
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-  padding: 1.25rem;
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--fg);
-  display: grid;
-  gap: 0.9rem;
+.modal .alert {
   text-align: left;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0);
 }
 
-.account-dialog h2 {
-  margin: 0;
-  font-size: 1.1rem;
-  line-height: 1.35;
-  text-align: center;
-}
-
-/* mapa lokalizacji konta */
+/* ---- mapa lokalizacji konta (LocationPicker) ---- */
 .location-picker {
   display: grid;
-  gap: 0.4rem;
+  gap: 6px;
 }
 
 .location-map {
   height: 230px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   z-index: 0;
 }
 
@@ -242,27 +128,42 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  gap: 8px;
+  font-size: 13px;
   color: var(--fg-2);
 }
 
 .location-locate {
-  min-height: 2.5rem;
+  min-height: 36px;
   margin: 0;
-  padding: 0 0.8rem;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--card);
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--accent);
-  font-size: 0.9rem;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-/* menu konta w pasku: awatar z inicjałami, lista z wyborem motywu */
+.location-locate:hover {
+  background: var(--hover);
+}
+
+.account-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--err-bg);
+  color: var(--err-fg);
+  font-size: 13px;
+  text-align: left;
+}
+
+/* ---- menu konta w pasku: awatar z inicjałami (.avatar z makiety), lista z wyborem motywu ---- */
 .user-menu {
   position: relative;
   margin-left: auto;
@@ -292,6 +193,25 @@
   background: var(--accent-strong);
 }
 
+/* ikona zmiany motywu przed awatarem (ThemeToggle): w kolorze paska, kółko jak strzałka wstecz */
+button.icon-button.theme-toggle[type] {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--bar-fg);
+}
+
+button.icon-button.theme-toggle[type] svg {
+  width: 22px;
+  height: 22px;
+}
+
+button.icon-button.theme-toggle[type]:hover {
+  color: var(--bar-fg);
+  background: var(--hover);
+}
+
+/* lista menu jak .popover makiety */
 .user-menu-list {
   position: absolute;
   right: 0;
@@ -308,32 +228,38 @@
 }
 
 .user-menu-who {
-  padding: 0.6rem 0.7rem 0.7rem;
+  padding: 8px 10px 10px;
   border-bottom: 1px solid var(--line-soft);
   margin-bottom: 4px;
   display: grid;
-  gap: 0.1rem;
+  gap: 2px;
+}
+
+.user-menu-who strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-menu-who span {
-  font-size: 0.85rem;
+  font-size: 12px;
   color: var(--fg-3);
   overflow-wrap: anywhere;
 }
 
 .user-menu-list button[role="menuitem"] {
   width: 100%;
-  min-height: 2.6rem;
   margin: 0;
-  padding: 0 0.7rem;
+  padding: 9px 10px;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--fg);
-  font-size: 0.95rem;
+  font-size: 15px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -344,13 +270,13 @@
 }
 
 .user-menu-list button svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 18px;
+  height: 18px;
   color: var(--fg-2);
   flex-shrink: 0;
 }
 
-/* motyw: trzy przyciski w jednym rzędzie */
+/* motyw: trzy przyciski w jednym rzędzie (jak .segmented) */
 .user-menu-theme {
   display: flex;
   gap: 3px;
@@ -366,10 +292,10 @@
   margin: 0;
   padding: 6px 4px;
   border: 0;
-  border-radius: 4px;
+  border-radius: calc(var(--radius-sm) - 3px);
   background: transparent;
   color: var(--fg-2);
-  font-size: 0.85rem;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -383,149 +309,20 @@
   color: var(--danger);
 }
 
-/* karta „Udostępnianie” */
-.share-card {
-  text-align: left;
-}
-
-.share-row {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.6rem 0.25rem 0.6rem 0.75rem;
-  border-radius: 6px;
-  background: var(--card);
-}
-
-.share-who {
-  flex-grow: 1;
-  min-width: 0;
-  display: grid;
-  gap: 0.1rem;
-}
-
-.share-who span {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-  overflow-wrap: anywhere;
-}
-
-.share-who .share-pending {
+/* ---- karta „Udostępnianie” (DeviceSharing): zaproszenie bez rejestracji na pomarańczowo ---- */
+.people .person .share-pending {
   color: var(--warn-fg);
 }
 
-.share-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  margin: 0;
-  padding: 0;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
+.people .person strong + small + small {
+  margin-top: 0;
 }
 
-.share-icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-.share-icon.share-remove {
-  color: var(--danger);
-}
-
-.share-tabs {
-  margin: 0;
-  padding: 0.5rem 0.75rem 0.25rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-
-.share-tabs legend {
-  padding: 0 0.25rem;
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.account-form .share-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-height: 2.5rem;
-  font-size: 1rem;
-}
-
-.account-form .share-tab input {
-  width: 1.25rem;
-  height: 1.25rem;
-  accent-color: var(--accent);
-}
-
-/* pasek „Udostępnione przez …” pod menu sterownika */
-.shared-banner {
-  padding: 0.45rem 0.9rem;
-  background: var(--run-bg);
-  color: var(--accent-strong);
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-/* sekcje według właściciela na liście sterowników */
-.device-section {
-  display: grid;
-  gap: 0.6rem;
-  width: 100%;
-}
-
-.device-section-title {
-  margin: 0;
-  padding-bottom: 0.35rem;
-  font-size: 1rem;
-  color: var(--fg-2);
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-}
-
-.device-section-title small {
-  font-weight: 400;
-  color: var(--fg-2);
-  margin-left: 0.4rem;
-}
-
-.device-access {
-  margin: 0.2rem 0 0;
-  font-size: 0.8rem;
-  color: var(--accent-strong);
-  text-align: center;
-}
-
+/* ---- pasek „Udostępnione przez …” pod paskiem sterownika (App.tsx) ---- */
 .app-loading {
-  padding: 3rem 1rem;
+  padding: 48px 16px;
   text-align: center;
   color: var(--fg-2);
-}
-
-@media (max-width: 560px) {
-  .account-page {
-    padding: 0.75rem 0;
-  }
-
-  .account-page > h1,
-  .account-page > .account-form,
-  .account-page > .account-lead,
-  .account-page > .account-error,
-  .account-page > .account-actions {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-}
-
-/* w Ustawieniach sterownika tytuł karty z lewej jak w karcie „Sterownik” */
-.share-card h2 {
-  text-align: left;
 }
 
 /* main jest wierszem flex: pasek w osobnym wierszu na całą szerokość, strona pod nim */
@@ -539,34 +336,4 @@
   box-sizing: border-box;
   margin: -1rem 0 0.75rem;
   text-align: center;
-}
-
-/* „Moje dane”: strzałka powrotu i tytuł z lewej, konto z prawej (pasek bez menu sterownika) */
-.app-header-plain .nav-back {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-}
-
-.app-header-plain .nav-back:hover {
-  background-color: var(--hover);
-}
-
-.app-header-plain .nav-back svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  fill: none;
-  stroke: var(--card);
-  stroke-width: 2;
-}
-
-.app-header-plain .nav-back + span {
-  margin: 0 auto 0 0.5rem;
-}
-
-/* tytuły kart konta z lewej, jak karty w Ustawieniach */
-.account-card h2 {
-  text-align: left;
 }

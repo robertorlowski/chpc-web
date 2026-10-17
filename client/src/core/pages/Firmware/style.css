@@ -1,206 +1,49 @@
-/* Strona /firmware/:deviceType: karty jak w Ustawieniach (.resource), na telefonie od krawędzi do krawędzi. Plakietki stanu: components/firmwareStatus.css. */
+/* Strona /firmware/:deviceType (wygląd „Instrument”, makiety/src/makieta.html #s-firmware-*): karty .card z makieta.css
+   (.fw-current, .fw-ver, .fw-meta, .fw-desc, .people). Tu tylko to, czego makieta nie ma: odstępy strony, pole opisu
+   i wiersz przycisków karty „Dodaj wersję”. Kolory wyłącznie z tokenów theme.css. */
 .firmware-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 0 1rem;
-}
-
-.firmware-page > p,
-.firmware-card-width {
-  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
-  margin: 0 0 0.5rem;
-  box-sizing: border-box;
-}
-
-/* nagłówek: przycisk powrotu po lewej, tytuł wyśrodkowany (pusty element po prawej równoważy przycisk) */
-.firmware-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
-  box-sizing: border-box;
-}
-
-.firmware-header h2 {
-  flex: 1 1 auto;
-  margin: 0;
-  padding-top: 0;
-}
-
-/* tyle co przycisk powrotu (ikona 1,6 em + odstępy), żeby tytuł był na środku */
-.firmware-header-spacer {
-  flex: none;
-  width: calc(1.6em + 0.2rem);
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px));
 }
 
 .firmware-lead {
-  color: var(--fg-2);
+  margin: 0;
 }
 
-.firmware-page .firmware-card,
-.firmware-page .firmware-card:hover {
-  width: min(640px, calc(var(--page-vw, 100vw) - 2rem));
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.firmware-title {
-  width: 100%;
-  margin: 0.2rem 0 0.25rem;
-  padding-top: 0.2rem;
-  border-bottom: 1px solid var(--line);
-}
-
-/* belka kafelka: tytuł po lewej, ikona akcji po prawej, wspólna linia pod spodem */
-.firmware-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.firmware-bar .firmware-title {
-  flex: 1 1 auto;
-  width: auto;
-  border-bottom: 0;
-}
-
-.firmware-row,
-.firmware-switch {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.firmware-row .label {
-  flex: 0 0 9.5rem;
-  font-weight: 600;
-}
-
-.firmware-row input[type="text"],
-.firmware-row input[type="file"],
-.firmware-row textarea {
-  flex: 1 1 12rem;
-  min-width: 0;
+/* pole opisu jak pola .field (makieta ma tylko input) */
+.firmware-page .field textarea {
   font: inherit;
-}
-
-.firmware-row textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--fg);
+  width: 100%;
   resize: vertical;
 }
 
-.firmware-text {
-  flex: 1 1 12rem;
-  min-width: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.firmware-page .field textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
 }
 
-.firmware-hint {
-  font-size: 0.85rem;
-  color: var(--fg-2);
-}
-
-.firmware-error {
-  color: var(--danger);
+/* ikona „i” w etykiecie pola (kapitaliki): bez dodatkowej wysokości wiersza */
+.firmware-page .field > span .info-tip {
+  vertical-align: -5px;
 }
 
 .firmware-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 8px;
 }
 
-.firmware-page button {
-  min-height: 2.25rem;
-  margin: 0;
-  padding: 0 1rem;
-  font: inherit;
-  color: var(--card);
-  background: var(--accent);
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
+/* przycisk „Przywróć” i kosz obok siebie po prawej */
+.firmware-page .people li .icon-button {
+  margin-left: -4px;
 }
 
-.firmware-page button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* poprzednia wersja: tekst po lewej, ikony po prawej na środku wysokości bloczka; wersje oddzielone linią */
-.firmware-version {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.firmware-version-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-/* w kolumnie flex-basis z .firmware-text (12rem, dla wiersza) rozciągałby opis na wysokość */
-.firmware-version-main .firmware-text {
-  flex: none;
-}
-
-.firmware-version-actions {
-  flex: none;
-  display: flex;
-  gap: 0.4rem;
-}
-
-.firmware-version-head {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-}
-
-@media (max-width: 560px) {
-  body .firmware-page .firmware-card,
-  body .firmware-page .firmware-card:hover {
-    width: var(--page-vw, 100vw);
-    border-radius: 0;
+/* telefon: długie meta wersji zawija się pod numerem */
+@media (max-width: 400px) {
+  .firmware-page .fw-ver.sm {
+    min-width: 44px;
   }
-
-  .firmware-row .label {
-    flex-basis: 100%;
-  }
-}
-
-/* popup „Dodaj wersję”: pola jak w popupie danych sterownika (components/deviceEditModal.css) */
-/* szerszy niż popup danych sterownika (420 px), bo ma pole opisu */
-.device-modal.firmware-modal {
-  width: min(600px, 100%);
-}
-
-.firmware-modal {
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-}
-
-.firmware-modal textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.45rem;
-  font: inherit;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  resize: vertical;
 }

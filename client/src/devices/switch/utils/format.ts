@@ -42,6 +42,23 @@ export const formatCountdown = (until: string, now: number) => {
 
 const sourceLabel = (source: string | null | undefined) => source === 'controller' ? 'ze sterownika' : 'z aplikacji';
 
+// kolumna „Źródło” w tabelach włączeń
+export const activationSourceLabel = (source: SwitchActivation['source']) =>
+  source === 'schedule' ? 'harmonogram' : source === 'controller' ? 'sterownik' : 'aplikacja';
+
+// „16.10.2026” z daty YYYY-MM-DD (nawigacja po dniach)
+export const formatDateLabel = (date: string) => {
+  const [year, month, day] = date.split('-');
+  return `${day}.${month}.${year}`;
+};
+
+// dzień o n dni od date (YYYY-MM-DD), liczony w UTC o południu, więc bez wpływu zmiany czasu
+export const shiftDate = (date: string, days: number) => {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+};
+
 // Opis trybu pod nazwą przekaźnika; danger — wyłączony z blokadą harmonogramu.
 export const describeMode = (relay: SwitchRelay): { text: string; danger?: boolean } => {
   switch (relay.mode) {

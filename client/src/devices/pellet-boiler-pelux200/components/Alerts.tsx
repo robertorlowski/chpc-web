@@ -1,13 +1,18 @@
-// Alarmy kotła w aplikacji (firmware pieca od 1.7.0, dziennik z panelu przez sterownik): czerwony pasek w górnym panelu
-// strony głównej (alarm trwający albo nowy z ostatnich 24 h, sam znika) i zakładka Alarmy (/alarms, w menu po Harmonogramie)
-// z listą. Kasowania nie ma: historię alarmów kasuje tylko serwis z panelu (instrukcja kotła).
+// Alarmy kotła w aplikacji (firmware pieca od 1.7.0, dziennik z panelu przez sterownik), układ „Instrument”
+// (#s-boiler-alarmy): na stronie głównej czerwony komunikat (.alert) z alarmem trwającym albo nowym z ostatnich 24 h
+// (kliknięcie otwiera zakładkę Alarmy), a zakładka Alarmy (/alarms, w menu po Harmonogramie): pasek filtrów (zakres
+// historii: Aktywne / 30 dni / Wszystkie, znacznik zaników zasilania), karta „Aktywne” z licznikiem i karta „Historia”
+// jako oś czasu (.timeline: godzina i data, kto, nazwa z kodem i końcem, chip stanu). Kasowania nie ma: historię
+// alarmów kasuje tylko serwis z panelu (instrukcja kotła).
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PelletBoilerRequests } from '../api';
 import { PelletBoilerAlert, PelletBoilerAlerts } from '../types';
 import { alertDuration, alertName, bannerAlerts, endUnknown, formatAlertTime, POWER_LOSS } from '../utils/alerts';
+import { Alert, Icon, Segmented } from './ui';
 
 const REFRESH_MS = 60_000;
+const DAY_MS = 24 * 3600 * 1000;
 
 function useAlerts(): PelletBoilerAlerts | null | undefined {
   const [alerts, setAlerts] = useState<PelletBoilerAlerts | null | undefined>(undefined);
@@ -24,66 +29,99 @@ const endText = (alert: PelletBoilerAlert) =>
   !alert.to ? 'trwa' : endUnknown(alert) ? 'koniec nieznany' : formatAlertTime(alert.to);
 const period = (alert: PelletBoilerAlert) => `${formatAlertTime(alert.from)} – ${endText(alert)}`;
 
-// Strona główna: czerwony pasek (jak „Offline od …”) w górnym panelu, tylko gdy jest powód (alarm trwa albo nowy skończył się
-// w ostatnich 24 h); bez pogrubienia, kliknięcie otwiera zakładkę Alarmy.
+const TIME_ZONE = 'Europe/Warsaw';
+const hourOf = (iso: string) => new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' });
+// „dziś”, „wczoraj” albo „12.10” (z rokiem, gdy inny niż bieżący)
+const dayOf = (iso: string, now = new Date()) => {
+  const date = new Date(iso);
+  const day = (value: Date) => value.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
+  if (day(date) === day(now)) return 'dziś';
+  if (day(date) === day(new Date(now.getTime() - DAY_MS))) return 'wczoraj';
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString('pl-PL', { timeZone: TIME_ZONE, day: 'numeric', month: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+};
+
+// Strona główna: czerwony komunikat (jak w makiecie „alert”), tylko gdy jest powód (alarm trwa albo nowy skończył się
+// w ostatnich 24 h); kliknięcie otwiera zakładkę Alarmy.
 export const AlertsBanner: React.FC = () => {
   const data = useAlerts();
   const items = bannerAlerts(data?.alerts ?? []);
   if (!items.length) return null;
   return (
-    <Link to="/alarms" className="offline-banner boiler-alert-banner" role="alert">
-      {items.map((alert) => (
-        <span key={`${alert.code}-${alert.from}`}>
-          ⚠ {alertName(alert.code)}
-          {alert.active ? `, od ${formatAlertTime(alert.from, false)}, trwa` : `, ${period(alert)}`}
-        </span>
-      ))}
+    <Link to="/alarms" className="alert alert-err boiler-alert-link" role="alert">
+      <Icon name="bell" />
+      <div>
+        {items.map((alert) => (
+          <span key={`${alert.code}-${alert.from}`}>
+            <strong>{alertName(alert.code)}</strong>
+            {alert.active ? ` · od ${formatAlertTime(alert.from, false)}, trwa` : ` · ${period(alert)}`}
+          </span>
+        ))}
+      </div>
     </Link>
   );
 };
 
-// Zakładka Alarmy (/alarms): trwające na górze, potem od najnowszego; zaniki zasilania
-// domyślnie ukryte (prawie cały dziennik).
+type Range = 'active' | '30' | 'all';
+const RANGES: { value: Range; label: string }[] = [
+  { value: 'active', label: 'Aktywne' }, { value: '30', label: '30 dni' }, { value: 'all', label: 'Wszystkie' },
+];
+
+// Zakładka Alarmy (/alarms): karta „Aktywne” zawsze; „Historia” według zakresu (Aktywne = tylko trwające,
+// 30 dni = z ostatnich 30 dni, Wszystkie = cały dziennik), od najnowszego; zaniki zasilania domyślnie ukryte
+// (prawie cały dziennik).
 export const PelletBoilerAlertsPage: React.FC = () => {
   const data = useAlerts();
+  const [range, setRange] = useState<Range>('30');
   const [showPowerLoss, setShowPowerLoss] = useState(false);
-  const list = (data?.alerts ?? []).filter((alert) => showPowerLoss || alert.code !== POWER_LOSS);
+  const now = Date.now();
+  const all = (data?.alerts ?? []).filter((alert) => showPowerLoss || alert.code !== POWER_LOSS);
+  const active = all.filter((alert) => alert.active);
+  const history = all.filter((alert) => range === 'all' || (range === 'active' ? alert.active : now - new Date(alert.from).getTime() <= 30 * DAY_MS));
+  const historyHint = range === 'active' ? 'trwające' : range === '30' ? 'ostatnie 30 dni' : 'cały dziennik';
+
   return (
-    <div className="settings boiler-page boiler-alerts-page">
-      <h2>Alarmy</h2>
-      <section>
-        <div className="resource">
-          <label className="boiler-alerts-filter">
-            <input type="checkbox" checked={showPowerLoss} onChange={(event) => setShowPowerLoss(event.currentTarget.checked)} />
-            Pokaż zaniki zasilania
-          </label>
-          {data === undefined && <div>Wczytywanie…</div>}
-          {data === null && <div className="boiler-error">Nie udało się wczytać dziennika.</div>}
-          {data && list.length === 0 && <div>Brak alarmów.</div>}
-          {list.length > 0 && (
-            <table className="boiler-alerts-table">
-              <thead>
-                <tr><th>Alarm</th><th>Od</th><th>Do</th><th>Czas</th></tr>
-              </thead>
-              <tbody>
-                {list.map((alert) => (
-                  <tr key={`${alert.code}-${alert.from}`}
-                    className={alert.active ? 'boiler-alert-active' : alert.uncertain ? 'boiler-alert-uncertain' : ''}>
-                    <td>
-                      {alert.active && <span className="boiler-alert-badge">TRWA</span>}
-                      {alertName(alert.code)}
-                      {(alert.uncertain || endUnknown(alert)) && <span className="boiler-hint"> · data niepewna</span>}
-                    </td>
-                    <td>{formatAlertTime(alert.from)}</td>
-                    <td>{endText(alert)}</td>
-                    <td>{alertDuration(alert)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {data?.readAt && <div className="boiler-hint">Dziennik z panelu kotła, odczyt {formatAlertTime(data.readAt)}</div>}
-        </div>
+    <div className="page page-device boiler-page">
+      <div className="filters">
+        <Segmented name="boiler-alerts-range" label="Zakres" inline value={range} options={RANGES} onChange={setRange} />
+        <label className="check">
+          <input type="checkbox" checked={showPowerLoss} onChange={(event) => setShowPowerLoss(event.currentTarget.checked)} />
+          <span>Zaniki zasilania</span>
+        </label>
+        <span className="card-hint">dziennik alarmów z panelu kotła</span>
+      </div>
+      <section className="card">
+        <header className="card-head"><h2>Aktywne</h2><span className={`chip ${active.length ? 'chip-err' : 'chip-off'}`}>{active.length}</span></header>
+        {data === undefined && <span className="help">Wczytywanie…</span>}
+        {data === null && <span className="help danger-text">Nie udało się wczytać dziennika.</span>}
+        {data && active.length === 0 && <span className="help">Brak aktywnych alarmów.</span>}
+        {active.map((alert) => (
+          <Alert key={`${alert.code}-${alert.from}`} kind="warn" title={alertName(alert.code)}>
+            kod {alert.code} · od {formatAlertTime(alert.from, false)} ({alertDuration(alert)}){alert.uncertain && ' · data niepewna'}
+          </Alert>
+        ))}
+      </section>
+      <section className="card">
+        <header className="card-head"><h2>Historia</h2><span className="card-hint">{historyHint} · {history.length} {history.length === 1 ? 'alarm' : 'alarmów'}</span></header>
+        {data && history.length === 0 && <span className="help">Brak alarmów.</span>}
+        {history.length > 0 && (
+          <ol className="timeline">
+            {history.map((alert) => (
+              <li key={`${alert.code}-${alert.from}`} className={`tl ${alert.active ? 'tl-err' : 'tl-sys'}`}>
+                <span className="tl-time">{hourOf(alert.from)}<small>{dayOf(alert.from)}</small></span>
+                <span className="tl-who">Regulator{(alert.uncertain || endUnknown(alert)) && ' · data niepewna'}</span>
+                <span className="tl-what">
+                  <strong>{alertName(alert.code)}</strong> kod {alert.code}
+                  {alert.active ? ` · od ${formatAlertTime(alert.from, false)} (${alertDuration(alert)})`
+                    : endUnknown(alert) ? ' · koniec nieznany'
+                    : alert.to ? ` · zakończony ${formatAlertTime(alert.to, false)} · ${alertDuration(alert)}` : ''}
+                </span>
+                <span className={`tl-state chip ${alert.active ? 'chip-err' : 'chip-off'}`}>{alert.active ? 'aktywny' : 'zakończony'}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {data?.readAt && <span className="help">Dziennik z panelu kotła, odczyt {formatAlertTime(data.readAt)}</span>}
       </section>
     </div>
   );

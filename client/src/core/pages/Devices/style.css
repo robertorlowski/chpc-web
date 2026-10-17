@@ -1,37 +1,30 @@
-/* Lista sterowników (/devices): na komputerze strona w skali 0,9 (jak przeglądarka przy 90 %), kafelki o szerokości
-   300–340 px obok siebie (4 w wierszu na typowym ekranie, zawijane i wyśrodkowane), na telefonie jeden pod drugim
-   na całą szerokość ekranu. Kafelek: pasek stanu po lewej (zielony / pomarańczowy /
-   czerwony z ramką / szary), nazwa, chip ze stanem, kluczowe wartości, błąd lub ostrzeżenie i stopka;
-   ołówek edycji i trybik firmware w prawym dolnym rogu, w trybie „Zmień kolejność” strzałki. */
-/* komputer: zawartość listy (kafelki) w skali 0,9, żeby przy 100 % przeglądarki wyglądała jak przy 90 % i mieściła
-   4 kafelki w poziomie; górny i dolny pasek zostają w normalnym rozmiarze (jak na stronach sterownika);
-   telefon bez skalowania */
-@media (min-width: 561px) {
-  .device-selection {
-    zoom: 0.9;
-  }
-}
+/* Lista sterowników (/devices) w wyglądzie „Instrument” (2026-10-17): markup z makiety (makiety/src/makieta.html,
+   ekran #s-lista), komponenty z client/src/makieta.css (.outdoor-strip, .layout-bar, .tiles, .tile*, .big, .tile-facts,
+   .state, .relays, .switch, .warn-line, .tile-tools, .tile-layout, .tile-empty, .is-hidden, .statusbar, .icon-btn, .btn*).
+   Tu tylko to, czego makieta nie ma albo co w aplikacji działa inaczej: szachownica z pustymi polami (siatka o stałej
+   liczbie kolumn --cols z pages/Devices zamiast auto-fill), tryb „Zmień układ” na klasie .is-layout strony (w makiecie
+   #s-lista.is-layout), przenoszenie i zamiana kafelków, stała stopka, duszki podczas ładowania. Kolory tylko z tokenów
+   theme.css. */
 
-/* globalny main centruje zawartość w pionie: lista ma zaczynać się tuż pod paskiem u góry */
-.app-main:has(.device-selection) {
-  align-items: flex-start;
-}
+/* ---- strona ---- */
+/* globalny main centruje treść (flex, text-align: center): lista zaczyna się pod paskiem, od lewej */
+.app-main:has(.device-selection) { align-items: flex-start; }
+/* dolny odstęp daje sama strona (nad stałą stopką tyle, co między kafelkami; liczone w pages/Devices) */
+body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 
-.device-selection {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start; /* globalny main ma space-around: bez tego zawartość wisi w pionowym środku */
-  flex: 0 1 auto; /* globalny main ma flex: auto i rozciągał listę na całą szerokość okna */
-  width: min(1560px, calc(100% - 2rem)); /* 1 rem światła z lewej i prawej strony, na bardzo szerokim ekranie lista się nie rozciąga */
-  /* bez wymuszonej wysokości okna: z min-height 100vh strona przewijała się zawsze (o ok. 23 px), nawet z jednym kafelkiem */
+.page-lista {
+  --tile-pad: 14px; /* odstęp w kafelku jak w makiecie (wariant-b.css) */
+  flex: 0 1 auto;
+  align-items: stretch;
+  justify-content: flex-start;
   box-sizing: border-box;
-  margin: 0 auto;
-  padding: 1.4rem 0 4rem; /* u góry pasek z temperaturą w dawnym marginesie, ok. 23 px pod nagłówkiem; dół na stałą stopkę */
+  padding-top: 2px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 
-/* tytuł „Lista urządzeń” niewidoczny (pasek u góry mówi, gdzie jesteśmy); zostaje dla czytników ekranu */
-.device-selection h1 {
+/* tytuł „Lista urządzeń” tylko dla czytników ekranu (pasek u góry mówi, gdzie jesteśmy) */
+.page-lista .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -43,606 +36,15 @@
   border: 0;
 }
 
-.device-list {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: stretch; /* w wierszu wszystkie kafelki jak najwyższy; stopka kafelka trzyma się dołu */
-  gap: 16px;
-  width: 100%;
-  margin: 1rem 0 0;
-}
+.device-selection-error { margin: 0; color: var(--warn-fg); font-weight: 700; }
+.devices-empty { grid-column: 1 / -1; margin: 0; color: var(--fg-2); }
 
-/* kafelki rosną równo od 300 do 340 px: w wierszu mieści się tyle, ile się da (4 przy ok. 1380 px), ostatni wiersz
-   zostaje wyśrodkowany */
-.device-card {
-  position: relative;
-  flex: 1 1 var(--tile-basis, 300px); /* szerokość ze wzoru kafelka (pages/Devices, core/tile-template.ts) */
-  min-width: 0;
-  max-width: var(--tile-max, 340px);
-}
-
-.device-list .device-choose {
-  display: block;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--fg);
-  text-align: left;
-  font-size: 1rem;
-  cursor: pointer;
-  border: 1px solid var(--line);
-}
-
-.device-list .device-choose:hover:not(:disabled),
-.device-list .device-choose:focus-visible {
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-hover);
-}
-
-.device-list .device-choose:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
-/* błąd: czerwona ramka wokół całego kafelka */
-.device-card.has-error .device-choose {
-  box-shadow: 0 0 0 2px var(--danger);
-}
-
-/* temperatura (czujnik kotła) i pogoda (Open-Meteo) nad kafelkami */
-.devices-outdoor {
-  margin: 0 0 0.8rem;
-  display: flex;
-  flex-wrap: wrap;
+/* ---- przyciski-ikony (baza.css makiety, której client/src/makieta.css nie ma) ---- */
+.page-lista .icon-btn,
+.app-header .icon-btn.header-layout {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px 14px;
-  font-size: 0.95rem;
-}
-.devices-outdoor > span { display: inline-flex; align-items: center; gap: 6px; }
-.devices-outdoor b { font-weight: 600; }
-.devices-outdoor .weather-icon { flex: none; }
-.devices-outdoor-extra { color: var(--fg-3); }
-@media (max-width: 560px) {
-  .devices-outdoor-extra { display: none !important; }
-}
-
-.device-selection-error {
-  color: var(--warn-fg);
-  font-weight: bold;
-  margin: 0;
-}
-
-/* ---- zawartość kafelka (core/components/DeviceTileCard.tsx) ---- */
-.tile {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-sizing: border-box;
-  /* wysokość z zawartości, a w jednym wierszu wszystkie kafelki jak najwyższy z nich (flex stretch);
-     co najmniej nagłówek + miejsce na ołówek i trybik, żeby kafelek bez danych ich nie zasłaniał */
-  min-height: max(100%, 5.4rem);
-  padding: 12px 14px 12px 12px;
-  border-left: 6px solid var(--accent); /* kolor przycisków i paska aplikacji */
-  border-radius: 12px;
-}
-
-.tile-warn { border-left-color: var(--warn-fg); }
-.tile-err { border-left-color: var(--danger); }
-.tile-off { border-left-color: var(--fg-3); }
-
-.tile-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tile-type-icon {
-  display: inline-flex;
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-}
-
-.tile-type-icon .pictogram { width: 100%; height: 100%; }
-
-/* praca pompy ciepła i palenie w piecu: ikona w kolorze aplikacji pulsuje jak dawniej kropka w chipie
-   (przygasa i lekko się zmniejsza; !important wygrywa z kolorem piktogramu ustawionym w style) */
-.tile-type-icon-pulse .pictogram {
-  color: var(--accent) !important;
-  animation: tile-icon-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes tile-icon-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.7); }
-}
-
-/* urządzenie pracuje: wartość główna (po lewej) na niebiesko */
-.tile-running .tile-facts-main .tile-fact.big b { color: var(--accent); }
-
-.tile-name {
-  font-size: 1.1rem;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-
-.tile-chip {
-  margin-left: auto;
-  padding: 2px 9px;
-  border-radius: 99px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  white-space: nowrap;
-  background: var(--run-bg);
-  color: var(--accent-strong);
-}
-
-.tile-chip.warn { background: var(--hover)e0; color: var(--warn-fg); }
-.tile-chip.err { background: var(--err-bg); color: var(--danger); }
-.tile-chip.off { background: var(--muted-bg); color: var(--fg-3); }
-
-/* pracuje: pełne tło w kolorze aplikacji ze stałą kropką (od 2026-10-13 pulsuje ikona rodzaju, nie kropka) */
-.tile-chip.run { background: var(--accent); color: var(--card); }
-.tile-chip.run::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: var(--card);
-}
-
-.tile-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 16px;
-}
-
-/* wiersz bez wartości głównej: pierwsza wartość po lewej, ostatnia po prawej */
-.tile-facts-row { justify-content: space-between; }
-
-/* wartość główna po lewej, pozostałe w prawej kolumnie wyrównane do prawej */
-.tile-facts-main {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 12px;
-}
-
-/* wartość główna i druga obok niej (np. woda dziś i w miesiącu) */
-.tile-main-pair {
-  display: flex;
-  align-items: center;
-  align-self: center;
-  gap: 10px;
-}
-
-.tile-main-sep {
-  color: var(--fg-3);
-  font-size: 1.6rem;
-  line-height: 1.1;
-  align-self: flex-start; /* na wysokości liczb, nie środka bloku z podpisem */
-}
-
-.tile-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.tile-fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.tile-fact-icon {
-  display: inline-flex;
-  width: 1.3rem;
-  height: 1.3rem;
-}
-
-.tile-fact-icon .pictogram { width: 100%; height: 100%; }
-.tile-fact-text { display: inline-flex; align-items: baseline; gap: 6px; }
-.tile-fact b { font-size: 1.15rem; }
-.tile-fact small { color: var(--fg-3); font-size: 0.78rem; }
-.tile-fact.big .tile-fact-icon { width: 1.5rem; height: 1.5rem; }
-/* wartość główna: etykieta pod liczbą, żeby kafelek mieścił się w 360 px */
-.tile-fact.big .tile-fact-text { flex-direction: column; align-items: flex-start; gap: 0; }
-.tile-fact.big b { font-size: 1.6rem; line-height: 1.1; }
-.tile-fact.big small { font-size: 0.8rem; }
-
-/* włącznik: przekaźniki */
-.tile-relays { display: flex; flex-direction: column; gap: 6px; }
-
-.tile-relay {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tile-relay-dot {
-  flex: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--line-strong);
-}
-
-.tile-relay-dot.on { background: var(--accent); }
-.tile-relay b { font-size: 1.05rem; }
-.tile-relay small { margin-left: auto; color: var(--fg-3); font-size: 0.82rem; text-align: right; }
-
-/* błąd albo ostrzeżenie: jasne tło z cienką ramką */
-.tile-note {
-  display: flex;
-  align-items: center; /* ikona na środku wysokości tekstu (przy dwóch liniach na środku obu) */
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-
-.tile-note.warn { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-fg); }
-.tile-note.err { background: var(--hover)f5; color: var(--err-fg); border: 1px solid var(--err-fg); font-weight: 600; }
-
-.tile-note-icon {
-  display: inline-flex;
-  flex: none;
-  width: 1.3rem;
-  height: 1.3rem;
-}
-
-.tile-note-icon .pictogram { width: 100%; height: 100%; }
-
-.tile-foot > span {
-  display: block;
-}
-
-/* stopka przypięta do dołu kafelka: w wierszu wszystkie stopki (i przyciski w rogu) są na jednej wysokości */
-.tile .tile-foot {
-  margin-top: auto;
-}
-
-.tile-foot {
-  min-height: 1.6rem; /* miejsce na przyciski w prawym dolnym rogu */
-  padding-right: 4.5rem;
-  color: var(--fg-3);
-  font-size: 0.72rem;
-  line-height: 1.6rem;
-}
-
-.pictogram {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ---- ołówek edycji i trybik firmware w prawym dolnym rogu kafelka ---- */
-.device-tools {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.3rem; /* na wysokości pierwszego wiersza stopki */
-  display: flex;
-  gap: 0.25rem;
-}
-
-/* ołówek i trybik widać dopiero po najechaniu na kafelek albo przy fokusie klawiaturą (decyzja użytkownika
-   2026-10-16); bez myszy (telefon) są dostępne w trybie „Zmień układ”, gdzie przyciski są widoczne na stałe */
-.device-tools { opacity: 0; transition: opacity 0.15s; }
-.device-card:hover .device-tools,
-.device-card:focus-within .device-tools { opacity: 1; }
-
-.device-list .device-edit,
-.device-list .device-firmware {
-  display: grid;
-  place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background-color: var(--muted-bg);
-  color: var(--fg-3);
-}
-
-.device-list .device-edit:hover,
-.device-list .device-edit:focus-visible,
-.device-list .device-firmware:hover,
-.device-list .device-firmware:focus-visible {
-  background-color: var(--line-strong);
-}
-
-.device-edit svg {
-  width: 1.05rem;
-  height: 1.05rem;
-}
-
-/* SettingsIcon z menu jest wypełniony i bez koloru */
-.device-firmware svg {
-  width: 1.15rem;
-  height: 1.15rem;
-  fill: var(--fg-3);
-}
-
-/* szachownica: kolumn tyle, ile się mieści (--cols z pages/Devices), kafelek najwyżej szerokości ze wzoru; pole
-   kafelka = grid-column / grid-row, puste pole zostaje puste; na telefonie jedna kolumna bez pustych pól */
-.device-list.device-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 4), minmax(0, var(--tile-max, 340px)));
-  justify-content: center;
-  align-items: stretch;
-}
-
-.device-grid .device-card {
-  flex: none;
-  width: auto;
-  max-width: none;
-  min-width: 0;
-}
-
-/* puste pole w trybie „Zmień układ”: „+” (nowy kafelek pogody tutaj) albo „Wstaw tutaj” przy przenoszeniu */
-.device-cell-empty {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  border: 2px dashed var(--line-strong);
-  border-radius: 12px;
-  color: var(--fg-3);
-}
-
-.device-list .device-cell-add,
-.device-list .device-cell-place {
-  display: grid;
-  place-items: center;
-  gap: 0.1rem;
-  margin: 0;
-  padding: 0.6rem 1.2rem;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--fg-3);
-  font-size: 0.9rem;
-}
-
-.device-list .device-cell-add b { font-size: 1.8rem; line-height: 1; color: var(--accent); }
-.device-list .device-cell-place { border: 1px solid var(--accent); color: var(--accent); font-weight: 600; background: var(--card); }
-
-/* przenoszony kafelek i cel zamiany */
-.device-card.moving .device-choose { box-shadow: 0 0 0 3px var(--warn-fg); }
-.device-list .device-cell-swap {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  margin: 0;
-  border: 0;
-  border-radius: 12px;
-  background: var(--run-bg);
-  color: var(--accent-strong);
-  font-weight: 700;
-}
-
-.device-list .device-cell-swap:hover { background: var(--run-bg); }
-.device-list .device-move.active { background: var(--warn-fg); }
-
-/* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu (odstęp liczy
-   pages/Devices); dolny margines listy też (nad stopką odstęp jak między kafelkami), więc bez stałego marginesu main */
-.device-list-spacer { width: 100%; flex: none; }
-.device-list.device-grid-bottom { margin-top: 0; }
-body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
-
-/* kafelek pogody: bez przycisku wyboru (nie prowadzi do widoku) */
-.device-list .device-choose-static { cursor: default; }
-.device-list .device-choose-static:hover { box-shadow: none; }
-
-/* w trybie „Zmień kolejność” przyciski zasłaniają dół kafelka: stopka schowana */
-.device-card.reordering .tt-f-footer { visibility: hidden; }
-
-/* kafelek ukryty (tylko w trybie „Zmień kolejność”): wyszarzony */
-.device-card.hidden-tile .device-choose { opacity: 0.45; }
-
-/* ---- tryb „Zmień kolejność”: pasek nad kafelkami i strzałki na kafelku ---- */
-.device-reorder-bar {
-  display: grid;
-  gap: 0.6rem;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 1180px; /* jak szerokość listy kafelków, żeby przyciski były nad prawą krawędzią kafelków */
-  margin: 0 0 1rem;
-  padding: 0 10px;
-}
-
-.device-reorder-bar span {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-/* cztery przyciski jednakowej szerokości, do prawej („Gotowe” skrajnie z prawej); na telefonie 2 × 2 */
-.device-reorder-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 11.5rem));
-  justify-content: end;
-  gap: 0.5rem;
-}
-
-.device-reorder-buttons button { margin: 0; width: 100%; white-space: nowrap; }
-
-@media (max-width: 760px) {
-  .device-reorder-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-.device-card.reordering .tile {
-  padding-bottom: 3rem; /* miejsce na strzałki */
-}
-
-.device-reorder-arrows {
-  position: absolute;
-  inset: auto 0.5rem 0.3rem 0.5rem;
-  display: flex;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
-/* między strzałkami: oko (ukrycie) i ołówek */
-.device-reorder-middle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  pointer-events: auto;
-}
-
-.device-list .device-eye {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background-color: var(--muted-bg);
-  color: var(--fg-3);
-}
-
-.device-list .device-eye.hidden { background-color: var(--err-bg); color: var(--danger); }
-.device-list .device-eye svg { width: 1.15rem; height: 1.15rem; }
-.device-list .device-reorder-middle .device-edit { pointer-events: auto; }
-
-.device-list .device-move {
-  display: grid;
-  place-items: center;
-  width: 2.4rem;
-  height: 2.4rem;
-  margin: 0;
-  padding: 0;
-  border-radius: 50%;
-  pointer-events: auto;
-}
-
-.device-move:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-
-.device-move .pictogram {
-  width: 1.4rem;
-  height: 1.4rem;
-  stroke-width: 2.4;
-}
-
-/* telefon: kafelki jeden pod drugim na całą szerokość ekranu, od krawędzi do krawędzi; strzałki góra / dół */
-@media (max-width: 560px) {
-  /* mniejsze marginesy u góry i u dołu: pasek z tytułem blisko kafelków, dół tylko na stałą stopkę */
-  /* górny margines .app-main (15 px + 2 rem) zostaje: to zapas na stały pasek aplikacji */
-  .app-main:has(.device-selection) {
-    padding-bottom: 0;
-  }
-
-  .device-selection {
-    width: 100%;
-    min-height: 0;
-    padding: 1rem 0 2.6rem;
-  }
-
-  .device-list {
-    margin-top: 0.5rem;
-  }
-
-  .device-list {
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: 0 10px; /* trochę światła po bokach */
-    gap: 22px;
-  }
-
-  .device-card {
-    flex: none;
-    width: 100%;
-    max-width: none;
-  }
-
-  /* delikatnie zaokrąglone rogi */
-  .device-list .device-choose,
-  .tile {
-    border-radius: 10px;
-  }
-
-  .device-card.has-error .device-choose {
-    box-shadow: inset 0 0 0 2px var(--danger);
-  }
-
-  .device-move .pictogram {
-    transform: rotate(90deg);
-  }
-}
-
-/* Stopka /devices: zajętość bazy po prawej, drobnym tekstem nad dolną krawędzią (nowy wygląd 2026-10-16) */
-.devices-footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-height: 2.2rem;
-  padding: 0.3rem max(16px, env(safe-area-inset-right, 0px)) calc(0.3rem + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
-  background: var(--bg);
-  border-top: 1px solid var(--line-soft);
-  color: var(--fg-3);
-  font-size: 0.8rem;
-}
-
-.devices-footer-db {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0 0.35rem;
-  text-align: right;
-}
-
-/* zielona kropka: baza odpowiada */
-.devices-footer-db-dot {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  background: var(--ok-fg);
-}
-
-.devices-footer-db-warning,
-.devices-footer-db-warning strong {
-  color: var(--warn-fg);
-}
-
-.devices-footer-db-error {
-  color: var(--err-fg);
-  font-weight: bold;
-}
-
-@media (max-width: 560px) {
-  .devices-footer-db {
-    font-size: 0.85rem;
-  }
-}
-
-/* trybik „Zmień kolejność” w górnym pasku (wstawiany z pages/Devices do .app-header-actions w App.tsx) */
-.header-gear {
-  display: grid;
-  place-items: center;
   width: 40px;
   height: 40px;
   margin: 0;
@@ -650,21 +52,104 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--bar-fg);
+  color: inherit;
   cursor: pointer;
 }
+.page-lista .icon-btn.sm { width: 34px; height: 34px; }
+.page-lista .icon-btn:hover:not(:disabled), .app-header .icon-btn.header-layout:hover:not(:disabled) { background: var(--hover); filter: none; }
+.page-lista .icon-btn:disabled, .app-header .icon-btn.header-layout:disabled { background: transparent; color: inherit; }
+.page-lista .icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
+.page-lista .icon-btn .ic { width: 18px; height: 18px; }
 
-.header-gear svg {
-  width: 1.2rem;
-  height: 1.2rem;
-  fill: currentColor;
-}
+/* ikona siatki „Zmień układ” w górnym pasku (wstawiana z pages/Devices do .app-header-actions w App.tsx) */
+.app-header .icon-btn.header-layout { color: var(--bar-fg); }
+.app-header .icon-btn.header-layout.is-active { background: var(--hover); }
+.app-header .icon-btn.header-layout .ic { width: 22px; height: 22px; }
 
-.header-gear:hover,
-.header-gear:focus-visible,
-.header-gear.active {
-  background: var(--hover);
+/* ---- pasek pogody domu ---- */
+.outdoor-strip .outdoor-desc { min-width: 0; }
+
+/* ---- szachownica ---- */
+/* kolumn tyle, ile liczy pages/Devices (kafelek co najmniej 300 px, jak auto-fill w makiecie); pole kafelka
+   = grid-column / grid-row, puste pole zostaje puste; na telefonie (jedna kolumna) bez pustych pól */
+.tiles.device-grid { grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); }
+.tile { min-width: 0; }
+
+/* kafelek jako odnośnik: po najechaniu jak w makiecie (makieta.css), fokus klawiaturą jak link */
+.tile.is-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* ikona pogody w kwadracie rodzaju (kolorowa, components/WeatherIcon) */
+.tile-icon .weather-icon { width: 22px; height: 22px; }
+/* przełączniki na kafelku włącznika tylko pokazują stan (zmiana na ekranie włącznika) */
+.tile .switch { pointer-events: none; }
+/* błąd (blokada, alarm, brak odczytów): .warn-line w kolorach błędu */
+.warn-line.is-err { background: var(--err-bg); color: var(--err-fg); border-left-color: var(--err-fg); }
+/* nazwa kafelka z globalnych nagłówków: bez marginesów i wyśrodkowania */
+.tile h2.tile-name { margin: 0; padding: 0; text-align: left; }
+
+/* ---- tryb „Zmień układ” (w makiecie #s-lista.is-layout) ---- */
+.page-lista.is-layout .layout-bar { display: flex; }
+.layout-bar-buttons { display: inline-flex; flex: none; gap: 8px; }
+.page-lista .layout-bar .btn { margin: 0; }
+@media (max-width: 560px) {
+  .layout-bar { flex-wrap: wrap; }
+  .layout-bar-buttons { width: 100%; justify-content: flex-end; }
 }
+.page-lista.is-layout .tile-empty { display: flex; }
+.page-lista.is-layout .tile.is-hidden { display: flex; }
+.page-lista.is-layout .tile-layout {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+.page-lista.is-layout .tile-tools { display: inline-flex; }
+.page-lista.is-layout .tile .tile-foot { padding-right: 84px; min-height: 34px; display: flex; align-items: flex-end; }
+.page-lista.is-layout .tiles { align-items: stretch; }
+.page-lista.is-layout .tiles .tile { outline: 1px dashed var(--line-strong); outline-offset: 3px; }
+.page-lista .tile-empty .btn { margin: 0; }
+/* puste pole ma wysokość kafelka obok (siatka wyrównuje wiersz), w pustym wierszu co najmniej 120 px (makieta) */
+.page-lista.is-layout .tile-empty { min-height: 120px; }
+
+/* przenoszony kafelek i cel zamiany („Zamień miejscami” zakrywa kafelek) */
+.page-lista .tile.is-moving { outline: 2px solid var(--accent); outline-offset: 3px; }
+.page-lista .tile-swap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--run-bg);
+  color: var(--run-fg);
+  font-weight: 700;
+}
+.page-lista .tile-swap:hover { background: var(--run-bg); filter: none; }
+
+/* dolna część listy (kafelki pod pustym wierszem układu) i odstęp, który spycha ją do dołu ekranu (odstęp liczy
+   pages/Devices) */
+.device-list-spacer { width: 100%; flex: none; }
+
+/* ---- stopka listy: stała przy dole okna (nad nią odstęp liczy pages/Devices) ---- */
+.statusbar.devices-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: var(--bg);
+}
+.db-usage { display: inline-flex; align-items: center; }
+.db-usage .dot { width: 8px; height: 8px; }
+.db-usage-warning { color: var(--warn-fg); }
+.db-usage-error { color: var(--err-fg); font-weight: 700; }
 
 /* ---- duszek (szkielet) kafelka podczas ładowania ---- */
 .skeleton {
@@ -674,23 +159,16 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
-
-.skeleton-icon { flex: none; width: 2rem; height: 2rem; border-radius: 50%; }
-.skeleton-title { width: 45%; height: 1.2rem; }
-.skeleton-main { width: 55%; height: 2.4rem; margin-top: 0.4rem; }
-.skeleton-row { width: 85%; height: 1.2rem; }
-.skeleton-foot { width: 35%; height: 0.8rem; margin-top: auto; margin-bottom: 0.4rem; }
-
+.skeleton-icon { flex: none; width: 36px; height: 36px; border-radius: var(--radius-sm); }
+.skeleton-main { width: 55%; height: 34px; margin-top: 4px; }
+.skeleton-row { width: 85%; height: 16px; }
+.skeleton-foot { width: 35%; height: 12px; margin-top: auto; }
 @keyframes skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-
-.tile-loading .tile-head { margin-bottom: 0.2rem; }
-
 /* duszek ma wysokość typowego kafelka, żeby po załadowaniu wiersz nie skakał */
 .tile-loading { min-height: 200px; }
-
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }

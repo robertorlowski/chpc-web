@@ -1,6 +1,7 @@
-// Logowanie i rejestracja (konta użytkowników, 2026-10-11) — jeden ekran dla każdej ścieżki bez sesji:
-// e-mail → kod z maila (6 cyfr, 10 min, 5 prób, nowy kod po 60 s) albo link z maila (/login?token=…).
-// Wpisanie „system” zamiast e-maila pokazuje pole hasła (użytkownik systemowy; bez osobnego linku na ekranie).
+// Logowanie i rejestracja (konta użytkowników, 2026-10-11) w wyglądzie „Instrument” z makiet/ (#s-logowanie, 2026-10-17):
+// karta .auth-card z marką, kroki e-mail → kod z maila (6 cyfr, 10 min, 5 prób, nowy kod po 60 s) albo link z maila
+// (/login?token=…). Wpisanie „system” zamiast e-maila pokazuje pole hasła (użytkownik systemowy; bez osobnego linku).
+// Logika w AuthContext (signIn), żądania w AuthRequests; style w components/account.css.
 import { FormEvent, useEffect, useState } from 'react';
 import { AuthRequests } from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +10,10 @@ import '../../components/account.css';
 
 const SYSTEM_LOGIN = 'system';
 const message = (error: unknown) => (error instanceof ApiError ? error.message : 'Coś poszło nie tak — spróbuj ponownie.');
+
+const ErrorAlert = ({ text }: { text: string }) => (
+  <div className="alert alert-err" role="alert"><div><strong>{text}</strong></div></div>
+);
 
 export function Login() {
   const { signIn } = useAuth();
@@ -85,48 +90,47 @@ export function Login() {
   const waitText = `${Math.floor(wait / 60)}:${String(wait % 60).padStart(2, '0')}`;
 
   return (
-    <main className="account-page account-narrow">
-      {sentTo === null ? (
-        <form className="account-form" onSubmit={send}>
-          <h1>Zaloguj się</h1>
-          <p className="account-lead">Podaj adres e-mail. Wyślemy na niego kod i link do logowania. Jeśli nie masz konta, założymy je przy pierwszym logowaniu.</p>
-          <label>
-            <span>E-mail</span>
-            <input type="text" inputMode="email" autoComplete="username" autoCapitalize="none" required autoFocus
-              value={email} onChange={(event) => setEmail(event.target.value)} />
-          </label>
-          {isSystem && (
-            <label>
-              <span>Hasło</span>
-              <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+    <div className="auth">
+      <div className="auth-card">
+        <div className="brand brand-big"><span className="brand-mark" /><span className="brand-name">CHPC</span></div>
+        <h1>Zaloguj się</h1>
+        {sentTo === null ? (
+          <form className="auth-step" onSubmit={send}>
+            <p className="help">Podaj adres e-mail. Wyślemy kod i link do logowania. Jeśli nie masz konta, założymy je przy pierwszym logowaniu.</p>
+            <label className="field">
+              <span>E-mail</span>
+              <input type="text" inputMode="email" autoComplete="username" autoCapitalize="none" required autoFocus placeholder="imie@domena.pl"
+                value={email} onChange={(event) => setEmail(event.target.value)} />
             </label>
-          )}
-          {error && <p className="account-error">{error}</p>}
-          <div className="account-actions">
-            <button type="submit" disabled={busy}>{isSystem ? 'Zaloguj' : 'Wyślij kod'}</button>
-          </div>
-        </form>
-      ) : (
-        <form className="account-form" onSubmit={verify}>
-          <h1>Sprawdź pocztę</h1>
-          <p className="account-lead">Wysłaliśmy kod na <strong>{sentTo}</strong>. Wpisz go poniżej albo kliknij link w mailu. Kod i link są ważne 10 minut.</p>
-          <label>
-            <span>Kod (6 cyfr)</span>
-            <input className="account-code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus
-              value={code} onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))} />
-          </label>
-          {error && <p className="account-error">{error}</p>}
-          <div className="account-actions">
-            <button type="button" className="account-cancel" disabled={busy || wait > 0} onClick={() => send()}>
-              {wait > 0 ? `Wyślij ponownie (${waitText})` : 'Wyślij ponownie'}
-            </button>
-            <button type="submit" disabled={busy}>Zaloguj</button>
-          </div>
-          <p className="account-link">
-            <button type="button" className="account-text-button" onClick={() => { setSentTo(null); setError(''); }}>Zmień adres e-mail</button>
-          </p>
-        </form>
-      )}
-    </main>
+            {isSystem && (
+              <label className="field">
+                <span>Hasło</span>
+                <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+              </label>
+            )}
+            {error && <ErrorAlert text={error} />}
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>{isSystem ? 'Zaloguj' : 'Wyślij kod'}</button>
+          </form>
+        ) : (
+          <form className="auth-step" onSubmit={verify}>
+            <p className="help">Kod wysłany na <strong>{sentTo}</strong>. Wpisz go poniżej albo kliknij link w mailu. Ważny 10 minut.</p>
+            <label className="field">
+              <span>Kod z maila</span>
+              <input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus placeholder="6 cyfr"
+                value={code} onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))} />
+            </label>
+            {error && <ErrorAlert text={error} />}
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>Zaloguj</button>
+            <div className="auth-links">
+              <button type="button" className="link-btn" disabled={busy || wait > 0} onClick={() => send()}>
+                {wait > 0 ? `Wyślij ponownie (${waitText})` : 'Wyślij kod ponownie'}
+              </button>
+              <button type="button" className="link-btn" onClick={() => { setSentTo(null); setError(''); }}>Inny adres e-mail</button>
+            </div>
+          </form>
+        )}
+        <p className="auth-foot">Logowanie „system” pokazuje pole hasła (użytkownik systemowy).</p>
+      </div>
+    </div>
   );
 }

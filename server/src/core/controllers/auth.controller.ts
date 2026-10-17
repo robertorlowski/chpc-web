@@ -1,5 +1,5 @@
 // /api/auth/* (konta użytkowników, 2026-10-11): logowanie kodem lub linkiem z maila, logowanie systemowe,
-// „Zapamiętaj 7 dni”, wylogowanie, dane konta, zmiana e-maila i usunięcie konta. Ścieżki są publiczne dla
+// „Zapamiętaj 14 dni”, wylogowanie, dane konta, zmiana e-maila i usunięcie konta. Ścieżki są publiczne dla
 // middleware (session.ts), więc te, które dotyczą zalogowanego, sprawdzają req.user same (signedIn).
 import { Request, Response } from 'express';
 import {
@@ -45,7 +45,7 @@ export const authSystem = run(async (req, res) => {
   res.status(200).json(await systemLogin(req.body?.password));
 });
 
-// POST /auth/remember {remember}: odpowiedź na „Zapamiętać Twoje dane … na najbliższe 7 dni?”
+// POST /auth/remember {remember}: odpowiedź na „Zapamiętać Twoje dane … na najbliższe 14 dni?”
 export const authRemember = run(async (req, res) => {
   if (!signedIn(req, res)) return;
   res.status(200).json(await setRemember(req.sessionToken as string, req.body?.remember === true));

@@ -40,7 +40,8 @@ const check = (step, ok, detail = '') => {
   console.log('[uklad]', ok ? 'OK  ' : 'BŁĄD', step, detail ? `- ${detail}` : '');
 };
 
-const devices = await (await fetch(`${API}/devices`)).json();
+// lista sterowników: po zalogowaniu, z tokenem sesji z przeglądarki (konta użytkowników: bez niego 401)
+let devices = [];
 const browser = await chromium.launch(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {});
 
 // elementy wychodzące poza okno (poza przewijanymi kontenerami: tabele, wykresy) i przewijanie strony w poziomie
@@ -90,6 +91,12 @@ for (const theme of THEMES) {
     if (await no.count()) await no.first().click();
   }
   check(`${theme}: zalogowano`, await page.locator('header.app-header').count() > 0);
+  devices = await page.evaluate(async (api) => {
+    const token = localStorage.getItem('chpc.session') ?? sessionStorage.getItem('chpc.session');
+    const r = await fetch(`${api}/devices`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    return r.ok ? r.json() : [];
+  }, API);
+  check(`${theme}: lista sterowników (${devices.length})`, devices.length > 0);
 
   // nawigacja wewnątrz aplikacji (React Router), bez przeładowania: wejście na „/” z adresu cofa na listę
   const open = (path) => page.evaluate((p) => { history.pushState({}, '', p); window.dispatchEvent(new PopStateEvent('popstate')); }, path);

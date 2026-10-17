@@ -1,20 +1,26 @@
-// Zakładka Ustawienia pompy (/settings): operacja ręczna (POST /operation/set), błędy sterownika
-// z akcjami Odblokuj i Restart (POST /operation/action) oraz dane sterownika (popup DeviceEditModal).
-// Wartości początkowe (placeholdery i checkboxy) to rzeczywisty stan pompy z telemetrii (GET /operation),
+// Zakładka Ustawienia pompy (/settings) w układzie makiety „Instrument” (#s-hp-ustawienia): po lewej karta „Ustaw”
+// (operacja ręczna, POST /operation/set: tryb pracy, temperatura od–do, limit mocy, EEV, przełączniki wymuszenia
+// i pomp obiegu), po prawej karty „Błędy sterownika” (ostatni błąd, licznik, Odblokuj i Restart przez
+// POST /operation/action), „Sterownik” (nazwa, SN, Root ID, adres IP, firmware; popup DeviceEditModal) i „Udostępnianie”.
+// Wartości początkowe (placeholdery i przełączniki) to rzeczywisty stan pompy z telemetrii (GET /operation),
 // a nie ostatnio wysłane ustawienie. Stan jest wczytywany tylko przy wejściu na stronę.
+import '../style.css';
 import './style.css';
 import { HpRequests } from '../../api';
 import { HpEntry, OperationEntry, pumpWorkMode } from '../../types';
-import { WorkModeSwitch } from '../../components/WorkModeSwitch';
 import { useEffect, useMemo, useState } from 'react';
 import Notification, { useSaveNotice } from '../../../../core/components/Notification';
 import { DeviceEditModal } from '../../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../../core/components/DeviceAddress';
 import { FirmwareStatus } from '../../../../core/components/FirmwareStatus';
 import { DeviceSharing } from '../../../../core/components/DeviceSharing';
-import { ControllerCardTitle } from '../../../../core/components/ControllerCardTitle';
+import { IconButton } from '../../../../core/components/IconButton';
+import { EditIcon } from '../../../../core/components/icons';
 import { useDevice } from '../../../../core/context/DeviceContext';
-import { errorLine, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
+import { Segmented, WORK_MODE_OPTIONS } from '../../components/Segmented';
+import { Switch } from '../../components/Switch';
+import { BellIcon, CheckIcon } from '../../components/icons';
 
 // przegrzanie EEV [°C]: z panelu pompy najmniej 0,1, po restarcie CHPC wartość powyżej 8 wraca do domyślnej
 const EEV_SETPOINT_MIN = 0.1;
@@ -36,6 +42,7 @@ export const Settings: React.FC = () => {
 	const [errorCount, setErrorCount] = useState<number | undefined>(undefined);
 	// sprężarka pracuje: pompa sama steruje pompami, a wymuszenie przyjmuje tylko w spoczynku
 	const [running, setRunning] = useState(false);
+	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
 		HpRequests.getHpLastError()
@@ -66,7 +73,6 @@ export const Settings: React.FC = () => {
 		runAction('restart', 'Polecenie restartu wysłane do sterownika.');
 	};
 
-	
 	// tryb pracy urządzenia (ręczny / automatyczny / OFF): zmiana tutaj = zmiana w Harmonogramie
 	const selectedWorkMode = pumpWorkMode(valueOpration.work_mode || defaultOperation.work_mode);
 	// w OFF co zawsze wysyła do pompy force 0; w czasie pracy CHPC ignoruje force
@@ -108,7 +114,6 @@ export const Settings: React.FC = () => {
 	useEffect( () => {
 		HpRequests.prepareOperation()
 			.then((resp) => {
-				console.log(resp);
 				// przy błędzie HTTP Requests.get zwraca null; bez tego render wywraca się na defaultOperation.work_mode
 				setDefaultOperation(resp ?? {});
 				if (!resp) setError(true);
@@ -116,11 +121,11 @@ export const Settings: React.FC = () => {
 			.catch((err) => {
 				console.log(err);
 				setError(true);
-			} 
+			}
 		);
 	}, []);
 
-	const showSaveNotice = () => showNotice('Polecenie wysłane do sterownika.');
+	const showSaveNotice = () => showNotice('Polecenie wysłane do sterownika.', 4000);
 
 	// Wysyła tylko zmienione pola (POST /operation/set): tryb pracy zapisuje serwer w ustawieniach
 	// urządzenia (jak Harmonogram, ręczne ustawienia znikają), temperatury i reszta idą od razu na pompę
@@ -144,213 +149,151 @@ export const Settings: React.FC = () => {
 		}));
 	}
 
+	// Root ID do schowka (jak „kopiuj” w makiecie); bez schowka (http w sieci lokalnej) przycisk nic nie robi
+	const copyRootId = () => {
+		if (!device?.rootId || !navigator.clipboard) return;
+		navigator.clipboard.writeText(device.rootId).then(() => {
+			setCopied(true);
+			window.setTimeout(() => setCopied(false), 2000);
+		}).catch(() => undefined);
+	};
+
+	const locked = isLocked(errorCount);
+	const errorText = lastError?.error_code ? errorDescription(lastError.error_code) : '';
+	const toggle = (field: 'force' | 'hot_pomp' | 'cold_pomp') => (on: boolean) =>
+		setValueOperation({ ...valueOpration, [field]: on ? "1" : "0" });
+
 	return (
-		<div className="settings">
+		<div className="page page-device hp-view hp-settings">
 			<Notification message={saveNotice} />
-			<h2>Aktualne ustawienia</h2>
-			<section>
-				<div className="resource">
-					<h3 className="settings-section-title">Ustaw</h3>
-					<div className="settings-mode-row">
-						<span className="label">Tryb pracy:</span>
-						<WorkModeSwitch
-							short
-							value={selectedWorkMode}
-							onChange={(mode) => {
-								// tryb zapisany = tryb urządzenia; ten sam wybór co w danych nie jest wysyłany
-								const { work_mode: _previous, ...rest } = valueOpration;
-								setValueOperation(mode === pumpWorkMode(defaultOperation.work_mode) ? rest : { ...rest, work_mode: mode });
-							}}
-						/>
+			<div className="grid-2 grid-settings">
+				<section className="card">
+					<header className="card-head"><h2>Ustaw</h2><span className="card-hint">polecenie do sterownika</span></header>
+					<Segmented name="u-tryb" label="Tryb pracy" value={selectedWorkMode} options={WORK_MODE_OPTIONS}
+						onChange={(mode) => {
+							// tryb zapisany = tryb urządzenia; ten sam wybór co w danych nie jest wysyłany
+							const { work_mode: _previous, ...rest } = valueOpration;
+							setValueOperation(mode === pumpWorkMode(defaultOperation.work_mode) ? rest : { ...rest, work_mode: mode });
+						}} />
+					<div className="form-grid">
+						<label htmlFor="u-tmin">Temperatura od / do</label>
+						<div className="range-inputs">
+							<input type="number" id="u-tmin" name="temp_min" aria-label="Temperatura od" aria-invalid={!!temperatureProblem}
+								placeholder={defaultOperation.temp_min} value={valueOpration.temp_min ?? ''}
+								onChange={(e) => setOptional('temp_min', e.currentTarget.value)} />
+							<span className="dash">–</span>
+							<input type="number" name="temp_max" aria-label="Temperatura do" aria-invalid={!!temperatureProblem}
+								placeholder={defaultOperation.temp_max} value={valueOpration.temp_max ?? ''}
+								onChange={(e) => setOptional('temp_max', e.currentTarget.value)} />
+							<span className="unit-txt">°C</span>
+						</div>
+						<label htmlFor="u-watt" title="Maksymalna moc sprężarki; 1001–4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy</label>
+						<div className="range-inputs">
+							<input type="number" id="u-watt" name="working_watt" className="w-wide"
+								placeholder={defaultOperation.working_watt} value={valueOpration.working_watt ?? ''}
+								onChange={(e) => setOptional('working_watt', e.currentTarget.value)} />
+							<span className="unit-txt">W</span>
+						</div>
+						<label htmlFor="u-eevmin">EEV min / max</label>
+						<div className="range-inputs">
+							<input type="number" id="u-eevmin" name="eev_min_pulse_open" aria-label="EEV min" min={25}
+								placeholder={defaultOperation.eev_min_pulse_open} value={valueOpration.eev_min_pulse_open ?? ''}
+								onChange={(e) => setOptional('eev_min_pulse_open', e.currentTarget.value)} />
+							<span className="dash">–</span>
+							<input type="number" name="eev_max_pulse_open" aria-label="EEV max"
+								placeholder={defaultOperation.eev_max_pulse_open} value={valueOpration.eev_max_pulse_open ?? ''}
+								onChange={(e) => setOptional('eev_max_pulse_open', e.currentTarget.value)} />
+						</div>
+						<label htmlFor="u-eevsp" title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}>Przegrzanie EEV</label>
+						<div className="range-inputs">
+							<input type="number" id="u-eevsp" name="eev_setpoint" step="0.1" min={EEV_SETPOINT_MIN} max={EEV_SETPOINT_MAX}
+								aria-invalid={!eevSetpointValid} placeholder={defaultOperation.eev_setpoint} value={valueOpration.eev_setpoint ?? ''}
+								onChange={(e) => setOptional('eev_setpoint', e.currentTarget.value.replace(',', '.'))} />
+							<span className="unit-txt">°C</span>
+						</div>
 					</div>
+					{temperatureProblem && <p className="field-error">{temperatureProblem}</p>}
+					{!eevSetpointValid && <p className="field-error">Przegrzanie EEV: {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C.</p>}
+					<ul className="toggle-list">
+						<li>
+							<span className="t-name">Wymuszenie pracy <small>tylko w spoczynku sprężarki</small></span>
+							<Switch label="Wymuszenie pracy" disabled={!forceEditable}
+								title={running ? RUNNING_LOCK_HINT : forceEditable ? 'Wymuszenie pracy (pompa kasuje je po zatrzymaniu sprężarki)' : 'W trybie OFF sterownik nie wymusza pracy'}
+								on={(valueOpration.force ?? defaultOperation.force) === "1"} onChange={toggle('force')} />
+						</li>
+						<li>
+							<span className="t-name">Pompa ciepłej wody</span>
+							<Switch label="Pompa ciepłej wody" disabled={running} title={running ? RUNNING_LOCK_HINT : 'Pompa ciepłej wody'}
+								on={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"} onChange={toggle('hot_pomp')} />
+						</li>
+						<li>
+							<span className="t-name">Pompa zimnej wody</span>
+							<Switch label="Pompa zimnej wody" disabled={running} title={running ? RUNNING_LOCK_HINT : 'Pompa zimnej wody'}
+								on={(valueOpration.cold_pomp ?? defaultOperation.cold_pomp) === "1"} onChange={toggle('cold_pomp')} />
+						</li>
+					</ul>
+					<p className="help">Wyszarzone przełączniki pokazują stan z pompy; przy pracującej sprężarce pompa steruje nimi sama. Puste pole = wartość bez zmian (w polu stan z pompy).</p>
+					{error && <p className="field-error">Wystąpił błąd podczas wykonywania operacji.</p>}
+					<div className="actions">
+						<button type="button" className="btn btn-primary" data-action="send-operation" disabled={!enableSave || busy} onClick={handleSave}>Zmień</button>
+					</div>
+					{saveNotice && <div className="toast toast-ok" role="status"><CheckIcon />{saveNotice} Sterownik zastosuje je przy następnym odczycie (10–30 s).</div>}
+				</section>
 
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>Temperatura od / do:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="temp_min"
-							aria-label="Temperatura od"
-							aria-invalid={!!temperatureProblem}
-							placeholder={defaultOperation.temp_min}
-							value={valueOpration.temp_min ?? ''}
-							onChange={(e) => setOptional('temp_min', e.currentTarget.value)}
-						/>
-						<input
-							className="temperature"
-							type="number"
-							name="temp_max"
-							aria-label="Temperatura do"
-							aria-invalid={!!temperatureProblem}
-							placeholder={defaultOperation.temp_max}
-							value={valueOpration.temp_max ?? ''}
-							onChange={(e) => setOptional('temp_max', e.currentTarget.value)}
-						/>
-						<span> °C</span>
-					</div>
-					{temperatureProblem && <p className="settings-error-text settings-field-error">{temperatureProblem}</p>}
+				<div className="stack">
+					<section className="card">
+						<header className="card-head">
+							<h2>Błędy sterownika</h2>
+							<span className="card-hint">licznik {errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`} · blokada przy {ERROR_LOCK_LIMIT}</span>
+						</header>
+						{errorText || locked ? (
+							<div className="alert alert-err">
+								<BellIcon />
+								<div>
+									<strong>{locked ? 'Sterowanie zablokowane' : `Błąd ${lastError?.error_code} · ${errorText}`}</strong>
+									<span>{locked ? `${errorCount}/${ERROR_LOCK_LIMIT} błędów; odblokuj, żeby pompa wróciła do pracy` : lastError?.time}</span>
+								</div>
+							</div>
+						) : (
+							<p className="help"><span className="ok-text">Brak błędów</span> w ostatnich 24 godzinach.</p>
+						)}
+						<div className="actions actions-split">
+							<button type="button" className="btn" disabled={!locked || busy}
+								title={locked ? 'Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej' : 'Sterownik nie jest zablokowany'}
+								onClick={() => runAction('error_reset', 'Polecenie odblokowania wysłane do sterownika.')}>
+								Odblokuj
+							</button>
+							<button type="button" className="btn btn-danger-ghost" title="Uruchamia sterownik od nowa (przerwa startowa ok. 90 s)"
+								disabled={busy} onClick={handleRestart}>
+								Restart sterownika
+							</button>
+						</div>
+					</section>
 
-					<div style={{ minWidth: '240px' }}>
-						<span className="label">Wymuszenie pracy:</span>
-						<input
-							title={running
-								? RUNNING_LOCK_HINT
-								: forceEditable
-									? "Wymuszenie pracy (pompa kasuje je po zatrzymaniu sprężarki)"
-									: "W trybie OFF sterownik nie wymusza pracy"}
-							type="checkbox"
-							disabled={!forceEditable}
-							checked={(valueOpration.force ?? defaultOperation.force) === "1"}
-							onChange={(e) => setValueOperation({...valueOpration, force: e.target.checked ? "1" : "0" })}
-						/>
-					</div>
+					<section className="card">
+						<header className="card-head">
+							<h2>Sterownik</h2>
+							<IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!device || device.access === 'shared'} onClick={() => setEditingDevice(true)} />
+						</header>
+						<dl className="kv">
+							<div><dt>Nazwa</dt><dd>{device?.name?.trim() || '---'}</dd></div>
+							<div><dt>SN</dt><dd><code>{device?.deviceId ?? '---'}</code></dd></div>
+							<div>
+								<dt>Root ID</dt>
+								<dd><code>{device?.rootId ?? '---'}</code> {device && <button type="button" className="link-btn" onClick={copyRootId}>{copied ? 'skopiowano' : 'kopiuj'}</button>}</dd>
+							</div>
+						</dl>
+						{/* adres IP i firmware z komponentów core (wiersze etykieta + wartość, układ jak .kv w ../style.css) */}
+						<div className="kv-extra">
+							<DeviceAddress device={device} />
+							<FirmwareStatus device={device} actionsClassName="actions" />
+						</div>
+					</section>
 
-					<div style={{ minWidth: '240px' }}>
-						<span className="label">Pompa ciepłej wody:</span>
-						<input
-							type="checkbox"
-							name="hotPomp"
-							title={running ? RUNNING_LOCK_HINT : "Pompa ciepłej wody"}
-							disabled={running}
-							checked={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"}
-							onChange={(e) => setValueOperation({...valueOpration, hot_pomp: e.target.checked ? "1" : "0" })}
-						/>
-					</div>
-
-					<div style={{ minWidth: '240px' }}>
-						<span className="label">Pompa zimnej wody:</span>
-						<input
-							type="checkbox"
-							name="coldPomp"
-							title={running ? RUNNING_LOCK_HINT : "Pompa zimnej wody"}
-							disabled={running}
-							checked={(valueOpration.cold_pomp ?? defaultOperation.cold_pomp) === "1"}
-							onChange={(e) => setValueOperation({...valueOpration, cold_pomp: e.target.checked ? "1" : "0" })}
-						/>
-					</div>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }} title="Maksymalna moc sprężarki; 1001-4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy [W]:</span>
-						<input
-							className="temperature settings-watt"
-							type="number"
-							name="working_watt"
-							placeholder= {defaultOperation.working_watt}
-							value={ valueOpration.working_watt ?? '' }
-							onChange={(e) => setOptional('working_watt', e.currentTarget.value)}
-						/>
-					</div>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>EEV min / max:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="eev_min_pulse_open"
-							aria-label="EEV min"
-							min={25}
-							placeholder= {defaultOperation.eev_min_pulse_open}
-							value={ valueOpration.eev_min_pulse_open ?? '' }
-							onChange={(e) => setOptional('eev_min_pulse_open', e.currentTarget.value)}
-						/>
-						<input
-							className="temperature"
-							type="number"
-							name="eev_max_pulse_open"
-							aria-label="EEV max"
-							placeholder= {defaultOperation.eev_max_pulse_open}
-							value={ valueOpration.eev_max_pulse_open ?? '' }
-							onChange={(e) => setOptional('eev_max_pulse_open', e.currentTarget.value)}
-						/>
-					</div>
-
-					<div style={{ minWidth: '200px' }}>
-						<span className="label" style={{ width: '160px' }}>Przegrzanie EEV:</span>
-						<input
-							className="temperature"
-							type="number"
-							name="eev_setpoint"
-							step="0.1"
-							min={EEV_SETPOINT_MIN}
-							max={EEV_SETPOINT_MAX}
-							title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}
-							aria-invalid={!eevSetpointValid}
-							placeholder={defaultOperation.eev_setpoint}
-							value={ valueOpration.eev_setpoint ?? '' }
-							onChange={(e) => setOptional('eev_setpoint', e.currentTarget.value.replace(',', '.'))}
-						/>
-						{!eevSetpointValid && <span className="settings-error-text"> {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C</span>}
-					</div>
-					<div className='header3'>
-					<p>
-						<span className={error ? `error show` : `error hide`}>
-							Wystąpił błąd podczas wykonywania operacji..
-						</span>
-					</p>
-							
-					<button
-						className="settings-change"
-						data-action="send-operation"
-						disabled ={!enableSave || busy}
-						onClick={handleSave}>
-						Zmień
-					</button>
+					{/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
+					{device && <DeviceSharing device={device} />}
 				</div>
-				</div>
-
-				<div className="resource settings-errors">
-					<h3 className="settings-section-title">Błędy sterownika</h3>
-					<div>
-						<span className={lastError?.error_code ? 'settings-error-text settings-error-lines' : ''}>
-							{lastError?.error_code ? errorLine(lastError) : 'Brak błędów'}
-						</span>
-					</div>
-					<div>
-						<span className="settings-inline-label">Licznik błędów:</span>
-						<span className={isLocked(errorCount) ? 'settings-error-text' : ''}>
-							{errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`}
-							{isLocked(errorCount) ? ' (sterowanie zablokowane)' : ''}
-						</span>
-					</div>
-					<div className="settings-error-actions">
-						<button
-							disabled={!isLocked(errorCount) || busy}
-							title={isLocked(errorCount)
-								? 'Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej'
-								: 'Sterownik nie jest zablokowany'}
-							onClick={() => runAction('error_reset', 'Polecenie odblokowania wysłane do sterownika.')}>
-							Odblokuj
-						</button>
-						<button
-							title="Uruchamia sterownik od nowa (przerwa startowa ok. 90 s)"
-							disabled={busy}
-							onClick={handleRestart}>
-							Restart sterownika
-						</button>
-					</div>
-				</div>
-
-				<div className="resource settings-errors settings-device">
-					<ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={() => setEditingDevice(true)} />
-					<div>
-						<span className="label">Nazwa:</span>
-						<span>{device?.name?.trim() || '---'}</span>
-					</div>
-					<div>
-						<span className="label">Identyfikator:</span>
-						<code className="settings-root-id">{device?.deviceId ?? '---'}</code>
-					</div>
-					<div>
-						<span className="label">Root ID:</span>
-						<code className="settings-root-id">{device?.rootId ?? '---'}</code>
-					</div>
-					<DeviceAddress device={device} />
-					<FirmwareStatus device={device} actionsClassName="settings-error-actions" />
-				</div>
-
-				{/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
-				{device && <DeviceSharing device={device} />}
-			</section>
+			</div>
 
 			{editingDevice && device && (
 				<DeviceEditModal

@@ -1,263 +1,72 @@
-/* Zakładka „Operacje”: pasek dnia i filtra, na telefonie karty (op-mobile), na komputerze tabela (op-table). */
-
-/* karta na komputerze szersza na tabelę; na telefonie pełna szerokość (reguły body .settings w style.css) */
-@media (min-width: 561px) {
-  .settings.operations-page > section > .resource,
-  .settings.operations-page > section > .resource:first-child {
-    width: min(1100px, calc(var(--page-vw, 100vw) - 2rem));
-    box-sizing: border-box;
-  }
+/* Zakładka „Operacje” (wygląd „Instrument”, makiety/src/makieta.html #s-*-operacje): filtry .filters z .date-nav
+   i .segmented oraz oś czasu .timeline są w makieta.css. Tu tylko to, czego makieta nie ma: odstępy strony, kalendarz
+   pod datą, przyciski strzałek (IconButton) w ramce daty, wpis zaplanowany, błąd i warunki we wpisie. Kolory z tokenów. */
+.operations-page {
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px));
 }
 
-.op-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
+/* strzałki dnia: kółko jak .icon-btn.sm makiety, w kolorze tekstu */
+.operations-page .date-nav .icon-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--fg);
 }
 
-.op-day {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+.operations-page .date-nav .icon-button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--fg);
 }
 
-.operations-page .op-day button {
-  margin: 0;
-  padding: 4px 12px;
-  font-size: 18px;
-  line-height: 1.2;
+.operations-page .date-nav .icon-button:disabled {
+  opacity: .35;
 }
 
-.operations-page .op-day button:disabled {
-  opacity: 0.35;
-  cursor: default;
+.operations-page .date-nav .icon-button svg {
+  width: 22px;
+  height: 22px;
 }
 
-/* data jako tekst, kalendarz z przezroczystego pola nad nim */
-.op-date {
+/* data jako tekst, kalendarz z przezroczystego pola nad nią (kliknięcie otwiera wybór dnia) */
+.operations-page .date-cur {
   position: relative;
-  font-weight: 700;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--card);
-  white-space: nowrap;
   cursor: pointer;
 }
 
-.op-date input {
+.operations-page .date-cur input {
   position: absolute;
   inset: 0;
   width: 100%;
+  margin: 0;
+  padding: 0;
   opacity: 0;
   cursor: pointer;
 }
 
-.op-filter {
-  display: flex;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  overflow: hidden;
+/* wpis zaplanowany: kreskowana linia zamiast pełnej */
+.tl.tl-planned {
+  border-left-style: dashed;
 }
 
-.operations-page .op-filter button {
-  margin: 0;
-  padding: 5px 12px;
-  font-size: 14px;
-  border-radius: 0;
-  background: var(--card);
-  color: var(--accent);
-}
-
-.operations-page .op-filter button + button {
-  border-left: 1px solid var(--accent);
-}
-
-.operations-page .op-filter button.op-filter-active {
-  background: var(--accent);
-  color: var(--card);
-}
-
-.op-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--fg-2);
-  padding: 10px 2px 6px;
-}
-
-.op-section small {
-  font-weight: 400;
-  color: var(--fg-2);
-}
-
-.op-none {
-  font-size: 13px;
-  color: var(--fg-2);
-  padding: 0 2px 6px;
-}
-
-.op-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.op-card {
-  background: var(--card);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.op-card-planned {
-  background: var(--row-bg);
-  border-style: dashed;
-}
-
-.op-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.op-time {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.op-card .op-time {
-  font-size: 15px;
-}
-
-.op-what {
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.op-who {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--fg-2);
-}
-
-.op-who svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
-.op-why {
-  font-size: 12.5px;
-  color: var(--fg-2);
-  line-height: 1.4;
-}
-
-.op-why b {
-  color: var(--fg);
-  font-weight: 600;
-}
-
-.op-error,
-.op-error b {
+.tl-what .tl-error {
   color: var(--err-fg);
+  font-weight: 600;
 }
 
-/* błąd w osobnej linii nad „Dlaczego” */
-.op-why .op-error {
+.tl-what .tl-cond {
   display: block;
+  color: var(--fg-3);
 }
 
-.op-chip {
-  display: inline-block;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
+/* chip ze stanem i godziną nie łamie się w środku */
+.tl-state {
   white-space: nowrap;
 }
 
-.op-chip-planned { background: var(--muted-bg); color: var(--fg-2); border: 1px dashed var(--fg-3); }
-.op-chip-wait { background: var(--warn-bg); color: var(--warn-fg); }
-.op-chip-sent { background: var(--run-bg); color: var(--accent-strong); }
-.op-chip-ok { background: var(--ok-bg); color: var(--ok-fg); }
-.op-chip-err { background: var(--err-bg); color: var(--err-fg); }
-.op-chip-gone { background: var(--muted-bg); color: var(--fg-2); }
-
-.op-table {
-  display: none;
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-  background: var(--card);
-}
-
-.op-table th {
-  text-align: left;
-  font-size: 12px;
-  color: var(--fg-2);
-  font-weight: 700;
-  padding: 8px 10px;
-  border-bottom: 2px solid var(--accent);
-  background: var(--row-bg);
-}
-
-.op-table td {
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--line-soft);
-  vertical-align: top;
-  line-height: 1.4;
-}
-
-.op-table tr.op-group td {
-  background: var(--muted-bg);
-  font-weight: 700;
-  font-size: 12.5px;
-  color: var(--fg-2);
-  padding: 7px 10px;
-}
-
-.op-table tr.op-row-planned td {
-  background: var(--row-bg);
-}
-
-.op-table .op-why {
-  font-size: 13px;
-}
-
-/* komputer: tabela zamiast kart */
-@media (min-width: 900px) {
-  .op-mobile {
-    display: none;
-  }
-
-  .op-table {
-    display: table;
-  }
-}
-
-@media (min-width: 900px) {
-  .op-table td.op-time {
-    width: 4rem;
-  }
-
-  .op-table td:nth-child(2) {
-    width: 11rem;
-  }
-
-  .op-table td:nth-child(4) {
-    white-space: nowrap;
+/* telefon: filtry jeden pod drugim na całą szerokość */
+@media (max-width: 400px) {
+  .operations-page .filters .segmented {
+    display: flex;
+    width: 100%;
   }
 }

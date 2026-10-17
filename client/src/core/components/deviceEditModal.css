@@ -1,4 +1,52 @@
-/* popup edycji danych sterownika (lista urządzeń i Ustawienia) */
+/* Okna „Dane sterownika” (DeviceEditModal) i „Kafelek pogody” (WeatherTileModal) w wyglądzie „Instrument”: markup
+   .modal-layer / .scrim / .modal / .modal-head / .modal-body / .modal-foot i pola .field z client/src/makieta.css.
+   Tu: warstwa okna nad stałym paskiem aplikacji, przyciski okna bez globalnych odstępów, współrzędne obok siebie.
+   Dalej zostają reguły dawnego okna .device-modal, z których korzystają inne okna (pages/Firmware,
+   devices/pellet-boiler-pelux200/components/MainParameters) i pola rodzaju w oknie „Dane sterownika”
+   (devices/heat-pump/components/pumpConfig.css: .device-modal .pump-config-*). */
+
+/* pasek aplikacji ma z-index 1000: okno ponad nim */
+.device-modal-layer { z-index: 1200; }
+.device-modal-layer .modal { margin: 0; text-align: left; } /* body wyśrodkowuje tekst */
+.device-modal-layer .btn, .device-modal-layer .icon-btn { margin: 0; }
+.device-modal-layer .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-2);
+}
+.device-modal-layer .icon-btn:hover { background: var(--hover); filter: none; }
+.device-modal-layer .icon-btn .ic { width: 18px; height: 18px; }
+.device-modal-layer .modal-head h2 { margin: 0; padding: 0; text-align: left; }
+.device-modal-layer .modal-body p { margin: 0; }
+.device-modal-layer .modal-foot .spacer { flex: 1; }
+/* pola tylko do odczytu: bez globalnego wyglądu input:disabled (pola są readonly, nie disabled) */
+.device-modal-layer .field input[readonly] { cursor: default; }
+.device-modal-layer .choices li { cursor: pointer; }
+.device-modal-layer .choices li:hover, .device-modal-layer .choices li:focus-visible { background: var(--hover); }
+.device-modal-layer .choice-note { cursor: default; color: var(--fg-3); }
+
+/* współrzędne obok siebie (na wąskim telefonie pod sobą) */
+.weather-coords { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 400px) { .weather-coords { grid-template-columns: 1fr; } }
+
+/* pola rodzaju sterownika wewnątrz okna: bez ramki i tła osobnego okna, układ jak w dawnym oknie */
+.device-modal-layer .device-modal-embedded {
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ---- dawne okno .device-modal (inne okna aplikacji i pola rodzaju) ---- */
 .device-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -72,42 +120,5 @@
   background-color: var(--fg-3);
 }
 
-/* popup „Kafelek pogody” (WeatherTileModal): podpowiedzi geokodera, współrzędne obok siebie, usuwanie po lewej */
-.weather-hits {
-  margin: -0.3rem 0 0;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  overflow: hidden;
-  max-height: 12rem;
-  overflow-y: auto;
-}
-
-.weather-hits li + li { border-top: 1px solid var(--line); }
-
-.weather-hits button {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  width: 100%;
-  margin: 0;
-  padding: 0.4rem 0.6rem;
-  border: 0;
-  border-radius: 0;
-  background: var(--card);
-  color: var(--fg);
-  text-align: left;
-  font-size: 0.95rem;
-}
-
-.weather-hits button:hover,
-.weather-hits button:focus-visible { background: var(--run-bg); }
-.weather-hits small { color: var(--fg-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.weather-hit-note { padding: 0.4rem 0.6rem; color: var(--fg-3); font-size: 0.9rem; }
-
-.weather-coords { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
-.weather-modal-note { margin: 0; font-size: 0.85rem; color: var(--fg-3); }
-.device-modal-actions .weather-modal-note { margin-right: auto; align-self: center; }
 .device-modal-actions .device-modal-left { margin-right: auto; }
 .device-modal-actions .device-modal-danger { background-color: var(--danger); }
