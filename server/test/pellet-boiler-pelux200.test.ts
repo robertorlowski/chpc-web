@@ -999,7 +999,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(scheduleState(settings, [], 'pellet', day).state.season).toBeUndefined();
   });
 
-  it('kafelek jak w makiecie: przy paleniu początek palenia z pierwszego odczytu z płomieniem, pompy CO / CWU, pola Paliwo i Moc', async () => {
+  it('kafelek: przy paleniu początek palenia z pierwszego odczytu z płomieniem, pompy CO / CWU i temperatury mieszaczy', async () => {
     const rootId = (await register('B1C2D3E4F5TL')).body.rootId as string;
     const now = Date.now();
     const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000);
@@ -1009,6 +1009,7 @@ describe('Kocioł pelletowy Pellux 200', () => {
       { rootId, state: 2, heating_temp: 45, createdAt: at(128), updatedAt: at(128) },
       { rootId, state: 3, heating_temp: 60, createdAt: at(60), updatedAt: at(60) },
       { rootId, state: 3, heating_temp: 67, heating_target: 67, water_heater_temp: 52, fuel_level: 64, boiler_power: 14,
+        mixer1_temp: 38.5, mixer2_temp: 41,
         heating_pump: true, water_heater_pump: false, createdAt: at(0.5), updatedAt: at(0.5) },
     ]);
     const tile = await pelletBoilerTile(rootId, {} as never, new Date(now));
@@ -1016,7 +1017,10 @@ describe('Kocioł pelletowy Pellux 200', () => {
     expect(new Date(tile!.since!).getTime()).toBe(at(128).getTime());
     expect(tile?.pumps).toEqual([{ label: 'CO', on: true }, { label: 'CWU', on: false }]);
     expect(tile?.main?.label).toBe('kocioł → 67');
-    expect(tile?.row?.map((item) => item.label)).toEqual(['Paliwo', 'Moc']);
+    expect(tile?.row).toEqual([
+      { icon: 'thermo', value: '38,5 °C', label: 'Mieszacz 1' },
+      { icon: 'thermo', value: '41 °C', label: 'Mieszacz 2' },
+    ]);
     // postój (inny kocioł): bez czasu palenia
     const idle = (await register('B1C2D3E4F5TM')).body.rootId as string;
     await PelletBoilerPelux200Model.collection.insertOne({ rootId: idle, state: 5, heating_temp: 66, createdAt: at(1), updatedAt: at(1) });

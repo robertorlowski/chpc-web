@@ -1,5 +1,6 @@
 // Kafelek kotła Pellux 200 na stronie /devices (GET /devices/summary), układ z makiety (2026-10-17): temperatura
-// kotła z zadaną, przy paleniu czas od początku palenia (since) i wskaźniki pomp CO / CWU, pola CWU, paliwo i moc. Błąd (czerwony): aktywny alarm regulatora albo brak
+// kotła z zadaną, przy paleniu czas od początku palenia (since) i wskaźniki pomp CO / CWU, pola CWU oraz
+// temperatury mieszaczy 1 i 2. Błąd (czerwony): aktywny alarm regulatora albo brak
 // odczytu dłużej niż godzinę (od 3 odstępów odpytywania do godziny to uwaga, pomarańczowa). Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
 // zlecenie zmiany parametru zakończone błędem w ciągu doby.
 import { Device, DeviceTile } from '../../core/types';
@@ -68,10 +69,11 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
     note = { level: 'warn', text: `Zmiana „${failed.label ?? 'parametru'}” nie powiodła się (${formatWhen(new Date(failed.doneAt), now)})` };
   }
 
-  // pola jak w makiecie: CWU (side), Paliwo, Moc; tryb pracy (pompa ciepła / pellet) jest w pasku i podglądzie
+  // pola kafla: CWU (side), temperatura mieszacza 1 i temperatura mieszacza 2;
+  // tryb pracy (pompa ciepła / pellet) jest w pasku i podglądzie
   const row = [];
-  if (typeof last.fuel_level === 'number') row.push({ icon: 'pellet' as const, value: formatUnit(last.fuel_level, '%'), label: 'Paliwo' });
-  if (typeof last.boiler_power === 'number') row.push({ icon: 'bolt' as const, value: formatUnit(last.boiler_power, 'kW', 1), label: 'Moc' });
+  if (typeof last.mixer1_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer1_temp), label: 'Mieszacz 1' });
+  if (typeof last.mixer2_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer2_temp), label: 'Mieszacz 2' });
   const running = level !== 'err' && last.state !== undefined && FLAME_STATES.has(last.state);
   const pumps = [
     ...(typeof last.heating_pump === 'boolean' ? [{ label: 'CO', on: last.heating_pump }] : []),

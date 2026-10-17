@@ -144,7 +144,7 @@ function shapeTile(kind: TileKind, tile: DeviceTile, now: number): Shape {
       break;
     }
     case 'boiler': {
-      // makieta: „kocioł · zadana 67”, pola CWU / Paliwo / Moc, przy paleniu czas palenia i pompy CO / CWU
+      // „kocioł · zadana 67”, pola CWU / Mieszacz 1 / Mieszacz 2, przy paleniu czas palenia i pompy CO / CWU
       shape.label = label.replace(' → ', ' · zadana ');
       shape.facts = [...side.map((item) => fact(item, item.icon === 'tap' ? 'CWU' : undefined)), ...row.map((item) => fact(item))];
       if (tile.running) {

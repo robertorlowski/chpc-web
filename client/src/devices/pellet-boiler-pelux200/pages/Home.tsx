@@ -177,7 +177,7 @@ export const PelletBoilerHome: React.FC = () => {
               <div className="hero-kpis">
                 <div className="kpi"><span className="kpi-label">Moc</span><span className="kpi-value">{formatNumber(reading.boiler_power)}<small>kW</small></span></div>
                 <div className="kpi"><span className="kpi-label">Obciążenie</span><span className="kpi-value">{formatNumber(reading.boiler_load, 0)}<small>%</small></span></div>
-                <div className="kpi"><span className="kpi-label">Paliwo</span><span className="kpi-value">{formatNumber(reading.fuel_level, 0)}<small>%</small></span></div>
+                <div className="kpi"><span className="kpi-label">Pelet</span><span className="kpi-value">{formatNumber(reading.fuel_level, 0)}<small>%</small></span></div>
                 <div className="kpi"><span className="kpi-label">Spaliny</span><span className="kpi-value">{formatNumber(reading.exhaust_temp, 0)}<small>°C</small></span></div>
               </div>
             </div>
