@@ -105,7 +105,8 @@ sequenceDiagram
 
 | Ekran | Dane | Odświeżanie |
 |---|---|---|
-| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (dziś) | uruchomienia co 5 s, reszta przy wejściu |
+| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (dziś i 7 dni do słupków tygodnia), `GET /water-pressure-tank/summary?period=month` (suma miesiąca) | uruchomienia co 5 s, reszta przy wejściu |
+| **Operacje** (`/operations`, strona wspólna `core/pages/Operations`) | `GET /operations?date=` (dziennik 5 dni) | dziś co 30 s i po WebSocket `update` |
 | **Dane → Uruchomienia pompy** | `GET /water-pressure-tank/runs?from=&to=` (miesiąc), CSV w przeglądarce | przy zmianie miesiąca |
 | **Dane → Odczyty wodomierza** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | po zmianie |
 | **Wykres** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (słupki wody, bez przepływu czasu pompy); rok z wodomierzem: `GET /water-pressure-tank/meter/summary?year=` | przy zmianie okresu |

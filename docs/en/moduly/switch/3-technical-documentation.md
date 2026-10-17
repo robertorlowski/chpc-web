@@ -22,13 +22,14 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: switch icon, menu Włącznik, Dane, Harmonogram, Ustawienia (no chart), `firmwareUpdates: true`, `firmwareUpdateHint` |
+| `device-type.tsx` | registry entry: switch icon, menu Włącznik, Dane, Harmonogram, Operacje, Ustawienia (no chart), `firmwareUpdates: true`, `firmwareUpdateHint` |
 | `api.ts` | `SwitchRequests` |
 | `types.ts` | `RelayMode`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation` |
-| `pages/Home.tsx` | relay cards (state switch, mode description, countdown, offline, Włącz / Wyłącz / Harmonogram, on time), the "Dziś" table; refresh every 5 s and WebSocket `update` |
-| `pages/Data.tsx` | activations of a day, relay filter, daily total, CSV |
-| `pages/Schedules.tsx` | entries grouped by relay, form, entry active now; CSS classes from the heat pump schedules (`heat-pump/pages/Schedules/style.css`) |
-| `pages/Settings.tsx` | relay names, default on time, "Sterownik" card (`DeviceAddress`, `FirmwareStatus`) |
+| `pages/Home.tsx` | "Instrument" layout: a `.card-relay` card per relay (state switch, mode description, Offline banner, countdown or next start, Włącz / Wyłącz / Harmonogram, on time h / min), the "Dziś" card; refresh every 5 s and WebSocket `update` |
+| `pages/Data.tsx` | filter bar (day via arrows or calendar, relay buttons, CSV) and the "Włączenia w dniu" card (`components/ActivationsTable.tsx`) |
+| `pages/Schedules.tsx` | a card per relay with a mode chip and the `.entries` list ("działa teraz", inactive entries greyed out), the `.modal` entry dialog |
+| `pages/Settings.tsx` | two columns: the "Przekaźniki" and "Czas włączenia" cards, on the right the "Sterownik" card (`ControllerCard` from `core`) and "Udostępnianie" (`DeviceSharing`) |
+| `components/ActivationsTable.tsx`, `components/icons.tsx` | activations table (main view and Data), switch icons |
 | `pages/style.css` | switch view styles |
 | `utils/format.ts` | Warsaw times, mode description (`describeMode`), countdown, time within a day for activations across midnight (`secondsInDay`), CSV |
 

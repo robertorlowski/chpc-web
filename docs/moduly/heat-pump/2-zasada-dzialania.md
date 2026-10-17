@@ -143,10 +143,11 @@ Rekord `hp` dostaje tylko `PV.total_power` — do bilansu energii. **Kolekcji `h
 
 | Ekran | Dane | Odświeżanie |
 |---|---|---|
-| **Widok główny** | `GET /hp` (ostatnia telemetria + podsumowanie PV), `GET /hp/last-error` | po komunikacie WebSocket `update` |
-| **Dane** | `GET /hp/dates` (lista dni), `GET /hp/4day?date=` (dzień); „Pobierz dane” — `GET /hp/all` do CSV | przy zmianie dnia |
-| **Wykres** | dzień: `/hp/4day`; miesiąc i rok: `/hp/monthly-summary` (energia, PV, koszt G12w) | przy zmianie okresu |
-| **Ustawienia** | `GET /operation` (wartości do formularza), `POST /operation/set`, `POST /operation/action`, telemetria i błąd | przy wejściu |
-| **Harmonogramy** | `GET/POST/PUT/DELETE /schedules`, `GET /schedules/current`, `GET/PUT /device/properties` | co minutę i po zapisie (zaznaczenie aktywnego wpisu) |
+| **Widok główny** (`/`, `/hp`) | `GET /hp` (ostatnia telemetria + podsumowanie PV), `GET /hp/last-error`; energia dnia z `GET /hp/4day` | po komunikacie WebSocket `update` i co 30 s; energia dnia co 5 min |
+| **Dane** (`/data`) | `GET /hp/dates` (lista dni), `GET /hp/4day?date=` (dzień); CSV — `GET /hp/all` (cały rok) | przy zmianie dnia |
+| **Wykres** (`/chart`) | dzień: `/hp/4day`; miesiąc i rok: `/hp/monthly-summary` (energia, PV, koszt G12w) | przy zmianie okresu |
+| **Harmonogram** (`/schedules`) | `GET/POST/PUT/DELETE /schedules`, `GET /schedules/current`, `GET/PUT /device/properties` | co minutę i po zapisie (znacznik „działa teraz”) |
+| **Operacje** (`/operations`, strona wspólna `core/pages/Operations`) | `GET /operations?date=` (dziennik 5 dni) | dziś co 30 s i po WebSocket `update` |
+| **Ustawienia** (`/settings`) | `GET /operation` (wartości do formularza), `POST /operation/set`, `POST /operation/action`, telemetria i błąd; karty „Sterownik” i „Udostępnianie” z `core` | przy wejściu |
 
 Blokady w Ustawieniach wynikają z zachowania pompy: „Pompy CO/CWU” są zablokowane w trybach `CWU` i `OFF` (tam `co` i tak trzyma przekaźniki wyłączone); wymuszenie i pompy zimnej/ciepłej wody — gdy sprężarka pracuje (`HPS` > 0), bo pompa steruje nimi wtedy sama, a wymuszenie przyjmuje tylko w postoju.

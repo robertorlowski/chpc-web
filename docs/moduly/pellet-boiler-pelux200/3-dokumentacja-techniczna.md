@@ -19,12 +19,15 @@ Bez schedulera i bez serwisu operacji. Moduł importuje tylko z `core` (`device-
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: Kocioł, Dane, Ustawienia (ikona płomienia; bez wykresów i harmonogramów); `firmwareUpdates: true` (trybik firmware na kafelku, strona `/firmware/pellet-boiler-pelux200`) i `firmwareUpdateHint` |
-| `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`) |
-| `types.ts` | `PelletBoilerReading` |
-| `pages/Home.tsx` | bieżące dane: temperatury, wartości zadane, praca kotła, wyjścia; odświeżanie co 30 s; „Dane nieaktualne” |
-| `pages/Data.tsx` | odczyty z wybranego dnia, tabela 12 kolumn, CSV |
-| `pages/Settings.tsx` | „Odpytywanie pieca [min]” (0,5–60) i sekcja „Sterownik” (`DeviceEditModal`, `FirmwareStatus`: wersja firmware, „Aktualizuj” / „Anuluj aktualizację”) |
+| `device-type.tsx` | wpis do rejestru: Kocioł, Dane, Wykres, Harmonogram, Alarmy, Operacje, Ustawienia (ikona płomienia); `firmwareUpdates: true` (trybik firmware na kafelku, strona `/firmware/pellet-boiler-pelux200`) i `firmwareUpdateHint`; pola okna „Dane sterownika” (`components/BoilerConfigFields.tsx`: powiązana pompa ciepła) |
+| `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`, ustawienia regulatora, zlecenia, harmonogram) |
+| `types.ts` | `PelletBoilerReading` i typy ustawień, zleceń i harmonogramu |
+| `pages/Home.tsx` | układ „Instrument”: pasek Offline, karta hero (temperatura kotła, zadana, stan z płomieniem, chipy sezonu i trybu, KPI), karty CWU i mieszaczy, „Urządzenia kotła”, „Pozostałe”; odświeżanie co 30 s |
+| `pages/Data.tsx` | pasek filtrów (dzień, „Wszystkie parametry”, CSV) i karta „Odczyty dnia” (`.table-wrap` z przyklejonym nagłówkiem) |
+| `pages/Chart.tsx` | temperatury dnia z chipami serii i pasem palenia albo spalony pellet; kolory z `core/chartColors.ts` |
+| `pages/Schedules.tsx` | karta „Harmonogram” i karty wpisów „Tryb Zima · …” / „CWU · …” (`.entries`, „działa teraz”, „Poza harmonogramem”), okno wpisu `.modal` |
+| `pages/Settings.tsx` | dwie kolumny: „Tryb pracy”, „Główne parametry” i „Ostatnie zmiany” (`components/MainParameters.tsx`); karta „Odczyt” (interwał w sekundach 30–3600), „Ustawienia zaawansowane” (`components/AdvancedSettings.tsx`), karta „Sterownik” (`ControllerCard` z `core`) i „Udostępnianie” |
+| `components/Alerts.tsx`, `ui.tsx`, `icons.tsx`, `WinterCycleStatus.tsx`, `ModeProfiles.tsx` | zakładka Alarmy, wspólne elementy widoków kotła (`DateNav`, `Segmented`, `CsvButton`, okno), ikony, stan cyklu Zimy, nastawy trybów |
 | `pages/style.css` | style widoków kotła |
 | `utils/boiler.ts` | nazwy stanów 0–11, formaty liczb i czasu (Warszawa), `isStale`, `readingsToCsv`, `downloadText` |
 

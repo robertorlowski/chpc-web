@@ -22,25 +22,27 @@ Pierwszy włącznik działa od 2026-10-03 i steruje grzałką bojlera (przekaźn
 
 ## Ekrany
 
+Zrzuty pochodzą z lokalnej bazy demonstracyjnej (jeden przekaźnik „Bojler”, dane z 13.10.2026; wygląd „Instrument”, motyw jasny); sterownik był wtedy offline.
+
 ![Widok główny](img/glowny.png)
 
-*Widok główny (dane z symulatora z dwoma przekaźnikami): dla każdego przekaźnika przełącznik stanu po prawej (jak „CO pompa” pompy ciepła; stan zgłoszony przez sterownik), opis trybu (tu „Wyłączony · harmonogram zablokowany” na czerwono), przyciski „Włącz”, „Wyłącz” i „Harmonogram” (wybrany tryb ma obwódkę) i pole „Czas włączenia”. Pod kartami tabela „Dziś” z dzisiejszymi włączeniami i sumą „Razem”. Widok odświeża się co 5 s.*
+*Widok główny: karta na przekaźnik — nazwa, przełącznik stanu po prawej (stan zgłoszony przez sterownik), opis trybu (tu „Harmonogram · wyłączony, następne włączenie 22:00”; tryb „Wyłączony · harmonogram zablokowany” jest na czerwono), pasek „Offline od …”, gdy sterownik nie zgłasza się dłużej niż 5 min, ciemne pole z dużym odliczaniem do wyłączenia albo następnym startem z harmonogramu, przyciski „Włącz”, „Wyłącz” i „Harmonogram” (wybrany tryb ma obwódkę) i pole „Czas włączenia” (h, min). Pod kartami karta „Dziś” z dzisiejszymi włączeniami i sumą. Widok odświeża się co 5 s.*
 
 | Telefon | Opis |
 |---|---|
-| ![Widok główny na telefonie](img/glowny-telefon.png) | Na telefonie (360 px) karty mają pełną szerokość, a menu pokazuje same ikony. Przy włączeniu na czas albo w oknie harmonogramu pod opisem trybu jest duże odliczanie do wyłączenia. Gdy sterownik nie zgłasza się dłużej niż 5 min, karta pokazuje „Sterownik offline od …”, a gdy stan przekaźnika jeszcze nie odpowiada poleceniu — „Czeka na sterownik…”. |
+| ![Widok główny na telefonie](img/glowny-telefon.png) | Na telefonie (360 px) karty idą jedna pod drugą, a dolna nawigacja pokazuje Włącznik, Dane, Harmonogram, Operacje i „Więcej” (Ustawienia, lista sterowników). Gdy stan przekaźnika jeszcze nie odpowiada poleceniu, karta pokazuje „Czeka na sterownik…”. |
 
 ![Dane](img/dane.png)
 
-*Dane: włączenia z wybranego dnia (włączenie, wyłączenie, czas), filtr przekaźnika (przy więcej niż jednym), „Razem w dniu” i eksport CSV. Włączenie zaczęte dzień wcześniej ma przy godzinie datę. „≈” przed godziną wyłączenia oznacza czas przybliżony: sterownik stracił zasilanie albo łączność.*
+*Dane: pasek filtrów (dzień strzałkami ‹ › albo z kalendarza po kliknięciu daty, przyciski przekaźników przy więcej niż jednym, CSV) i karta „Włączenia w dniu” (od, do, czas, źródło) z sumą „razem w dniu” w nagłówku. Włączenie zaczęte dzień wcześniej ma przy godzinie datę. „≈” przed godziną wyłączenia oznacza czas przybliżony: sterownik stracił zasilanie albo łączność.*
 
 ![Harmonogram](img/harmonogram.png)
 
-*Harmonogram: wpisy pogrupowane po przekaźnikach. Czerwona kreska z lewej oznacza wpis, który działa teraz; „(+1 dzień)” — okno przez północ. Ikona plusa otwiera formularz (przekaźnik, dzień albo data jednorazowa, od–do, aktywny). Pod listą uwaga, które przekaźniki są w trybie ręcznym i nie wykonują harmonogramu.*
+*Harmonogram: karta na przekaźnik z chipem trybu (harmonogram albo tryb ręczny, który blokuje harmonogram) i listą wpisów: dzień, godziny, „(+1 dzień)” przy oknie przez północ, ołówek i kosz; wpis działający teraz jest podświetlony ze znacznikiem „działa teraz”. „+ Dodaj wpis” otwiera okno wpisu (przekaźnik, dzień albo data jednorazowa, od–do, aktywny). Pod kartami uwaga o przekaźnikach w trybie ręcznym.*
 
 ![Ustawienia](img/ustawienia.png)
 
-*Ustawienia: nazwy przekaźników, domyślny „Czas włączenia” w minutach (0 = bez limitu) i karta „Sterownik” z liczbą przekaźników, adresem IP, wersją firmware i stanem aktualizacji.*
+*Ustawienia (dwie kolumny): po lewej karty „Przekaźniki” (nazwy) i „Czas włączenia” (domyślny czas w minutach, 0 = bez limitu); po prawej karta „Sterownik” z nazwą, SN, Root ID, liczbą przekaźników, adresem IP, wersją firmware ze stanem i przyciskiem „Aktualizuj firmware” (ołówek otwiera okno „Dane sterownika”) oraz karta „Udostępnianie”.*
 
 ## Tryby przekaźnika
 
@@ -59,7 +61,7 @@ Ten sam wybór jest na stronie samego sterownika (sieć lokalna), więc włączn
 2. Sterownik sam zgłasza się do chmury; na liście sterowników pojawia się kafelek z ikoną przełącznika i nazwą „Włącznik”.
 3. W Ustawieniach nadać przekaźnikom nazwy i ewentualnie zmienić domyślny czas włączenia (30 min).
 4. W zakładce Harmonogram dodać okna włączeń.
-5. Opcjonalnie oznaczyć włącznik gwiazdką jako sterownik domyślny.
+5. Opcjonalnie udostępnić włącznik domownikom (Ustawienia → „Udostępnianie”).
 
 ## Ograniczenia
 

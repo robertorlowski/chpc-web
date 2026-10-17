@@ -19,12 +19,15 @@ No scheduler and no operation service. The module imports only from `core` (`dev
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: Kocioł, Dane, Ustawienia (flame icon; no charts or schedules); `firmwareUpdates: true` (firmware cog on the tile, page `/firmware/pellet-boiler-pelux200`) and `firmwareUpdateHint` |
-| `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`) |
-| `types.ts` | `PelletBoilerReading` |
-| `pages/Home.tsx` | current data: temperatures, set values, boiler operation, outputs; refresh every 30 s; "Dane nieaktualne" |
-| `pages/Data.tsx` | readings of a chosen day, 12-column table, CSV |
-| `pages/Settings.tsx` | "Odpytywanie pieca [min]" (0.5–60) and the "Sterownik" section (`DeviceEditModal`, `FirmwareStatus`: firmware version, "Aktualizuj" / "Anuluj aktualizację") |
+| `device-type.tsx` | registry entry: Kocioł, Dane, Wykres, Harmonogram, Alarmy, Operacje, Ustawienia (flame icon); `firmwareUpdates: true` (firmware cog on the tile, page `/firmware/pellet-boiler-pelux200`) and `firmwareUpdateHint`; "Dane sterownika" dialog fields (`components/BoilerConfigFields.tsx`: linked heat pump) |
+| `api.ts` | `PelletBoilerRequests` (`getLast`, `getList`, regulator settings, requests, schedule) |
+| `types.ts` | `PelletBoilerReading` and the settings, request and schedule types |
+| `pages/Home.tsx` | "Instrument" layout: Offline banner, hero card (boiler temperature, set point, state with a flame, season and mode chips, KPIs), the CWU and mixer cards, "Urządzenia kotła", "Pozostałe"; refresh every 30 s |
+| `pages/Data.tsx` | filter bar (day, "Wszystkie parametry", CSV) and the "Odczyty dnia" card (`.table-wrap` with a sticky header) |
+| `pages/Chart.tsx` | day temperatures with series chips and a burning band, or burnt pellet; colours from `core/chartColors.ts` |
+| `pages/Schedules.tsx` | the "Harmonogram" card and the entry cards "Tryb Zima · …" / "CWU · …" (`.entries`, "działa teraz", "Poza harmonogramem"), the `.modal` entry dialog |
+| `pages/Settings.tsx` | two columns: "Tryb pracy", "Główne parametry" and "Ostatnie zmiany" (`components/MainParameters.tsx`); the "Odczyt" card (interval in seconds 30–3600), "Ustawienia zaawansowane" (`components/AdvancedSettings.tsx`), the "Sterownik" card (`ControllerCard` from `core`) and "Udostępnianie" |
+| `components/Alerts.tsx`, `ui.tsx`, `icons.tsx`, `WinterCycleStatus.tsx`, `ModeProfiles.tsx` | the Alarmy tab, shared elements of the boiler views (`DateNav`, `Segmented`, `CsvButton`, dialog), icons, winter cycle state, mode presets |
 | `pages/style.css` | styles of the boiler views |
 | `utils/boiler.ts` | state names 0–11, number and time formats (Warsaw), `isStale`, `readingsToCsv`, `downloadText` |
 

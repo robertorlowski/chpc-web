@@ -12,9 +12,8 @@ The module lets you:
 
 - **see the current boiler state** — from a phone too, without walking up to the panel;
 - **browse the readings of a chosen day** and download them as a CSV file;
-- **set how often the controller reads the boiler** (from half a minute to an hour; every 5 minutes by default).
-
-**The module only displays data.** It does not control the boiler and has no schedules or charts.
+- **set how often the controller reads the boiler** (from half a minute to an hour; every 5 minutes by default);
+- the application also has the tabs Wykres (day temperatures, burnt pellet), Harmonogram (season and CWU in time windows), Alarmy and Operacje, and changing regulator parameters from Settings — described in [CLAUDE.md](../../../../CLAUDE.md), section 5c (Polish); this documentation describes the reading stage and the look of the screens.
 
 ## Implementation status
 
@@ -30,29 +29,37 @@ The boiler controller (board, pages, flashing): [devices/pellet-boiler-pelux200/
 
 ## Screens
 
-The application interface is in Polish; the screenshots show it as is, and they carry **sample data**: the API responses were substituted in the browser and do not come from a real boiler.
+The application interface is in Polish; the screenshots show it as is. They come from the local demo database with readings from 12–13.10.2026 (the "Instrument" look, light theme); the controller was offline at the time, hence the "Offline od …" banner. The boiler menu has seven tabs: Kocioł, Dane, Wykres, Harmonogram, Alarmy, Operacje, Ustawienia.
 
 ![Boiler view](../../../moduly/pellet-boiler-pelux200/img/piec-kociol.png)
 
-*"Kocioł" (Boiler): the operating state in the title (alarm in red), temperatures, set values, boiler operation (fuel, fan, load, power, fuel consumption) and outputs. The view refreshes every 30 s; when the last reading is older than three polling intervals, "Dane nieaktualne" (stale data) appears under the reading time. A missing value is `---`. The data is sample data.*
+*"Kocioł" (Boiler): the hero card with the boiler temperature, set point and hysteresis, the operating state (a chip, with a flame while burning), the season (Zima / Lato — winter / summer) and operating mode (heat pump / pellet) chips and the fields power, load, fuel and flue gas. Below, the circuit cards CWU, Mieszacz 1 (CO) and Mieszacz 2 (temperature, set point, pump chip, valve movement), the "Urządzenia kotła" card (read-only toggles: fan with power, feeder, CO, CWU and circulation pumps, igniter) and "Pozostałe" (outdoor and room temperature, thermostat, cleaning, burnt pellet, last reading). The view refreshes every 30 s; when the last reading is older than three polling intervals, the "Offline od …" banner is at the top. A missing value is `---`.*
 
 ![Boiler view on a phone](../../../moduly/pellet-boiler-pelux200/img/piec-kociol-telefon.png)
 
-*The same view on a phone (360 px): the cards reach the screen edges and the menu shows icons only. The data is sample data.*
+*The same view on a phone (360 px): the cards stack, the bottom navigation shows Kocioł, Dane, Wykres, Harmonogram and "Więcej" (Alarmy, Operacje, Ustawienia, controller list).*
 
 ![Data view](../../../moduly/pellet-boiler-pelux200/img/piec-dane.png)
 
-*"Dane" (Data): readings of a chosen day, newest first (one row per reading, every 5 minutes at the default interval), with CSV export. The table has 12 columns and scrolls horizontally in its own container. The data is sample data.*
+*"Dane" (Data): the filter bar (the day via the ‹ › arrows or from the calendar, "Wszystkie parametry" — main columns by default, CSV always complete) and the "Odczyty dnia" card with the number of readings; rows newest first. The table scrolls in both directions in its own container with a sticky header.*
+
+![Chart view](../../../moduly/pellet-boiler-pelux200/img/piec-wykres.png)
+
+*"Wykres" (Chart): the Temperatury / Spalony pellet switch, day navigation, series chips (boiler, CWU, CO = mixer 1, mixer 2, outdoor) and the "Temperatury kotła" card with a legend; burning periods are highlighted with a band on the chart.*
+
+![Schedule view](../../../moduly/pellet-boiler-pelux200/img/piec-harmonogram.png)
+
+*"Harmonogram" (Schedule): the "Harmonogram" card (whether it runs, which mode list is active, outdoor temperature, state now, last error) and, for each mode, the "Tryb Zima · …" and "CWU · …" cards with entries (day, hours, setting; "działa teraz" at the entry or at the "Poza harmonogramem" item), a pencil, a bin and "+ Dodaj wpis".*
 
 ![Settings view](../../../moduly/pellet-boiler-pelux200/img/piec-ustawienia.png)
 
-*"Ustawienia" (Settings): "Odpytywanie pieca [min]" (boiler polling, 0.5–60 min) and the "Sterownik" (controller) section with the name, identifier and Root ID. The data is sample data.*
+*"Ustawienia" (Settings, two columns): on the left the cards "Tryb pracy" (Pompa ciepła / Pellet, Zima / Lato), "Główne parametry" (regulator on / off, boiler, CWU and mixer parameters with a pencil) and "Ostatnie zmiany" with a status; on the right the "Odczyt" card ("Interwał odpytywania pieca" in seconds, 30–3600), the collapsed "Ustawienia zaawansowane" card, the "Sterownik" card (name, SN, Root ID, IP address, firmware with state, "Aktualizuj firmware") and "Udostępnianie".*
 
 ## First start
 
 1. Connect the boiler controller to the boiler's ecoMAX controller following the [wiring description](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (Polish) and set its Wi-Fi (access point `Piec-setup`, page `/install`; [controller README](../../../../devices/pellet-boiler-pelux200/README.md)).
 2. Once connected to Wi-Fi, the controller registers itself with the cloud as "Piec Pellux 200". The boiler appears on the device list; data appears once the controller receives valid frames from the boiler.
-3. Choose the boiler on the list, optionally rename it (pencil on the tile) or mark it with the star as the default.
+3. Choose the boiler on the list, optionally rename it (pencil on the tile).
 4. In Settings change the polling interval if 5 minutes does not suit.
 
 The controller registers even with no boiler connected (the boiler is then on the list, but without readings). The controller's `/` page shows the bus diagnostics (bytes, frames, polarity).
@@ -60,11 +67,9 @@ The controller registers even with no boiler connected (the boiler is then on th
 ## Limitations
 
 - **Data not confirmed on a boiler** (see "Implementation status").
-- **View only.** The application changes nothing in the boiler.
 - **A reading every few minutes**, not live: the controller sends the last received reading every set interval (300 s by default). A change of the interval in the application takes effect at the next send.
 - **The controller sends data only when the last frame from the boiler is less than 60 s old.** With no frames the boiler in the application keeps its last reading and after three intervals gets the "Dane nieaktualne" mark.
 - **Some contract fields are not filled yet.** The oxygen level in the flue gas (`lambda_level`) is in the contract and in the view, but the controller does not read it — the application shows `---`. The Kocioł view also shows "Status CO" and "Status CWU" values whose meaning is undocumented.
-- **No charts or aggregates.** The history is a list of readings from one day.
 - A server restart clears only the cache of the last reading; the history is in the database.
 
 ## Glossary

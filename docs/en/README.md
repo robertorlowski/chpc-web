@@ -46,7 +46,7 @@ The key rule: **controllers start the connection, the server only replies.** The
 
 | Module | What it does | Code | Documentation |
 |---|---|---|---|
-| **core** | shared application part: devices, controller registration, controller choice, menu, WebSocket, temperature, calendar | `server/src/core`, `client/src/core` | [docs/en/moduly/core](moduly/core/1-business-description.md) |
+| **core** | shared application part: devices, controller registration, the tile list and controller choice, user accounts, the shared "Instrument" look (bar, tabs, theme), operations log, WebSocket, temperature, calendar | `server/src/core`, `client/src/core` | [docs/en/moduly/core](moduly/core/1-business-description.md) |
 | **heat-pump** | heat pump in the application: telemetry, PV, operations, scheduler, schedules, screens | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/en/moduly/heat-pump](moduly/heat-pump/1-business-description.md) |
 | **water-pressure-tank** | water pressure tank in the application: runs, water from pump time and the water meter, screens | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/en/moduly/water-pressure-tank](moduly/water-pressure-tank/1-business-description.md) |
 | **pellet-boiler-pelux200** | pellet boiler in the application: boiler readings, polling interval, screens (view only) | `server/src/modules/pellet-boiler-pelux200`, `client/src/devices/pellet-boiler-pelux200` | [docs/en/moduly/pellet-boiler-pelux200](moduly/pellet-boiler-pelux200/1-business-description.md) |

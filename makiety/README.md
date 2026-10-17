@@ -1,7 +1,9 @@
 # Makiety nowego wyglądu chpc-web
 
-Statyczne prototypy HTML nowego wyglądu aplikacji (klient React w `client/`), do późniejszego wdrożenia.
+Statyczne prototypy HTML nowego wyglądu aplikacji (klient React w `client/`).
 Nie są częścią builda ani klienta; nie mają zależności poza czcionkami z Google Fonts.
+
+**Stan wdrożenia (2026-10-17, commit 630f1a7):** pełna makieta kierunku B jest wdrożona w kliencie w całości — każdy ekran `#s-…` z `makieta.html` ma stronę React o tej samej strukturze i klasach, a CSS komponentów z `src/baza.css`, `src/makieta.css` i `src/wariant-b.css` jest przeniesiony do `client/src/makieta.css`. Makieta pozostaje źródłem wyglądu: zmianę zaczyna się tu, potem przenosi do klienta (i do `client/src/makieta.css`, gdy dotyczy komponentu wspólnego). Różnice względem aplikacji: makieta startuje w motywie ciemnym, aplikacja bez wyboru użytkownika w jasnym; makieta pokazuje też dane, których API jeszcze nie daje (czas pracy sprężarki i palenia w kafelku i pasku, COP i produkcja w miesiącu na kafelkach, T. CWU pompy, „Konto od” i stan zapamiętania w Koncie).
 
 ## Etap 1 (2026-10-16): trzy propozycje kierunku
 

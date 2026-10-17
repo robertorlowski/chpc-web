@@ -31,25 +31,37 @@
 
 | Plik | Rola |
 |---|---|
-| `index.tsx` | punkt wejścia: `DeviceProvider` + `App` |
-| `style.css` | style globalne (układ, nagłówek, stopka, reguły telefonu `@media (max-width: 560px)`) |
-| `core/App.tsx` | routing, `DeviceGuard` (wymusza wybór sterownika, przełącza na domyślny), `DeviceRoute`, stopka |
-| `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, ekrany menu, dodatkowe trasy) |
-| `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
-| `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika |
-| `core/api.ts` | `DeviceRequests`: lista, nazwa, domyślny, ukrycie, układ (`setDevicesOrder` z `null` w pustych polach), wzór kafelka, `properties`, zlecenie i odwołanie aktualizacji firmware; `WeatherTileRequests`: kafelki pogody |
+| `index.tsx` | punkt wejścia: stosuje motyw (`core/theme.ts`), `DeviceProvider` + `App` |
+| `theme.css` | tokeny kolorów wyglądu „Instrument”: `--bg`, `--card`, `--fg*`, `--line*`, `--accent`, stany `--ok-*` / `--warn-*` / `--err-*` / `--run-*`, kolory rodzajów `--c-heat`, `--c-water`, `--c-sun`, `--c-switch`, `--c-fire`, `--c-sky`, serie wykresów `--ch-1…4`; motyw jasny pod `:root`, ciemny pod `prefers-color-scheme: dark` (bez jawnego wyboru) i `[data-theme="dark"]` |
+| `style.css` | style globalne: pasek `header.app-header`, boczne menu `nav.app-tabs` (od 900 px, `.app-container.has-side`, zmienna `--page-vw`), dolna nawigacja `nav.bottom-nav` i arkusz „Więcej”, karty, przyciski, pola, reguły telefonu |
+| `makieta.css` | wspólne komponenty przeniesione z makiety (`makiety/src/makieta.css`): `.card`, `.hero`, `.kpi`, `.filters`, `.date-nav`, `.segmented`, `.switch`, `.chip`, `.entries`, `.kv`, `.timeline`, `.tile*`, `.modal`, `.banner`; ładowany po `style.css` |
+| `core/theme.ts` | motyw jasny / ciemny / jak system: wybór w `localStorage` `chpc.theme`, `data-theme` na `<html>`, bez wyboru jasny (od 2026-10-17); `useTheme`, `setTheme` |
+| `core/chartColors.ts` | kolory wykresów Recharts z tokenów (`cc()`), bo SVG nie przyjmuje `var()` |
+| `core/App.tsx` | routing, `AuthGate` (logowanie, uzupełnienie danych nowego konta, pytanie „Zapamiętać?”), `DeviceGuard` (bez sterownika → `/devices`; nowa sesja przeglądarki zaczyna od listy), `DeviceRoute` (zakładki sterownika udostępnionego), paski stron bez zakładek (`/devices`, `/account`, `/firmware`), `BottomNav` na telefonie; stopki „Aktywne urządzenie” nie ma od 2026-10-16 |
+| `core/device-types.tsx` | rejestr: `DeviceType` → `DeviceTypeView` (ikona kafelka, nazwa rodzaju, ekrany menu, dodatkowe trasy, pola okna „Dane sterownika”) |
+| `core/types.ts` | `DeviceType`, `WeekDay`, `Device` (z `access`, `tabs`, `owner` udostępnienia), `DeviceProperties`, `DeviceView`, `DeviceTypeView`, `DeviceTile` (dane kafelka) |
+| `core/http.ts` | adresy API i WebSocket, zapytania z `rootId` i `deviceId` wybranego sterownika oraz nagłówkiem sesji |
+| `core/api.ts` | `DeviceRequests`: lista, podsumowania kafelków (`/devices/summary`), nazwa, ukrycie, układ (`setDevicesOrder` z `null` w pustych polach), wzór kafelka, `properties`, zlecenie i odwołanie aktualizacji firmware; `WeatherTileRequests`: kafelki pogody; `AuthRequests`: logowanie, sesja, konto |
 | `core/context/DeviceContext.tsx` | wybrany sterownik (stan + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
-| `core/components/Header.tsx` | menu z rejestru |
-| `core/components/DeviceEditModal.tsx` | popup „Dane sterownika” (zmiana nazwy) |
+| `core/context/AuthContext.tsx` | sesja użytkownika (`localStorage` `chpc.session`), logowanie kodem albo linkiem, „Zapamiętaj” (14 dni), wylogowanie |
+| `core/components/Header.tsx` | pasek sterownika: strzałka wstecz, nazwa, chip Online / Offline i „pracuje” (z pamięci kafelków `chpc.deviceTiles.<id konta>`), opis rodzaju (`deviceSubText`), zakładki z rejestru (`nav.app-tabs`), `UserMenu`; `BottomNav`: 4 pierwsze widoki + „Więcej” |
+| `core/components/UserMenu.tsx`, `ThemeToggle.tsx` | ikona motywu (księżyc / słońce: jasny ↔ ciemny; także na ekranie logowania) i awatar konta z menu: imię i e-mail, „Moje dane”, motyw Jasny / Ciemny / Jak system, „Wyloguj”, „Usuń konto” |
+| `core/pages/Login/` | ekran logowania (karta `.auth-card`): e-mail → kod (6 cyfr, 10 min) albo link z maila; „system” pokazuje pole hasła użytkownika systemowego |
+| `core/pages/Account/`, `components/ProfileForm.tsx`, `RememberDialog.tsx`, `account.css` | `/account` „Moje dane”: karty „Moje dane” (e-mail ze zmianą przez kod, imię, nazwisko, adres, kraj, lokalizacja na mapie), „Sesja” i „Usunięcie konta” (`.card-danger`, potwierdzenie linkiem z maila); okno „Zapamiętać?” |
+| `core/pages/Operations/` | zakładka `/operations` (pompa, hydrofor, włącznik, piec): dziennik operacji z dnia (`GET /operations?date=`, 5 dni), filtr Wszystkie / Użytkownik / System, karta „Zaplanowane” (dziś) i oś czasu `.timeline` z chipem stanu; dziś odświeżanie co 30 s i po WebSocket `update` |
+| `core/components/DeviceEditModal.tsx` | okno „Dane sterownika” (`.modal`): nazwa, rodzaj, SN i Root ID tylko do odczytu, pola rodzaju z rejestru (`DefinitionFields`, np. konfiguracja pompy ciepła); z kafelka i z karty „Sterownik” |
+| `core/components/ControllerCard.tsx`, `ControllerCardTitle.tsx`, `DeviceAddress.tsx` | karta „Sterownik” w Ustawieniach każdego rodzaju: ołówek (okno „Dane sterownika”), lista `.kv`: Nazwa, SN, Root ID (skrócony, „kopiuj”), Adres IP (odnośnik do stron sterownika), Firmware z chipem stanu, Ostatnie zgłoszenie, przycisk „Aktualizuj firmware” |
+| `core/components/FirmwareStatus.tsx` | wiersze „Firmware” i „Ostatnie zgłoszenie” oraz przycisk „Aktualizuj firmware” / „Anuluj aktualizację” (z potwierdzeniem) karty „Sterownik”; stan „aktualny” / „dostępna wersja X” / „zlecona, czeka na sterownik”, podpowiedź rodzaju (`firmwareUpdateHint`); przy zleceniu odświeżanie co 15 s |
+| `core/components/DeviceSharing.tsx` | karta „Udostępnianie” w Ustawieniach: lista osób z zakładkami, okno „Udostępnij sterownik” (e-mail, zakładki rodzaju), zmiana zakładek i cofnięcie dostępu; tylko właściciel i użytkownik systemowy |
+| `core/components/OfflineBanner.tsx` | czerwony pasek „Offline od …” z przyczyną na górze ekranu sterownika (`.banner.banner-off`) |
 | `core/components/Notification.tsx` | krótki komunikat na górze ekranu |
-| `core/components/icons.tsx` | wspólne ikony menu (Dane, Wykres, Ustawienia) i akcji (dodaj, usuń, przywróć, wróć, edytuj) |
-| `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona w kolorze akcentu, wariant danger do usuwania, etykieta jako podpowiedź i aria-label); używany w Harmonogramach pompy i na stronie firmware |
-| `core/pages/Devices/` | lista sterowników: szachownica kafelków z wzoru (sterowniki i kafelki pogody, pola `sortOrder`), pasek temperatury i pogody domu, tryb „Zmień układ” (przeniesienie, zamiana, „+ pogoda” w pustym polu, ukrywanie, pusty wiersz spycha resztę do dołu ekranu), ołówek i trybik firmware po najechaniu |
-| `core/pages/TileDesigner/` | `/tile-designer`: projektant kafelka (pola wzoru przeciągane, sprawdzanie nachodzenia i mieszczenia tekstu, podgląd listy i telefonu, zapis `PUT /devices/tile-template`) |
-| `core/components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | kafelek z wzoru (`deviceSlots`, `weatherSlots`, pola bez treści znikają: `collapseEmpty`), wzór wbudowany = kafelek z produkcji 2026-10-16 |
-| `core/components/WeatherTileModal.tsx` | popup „Kafelek pogody”: wyszukiwarka miejscowości (geokoder Open-Meteo z przeglądarki), współrzędne, usuwanie |
-| `core/pages/Firmware/` | `/firmware/:deviceType`: aktualna wersja z opisem, poprzednie wersje (przywrócenie, usunięcie), dodanie wersji z opisem w popupie (ikona plusa na belce), przełącznik „Aktualizacje włączone/wyłączone” (wyłączone: „Aktualizuj” niedostępne, zlecenia nie są doręczane); poza kontekstem urządzenia |
-| `core/components/FirmwareStatus.tsx` | karta „Sterownik” w Ustawieniach hydroforu, włącznika i pieca: wersja firmware, stan („aktualny” / „dostępna wersja X” / „zlecona do wersji X (czas), czeka na sterownik”), czas zgłoszenia, przycisk „Aktualizuj” (z potwierdzeniem) albo „Anuluj aktualizację” i podpowiedź rodzaju (`firmwareUpdateHint`); przy zleceniu odświeżanie co 15 s |
+| `core/components/icons.tsx`, `pictograms.tsx`, `WeatherIcon.tsx` | wspólne ikony menu i akcji, piktogramy rodzajów, ikony nieba |
+| `core/components/IconButton.tsx`, `iconButton.css` | szablon przycisku-ikony (sama ikona, wariant danger do usuwania, etykieta jako podpowiedź i aria-label) |
+| `core/components/InfoTip.tsx` | ikona „i” z podpowiedzią |
+| `core/pages/Devices/`, `components/DeviceTileCard.tsx` | lista sterowników `/devices`: pasek pogody domu (`.outdoor-strip`), szachownica kafelków `.tiles` w stałym układzie makiety (`DeviceTileCard`: nagłówek z ikoną rodzaju, nazwą, chipem i narzędziami, duża wartość, stan pracy, pola faktów, ostrzeżenie, przekaźniki włącznika, stopka „dane sprzed …”; `WeatherTileCard` dla pogody), siatka auto-fill ≥ 300 px (1–4 kolumny), tryb „Zmień układ” (ikona siatki w pasku: strzałki, oko, „+ kafelek pogody”, „Gotowe”, pusty wiersz spycha resztę do dołu ekranu), stopka z zajętością bazy (`/devices/db-stats`, użytkownik systemowy); dane kafelków z `GET /devices/summary`, odświeżane po WebSocket `update` i cyklicznie |
+| `core/pages/TileDesigner/`, `components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | **nieużywane w interfejsie od 2026-10-17**: projektant kafelka `/tile-designer` i kafelek z wzoru `tile_template`; przycisk „Projekt kafelka” jest ukryty, a lista rysuje kafelki w stałym układzie (`DeviceTileCard`); kod i trasa zostają |
+| `core/components/WeatherTileModal.tsx`, `LocationPicker.tsx` | okno „Kafelek pogody” (`.modal`): wyszukiwarka miejscowości (geokoder Open-Meteo z przeglądarki), współrzędne, usuwanie; wybór lokalizacji na mapie (konto) |
+| `core/pages/Firmware/` | `/firmware/:deviceType` (trybik na kafelku, użytkownik systemowy): karty „Aktualna wersja” (opis, data, rozmiar, SHA-256, przełącznik „Aktualizacje”; plus otwiera kartę „Dodaj wersję”), „Sterowniki tego rodzaju” (wersja z ostatniego zgłoszenia, chip stanu) i „Poprzednie wersje” (przywrócenie, usunięcie); poza kontekstem urządzenia |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
 ## API
@@ -98,7 +110,7 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` \| `switch` | rodzaj sterownika (rola) |
 | `deviceId` | string | SN sterownika (MAC ESP32, 12 znaków hex); ten sam SN mogą mieć urządzenia różnych rodzajów (role jednego sterownika), bez indeksu unikalnego |
 | `name` | string | nazwa od użytkownika, domyślnie pusta |
-| `isDefault` | boolean | sterownik domyślny, najwyżej jeden |
+| `isDefault` | boolean | sterownik domyślny, najwyżej jeden; klient od 2026-10-17 go nie używa (aplikacja zaczyna od listy kafelków, gwiazdki na kafelku nie ma) |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | wersja firmware z pola `version` zgłoszenia i czas zgłoszenia; starsze sterowniki ich nie wysyłają |
 | `firmwareUpdate` | `{version, requestedAt}` | zlecenie aktualizacji z aplikacji („Aktualizuj”); tylko przy nim sterownik dostaje ofertę firmware; usuwane, gdy sterownik zgłosi oferowaną wersję, albo „Anuluj aktualizację” |
 | `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
@@ -130,8 +142,10 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
 {
   type: DeviceType;
   tileIcon: ReactNode;                                    // ikona kafelka na liście
+  label?: string;                                         // nazwa rodzaju w nagłówkach (np. strona firmware)
   views: { path, label, icon, element }[];                // ekrany w kolejności menu; '/' = strona główna
   extraRoutes?: { path, element }[];                      // trasy poza menu (np. /hp pompy)
+  DefinitionFields?: ComponentType;                       // dodatkowe pola okna „Dane sterownika” (np. konfiguracja pompy)
   firmwareUpdates?: boolean;                              // trybik firmware na kafelku, karta „Sterownik” z „Aktualizuj”
   firmwareUpdateHint?: string;                            // kiedy sterownik pobierze firmware (podpowiedź w karcie „Sterownik”)
 }
@@ -173,12 +187,13 @@ node scripts/seed-local.mjs      # czyści bazę lokalną i wczytuje dane demo
 - `server/test/water-pressure-tank.test.ts` — m.in. zgłoszenie hydroforu z ustawieniami, sterownik domyślny, 404/409 kontekstu.
 - `server/test/pellet-boiler-pelux200.test.ts` — m.in. dwie role tego samego SN (dwa `rootId`, routing po rodzaju endpointu, 409 dla `rootId` innej roli), zgłoszenie kotła z `settings`, walidacja `poll_interval_seconds` w `PUT /device/properties`.
 - Pliki `pv.test.ts` i `scheduler.test.ts` (pompa) leżą w tym samym katalogu `server/test/`; razem serwer ma 81 testów.
-- Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build`.
+- Klient nie ma testów jednostkowych; sprawdzenie to `tsc` i `vite build` oraz test układu `node test/e2e/run-layout.mjs` (Chromium Playwright; wszystkie rodzaje × widoki × 360 / 768 / 1280 px × motyw ciemny / jasny: przewijanie w poziomie, elementy poza oknem, błędy konsoli, pasek, boczne menu / dolna nawigacja).
 
 ```bash
 npx tsc -p server/tsconfig.tests.json --noEmit
 npm test -w server -- --run
 npm run build -w client
+node test/e2e/run-layout.mjs
 ```
 
 ## Wdrożenie
@@ -196,5 +211,6 @@ Serwer i klient wdraża się razem z gałęzi `main` na Render (build uruchamian
 - **Nowa pompa ciepła nie dostaje `properties`** przy zgłoszeniu (`initialProperties` pompy jest puste); tryb `CWU` wynika z wartości zastępczej w schedulerze.
 - **WebSocket** przyjmuje połączenie na dowolnej ścieżce i nie sprawdza, czy `rootId` istnieje; komunikat trafia do wszystkich połączeń danego `rootId` (przeglądarki dostają też `operation`, a `co` — `update`).
 - **Obsługa błędów w kliencie (`core/http.ts`)**: `get` zwraca `null`, `post` połyka błąd (z `json = false` zwraca `Response`), `put` i `delete` rzucają wyjątek — różne ekrany różnie więc pokazują błędy zapisu.
-- **Style stron trafiają do jednego pakietu CSS** — reguły bez prefiksu (np. `button`, `img`, `span.label` w `devices/heat-pump/pages/Settings/style.css`) działają w całej aplikacji.
+- **Style stron trafiają do jednego pakietu CSS** — reguły bez prefiksu w `pages/style.css` rodzajów działają w całej aplikacji; wspólne komponenty są w `makieta.css`, a kolory tylko z tokenów `theme.css`.
+- **Projektant kafelka** (`/tile-designer`, wzór `tile_template`, `TemplateTile`) został w kodzie, ale lista z niego nie korzysta, a przycisk jest ukryty (2026-10-17).
 - `mock-response.ts` i `_404.tsx` są nieużywane.

@@ -29,15 +29,18 @@
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: menu HP, Dane, Wykres, Ustawienia, Harmonogram; `/hp` poza menu |
+| `device-type.tsx` | wpis do rejestru: menu HP, Dane, Wykres, Harmonogram, Operacje, Ustawienia; `/hp` poza menu; pola okna „Dane sterownika” (podłączenie CWU / CO, pojemność zbiornika, PV) |
 | `api.ts` | `HpRequests`: telemetria, dni, bilans, operacje, akcje, błąd, harmonogramy |
-| `types.ts` | typy telemetrii, PV, operacji i harmonogramów po stronie klienta |
-| `pages/Home/` | widok główny (WebSocket `update`) |
-| `pages/Data/` | tabela dnia, filtr kolumn, eksport CSV |
-| `pages/Charts/` | wykresy dnia, miesiąca i roku, energia, PV, koszt |
-| `pages/Settings/` | operacja ręczna, akcje, błędy, dane sterownika |
-| `pages/Schedules/` | ustawienia domyślne i harmonogramy, zaznaczenie aktywnego wpisu |
-| `components/DateDict.tsx` | lista dni z danymi |
+| `types.ts` | typy telemetrii, PV, operacji i harmonogramów po stronie klienta; `pumpWorkMode` (A / CWU → Automatyczny, OFF → Wyłączony, reszta → Ręczny) |
+| `pages/Home/` | widok główny w układzie „Instrument”: paski (Offline, pompa wstrzymana, ładowanie CWU), karta hero (temperatura zbiornika na pasku zakresu, sprężarka, KPI), karty „Pomiary”, „Obieg”, „Energia dziś”; WebSocket `update` |
+| `pages/Data/` | pasek filtrów (dni z danymi, „Wszystkie odczyty”, CSV) i karta „Odczyty dnia”; wiersz z błędem podświetlony |
+| `pages/Charts/` | pasek filtrów (okres, data, „Cały dzień”), kafelki statystyk, karty „Temperatury” i „Moc i produkcja PV” (dzień) albo „Energia i koszt” (miesiąc, rok) |
+| `pages/Settings/` | dwie kolumny: karta „Ustaw” (operacja ręczna), „Błędy sterownika”, karta „Sterownik” i „Udostępnianie” z `core` |
+| `pages/Schedules/` | karty „Tryb pracy” (ustawienia domyślne) i „Wpisy” (lista `.entries`, „działa teraz”, „Poza harmonogramem”), okno „Wpis harmonogramu” |
+| `components/DateNav.tsx` | nawigacja po dacie (`.date-nav`): strzałki i lista dni z danymi (`useHpDates`), miesięcy albo lat |
+| `components/Segmented.tsx`, `components/Switch.tsx` | przełącznik segmentowy (tryb pracy, okres wykresu) i przełącznik `.switch` z makiety |
+| `components/PumpConfigFields.tsx`, `pumpConfig.css` | pola okna „Dane sterownika”: podłączenie CWU / CO ze schematem, pojemność zbiornika, PV |
+| `components/icons.tsx` | ikony widoków pompy |
 | `components/ResourceBlock.tsx` | pozostałość (starsze ustawienia czasowe), nieużywane |
 | `utils/utils.ts` | pobranie i spłaszczenie danych dnia do tabeli i wykresu |
 | `utils/energy.ts`, `utils/energy-cost-g12w.ts` | energia z telemetrii i koszt w taryfie G12w (czas warszawski, format `YYYY.MM.DD`) |
@@ -136,7 +139,6 @@ Test całego łańcucha (`test/e2e`, most z prawdziwym kodem `co` i symulowanym 
 - **`GET /hp/all`** liczy początek roku w strefie serwera (UTC na Render), nie w czasie warszawskim.
 - **Nowy harmonogram** zapisywany przez `Requests.post` nie pokaże błędu zapisu (edycja przez `put` pokaże).
 - **Wykres dnia**: `parseSelectedDate` tworzy `new Date("2026.09.29")` — działa w Chromium/Edge, w Firefoksie i Safari może dać nieprawidłową datę.
-- **Literówka i jednostki w interfejsie**: „Instalacja fotowtaiczna” w widoku głównym, „Produkcja dziś” w W zamiast Wh, temperatura PV w „C” zamiast „°C”.
 - **Nieużywany kod**: `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `setOperationData`, `/operation/getAndClear`, `utils/energy.ts` (`energyKWh`).
 - **Klient woła `/hp/4Day`**, a trasa to `/hp/4day` — działa, bo Express domyślnie ignoruje wielkość liter.
 - **Nie łączyć `hp` z `pv` w agregacji** (limit 32 MB sortowania w Atlasie, brak `allowDiskUse`).

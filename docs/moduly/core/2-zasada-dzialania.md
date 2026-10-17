@@ -32,9 +32,9 @@ flowchart TB
         HPM --> MET
     end
     subgraph Klient["Klient (client/src)"]
-        CAPP["core/App.tsx<br/>DeviceGuard, trasy, stopka"]
+        CAPP["core/App.tsx<br/>AuthGate, DeviceGuard, trasy"]
         CREG["core/device-types.tsx<br/>rejestr: menu i ekrany"]
-        HDR["core/components/Header.tsx<br/>menu"]
+        HDR["core/components/Header.tsx<br/>pasek, zakładki, dolna nawigacja"]
         CHP["devices/heat-pump"]
         CWP["devices/water-pressure-tank"]
         CPB["devices/pellet-boiler-pelux200"]
@@ -117,28 +117,25 @@ Dla zwykłych endpointów (spoza `controllerPaths`) kontekst wyznacza wyłączni
 
 ```mermaid
 flowchart TD
-    S["otwarcie aplikacji"] --> L{"w przeglądarce zapamiętany<br/>sterownik (localStorage)?"}
-    L -- nie --> DEV["/devices: wybór sterownika"]
-    DEV --> AUTO{"wejście automatyczne<br/>(ze strażnika)?"}
-    AUTO -- tak --> DEF{"jest domyślny w bazie?"}
-    DEF -- tak --> PICK["wybierz domyślny"]
-    DEF -- nie --> ONE{"jeden sterownik?"}
-    ONE -- tak --> PICK
-    ONE -- nie --> USER["użytkownik klika kafelek"]
-    AUTO -- nie --> USER
-    L -- tak --> SES{"pierwsze otwarcie w tej sesji<br/>(sessionStorage)?"}
-    SES -- tak --> SW["przełącz na domyślny z bazy"]
-    SES -- nie --> KEEP["zostaw wybrany"]
-    SW --> CHK
-    KEEP --> CHK["odśwież dane sterownika z serwera;<br/>jeśli go nie ma — wyczyść wybór"]
-    PICK --> APP["ekrany rodzaju sterownika"]
-    USER --> APP
+    S["otwarcie aplikacji"] --> AUTH{"sesja w przeglądarce<br/>(localStorage chpc.session)?"}
+    AUTH -- nie --> LOGIN["ekran logowania:<br/>e-mail → kod albo link z maila"]
+    LOGIN --> REM["pytanie „Zapamiętać?”:<br/>tak = 14 dni, nie = do zamknięcia przeglądarki"]
+    REM --> FIRST
+    AUTH -- tak --> FIRST{"pierwsze otwarcie w tej sesji<br/>przeglądarki (sessionStorage)?"}
+    FIRST -- tak --> DEV["/devices: lista kafelków"]
+    FIRST -- nie --> SEL{"zapamiętany sterownik<br/>(localStorage)?"}
+    SEL -- nie --> DEV
+    SEL -- tak --> CHK["odśwież dane sterownika z serwera;<br/>jeśli go nie ma — wyczyść wybór"]
+    DEV --> USER["użytkownik klika kafelek"]
+    USER --> APP["ekrany rodzaju sterownika<br/>(pasek, zakładki, dolna nawigacja)"]
     CHK --> APP
+    APP -- "strzałka wstecz albo „Więcej” → Lista sterowników" --> DEV
 ```
 
-- Wybrany sterownik jest w `localStorage` (`chpc.selectedDevice`), więc przetrwa zamknięcie przeglądarki.
-- Przełączenie na sterownik domyślny następuje raz na sesję przeglądarki (`sessionStorage` `chpc.defaultApplied`); ręczna zmiana w stopce obowiązuje do końca sesji.
-- Zapamiętany sterownik, którego nie ma w bazie (np. po przełączeniu z bazy lokalnej na produkcyjną), jest usuwany z pamięci przeglądarki. Błąd sieci niczego nie usuwa.
+- Bez sesji każda ścieżka pokazuje ekran logowania (`AuthGate`); link z maila prowadzi na `/login?token=…`. Nowe konto musi najpierw uzupełnić imię, nazwisko i kraj. Sesja „zapamiętana” trwa 14 dni od zalogowania, niezapamiętana — 24 h od ostatniego użycia (znika po zamknięciu przeglądarki).
+- Nowa sesja przeglądarki zaczyna zawsze od listy kafelków (`sessionStorage` `chpc.startedOnList`); sterownika domyślnego ani automatycznego wyboru nie ma.
+- Wybrany sterownik jest w `localStorage` (`chpc.selectedDevice`), więc przeładowanie strony zostaje na jego ekranach. Zapamiętany sterownik, którego nie ma w bazie (np. po przełączeniu z bazy lokalnej na produkcyjną), jest usuwany z pamięci przeglądarki. Błąd sieci niczego nie usuwa.
+- Sterownik udostępniony przez inne konto ma nad treścią pasek „Udostępnione przez …” i w menu tylko udostępnione zakładki.
 
 ## Menu i ekrany z rejestru
 
@@ -147,9 +144,11 @@ Każdy rodzaj sterownika podaje w swoim pliku `device-type` listę ekranów (śc
 1. tworzy trasy dla wszystkich ścieżek wszystkich rodzajów;
 2. dla wybranej ścieżki pokazuje ekran rodzaju aktywnego sterownika;
 3. jeśli ten rodzaj nie ma takiej ścieżki (np. hydrofor i `/schedules`), przekierowuje na stronę główną;
-4. menu w nagłówku rysuje z ekranów aktywnego rodzaju.
+4. zakładki w pasku rysuje z ekranów aktywnego rodzaju: na komputerze (od 900 px) jako boczne menu po lewej, na telefonie jako dolną nawigację z czterema pierwszymi widokami i „Więcej” (arkusz z resztą widoków i „Listą sterowników”).
 
-Po zmianie sterownika ekran jest tworzony od nowa, więc nie zostają w nim dane poprzedniego sterownika.
+Po zmianie sterownika ekran jest tworzony od nowa, więc nie zostają w nim dane poprzedniego sterownika. Zakładka „Operacje” (dziennik operacji) jest wspólna i rodzaj tylko dodaje ją do swojej listy; strony poza kontekstem sterownika (`/devices`, `/account`, `/firmware/:deviceType`) mają własny pasek bez zakładek.
+
+Wygląd „Instrument” (makiety w `makiety/`, 2026-10-16): wszystkie ekrany są zbudowane z tych samych elementów — karta z nagłówkiem, karta „hero” z dużą wartością i polami KPI na podglądzie, pasek filtrów (nawigacja po dacie ‹ ›, przełącznik segmentowy, przycisk CSV) nad tabelą albo wykresem, kafelki statystyk, lista wpisów harmonogramu z oznaczeniem „działa teraz”, dwie kolumny w Ustawieniach (formularz po lewej, karty „Sterownik” i „Udostępnianie” po prawej), okna dialogowe `.modal`. Kolory pochodzą wyłącznie z tokenów motywu (`theme.css`), więc ten sam układ działa w motywie jasnym i ciemnym.
 
 Serwer ma analogiczny rejestr: każdy rodzaj podaje ustawienia nowego urządzenia i ustawienia odsyłane przy zgłoszeniu (hydrofor: czas kompresora; kocioł pelletowy: `poll_interval_seconds`).
 

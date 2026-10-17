@@ -19,35 +19,43 @@ Moduł pozwala:
 
 ## Ekrany
 
-Zrzuty ekranu pochodzą sprzed wersji 1.3.0, gdy wodę szacowano z objętości zbiorników. Układ widoków jest ten sam, a różnice opisują podpisy.
+Zrzuty pochodzą z lokalnej bazy demonstracyjnej (dwa uruchomienia z 12–13.10.2026 i wygenerowane odczyty wodomierza; wygląd „Instrument”, motyw jasny); dane są przykładowe, stąd nierealny przepływ.
 
 ![Widok główny](img/glowny.png)
 
-*Hydrofor (zrzut sprzed wersji 1.3.0): karta „Ustawienia” z czasem kompresora i przepływem pompy (z czego go policzono albo, bez dwóch odczytów wodomierza, co zrobić) oraz dzisiejsze uruchomienia z kolumnami Kompresor, Pompa (np. „4 min 10 s”; podpowiedź pokazuje odjętą ręczną pracę kompresora) i Woda. Uruchomienie w toku jest wyróżnione kolorem („pracuje”, „…”); widok odświeża się co 5 s. Pod nagłówkiem przełączniki (jak „CO pompa” pompy ciepła) pokazują, czy pracuje pompa wody i kompresor powietrza. Na zrzucie jest jeszcze dawna karta „Zbiorniki”.*
+*Hydrofor: na górze pasek „Offline od …” z przyczyną (sterownik ma zasilanie tylko w czasie pracy pompy). Karta hero „Woda dziś” z liczbą uruchomień, czasem pompy i wodą w tym miesiącu, przełącznikami „Pompa wody” i „Kompresor powietrza” (stan z bieżącego uruchomienia) oraz polami „Czas kompresora” i „Przepływ”. Niżej karta „Dzisiejsze uruchomienia” (kolumny Kompresor, Pompa np. „4 min 10 s” bez ręcznej pracy kompresora, Woda; uruchomienie w toku jest wyróżnione) i karta „Zużycie w tygodniu” ze słupkami na dzień. Uruchomienia odświeżają się co 5 s.*
+
+| Telefon | Ustawienia na telefonie |
+|---|---|
+| ![Widok główny na telefonie](img/glowny-telefon.png) | ![Ustawienia na telefonie](img/ustawienia-telefon.png) |
+
+*Na telefonie (360 px) karty idą jedna pod drugą, a dolna nawigacja pokazuje Hydrofor, Dane, Wykres, Operacje i „Więcej” (Ustawienia, lista sterowników).*
 
 | Dane — uruchomienia pompy | Dane — odczyty wodomierza |
 |---|---|
 | ![Uruchomienia](img/dane-uruchomienia.png) | ![Odczyty wodomierza](img/dane-odczyty-wodomierza.png) |
 
-*Dane: zakładka „Uruchomienia pompy” (tabela z wybranego miesiąca, czas pompy w minutach i sekundach, woda, „Razem: X l, pompa Y”, eksport CSV; „≈” oznacza czas przybliżony, czyli uruchomienie wysłane później, bo zabrakło sieci) i zakładka „Odczyty wodomierza” (dodawanie i usuwanie odczytów, zużycie między odczytami).*
+*Dane: pasek filtrów z przełącznikiem „Uruchomienia pompy” / „Odczyty wodomierza”, nawigacją po miesiącu i CSV. Karta „Uruchomienia w miesiącu” (data, godzina, kompresor, pompa w minutach i sekundach, woda, uwagi; w nagłówku „razem X l · pompa Y · N uruchomień”; „≈” i chip „z kolejki” oznaczają czas przybliżony, czyli uruchomienie wysłane później, bo zabrakło sieci). Karta „Odczyty wodomierza”: formularz (data, stan w m³, uwagi) i lista od najnowszego z przyrostem, czasem pompy i przepływem okresu; kosz usuwa odczyt.*
 
 | Wykres — dzień | Wykres — miesiąc |
 |---|---|
 | ![Dzień](img/wykres-dzien.png) | ![Miesiąc](img/wykres-miesiac.png) |
 
-*Wykres: słupki wody w godzinach, dniach albo miesiącach. Dopóki nie ma przepływu, słupki pokazują czas pracy pompy w minutach, a pod wykresem jest podpowiedź o dwóch odczytach wodomierza.*
+*Wykres: przełącznik Dzień / Miesiąc / Rok z nawigacją po dacie, kafelki woda, pompa, uruchomień i przepływ oraz karta ze słupkami wody w godzinach, dniach albo miesiącach (oś w m³ przy dużych wartościach). Dopóki nie ma przepływu, słupki pokazują czas pracy pompy w minutach, a pod wykresem jest podpowiedź o dwóch odczytach wodomierza.*
 
 ![Rok z wodomierzem](img/wykres-rok-wodomierz.png)
 
-*Wykres roku z włączonym „Pokaż odczyty z wodomierza” (zrzut sprzed wersji 1.3.0): w każdym miesiącu zużycie z wodomierza i woda „z czasu pompy”, a pod wykresem przepływ, którym ją policzono. Dawny sugerowany współczynnik `k` nie istnieje.*
+*Wykres roku z włączonym „Pokaż odczyty z wodomierza”: w każdym miesiącu zużycie z wodomierza obok wody „z czasu pompy”, a pod znacznikiem przepływ, którym ją policzono.*
 
-**Ustawienia** mają kartę „Kompresor” (czas pracy kompresora), kartę „Przepływ pompy” (wartość w l/min i z ilu okresów między odczytami wodomierza ją policzono albo instrukcja, jak ją uzyskać) i kartę „Sterownik” (m.in. wersja firmware i przycisk „Aktualizuj”, gdy jest nowsza wersja).
+![Ustawienia](img/ustawienia.png)
+
+*Ustawienia (dwie kolumny): po lewej karta „Kompresor” (czas pracy kompresora, działa od następnego uruchomienia pompy) i karta „Przepływ pompy” (przepływ, liczba okresów, woda z wodomierza i czas pompy, z których go policzono, albo instrukcja: dwa odczyty wodomierza); po prawej karta „Sterownik” (nazwa, SN, Root ID, adres IP, firmware ze stanem, „Aktualizuj firmware”; ołówek otwiera okno „Dane sterownika”) i karta „Udostępnianie”.*
 
 ## Pierwsze uruchomienie
 
 1. Sterownik po pierwszym starcie sam zgłasza się do chmury i dostaje ustawienie domyślne: kompresor 30 s.
 2. Dodać **odczyty wodomierza** (Dane → Odczyty wodomierza): co najmniej dwa, między którymi pracowała pompa, najlepiej co kilka tygodni. Od drugiego odczytu aplikacja zna przepływ pompy i pokazuje wodę także w uruchomieniach z przeszłości.
-3. Opcjonalnie oznaczyć hydrofor gwiazdką jako sterownik domyślny.
+3. Opcjonalnie udostępnić hydrofor domownikom (Ustawienia → „Udostępnianie”).
 
 Zmiana czasu kompresora w aplikacji dociera do sterownika **przy następnym uruchomieniu pompy** (sterownik ma zasilanie tylko w czasie pracy pompy). Czas kompresora można też zmienić na stronie sterownika `/install`; trafi wtedy do chmury.
 

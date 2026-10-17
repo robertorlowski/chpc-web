@@ -105,7 +105,8 @@ sequenceDiagram
 
 | Screen | Data | Refresh |
 |---|---|---|
-| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (today) | runs every 5 s, the rest on entry |
+| **Hydrofor** | `GET /device/properties`, `GET /water-pressure-tank/flow`, `GET /water-pressure-tank/runs?from=&to=` (today and 7 days for the week bars), `GET /water-pressure-tank/summary?period=month` (month total) | runs every 5 s, the rest on entry |
+| **Operacje** (`/operations`, shared page `core/pages/Operations`) | `GET /operations?date=` (5-day log) | today every 30 s and after WebSocket `update` |
 | **Data → pump runs** | `GET /water-pressure-tank/runs?from=&to=` (month), CSV built in the browser | on month change |
 | **Data → water meter readings** | `GET/POST /water-pressure-tank/meter`, `DELETE /water-pressure-tank/meter/:id` | after a change |
 | **Chart** | `GET /water-pressure-tank/summary?period=day\|month\|year&date=` (water bars, pump time without a flow); year with meter: `GET /water-pressure-tank/meter/summary?year=` | on period change |

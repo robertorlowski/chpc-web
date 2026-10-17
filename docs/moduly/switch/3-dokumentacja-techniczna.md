@@ -22,13 +22,14 @@ Zmiany w `core` dla włącznika: `DeviceType.SWITCH`, `WeekDay` przeniesione do 
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: ikona przełącznika, menu Włącznik, Dane, Harmonogram, Ustawienia (bez wykresu), `firmwareUpdates: true`, `firmwareUpdateHint` |
+| `device-type.tsx` | wpis do rejestru: ikona przełącznika, menu Włącznik, Dane, Harmonogram, Operacje, Ustawienia (bez wykresu), `firmwareUpdates: true`, `firmwareUpdateHint` |
 | `api.ts` | `SwitchRequests` |
 | `types.ts` | `RelayMode`, `SwitchRelay`, `SwitchSchedule`, `SwitchActivation` |
-| `pages/Home.tsx` | karty przekaźników (przełącznik stanu, opis trybu, odliczanie, offline, Włącz / Wyłącz / Harmonogram, czas włączenia), tabela „Dziś”; odświeżanie co 5 s i WebSocket `update` |
-| `pages/Data.tsx` | włączenia z dnia, filtr przekaźnika, „Razem w dniu”, CSV |
-| `pages/Schedules.tsx` | lista wpisów po przekaźnikach, formularz, wpis działający teraz; klasy CSS z harmonogramów pompy (`heat-pump/pages/Schedules/style.css`) |
-| `pages/Settings.tsx` | nazwy przekaźników, domyślny czas włączenia, karta „Sterownik” (`DeviceAddress`, `FirmwareStatus`) |
+| `pages/Home.tsx` | układ „Instrument”: karta na przekaźnik `.card-relay` (przełącznik stanu, opis trybu, pasek Offline, odliczanie albo następny start, Włącz / Wyłącz / Harmonogram, czas włączenia h / min), karta „Dziś”; odświeżanie co 5 s i WebSocket `update` |
+| `pages/Data.tsx` | pasek filtrów (dzień strzałkami albo z kalendarza, przyciski przekaźników, CSV) i karta „Włączenia w dniu” (`components/ActivationsTable.tsx`) |
+| `pages/Schedules.tsx` | karta na przekaźnik z chipem trybu i listą wpisów `.entries` („działa teraz”, wpisy nieaktywne wyszarzone), okno wpisu `.modal` |
+| `pages/Settings.tsx` | dwie kolumny: karty „Przekaźniki” i „Czas włączenia”, po prawej karta „Sterownik” (`ControllerCard` z `core`) i „Udostępnianie” (`DeviceSharing`) |
+| `components/ActivationsTable.tsx`, `components/icons.tsx` | tabela włączeń (widok główny i Dane), ikony włącznika |
 | `pages/style.css` | style widoków włącznika |
 | `utils/format.ts` | czasy w Warszawie, opis trybu (`describeMode`), odliczanie, czas w dniu dla włączeń przez północ (`secondsInDay`), CSV |
 

@@ -18,14 +18,15 @@
 
 | Plik | Rola |
 |---|---|
-| `device-type.tsx` | wpis do rejestru: Hydrofor, Dane, Wykres, Ustawienia (bez harmonogramów) |
+| `device-type.tsx` | wpis do rejestru: Hydrofor, Dane, Wykres, Operacje, Ustawienia (bez harmonogramów) |
 | `api.ts` | `WaterPressureTankRequests` |
 | `types.ts` | uruchomienia, przepływ (`WaterFlow`), podsumowania, wodomierz |
-| `pages/Home.tsx` | przełączniki pompy i kompresora, czas kompresora i przepływ, dzisiejsze uruchomienia (co 5 s) |
-| `pages/Data.tsx` | zakładki: uruchomienia z miesiąca (CSV) i odczyty wodomierza |
-| `pages/Chart.tsx` | wykres dnia / miesiąca / roku (bez przepływu słupki czasu pompy), rok z wodomierzem i przepływem |
-| `pages/Settings.tsx` | czas kompresora, przepływ pompy, dane sterownika |
-| `components/FlowDetails.tsx` | przepływ w l/min i z czego go policzono albo instrukcja (dwa odczyty wodomierza); na widoku głównym i w Ustawieniach |
+| `pages/Home.tsx` | układ „Instrument”: pasek Offline, hero „Woda dziś” z przełącznikami pompy i kompresora oraz KPI czasu kompresora i przepływu, karta dzisiejszych uruchomień (co 5 s) i słupki zużycia z 7 dni |
+| `pages/Data.tsx` | pasek filtrów (przełącznik uruchomienia / odczyty wodomierza, miesiąc, CSV), karta uruchomień („≈”, chip „z kolejki”) albo karta odczytów wodomierza (formularz i lista) |
+| `pages/Chart.tsx` | pasek filtrów (Dzień / Miesiąc / Rok, data), kafelki statystyk, słupki wody (bez przepływu czasu pompy), rok z wodomierzem i przepływem |
+| `pages/Settings.tsx` | dwie kolumny: karty „Kompresor” i „Przepływ pompy” (`FlowDetails`), po prawej karta „Sterownik” (`ControllerCard` z `core`) i „Udostępnianie” (`DeviceSharing`) |
+| `components/FlowDetails.tsx` | przepływ w l/min i z czego go policzono albo instrukcja (dwa odczyty wodomierza); w Ustawieniach |
+| `components/DateNav.tsx`, `DurationValue.tsx`, `TankIcons.tsx` | nawigacja po dacie (`.date-nav`), czas pompy jako „4 min 10 s” z jednostkami, ikony hydroforu |
 | `pages/style.css` | style widoków hydroforu |
 | `utils/water.ts` | formaty (litry, czas pompy jako „4 min 10 s”), daty w Warszawie, sumy, CSV |
 

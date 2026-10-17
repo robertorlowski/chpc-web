@@ -19,35 +19,43 @@ The module lets the user:
 
 ## Screens
 
-The user interface is in Polish; the screenshots show it as is. They were taken before version 1.3.0, when water was estimated from tank volumes. The layout of the views is the same; the captions describe the differences.
+The user interface is in Polish; the screenshots show it as is. They come from the local demo database (two runs from 12–13.10.2026 and generated water meter readings; the "Instrument" look, light theme); the data is sample data, hence the unrealistic flow.
 
 ![Main view](../../../moduly/water-pressure-tank/img/glowny.png)
 
-*Hydrofor (screenshot from before 1.3.0): the "Ustawienia" card with the compressor time and the pump flow (what it was computed from or, without two water meter readings, what to do) and today's runs with the columns Kompresor, Pompa (e.g. "4 min 10 s"; the tooltip shows the subtracted manual compressor time) and Woda. A run in progress is highlighted ("pracuje", "…"); the view refreshes every 5 s. Below the heading, switch icons (like "CO pompa" of the heat pump) show whether the water pump and the air compressor are running. The screenshot still shows the former "Zbiorniki" card.*
+*Hydrofor: at the top the "Offline od …" banner with the reason (the controller is powered only while the pump runs). The "Woda dziś" (water today) hero card with the number of runs, pump time and this month's water, the "Pompa wody" and "Kompresor powietrza" switches (state from the current run) and the "Czas kompresora" and "Przepływ" fields. Below, the "Dzisiejsze uruchomienia" card (today's runs: columns Kompresor, Pompa e.g. "4 min 10 s" without manual compressor time, Woda; a run in progress is highlighted) and the "Zużycie w tygodniu" card with bars per day. Runs refresh every 5 s.*
+
+| Phone | Settings on a phone |
+|---|---|
+| ![Main view on a phone](../../../moduly/water-pressure-tank/img/glowny-telefon.png) | ![Settings on a phone](../../../moduly/water-pressure-tank/img/ustawienia-telefon.png) |
+
+*On a phone (360 px) the cards stack, and the bottom navigation shows Hydrofor, Dane, Wykres, Operacje and "Więcej" (Ustawienia, controller list).*
 
 | Data — pump runs | Data — water meter readings |
 |---|---|
 | ![Runs](../../../moduly/water-pressure-tank/img/dane-uruchomienia.png) | ![Meter readings](../../../moduly/water-pressure-tank/img/dane-odczyty-wodomierza.png) |
 
-*Data: the "Uruchomienia pompy" tab (runs of the selected month, pump time in minutes and seconds, water, "Razem: X l, pompa Y", CSV export; "≈" marks an approximate time, i.e. a run sent later because the network was missing) and the "Odczyty wodomierza" tab (adding and deleting readings, consumption between readings).*
+*Data: the filter bar with the "Uruchomienia pompy" / "Odczyty wodomierza" switch, month navigation and CSV. The "Uruchomienia w miesiącu" card (date, time, compressor, pump in minutes and seconds, water, notes; the header says "razem X l · pompa Y · N uruchomień"; "≈" and the "z kolejki" (from the queue) chip mark an approximate time, i.e. a run sent later because the network was missing). The "Odczyty wodomierza" card: a form (date, reading in m³, notes) and a list, newest first, with the increase, pump time and the period's flow; the bin deletes a reading.*
 
 | Chart — day | Chart — month |
 |---|---|
 | ![Day](../../../moduly/water-pressure-tank/img/wykres-dzien.png) | ![Month](../../../moduly/water-pressure-tank/img/wykres-miesiac.png) |
 
-*Chart: water bars per hour, day or month. Until the flow is known, the bars show the pump run time in minutes, with a hint about two water meter readings below the chart.*
+*Chart: the Dzień / Miesiąc / Rok switch with date navigation, the tiles water, pump, runs and flow, and a card with water bars per hour, day or month (axis in m³ for large values). Until the flow is known, the bars show the pump run time in minutes, with a hint about two water meter readings below the chart.*
 
 ![Year with the water meter](../../../moduly/water-pressure-tank/img/wykres-rok-wodomierz.png)
 
-*The year chart with "Pokaż odczyty z wodomierza" on (screenshot from before 1.3.0): water meter consumption and water "z czasu pompy" (from pump time) for each month, and below the chart the flow used to compute it. The former suggested `k` factor no longer exists.*
+*The year chart with "Pokaż odczyty z wodomierza" on: water meter consumption next to water "z czasu pompy" (from pump time) for each month, and under the checkbox the flow used to compute it.*
 
-**Settings** has the "Kompresor" card (compressor run time), the "Przepływ pompy" card (the flow in l/min and how many periods between water meter readings it was computed from, or instructions on how to get it) and the "Sterownik" card (among others the firmware version and the "Aktualizuj" (update) button when a newer version exists).
+![Settings](../../../moduly/water-pressure-tank/img/ustawienia.png)
+
+*Settings (two columns): on the left the "Kompresor" card (compressor run time, effective from the next pump run) and the "Przepływ pompy" card (the flow, the number of periods, water meter water and pump time it was computed from, or instructions: two water meter readings); on the right the "Sterownik" card (name, SN, Root ID, IP address, firmware with state, "Aktualizuj firmware"; the pencil opens the "Dane sterownika" dialog) and the "Udostępnianie" (sharing) card.*
 
 ## First start
 
 1. After its first start the controller registers with the cloud by itself and receives the default setting: compressor 30 s.
 2. Add **water meter readings** (Dane → Odczyty wodomierza): at least two with pump runs between them, ideally every few weeks. From the second reading on the application knows the pump flow and shows water also for past runs.
-3. Optionally mark the tank with the star as the default controller.
+3. Optionally share the tank with household members (Settings → "Udostępnianie").
 
 A compressor time change in the application reaches the controller **at the next pump run** (the controller is powered only while the pump runs). The compressor time can also be changed on the controller's `/install` page; it is then sent to the cloud.
 

@@ -31,22 +31,37 @@
 
 | File | Role |
 |---|---|
-| `index.tsx` | entry point: `DeviceProvider` + `App` |
-| `style.css` | global styles (layout, header, footer, phone rules `@media (max-width: 560px)`) |
-| `core/App.tsx` | routing, `DeviceGuard` (forces a controller choice, switches to the default one), `DeviceRoute`, footer |
-| `core/device-types.tsx` | registry: `DeviceType` → `DeviceTypeView` (tile icon, menu screens, extra routes) |
-| `core/types.ts` | `DeviceType`, `WeekDay`, `Device`, `DeviceProperties`, `DeviceView`, `DeviceTypeView` |
-| `core/http.ts` | API and WebSocket addresses, requests with the selected controller's `rootId` and `deviceId` |
-| `core/api.ts` | `DeviceRequests`: list, name, default, `properties`, firmware update request and cancellation |
+| `index.tsx` | entry point: applies the theme (`core/theme.ts`), `DeviceProvider` + `App` |
+| `theme.css` | colour tokens of the "Instrument" look: `--bg`, `--card`, `--fg*`, `--line*`, `--accent`, states `--ok-*` / `--warn-*` / `--err-*` / `--run-*`, kind colours `--c-heat`, `--c-water`, `--c-sun`, `--c-switch`, `--c-fire`, `--c-sky`, chart series `--ch-1…4`; the light theme under `:root`, the dark one under `prefers-color-scheme: dark` (without an explicit choice) and `[data-theme="dark"]` |
+| `style.css` | global styles: the `header.app-header` bar, the `nav.app-tabs` side menu (from 900 px, `.app-container.has-side`, the `--page-vw` variable), the `nav.bottom-nav` bottom navigation and the "Więcej" sheet, cards, buttons, fields, phone rules |
+| `makieta.css` | shared components carried over from the mock-up (`makiety/src/makieta.css`): `.card`, `.hero`, `.kpi`, `.filters`, `.date-nav`, `.segmented`, `.switch`, `.chip`, `.entries`, `.kv`, `.timeline`, `.tile*`, `.modal`, `.banner`; loaded after `style.css` |
+| `core/theme.ts` | light / dark / as-system theme: the choice in `localStorage` `chpc.theme`, `data-theme` on `<html>`, light without a choice (since 2026-10-17); `useTheme`, `setTheme` |
+| `core/chartColors.ts` | Recharts chart colours from the tokens (`cc()`), because SVG does not accept `var()` |
+| `core/App.tsx` | routing, `AuthGate` (login, completing a new account's data, the "Zapamiętać?" question), `DeviceGuard` (no controller → `/devices`; a new browser session starts from the list), `DeviceRoute` (tabs of a shared controller), bars of pages without tabs (`/devices`, `/account`, `/firmware`), `BottomNav` on a phone; the "Aktywne urządzenie" footer is gone since 2026-10-16 |
+| `core/device-types.tsx` | registry: `DeviceType` → `DeviceTypeView` (tile icon, kind name, menu screens, extra routes, "Dane sterownika" dialog fields) |
+| `core/types.ts` | `DeviceType`, `WeekDay`, `Device` (with the sharing fields `access`, `tabs`, `owner`), `DeviceProperties`, `DeviceView`, `DeviceTypeView`, `DeviceTile` (tile data) |
+| `core/http.ts` | API and WebSocket addresses, requests with the selected controller's `rootId` and `deviceId` and the session header |
+| `core/api.ts` | `DeviceRequests`: list, tile summaries (`/devices/summary`), name, hiding, layout (`setDevicesOrder` with `null` in empty fields), tile template, `properties`, firmware update request and cancellation; `WeatherTileRequests`: weather tiles; `AuthRequests`: login, session, account |
 | `core/context/DeviceContext.tsx` | selected controller (state + `localStorage` `chpc.selectedDevice`), `deviceLabel` |
-| `core/components/Header.tsx` | menu from the registry |
-| `core/components/DeviceEditModal.tsx` | "Dane sterownika" popup (rename) |
+| `core/context/AuthContext.tsx` | the user session (`localStorage` `chpc.session`), login by code or link, "Zapamiętaj" (14 days), logout |
+| `core/components/Header.tsx` | the controller bar: back arrow, name, Online / Offline and "pracuje" (running) chips (from the tile memory `chpc.deviceTiles.<account id>`), kind description (`deviceSubText`), tabs from the registry (`nav.app-tabs`), `UserMenu`; `BottomNav`: first 4 views + "Więcej" |
+| `core/components/UserMenu.tsx`, `ThemeToggle.tsx` | the theme icon (moon / sun: light ↔ dark; also on the login screen) and the account avatar with a menu: name and e-mail, "Moje dane", theme Jasny / Ciemny / Jak system, "Wyloguj", "Usuń konto" |
+| `core/pages/Login/` | the login screen (`.auth-card`): e-mail → code (6 digits, 10 min) or a link from the mail; "system" shows the system user's password field |
+| `core/pages/Account/`, `components/ProfileForm.tsx`, `RememberDialog.tsx`, `account.css` | `/account` "Moje dane": the cards "Moje dane" (e-mail changed via a code, first and last name, address, country, location on a map), "Sesja" and "Usunięcie konta" (`.card-danger`, confirmation by a link from the mail); the "Zapamiętać?" dialog |
+| `core/pages/Operations/` | the `/operations` tab (heat pump, tank, switch, boiler): the day's operations log (`GET /operations?date=`, 5 days), the filter Wszystkie / Użytkownik / System, the "Zaplanowane" (scheduled) card (today) and the `.timeline` with a state chip; today refreshed every 30 s and after WebSocket `update` |
+| `core/components/DeviceEditModal.tsx` | the "Dane sterownika" dialog (`.modal`): name, kind, SN and Root ID read-only, kind fields from the registry (`DefinitionFields`, e.g. the heat pump configuration); from the tile and from the "Sterownik" card |
+| `core/components/ControllerCard.tsx`, `ControllerCardTitle.tsx`, `DeviceAddress.tsx` | the "Sterownik" card in the Settings of every kind: pencil (the "Dane sterownika" dialog), the `.kv` list: Nazwa, SN, Root ID (shortened, "kopiuj"), Adres IP (link to the controller pages), Firmware with a state chip, Ostatnie zgłoszenie, the "Aktualizuj firmware" button |
+| `core/components/FirmwareStatus.tsx` | the "Firmware" and "Ostatnie zgłoszenie" rows and the "Aktualizuj firmware" / "Anuluj aktualizację" button (with confirmation) of the "Sterownik" card; state "aktualny" (up to date) / "dostępna wersja X" (version X available) / "zlecona, czeka na sterownik" (requested, waiting for the controller), the kind's hint (`firmwareUpdateHint`); refreshed every 15 s while a request is pending |
+| `core/components/DeviceSharing.tsx` | the "Udostępnianie" card in Settings: the list of people with tabs, the "Udostępnij sterownik" dialog (e-mail, tabs of the kind), changing tabs and revoking access; owner and system user only |
+| `core/components/OfflineBanner.tsx` | the red "Offline od …" banner with the reason at the top of a controller screen (`.banner.banner-off`) |
 | `core/components/Notification.tsx` | short message at the top of the screen |
-| `core/components/icons.tsx` | shared menu icons (Data, Chart, Settings) and action icons (add, delete, restore, back, edit) |
-| `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only in the accent colour, a danger variant for deletion, label as tooltip and aria-label); used in the pump Schedules and the firmware page |
-| `core/pages/Devices/` | controller choice screen: tiles, default star, pencil; firmware cog in the corner of tiles of kinds with `firmwareUpdates` |
-| `core/pages/Firmware/` | `/firmware/:deviceType`: current version with description, previous versions (restore, delete), adding a version with a description in a popup (plus icon on the bar), the "Aktualizacje włączone/wyłączone" (updates on/off) switch (off: "Aktualizuj" unavailable, requests not delivered); outside the device context |
-| `core/components/FirmwareStatus.tsx` | "Sterownik" card in the Settings of the tank, switch and boiler: firmware version, state ("aktualny" up to date / "dostępna wersja X" version X available / "zlecona do wersji X (time), czeka na sterownik" requested, waiting for the controller), report time, "Aktualizuj" (update, with confirmation) or "Anuluj aktualizację" (cancel update) button and the kind's hint (`firmwareUpdateHint`); refreshed every 15 s while a request is pending |
+| `core/components/icons.tsx`, `pictograms.tsx`, `WeatherIcon.tsx` | shared menu and action icons, kind pictograms, sky icons |
+| `core/components/IconButton.tsx`, `iconButton.css` | icon button template (icon only, a danger variant for deletion, label as tooltip and aria-label) |
+| `core/components/InfoTip.tsx` | an "i" icon with a tooltip |
+| `core/pages/Devices/`, `components/DeviceTileCard.tsx` | the controller list `/devices`: the home weather strip (`.outdoor-strip`), the `.tiles` checkerboard in the fixed mock-up layout (`DeviceTileCard`: header with the kind icon, name, chip and tools, big value, running state, fact fields, warning, switch relays, the "dane sprzed …" footer; `WeatherTileCard` for weather), an auto-fill grid ≥ 300 px (1–4 columns), the "Zmień układ" mode (grid icon in the bar: arrows, eye, "+ kafelek pogody", "Gotowe", an empty row pushes the rest to the bottom of the screen), the status bar with database usage (`/devices/db-stats`, system user); tile data from `GET /devices/summary`, refreshed after WebSocket `update` and periodically |
+| `core/pages/TileDesigner/`, `components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | **unused in the interface since 2026-10-17**: the tile designer `/tile-designer` and the tile drawn from the `tile_template` template; the "Projekt kafelka" button is hidden and the list draws tiles in the fixed layout (`DeviceTileCard`); the code and the route stay |
+| `core/components/WeatherTileModal.tsx`, `LocationPicker.tsx` | the "Kafelek pogody" dialog (`.modal`): town search (Open-Meteo geocoder from the browser), coordinates, deletion; location choice on a map (account) |
+| `core/pages/Firmware/` | `/firmware/:deviceType` (cog on the tile, system user): the cards "Aktualna wersja" (description, date, size, SHA-256, the "Aktualizacje" switch; the plus opens the "Dodaj wersję" card), "Sterowniki tego rodzaju" (version from the last report, state chip) and "Poprzednie wersje" (restore, delete); outside the device context |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API
@@ -95,7 +110,7 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `deviceType` | `heat_pump` \| `water-pressure-tank` \| `pellet-boiler-pelux200` \| `switch` | controller kind (role) |
 | `deviceId` | string | controller SN (ESP32 MAC, 12 hex characters); devices of different kinds may share an SN (roles of one controller), no unique index |
 | `name` | string | user-given name, empty by default |
-| `isDefault` | boolean | default controller, at most one |
+| `isDefault` | boolean | default controller, at most one; unused by the client since 2026-10-17 (the application starts from the tile list, there is no star on the tile) |
 | `firmwareVersion`, `firmwareSeenAt` | string, Date | firmware version from the registration `version` field and its time; older controllers do not send them |
 | `firmwareUpdate` | `{version, requestedAt}` | update request from the application ("Aktualizuj"); only with it does the controller get the firmware offer; removed when the controller reports the offered version, or by "Anuluj aktualizację" |
 | `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
@@ -127,8 +142,10 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
 {
   type: DeviceType;
   tileIcon: ReactNode;                                    // tile icon on the list
+  label?: string;                                         // kind name in headers (e.g. the firmware page)
   views: { path, label, icon, element }[];                // screens in menu order; '/' = home page
   extraRoutes?: { path, element }[];                      // routes outside the menu (e.g. the heat pump's /hp)
+  DefinitionFields?: ComponentType;                       // extra fields of the "Dane sterownika" dialog (e.g. the pump configuration)
   firmwareUpdates?: boolean;                              // firmware cog on the tile, "Sterownik" card with "Aktualizuj"
   firmwareUpdateHint?: string;                            // when the controller downloads the firmware (hint in the "Sterownik" card)
 }
@@ -170,12 +187,13 @@ node scripts/seed-local.mjs      # clears the local database and loads demo data
 - `server/test/water-pressure-tank.test.ts` — among others tank registration with settings, default controller, context 404/409.
 - `server/test/pellet-boiler-pelux200.test.ts` — among others two roles of the same SN (two `rootId`s, routing by endpoint kind, 409 for a `rootId` of the other role), boiler registration with `settings`, `poll_interval_seconds` validation in `PUT /device/properties`.
 - The heat pump's `pv.test.ts` and `scheduler.test.ts` live in the same `server/test/` folder; the server has 81 tests in total.
-- The client has no unit tests; the checks are `tsc` and `vite build`.
+- The client has no unit tests; the checks are `tsc` and `vite build`, plus the layout test `node test/e2e/run-layout.mjs` (Playwright Chromium; all kinds × views × 360 / 768 / 1280 px × dark / light theme: horizontal scrolling, elements outside the window, console errors, the bar, side menu / bottom navigation).
 
 ```bash
 npx tsc -p server/tsconfig.tests.json --noEmit
 npm test -w server -- --run
 npm run build -w client
+node test/e2e/run-layout.mjs
 ```
 
 ## Deployment
@@ -193,5 +211,6 @@ The server and the client are deployed together from the `main` branch to Render
 - **A new heat pump gets no `properties`** on registration (the pump's `initialProperties` is empty); the `CWU` mode comes from a fallback in the scheduler.
 - **The WebSocket** accepts a connection on any path and does not check that `rootId` exists; a message reaches every connection of that `rootId` (browsers also get `operation`, `co` gets `update`).
 - **Client error handling (`core/http.ts`)**: `get` returns `null`, `post` swallows the error (with `json = false` it returns the `Response`), `put` and `delete` throw — so screens show save errors differently.
-- **Page styles end up in one CSS bundle** — unprefixed rules (e.g. `button`, `img`, `span.label` in `devices/heat-pump/pages/Settings/style.css`) apply to the whole application.
+- **Page styles end up in one CSS bundle** — unprefixed rules in the kinds' `pages/style.css` apply to the whole application; the shared components are in `makieta.css`, and colours come only from the `theme.css` tokens.
+- **The tile designer** (`/tile-designer`, the `tile_template` template, `TemplateTile`) stays in the code, but the list does not use it and the button is hidden (2026-10-17).
 - `mock-response.ts` and `_404.tsx` are unused.

@@ -12,9 +12,8 @@ Moduł pozwala:
 
 - **zobaczyć bieżący stan kotła** — także z telefonu, bez podchodzenia do panelu;
 - **przejrzeć odczyty z wybranego dnia** i pobrać je jako plik CSV;
-- **ustawić, jak często sterownik odczytuje kocioł** (od pół minuty do godziny; domyślnie co 5 minut).
-
-**Moduł tylko pokazuje dane.** Nie steruje kotłem, nie ma harmonogramów ani wykresów.
+- **ustawić, jak często sterownik odczytuje kocioł** (od pół minuty do godziny; domyślnie co 5 minut);
+- w aplikacji są też zakładki Wykres (temperatury dnia, spalony pellet), Harmonogram (sezon i CWU w oknach godzin), Alarmy i Operacje oraz zmiana parametrów regulatora z Ustawień — opis w [CLAUDE.md](../../../CLAUDE.md), punkt 5c; niniejsza dokumentacja opisuje etap odczytu i wygląd ekranów.
 
 ## Stan wdrożenia
 
@@ -30,29 +29,37 @@ Sterownik pieca (płytka, strony, wgrywanie): [devices/pellet-boiler-pelux200/RE
 
 ## Ekrany
 
-Zrzuty pokazują **przykładowe dane**: odpowiedzi API zostały podstawione w przeglądarce, nie pochodzą z prawdziwego kotła.
+Zrzuty pochodzą z lokalnej bazy demonstracyjnej z odczytami z 12–13.10.2026 (wygląd „Instrument”, motyw jasny); sterownik był wtedy offline, stąd pasek „Offline od …”. Menu kotła ma siedem zakładek: Kocioł, Dane, Wykres, Harmonogram, Alarmy, Operacje, Ustawienia.
 
 ![Widok Kocioł](img/piec-kociol.png)
 
-*Kocioł: stan pracy w tytule (alarm na czerwono), temperatury, wartości zadane, praca kotła (paliwo, wentylator, obciążenie, moc, zużycie paliwa) i wyjścia. Widok odświeża się co 30 s; gdy ostatni odczyt jest starszy niż trzy interwały odpytywania, pod czasem odczytu pojawia się „Dane nieaktualne”. Brak wartości to `---`. Dane są przykładowe.*
+*Kocioł: karta hero z temperaturą kotła, zadaną i histerezą, stanem pracy (chip, przy paleniu z płomieniem), chipami sezonu (Zima / Lato) i trybu pracy (pompa ciepła / pellet) oraz polami moc, obciążenie, paliwo i spaliny. Niżej karty obiegów CWU, Mieszacz 1 (CO) i Mieszacz 2 (temperatura, zadana, chip pompy, ruch zaworu), karta „Urządzenia kotła” (przełączniki tylko do odczytu: wentylator z mocą, podajnik, pompy CO, CWU i cyrkulacji, zapalarka) i „Pozostałe” (temperatura zewnętrzna i pokojowa, termostat, czyszczenie, spalony pellet, ostatni odczyt). Widok odświeża się co 30 s; gdy ostatni odczyt jest starszy niż trzy interwały odpytywania, na górze jest pasek „Offline od …”. Brak wartości to `---`.*
 
 ![Widok Kocioł na telefonie](img/piec-kociol-telefon.png)
 
-*Ten sam widok na telefonie (360 px): karty sięgają krawędzi ekranu, a menu ma same ikony. Dane są przykładowe.*
+*Ten sam widok na telefonie (360 px): karty jedna pod drugą, dolna nawigacja Kocioł, Dane, Wykres, Harmonogram i „Więcej” (Alarmy, Operacje, Ustawienia, lista sterowników).*
 
 ![Widok Dane](img/piec-dane.png)
 
-*Dane: odczyty z wybranego dnia, od najnowszego (jeden wiersz na odczyt, przy domyślnym interwale co 5 minut), z eksportem CSV. Tabela ma 12 kolumn i przewija się poziomo we własnym kontenerze. Dane są przykładowe.*
+*Dane: pasek filtrów (dzień strzałkami ‹ › albo z kalendarza, „Wszystkie parametry” — domyślnie główne kolumny, CSV zawsze pełny) i karta „Odczyty dnia” z liczbą odczytów; wiersze od najnowszego. Tabela przewija się w obu kierunkach we własnym kontenerze z przyklejonym nagłówkiem.*
+
+![Widok Wykres](img/piec-wykres.png)
+
+*Wykres: przełącznik Temperatury / Spalony pellet, nawigacja po dniach, chipy serii (kocioł, CWU, CO = mieszacz 1, mieszacz 2, zewnętrzna) i karta „Temperatury kotła” z legendą; okresy palenia są podświetlone pasem na wykresie.*
+
+![Widok Harmonogram](img/piec-harmonogram.png)
+
+*Harmonogram: karta „Harmonogram” (czy działa, która lista trybu działa, temperatura na zewnątrz, stan teraz, ostatni błąd) i dla każdego trybu karty „Tryb Zima · …” i „CWU · …” z wpisami (dzień, godziny, ustawienie; „działa teraz” przy wpisie albo pozycji „Poza harmonogramem”), ołówkiem, koszem i „+ Dodaj wpis”.*
 
 ![Widok Ustawienia](img/piec-ustawienia.png)
 
-*Ustawienia: „Odpytywanie pieca [min]” (0,5–60 min) i sekcja „Sterownik” z nazwą, identyfikatorem i Root ID. Dane są przykładowe.*
+*Ustawienia (dwie kolumny): po lewej karty „Tryb pracy” (Pompa ciepła / Pellet, Zima / Lato), „Główne parametry” (regulator włączony / wyłączony, parametry kotła, CWU i mieszaczy z ołówkiem) i „Ostatnie zmiany” ze statusem; po prawej karta „Odczyt” („Interwał odpytywania pieca” w sekundach, 30–3600), zwinięta karta „Ustawienia zaawansowane”, karta „Sterownik” (nazwa, SN, Root ID, adres IP, firmware ze stanem, „Aktualizuj firmware”) i „Udostępnianie”.*
 
 ## Pierwsze uruchomienie
 
 1. Podłączyć sterownik pieca do regulatora kotła według [opisu podłączenia](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) i ustawić mu Wi-Fi (punkt dostępowy `Piec-setup`, strona `/install`; [README sterownika](../../../devices/pellet-boiler-pelux200/README.md)).
 2. Po połączeniu z Wi-Fi sterownik sam zgłasza się do chmury jako „Piec Pellux 200”. Kocioł pojawia się na liście urządzeń; dane pojawią się, gdy sterownik odbierze z kotła poprawne ramki.
-3. Wybrać kocioł na liście, opcjonalnie zmienić mu nazwę (ołówek na kafelku) albo oznaczyć gwiazdką jako domyślny.
+3. Wybrać kocioł na liście, opcjonalnie zmienić mu nazwę (ołówek na kafelku).
 4. W Ustawieniach zmienić odstęp odpytywania, jeśli 5 minut nie odpowiada.
 
 Sterownik zgłasza się także bez podłączonego kotła (wtedy kocioł jest na liście, ale bez odczytów). Diagnostykę magistrali (bajty, ramki, polaryzacja) pokazuje strona `/` sterownika.
@@ -60,11 +67,9 @@ Sterownik zgłasza się także bez podłączonego kotła (wtedy kocioł jest na 
 ## Ograniczenia
 
 - **Dane niepotwierdzone na kotle** (punkt „Stan wdrożenia”).
-- **Tylko podgląd.** Aplikacja niczego w kotle nie zmienia.
 - **Odczyt co kilka minut**, nie na żywo: sterownik wysyła ostatni odebrany odczyt co ustawiony interwał (domyślnie 300 s). Zmiana interwału w aplikacji działa od następnej wysyłki.
 - **Sterownik wysyła dane tylko, gdy ostatnia ramka z kotła ma mniej niż 60 s.** Przy braku ramek kocioł w aplikacji zostaje z ostatnim odczytem i po trzech interwałach dostaje znacznik „Dane nieaktualne”.
 - **Niektóre pola kontraktu nie są jeszcze wypełniane.** Poziom tlenu w spalinach (`lambda_level`) jest w kontrakcie i w widoku, ale sterownik go nie odczytuje — w aplikacji pokazuje `---`. Widok Kocioł pokazuje też wartości „Status CO” i „Status CWU”, których znaczenie nie jest udokumentowane.
-- **Brak wykresów i agregatów.** Historia to lista odczytów z jednego dnia.
 - Restart serwera czyści tylko pamięć podręczną ostatniego odczytu; historia jest w bazie.
 
 ## Słownik

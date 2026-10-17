@@ -18,14 +18,15 @@
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: Hydrofor, Data, Chart, Settings (no schedules) |
+| `device-type.tsx` | registry entry: Hydrofor, Dane, Wykres, Operacje, Ustawienia (no schedules) |
 | `api.ts` | `WaterPressureTankRequests` |
 | `types.ts` | runs, flow (`WaterFlow`), summaries, water meter |
-| `pages/Home.tsx` | pump and compressor switches, compressor time and flow, today's runs (every 5 s) |
-| `pages/Data.tsx` | tabs: runs of a month (CSV) and water meter readings |
-| `pages/Chart.tsx` | day / month / year chart (pump time bars without a flow), year with the water meter and the flow |
-| `pages/Settings.tsx` | compressor time, pump flow, controller data |
-| `components/FlowDetails.tsx` | the flow in l/min and what it was computed from, or instructions (two water meter readings); on the main view and in Settings |
+| `pages/Home.tsx` | "Instrument" layout: Offline banner, the "Woda dziś" hero with pump and compressor switches and compressor time / flow KPIs, today's runs card (every 5 s) and 7-day consumption bars |
+| `pages/Data.tsx` | filter bar (runs / water meter readings switch, month, CSV), the runs card ("≈", "z kolejki" chip) or the water meter readings card (form and list) |
+| `pages/Chart.tsx` | filter bar (Dzień / Miesiąc / Rok, date), stat tiles, water bars (pump time bars without a flow), year with the water meter and the flow |
+| `pages/Settings.tsx` | two columns: the "Kompresor" and "Przepływ pompy" (`FlowDetails`) cards, on the right the "Sterownik" card (`ControllerCard` from `core`) and "Udostępnianie" (`DeviceSharing`) |
+| `components/FlowDetails.tsx` | the flow in l/min and what it was computed from, or instructions (two water meter readings); in Settings |
+| `components/DateNav.tsx`, `DurationValue.tsx`, `TankIcons.tsx` | date navigation (`.date-nav`), pump time as "4 min 10 s" with units, tank icons |
 | `pages/style.css` | tank screen styles |
 | `utils/water.ts` | formats (litres, pump time as "4 min 10 s"), Warsaw dates, totals, CSV |
 

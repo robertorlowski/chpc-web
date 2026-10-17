@@ -32,9 +32,9 @@ flowchart TB
         HPM --> MET
     end
     subgraph Client["Client (client/src)"]
-        CAPP["core/App.tsx<br/>DeviceGuard, routes, footer"]
+        CAPP["core/App.tsx<br/>AuthGate, DeviceGuard, routes"]
         CREG["core/device-types.tsx<br/>registry: menu and screens"]
-        HDR["core/components/Header.tsx<br/>menu"]
+        HDR["core/components/Header.tsx<br/>bar, tabs, bottom navigation"]
         CHP["devices/heat-pump"]
         CWP["devices/water-pressure-tank"]
         CPB["devices/pellet-boiler-pelux200"]
@@ -117,28 +117,25 @@ For ordinary endpoints (outside `controllerPaths`) the context is determined by 
 
 ```mermaid
 flowchart TD
-    S["application opened"] --> L{"controller remembered<br/>in the browser (localStorage)?"}
-    L -- no --> DEV["/devices: choose a controller"]
-    DEV --> AUTO{"automatic entry<br/>(from the guard)?"}
-    AUTO -- yes --> DEF{"default controller in the database?"}
-    DEF -- yes --> PICK["select the default one"]
-    DEF -- no --> ONE{"only one controller?"}
-    ONE -- yes --> PICK
-    ONE -- no --> USER["the user clicks a tile"]
-    AUTO -- no --> USER
-    L -- yes --> SES{"first opening in this session<br/>(sessionStorage)?"}
-    SES -- yes --> SW["switch to the default one from the database"]
-    SES -- no --> KEEP["keep the selected one"]
-    SW --> CHK
-    KEEP --> CHK["refresh the controller data from the server;<br/>if it no longer exists — clear the selection"]
-    PICK --> APP["screens of the controller kind"]
-    USER --> APP
+    S["application opened"] --> AUTH{"session in the browser<br/>(localStorage chpc.session)?"}
+    AUTH -- no --> LOGIN["login screen:<br/>e-mail → code or link from the mail"]
+    LOGIN --> REM["question „Zapamiętać?”:<br/>yes = 14 days, no = until the browser is closed"]
+    REM --> FIRST
+    AUTH -- yes --> FIRST{"first opening in this<br/>browser session (sessionStorage)?"}
+    FIRST -- yes --> DEV["/devices: tile list"]
+    FIRST -- no --> SEL{"controller remembered<br/>(localStorage)?"}
+    SEL -- no --> DEV
+    SEL -- yes --> CHK["refresh the controller data from the server;<br/>if it no longer exists — clear the selection"]
+    DEV --> USER["the user clicks a tile"]
+    USER --> APP["screens of the controller kind<br/>(bar, tabs, bottom navigation)"]
     CHK --> APP
+    APP -- "back arrow or „Więcej” → Lista sterowników" --> DEV
 ```
 
-- The selected controller is kept in `localStorage` (`chpc.selectedDevice`), so it survives closing the browser.
-- The switch to the default controller happens once per browser session (`sessionStorage` `chpc.defaultApplied`); a manual change in the footer lasts until the end of the session.
-- A remembered controller that no longer exists in the database (e.g. after switching from the local to the production database) is removed from browser memory. A network error removes nothing.
+- Without a session every path shows the login screen (`AuthGate`); the link from the mail leads to `/login?token=…`. A new account must first fill in the first name, last name and country. A "remembered" session lasts 14 days from login, an unremembered one 24 h from last use (it disappears when the browser is closed).
+- A new browser session always starts from the tile list (`sessionStorage` `chpc.startedOnList`); there is no default controller and no automatic choice.
+- The selected controller is kept in `localStorage` (`chpc.selectedDevice`), so a page reload stays on its screens. A remembered controller that no longer exists in the database (e.g. after switching from the local to the production database) is removed from browser memory. A network error removes nothing.
+- A controller shared by another account has a "Udostępnione przez …" (shared by) banner above the content and only the shared tabs in the menu.
 
 ## Menu and screens from the registry
 
@@ -147,9 +144,11 @@ Each controller kind lists its screens (path, label, icon, page) in its `device-
 1. creates routes for all paths of all kinds;
 2. for the requested path shows the screen of the active controller's kind;
 3. if that kind has no such path (e.g. the tank and `/schedules`), redirects to the home page;
-4. draws the header menu from the screens of the active kind.
+4. draws the tabs in the bar from the screens of the active kind: on a computer (from 900 px) as a side menu on the left, on a phone as the bottom navigation with the first four views and "Więcej" (a sheet with the remaining views and "Lista sterowników").
 
-After a controller change the screen is created from scratch, so no data of the previous controller is left in it.
+After a controller change the screen is created from scratch, so no data of the previous controller is left in it. The "Operacje" tab (operations log) is shared and a kind only adds it to its list; pages outside the controller context (`/devices`, `/account`, `/firmware/:deviceType`) have their own bar without tabs.
+
+The "Instrument" look (mock-ups in `makiety/`, 2026-10-16): all screens are built from the same elements — a card with a header, a "hero" card with a big value and KPI fields on the overview, a filter bar (date navigation ‹ ›, a segmented switch, a CSV button) above a table or chart, stat tiles, a list of schedule entries with a "działa teraz" (active now) marker, two columns in Settings (the form on the left, the "Sterownik" and "Udostępnianie" cards on the right), `.modal` dialogs. Colours come only from the theme tokens (`theme.css`), so the same layout works in the light and the dark theme.
 
 The server has a matching registry: each kind provides the settings of a new device and the settings returned on registration (tank: compressor time; pellet boiler: `poll_interval_seconds`).
 

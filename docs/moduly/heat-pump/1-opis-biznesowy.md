@@ -17,51 +17,55 @@ Serwer sam, co minutę, wylicza z harmonogramów, co pompa ma robić. Aplikacja 
 
 ## Dla kogo
 
-**Właściciel domu** z pompą ciepła CHPC i sterownikiem `co` — jedna osoba, bez kont użytkowników.
+**Właściciel domu** z pompą ciepła CHPC i sterownikiem `co`; sterownik można udostępnić domownikom z wybranymi zakładkami (konta użytkowników, [moduł core](../core/1-opis-biznesowy.md)).
 
 ## Tryby pracy
 
 | Tryb | W aplikacji | Co robi pompa |
 |---|---|---|
-| `A` | **CO Harmonogram** | działają harmonogramy ogrzewania (CO) i przerwy; poza nimi pompa grzeje ciepłą wodę (CWU) |
-| `CWU` | **CWU Harmonogram** | działają harmonogramy ciepłej wody i przerwy; poza nimi ustawienie domyślne |
-| `M` | **ręczny** | harmonogramy nie działają, obowiązuje ustawienie domyślne; o północy tryb wraca na `A` |
-| `OFF` | **wyłączona** | sprężarka nie startuje |
+| `A` | **Automatyczny** | działają wpisy harmonogramu (praca i przerwy); poza nimi ustawienie domyślne |
+| `CWU` | dawna wartość, w aplikacji pokazywana jak **Automatyczny** | jak `A` (do 2026-10-05 osobne harmonogramy ciepłej wody; dziś to, co pompa grzeje, wynika z podłączenia CWU / CO w oknie „Dane sterownika”) |
+| `M` | **Ręczny** | harmonogramy nie działają, obowiązuje ustawienie domyślne; o północy tryb wraca na `A` |
+| `OFF` | **Wyłączony** | sprężarka nie startuje |
 
 ## Ekrany
 
+Zrzuty pochodzą z lokalnej bazy demonstracyjnej z danymi z 13.10.2026 (wygląd „Instrument”, motyw jasny); sterownik był wtedy offline, dlatego widok główny pokazuje pasek „Offline od …” i puste wartości z pompy.
+
 ![Widok główny](img/glowny.png)
 
-*Widok główny (HP): tryb pracy, temperatura w środku zbiornika (T), stan pomp CO i CWU, moc PV, temperatura zewnętrzna, parametry pompy (temperatury, moc, EEV, limit mocy), stan obiegów i sprężarki, dane bieżącego cyklu (czas pracy, energia, COP) i fotowoltaika. Odświeża się sam po każdej wysyłce sterownika.*
+*Widok główny (HP): na górze pasek „Offline od …” z przyczyną, gdy pompa nie przysyła danych. Karta hero: temperatura w środku zbiornika na pasku zakresu od–do, stan sprężarki, tryb pracy i czas odczytu oraz cztery pola: moc, PV teraz, COP i temperatura na zewnątrz. Niżej karty „Pomiary” (temperatury, EEV, limit mocy, energia i czas cyklu, COP zbiornika, błędy), „Obieg” (przełączniki ze stanem przekaźników z telemetrii: zgoda na start sprężarki, obieg gorący i zimny, przepływ) i „Energia dziś” (zużycie, część z PV, koszt G12w, mini wykres mocy). Odświeża się sam po każdej wysyłce sterownika.*
 
-| Telefon | Harmonogramy na telefonie |
+| Telefon | Harmonogram na telefonie |
 |---|---|
-| ![Widok główny na telefonie](img/glowny-telefon.png) | ![Harmonogramy na telefonie](img/harmonogramy-telefon.png) |
+| ![Widok główny na telefonie](img/glowny-telefon.png) | ![Harmonogram na telefonie](img/harmonogramy-telefon.png) |
+
+*Na telefonie (360 px) karty idą jedna pod drugą, a dolna nawigacja pokazuje HP, Dane, Wykres, Harmonogram i „Więcej” (Operacje, Ustawienia, lista sterowników).*
 
 ![Dane](img/dane.png)
 
-*Dane: tabela pomiarów z wybranego dnia (co 10–30 s), filtr w każdej kolumnie, „Wszystkie dane” pokazuje też postój sprężarki, „Pobierz dane” zapisuje plik CSV.*
+*Dane: pasek filtrów (dzień z danymi strzałkami ‹ › albo z listy po kliknięciu daty, „Wszystkie odczyty” — domyślnie tylko praca sprężarki i błędy, przycisk CSV) i karta „Odczyty dnia” z liczbą odczytów i czasem pracy sprężarki; wiersz z błędem sterownika jest podświetlony i ma chip z kodem. Tabela przewija się w poziomie we własnym kontenerze.*
 
 ![Wykres dnia](img/wykres-dzien.png)
 
-*Wykres dnia: temperatury (przed i za parownikiem, wody wychodzącej, docelowa) i pobierana moc; nad wykresem zużycie energii i koszt dnia.*
+*Wykres dnia: przełącznik Dzień / Miesiąc / Rok, nawigacja po dacie i „Cały dzień” (bez zaznaczenia tylko praca sprężarki); kafelki pobór, z sieci, koszt G12w i czas pracy; dwa wykresy z jedną osią każdy — temperatury (zbiornik, woda wychodząca, przed i za parownikiem) oraz pobór sprężarki z produkcją PV; legenda w nagłówku karty przełącza serie.*
 
 ![Wykres miesiąca](img/wykres-miesiac.png)
 
-*Wykres miesiąca: energia pobrana w kolejnych dniach i szacowany koszt w taryfie G12w; opcjonalnie produkcja PV. Widok roku pokazuje to samo w miesiącach.*
+*Wykres miesiąca: energia pobrana w kolejnych dniach, część z PV i koszt w taryfie G12w (z bilansu serwera); kafelki pobór, z sieci, koszt i z PV. Widok roku pokazuje to samo w miesiącach.*
 
 ![Ustawienia](img/ustawienia.png)
 
-*Ustawienia: tryb pracy i temperatury na teraz, parametry pompy (EEV, limit mocy), wymuszenie pracy i pompy obiegowe, błędy sterownika z przyciskami „Odblokuj” i „Restart sterownika”, dane sterownika.*
+*Ustawienia (dwie kolumny): po lewej karta „Ustaw” — polecenie do sterownika: tryb Ręczny / Automatyczny / Wyłączony, temperatura od–do, limit mocy, EEV min / max, przegrzanie EEV, przełączniki wymuszenia pracy i pomp obiegowych (wyszarzone pokazują stan z pompy, gdy pompa steruje nimi sama), przycisk „Zmień”. Po prawej karty „Błędy sterownika” (ostatni błąd, licznik, „Odblokuj” i „Restart sterownika”), „Sterownik” (nazwa, SN, Root ID, adres IP, firmware ze stanem, „Aktualizuj firmware”; ołówek otwiera okno „Dane sterownika”) i „Udostępnianie”.*
 
-![Harmonogramy](img/harmonogramy.png)
+![Harmonogram](img/harmonogramy.png)
 
-*Harmonogramy: tryb pracy i temperatury domyślne, lista harmonogramów w grupach CWU / CO / przerwy. Czerwona linia pod nazwą grupy oznacza, że ta grupa działa w wybranym trybie; czerwona kreska po lewej wskazuje wpis, który obowiązuje teraz (tu: ustawienie domyślne).*
+*Harmonogram: karta „Tryb pracy” (Ręczny / Automatyczny / Wyłączony — decyduje, czy wpisy działają) z temperaturą domyślną od–do i „Zapisz”; karta „Wpisy” z listą (dzień, godziny, „(+1 dzień)” przy oknie przez północ, praca z temperaturami i wymuszonym startem albo przerwa), ołówkiem i koszem przy każdym wpisie, „+ Dodaj wpis” i pozycją „Poza harmonogramem”. Wpis, który działa teraz, jest podświetlony ze znacznikiem „działa teraz”. Wpis dodaje i zmienia się w oknie „Wpis harmonogramu”.*
 
 ## Typowe scenariusze
 
-1. **Zima, tania taryfa nocna.** Tryb „CO Harmonogram”, harmonogram CO 21:30–5:30 (noc G12w) i 12:30–15:00; w pozostałych godzinach pompa podgrzewa CWU.
-2. **Lato.** Tryb „CWU Harmonogram”, harmonogramy CWU w godzinach produkcji PV z wymuszeniem startu.
+1. **Zima, tania taryfa nocna.** Tryb „Automatyczny”, wpisy pracy 21:30–5:30 (noc G12w) i 12:30–15:00; poza nimi ustawienie domyślne.
+2. **Lato.** Tryb „Automatyczny”, wpisy pracy w godzinach produkcji PV z wymuszonym startem.
 3. **Wyjazd.** Tryb `OFF` albo przerwa `off` na konkretne daty.
 4. **Awaria.** W widoku głównym pojawia się czerwony dzwonek, w Ustawieniach opis błędu i data. Po pięciu błędach sterownik pompy się blokuje — „Odblokuj” zdejmuje blokadę, „Restart sterownika” uruchamia go ponownie.
 5. **Kontrola kosztów.** Wykres miesiąca pokazuje zużycie i koszt; porównanie z produkcją PV pokazuje, ile energii pochodziło z fotowoltaiki.

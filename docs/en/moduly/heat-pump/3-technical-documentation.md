@@ -29,15 +29,18 @@
 
 | File | Role |
 |---|---|
-| `device-type.tsx` | registry entry: HP, Data, Chart, Settings, Schedule menu; `/hp` outside the menu |
+| `device-type.tsx` | registry entry: HP, Dane, Wykres, Harmonogram, Operacje, Ustawienia menu; `/hp` outside the menu; "Dane sterownika" dialog fields (CWU / CO connection, tank volume, PV) |
 | `api.ts` | `HpRequests`: telemetry, days, balance, operations, actions, error, schedules |
-| `types.ts` | client-side telemetry, PV, operation and schedule types |
-| `pages/Home/` | main view (WebSocket `update`) |
-| `pages/Data/` | day table, column filter, CSV export |
-| `pages/Charts/` | day, month and year charts, energy, PV, cost |
-| `pages/Settings/` | manual operation, actions, errors, controller data |
-| `pages/Schedules/` | default settings and schedules, highlight of the active entry |
-| `components/DateDict.tsx` | list of days with data |
+| `types.ts` | client-side telemetry, PV, operation and schedule types; `pumpWorkMode` (A / CWU → Automatyczny, OFF → Wyłączony, the rest → Ręczny) |
+| `pages/Home/` | main view in the "Instrument" layout: banners (Offline, pump paused, CWU loading), hero card (tank temperature on a range bar, compressor, KPIs), the "Pomiary", "Obieg" and "Energia dziś" cards; WebSocket `update` |
+| `pages/Data/` | filter bar (days with data, "Wszystkie odczyty", CSV) and the "Odczyty dnia" card; error rows highlighted |
+| `pages/Charts/` | filter bar (period, date, "Cały dzień"), stat tiles, the "Temperatury" and "Moc i produkcja PV" cards (day) or "Energia i koszt" (month, year) |
+| `pages/Settings/` | two columns: the "Ustaw" card (manual operation), "Błędy sterownika", the "Sterownik" and "Udostępnianie" cards from `core` |
+| `pages/Schedules/` | the "Tryb pracy" (default settings) and "Wpisy" cards (`.entries` list, "działa teraz", "Poza harmonogramem"), the "Wpis harmonogramu" dialog |
+| `components/DateNav.tsx` | date navigation (`.date-nav`): arrows and a list of days with data (`useHpDates`), months or years |
+| `components/Segmented.tsx`, `components/Switch.tsx` | the segmented switch (operating mode, chart period) and the `.switch` toggle from the mock-up |
+| `components/PumpConfigFields.tsx`, `pumpConfig.css` | "Dane sterownika" dialog fields: CWU / CO connection with a diagram, tank volume, PV |
+| `components/icons.tsx` | heat pump view icons |
 | `components/ResourceBlock.tsx` | leftover (legacy time settings), unused |
 | `utils/utils.ts` | fetching and flattening a day's data for the table and the chart |
 | `utils/energy.ts`, `utils/energy-cost-g12w.ts` | energy from telemetry and cost in the G12w tariff (Warsaw time, `YYYY.MM.DD` format) |
@@ -136,7 +139,6 @@ The whole-chain test (`test/e2e`, a bridge with the real `co` code and a simulat
 - **`GET /hp/all`** computes the start of the year in the server time zone (UTC on Render), not in Warsaw time.
 - **A new schedule** saved with `Requests.post` shows no save error (editing with `put` does).
 - **Day chart**: `parseSelectedDate` does `new Date("2026.09.29")` — fine in Chromium/Edge, may give an invalid date in Firefox and Safari.
-- **Typo and units in the UI**: "Instalacja fotowtaiczna" in the main view, "Produkcja dziś" in W instead of Wh, PV temperature in "C" instead of "°C".
 - **Unused code**: `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `setOperationData`, `/operation/getAndClear`, `utils/energy.ts` (`energyKWh`).
 - **The client calls `/hp/4Day`** while the route is `/hp/4day` — it works because Express ignores letter case by default.
 - **Never join `hp` with `pv` in an aggregation** (32 MB Atlas sort limit, no `allowDiskUse`).

@@ -24,25 +24,27 @@ The first switch has been running since 2026-10-03 and controls the heating elem
 
 The user interface is in Polish; the screenshots show it as is.
 
+The screenshots come from the local demo database (one relay "Bojler", data from 13.10.2026; the "Instrument" look, light theme); the controller was offline at the time.
+
 ![Main view](../../../moduly/switch/img/glowny.png)
 
-*Main view (data from the simulator with two relays): for each relay a state switch on the right (like "CO pompa" of the heat pump; the state reported by the controller), the mode description (here "Wyłączony · harmonogram zablokowany" — off, schedule blocked — in red), the buttons "Włącz" (on), "Wyłącz" (off) and "Harmonogram" (schedule; the selected mode has an outline) and the "Czas włączenia" (on time) field. Below the cards the "Dziś" (today) table with today's activations and the "Razem" (total) sum. The view refreshes every 5 s.*
+*Main view: a card per relay — the name, a state switch on the right (the state reported by the controller), the mode description (here "Harmonogram · wyłączony, następne włączenie 22:00" — schedule, off, next activation 22:00; the "Wyłączony · harmonogram zablokowany" mode is in red), the "Offline od …" banner when the controller has not reported for more than 5 min, a dark field with a large countdown to switch-off or the next schedule start, the buttons "Włącz" (on), "Wyłącz" (off) and "Harmonogram" (schedule; the selected mode has an outline) and the "Czas włączenia" (on time) field (h, min). Below the cards the "Dziś" (today) card with today's activations and the total. The view refreshes every 5 s.*
 
 | Phone | Description |
 |---|---|
-| ![Main view on a phone](../../../moduly/switch/img/glowny-telefon.png) | On a phone (360 px) the cards are full width and the menu shows icons only. When a relay is on for a time or within a schedule window, a large countdown to switch-off is shown under the mode description. When the controller has not reported for more than 5 min, the card shows "Sterownik offline od …" (controller offline since …), and when the relay state does not match the command yet — "Czeka na sterownik…" (waiting for the controller). |
+| ![Main view on a phone](../../../moduly/switch/img/glowny-telefon.png) | On a phone (360 px) the cards stack, and the bottom navigation shows Włącznik, Dane, Harmonogram, Operacje and "Więcej" (Ustawienia, controller list). When the relay state does not match the command yet, the card shows "Czeka na sterownik…" (waiting for the controller). |
 
 ![Data](../../../moduly/switch/img/dane.png)
 
-*Data: activations of the selected day (on, off, duration), a relay filter (with more than one relay), "Razem w dniu" (daily total) and CSV export. An activation that started the day before has a date next to the time. "≈" before the switch-off time means an approximate time: the controller lost power or connectivity.*
+*Data: the filter bar (the day via the ‹ › arrows or from the calendar after clicking the date, relay buttons with more than one relay, CSV) and the "Włączenia w dniu" card (from, to, duration, source) with the "razem w dniu" (daily total) in the header. An activation that started the day before has a date next to the time. "≈" before the switch-off time means an approximate time: the controller lost power or connectivity.*
 
 ![Schedule](../../../moduly/switch/img/harmonogram.png)
 
-*Schedule: entries grouped by relay. A red bar on the left marks the entry active now; "(+1 dzień)" — a window across midnight. The plus icon opens the form (relay, day or a one-off date, from–to, active). Below the list a note says which relays are in a manual mode and do not follow the schedule.*
+*Schedule: a card per relay with a mode chip (schedule, or a manual mode that blocks the schedule) and the list of entries: day, hours, "(+1 dzień)" for a window across midnight, a pencil and a bin; the entry active now is highlighted with a "działa teraz" marker. "+ Dodaj wpis" opens the entry dialog (relay, day or a one-off date, from–to, active). Below the cards a note about relays in a manual mode.*
 
 ![Settings](../../../moduly/switch/img/ustawienia.png)
 
-*Settings: relay names, the default "Czas włączenia" (on time) in minutes (0 = no limit) and the "Sterownik" (controller) card with the number of relays, the IP address, the firmware version and the update status.*
+*Settings (two columns): on the left the cards "Przekaźniki" (relay names) and "Czas włączenia" (default on time in minutes, 0 = no limit); on the right the "Sterownik" card with the name, SN, Root ID, number of relays, IP address, firmware version with state and the "Aktualizuj firmware" button (the pencil opens the "Dane sterownika" dialog) and the "Udostępnianie" (sharing) card.*
 
 ## Relay modes
 
@@ -61,7 +63,7 @@ The same choice is on the controller's own page (local network), so the switch c
 2. The controller registers with the cloud by itself; a tile with a switch icon and the name "Włącznik" appears on the controller list.
 3. In Settings name the relays and, if needed, change the default on time (30 min).
 4. Add the on windows on the Schedule tab.
-5. Optionally star the switch as the default controller.
+5. Optionally share the switch with household members (Settings → "Udostępnianie").
 
 ## Limitations
 

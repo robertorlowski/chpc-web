@@ -17,53 +17,55 @@ Every minute the server works out from the schedules what the pump should do. Th
 
 ## Who uses it
 
-**The home owner** with a CHPC heat pump and a `co` controller — a single person, no user accounts.
+**The home owner** with a CHPC heat pump and a `co` controller; the controller can be shared with household members with selected tabs (user accounts, [core module](../core/1-business-description.md)).
 
 ## Operating modes
 
 | Mode | In the application | What the pump does |
 |---|---|---|
-| `A` | **CO Harmonogram** (heating schedule) | heating (CO) schedules and breaks apply; outside them the pump heats hot water (CWU) |
-| `CWU` | **CWU Harmonogram** (hot water schedule) | hot water schedules and breaks apply; outside them the default setting |
-| `M` | **manual** | schedules do not apply, the default setting does; at midnight the mode returns to `A` |
-| `OFF` | **off** | the compressor does not start |
+| `A` | **Automatyczny** (automatic) | schedule entries apply (work and breaks); outside them the default setting |
+| `CWU` | legacy value, shown in the application as **Automatyczny** | like `A` (until 2026-10-05 separate hot water schedules; today what the pump heats follows the CWU / CO connection in the "Dane sterownika" dialog) |
+| `M` | **Ręczny** (manual) | schedules do not apply, the default setting does; at midnight the mode returns to `A` |
+| `OFF` | **Wyłączony** (off) | the compressor does not start |
 
 ## Screens
 
-The user interface is in Polish; the screenshots show it as is.
+The user interface is in Polish; the screenshots show it as is. They come from the local demo database with data from 13.10.2026 (the "Instrument" look, light theme); the controller was offline at the time, so the main view shows the "Offline od …" banner and empty pump values.
 
 ![Main view](../../../moduly/heat-pump/img/glowny.png)
 
-*Main view (HP): operating mode, temperature in the middle of the tank (T), CO and CWU pump state, PV power, outdoor temperature, pump parameters (temperatures, power, EEV, power limit), circuit and compressor state, current cycle data (run time, energy, COP) and photovoltaics. It refreshes by itself after every controller report.*
+*Main view (HP): at the top the "Offline od …" banner with the reason when the pump sends no data. The hero card: the temperature in the middle of the tank on a from–to range bar, compressor state, operating mode and reading time, and four fields: power, PV now, COP and outdoor temperature. Below, the cards "Pomiary" (measurements: temperatures, EEV, power limit, cycle energy and time, tank COP, errors), "Obieg" (circuit: toggles with the relay state from telemetry — compressor start consent, hot and cold circuit, flow) and "Energia dziś" (today's energy: use, share from PV, G12w cost, a mini power chart). It refreshes by itself after every controller report.*
 
-| Phone | Schedules on a phone |
+| Phone | Schedule on a phone |
 |---|---|
-| ![Main view on a phone](../../../moduly/heat-pump/img/glowny-telefon.png) | ![Schedules on a phone](../../../moduly/heat-pump/img/harmonogramy-telefon.png) |
+| ![Main view on a phone](../../../moduly/heat-pump/img/glowny-telefon.png) | ![Schedule on a phone](../../../moduly/heat-pump/img/harmonogramy-telefon.png) |
+
+*On a phone (360 px) the cards stack, and the bottom navigation shows HP, Dane, Wykres, Harmonogram and "Więcej" (Operacje, Ustawienia, controller list).*
 
 ![Data](../../../moduly/heat-pump/img/dane.png)
 
-*Data: readings of the selected day (every 10–30 s), a filter in every column; "Wszystkie dane" also shows compressor idle time, "Pobierz dane" saves a CSV file.*
+*Data: the filter bar (a day with data via the ‹ › arrows or from a list after clicking the date, "Wszystkie odczyty" — by default only compressor runs and errors, the CSV button) and the "Odczyty dnia" card with the number of readings and the compressor run time; a row with a controller error is highlighted and has a chip with the code. The table scrolls horizontally in its own container.*
 
 ![Day chart](../../../moduly/heat-pump/img/wykres-dzien.png)
 
-*Day chart: temperatures (before and after the evaporator, outgoing water, target) and power drawn; above the chart the day's energy use and cost.*
+*Day chart: the Dzień / Miesiąc / Rok switch, date navigation and "Cały dzień" (unchecked: compressor runs only); the tiles consumption, from the grid, G12w cost and run time; two charts with one axis each — temperatures (tank, outgoing water, before and after the evaporator) and compressor draw with PV production; the legend in the card header toggles series.*
 
 ![Month chart](../../../moduly/heat-pump/img/wykres-miesiac.png)
 
-*Month chart: energy drawn per day and the estimated cost in the G12w tariff; optionally PV production. The year view shows the same per month.*
+*Month chart: energy drawn per day, the share from PV and the cost in the G12w tariff (from the server balance); the tiles consumption, from the grid, cost and from PV. The year view shows the same per month.*
 
 ![Settings](../../../moduly/heat-pump/img/ustawienia.png)
 
-*Settings: operating mode and temperatures for now, pump parameters (EEV, power limit), forced start and circulation pumps, controller errors with "Odblokuj" (unlock) and "Restart sterownika" (restart) buttons, controller data.*
+*Settings (two columns): on the left the "Ustaw" card — the command for the controller: mode Ręczny / Automatyczny / Wyłączony, temperature from–to, power limit, EEV min / max, EEV superheat, toggles for forced start and circulation pumps (greyed ones show the pump's state while the pump drives them itself), the "Zmień" button. On the right the cards "Błędy sterownika" (last error, counter, "Odblokuj" and "Restart sterownika"), "Sterownik" (name, SN, Root ID, IP address, firmware with state, "Aktualizuj firmware"; the pencil opens the "Dane sterownika" dialog) and "Udostępnianie" (sharing).*
 
-![Schedules](../../../moduly/heat-pump/img/harmonogramy.png)
+![Schedule](../../../moduly/heat-pump/img/harmonogramy.png)
 
-*Schedules: operating mode and default temperatures, the schedule list grouped into CWU / CO / breaks. A red line under a group name means the group is active in the chosen mode; a red bar on the left marks the entry in force right now (here: the default setting).*
+*Schedule: the "Tryb pracy" card (Ręczny / Automatyczny / Wyłączony — decides whether entries apply) with the default from–to temperature and "Zapisz"; the "Wpisy" card with the list (day, hours, "(+1 dzień)" for a window past midnight, work with temperatures and forced start, or a break), a pencil and a bin at every entry, "+ Dodaj wpis" and the "Poza harmonogramem" (outside the schedule) item. The entry in force right now is highlighted with a "działa teraz" marker. Entries are added and edited in the "Wpis harmonogramu" dialog.*
 
 ## Typical scenarios
 
-1. **Winter, cheap night tariff.** "CO Harmonogram" mode, CO schedule 21:30–5:30 (G12w night) and 12:30–15:00; at other hours the pump heats CWU.
-2. **Summer.** "CWU Harmonogram" mode, CWU schedules during PV production hours with forced start.
+1. **Winter, cheap night tariff.** "Automatyczny" mode, work entries 21:30–5:30 (G12w night) and 12:30–15:00; outside them the default setting.
+2. **Summer.** "Automatyczny" mode, work entries during PV production hours with forced start.
 3. **Holidays.** `OFF` mode or an `off` break for specific dates.
 4. **A fault.** A red bell appears in the main view; Settings show the error description and date. After five errors the pump controller locks — "Odblokuj" removes the lock, "Restart sterownika" restarts it.
 5. **Cost control.** The month chart shows use and cost; comparing it with PV production shows how much energy came from photovoltaics.
