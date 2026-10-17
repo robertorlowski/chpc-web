@@ -25,6 +25,11 @@ const smtpTransport = () => {
     secure: false,
     requireTLS: true,
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    // limity czasu (ms): bez nich zwlekający serwer pocztowy trzymał żądanie logowania bez końca
+    // (2026-10-17: przycisk „Wyślij kod” wisiał), a użytkownik nie dostawał żadnego błędu
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
   return transport;
 };
