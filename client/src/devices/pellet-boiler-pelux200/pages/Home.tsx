@@ -186,7 +186,16 @@ export const PelletBoilerHome: React.FC = () => {
           <div className="grid-3">
             <Circuit title="CWU" pump={reading.water_heater_pump} current={reading.water_heater_temp}>
               {cwuOff ? (
-                <span className="danger-text">CWU wyłączone w regulatorze</span>
+                // CWU wyłączone (nr 122 = 0): zakres od–do z regulatora (zadana − histereza nr 123, zadana) zostaje
+                // widoczny, bo harmonogram ustawia go dalej (decyzja użytkownika 2026-10-18, makieta #boiler-podglad)
+                reading.water_heater_target !== undefined && cwuHysteresis !== undefined ? (
+                  <>
+                    {formatNumber(reading.water_heater_target - cwuHysteresis, 0)}–{formatNumber(reading.water_heater_target, 0)} °C
+                    {' · '}<span className="danger-text">wyłączone w regulatorze</span>
+                  </>
+                ) : (
+                  <span className="danger-text">CWU wyłączone w regulatorze</span>
+                )
               ) : (
                 <>
                   zadana {formatNumber(reading.water_heater_target)}
