@@ -25,7 +25,11 @@
 | `core/services/device.service.ts` | lista, utworzenie, zgłoszenie, nazwa, domyślny, odczyt i zapis `properties` |
 | `core/services/device-info.service.ts` | typ i `deviceId` urządzenia w pamięci (do rekordów danych modułów) |
 | `core/services/calendar.service.ts` | polskie święta, dzień tygodnia w Warszawie, `scheduleDayMatches` (czy wpis harmonogramu włącznika dotyczy danej daty) |
-| `core/services/meteo.service.ts` | temperatura ze stacji IMGW Zakopane |
+| `core/services/meteo.service.ts` | temperatura ze stacji IMGW Zakopane; pogoda z włącznika w pamięci po id kafelka (dom też pod `home`), odczyt starszy niż 45 min pomijany; temperatura domu z czujnika kotła albo prognozy |
+| `core/services/weather-tile.service.ts`, `models/weather-tile.model.ts`, `controllers/weather-tile.controller.ts` | kafelki pogody `weather_tiles` (`home` z `WEATHER_LOCATION`, najwyżej 8 na konto), `weatherQueries` — miejsca dla włącznika |
+| `core/services/mail.service.ts` | `sendMail`: przy `MAIL_RELAY=1` składa MIME (`MailComposer`) i odkłada w `mail_outbox`, inaczej SMTP wprost; `assertMailAvailable` (503 bez sterownika) |
+| `core/services/mail-relay.service.ts`, `models/mail-outbox.model.ts`, `controllers/mail-relay.controller.ts` | przekaźnik poczty: klucze płytek (`mailKey`, `mailKeyPending`, zatwierdzanie), szyfrowanie `encryptFor` (ECDH P-256 + AES-256-GCM), kolejka i dzierżawa maili (`FAILOVER_MS` 20 s, `LEASE_MS` 60 s, 3 próby, 15 min), `GET /mail/config`, `GET /mail/next`, `POST /mail/result` |
+| `core/services/tile-layout.service.ts`, `tile.service.ts`, `tile-format.ts` | układ kafelków konta (`users.deviceOrder`, `hiddenTiles`) i dane kafelków `GET /devices/summary` (z `tile.ts` każdego modułu) |
 
 ## Pliki — klient (`client/src`)
 
@@ -61,6 +65,8 @@
 | `core/pages/Devices/`, `components/DeviceTileCard.tsx` | lista sterowników `/devices`: pasek pogody domu (`.outdoor-strip`), szachownica kafelków `.tiles` w stałym układzie makiety (`DeviceTileCard`: nagłówek z ikoną rodzaju, nazwą, chipem i narzędziami, duża wartość, stan pracy, pola faktów, ostrzeżenie, przekaźniki włącznika, stopka „dane sprzed …”; `WeatherTileCard` dla pogody), siatka auto-fill ≥ 300 px (1–4 kolumny), tryb „Zmień układ” (ikona siatki w pasku: strzałki, oko, „+ kafelek pogody”, „Gotowe”, pusty wiersz spycha resztę do dołu ekranu), stopka z zajętością bazy (`/devices/db-stats`, użytkownik systemowy); dane kafelków z `GET /devices/summary`, odświeżane po WebSocket `update` i cyklicznie |
 | `core/pages/TileDesigner/`, `components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | **nieużywane w interfejsie od 2026-10-17**: projektant kafelka `/tile-designer` i kafelek z wzoru `tile_template`; przycisk „Projekt kafelka” jest ukryty, a lista rysuje kafelki w stałym układzie (`DeviceTileCard`); kod i trasa zostają |
 | `core/components/WeatherTileModal.tsx`, `LocationPicker.tsx` | okno „Kafelek pogody” (`.modal`): wyszukiwarka miejscowości (geokoder Open-Meteo z przeglądarki), współrzędne, usuwanie; wybór lokalizacji na mapie (konto) |
+| `core/pages/Weather/` (`index.tsx`, `NowTab`, `DaysTab`, `SunTab`, `HeatingTab`, `AirTab`, `WindTab`, `forecast.ts`, `style.css`), `core/currentPlace.ts` | strona pogody `/weather/:id` (kliknięcie kafelka pogody; makieta `#pogoda-*`): zakładki w `?tab=` — Teraz, Najbliższe dni, Słońce i PV (prognoza produkcji dopasowana do DTU), Ogrzewanie (okno CWU w G12w), Powietrze, Wiatr i opady; bieżące warunki z `GET /weather-tiles`, prognoza i jakość powietrza wprost z Open-Meteo (`forecast.ts`); kafelek „Moja lokalizacja” (`current`) z położeniem z przeglądarki |
+| `core/components/MailKeyRow.tsx` | wiersz „Poczta” karty „Sterownik” (włącznik, pompa ciepła): stan klucza płytki (zatwierdzony / czeka / brak, odcisk), „Zatwierdź” po porównaniu z `/install` i „Usuń” — tylko użytkownik systemowy |
 | `core/pages/Firmware/` | `/firmware/:deviceType` (trybik na kafelku, użytkownik systemowy): karty „Aktualna wersja” (opis, data, rozmiar, SHA-256, przełącznik „Aktualizacje”; plus otwiera kartę „Dodaj wersję”), „Sterowniki tego rodzaju” (wersja z ostatniego zgłoszenia, chip stanu) i „Poprzednie wersje” (przywrócenie, usunięcie); poza kontekstem urządzenia |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
@@ -98,7 +104,10 @@ Działanie dla ścieżki z mapy:
 | `DELETE /devices/:rootId/firmware-update` | publiczna | „Anuluj aktualizację”: usunięcie zlecenia (pobieranie, które już trwa, dokończy się) | 200; 404 |
 | `GET /device/properties` | `rootId` | ustawienia urządzenia | 200; 404 |
 | `PUT /device/properties` | `rootId` | zapis całego obiektu ustawień (walidacja schematu Mongoose) | 200; 400 |
-| `GET /temperature` | `rootId` | ostatnia temperatura IMGW (liczba albo `null`) | 200 |
+| `GET /temperature` | `rootId` | temperatura domu i pogoda domu `{temperature, temperatureSource, weather}` (czujnik kotła, bez świeżego odczytu prognoza) | 200 |
+| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | publiczna (sesja) | kafelki pogody konta `{name, lat, lon, hidden}` z bieżącą pogodą; `home` bez usuwania; najwyżej 8 | 200; 400; 404 |
+| `POST` / `DELETE /devices/:rootId/mail-key` | publiczna (użytkownik systemowy) | zatwierdzenie `{fingerprint}` / usunięcie klucza płytki przekaźnika poczty | 200; 403; 404; 409 |
+| `GET /mail/config`, `GET /mail/next`, `POST /mail/result` | sterownik (`?rootId=&deviceId=`, bez logowania) | dane SMTP zaszyfrowane kluczem płytki; następny mail (zaszyfrowany, z dzierżawą); wynik `{id, ok, receipt, error?}` | 200; 204 brak maila; 403 klucz niezatwierdzony |
 
 WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"operation"|"update","rootId":"…"}`; połączenie bez `rootId` jest zamykane kodem 1008.
 
@@ -167,6 +176,10 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
 | `MONGODB_URI` | połączenie z MongoDB; wymagane, bez niego serwer kończy start błędem |
 | `PORT` | port HTTP i WebSocket (domyślnie 3001) |
 | `API_KEY` | klucz dla `verifyApiKey` (obecnie nieużywany) |
+| `MAIL_RELAY=1` | maile wysyłają sterowniki (przekaźnik poczty) zamiast serwera; na Render obowiązkowe, bo darmowy plan blokuje SMTP (porty 25, 465, 587) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_ADMIN` | konto pocztowe (przy `MAIL_RELAY=1` przekazywane zaszyfrowane płytkom); nadawca `MyHome <SMTP_USER>`, odpowiedzi na `MAIL_FROM` |
+| `CLIENT_URL`, `SYSTEM_PASSWORD`, `INITIAL_OWNER_EMAIL`, `AUTH_DISABLED=1` | adres aplikacji w linkach z maili, hasło konta „system”, pierwszy właściciel, wyłączenie logowania (środowisko lokalne) |
+| `WEATHER_LOCATION` | współrzędne domu dla kafelka pogody „Dom” |
 
 Wartości są tylko w zmiennych środowiskowych: na Render w Environment usługi, lokalnie w `server/.env` (poza gitem, wzór `server/.env.example`).
 
@@ -205,6 +218,7 @@ Serwer i klient wdraża się razem z gałęzi `main` na Render (build uruchamian
 - **Brak ochrony API.** `app.use(verifyApiKey)` jest zakomentowane; klucz `x-api-key` jest wkompilowany w klienta (`core/http.ts`), więc i tak byłby jawny. `verifyApiKey` sprawdza ścieżki `/api/operation/set` i `/hp/clear` — niespójnie (jedna z przedrostkiem, druga bez).
 - **Dane w pamięci serwera** (`device-info.service.ts`, ostatnia telemetria, operacje ręczne) giną przy restarcie; po zmianie `deviceId` w bazie trzeba zrestartować serwer.
 - **Stacja IMGW** jest wpisana w kod (`meteo.service.ts`, Zakopane).
+- **Poczta i pogoda zależą od sterowników w domu.** Bez włącznika (i `co` z zatwierdzonym kluczem) logowanie kodem dostaje 503, a pogoda kafelków nie odświeża się (zostaje prognoza). Endpointy `/mail/*` przyjmują sam SN; bez zatwierdzenia klucza w aplikacji ktoś znający SN mógłby podstawić własny klucz — dlatego nowy klucz czeka na użytkownika systemowego.
 - **SN a rodzaj.** Zgłoszenie, `POST /devices` i `device-context` dla ścieżek z `controllerPaths` szukają urządzenia po parze (rodzaj, SN), więc ten sam SN może mieć kilka urządzeń różnych rodzajów (role `co`). Ścieżka sterownika, której brakuje w `controllerPaths`, dla samego `deviceId` dostaje 400, a dla `rootId` nie sprawdza rodzaju; nowy endpoint sterownika trzeba tam dopisać.
 - **`PUT /device/properties` podmienia całe `properties`** — pominięte klucze znikają. Klient zawsze wysyła komplet pól swojego rodzaju.
 - **Rodzaj urządzenia jest sprawdzany tylko na endpointach sterownika** (`controllerPaths`: niezgodny rodzaj daje 409). Pozostałe endpointy modułów (np. `GET /hp` z `rootId` hydroforu) go nie sprawdzają.

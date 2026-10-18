@@ -34,7 +34,7 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej z danymi z 13.10.2026 (wygląd 
 
 ![Widok główny](img/glowny.png)
 
-*Widok główny (HP): na górze pasek „Offline od …” z przyczyną, gdy pompa nie przysyła danych. Karta hero: temperatura w środku zbiornika na pasku zakresu od–do, stan sprężarki, tryb pracy i czas odczytu oraz cztery pola: moc, PV teraz, COP i temperatura na zewnątrz. Niżej karty „Pomiary” (temperatury, EEV, limit mocy, energia i czas cyklu, COP zbiornika, błędy), „Obieg” (przełączniki ze stanem przekaźników z telemetrii: zgoda na start sprężarki, obieg gorący i zimny, przepływ) i „Energia dziś” (zużycie, część z PV, koszt G12w, mini wykres mocy). Odświeża się sam po każdej wysyłce sterownika.*
+*Widok główny (HP): na górze pasek „Offline od …” z przyczyną, gdy pompa nie przysyła danych. Karta hero: temperatura w środku zbiornika na pasku zakresu od–do, stan sprężarki (z czasem i energią cyklu), cel od–do i czas odczytu oraz cztery pola: moc, PV teraz, tryb i temperatura na zewnątrz (COP jest w karcie „Pomiary”). Kafelek pompy na liście sterowników pokazuje temperaturę zbiornika, cel, moc oraz temperatury sprężarki i wody wyjściowej. Niżej karty „Pomiary” (temperatury, EEV, limit mocy, energia i czas cyklu, COP zbiornika, błędy), „Obieg” (przełączniki ze stanem przekaźników z telemetrii: zgoda na start sprężarki, obieg gorący i zimny, przepływ) i „Energia dziś” (zużycie, część z PV, koszt G12w, mini wykres mocy). Odświeża się sam po każdej wysyłce sterownika.*
 
 | Telefon | Harmonogram na telefonie |
 |---|---|
@@ -56,7 +56,7 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej z danymi z 13.10.2026 (wygląd 
 
 ![Ustawienia](img/ustawienia.png)
 
-*Ustawienia (dwie kolumny): po lewej karta „Ustaw” — polecenie do sterownika: tryb Ręczny / Automatyczny / Wyłączony, temperatura od–do, limit mocy, EEV min / max, przegrzanie EEV, przełączniki wymuszenia pracy i pomp obiegowych (wyszarzone pokazują stan z pompy, gdy pompa steruje nimi sama), przycisk „Zmień”. Po prawej karty „Błędy sterownika” (ostatni błąd, licznik, „Odblokuj” i „Restart sterownika”), „Sterownik” (nazwa, SN, Root ID, adres IP, firmware ze stanem, „Aktualizuj firmware”; ołówek otwiera okno „Dane sterownika”) i „Udostępnianie”.*
+*Ustawienia (dwie kolumny): po lewej karta „Ustaw” — polecenie do sterownika: tryb Ręczny / Automatyczny / Wyłączony, temperatura od–do, limit mocy, EEV min / max, przegrzanie EEV, przełączniki wymuszenia pracy i pomp obiegowych (wyszarzone pokazują stan z pompy, gdy pompa steruje nimi sama), przycisk „Zmień”. Po prawej karty „Błędy sterownika” (ostatni błąd, licznik, „Odblokuj” i „Restart sterownika”), „Sterownik” (nazwa, SN, Root ID, adres IP, firmware ze stanem, wiersz „Poczta” ze stanem klucza przekaźnika poczty — `co` od 1.3.0, „Aktualizuj firmware”; ołówek otwiera okno „Dane sterownika”) i „Udostępnianie”.*
 
 ![Harmonogram](img/harmonogramy.png)
 

@@ -25,7 +25,11 @@
 | `core/services/device.service.ts` | list, create, register, name, default, read and write `properties` |
 | `core/services/device-info.service.ts` | device kind and `deviceId` cached in memory (for module data records) |
 | `core/services/calendar.service.ts` | Polish holidays, day of the week in Warsaw, `scheduleDayMatches` (whether a switch schedule entry applies to a given date) |
-| `core/services/meteo.service.ts` | temperature from the IMGW Zakopane station |
+| `core/services/meteo.service.ts` | temperature from the IMGW Zakopane station; weather from the switch kept in memory by tile id (the home also under `home`), readings older than 45 min ignored; home temperature from the boiler sensor or the forecast |
+| `core/services/weather-tile.service.ts`, `models/weather-tile.model.ts`, `controllers/weather-tile.controller.ts` | weather tiles `weather_tiles` (`home` from `WEATHER_LOCATION`, at most 8 per account), `weatherQueries` — places for the switch |
+| `core/services/mail.service.ts` | `sendMail`: with `MAIL_RELAY=1` composes MIME (`MailComposer`) and queues it in `mail_outbox`, otherwise direct SMTP; `assertMailAvailable` (503 without a controller) |
+| `core/services/mail-relay.service.ts`, `models/mail-outbox.model.ts`, `controllers/mail-relay.controller.ts` | mail relay: board keys (`mailKey`, `mailKeyPending`, approval), `encryptFor` encryption (ECDH P-256 + AES-256-GCM), mail queue and lease (`FAILOVER_MS` 20 s, `LEASE_MS` 60 s, 3 attempts, 15 min), `GET /mail/config`, `GET /mail/next`, `POST /mail/result` |
+| `core/services/tile-layout.service.ts`, `tile.service.ts`, `tile-format.ts` | the account's tile layout (`users.deviceOrder`, `hiddenTiles`) and tile data `GET /devices/summary` (from each module's `tile.ts`) |
 
 ## Files — client (`client/src`)
 
@@ -62,6 +66,8 @@
 | `core/pages/TileDesigner/`, `components/TemplateTile.tsx`, `TemplateTile.css`, `core/tile-template.ts` | **unused in the interface since 2026-10-17**: the tile designer `/tile-designer` and the tile drawn from the `tile_template` template; the "Projekt kafelka" button is hidden and the list draws tiles in the fixed layout (`DeviceTileCard`); the code and the route stay |
 | `core/components/WeatherTileModal.tsx`, `LocationPicker.tsx` | the "Kafelek pogody" dialog (`.modal`): town search (Open-Meteo geocoder from the browser), coordinates, deletion; location choice on a map (account) |
 | `core/pages/Firmware/` | `/firmware/:deviceType` (cog on the tile, system user): the cards "Aktualna wersja" (description, date, size, SHA-256, the "Aktualizacje" switch; the plus opens the "Dodaj wersję" card), "Sterowniki tego rodzaju" (version from the last report, state chip) and "Poprzednie wersje" (restore, delete); outside the device context |
+| `core/pages/Weather/` (`index.tsx`, `NowTab`, `DaysTab`, `SunTab`, `HeatingTab`, `AirTab`, `WindTab`, `forecast.ts`, `style.css`), `core/currentPlace.ts` | the weather page `/weather/:id` (click on a weather tile; mock-up `#pogoda-*`): tabs in `?tab=` — Teraz, Najbliższe dni, Słońce i PV (yield forecast fitted to the DTU), Ogrzewanie (DHW window in G12w), Powietrze, Wiatr i opady; current conditions from `GET /weather-tiles`, forecast and air quality directly from Open-Meteo (`forecast.ts`); the "Moja lokalizacja" tile (`current`) with the browser's position |
+| `core/components/MailKeyRow.tsx` | the "Poczta" row of the "Sterownik" card (switch, heat pump): board key state (approved / pending / none, fingerprint), "Zatwierdź" after comparing with `/install` and "Usuń" — system user only |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API
@@ -98,7 +104,10 @@ Paths outside the map (application, `GET`s, `/device/properties`) require `rootI
 | `DELETE /devices/:rootId/firmware-update` | public | "Anuluj aktualizację": remove the request (a download already in progress completes) | 200; 404 |
 | `GET /device/properties` | `rootId` | device settings | 200; 404 |
 | `PUT /device/properties` | `rootId` | save the whole settings object (Mongoose schema validation) | 200; 400 |
-| `GET /temperature` | `rootId` | latest IMGW temperature (number or `null`) | 200 |
+| `GET /temperature` | `rootId` | home temperature and home weather `{temperature, temperatureSource, weather}` (boiler sensor, forecast without a fresh reading) | 200 |
+| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | public (session) | the account's weather tiles `{name, lat, lon, hidden}` with current weather; `home` cannot be deleted; at most 8 | 200; 400; 404 |
+| `POST` / `DELETE /devices/:rootId/mail-key` | public (system user) | approve `{fingerprint}` / remove the mail relay board key | 200; 403; 404; 409 |
+| `GET /mail/config`, `GET /mail/next`, `POST /mail/result` | controller (`?rootId=&deviceId=`, no login) | SMTP credentials encrypted with the board key; next mail (encrypted, leased); result `{id, ok, receipt, error?}` | 200; 204 no mail; 403 key not approved |
 
 WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"operation"|"update","rootId":"…"}`; a connection without `rootId` is closed with code 1008.
 
@@ -167,6 +176,10 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
 | `MONGODB_URI` | MongoDB connection; required, the server stops without it |
 | `PORT` | HTTP and WebSocket port (default 3001) |
 | `API_KEY` | key for `verifyApiKey` (currently unused) |
+| `MAIL_RELAY=1` | the controllers send the mail (mail relay) instead of the server; mandatory on Render, whose free plan blocks SMTP (ports 25, 465, 587) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_ADMIN` | the mail account (with `MAIL_RELAY=1` handed to the boards encrypted); sender `MyHome <SMTP_USER>`, replies to `MAIL_FROM` |
+| `CLIENT_URL`, `SYSTEM_PASSWORD`, `INITIAL_OWNER_EMAIL`, `AUTH_DISABLED=1` | application address in mail links, the "system" account password, the first owner, login disabled (local environment) |
+| `WEATHER_LOCATION` | home coordinates for the "Dom" weather tile |
 
 Values live only in environment variables: on Render in the service Environment, locally in `server/.env` (outside git, template `server/.env.example`).
 
@@ -205,6 +218,7 @@ The server and the client are deployed together from the `main` branch to Render
 - **No API protection.** `app.use(verifyApiKey)` is commented out; the `x-api-key` key is compiled into the client (`core/http.ts`), so it would be public anyway. `verifyApiKey` checks `/api/operation/set` and `/hp/clear` — inconsistently (one with the prefix, one without).
 - **Data in server memory** (`device-info.service.ts`, latest telemetry, manual operations) is lost on restart; after changing `deviceId` in the database the server has to be restarted.
 - **The IMGW station** is hard-coded (`meteo.service.ts`, Zakopane).
+- **Mail and weather depend on the controllers at home.** Without the switch (and `co` with an approved key) login by code gets 503 and the tile weather is not refreshed (the forecast remains). The `/mail/*` endpoints accept the bare SN; without key approval in the application someone who knows the SN could plant their own key — hence a new key waits for the system user.
 - **SN and kind.** Registration, `POST /devices` and `device-context` for paths in `controllerPaths` look a device up by the pair (kind, SN), so the same SN may have several devices of different kinds (`co` roles). A controller path missing from `controllerPaths` gets 400 for a `deviceId` alone and does not check the kind for a `rootId`; a new controller endpoint has to be added there.
 - **`PUT /device/properties` replaces the whole `properties`** — omitted keys disappear. The client always sends the full set of its kind's fields.
 - **The device kind is checked only on controller endpoints** (`controllerPaths`: a mismatched kind gives 409). The other module endpoints (e.g. `GET /hp` with a tank's `rootId`) do not check it.

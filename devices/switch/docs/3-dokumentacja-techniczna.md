@@ -81,7 +81,7 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 | Stała | Wartość | Miejsce |
 |---|---|---|
 | `DEVICE_TYPE` / `DEVICE_NAME` | `switch` / „Włącznik” | `firmware.hpp` |
-| `FW_VERSION` | `1.1.0` | `firmware.hpp` |
+| `FW_VERSION` | `1.3.1` | `firmware.hpp` |
 | `RELAY_PINS` / `RELAY_ACTIVE_HIGH` | `{2}` / `true` | `firmware.hpp` |
 | `DEFAULT_ON_MINUTES` / `MAX_ON_MINUTES` | 30 / 10080 | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (`esp32dev-local`: `http://192.168.55.9:4001/api/`) | `firmware.hpp`, `platformio.ini` |

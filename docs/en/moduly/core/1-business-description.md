@@ -14,7 +14,8 @@ The module is responsible for:
 - **user accounts**: login by e-mail and code, account data, sharing a controller with another person with a choice of tabs;
 - **the shared look**: the controller bar with tabs, the bottom navigation on a phone, the light and dark theme, dialogs, the "Sterownik" card and the operations log;
 - **menus and screens that depend on the controller kind** (the heat pump has schedules, the water pressure tank and photovoltaics do not);
-- **shared services**: outdoor temperature (IMGW), the Polish public holiday calendar, fast notifications to the controller and the browser (WebSocket).
+- **shared services**: outdoor temperature (IMGW), the weather of the home and of the weather tiles (Open-Meteo, fetched by the switch), a weather page with a forecast, the Polish public holiday calendar, fast notifications to the controller and the browser (WebSocket);
+- **mail**: login codes and notifications are sent by the controllers at home (the switch, with `co` as a fallback), because the server on Render's free plan cannot reach a mail server.
 
 ## Who uses it
 
@@ -26,7 +27,8 @@ The module is responsible for:
 
 | Action | Where |
 |---|---|
-| Log in | login screen: e-mail → code from the mail (or a link from the mail); after login the question "Zapamiętać?" (remember?) — a remembered session lasts 14 days |
+| Log in | login screen: e-mail → code from the mail (or a link from the mail); after login the question "Zapamiętać?" (remember?) — a remembered session lasts 14 days. The mail is sent by a controller at home; when none is online the screen says "Poczta jest chwilowo niedostępna…" (mail temporarily unavailable) |
+| See the weather and forecast for a town | click a weather tile → the weather page with the tabs Teraz (now), Najbliższe dni (next days), Słońce i PV (sun and PV), Ogrzewanie (heating), Powietrze (air), Wiatr i opady (wind and precipitation); the "Moja lokalizacja" tile takes the position from the browser |
 | See all controllers and choose one | the "Sterowniki" tile list (`/devices`); the application always starts there |
 | Give or change a controller name | pencil on the tile (on hover) or the pencil in the "Sterownik" card in Settings |
 | Arrange tiles, hide a tile, add a weather tile for any town | grid icon in the bar → "Zmień układ" (change layout) mode: arrows (move, swap), eye (hide), "+ kafelek pogody" (weather tile) in an empty field, "Gotowe" (done) |
@@ -41,7 +43,7 @@ The user interface is in Polish; the screenshots below show it as is.
 
 ![Controller list](../../../moduly/core/img/lista-sterownikow.png)
 
-*Controller list (computer, light theme): the home weather strip at the top, tiles in a fixed layout — the icon and the left edge in the kind's colour (sun — photovoltaics, waves — heat pump, drop — water pressure tank, flame — pellet boiler, toggle — switch), the name, an Online / Offline chip, a big value with a caption, fact fields, a warning and the "dane sprzed …" (data from …) footer; the switch shows its relays with toggles. Below, weather tiles; at the bottom, the status bar with database usage (system user only). The pencil and the firmware cog appear when hovering a tile.*
+*Controller list (production, computer, light theme): the home weather strip at the top, tiles in a fixed layout — the icon and the left edge in the kind's colour (sun — photovoltaics, waves — heat pump, drop — water pressure tank, flame — pellet boiler, toggle — switch), the name, an Online / Offline chip, a big value with a caption, fact fields (heat pump: power, compressor and outlet water temperature; boiler: DHW and both mixers; photovoltaics: today's yield; tank: pump, runs, last run), a state badge ("pracuje" — running, CO / CWU), a warning and the "dane sprzed …" (data from …) footer; the switch shows its relays with toggles. Below, weather tiles; at the bottom, the status bar with database usage (system user only). The pencil and the firmware cog appear when hovering a tile. The screenshots in this documentation come from the production installation (2026-10-18); the name, e-mail, address, SN, Root ID, IP addresses and microinverter serial numbers are altered.*
 
 ![Controller list on a phone](../../../moduly/core/img/lista-sterownikow-telefon.png)
 
@@ -53,7 +55,13 @@ The user interface is in Polish; the screenshots below show it as is.
 
 ![Controller data](../../../moduly/core/img/dane-sterownika.png)
 
-*The "Dane sterownika" dialog: the name can be changed; the kind, SN (Device ID) and Root ID are read-only; below, the fields of the controller kind (here the heat pump configuration with the piping diagram).*
+*The "Dane sterownika" dialog (here the boiler): the name can be changed; the kind, SN (Device ID) and Root ID are read-only; kinds with their own fields (heat pump: configuration with the piping diagram) show them below.*
+
+| Weather page (computer) | Weather page (phone) |
+|---|---|
+| ![Weather page](../../../moduly/core/img/pogoda.png) | ![Weather page on a phone](../../../moduly/core/img/pogoda-telefon.png) |
+
+*The weather page (click on a weather tile): tabs Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady. "Teraz" is a card with the temperature, sky description, the day's high and low, apparent temperature, wind, humidity, pressure and sun hours, a strip of the next 48 hours (icon, temperature, precipitation probability) and tomorrow's temperature. The current conditions come from the reading fetched by the switch; the forecast and air quality are fetched by the browser directly from Open-Meteo.*
 
 | Phone — bar and bottom navigation | Phone — "Więcej" |
 |---|---|
@@ -63,7 +71,11 @@ The user interface is in Polish; the screenshots below show it as is.
 
 ![Login](../../../moduly/core/img/logowanie.png)
 
-*Login: a card with the e-mail address; the code and the link arrive by mail. The theme icon already works on this screen.*
+*Login: a card with the e-mail address; the code and the link arrive by mail. The theme icon already works on this screen. The mail is sent by the switch at home (with the `co` controller as a fallback), so it arrives within seconds; without a controller online the login gets a "mail unavailable" message, and the system user logs in with a password.*
+
+![My data](../../../moduly/core/img/konto.png)
+
+*"Moje dane" (account menu): e-mail changed via a code, first and last name, address and country, location chosen on the map or "Moja lokalizacja" from the browser (it drives the home weather). Below, the "Sesja" (session) and "Usunięcie konta" (account deletion) cards.*
 
 ![Firmware of a controller kind](../../../moduly/core/img/firmware.png)
 
@@ -88,6 +100,8 @@ The user interface is in Polish; the screenshots below show it as is.
 - **A controller cannot be deleted in the application.** Deleting it requires a change in the database.
 - **Some data lives in server memory** (latest telemetry, manual operations, device info). A server restart clears it; the controller restores it with its next report.
 - **The outdoor temperature** comes from a single IMGW station (Zakopane) — for an installation elsewhere the station has to be changed in the code.
+- **Mail depends on a controller at home.** The server on Render's free plan cannot reach SMTP, so mails (login codes, invitations, confirmations) are sent by the switch, with `co` as a fallback. When both are offline, login by code does not work ("Poczta jest chwilowo niedostępna"); the system account with a password remains. The key of a board that is to receive the mail credentials is approved by the system user after comparing the fingerprint with the board's `/install` page.
+- **Weather depends on the switch.** Current conditions are fetched by the switch over the home connection (Render shares its IP address with other services and Open-Meteo rejected the server's requests); without the switch the strip and weather tiles show the last reading, then the forecast.
 
 ## Glossary
 
@@ -102,6 +116,8 @@ The user interface is in Polish; the screenshots below show it as is.
 | **Account** | an application user: e-mail, first and last name, location; own controllers, own tile layout and weather tiles |
 | **Share** (udostępnienie) | another account's access to a controller with selected tabs; the owner can change or revoke it |
 | **Tile** (kafelek) | a field on the controller list: a controller with its current state or the weather of a town |
+| **Weather page** | the screen behind a weather tile: current conditions, forecast, sun and PV, heating, air, wind and precipitation |
+| **Mail relay** (przekaźnik poczty) | a controller at home (the switch, `co` as a fallback) that sends the application's mails; it receives the mail credentials encrypted with its own key and keeps them only in memory |
 | **Settings** (`properties`) | controller settings stored in the cloud (e.g. heat pump temperatures, the tank compressor time) |
 | **Controller kind registry** | the place in the code where each kind describes its menu, screens and default settings |
 | **Theme** (motyw) | the light or dark look ("Instrument"); light without a choice, "Jak system" follows the device setting |

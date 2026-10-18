@@ -34,7 +34,7 @@ The user interface is in Polish; the screenshots show it as is. They come from t
 
 ![Main view](../../../moduly/heat-pump/img/glowny.png)
 
-*Main view (HP): at the top the "Offline od …" banner with the reason when the pump sends no data. The hero card: the temperature in the middle of the tank on a from–to range bar, compressor state, operating mode and reading time, and four fields: power, PV now, COP and outdoor temperature. Below, the cards "Pomiary" (measurements: temperatures, EEV, power limit, cycle energy and time, tank COP, errors), "Obieg" (circuit: toggles with the relay state from telemetry — compressor start consent, hot and cold circuit, flow) and "Energia dziś" (today's energy: use, share from PV, G12w cost, a mini power chart). It refreshes by itself after every controller report.*
+*Main view (HP): at the top the "Offline od …" banner with the reason when the pump sends no data. The hero card: the temperature in the middle of the tank on a from–to range bar, compressor state (with cycle time and energy), the from–to target and reading time, and four fields: power, PV now, mode and outdoor temperature (COP is in the "Pomiary" card). The heat pump tile on the controller list shows the tank temperature, the target, power and the compressor and outlet water temperatures. Below, the cards "Pomiary" (measurements: temperatures, EEV, power limit, cycle energy and time, tank COP, errors), "Obieg" (circuit: toggles with the relay state from telemetry — compressor start consent, hot and cold circuit, flow) and "Energia dziś" (today's energy: use, share from PV, G12w cost, a mini power chart). It refreshes by itself after every controller report.*
 
 | Phone | Schedule on a phone |
 |---|---|
@@ -56,7 +56,7 @@ The user interface is in Polish; the screenshots show it as is. They come from t
 
 ![Settings](../../../moduly/heat-pump/img/ustawienia.png)
 
-*Settings (two columns): on the left the "Ustaw" card — the command for the controller: mode Ręczny / Automatyczny / Wyłączony, temperature from–to, power limit, EEV min / max, EEV superheat, toggles for forced start and circulation pumps (greyed ones show the pump's state while the pump drives them itself), the "Zmień" button. On the right the cards "Błędy sterownika" (last error, counter, "Odblokuj" and "Restart sterownika"), "Sterownik" (name, SN, Root ID, IP address, firmware with state, "Aktualizuj firmware"; the pencil opens the "Dane sterownika" dialog) and "Udostępnianie" (sharing).*
+*Settings (two columns): on the left the "Ustaw" card — the command for the controller: mode Ręczny / Automatyczny / Wyłączony, temperature from–to, power limit, EEV min / max, EEV superheat, toggles for forced start and circulation pumps (greyed ones show the pump's state while the pump drives them itself), the "Zmień" button. On the right the cards "Błędy sterownika" (last error, counter, "Odblokuj" and "Restart sterownika"), "Sterownik" (name, SN, Root ID, IP address, firmware with state, the "Poczta" row with the mail relay key state — `co` from 1.3.0, "Aktualizuj firmware"; the pencil opens the "Dane sterownika" dialog) and "Udostępnianie" (sharing).*
 
 ![Schedule](../../../moduly/heat-pump/img/harmonogramy.png)
 

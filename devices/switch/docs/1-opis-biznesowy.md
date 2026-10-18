@@ -63,7 +63,7 @@ Po starcie działa sieć Wi-Fi sterownika `Wlacznik-setup` (adres `10.11.17.1`);
 6. **W aplikacji**: nazwa przekaźnika (Ustawienia), harmonogram, ewentualnie gwiazdka „domyślny”.
 7. **Kolejne wersje** przez sieć (strona firmware w aplikacji albo `/install`).
 
-Stan wdrożenia: od 2026-10-03 na produkcji działa jeden włącznik z firmware 1.0.3, przekaźnik nazwany „Bojler”.
+Stan wdrożenia: od 2026-10-03 na produkcji działa jeden włącznik, przekaźnik nazwany „Bojler”; firmware 1.3.1 (2026-10-17). Poza przekaźnikiem włącznik pełni dwie role dla całej aplikacji, bo stoi w sieci domowej, a serwer na Render nie może: od 1.1.3 **pobiera pogodę** z Open-Meteo dla domu i kafelków pogody (od 1.2.0 wiele miejsc, co 15 min na miejsce), a od 1.3.0 jest **przekaźnikiem poczty** — wysyła maile aplikacji (kody logowania, zaproszenia) przez SMTP z danymi, które dostaje z chmury zaszyfrowane własnym kluczem P-256 i trzyma tylko w pamięci; klucz zatwierdza użytkownik systemowy w aplikacji po porównaniu odcisku ze stroną `/install`. Szczegóły: CLAUDE.md, punkty 5d i 5f.
 
 ## Ograniczenia
 

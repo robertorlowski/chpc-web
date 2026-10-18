@@ -14,7 +14,8 @@ Moduł odpowiada za:
 - **konta użytkowników**: logowanie e-mailem i kodem, dane konta, udostępnianie sterownika innej osobie z wyborem zakładek;
 - **wspólny wygląd**: pasek sterownika z zakładkami, dolną nawigację na telefonie, motyw jasny i ciemny, okna dialogowe, kartę „Sterownik” i dziennik operacji;
 - **menu i ekrany zależne od rodzaju sterownika** (pompa ma harmonogramy, hydrofor i fotowoltaika nie);
-- **wspólne usługi**: temperaturę zewnętrzną (IMGW), kalendarz polskich świąt, szybkie powiadamianie sterownika i przeglądarki (WebSocket).
+- **wspólne usługi**: temperaturę zewnętrzną (IMGW), pogodę domu i miejscowości z kafelków (Open-Meteo, pobierana przez włącznik), stronę pogody z prognozą, kalendarz polskich świąt, szybkie powiadamianie sterownika i przeglądarki (WebSocket);
+- **pocztę**: kody logowania i powiadomienia wysyłają sterowniki w domu (włącznik, zapasowo `co`), bo serwer na darmowym planie Render nie może łączyć się z pocztą.
 
 ## Dla kogo
 
@@ -26,7 +27,8 @@ Moduł odpowiada za:
 
 | Czynność | Gdzie |
 |---|---|
-| Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 14 dni |
+| Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 14 dni. Mail wysyła sterownik w domu; gdy żaden nie jest w sieci, ekran pokazuje „Poczta jest chwilowo niedostępna…” |
+| Zobaczyć pogodę i prognozę dla miejscowości | kliknięcie kafelka pogody → strona pogody z zakładkami Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady; kafelek „Moja lokalizacja” bierze położenie z przeglądarki |
 | Zobaczyć wszystkie sterowniki i wybrać jeden | lista kafelków „Sterowniki” (`/devices`); aplikacja zawsze zaczyna od niej |
 | Nadać lub zmienić nazwę sterownika | ołówek na kafelku (po najechaniu) albo ołówek w karcie „Sterownik” w Ustawieniach |
 | Ułożyć kafelki, ukryć kafelek, dodać kafelek pogody dla dowolnej miejscowości | ikona siatki w pasku → tryb „Zmień układ”: strzałki (przeniesienie, zamiana), oko (ukrycie), „+ kafelek pogody” w pustym polu, „Gotowe” |
@@ -39,7 +41,7 @@ Moduł odpowiada za:
 
 ![Lista sterowników](img/lista-sterownikow.png)
 
-*Lista sterowników (komputer, motyw jasny): pasek pogody domu u góry, kafelki w stałym układzie — ikona i lewa krawędź w kolorze rodzaju (słońce — fotowoltaika, fale — pompa ciepła, kropla — hydrofor, płomień — kocioł pelletowy, przełącznik — włącznik), nazwa, chip Online / Offline, duża wartość z opisem, pola faktów, ostrzeżenie i stopka „dane sprzed …”; włącznik pokazuje listę przekaźników z przełącznikami. Niżej kafelki pogody, na dole stopka z zajętością bazy (tylko użytkownik systemowy). Ołówek i trybik firmware pojawiają się po najechaniu na kafelek.*
+*Lista sterowników (produkcja, komputer, motyw jasny): pasek pogody domu u góry, kafelki w stałym układzie — ikona i lewa krawędź w kolorze rodzaju (słońce — fotowoltaika, fale — pompa ciepła, kropla — hydrofor, płomień — kocioł pelletowy, przełącznik — włącznik), nazwa, chip Online / Offline, duża wartość z opisem, pola faktów (pompa: moc, temperatura sprężarki i wody wyjściowej; kocioł: CWU i oba mieszacze; fotowoltaika: produkcja dziś; hydrofor: pompa, uruchomienia, ostatnie), plakietka stanu („pracuje”, CO / CWU), ostrzeżenie i stopka „dane sprzed …”; włącznik pokazuje listę przekaźników z przełącznikami. Niżej kafelki pogody, na dole stopka z zajętością bazy (tylko użytkownik systemowy). Ołówek i trybik firmware pojawiają się po najechaniu na kafelek. Zrzuty w tej dokumentacji pochodzą z instalacji produkcyjnej (2026-10-18); imię, e-mail, adres, SN, Root ID, adresy IP i numery mikrofalowników są zmienione.*
 
 ![Lista sterowników na telefonie](img/lista-sterownikow-telefon.png)
 
@@ -51,7 +53,13 @@ Moduł odpowiada za:
 
 ![Dane sterownika](img/dane-sterownika.png)
 
-*Okno „Dane sterownika”: nazwa do zmiany; rodzaj, SN (Device ID) i Root ID tylko do odczytu; niżej pola rodzaju sterownika (tu konfiguracja pompy ciepła ze schematem podłączenia).*
+*Okno „Dane sterownika” (tu kocioł): nazwa do zmiany; rodzaj, SN (Device ID) i Root ID tylko do odczytu; rodzaje, które mają własne pola (pompa ciepła: konfiguracja ze schematem podłączenia), pokazują je niżej.*
+
+| Strona pogody (komputer) | Strona pogody (telefon) |
+|---|---|
+| ![Strona pogody](img/pogoda.png) | ![Strona pogody na telefonie](img/pogoda-telefon.png) |
+
+*Strona pogody (kliknięcie kafelka pogody): zakładki Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady. „Teraz” to karta z temperaturą, opisem nieba, maksimum i minimum dnia, temperaturą odczuwalną, wiatrem, wilgotnością, ciśnieniem i godzinami słońca, pasek najbliższych 48 godzin (ikona, temperatura, prawdopodobieństwo opadu) i jutrzejsza temperatura. Bieżące warunki pochodzą z pomiaru pobranego przez włącznik, prognozę i jakość powietrza przeglądarka pobiera wprost z Open-Meteo.*
 
 | Telefon — pasek i dolna nawigacja | Telefon — „Więcej” |
 |---|---|
@@ -61,7 +69,11 @@ Moduł odpowiada za:
 
 ![Logowanie](img/logowanie.png)
 
-*Logowanie: karta z adresem e-mail; kod i link przychodzą mailem. Ikona motywu działa już na tym ekranie.*
+*Logowanie: karta z adresem e-mail; kod i link przychodzą mailem. Ikona motywu działa już na tym ekranie. Mail wysyła włącznik w domu (zapasowo sterownik `co`), więc dociera w kilka sekund; bez sterownika w sieci logowanie dostaje komunikat o niedostępnej poczcie, a użytkownik systemowy loguje się hasłem.*
+
+![Moje dane](img/konto.png)
+
+*„Moje dane” (menu konta): e-mail ze zmianą przez kod, imię i nazwisko, adres i kraj, lokalizacja wybierana na mapie albo „Moja lokalizacja” z przeglądarki (z niej jest pogoda domu i strefa czasowa kafelków). Niżej karty „Sesja” i „Usunięcie konta”.*
 
 ![Firmware rodzaju sterownika](img/firmware.png)
 
@@ -86,6 +98,8 @@ Moduł odpowiada za:
 - **Sterownika nie da się usunąć z aplikacji.** Usunięcie wymaga zmiany w bazie danych.
 - **Część danych jest w pamięci serwera** (ostatnia telemetria, operacje ręczne, dane urządzeń). Restart serwera je czyści; sterownik odtwarza je przy kolejnej wysyłce.
 - **Temperatura zewnętrzna** pochodzi z jednej stacji IMGW (Zakopane) — dla instalacji w innym miejscu trzeba zmienić stację w kodzie.
+- **Poczta zależy od sterownika w domu.** Serwer na darmowym planie Render nie może łączyć się z SMTP, więc maile (kody logowania, zaproszenia, potwierdzenia) wysyła włącznik, a zapasowo `co`. Gdy oba są bez sieci, logowanie kodem nie działa (komunikat „Poczta jest chwilowo niedostępna”); zostaje konto systemowe z hasłem. Klucz płytki, która ma dostać dane poczty, zatwierdza użytkownik systemowy po porównaniu odcisku ze stroną `/install` płytki.
+- **Pogoda zależy od włącznika.** Bieżące warunki pobiera włącznik z domowego łącza (Render dzieli adres IP z innymi usługami i Open-Meteo odrzucało zapytania serwera); bez włącznika pasek i kafelki pogody pokazują ostatni odczyt, a potem prognozę.
 
 ## Słownik
 
@@ -100,6 +114,8 @@ Moduł odpowiada za:
 | **Konto** | użytkownik aplikacji: e-mail, imię i nazwisko, lokalizacja; własne sterowniki, własny układ kafelków i kafelki pogody |
 | **Udostępnienie** | dostęp innego konta do sterownika z wybranymi zakładkami; właściciel może go zmienić albo cofnąć |
 | **Kafelek** | pole na liście sterowników: sterownik z bieżącym stanem albo pogoda miejscowości |
+| **Strona pogody** | ekran po kliknięciu kafelka pogody: bieżące warunki, prognoza, słońce i PV, ogrzewanie, powietrze, wiatr i opady |
+| **Przekaźnik poczty** | sterownik w domu (włącznik, zapasowo `co`), który wysyła maile aplikacji; dane poczty dostaje zaszyfrowane swoim kluczem i trzyma tylko w pamięci |
 | **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, czas kompresora hydroforu) |
 | **Rejestr rodzajów sterowników** | miejsce w kodzie, gdzie każdy rodzaj opisuje swoje menu, ekrany i ustawienia domyślne |
 | **Motyw** | wygląd jasny albo ciemny („Instrument”); bez wyboru jasny, „Jak system” bierze ustawienie urządzenia |
