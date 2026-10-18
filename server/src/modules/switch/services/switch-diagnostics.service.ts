@@ -1,5 +1,6 @@
 // Diagnostyka sterownika włącznika (firmware od 1.1.2, pole diag w POST /switch/state; 2026-10-14: płytka
-// restartowała się przy włączaniu bojlera 1,5–2 kW). Każdy nowy start sterownika (inny numer startu) trafia do
+// restartowała się przy włączaniu bojlera 1,5–2 kW; od 1.3.2 także pamięć sterty i wynik pobierania pogody, bo
+// 2026-10-18 pogoda nie dochodziła przez 8 h przy działającym włączniku). Każdy nowy start sterownika (inny numer startu) trafia do
 // dziennika operacji z przyczyną (np. brownout = spadek napięcia zasilania) i z włączeniem przekaźnika tuż przed
 // restartem, jeśli było. Ostatnia diagnostyka jest w pamięci (GET /switch/diagnostics). Po restarcie serwera
 // pierwsze zgłoszenie jest punktem odniesienia: start zapisuje się tylko, gdy sterownik działa krócej niż
@@ -8,7 +9,15 @@ import { controllerMeta, logOperation } from '../../../core/services/operation-l
 import { SwitchActivationModel } from '../models/switch-activation.model';
 import { SwitchRelayModel } from '../models/switch-relay.model';
 
-export type ControllerDiag = { reset: string; boot: number; wifiDrops?: number; rssi?: number; httpMs?: number };
+// Pogoda (firmware od 1.3.2): miejsca z chmury, udane i nieudane pobrania od startu, ostatni kod (HTTP, ujemny = błąd
+// HTTPClient, 1 = 200 z nieczytelną odpowiedzią, 0 = brak próby), błąd mbedtls, największy blok sterty przed próbą,
+// sekundy od próby.
+export type ControllerWeatherDiag = { places: number; ok: number; fail: number; code: number; tls: number; heapBlock: number; agoS?: number };
+// heapFree, heapMin, heapBlock (od 1.3.2): pamięć sterty sterownika w bajtach.
+export type ControllerDiag = {
+  reset: string; boot: number; wifiDrops?: number; rssi?: number; httpMs?: number;
+  heapFree?: number; heapMin?: number; heapBlock?: number; weather?: ControllerWeatherDiag;
+};
 
 // nazwy jak esp_reset_reason w firmware (switch.cpp, resetReasonName)
 const RESET_NAMES: Record<string, string> = {
@@ -34,6 +43,19 @@ type Saved = ControllerDiag & { at: Date; uptimeS?: number; bootAt?: Date };
 const lastDiag = new Map<string, Saved>();
 
 const isCount = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+const isInt = (value: unknown) => typeof value === 'number' && Number.isInteger(value);
+
+function parseWeatherDiag(input: unknown): ControllerWeatherDiag | undefined {
+  const value = input as Record<string, unknown> | undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const counts = ['places', 'ok', 'fail', 'heapBlock'] as const;
+  if (!counts.every((key) => isCount(value[key])) || !isInt(value.code) || !isInt(value.tls)) return undefined;
+  return {
+    places: value.places as number, ok: value.ok as number, fail: value.fail as number,
+    code: value.code as number, tls: value.tls as number, heapBlock: value.heapBlock as number,
+    ...(isCount(value.agoS) ? { agoS: value.agoS as number } : {}),
+  };
+}
 
 // Pole diag ze zgłoszenia; brak albo błędne = undefined (stan przekaźników jest przyjmowany i tak).
 export function parseControllerDiag(body: unknown): ControllerDiag | undefined {
@@ -46,6 +68,10 @@ export function parseControllerDiag(body: unknown): ControllerDiag | undefined {
     ...(isCount(diag.wifiDrops) ? { wifiDrops: diag.wifiDrops as number } : {}),
     ...(typeof diag.rssi === 'number' && Number.isFinite(diag.rssi) ? { rssi: diag.rssi } : {}),
     ...(isCount(diag.httpMs) ? { httpMs: diag.httpMs as number } : {}),
+    ...(isCount(diag.heapFree) ? { heapFree: diag.heapFree as number } : {}),
+    ...(isCount(diag.heapMin) ? { heapMin: diag.heapMin as number } : {}),
+    ...(isCount(diag.heapBlock) ? { heapBlock: diag.heapBlock as number } : {}),
+    ...(parseWeatherDiag(diag.weather) ? { weather: parseWeatherDiag(diag.weather) } : {}),
   };
 }
 

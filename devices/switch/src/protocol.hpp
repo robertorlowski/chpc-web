@@ -19,6 +19,21 @@ struct ControllerDiag {
   uint32_t wifiDrops = 0;
   int32_t rssi = 0;
   uint32_t httpMs = 0;
+  // od 1.3.2 (2026-10-18: pogoda przestała dochodzić od 1.3.0, podejrzenie braku pamięci na kolejne połączenie TLS):
+  // pamięć sterty [B] — wolna, najmniejsza od startu, największy ciągły blok (TLS potrzebuje ok. 16 KB ciągłych)
+  uint32_t heapFree = 0;
+  uint32_t heapMin = 0;
+  uint32_t heapBlock = 0;
+  // pogoda: liczba miejsc z chmury, udane i nieudane pobrania od startu, wynik ostatniej próby (kod HTTP albo ujemny
+  // błąd HTTPClient, 0 = jeszcze nie było), błąd mbedtls z WiFiClientSecure (0 = brak), największy blok sterty tuż
+  // przed próbą i chwila próby (millis, 0 = nie było)
+  uint32_t weatherPlaces = 0;
+  uint32_t weatherOk = 0;
+  uint32_t weatherFail = 0;
+  int32_t weatherCode = 0;
+  int32_t weatherTls = 0;
+  uint32_t weatherHeapBlock = 0;
+  uint32_t weatherAtMs = 0;
 };
 
 // Zgłoszenie stanu: {"uptimeS":N,"relays":[{"on":true,"changedS":12},…],"diag":{…}}.

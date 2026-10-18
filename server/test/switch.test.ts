@@ -188,6 +188,26 @@ describe('Włącznik (switch)', () => {
       const diag = (await request(app).get(api('switch/diagnostics')).expect(200)).body;
       expect(diag).toMatchObject({ reset: 'brownout', boot: 6, httpMs: 900, resetText: 'spadek napięcia zasilania (brownout)' });
     });
+
+    it('przyjmuje pamięć sterty i wynik pobierania pogody (firmware 1.3.2)', async () => {
+      const { body } = await register('4CC382C520FB');
+      const api = (path: string) => `/api/${path}?rootId=${body.rootId}`;
+      const weather = { places: 2, ok: 3, fail: 5, code: -1, tls: -32512, heapBlock: 12000, agoS: 40 };
+      await request(app).post(api('switch/state')).send({
+        uptimeS: 600, relays: [{ on: false, changedS: 600 }],
+        diag: { reset: 'software', boot: 9, wifiDrops: 0, rssi: -45, httpMs: 800, heapFree: 61000, heapMin: 30500, heapBlock: 40000, weather },
+      }).expect(200);
+      let diag = (await request(app).get(api('switch/diagnostics')).expect(200)).body;
+      expect(diag).toMatchObject({ heapFree: 61000, heapMin: 30500, heapBlock: 40000, weather });
+      // błędna pogoda w diag jest pomijana, reszta zostaje
+      await request(app).post(api('switch/state')).send({
+        uptimeS: 605, relays: [{ on: false, changedS: 605 }],
+        diag: { reset: 'software', boot: 9, heapFree: 60000, weather: { places: 'dwa' } },
+      }).expect(200);
+      diag = (await request(app).get(api('switch/diagnostics')).expect(200)).body;
+      expect(diag.heapFree).toBe(60000);
+      expect(diag.weather).toBeUndefined();
+    });
   });
 
   describe('pogoda z Open-Meteo (firmware 1.1.3)', () => {

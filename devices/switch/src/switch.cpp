@@ -370,6 +370,10 @@ void exchangeState(uint32_t nowMs)
   exchangeDue = false;
   String response;
   diag.rssi = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+  diag.heapFree = ESP.getFreeHeap();
+  diag.heapMin = ESP.getMinFreeHeap();
+  diag.heapBlock = ESP.getMaxAllocHeap();
+  diag.weatherPlaces = weatherPlaces.size();
   const std::string body = buildStateReport(bank, nowMs, &diag, &weatherPlaces);
   const uint32_t sentMs = millis();
   const bool sent = send("POST", requestUrl("switch/state"), body.c_str(), &response);
@@ -581,17 +585,28 @@ void fetchWeather(size_t index, uint32_t nowMs)
   request.setTimeout(HTTP_TIMEOUT_MS);
   bool ok = false;
   WeatherReading reading;
+  // diagnostyka (od 1.3.2): największy blok sterty przed połączeniem TLS, kod HTTP i błąd mbedtls
+  diag.weatherHeapBlock = ESP.getMaxAllocHeap();
+  diag.weatherAtMs = nowMs == 0 ? 1 : nowMs;
+  int code = 0;
   if (request.begin(client, openMeteoUrl(location).c_str())) {
-    const int code = request.GET();
+    code = request.GET();
     if (code == 200) {
       const String body = request.getString();
       ok = parseOpenMeteoCurrent(body.c_str(), body.length(), reading);
+      // 200 z odpowiedzią, której nie da się odczytać: osobny kod, żeby odróżnić od błędu połączenia
+      if (!ok) code = 1;
     }
     request.end();
   }
+  char tlsText[80] = "";
+  diag.weatherTls = client.lastError(tlsText, sizeof(tlsText));
+  diag.weatherCode = code;
+  if (ok) diag.weatherOk++; else diag.weatherFail++;
   weatherPlaces.onFetched(index, ok, reading, nowMs);
-  logf("pogoda %u/%u: %s", static_cast<unsigned>(index + 1), static_cast<unsigned>(weatherPlaces.size()),
-    ok ? "pobrana" : "błąd pobierania");
+  logf("pogoda %u/%u: %s (HTTP %d, TLS %d %s, blok %u B)", static_cast<unsigned>(index + 1),
+    static_cast<unsigned>(weatherPlaces.size()), ok ? "pobrana" : "błąd pobierania", code,
+    static_cast<int>(diag.weatherTls), tlsText, static_cast<unsigned>(diag.weatherHeapBlock));
 }
 
 // --- strony WWW ---

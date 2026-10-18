@@ -22,6 +22,18 @@ std::string buildStateReport(const RelayBank &bank, uint32_t nowMs, const Contro
     item["wifiDrops"] = diag->wifiDrops;
     item["rssi"] = diag->rssi;
     item["httpMs"] = diag->httpMs;
+    item["heapFree"] = diag->heapFree;
+    item["heapMin"] = diag->heapMin;
+    item["heapBlock"] = diag->heapBlock;
+    JsonObject weatherDiag = item["weather"].to<JsonObject>();
+    weatherDiag["places"] = diag->weatherPlaces;
+    weatherDiag["ok"] = diag->weatherOk;
+    weatherDiag["fail"] = diag->weatherFail;
+    weatherDiag["code"] = diag->weatherCode;
+    weatherDiag["tls"] = diag->weatherTls;
+    weatherDiag["heapBlock"] = diag->weatherHeapBlock;
+    // sekundy od ostatniej próby; bez próby pole pominięte
+    if (diag->weatherAtMs != 0) weatherDiag["agoS"] = (nowMs - diag->weatherAtMs) / 1000;
   }
   if (weather) weather->write(document, nowMs);
   std::string body;
