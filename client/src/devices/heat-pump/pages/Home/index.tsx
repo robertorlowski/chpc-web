@@ -286,7 +286,7 @@ const HP: React.FC = () => {
         <section className="card">
           <header className="card-head"><h2>Obieg</h2><span className="card-hint">stan przekaźników</span></header>
           <ul className="toggle-list">
-            <li><span className="t-name">Pompa ciepła <small>(zgoda na start sprężarki)</small></span><Switch on={Boolean(_hp?.CO)} label="Pompa ciepła" /></li>
+            <li><span className="t-name">Pompa ciepła</span><Switch on={Boolean(_hp?.CO)} label="Pompa ciepła" /></li>
             <li><span className="t-name">Obieg gorący</span><Switch on={Boolean(_hp?.HCS)} label="Obieg gorący" /></li>
             <li><span className="t-name">Obieg zimny</span><Switch on={Boolean(_hp?.CCS)} label="Obieg zimny" /></li>
             {/* FLW: CHPC od 2026-10-11; starszy firmware go nie wysyła */}

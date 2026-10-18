@@ -215,7 +215,7 @@
         <section class="card">
           <header class="card-head"><h2>Obieg</h2><span class="card-hint">stan przekaźników</span></header>
           <ul class="toggle-list">
-            <li><span class="t-name">Pompa ciepła <small>(CO włączone)</small></span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Pompa ciepła"></span></li>
+            <li><span class="t-name">Pompa ciepła</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Pompa ciepła"></span></li>
             <li><span class="t-name">Obieg gorący</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Obieg gorący"></span></li>
             <li><span class="t-name">Obieg zimny</span><span class="switch" role="switch" aria-checked="false" aria-label="Obieg zimny"></span></li>
             <li><span class="t-name">Przepływ przez parownik</span><span class="switch is-on" role="switch" aria-checked="true" aria-label="Przepływ"></span></li>
@@ -600,9 +600,10 @@
       </section>
       <div class="grid-3">
         <section class="card card-circuit">
-          <header class="card-head"><h2>CWU</h2><span class="chip chip-ok"><i class="dot"></i>pompa</span></header>
-          <div class="circuit-val"><span class="big">52</span><span class="unit">°C</span></div>
-          <span class="circuit-sub">zadana 55 · ładowanie od 40 °C</span>
+          <header class="card-head"><h2>CWU</h2><span class="chip chip-off">pompa stoi</span></header>
+          <div class="circuit-val"><span class="big">33,7</span><span class="unit">°C</span></div>
+          <!-- CWU wyłączone w regulatorze (nr 122 = 0): zakres od–do (zadana − histereza, zadana) zostaje widoczny (2026-10-18) -->
+          <span class="circuit-sub">35–50 °C · <span class="danger-text">wyłączone w regulatorze</span></span>
         </section>
         <section class="card card-circuit">
           <header class="card-head"><h2>Mieszacz 1 · CO</h2><span class="chip chip-ok"><i class="dot"></i>pompa</span></header>

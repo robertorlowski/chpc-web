@@ -11,7 +11,7 @@
 
   /* ciemny (domyślny) */
   color-scheme: dark;
-  --bg: #121417; --card: #1b1e23; --fg: #e9ebee; --fg-2: #aeb5bf; --fg-3: #7f8893;
+  --bg: #121417; --card: #1b1e23; --fg: #e9ebee; --fg-2: #c8cdd4; --fg-3: #7f8893;
   --line: #2f343b; --line-soft: #272b31; --line-strong: #434a54; --hover: rgba(255,255,255,.06);
   --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
   --accent: #f0a23a; --accent-strong: #f6b55d; --accent-fg: #1b1300;
@@ -29,7 +29,7 @@
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
   color-scheme: light;
-  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #353b44; --fg-3: #7b8490;
   --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
   --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
   --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
@@ -47,7 +47,7 @@
 } }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #4d5560; --fg-3: #7b8490;
+  --bg: #f1f2f4; --card: #ffffff; --fg: #17191c; --fg-2: #353b44; --fg-3: #7b8490;
   --line: #cfd4db; --line-soft: #e3e6ea; --line-strong: #aeb6c0; --hover: rgba(0,0,0,.05);
   --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong);
   --accent: #c7791c; --accent-strong: #a9630f; --accent-fg: #ffffff;
