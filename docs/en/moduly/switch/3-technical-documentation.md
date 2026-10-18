@@ -37,7 +37,7 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 
 | Method and path | Who | Description |
 |---|---|---|
-| `POST /switch/state` | controller | `{uptimeS?, relays: [{on, changedS}]}` (1–16 relays, `changedS` ≥ 0); `deviceId` alone is enough, 404/409 as in core; reply 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` only with an "Aktualizuj" request; firmware from 1.1.0 updates from it without a restart); bad data 400 |
+| `POST /switch/state` | controller | `{uptimeS?, relays: [{on, changedS}], diag?, weather?}` (`diag` — firmware diagnostics, `weather` — Open-Meteo weather, CLAUDE.md section 5d; 1–16 relays, `changedS` ≥ 0); `deviceId` alone is enough, 404/409 as in core; reply 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` only with an "Aktualizuj" request; firmware from 1.1.0 updates from it without a restart); bad data 400 |
 | `PUT /switch/mode` | application, controller | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`; `minutes` only for `timer`, whole 1–10080; `source: "controller"` or a request with `deviceId` only = change from the controller; reply: the relay as in `GET /switch/relays`; 400 bad mode, number, time or unknown relay |
 | `GET /switch/relays` | application | relays: `relay`, `name`, `mode` (an expired timer already as `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (entry active now), `nextStart` |
 | `PUT /switch/relays/:relay` | application | `{name}` (at most 40 characters, empty = "Przekaźnik N"); 404 unknown relay |
@@ -46,6 +46,7 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 | `PUT /switch/schedules/:id` | application | full replacement of the entry (an omitted `date` or `dayOfWeek` disappears); 404; 400 |
 | `DELETE /switch/schedules/:id` | application | 200 `{}`; 404; 400 bad id |
 | `GET /switch/activations?date=YYYY-MM-DD[&relay=N]` | application | activations overlapping the day (Warsaw), including those started the day before and ongoing ones, ascending by `onAt`, with `durationS` (up to now for ongoing ones); the application filters by relay itself and does not use `relay` |
+| `GET /switch/diagnostics` | application | last controller diagnostics from server memory (until restart) or `{}`: `reset`, `resetText`, `boot`, `bootAt`, `uptimeS`, `wifiDrops`, `rssi`, `httpMs`, `at`; from firmware 1.3.2 also `heapFree`, `heapMin`, `heapBlock` (bytes) and `weather {places, ok, fail, code, tls, heapBlock, agoS}` (fields described in the switch firmware technical documentation) |
 
 The registration (`POST /devices/register`, core module) with `deviceType: "switch"` additionally accepts `relays` (integer 1–16): `onRegister` creates the relays at once. The reply carries `settings: {default_on_minutes, firmware?}` (`firmware` only with an update request, `POST /devices/:rootId/firmware-update`, core module). The setting is stored by the shared `PUT /device/properties` (core module).
 

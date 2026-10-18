@@ -33,7 +33,7 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej z odczytami z 12–13.10.2026 (
 
 ![Widok Kocioł](img/piec-kociol.png)
 
-*Kocioł: karta hero z temperaturą kotła, zadaną i histerezą, stanem pracy (chip, przy paleniu z płomieniem), chipami sezonu (Zima / Lato) i trybu pracy (pompa ciepła / pellet) oraz polami moc, obciążenie, paliwo i spaliny. Niżej karty obiegów CWU, Mieszacz 1 (CO) i Mieszacz 2 (temperatura, zadana, chip pompy, ruch zaworu), karta „Urządzenia kotła” (przełączniki tylko do odczytu: wentylator z mocą, podajnik, pompy CO, CWU i cyrkulacji, zapalarka) i „Pozostałe” (temperatura zewnętrzna i pokojowa, termostat, czyszczenie, spalony pellet, ostatni odczyt). Widok odświeża się co 30 s; gdy ostatni odczyt jest starszy niż trzy interwały odpytywania, na górze jest pasek „Offline od …”. Brak wartości to `---`.*
+*Kocioł: karta hero z temperaturą kotła, zadaną i histerezą, stanem pracy (chip, przy paleniu z płomieniem), chipami sezonu (Zima / Lato) i trybu pracy (pompa ciepła / pellet) oraz polami moc, obciążenie, paliwo i spaliny. Niżej karty obiegów CWU, Mieszacz 1 (CO) i Mieszacz 2 (temperatura, zadana, chip pompy, ruch zaworu; przy CWU wyłączonym w regulatorze karta CWU pokazuje zakres od–do, np. „35–50 °C · wyłączone w regulatorze”), karta „Urządzenia kotła” (przełączniki tylko do odczytu: wentylator z mocą, podajnik, pompy CO, CWU i cyrkulacji, zapalarka) i „Pozostałe” (temperatura zewnętrzna i pokojowa, termostat, czyszczenie, spalony pellet, ostatni odczyt). Widok odświeża się co 30 s; gdy ostatni odczyt jest starszy niż trzy interwały odpytywania, na górze jest pasek „Offline od …”. Brak wartości to `---`.*
 
 ![Widok Kocioł na telefonie](img/piec-kociol-telefon.png)
 
