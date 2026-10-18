@@ -26,7 +26,7 @@ import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, Weat
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { ageLabel, DeviceTileCard, ListIcon, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
-import { precipitationText, weatherDescription } from '../../components/WeatherIcon';
+import { precipitationText, WeatherCodeIcon, weatherDescription } from '../../components/WeatherIcon';
 import { WeatherTileModal } from '../../components/WeatherTileModal';
 import { useDevice } from '../../context/DeviceContext';
 import { useAuth } from '../../context/AuthContext';
@@ -423,7 +423,8 @@ export const Devices: React.FC = () => {
   // przycisk w kafelku nie wybiera sterownika (kafelek jest odnośnikiem)
   const stop = (event: MouseEvent) => event.stopPropagation();
 
-  // pasek pogody domu: temperatura i opis nieba z Open-Meteo (bez czujnika kotła, od 2026-10-17), wiatr, wiek
+  // pasek pogody domu: ikona nieba (od 2026-10-18), temperatura i opis z Open-Meteo (bez czujnika kotła, od 2026-10-17),
+  // wiatr, wiek
   const outdoorStrip = (() => {
     const weather = outdoor?.weather;
     const temperature = outdoor === undefined ? '…' : weather
@@ -434,6 +435,7 @@ export const Devices: React.FC = () => {
     const source = weather ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : '';
     return (
       <div className="outdoor-strip" title="Temperatura i pogoda: Open-Meteo (pobiera włącznik).">
+        {weather && <span className="outdoor-icon"><WeatherCodeIcon code={weather.code} isDay={weather.isDay} size={24} /></span>}
         <span className="outdoor-temp">{temperature}</span>
         <span className="outdoor-desc">{desc}</span>
         {source && <span className="outdoor-src">{source}</span>}
