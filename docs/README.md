@@ -57,6 +57,7 @@ Najważniejsza zasada: **sterowniki inicjują połączenie, serwer tylko odpowia
 | **firmware hydroforu** | sterownik ESP32 kompresora hydroforu | `devices/water-pressure-tank` | [devices/water-pressure-tank/docs](../devices/water-pressure-tank/docs/1-opis-biznesowy.md) |
 | **firmware włącznika** | sterownik ESP32 z przekaźnikiem 230 V (płytka „ESP32 Relay AC X1”) | `devices/switch` | [devices/switch/docs](../devices/switch/docs/1-opis-biznesowy.md) |
 | **firmware pieca** | sterownik ESP32-C3 z modułem RS-485 HW-519: nasłuch magistrali ecoMAX kotła Pellux 200 | `devices/pellet-boiler-pelux200` | [devices/pellet-boiler-pelux200](../devices/pellet-boiler-pelux200/README.md) |
+| **firmware klimatyzatora** (projekt) | ESP32-C3 SuperMini w gnieździe modułu Wi-Fi klimatyzatora Sinclair SIM-12BS3 (UART Gree); na razie schemat podłączenia, bez firmware | `devices/air-conditioner` | [devices/air-conditioner/docs](../devices/air-conditioner/docs/podlaczenie.md) |
 
 Rodzaj sterownika (`deviceType`) decyduje, którego modułu używa aplikacja: `heat_pump` (sterownik `co` z pompą CHPC), `water-pressure-tank` (hydrofor), `pellet-boiler-pelux200` (kocioł pelletowy, osobny sterownik pieca) albo `switch` (włącznik). Jeden fizyczny sterownik może mieć kilka ról (tak było 2026-10-01–02, gdy `co` obsługiwał też kocioł): w aplikacji to osobne urządzenia o tym samym `deviceId`, ale innym rodzaju i `rootId` (opis w [module core](moduly/core/2-zasada-dzialania.md)).
 

@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 660" width="1000" height="660" font-family="Segoe UI, Arial, sans-serif" font-size="14">
+  <!-- Schemat podłączenia sterownika klimatyzacji: ESP32-C3 SuperMini w gnieździe modułu Wi-Fi (Sinclair SIM-12BS3, protokół UART Gree 4800 8E1). -->
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="660" fill="#ffffff"/>
+  <text x="500" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#111827">Sterownik klimatyzacji: ESP32-C3 SuperMini w gnieździe modułu Wi-Fi</text>
+  <text x="500" y="58" text-anchor="middle" fill="#4b5563">UART Gree 4800 8E1, logika 5 V · projekt, kolejność pinów gniazda do zmierzenia</text>
+
+  <!-- Klimatyzator -->
+  <rect x="30" y="100" width="220" height="370" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="140" y="190" text-anchor="middle" font-weight="600" fill="#1e3a8a">Sinclair SIM-12BS3</text>
+  <text x="140" y="210" text-anchor="middle" fill="#1e3a8a">jednostka wewnętrzna</text>
+  <text x="140" y="230" text-anchor="middle" fill="#1e3a8a">gniazdo modułu Wi-Fi</text>
+  <text x="140" y="385" text-anchor="middle" font-size="12" fill="#b91c1c">kolejność pinów</text>
+  <text x="140" y="401" text-anchor="middle" font-size="12" fill="#b91c1c">zmierzyć (punkt 4)</text>
+  <g font-size="13" fill="#111827">
+    <text x="240" y="145" text-anchor="end">+5V</text>
+    <text x="240" y="275" text-anchor="end">TX (z klimatyzatora)</text>
+    <text x="240" y="335" text-anchor="end">RX (do klimatyzatora)</text>
+    <text x="240" y="435" text-anchor="end">GND</text>
+  </g>
+
+  <!-- Konwerter poziomów -->
+  <rect x="390" y="195" width="200" height="205" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+  <text x="490" y="182" text-anchor="middle" font-weight="600" fill="#14532d">Konwerter poziomów BSS138</text>
+  <g font-size="13" fill="#111827">
+    <text x="398" y="225">HV</text><text x="582" y="225" text-anchor="end">LV</text>
+    <text x="398" y="275">HV1</text><text x="582" y="275" text-anchor="end">LV1</text>
+    <text x="398" y="335">HV2</text><text x="582" y="335" text-anchor="end">LV2</text>
+    <text x="440" y="392" text-anchor="middle">GND</text><text x="540" y="392" text-anchor="middle">GND</text>
+  </g>
+  <text x="490" y="302" text-anchor="middle" font-size="12" fill="#4b5563">5 V ⇄ 3,3 V</text>
+
+  <!-- ESP32-C3 -->
+  <rect x="760" y="100" width="210" height="370" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="2"/>
+  <text x="865" y="380" text-anchor="middle" font-weight="600" fill="#7c2d12">ESP32-C3 SuperMini</text>
+  <text x="865" y="400" text-anchor="middle" font-size="12" fill="#7c2d12">jak w sterowniku pieca</text>
+  <g font-size="13" fill="#111827">
+    <text x="770" y="145">5V</text>
+    <text x="770" y="225">3V3</text>
+    <text x="770" y="275">GPIO21 (RX, UART1)</text>
+    <text x="770" y="335">GPIO20 (TX, UART1)</text>
+    <text x="770" y="435">GND</text>
+  </g>
+  <rect x="935" y="270" width="35" height="70" rx="4" fill="#e5e7eb" stroke="#6b7280"/>
+  <text x="952" y="310" text-anchor="middle" font-size="11" fill="#374151" transform="rotate(-90 952 305)">USB-C</text>
+
+  <g stroke="#1f2937" stroke-width="2" fill="none">
+    <!-- szyna +5V z klimatyzatora przez D1 -->
+    <line x1="250" y1="140" x2="640" y2="140" stroke="#dc2626"/>
+    <line x1="690" y1="140" x2="760" y2="140" stroke="#dc2626"/>
+    <!-- HV konwertera z +5V klimatyzatora (przed diodą) -->
+    <polyline points="340,140 340,220 390,220" stroke="#dc2626"/>
+    <!-- LV konwertera z 3V3 płytki -->
+    <line x1="590" y1="220" x2="760" y2="220" stroke="#ea580c"/>
+    <!-- sygnały -->
+    <line x1="250" y1="270" x2="388" y2="270" marker-end="url(#arr)"/>
+    <line x1="590" y1="270" x2="758" y2="270" marker-end="url(#arr)"/>
+    <line x1="760" y1="330" x2="592" y2="330" marker-end="url(#arr)"/>
+    <line x1="390" y1="330" x2="252" y2="330" marker-end="url(#arr)"/>
+    <!-- masa -->
+    <line x1="250" y1="430" x2="760" y2="430"/>
+    <line x1="440" y1="400" x2="440" y2="430"/>
+    <line x1="540" y1="400" x2="540" y2="430"/>
+    <!-- C1 przy pinie 5V płytki -->
+    <line x1="725" y1="140" x2="725" y2="160" stroke="#dc2626"/>
+    <line x1="712" y1="160" x2="738" y2="160"/>
+    <path d="M712,170 Q725,163 738,170"/>
+    <line x1="725" y1="167" x2="725" y2="180"/>
+    <line x1="713" y1="180" x2="737" y2="180"/>
+    <line x1="717" y1="185" x2="733" y2="185"/>
+    <line x1="721" y1="190" x2="729" y2="190"/>
+  </g>
+  <!-- D1 -->
+  <path d="M640,128 L640,152 L684,140 z" fill="#ffffff" stroke="#1f2937" stroke-width="2"/>
+  <line x1="688" y1="126" x2="688" y2="154" stroke="#1f2937" stroke-width="3"/>
+  <text x="664" y="118" text-anchor="middle" font-size="12" fill="#111827">D1 SS14</text>
+  <text x="745" y="168" font-size="12" fill="#111827">C1</text>
+  <text x="745" y="182" font-size="11" fill="#4b5563">470 µF</text>
+  <!-- kropki połączeń -->
+  <g fill="#1f2937">
+    <circle cx="340" cy="140" r="4"/><circle cx="725" cy="140" r="4"/>
+    <circle cx="440" cy="430" r="4"/><circle cx="540" cy="430" r="4"/>
+  </g>
+
+  <!-- legenda -->
+  <g font-size="13" fill="#111827">
+    <text x="30" y="515" font-weight="600">Uwagi</text>
+    <text x="30" y="538">1. Moduł Wi-Fi producenta wyjęty, płytka w jego miejscu. Wszystkie masy wspólne.</text>
+    <text x="30" y="558">2. D1 (Schottky) chroni klimatyzator przed zasilaniem z USB komputera; z niej spadek ok. 0,3 V, płytka C3 to przyjmuje.</text>
+    <text x="30" y="578">3. C1 470 µF / 10 V przy pinie 5V płytki: pobór Wi-Fi w szczytach do ok. 350 mA.</text>
+    <text x="30" y="598">4. Linie RX i TX w spoczynku mają stan wysoki (5 V). GPIO20/21 nie są pinami startowymi: ROM nie nadaje nic do klimatyzatora.</text>
+    <text x="30" y="618">5. Przed otwarciem obudowy odłączyć zasilanie 230 V. Kabla USB z komputera nie podłączać, gdy klimatyzator jest pod napięciem,</text>
+    <text x="30" y="638">    dopóki nie sprawdzono, że masa gniazda jest odizolowana od sieci (punkt 4 opisu).</text>
+  </g>
+</svg>

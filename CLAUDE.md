@@ -24,6 +24,7 @@ Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-we
 | `devices/water-pressure-tank/` | firmware hydroforu „Hydrofor” (ESP32 DevKit z WROOM-32, typ `water-pressure-tank`), punkt 5b; dokumentacja w `devices/water-pressure-tank/docs/` |
 | `devices/switch/` | firmware włącznika „Włącznik” (płytka „ESP32 Relay AC X1” z ESP32-WROOM-32E i przekaźnikiem 30 A, typ `switch`), punkt 5d; dokumentacja w `devices/switch/docs/` |
 | `devices/pellet-boiler-pelux200/` | firmware sterownika pieca „Piec Pellux 200” (ESP32-C3 SuperMini z modułem RS-485 HW-519, typ `pellet-boiler-pelux200`): na magistrali ecoMAX kotła udaje moduł ecoNET, czyta dane i ustawienia (bez zapisu), punkt 5c; instrukcja w `README.md`, podłączenie i protokół w `docs/` |
+| `devices/air-conditioner/` | projekt sterownika klimatyzatora Sinclair SIM-12BS3 (ESP32-C3 SuperMini w gnieździe modułu Wi-Fi, UART Gree 4800 8E1); na razie tylko schemat podłączenia w `docs/podlaczenie.md`, bez firmware i bez modułu w aplikacji |
 | `test/e2e/` | test całego łańcucha (punkt 11) |
 | `scripts/` | środowisko lokalne (`npm run local`), dane demonstracyjne (`seed-local.mjs`), symulatory hydroforu i włącznika |
 
