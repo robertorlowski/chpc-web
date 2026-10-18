@@ -16,7 +16,8 @@ constexpr const char *DEVICE_TYPE = "switch";
 // 1.3.1: wspólna biblioteka pogody devices/common/weather używana także jako zapas przez sterownik co.
 // 1.3.2: rozszerzona diagnostyka w zgłoszeniu stanu (pamięć sterty, wynik pobierania pogody: kod HTTP, błąd TLS);
 //        2026-10-18 pogoda nie dochodziła przez 8 h przy działającym włączniku.
-constexpr const char *FW_VERSION = "1.3.2";
+// 1.3.3: pogoda z modelu DWD ICON (models=icon_seamless) zamiast automatycznego wyboru Open-Meteo.
+constexpr const char *FW_VERSION = "1.3.3";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 

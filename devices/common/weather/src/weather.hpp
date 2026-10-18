@@ -73,13 +73,16 @@ inline bool parseWeatherLocation(JsonVariantConst response, WeatherLocation &out
   return true;
 }
 
+// Model DWD ICON (icon_seamless, ok. 2 km nad Europą Środkową) zamiast automatycznego wyboru Open-Meteo (od włącznika
+// 1.3.3, 2026-10-18): model domyślny liczył cienkie wysokie chmury jako pełne zachmurzenie i przy słońcu (PV jak
+// w słoneczne dni) podawał „pochmurno” (98 %, niskich 0 %), ICON — „małe zachmurzenie” (42 %). Format odpowiedzi ten sam.
 inline std::string openMeteoUrl(const WeatherLocation &location)
 {
-  char url[320];
+  char url[340];
   snprintf(url, sizeof(url),
     "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
     "&current=temperature_2m,weather_code,cloud_cover,precipitation,rain,snowfall,wind_speed_10m,is_day"
-    "&timezone=Europe%%2FWarsaw",
+    "&timezone=Europe%%2FWarsaw&models=icon_seamless",
     location.lat, location.lon);
   return url;
 }

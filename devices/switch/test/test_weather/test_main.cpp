@@ -27,7 +27,8 @@ void testLocationFromCloudResponse()
   TEST_ASSERT_TRUE(location.valid);
   TEST_ASSERT_EQUAL_STRING(
     "https://api.open-meteo.com/v1/forecast?latitude=49.3743&longitude=20.0072"
-    "&current=temperature_2m,weather_code,cloud_cover,precipitation,rain,snowfall,wind_speed_10m,is_day&timezone=Europe%2FWarsaw",
+    "&current=temperature_2m,weather_code,cloud_cover,precipitation,rain,snowfall,wind_speed_10m,is_day&timezone=Europe%2FWarsaw"
+    "&models=icon_seamless",
     openMeteoUrl(location).c_str());
 }
 
