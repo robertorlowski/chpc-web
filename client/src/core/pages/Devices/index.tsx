@@ -430,8 +430,8 @@ export const Devices: React.FC = () => {
     const temperature = outdoor === undefined ? '…' : weather
       ? `${weather.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
     const desc = weather
-      ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`, 'Dom'].join(' · ')
-      : outdoor === undefined ? '' : 'brak pogody z włącznika · Dom';
+      ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`].join(' · ')
+      : outdoor === undefined ? '' : 'brak pogody z włącznika';
     const source = weather ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : '';
     return (
       <div className="outdoor-strip" title="Temperatura i pogoda: Open-Meteo (pobiera włącznik).">

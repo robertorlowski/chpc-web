@@ -7,9 +7,12 @@
 // Wersja i zlecenie z GET /api/devices (nie z localStorage), oferta z GET /api/firmware/:rodzaj; przy zleceniu stan
 // jest odświeżany co 15 s. useFirmwareStatus + FirmwareRows + FirmwareActions składa ControllerCard w jedną kartę;
 // FirmwareStatus to wariant samodzielny (własny <dl class="kv"> i .actions) do wstawienia w dowolną kartę.
+// Od 2026-10-19: przy aktualnej wersji przycisku nie ma; gdy sterownik teraz nie może się zaktualizować (pompa ciepła:
+// pracuje sprężarka, włącznik: włączony przekaźnik — oba pobierają firmware tylko w spoczynku), przycisk jest nieaktywny
+// z komunikatem. Stan pracy z GET /devices/summary (kafelek listy), odświeżany co 15 s, gdy jest nowsza wersja.
 import { useEffect, useState } from 'react';
 import { DeviceRequests, FirmwareRequests } from '../api';
-import { Device, FirmwareSummary } from '../types';
+import { Device, DeviceTile, DeviceType, FirmwareSummary } from '../types';
 import { getDeviceTypeView } from '../device-types';
 import { useCurrentDevice } from './DeviceAddress';
 import './firmwareStatus.css';
@@ -33,7 +36,20 @@ export type FirmwareState = {
   cancel: () => void;
   /** aktualizację zleca tylko właściciel (osoba z udostępnieniem widzi sam stan) */
   canRequest: boolean;
+  /** powód, dla którego sterownik teraz nie może się zaktualizować (przycisk nieaktywny z komunikatem) */
+  blocked?: string;
 };
+
+// Sterownik pobiera firmware tylko w spoczynku (5e CLAUDE.md): pompa ciepła przy postoju sprężarki, włącznik przy
+// wszystkich przekaźnikach wyłączonych. Bez danych kafelka — bez blokady (sterownik i tak poczeka).
+function updateBlocker(device: Device, tile: DeviceTile | undefined): string | undefined {
+  if (!tile) return undefined;
+  if (device.deviceType === DeviceType.HP && tile.running)
+    return 'Sprężarka pracuje.';
+  if (device.deviceType === DeviceType.SWITCH && tile.relays?.some((relay) => relay.on))
+    return 'Przekaźnik włączony.';
+  return undefined;
+}
 
 export function useFirmwareStatus(device: Device | null): FirmwareState {
   const { current, reload } = useCurrentDevice(device);
@@ -60,6 +76,18 @@ export function useFirmwareStatus(device: Device | null): FirmwareState {
   const offered = summary?.enabled ? summary.version : null;
   const differs = Boolean(offered && version !== offered);
 
+  // stan pracy sterownika (kafelek listy) tylko wtedy, gdy jest co zlecić
+  const [tile, setTile] = useState<DeviceTile | undefined>();
+  const watchState = !!device && differs && !pending;
+  useEffect(() => {
+    if (!device || !watchState) return;
+    const load = () => DeviceRequests.getDeviceTiles().then((tiles) => setTile(tiles?.[device.rootId]));
+    load();
+    const timer = window.setInterval(load, REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [device?.rootId, watchState]);
+  const blocked = watchState && device ? updateBlocker(device, tile) : undefined;
+
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError('');
@@ -83,7 +111,7 @@ export function useFirmwareStatus(device: Device | null): FirmwareState {
 
   return {
     supported, current, version, offered, differs, pending, busy, error, update, cancel,
-    canRequest: !!current && current.access !== 'shared',
+    canRequest: !!current && current.access !== 'shared', blocked,
   };
 }
 
@@ -113,19 +141,24 @@ export const FirmwareRows: React.FC<{ state: FirmwareState }> = ({ state }) => {
   );
 };
 
-// Błąd zlecenia i wiersz .actions z przyciskiem „Aktualizuj firmware” (nieaktywny, gdy sterownik ma oferowaną
-// wersję) albo „Anuluj aktualizację”. Bez przycisku, gdy rodzaj nie ma OTA albo oglądający nie jest właścicielem.
+// Błąd zlecenia i wiersz .actions z przyciskiem „Aktualizuj firmware” albo „Anuluj aktualizację”. Przy aktualnej
+// wersji przycisku nie ma; gdy sterownik teraz nie może się zaktualizować, przycisk jest nieaktywny, a obok komunikat.
+// Bez przycisku także, gdy rodzaj nie ma OTA albo oglądający nie jest właścicielem.
 export const FirmwareActions: React.FC<{ state: FirmwareState; className?: string }> = ({ state, className }) => {
-  const { supported, current, pending, differs, busy, error, canRequest } = state;
+  const { supported, current, pending, differs, busy, error, canRequest, blocked } = state;
   if (!supported || !current || !canRequest) return null;
+  if (!pending && !differs) return error ? <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div> : null;
   return (
     <>
       {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
       <div className={className ?? 'actions'}>
         {pending
           ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={state.cancel}>Anuluj aktualizację</button>
-          : <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !differs} onClick={state.update}
-              title={differs ? `Zleć aktualizację do wersji ${state.offered}` : 'Sterownik ma oferowaną wersję'}>Aktualizuj firmware</button>}
+          : <>
+              {blocked && <span className="firmware-blocked">{blocked}</span>}
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !!blocked} onClick={state.update}
+                title={blocked ?? `Zleć aktualizację do wersji ${state.offered}`}>Aktualizuj firmware</button>
+            </>}
       </div>
     </>
   );

@@ -29,3 +29,7 @@
 .kv dd .link-btn {
   margin-left: 4px;
 }
+
+/* powód, dla którego sterownik teraz nie może się zaktualizować (obok nieaktywnego „Aktualizuj firmware”, 2026-10-19) */
+.firmware-blocked { flex: 1 1 200px; font-size: 13px; color: var(--fg-2); }
+.actions:has(.firmware-blocked), [class*="actions"]:has(.firmware-blocked) { flex-wrap: wrap; align-items: center; gap: 8px 12px; }
