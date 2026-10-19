@@ -75,6 +75,7 @@ DTU: two Modbus queries of five ports each — from `0x1000` and from `0x10C8` (
 | `co` → server | `POST /api/pv/add?...` | `time`, `total_power` (required), `total_prod`, `total_prod_today`, `temperature` (lowest of the ports), `pv_power` (≥ 2000 W), `panels[]` |
 | `co` → server | `POST /api/devices/register` | `{deviceType: "heat_pump", deviceId: SN, ip}` — at every start, after an IP change and after a 409 (`registrationDue()`), also with a Root ID; a different `rootId` in the reply replaces the stored one and restarts the WebSocket |
 | server → `co` | WebSocket `/ws?rootId=` | `{"type":"operation"}` → immediate `hp/add` |
+| server → `co` → server | `hp/add` reply → next `hp/add` | **backup weather** (from 1.3.1): `weather_queries [{id, lat, lon}]` — places without fresh weather from the switch for 25 min; `co` fetches them from Open-Meteo (plain HTTP from 1.3.2, only when the bus is idle) and sends `weather [{id, temp, code, …}]` plus the counters `weather_ok`, `weather_fail`, `weather_code` |
 
 A rejected PV reading is retried every 60 s until a newer one replaces it.
 

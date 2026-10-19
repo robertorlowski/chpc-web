@@ -15,6 +15,7 @@
 // usługami (w lipcu 2026 pobieranie z serwera nie działało). Współrzędne podaje chmura w odpowiedzi na zgłoszenie
 // stanu (weather_query {lat, lon}), więc położenie jest w jednym miejscu; bez nich włącznik nic nie pobiera.
 // Pobieranie co WEATHER_INTERVAL_MS (96 zapytań na dobę na miejsce), po błędzie ponowienie po WEATHER_RETRY_MS.
+// Od 2026-10-19 zwykłym HTTP (openMeteoUrl).
 // Temperatura z prognozy służy chmurze tylko wtedy, gdy nie ma świeżego odczytu czujnika zewnętrznego kotła.
 //
 // Od 1.2.0 (2026-10-16) wiele miejsc: chmura podaje weather_queries [{id, lat, lon}, ...] (kafelki pogody na liście
@@ -76,11 +77,16 @@ inline bool parseWeatherLocation(JsonVariantConst response, WeatherLocation &out
 // Model DWD ICON (icon_seamless, ok. 2 km nad Europą Środkową) zamiast automatycznego wyboru Open-Meteo (od włącznika
 // 1.3.3, 2026-10-18): model domyślny liczył cienkie wysokie chmury jako pełne zachmurzenie i przy słońcu (PV jak
 // w słoneczne dni) podawał „pochmurno” (98 %, niskich 0 %), ICON — „małe zachmurzenie” (42 %). Format odpowiedzi ten sam.
+//
+// Zwykłe HTTP, bez TLS (od włącznika 1.3.4 i co 1.3.2, 2026-10-19): po dobie pracy włącznik nie miał ciągłego
+// bloku pamięci na kolejne połączenie TLS obok chmury, WebSocketu i przekaźnika poczty (największy blok 45 KB,
+// mbedtls -0x7F00 SSL_ALLOC_FAILED, 808 nieudanych pobrań na 1072); co trafiał na to samo. Dane pogodowe nie są
+// poufne, a certyfikatu i tak nie sprawdzano (setInsecure). Open-Meteo odpowiada po HTTP bez przekierowania.
 inline std::string openMeteoUrl(const WeatherLocation &location)
 {
   char url[340];
   snprintf(url, sizeof(url),
-    "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+    "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
     "&current=temperature_2m,weather_code,cloud_cover,precipitation,rain,snowfall,wind_speed_10m,is_day"
     "&timezone=Europe%%2FWarsaw&models=icon_seamless",
     location.lat, location.lon);

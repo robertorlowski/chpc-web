@@ -75,6 +75,7 @@ DTU: dwa zapytania Modbus po pięć portów — od `0x1000` i od `0x10C8` (porty
 | `co` → serwer | `POST /api/pv/add?...` | `time`, `total_power` (wymagane), `total_prod`, `total_prod_today`, `temperature` (najniższa z portów), `pv_power` (≥ 2000 W), `panels[]` |
 | `co` → serwer | `POST /api/devices/register` | `{deviceType: "heat_pump", deviceId: SN, ip}` — przy każdym starcie, po zmianie IP i po 409 (`registrationDue()`), także z Root ID; inny `rootId` z odpowiedzi zastępuje zapisany i restartuje WebSocket |
 | serwer → `co` | WebSocket `/ws?rootId=` | `{"type":"operation"}` → natychmiastowy `hp/add` |
+| serwer → `co` → serwer | odpowiedź `hp/add` → następny `hp/add` | **pogoda zapasowo** (od 1.3.1): `weather_queries [{id, lat, lon}]` — miejsca bez świeżej pogody od włącznika od 25 min; `co` pobiera je z Open-Meteo (od 1.3.2 zwykłym HTTP, tylko przy wolnej magistrali) i odsyła `weather [{id, temp, code, …}]` oraz liczniki `weather_ok`, `weather_fail`, `weather_code` |
 
 Nieprzyjęty odczyt PV sterownik ponawia co 60 s, aż zastąpi go nowszy.
 

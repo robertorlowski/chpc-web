@@ -6,7 +6,8 @@
 // Od 1.1.0 aktualizuje firmware z chmury na zlecenie „Aktualizuj” (tryFirmwareUpdate).
 // Od 1.2.5 diagnostyka magistrali na zlecenie z chmury (bus_diagnostics.hpp).
 // Od 1.3.1 zapasowa pogoda z Open-Meteo (devices/common/weather, fetchWeather): miejsca bez świeżej pogody
-// od włącznika podaje chmura w odpowiedzi hp/add, odczyty idą w następnym hp/add.
+// od włącznika podaje chmura w odpowiedzi hp/add, odczyty idą w następnym hp/add. Od 1.3.2 zwykłym HTTP
+// i z licznikami weather_ok / weather_fail / weather_code w telemetrii.
 // Od 1.2.0 tryb pracy MANUAL / AUTO / OFF z jedną temperaturą od–do, bez przekaźników CO/CWU,
 // przycisk OFF → CLOUD → MANUAL (ręczny lokalnie), konfiguracja pompy z chmury (PV, zbiornik).
 // Odczyt pieca Pellux 200 (ecoMAX) był tu do 2026-10-02; od 2026-10-03 działa
@@ -114,6 +115,11 @@ bool cloudPostPending = false;
 // pogodę), pobierane po jednym z odstępem WEATHER_SPACING_MS, tylko przy wolnej magistrali.
 WeatherPlaces weatherPlaces;
 constexpr uint16_t WEATHER_HTTP_TIMEOUT_MS = 4000;
+// diagnostyka pogody (od 1.3.2): udane i nieudane pobrania od startu, kod HTTP ostatniego (ujemny = błąd
+// połączenia HTTPClient, 1 = 200 z odpowiedzią nie do odczytania, 0 = brak pobrań)
+uint32_t weatherOk = 0;
+uint32_t weatherFail = 0;
+int weatherCode = 0;
 bool pvReceived = false;
 unsigned long pvReceivedAt = 0;
 bool buttonStableState = false;
@@ -640,6 +646,9 @@ void postTelemetryToCloud() {
   // kopia telemetrii z odczytami zapasowej pogody (pole weather tylko, gdy są świeże odczyty)
   JsonDocument body = telemetry.document();
   weatherPlaces.write(body, millis());
+  body["weather_ok"] = weatherOk;
+  body["weather_fail"] = weatherFail;
+  body["weather_code"] = weatherCode;
   String response = cloudClient.post("hp/add", body);
   if (response == "" ) {
     return;
@@ -680,26 +689,30 @@ void postTelemetryToCloud() {
   weatherPlaces.update(responseDocument.as<JsonVariantConst>());
 }
 
-// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp, jak we włączniku): blokujący GET HTTPS, najwyżej
+// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp, jak we włączniku): blokujący GET (od 1.3.2 HTTP), najwyżej
 // 2 × WEATHER_HTTP_TIMEOUT_MS; wołany tylko przy wolnej magistrali, więc nie przerywa rozmowy z CHPC i DTU.
 // Nieudane pobranie zostawia poprzedni odczyt do WEATHER_MAX_AGE_MS, ponowienie po WEATHER_RETRY_MS.
 void fetchWeather(size_t index)
 {
   const WeatherLocation location = weatherPlaces.at(index).location;
-  WiFiClientSecure client;
-  client.setInsecure();  // dane pogodowe, bez wpływu na sterowanie pompą
+  WiFiClient client;
   HTTPClient request;
   request.setConnectTimeout(WEATHER_HTTP_TIMEOUT_MS);
   request.setTimeout(WEATHER_HTTP_TIMEOUT_MS);
   bool ok = false;
   WeatherReading reading;
+  int code = 0;
   if (request.begin(client, openMeteoUrl(location).c_str())) {
-    if (request.GET() == 200) {
+    code = request.GET();
+    if (code == 200) {
       const String body = request.getString();
       ok = parseOpenMeteoCurrent(body.c_str(), body.length(), reading);
+      if (!ok) code = 1;
     }
     request.end();
   }
+  weatherCode = code;
+  if (ok) weatherOk++; else weatherFail++;
   weatherPlaces.onFetched(index, ok, reading, millis());
 }
 

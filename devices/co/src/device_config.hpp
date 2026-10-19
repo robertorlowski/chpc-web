@@ -32,7 +32,9 @@ struct DeviceConfig {
 // klucz płytki w zgłoszeniu (mailKey), wysyłka maili chmury, gdy włącznik ich nie wyśle; dane SMTP tylko w RAM.
 // 1.3.1: zapasowa pogoda z Open-Meteo (devices/common/weather): miejsca bez świeżej pogody od włącznika
 // z odpowiedzi hp/add (weather_queries), odczyty w polu weather następnego hp/add.
-constexpr const char *FW_VERSION = "1.3.1";
+// 1.3.2: zapasowa pogoda zwykłym HTTP zamiast HTTPS (TLS nie dostawał pamięci, weather.hpp) i liczniki
+// weather_ok, weather_fail, weather_code w telemetrii (widoczne w GET /hp/diagnostics).
+constexpr const char *FW_VERSION = "1.3.2";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

@@ -17,7 +17,9 @@ constexpr const char *DEVICE_TYPE = "switch";
 // 1.3.2: rozszerzona diagnostyka w zgłoszeniu stanu (pamięć sterty, wynik pobierania pogody: kod HTTP, błąd TLS);
 //        2026-10-18 pogoda nie dochodziła przez 8 h przy działającym włączniku.
 // 1.3.3: pogoda z modelu DWD ICON (models=icon_seamless) zamiast automatycznego wyboru Open-Meteo.
-constexpr const char *FW_VERSION = "1.3.3";
+// 1.3.4: pogoda zwykłym HTTP zamiast HTTPS; po dobie pracy TLS nie dostawał pamięci (mbedtls -0x7F00,
+//        2026-10-19: 808 nieudanych pobrań na 1072, największy blok sterty 45 KB).
+constexpr const char *FW_VERSION = "1.3.4";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 

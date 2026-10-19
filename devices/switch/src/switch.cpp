@@ -572,20 +572,21 @@ void tick(uint32_t nowMs)
   if (duePlace >= 0) fetchWeather(static_cast<size_t>(duePlace), nowMs);
 }
 
-// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp): blokujący GET HTTPS (najwyżej kilka sekund; przekaźniki
+// Pogoda z Open-Meteo dla jednego miejsca (weather.hpp): blokujący GET (najwyżej kilka sekund; przekaźniki
 // trzymają stan, odliczanie włączeń liczy się z millis()). Nieudane pobranie zostawia poprzednią pogodę do
 // WEATHER_MAX_AGE_MS. Kolejne miejsca co WEATHER_SPACING_MS.
+// Od 1.3.4 zwykłe HTTP (WiFiClient): TLS po dobie pracy nie dostawał pamięci (mbedtls -0x7F00, weather.hpp).
 void fetchWeather(size_t index, uint32_t nowMs)
 {
   const WeatherLocation location = weatherPlaces.at(index).location;
-  WiFiClientSecure client;
-  client.setInsecure();  // dane pogodowe, bez wpływu na przekaźniki
+  WiFiClient client;
   HTTPClient request;
   request.setConnectTimeout(HTTP_TIMEOUT_MS);
   request.setTimeout(HTTP_TIMEOUT_MS);
   bool ok = false;
   WeatherReading reading;
-  // diagnostyka (od 1.3.2): największy blok sterty przed połączeniem TLS, kod HTTP i błąd mbedtls
+  // diagnostyka (od 1.3.2): największy blok sterty przed połączeniem, kod HTTP (ujemny = błąd połączenia
+  // HTTPClient); pole tls od 1.3.4 zawsze 0 (bez TLS), zostaje dla zgodności z chmurą
   diag.weatherHeapBlock = ESP.getMaxAllocHeap();
   diag.weatherAtMs = nowMs == 0 ? 1 : nowMs;
   int code = 0;
@@ -599,14 +600,13 @@ void fetchWeather(size_t index, uint32_t nowMs)
     }
     request.end();
   }
-  char tlsText[80] = "";
-  diag.weatherTls = client.lastError(tlsText, sizeof(tlsText));
+  diag.weatherTls = 0;
   diag.weatherCode = code;
   if (ok) diag.weatherOk++; else diag.weatherFail++;
   weatherPlaces.onFetched(index, ok, reading, nowMs);
-  logf("pogoda %u/%u: %s (HTTP %d, TLS %d %s, blok %u B)", static_cast<unsigned>(index + 1),
+  logf("pogoda %u/%u: %s (HTTP %d, blok %u B)", static_cast<unsigned>(index + 1),
     static_cast<unsigned>(weatherPlaces.size()), ok ? "pobrana" : "błąd pobierania", code,
-    static_cast<int>(diag.weatherTls), tlsText, static_cast<unsigned>(diag.weatherHeapBlock));
+    static_cast<unsigned>(diag.weatherHeapBlock));
 }
 
 // --- strony WWW ---
