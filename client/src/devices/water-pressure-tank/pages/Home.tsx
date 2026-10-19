@@ -26,7 +26,7 @@ const WEEK_DAYS = 7;
 
 // Przełącznik z makiety (.switch): tylko wskaźnik stanu ze sterownika, bez klikania (is-disabled).
 const Switch: React.FC<{ on: boolean; label: string }> = ({ on, label }) => (
-  <span className={`switch is-disabled${on ? ' is-on' : ''}`} role="switch" aria-checked={on} aria-disabled="true"
+  <span className={`switch is-disabled is-state${on ? ' is-on' : ''}`} role="switch" aria-checked={on} aria-disabled="true"
     aria-label={label} />
 );
 

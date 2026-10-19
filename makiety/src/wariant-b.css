@@ -47,6 +47,9 @@
 .card-head h2 { font-size: 13px; color: var(--fg-2); }
 .tile-name { font-size: 17px; }
 .chip { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+/* plakietka stanu w karcie głównej (piec „PRACA”, pompa ciepła „SPRĘŻARKA PRACUJE”, bez opisu pod nią), plakietka pracy na kafelku
+   listy i wskaźnik pompy obiegu wielkimi literami jak chipy obok (2026-10-19) */
+.pill-row .state, .kpi-row .pump, .state-pill-title, .tile-side .state { text-transform: uppercase; letter-spacing: .06em; }
 .state, .state-pill, .entry-tag { border-radius: 4px; }
 .tile::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--kind-fg); }
 .brand-mark { background: var(--accent); }

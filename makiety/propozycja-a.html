@@ -238,6 +238,17 @@ svg { display: block; }
 .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--hero-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-value { font-family: var(--font-num); font-size: 20px; font-weight: 700; line-height: 1.1; }
 .kpi-value small { font-size: 12px; font-weight: 600; margin-left: 3px; color: var(--hero-fg-2); }
+/* kafelek obiegu w karcie głównej (piec: mieszacze i CWU, 2026-10-19): chip pompy po prawej w wierszu temperatury,
+   pod nią zadana i zawór */
+.kpi-sub { font-size: 12px; line-height: 1.4; color: var(--hero-fg-2); }
+/* wrap-reverse: gdy chip nie mieści się obok temperatury (wąskie kafelki), przechodzi nad nią, pod nazwę obiegu */
+.kpi-row { display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: space-between; gap: 4px 6px; }
+.kpi-row .pump { flex: none; padding: 3px 5px; letter-spacing: .02em; }
+.kpi-row .pump .dot { margin-right: 4px; }
+.kpi-circuit { padding: 10px; }
+/* kafelki obiegów zawsze w dwóch kolumnach (jak na komputerze), także między 420 a 759 px, gdzie inne karty mają cztery */
+.hero-kpis:has(.kpi-circuit) { grid-template-columns: repeat(2, 1fr); }
+.kpi-sub .inline-icon { color: var(--hero-fg); }
 
 /* listy przełączników */
 .toggle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

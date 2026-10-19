@@ -35,10 +35,6 @@
 .wx-day-min { color: var(--fg-2); }
 .wx-foot { font-size: 12px; color: var(--fg-3); text-align: right; }
 @media (min-width: 600px) { .wx-day { grid-template-columns: minmax(0, 1fr) 56px 76px 48px 48px; gap: 12px; } }
-.wx-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.wx-tabs::-webkit-scrollbar { display: none; }
-.wx-tabs .seg { flex: none; }
-.wx-tabs .seg span { white-space: nowrap; }
 /* wykresy Recharts zakładek (wysokość kontenera ResponsiveContainer) */
 .wx-chart { height: 200px; min-width: 0; }
 .wx-hero-time { font-size: 44px; }

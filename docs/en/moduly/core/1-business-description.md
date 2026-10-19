@@ -61,7 +61,7 @@ The user interface is in Polish; the screenshots below show it as is.
 |---|---|
 | ![Weather page](../../../moduly/core/img/pogoda.png) | ![Weather page on a phone](../../../moduly/core/img/pogoda-telefon.png) |
 
-*The weather page (click on a weather tile): tabs Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady. "Teraz" is a card with the temperature, sky description, the day's high and low, apparent temperature, wind, humidity, pressure and sun hours, a strip of the next 48 hours (icon, temperature, precipitation probability) and tomorrow's temperature. The current conditions come from the reading fetched by the switch; the forecast and air quality are fetched by the browser directly from Open-Meteo.*
+*The weather page (click on a weather tile): tabs Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady — like controller views: in the side menu on a computer, in the bottom navigation with "More" on a phone. "Teraz" is a card with the temperature, sky description, the day's high and low, apparent temperature, wind, humidity, pressure and sun hours, a strip of the next 48 hours (icon, temperature, precipitation probability) and tomorrow's temperature. The current conditions come from the reading fetched by the switch; the forecast and air quality are fetched by the browser directly from Open-Meteo.*
 
 | Phone — bar and bottom navigation | Phone — "Więcej" |
 |---|---|

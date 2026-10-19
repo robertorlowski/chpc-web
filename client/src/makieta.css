@@ -99,6 +99,17 @@
 .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--hero-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-value { font-family: var(--font-num); font-size: 20px; font-weight: 700; line-height: 1.1; }
 .kpi-value small { font-size: 12px; font-weight: 600; margin-left: 3px; color: var(--hero-fg-2); }
+/* kafelek obiegu w karcie głównej (piec: mieszacze i CWU, 2026-10-19): chip pompy po prawej w wierszu temperatury,
+   pod nią zadana i zawór */
+.kpi-sub { font-size: 12px; line-height: 1.4; color: var(--hero-fg-2); }
+/* wrap-reverse: gdy chip nie mieści się obok temperatury (wąskie kafelki), przechodzi nad nią, pod nazwę obiegu */
+.kpi-row { display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: space-between; gap: 4px 6px; }
+.kpi-row .pump { flex: none; padding: 3px 5px; letter-spacing: .02em; }
+.kpi-row .pump .dot { margin-right: 4px; }
+.kpi-circuit { padding: 10px; }
+/* kafelki obiegów zawsze w dwóch kolumnach (jak na komputerze), także między 420 a 759 px, gdzie inne karty mają cztery */
+.hero-kpis:has(.kpi-circuit) { grid-template-columns: repeat(2, 1fr); }
+.kpi-sub .inline-icon { color: var(--hero-fg); }
 
 /* listy przełączników */
 .toggle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -189,6 +200,12 @@
 .actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .switch.is-disabled { opacity: .5; cursor: not-allowed; }
 .switch.is-disabled.is-on { background: var(--muted-fg); border-color: var(--muted-fg); }
+/* wskaźnik stanu ze sterownika (urządzenia kotła, pompa i kompresor hydroforu; 2026-10-19): pełny kolor, włączony
+   w kolorze wyróżnienia jak przełączniki pompy ciepła (decyzja użytkownika, wcześniej zielony). Przygaszony szary
+   is-disabled w motywie ciemnym nie odróżniał się od wyłączonego. */
+.switch.is-state { opacity: 1; cursor: default; }
+.switch.is-state.is-on { background: var(--accent); border-color: var(--accent); }
+.switch.is-state.is-on::after { background: var(--accent-fg); }
 code { font-family: "JetBrains Mono", Consolas, monospace; font-size: .9em; background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; }
 
 /* ---- lista: narzędzia kafelka, tryb układu ---- */
@@ -471,7 +488,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .tile-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; }
 .tile-value { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; min-width: 0; }
 .tile-side { flex: 0 1 auto; max-width: 52%; display: flex; justify-content: flex-end; }
-.tile-side .state { white-space: normal; text-align: left; line-height: 1.3; padding: 6px 10px; }
+/* plakietka pracy na kafelku tej samej wielkości i kształtu co wskaźniki „CO” / „CWU” (.pump), bez ramki (2026-10-19) */
+.tile-side .state { white-space: normal; text-align: left; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 3px 7px; border-radius: 4px; }
+.tile-side .state .dot { width: 6px; height: 6px; margin-right: 5px; }
 .tile-side .state .dot { flex: none; }
 .tile-side .warn-line { width: auto; white-space: normal; line-height: 1.3; padding: 6px 10px; font-size: 12px; }
 .tile-facts { margin-top: auto; }
@@ -492,14 +511,17 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 /* ---- kafelek pompy: wskaźniki pomp obiegu CO / CWU ---- */
 .tile-side { flex-direction: column; align-items: flex-end; gap: 6px; }
 .pumps { display: inline-flex; gap: 4px; }
-.pump { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--fg-3); background: transparent; }
-.pump .dot { width: 6px; height: 6px; margin-right: 5px; background: var(--line-strong); }
-.pump.is-on { color: var(--c-water); border-color: var(--c-water); background: var(--c-water-bg); }
-.pump.is-on .dot { background: currentColor; animation: puls 1.6s ease-out infinite; }
+/* wskaźnik pompy bez ramki (2026-10-19): stoi — szare tło jak chip-off, pracuje — kolory pracy */
+.pump { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; letter-spacing: .06em; line-height: 1.5; padding: 3px 7px; border-radius: 4px; color: var(--muted-fg); background: var(--muted-bg); }
+.pump .dot { width: 6px; height: 6px; margin-right: 5px; background: currentColor; opacity: .55; }
+/* pracująca pompa w kolorach pracy (jak plakietka „PRACA”), od 2026-10-19 zamiast niebieskiego */
+.pump.is-on { color: var(--run-fg); background: var(--run-bg); }
+.pump.is-on .dot { background: currentColor; opacity: 1; animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pump .dot { animation: none !important; } }
 
 /* ---- pasek sterownika: czas pracy obok chipu Online (pompa, piec) ---- */
-.device-sub .sub-run { font-size: 11px; padding: 1px 8px; margin-left: 6px; }
+/* chip „PRACUJE” w pasku jak sąsiedni chip „ONLINE” (.chip: wielkie litery, 11 px, 600, zaokrąglone końce; 2026-10-19) */
+.device-sub .sub-run { font-size: 11px; font-weight: 600; line-height: 1.5; padding: 1px 7px; margin-left: 6px; border-radius: 999px; text-transform: uppercase; letter-spacing: .06em; }
 .device-sub .sub-run .dot { width: 6px; height: 6px; margin-right: 5px; animation: puls 1.6s ease-out infinite; }
 .pill-row .state.is-running .dot { animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .device-sub .sub-run .dot, .pill-row .state .dot { animation: none !important; } }
@@ -511,6 +533,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .card-head h2 { font-size: 13px; color: var(--fg-2); }
 .tile-name { font-size: 17px; }
 .chip { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+/* plakietka stanu w karcie głównej (piec „PRACA”, pompa ciepła „SPRĘŻARKA PRACUJE”, bez opisu pod nią), plakietka pracy na kafelku
+   listy i wskaźnik pompy obiegu wielkimi literami jak chipy obok (2026-10-19) */
+.pill-row .state, .kpi-row .pump, .state-pill-title, .tile-side .state { text-transform: uppercase; letter-spacing: .06em; }
 .state, .state-pill, .entry-tag { border-radius: 4px; }
 .tile::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--kind-fg); }
 .brand-mark { background: var(--accent); }

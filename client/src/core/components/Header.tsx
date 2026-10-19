@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { ReactNode, useEffect, useState } from "react";
+import { Link, To, useLocation } from "react-router-dom";
 import { deviceLabel, useDevice } from "../context/DeviceContext";
 import { useAuth } from "../context/AuthContext";
 import { getDeviceTypeView } from "../device-types";
@@ -13,6 +13,8 @@ import { UserMenu } from "./UserMenu";
 // rodzaju (DeviceSub), zakładki z rejestru rodzajów sterowników i konto. Zakładki rysuje <nav class="app-tabs">: na
 // komputerze (≥ 900 px) boczne menu po lewej, na telefonie ukryte — zamiast nich <BottomNav>: cztery pierwsze widoki
 // i „Więcej” (arkusz z resztą widoków i listą sterowników).
+// Od 2026-10-19 tak samo rysuje zakładki strona pogody (pages/Weather/nav.tsx): wspólne SideTabs i BottomNavItems
+// przyjmują listę pozycji (NavItem), a nie widoki sterownika.
 // Stan kafelka: localStorage chpc.deviceTiles.<id konta> (pages/Devices zapisuje odpowiedź GET /api/devices/summary).
 
 function readTile(userId: string | undefined, rootId: string | undefined): DeviceTile | undefined {
@@ -48,40 +50,38 @@ function useDeviceTile(): DeviceTile | undefined {
 	return tile;
 }
 
-// SN skrócony jak w makiecie: „A0B1…E4F5”
-const shortSn = (sn: string) => (sn.length > 10 ? `${sn.slice(0, 4)}…${sn.slice(-4)}` : sn);
 const plural = (n: number, one: string, few: string, many: string) =>
 	`${n} ${n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`;
 
-// Opis pod nazwą zależny od rodzaju (makieta renderChrome: „tryb automatyczny · SN A0B1…E4F5”, „4 panele · DTU Hoymiles”,
-// „2 przekaźniki · firmware 1.2.0”, „ecoMAX 860P2 · odczyt co 5 min”, „ostatnie uruchomienie 13:56”) z danych, które pasek
-// ma: wybrany sterownik (nazwa, SN, firmware, ustawienia) i kafelek listy (tryb, panele, przekaźniki, stopka).
+// Opis pod nazwą zależny od rodzaju („tryb automatyczny”, „4 panele · DTU Hoymiles”, „2 przekaźniki · firmware 1.2.0”,
+// „ecoMAX 860P2 · odczyt co 5 min”, „ostatnie uruchomienie 13:56”) z danych, które pasek ma: wybrany sterownik (firmware,
+// ustawienia) i kafelek listy (tryb, panele, przekaźniki, stopka). Bez numeru seryjnego (od 2026-10-19; SN jest w karcie
+// „Sterownik” w Ustawieniach); pusty napis, gdy nie ma czego pokazać.
 function deviceSubText(device: Device, tile: DeviceTile | undefined): string {
-	const sn = `SN ${shortSn(device.deviceId)}`;
+	const join = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ');
 	switch (device.deviceType) {
 		case DeviceType.HP: {
 			const mode = tile?.row?.[0]?.value;
-			return mode ? `tryb ${mode} · ${sn}` : sn;
+			return mode ? `tryb ${mode}` : '';
 		}
 		case DeviceType.PHOTOVOLTAIC: {
 			const panels = tile?.side?.find((fact) => fact.icon === 'panel')?.value.split('/').pop()?.trim();
 			const count = panels ? Number(panels) : NaN;
-			return `${Number.isFinite(count) ? plural(count, 'panel', 'panele', 'paneli') : sn} · DTU Hoymiles`;
+			return join(Number.isFinite(count) ? plural(count, 'panel', 'panele', 'paneli') : undefined, 'DTU Hoymiles');
 		}
 		case DeviceType.WATER_PRESSURE_TANK:
-			return tile?.foot ?? sn;
+			return tile?.foot ?? '';
 		case DeviceType.SWITCH: {
 			const relays = tile?.relays?.length;
-			const firmware = device.firmwareVersion ? `firmware ${device.firmwareVersion}` : sn;
-			return relays ? `${plural(relays, 'przekaźnik', 'przekaźniki', 'przekaźników')} · ${firmware}` : firmware;
+			return join(relays ? plural(relays, 'przekaźnik', 'przekaźniki', 'przekaźników') : undefined,
+				device.firmwareVersion ? `firmware ${device.firmwareVersion}` : undefined);
 		}
 		case DeviceType.PELLET_BOILER_PELUX200: {
 			const seconds = device.properties?.poll_interval_seconds;
-			const poll = seconds ? `odczyt co ${seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`}` : sn;
-			return `ecoMAX 860P2 · ${poll}`;
+			return join('ecoMAX 860P2', seconds ? `odczyt co ${seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`}` : undefined);
 		}
 		default:
-			return sn;
+			return '';
 	}
 }
 
@@ -92,6 +92,7 @@ function DeviceSub({ device }: { device: Device }) {
 	const online = tile?.chip === 'Online';
 	const level = online ? 'ok' : tile?.level === 'ok' ? 'off' : tile?.level;
 	const runs = !!tile?.running && (device.deviceType === DeviceType.HP || device.deviceType === DeviceType.PELLET_BOILER_PELUX200);
+	const text = deviceSubText(device, tile);
 	return (
 		<span className="device-sub">
 			{tile && (
@@ -100,13 +101,35 @@ function DeviceSub({ device }: { device: Device }) {
 						{(online || tile.running) && <i className="dot" />}{tile.chip}
 					</span>
 					{runs && <span className="state state-on sub-run" title={device.deviceType === DeviceType.HP ? 'Sprężarka pracuje' : 'Palenie'}><i className="dot" />pracuje</span>}
-					<span className="sep">·</span>
+					{text && <span className="sep">·</span>}
 				</>
 			)}
-			<span className="device-sub-text">{deviceSubText(device, tile)}</span>
+			{text && <span className="device-sub-text">{text}</span>}
 		</span>
 	);
 }
+
+// Pozycja menu: adres (ścieżka albo ścieżka z ?tab=), opis, ikona, czy wybrana; state i replace przekazuje Link
+// (pogoda: kafelek w stanie nawigacji, zmiana zakładki bez wpisu w historii).
+export type NavItem = { key: string; to: To; label: string; icon: ReactNode; active: boolean; state?: unknown; replace?: boolean };
+
+// Zakładki w pasku: na komputerze (≥ 900 px) boczne menu po lewej, na telefonie ukryte (CSS).
+export function SideTabs({ items, label }: { items: NavItem[]; label: string }) {
+	return (
+		<nav className="app-tabs" aria-label={label}>
+			{items.map((item) => (
+				<Link key={item.key} to={item.to} state={item.state} replace={item.replace} title={item.label} aria-label={item.label}
+					className={item.active ? 'active' : ''}>
+					{item.icon}
+					<span className="nav-label">{item.label}</span>
+				</Link>
+			))}
+		</nav>
+	);
+}
+
+const viewItems = (views: ReturnType<typeof useDeviceViews>, pathname: string): NavItem[] =>
+	views.map((view) => ({ key: view.path, to: view.path, label: view.label, icon: view.icon, active: pathname === view.path }));
 
 export function Header() {
 	const location = useLocation();
@@ -121,43 +144,41 @@ export function Header() {
 				<h1>{device ? deviceLabel(device) : 'Sterownik'}</h1>
 				{device && <DeviceSub device={device} />}
 			</div>
-			<nav className="app-tabs" aria-label="Widoki sterownika">
-				{views.map((view) => (
-					<Link key={view.path} to={view.path} title={view.label} aria-label={view.label}
-						className={location.pathname === view.path ? 'active' : ''}>
-						{view.icon}
-						<span className="nav-label">{view.label}</span>
-					</Link>
-				))}
-			</nav>
+			<SideTabs items={viewItems(views, location.pathname)} label="Widoki sterownika" />
 			{/* konto zalogowanego: po prawej stronie paska */}
 			<UserMenu />
 		</>
 	);
 }
 
-// Dolna nawigacja telefonu: 4 pierwsze widoki + „Więcej” z resztą i listą sterowników (CSS ukrywa ją od 900 px).
+// Dolna nawigacja telefonu sterownika: 4 pierwsze widoki + „Więcej” (CSS ukrywa ją od 900 px).
 export function BottomNav() {
 	const location = useLocation();
 	const views = useDeviceViews();
+	return <BottomNavItems items={viewItems(views, location.pathname)} label="Widoki sterownika (telefon)" />;
+}
+
+// Dolna nawigacja telefonu: 4 pierwsze pozycje + „Więcej” (arkusz z resztą i listą sterowników).
+export function BottomNavItems({ items, label }: { items: NavItem[]; label: string }) {
+	const location = useLocation();
 	const [open, setOpen] = useState(false);
-	useEffect(() => { setOpen(false); }, [location.pathname]);
+	useEffect(() => { setOpen(false); }, [location.pathname, location.search]);
 	useEffect(() => {
 		if (!open) return;
 		const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
 		document.addEventListener('keydown', close);
 		return () => document.removeEventListener('keydown', close);
 	}, [open]);
-	const first = views.slice(0, 4);
-	const rest = views.slice(4);
-	const restActive = rest.some((view) => view.path === location.pathname);
+	const first = items.slice(0, 4);
+	const rest = items.slice(4);
+	const restActive = rest.some((item) => item.active);
 	return (
 		<>
-			<nav className="bottom-nav" aria-label="Widoki sterownika (telefon)">
-				{first.map((view) => (
-					<Link key={view.path} to={view.path} className={location.pathname === view.path ? 'active' : ''} aria-label={view.label}>
-						{view.icon}
-						<span>{view.label}</span>
+			<nav className="bottom-nav" aria-label={label}>
+				{first.map((item) => (
+					<Link key={item.key} to={item.to} state={item.state} replace={item.replace} className={item.active ? 'active' : ''} aria-label={item.label}>
+						{item.icon}
+						<span>{item.label}</span>
 					</Link>
 				))}
 				<button type="button" className={restActive ? 'active' : ''} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
@@ -170,9 +191,9 @@ export function BottomNav() {
 					<div className="more-sheet-scrim" onClick={() => setOpen(false)} />
 					<div className="more-sheet" role="menu">
 						<div className="more-sheet-grip" />
-						{rest.map((view) => (
-							<Link key={view.path} to={view.path} role="menuitem" className={location.pathname === view.path ? 'active' : ''}>
-								{view.icon}{view.label}
+						{rest.map((item) => (
+							<Link key={item.key} to={item.to} state={item.state} replace={item.replace} role="menuitem" className={item.active ? 'active' : ''}>
+								{item.icon}{item.label}
 							</Link>
 						))}
 						{rest.length > 0 && <div className="more-sheet-sep" />}

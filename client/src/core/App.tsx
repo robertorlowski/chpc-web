@@ -7,7 +7,8 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { BottomNav, Header } from './components/Header';
 import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
-import Weather, { WEATHER_TITLE_ID } from './pages/Weather';
+import Weather from './pages/Weather';
+import { WeatherBottomNav, WeatherHeader } from './pages/Weather/nav';
 import { Firmware } from './pages/Firmware';
 import { TileDesigner } from './pages/TileDesigner';
 import { useDevice } from './context/DeviceContext';
@@ -148,15 +149,20 @@ function DeviceRoute({ path }: { path: string }) {
 // Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
-	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /weather/:id (pogoda kafelka), /account i /tile-designer
+	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /account i /tile-designer;
+	// /weather/:id (pogoda kafelka) ma od 2026-10-19 własne zakładki w menu jak sterownik (pages/Weather/nav.tsx)
 	const isWeather = location.pathname.startsWith('/weather/');
-	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || isWeather || location.pathname.startsWith('/account') || location.pathname === '/tile-designer';
+	const isDeviceSelection = location.pathname === '/devices' || location.pathname.startsWith('/firmware') || location.pathname.startsWith('/account') || location.pathname === '/tile-designer';
+	const isDevice = !isDeviceSelection && !isWeather;
 
 	return (
 		<DeviceGuard>
 			<div className={`app-container${isDeviceSelection ? '' : ' has-side'}`}>
-				{!isDeviceSelection && <header className="app-header">
+				{isDevice && <header className="app-header">
 					<Header />
+				</header>}
+				{isWeather && <header className="app-header">
+					<WeatherHeader />
 				</header>}
 				{/* /devices: pasek z nazwą aplikacji (bez zakładek, bo nie wybrano sterownika) */}
 				{location.pathname === '/devices' && <header className="app-header">
@@ -166,16 +172,15 @@ function AppContent() {
 					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 					<UserMenu />
 				</header>}
-				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || isWeather || location.pathname === '/tile-designer') && <header className="app-header">
+				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || location.pathname === '/tile-designer') && <header className="app-header">
 					<Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników"><BackIcon /></Link>
-					{/* pogoda: nazwę miejsca („ · Dom”) wstawia strona Weather */}
-					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : isWeather ? <>Pogoda<span id={WEATHER_TITLE_ID} /></> : 'Projekt kafelka'}</h1>
+					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : 'Projekt kafelka'}</h1>
 					<UserMenu />
 				</header>}
 
 				<main className="app-main">
 				{/* w treści strony, nie pod stałym nagłówkiem */}
-				{!isDeviceSelection && <SharedBanner />}
+				{isDevice && <SharedBanner />}
 				<Routes>
 					<Route path="/devices" element={<Devices />} />
 					<Route path="/account" element={<Account />} />
@@ -189,8 +194,9 @@ function AppContent() {
 					))}
 				</Routes>
 				</main>
-				{/* telefon: dolna nawigacja na stronach sterownika (CSS ukrywa ją od 900 px) */}
-				{!isDeviceSelection && <BottomNav />}
+				{/* telefon: dolna nawigacja na stronach sterownika i pogody (CSS ukrywa ją od 900 px) */}
+				{isDevice && <BottomNav />}
+				{isWeather && <WeatherBottomNav />}
 			</div>
 		</DeviceGuard>
 );

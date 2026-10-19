@@ -265,8 +265,9 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
 const number1 = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const number01 = (value: number) => value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
 
-// Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka
-// „Open-Meteo · X min temu”. Także „Dom” pokazuje temperaturę z Open-Meteo (bez czujnika kotła, od 2026-10-17).
+// Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka: przy pogodzie
+// ikona „i” ze źródłem i wiekiem („Open-Meteo · X min temu”, od 2026-10-19 w dymku zamiast tekstu), bez pogody
+// ostrzeżenie tekstem. Także „Dom” pokazuje temperaturę z Open-Meteo (bez czujnika kotła, od 2026-10-17).
 // Kafelek bieżącej lokalizacji (current): nazwa miejscowości i pogoda z przeglądarki (CurrentWeatherTileCard).
 export function WeatherTileCard({ tile, now, hidden, tools }: {
   tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode;
@@ -274,7 +275,7 @@ export function WeatherTileCard({ tile, now, hidden, tools }: {
   if (tile.current) return <CurrentWeatherTileCard tile={tile} now={now} hidden={hidden} tools={tools} />;
   const weather = tile.weather;
   const foot = hidden ? HIDDEN_FOOT : weather
-    ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`
+    ? <SourceTip text={`Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`} detail="Pogodę pobiera sterownik włącznika z domowego łącza co 15 min." />
     : tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)';
   return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel="brak pogody z włącznika" />;
 }
@@ -286,14 +287,21 @@ function CurrentWeatherTileCard({ tile, now, hidden, tools }: {
   const problem = currentPlaceProblem(status);
   const weather = place?.weather ?? null;
   const foot = hidden ? HIDDEN_FOOT : problem && !weather ? problem
-    : weather ? `Twoja lokalizacja · Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : 'ustalam położenie…';
+    : weather ? <SourceTip text={`Twoja lokalizacja · Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`} detail="Położenie i pogodę pobiera ta przeglądarka." />
+      : 'ustalam położenie…';
   const chip = <span className="chip chip-loc" title="Bieżąca lokalizacja tego urządzenia"><ListIcon name="locate" />tu jesteś</span>;
   return <WeatherTileBody name={place?.name ?? tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} chip={chip}
     emptyLabel={problem ? 'brak położenia' : 'ustalam położenie…'} />;
 }
 
+// Źródło i wiek pogody jako tekst (stopka kafelka pogody, pasek pogody nad listą), np. „Open-Meteo · 10 min temu”;
+// opis w podpowiedzi. Na telefonie ukryty (core/pages/Devices/style.css). Do 2026-10-19 był to dymek ikony „i”.
+export function SourceTip({ text, detail }: { text: string; detail?: string }) {
+  return <span className="source-text" title={detail}>{text}</span>;
+}
+
 function WeatherTileBody({ name, weather, foot, hidden, tools, chip, emptyLabel }: {
-  name: string; weather: Weather | null; foot: string; hidden?: boolean; tools?: ReactNode; chip?: ReactNode; emptyLabel: string;
+  name: string; weather: Weather | null; foot: ReactNode; hidden?: boolean; tools?: ReactNode; chip?: ReactNode; emptyLabel: string;
 }) {
   const temperature = weather?.temperature;
   const facts: Fact[] = weather ? [

@@ -172,3 +172,14 @@ body .app-main:has(.device-selection) { padding-bottom: 0; margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* telefon (dolna nawigacja, < 900 px): bez tekstu ze źródłem pogody („Open-Meteo · 10 min temu”) w pasku nad listą
+   i w stopce kafelków pogody; na komputerze zostaje (decyzja użytkownika 2026-10-19) */
+@media (max-width: 899px) {
+  .page-lista .outdoor-src,
+  .page-lista .tile-foot .source-text { display: none; }
+}
+
+/* kafelki pogody tej samej wysokości co inne (2026-10-19): pusta stopka na telefonie (tekst źródła ukryty) zachowuje
+   wysokość jednej linii */
+.page-lista .tile-foot { min-height: 1.35em; }

@@ -5,7 +5,9 @@
 // (z ostatniego odczytu ustawień), KPI moc / obciążenie / paliwo / spaliny. Niżej trzy karty obiegów: CWU (zadana,
 // ładowanie od zadana − histereza nr 123, chip pompy), mieszacz 1 i 2 (zadana, ruch zaworu). Karta „Urządzenia
 // kotła”: przełączniki tylko do odczytu (wentylator z mocą, podajnik, pompy, zapalarka) i alarm regulatora.
-// „Pozostałe”: temperatura zewnętrzna i pokojowa (eSTER), termostat, czyszczenie, spalony pellet dziś / w miesiącu.
+// Kafelki karty głównej: mieszacz 1 (CO), mieszacz 2 i CWU (temperatura, pompa, zadana, zawór) oraz temperatura
+// zewnętrzna; pod nią karty: moc z obciążeniem, spalony pellet dziś i w miesiącu, poziom peletu. „Pozostałe”: spaliny,
+// temperatura pokojowa (eSTER), termostat, czyszczenie.
 // Przy ładowaniu CWU w trybie pompy ciepła pasek „Ładowanie CWU od …” (GET …/cwu-loading); komunikat
 // o automatycznym przejściu na Pellet (GET …/auto-pellet) do kliknięcia „OK”; na karcie CWU ostrzeżenie, gdy w trybie
 // pompy ciepła zadana CWU jest wyższa niż temperatura włączonej pompy ciepła (GET …/schedules/current, cwuTooHigh).
@@ -33,35 +35,50 @@ const Big: React.FC<{ value?: number; unit?: string; className?: string }> = ({ 
   </>
 );
 
-// Chip pompy obiegu: zielony „pompa” w pracy, szary „pompa stoi”, bez odczytu „---”.
+// Wskaźnik pompy obiegu jak „CO” / „CWU” na kafelku listy (.pump): podświetlony z pulsującą kropką, gdy pracuje,
+// przygaszony, gdy stoi; bez odczytu przygaszony z podpowiedzią „brak odczytu”.
 const PumpChip: React.FC<{ on?: boolean }> = ({ on }) => (
-  on === undefined
-    ? <span className="chip chip-off">---</span>
-    : on ? <span className="chip chip-ok"><i className="dot" />pompa</span> : <span className="chip chip-off">pompa stoi</span>
+  <span className={`pump${on ? ' is-on' : ''}`} title={on === undefined ? 'Pompa: brak odczytu' : on ? 'Pompa pracuje' : 'Pompa stoi'}>
+    <i className="dot" />pompa
+  </span>
 );
 
-// Ruch zaworu mieszacza: „zawór otwiera ↑”, „zawór zamyka ↓”, „zawór w spoczynku”.
+// Ruch zaworu mieszacza: „zawór ↑” (otwiera), „zawór ↓” (zamyka), „zawór w spoczynku”; słowo w podpowiedzi
+// (strzałki zamiast słów, decyzja użytkownika 2026-10-19).
 const Valve: React.FC<{ opening?: boolean; closing?: boolean }> = ({ opening, closing }) => {
   const text = valveText(opening, closing);
   if (text === '---') return <>zawór ---</>;
   if (text === 'stoi') return <>zawór w spoczynku</>;
-  return <span className="nowrap">zawór {text} <Icon name={opening ? 'up' : 'down'} className="inline-icon" /></span>;
+  return <span className="nowrap" title={`zawór ${text}`} aria-label={`zawór ${text}`}>zawór <Icon name={opening ? 'up' : 'down'} className="inline-icon" /></span>;
 };
 
-// Karta obiegu (CWU, mieszacz): nagłówek z chipem pompy, duża temperatura, pod nią zadana i reszta opisu.
-const Circuit: React.FC<{ title: string; pump?: boolean; current?: number; children: React.ReactNode }> = ({ title, pump, current, children }) => (
+// Kafelek obiegu (CWU, mieszacz) w karcie głównej: nazwa, temperatura z chipem pompy po prawej w tym samym wierszu,
+// pod nią zadana i reszta opisu.
+const CircuitKpi: React.FC<{ label: string; pump?: boolean; current?: number; children: React.ReactNode }> = ({ label, pump, current, children }) => (
+  <div className="kpi kpi-circuit">
+    <span className="kpi-label">{label}</span>
+    <span className="kpi-row">
+      <span className="kpi-value">{current === undefined || current === null ? '---' : formatNumber(current)}<small>°C</small></span>
+      <PumpChip on={pump} />
+    </span>
+    <span className="kpi-sub">{children}</span>
+  </div>
+);
+
+// Karta wartości pod kartą główną (moc, spalony pellet, poziom peletu): duża liczba z jednostką i opis.
+const ValueCard: React.FC<{ title: string; value?: number; unit: string; children: React.ReactNode }> = ({ title, value, unit, children }) => (
   <section className="card card-circuit">
-    <header className="card-head"><h2>{title}</h2><PumpChip on={pump} /></header>
-    <div className="circuit-val"><Big value={current} /></div>
+    <header className="card-head"><h2>{title}</h2></header>
+    <div className="circuit-val"><Big value={value} unit={unit} /></div>
     <span className="circuit-sub">{children}</span>
   </section>
 );
 
-// Przełącznik tylko do odczytu w „Urządzeniach kotła”.
+// Przełącznik tylko do odczytu w „Urządzeniach kotła” (is-state: włączony w kolorze wyróżnienia jak w pompie ciepła, czytelny także w motywie ciemnym).
 const Toggle: React.FC<{ name: string; on?: boolean; detail?: string }> = ({ name, on, detail }) => (
   <li>
     <span className="t-name">{name}{detail && <> <small>{detail}</small></>}</span>
-    <span className={`switch is-disabled${on ? ' is-on' : ''}`} role="switch" aria-checked={!!on} aria-disabled="true" aria-label={name}
+    <span className={`switch is-disabled is-state${on ? ' is-on' : ''}`} role="switch" aria-checked={!!on} aria-disabled="true" aria-label={name}
       title={on === undefined ? 'brak odczytu' : on ? 'pracuje' : 'stoi'} />
   </li>
 );
@@ -114,7 +131,6 @@ export const PelletBoilerHome: React.FC = () => {
   const workMode = workModeName(settings, schedule?.pelletCwu);
   // tryb Pompa ciepła bez świeżych danych pompy: nie wiadomo, czy sprężarka pracuje (dopisek przy stanie)
   const pumpDataMissing = !stale && heatPumpDataMissing(reading, !!heatPumpLinked && workMode === 'Pompa ciepła');
-  const hasMixers = reading?.mixer1_temp !== undefined || reading?.mixer2_temp !== undefined;
   const alarm = !!reading?.alarm || reading?.state === 8;
   const running = burning || heatPumpWorking(reading);
   const hysteresis = findParameter(settings, 17)?.value;
@@ -174,62 +190,57 @@ export const PelletBoilerHome: React.FC = () => {
                 <span className="chip chip-off">{season}</span>
                 {heatPumpLinked && <span className="chip chip-off">Tryb: {workMode}</span>}
               </div>
+              {/* obiegi w kafelkach karty głównej: temperatura, pod nią chip pompy, zadana i zawór / zakres CWU; moc, spalony
+                  pellet i poziom peletu w kartach niżej (zamiana 2026-10-19) */}
               <div className="hero-kpis">
-                <div className="kpi"><span className="kpi-label">Moc</span><span className="kpi-value">{formatNumber(reading.boiler_power)}<small>kW</small></span></div>
-                <div className="kpi"><span className="kpi-label">Obciążenie</span><span className="kpi-value">{formatNumber(reading.boiler_load, 0)}<small>%</small></span></div>
-                <div className="kpi"><span className="kpi-label">Pelet</span><span className="kpi-value">{formatNumber(reading.fuel_level, 0)}<small>%</small></span></div>
-                <div className="kpi"><span className="kpi-label">Spaliny</span><span className="kpi-value">{formatNumber(reading.exhaust_temp, 0)}<small>°C</small></span></div>
+                <CircuitKpi label="Mieszacz 1 · CO" pump={reading.mixer1_pump} current={reading.mixer1_temp}>
+                  zadana {formatNumber(reading.mixer1_target)} · <Valve opening={reading.mixer1_opening} closing={reading.mixer1_closing} />
+                </CircuitKpi>
+                <CircuitKpi label="Mieszacz 2" pump={reading.mixer2_pump} current={reading.mixer2_temp}>
+                  zadana {formatNumber(reading.mixer2_target)} · <Valve opening={reading.mixer2_opening} closing={reading.mixer2_closing} />
+                </CircuitKpi>
+                <CircuitKpi label="CWU" pump={reading.water_heater_pump} current={reading.water_heater_temp}>
+                  {cwuOff ? (
+                    // CWU wyłączone w regulatorze (nr 122 = 0; napis „wyłączone”): zakres od–do z regulatora (zadana − histereza nr 123, zadana) zostaje
+                    // widoczny, bo harmonogram ustawia go dalej (decyzja użytkownika 2026-10-18, makieta #boiler-podglad)
+                    reading.water_heater_target !== undefined && cwuHysteresis !== undefined ? (
+                      <>
+                        {formatNumber(reading.water_heater_target - cwuHysteresis, 0)}–{formatNumber(reading.water_heater_target, 0)} °C
+                        {' · '}<span className="danger-text">wyłączone</span>
+                      </>
+                    ) : (
+                      <span className="danger-text">wyłączone</span>
+                    )
+                  ) : (
+                    <>
+                      zadana {formatNumber(reading.water_heater_target)}
+                      {reading.water_heater_target !== undefined && cwuHysteresis !== undefined && (
+                        <> · od {formatNumber(reading.water_heater_target - cwuHysteresis)} °C</>
+                      )}
+                    </>
+                  )}
+                  {schedule?.cwuTooHigh && <><br /><span className="danger-text">Za wysoka temp. CWU dla pompy ciepła</span></>}
+                </CircuitKpi>
+                <div className="kpi"><span className="kpi-label">Zewnętrzna</span><span className="kpi-value">{formatNumber(reading.outside_temp)}<small>°C</small></span></div>
               </div>
             </div>
           </section>
 
           <div className="grid-3">
-            <Circuit title="CWU" pump={reading.water_heater_pump} current={reading.water_heater_temp}>
-              {cwuOff ? (
-                // CWU wyłączone (nr 122 = 0): zakres od–do z regulatora (zadana − histereza nr 123, zadana) zostaje
-                // widoczny, bo harmonogram ustawia go dalej (decyzja użytkownika 2026-10-18, makieta #boiler-podglad)
-                reading.water_heater_target !== undefined && cwuHysteresis !== undefined ? (
-                  <>
-                    {formatNumber(reading.water_heater_target - cwuHysteresis, 0)}–{formatNumber(reading.water_heater_target, 0)} °C
-                    {' · '}<span className="danger-text">wyłączone w regulatorze</span>
-                  </>
-                ) : (
-                  <span className="danger-text">CWU wyłączone w regulatorze</span>
-                )
-              ) : (
-                <>
-                  zadana {formatNumber(reading.water_heater_target)}
-                  {reading.water_heater_target !== undefined && cwuHysteresis !== undefined && (
-                    <> · ładowanie od {formatNumber(reading.water_heater_target - cwuHysteresis)} °C</>
-                  )}
-                </>
-              )}
-              {schedule?.cwuTooHigh && <><br /><span className="danger-text">Za wysoka temp. CWU dla pompy ciepła</span></>}
-            </Circuit>
-            {hasMixers ? (
-              <>
-                <Circuit title="Mieszacz 1 · CO" pump={reading.mixer1_pump} current={reading.mixer1_temp}>
-                  zadana {formatNumber(reading.mixer1_target)} · <Valve opening={reading.mixer1_opening} closing={reading.mixer1_closing} />
-                </Circuit>
-                <Circuit title="Mieszacz 2" pump={reading.mixer2_pump} current={reading.mixer2_temp}>
-                  zadana {formatNumber(reading.mixer2_target)} · <Valve opening={reading.mixer2_opening} closing={reading.mixer2_closing} />
-                </Circuit>
-              </>
-            ) : (
-              <section className="card card-circuit">
-                <header className="card-head"><h2>Mieszacze</h2></header>
-                <span className="help">Mieszacze pojawią się po wgraniu firmware 1.2.0 na sterownik.</span>
-              </section>
-            )}
+            <ValueCard title="Moc" value={reading.boiler_power} unit="kW">obciążenie {formatNumber(reading.boiler_load, 0)} %</ValueCard>
+            {/* spalony pellet (licznik ze sterownika od 1.7.1) */}
+            <ValueCard title="Spalony dziś" value={fuel.today ?? undefined} unit="kg">w miesiącu {fuel.month === null ? '---' : formatNumber(fuel.month)} kg</ValueCard>
+            <ValueCard title="Pelet" value={reading.fuel_level} unit="%">poziom w zasobniku</ValueCard>
           </div>
 
           <section className="card">
             <header className="card-head"><h2>Urządzenia kotła</h2><span className="card-hint">odczyt {hourMinute(reading.createdAt)} · {pollText}</span></header>
             <ul className="toggle-list cols-2">
-              <Toggle name="Wentylator" on={reading.fan} detail={reading.fan_power !== undefined ? `${formatNumber(reading.fan_power, 0)} %` : undefined} />
-              <Toggle name="Podajnik" on={reading.feeder} />
+              {/* pompy CO i CWU na górze listy (decyzja użytkownika 2026-10-19) */}
               <Toggle name="Pompa CO" on={reading.heating_pump} />
               <Toggle name="Pompa CWU" on={reading.water_heater_pump} />
+              <Toggle name="Wentylator" on={reading.fan} detail={reading.fan_power !== undefined ? `${formatNumber(reading.fan_power, 0)} %` : undefined} />
+              <Toggle name="Podajnik" on={reading.feeder} />
               <Toggle name="Pompa cyrkulacji" on={reading.circulation_pump} />
               <Toggle name="Zapalarka" on={reading.lighter} />
             </ul>
@@ -239,16 +250,12 @@ export const PelletBoilerHome: React.FC = () => {
           <section className="card">
             <header className="card-head"><h2>Pozostałe</h2></header>
             <dl className="measures">
-              <div><dt>Zewnętrzna</dt><dd>{formatTemp(reading.outside_temp)}</dd></div>
+              <div><dt>Spaliny</dt><dd>{formatTemp(reading.exhaust_temp)}</dd></div>
               {/* termostat pokojowy eSTER (firmware pieca od 1.8.0): pokój i zadana; czy steruje kotłem — nr 111 */}
               <div><dt>Temperatura pokojowa</dt><dd>{formatTemp(reading.room_temp)}{reading.room_target_temp !== undefined && <small>zadana {formatTemp(reading.room_target_temp)}</small>}</dd></div>
               <div><dt>Termostat</dt><dd>{thermostatMode === undefined ? '---' : thermostatMode.raw[0] === 0 ? 'sterowanie wyłączone' : 'sterowanie włączone'}</dd></div>
               {/* przełącznik harmonogramu czyszczenia (nr 4) z ostatniego odczytu ustawień; zmiana w Ustawieniach */}
               <div><dt>Czyszczenie</dt><dd>{cleanSchedule === undefined ? '---' : cleanSchedule.enabled ? 'tak' : 'nie'}</dd></div>
-              {/* spalony pellet (licznik ze sterownika od 1.7.1) */}
-              {fuel.today !== null && (
-                <div><dt>Spalony pellet dziś</dt><dd>{formatNumber(fuel.today)} kg<small>w miesiącu {formatNumber(fuel.month ?? 0)} kg</small></dd></div>
-              )}
               <div><dt>Ostatni odczyt</dt><dd>{formatDateTime(reading.createdAt)}</dd></div>
             </dl>
           </section>

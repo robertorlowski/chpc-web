@@ -107,6 +107,9 @@
 .card-head h2 { font-size: 13px; color: var(--fg-2); }
 .tile-name { font-size: 17px; }
 .chip { border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+/* plakietka stanu w karcie głównej (piec „PRACA”, pompa ciepła „SPRĘŻARKA PRACUJE”, bez opisu pod nią), plakietka pracy na kafelku
+   listy i wskaźnik pompy obiegu wielkimi literami jak chipy obok (2026-10-19) */
+.pill-row .state, .kpi-row .pump, .state-pill-title, .tile-side .state { text-transform: uppercase; letter-spacing: .06em; }
 .state, .state-pill, .entry-tag { border-radius: 4px; }
 .tile::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: var(--kind-fg); }
 .brand-mark { background: var(--accent); }
@@ -287,6 +290,17 @@ svg { display: block; }
 .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--hero-fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-value { font-family: var(--font-num); font-size: 20px; font-weight: 700; line-height: 1.1; }
 .kpi-value small { font-size: 12px; font-weight: 600; margin-left: 3px; color: var(--hero-fg-2); }
+/* kafelek obiegu w karcie głównej (piec: mieszacze i CWU, 2026-10-19): chip pompy po prawej w wierszu temperatury,
+   pod nią zadana i zawór */
+.kpi-sub { font-size: 12px; line-height: 1.4; color: var(--hero-fg-2); }
+/* wrap-reverse: gdy chip nie mieści się obok temperatury (wąskie kafelki), przechodzi nad nią, pod nazwę obiegu */
+.kpi-row { display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: space-between; gap: 4px 6px; }
+.kpi-row .pump { flex: none; padding: 3px 5px; letter-spacing: .02em; }
+.kpi-row .pump .dot { margin-right: 4px; }
+.kpi-circuit { padding: 10px; }
+/* kafelki obiegów zawsze w dwóch kolumnach (jak na komputerze), także między 420 a 759 px, gdzie inne karty mają cztery */
+.hero-kpis:has(.kpi-circuit) { grid-template-columns: repeat(2, 1fr); }
+.kpi-sub .inline-icon { color: var(--hero-fg); }
 
 /* listy przełączników */
 .toggle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -391,6 +405,11 @@ svg { display: block; }
 .actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .switch.is-disabled { opacity: .5; cursor: not-allowed; }
 .switch.is-disabled.is-on { background: var(--muted-fg); border-color: var(--muted-fg); }
+/* wskaźnik stanu ze sterownika (urządzenia kotła, pompa i kompresor hydroforu; 2026-10-19): pełny kolor, włączony
+   w kolorze wyróżnienia jak przełączniki pompy ciepła. Przygaszony szary is-disabled w motywie ciemnym nie odróżniał się od wyłączonego. */
+.switch.is-state { opacity: 1; cursor: default; }
+.switch.is-state.is-on { background: var(--accent); border-color: var(--accent); }
+.switch.is-state.is-on::after { background: var(--accent-fg); }
 code { font-family: "JetBrains Mono", Consolas, monospace; font-size: .9em; background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; }
 
 /* ---- boczne menu i pasek (komputer) ---- */
@@ -694,7 +713,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .tile-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; }
 .tile-value { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; min-width: 0; }
 .tile-side { flex: 0 1 auto; max-width: 52%; display: flex; justify-content: flex-end; }
-.tile-side .state { white-space: normal; text-align: left; line-height: 1.3; padding: 6px 10px; }
+/* plakietka pracy na kafelku tej samej wielkości i kształtu co wskaźniki „CO” / „CWU” (.pump), bez ramki (2026-10-19) */
+.tile-side .state { white-space: normal; text-align: left; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 3px 7px; border-radius: 4px; }
+.tile-side .state .dot { width: 6px; height: 6px; margin-right: 5px; }
 .tile-side .state .dot { flex: none; }
 .tile-side .warn-line { width: auto; white-space: normal; line-height: 1.3; padding: 6px 10px; font-size: 12px; }
 .tile-facts { margin-top: auto; }
@@ -715,14 +736,17 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 /* ---- kafelek pompy: wskaźniki pomp obiegu CO / CWU ---- */
 .tile-side { flex-direction: column; align-items: flex-end; gap: 6px; }
 .pumps { display: inline-flex; gap: 4px; }
-.pump { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--fg-3); background: transparent; }
-.pump .dot { width: 6px; height: 6px; margin-right: 5px; background: var(--line-strong); }
-.pump.is-on { color: var(--c-water); border-color: var(--c-water); background: var(--c-water-bg); }
-.pump.is-on .dot { background: currentColor; animation: puls 1.6s ease-out infinite; }
+/* wskaźnik pompy bez ramki (2026-10-19): stoi — szare tło jak chip-off, pracuje — kolory pracy */
+.pump { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; letter-spacing: .06em; line-height: 1.5; padding: 3px 7px; border-radius: 4px; color: var(--muted-fg); background: var(--muted-bg); }
+.pump .dot { width: 6px; height: 6px; margin-right: 5px; background: currentColor; opacity: .55; }
+/* pracująca pompa w kolorach pracy (jak plakietka „PRACA”), od 2026-10-19 zamiast niebieskiego */
+.pump.is-on { color: var(--run-fg); background: var(--run-bg); }
+.pump.is-on .dot { background: currentColor; opacity: 1; animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pump .dot { animation: none !important; } }
 
 /* ---- pasek sterownika: czas pracy obok chipu Online (pompa, piec) ---- */
-.device-sub .sub-run { font-size: 11px; padding: 1px 8px; margin-left: 6px; }
+/* chip „PRACUJE” w pasku jak sąsiedni chip „ONLINE” (.chip: wielkie litery, 11 px, 600, zaokrąglone końce; 2026-10-19) */
+.device-sub .sub-run { font-size: 11px; font-weight: 600; line-height: 1.5; padding: 1px 7px; margin-left: 6px; border-radius: 999px; text-transform: uppercase; letter-spacing: .06em; }
 .device-sub .sub-run .dot { width: 6px; height: 6px; margin-right: 5px; animation: puls 1.6s ease-out infinite; }
 .pill-row .state.is-running .dot { animation: puls 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .device-sub .sub-run .dot, .pill-row .state .dot { animation: none !important; } }
@@ -758,12 +782,14 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .wx-icon-gap { width: 28px; }
 .wx-day-max, .wx-day-min { font-family: var(--font-num); font-size: 20px; font-weight: 700; text-align: right; }
 .wx-day-min { color: var(--fg-2); }
+/* ikona „i” ze źródłem pogody (kafelek pogody, pasek nad listą; 2026-10-19 zamiast tekstu „Open-Meteo · X min temu”),
+   w aplikacji components/InfoTip.tsx z dymkiem */
+.info-tip { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1.5px solid var(--accent);
+  border-radius: 50%; background: var(--card); color: var(--accent); font: italic 700 12px Georgia, 'Times New Roman', serif;
+  line-height: 1; vertical-align: middle; cursor: pointer; }
+.info-tip:hover { background: var(--accent); color: var(--card); }
 .wx-foot { font-size: 12px; color: var(--fg-3); text-align: right; }
 @media (min-width: 600px) { .wx-day { grid-template-columns: minmax(0, 1fr) 56px 76px 48px 48px; gap: 12px; } }
-.wx-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.wx-tabs::-webkit-scrollbar { display: none; }
-.wx-tabs .seg { flex: none; }
-.wx-tabs .seg span { white-space: nowrap; }
 .wx-hero-time { font-size: 44px; }
 .alert-info { background: var(--muted-bg); color: var(--fg); border-left: 3px solid var(--c-sky); }
 .alert-info .ic { color: var(--c-sky); }
@@ -792,6 +818,15 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
 .wx-or { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg-3); }
 .wx-or::before, .wx-or::after { content: ""; flex: 1; border-top: 1px solid var(--line-soft); }
 
+/* telefon (< 900 px): bez tekstu ze źródłem pogody na liście (jak client/src/core/pages/Devices/style.css, 2026-10-19) */
+@media (max-width: 899px) {
+  .page-lista .outdoor-src,
+  .page-lista .tile-foot .source-text { display: none; }
+}
+
+/* kafelki pogody tej samej wysokości co inne (2026-10-19): pusta stopka na telefonie zachowuje wysokość jednej linii */
+.page-lista .tile-foot { min-height: 1.35em; }
+
 </style>
 </head>
 <body>
@@ -818,7 +853,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
         <span class="outdoor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wx-cloudy"/></svg></span>
         <span class="outdoor-temp">7,4 °C</span>
         <span class="outdoor-desc">pochmurno · wiatr 14 km/h · Dom</span>
-        <span class="outdoor-src">Open‑Meteo · 6 min temu</span>
+        <span class="outdoor-src"><span class="source-text">Open‑Meteo · 6 min temu</span></span>
       </div>
 
       <div class="layout-bar">
@@ -840,7 +875,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
             <div><dt>Chmury</dt><dd>86 %</dd></div>
             <div><dt>Opad</dt><dd>0,2 mm</dd></div>
           </dl>
-          <footer class="tile-foot">Open‑Meteo · 6 min temu</footer>
+          <footer class="tile-foot"><span class="source-text">Open‑Meteo · 6 min temu</span></footer>
           <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
         </article>
 
@@ -857,7 +892,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
             <div><dt>Chmury</dt><dd>5 %</dd></div>
             <div><dt>Opad</dt><dd>0 mm</dd></div>
           </dl>
-          <footer class="tile-foot">Twoja lokalizacja · Open‑Meteo · 2 min temu</footer>
+          <footer class="tile-foot"><span class="source-text">Twoja lokalizacja · Open‑Meteo · 2 min temu</span></footer>
           <div class="tile-layout"><button type="button" class="icon-btn sm" aria-label="Przenieś"><i data-icon="move"></i></button><button type="button" class="icon-btn sm" aria-label="Ukryj"><i data-icon="eye"></i></button></div>
         </article>
 
@@ -983,7 +1018,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
           <span class="hero-note">cel 38–45 °C · <strong>CWU</strong> grzane · zmiana 16:00</span>
         </div>
         <div class="hero-side">
-          <div class="state-pill state-on is-running"><i class="dot"></i>Sprężarka pracuje<small>49 min · 1,87 kWh w cyklu</small></div>
+          <div class="state-pill state-on is-running"><span class="state-pill-title"><i class="dot"></i>Sprężarka pracuje</span><small>49 min · 1,87 kWh w cyklu</small></div>
           <div class="hero-kpis">
             <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">2 140<small>W</small></span></div>
             <div class="kpi"><span class="kpi-label">PV teraz</span><span class="kpi-value">1 655<small>W</small></span></div>
@@ -1300,8 +1335,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
         </div>
         <div class="hero-side">
           <ul class="toggle-list toggle-hero">
-            <li><span class="t-name">Pompa wody</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Pompa wody"></span></li>
-            <li><span class="t-name">Kompresor powietrza</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Kompresor"></span></li>
+            <li><span class="t-name">Pompa wody</span><span class="switch is-state is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Pompa wody"></span></li>
+            <li><span class="t-name">Kompresor powietrza</span><span class="switch is-state is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Kompresor"></span></li>
           </ul>
           <div class="hero-kpis">
             <div class="kpi"><span class="kpi-label">Czas kompresora</span><span class="kpi-value">30<small>s</small></span></div>
@@ -1384,45 +1419,50 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
         </div>
         <div class="hero-side">
           <div class="pill-row">
-            <span class="state state-on is-running" title="Kocioł pali od 14:20"><i class="dot"></i>2&nbsp;h&nbsp;08&nbsp;min</span>
+            <span class="state state-on is-running" title="Kocioł pali od 14:20"><i class="dot"></i>Praca</span>
             <span class="chip chip-off">Zima</span>
             <span class="chip chip-off">Tryb: pompa ciepła</span>
           </div>
+          <!-- obiegi w kafelkach karty głównej (temperatura, chip pompy, zadana, zawór / zakres CWU); moc, spalony pellet
+               i poziom peletu w kartach niżej (zamiana 2026-10-19) -->
           <div class="hero-kpis">
-            <div class="kpi"><span class="kpi-label">Moc</span><span class="kpi-value">14<small>kW</small></span></div>
-            <div class="kpi"><span class="kpi-label">Obciążenie</span><span class="kpi-value">58<small>%</small></span></div>
-            <div class="kpi"><span class="kpi-label">Paliwo</span><span class="kpi-value">64<small>%</small></span></div>
-            <div class="kpi"><span class="kpi-label">Spaliny</span><span class="kpi-value">142<small>°C</small></span></div>
+            <div class="kpi kpi-circuit"><span class="kpi-label">Mieszacz 1 · CO</span><span class="kpi-row"><span class="kpi-value">41,5<small>°C</small></span><span class="pump is-on" title="Pompa pracuje"><i class="dot"></i>pompa</span></span>
+              <span class="kpi-sub">zadana 42 · <span class="nowrap" title="zawór otwiera">zawór <i data-icon="up" class="inline-icon"></i></span></span></div>
+            <div class="kpi kpi-circuit"><span class="kpi-label">Mieszacz 2</span><span class="kpi-row"><span class="kpi-value">28<small>°C</small></span><span class="pump" title="Pompa stoi"><i class="dot"></i>pompa</span></span>
+              <span class="kpi-sub">zadana 30 · zawór w spoczynku</span></div>
+            <!-- CWU wyłączone w regulatorze (nr 122 = 0): zakres od–do (zadana − histereza, zadana) zostaje widoczny (2026-10-18) -->
+            <div class="kpi kpi-circuit"><span class="kpi-label">CWU</span><span class="kpi-row"><span class="kpi-value">33,7<small>°C</small></span><span class="pump" title="Pompa stoi"><i class="dot"></i>pompa</span></span>
+              <span class="kpi-sub">35–50 °C · <span class="danger-text">wyłączone</span></span></div>
+            <div class="kpi"><span class="kpi-label">Zewnętrzna</span><span class="kpi-value">7,4<small>°C</small></span></div>
           </div>
         </div>
       </section>
       <div class="grid-3">
         <section class="card card-circuit">
-          <header class="card-head"><h2>CWU</h2><span class="chip chip-off">pompa stoi</span></header>
-          <div class="circuit-val"><span class="big">33,7</span><span class="unit">°C</span></div>
-          <!-- CWU wyłączone w regulatorze (nr 122 = 0): zakres od–do (zadana − histereza, zadana) zostaje widoczny (2026-10-18) -->
-          <span class="circuit-sub">35–50 °C · <span class="danger-text">wyłączone w regulatorze</span></span>
+          <header class="card-head"><h2>Moc</h2></header>
+          <div class="circuit-val"><span class="big">14</span><span class="unit">kW</span></div>
+          <span class="circuit-sub">obciążenie 58 %</span>
         </section>
         <section class="card card-circuit">
-          <header class="card-head"><h2>Mieszacz 1 · CO</h2><span class="chip chip-ok"><i class="dot"></i>pompa</span></header>
-          <div class="circuit-val"><span class="big">41,5</span><span class="unit">°C</span></div>
-          <span class="circuit-sub">zadana 42 · <span class="nowrap">zawór otwiera <i data-icon="up" class="inline-icon"></i></span></span>
+          <header class="card-head"><h2>Spalony dziś</h2></header>
+          <div class="circuit-val"><span class="big">6,4</span><span class="unit">kg</span></div>
+          <span class="circuit-sub">w miesiącu 112 kg</span>
         </section>
         <section class="card card-circuit">
-          <header class="card-head"><h2>Mieszacz 2</h2><span class="chip chip-off">pompa stoi</span></header>
-          <div class="circuit-val"><span class="big">28</span><span class="unit">°C</span></div>
-          <span class="circuit-sub">zadana 30 · zawór w spoczynku</span>
+          <header class="card-head"><h2>Pelet</h2></header>
+          <div class="circuit-val"><span class="big">64</span><span class="unit">%</span></div>
+          <span class="circuit-sub">poziom w zasobniku</span>
         </section>
       </div>
       <section class="card">
         <header class="card-head"><h2>Urządzenia kotła</h2><span class="card-hint">odczyt 16:28 · co 5 min</span></header>
         <ul class="toggle-list cols-2">
-          <li><span class="t-name">Wentylator <small>58 %</small></span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Wentylator"></span></li>
-          <li><span class="t-name">Podajnik</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Podajnik"></span></li>
-          <li><span class="t-name">Pompa CO</span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CO"></span></li>
-          <li><span class="t-name">Pompa CWU</span><span class="switch is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CWU"></span></li>
-          <li><span class="t-name">Pompa cyrkulacji</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Cyrkulacja"></span></li>
-          <li><span class="t-name">Zapalarka</span><span class="switch is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Zapalarka"></span></li>
+          <li><span class="t-name">Pompa CO</span><span class="switch is-state is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CO"></span></li>
+          <li><span class="t-name">Pompa CWU</span><span class="switch is-state is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Pompa CWU"></span></li>
+          <li><span class="t-name">Wentylator <small>58 %</small></span><span class="switch is-state is-on is-disabled" role="switch" aria-checked="true" aria-disabled="true" aria-label="Wentylator"></span></li>
+          <li><span class="t-name">Podajnik</span><span class="switch is-state is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Podajnik"></span></li>
+          <li><span class="t-name">Pompa cyrkulacji</span><span class="switch is-state is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Cyrkulacja"></span></li>
+          <li><span class="t-name">Zapalarka</span><span class="switch is-state is-disabled" role="switch" aria-checked="false" aria-disabled="true" aria-label="Zapalarka"></span></li>
         </ul>
         <div class="alert alert-warn"><i data-icon="bell"></i><div><strong>Podajnik: brak reakcji od 12 min</strong><span>alarm regulatora ecoMAX · sprawdź zasobnik pelletu</span></div></div>
       </section>
@@ -2039,10 +2079,9 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   </section>
 
   <!-- ============ LOGOWANIE ============ -->
-  <!-- ===== Pogoda: strona kafelka pogody (kliknięcie kafelka na liście), zakładki Teraz / Dni; prognoza z Open-Meteo pobierana przez przeglądarkę ===== -->
-  <section class="screen" id="s-pogoda-teraz" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <!-- ===== Pogoda: strona kafelka pogody (kliknięcie kafelka na liście); prognoza z Open-Meteo pobierana przez przeglądarkę. Zakładki jak widoki sterownika (2026-10-19): boczne menu na komputerze, dolna nawigacja z „Więcej” na telefonie ===== -->
+  <section class="screen" id="s-pogoda-teraz" data-device="pogoda" data-view="teraz" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="teraz"></div>
       <section class="hero card card-hero wx-hero">
         <div class="hero-main">
           <span class="hero-label wx-place"><i data-icon="pin"></i>Dom</span>
@@ -2073,9 +2112,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     </main>
   </section>
 
-  <section class="screen" id="s-pogoda-dni" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <section class="screen" id="s-pogoda-dni" data-device="pogoda" data-view="dni" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="dni"></div>
       <section class="card">
         <header class="card-head"><h2>Prognoza dzienna</h2><span class="card-hint">dzień · noc</span></header>
         <ul class="wx-days" id="wx-days"></ul>
@@ -2085,9 +2123,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     </main>
   </section>
 
-  <section class="screen" id="s-pogoda-pv" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <section class="screen" id="s-pogoda-pv" data-device="pogoda" data-view="pv" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="pv"></div>
       <section class="hero card card-hero">
         <div class="hero-main">
           <span class="hero-label">Produkcja PV jutro · prognoza</span>
@@ -2116,9 +2153,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     </main>
   </section>
 
-  <section class="screen" id="s-pogoda-ogrzewanie" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <section class="screen" id="s-pogoda-ogrzewanie" data-device="pogoda" data-view="ogrzewanie" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="ogrzewanie"></div>
       <section class="hero card card-hero">
         <div class="hero-main">
           <span class="hero-label">Najlepsze okno na CWU · pompa ciepła</span>
@@ -2149,9 +2185,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     </main>
   </section>
 
-  <section class="screen" id="s-pogoda-powietrze" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <section class="screen" id="s-pogoda-powietrze" data-device="pogoda" data-view="powietrze" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="powietrze"></div>
       <section class="hero card card-hero">
         <div class="hero-main">
           <span class="hero-label">Jakość powietrza · indeks europejski</span>
@@ -2187,9 +2222,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     </main>
   </section>
 
-  <section class="screen" id="s-pogoda-wiatr" data-chrome="firmware" data-title="Pogoda · Dom" hidden>
+  <section class="screen" id="s-pogoda-wiatr" data-device="pogoda" data-view="wiatr" hidden>
     <main class="page page-narrow weather-page">
-      <div class="segmented seg-inline wx-tabs" data-wx-tab="wiatr"></div>
       <section class="hero card card-hero">
         <div class="hero-main">
           <span class="hero-label">Wiatr teraz</span>
@@ -2468,6 +2502,11 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   var ICONS = {
     hp: '<path d="M6 3c-2 3-2 5 0 8s2 5 0 8M12 3c-2 3-2 5 0 8s2 5 0 8M18 3c-2 3-2 5 0 8s2 5 0 8"/>',
     pv: '<path d="M4 10h16l2 9H2zM8 10l1-4h6l1 4M6 14.5h12M9 10v9M15 10v9"/>',
+    thermo: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    house: '<path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-5h4v5"/>',
+    leaf: '<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15M5 19l7-7"/>',
+    wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     drop: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
     'switch': '<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
@@ -2503,18 +2542,24 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
   };
   document.querySelectorAll('i[data-icon]').forEach(function (el) {
     var k = el.getAttribute('data-icon');
-    el.outerHTML = '<svg class="ic" aria-hidden="true" ' + P + '>' + (ICONS[k] || '') + '</svg>';
+    // klasa z <i> (np. inline-icon: strzałka zaworu w wierszu tekstu) przechodzi na svg
+    var extra = el.getAttribute('class');
+    el.outerHTML = '<svg class="ic' + (extra ? ' ' + extra : '') + '" aria-hidden="true" ' + P + '>' + (ICONS[k] || '') + '</svg>';
   });
   function icon(k) { return '<svg class="ic" aria-hidden="true" ' + P + '>' + (ICONS[k] || '') + '</svg>'; }
 
   /* ---------- rodzaje sterowników: nazwa, podtytuł, widoki ---------- */
-  var VIEW_LABEL = { podglad: 'Podgląd', dane: 'Dane', wykres: 'Wykres', harmonogram: 'Harmonogram', operacje: 'Operacje', ustawienia: 'Ustawienia', alarmy: 'Alarmy' };
-  var VIEW_ICON = { podglad: 'hp', dane: 'data', wykres: 'chart', harmonogram: 'clock', operacje: 'list', ustawienia: 'settings', alarmy: 'bell' };
+  var VIEW_LABEL = { podglad: 'Podgląd', dane: 'Dane', wykres: 'Wykres', harmonogram: 'Harmonogram', operacje: 'Operacje', ustawienia: 'Ustawienia', alarmy: 'Alarmy',
+    teraz: 'Teraz', dni: 'Najbliższe dni', pv: 'Słońce i PV', ogrzewanie: 'Ogrzewanie', powietrze: 'Powietrze', wiatr: 'Wiatr i opady' };
+  var VIEW_ICON = { podglad: 'hp', dane: 'data', wykres: 'chart', harmonogram: 'clock', operacje: 'list', ustawienia: 'settings', alarmy: 'bell',
+    teraz: 'thermo', dni: 'calendar', pv: 'sun', ogrzewanie: 'house', powietrze: 'leaf', wiatr: 'wind' };
   var DEVICES = {
-    hp:     { name: 'Pompa ciepła',   icon: 'hp',     status: ['ok', 'Online'],  running: '49 min', sub: 'tryb automatyczny · SN A0B1…E4F5', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'operacje', 'ustawienia'] },
+    hp:     { name: 'Pompa ciepła',   icon: 'hp',     status: ['ok', 'Online'],  running: '49 min', sub: 'tryb automatyczny', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'operacje', 'ustawienia'] },
     pv:     { name: 'Fotowoltaika',   icon: 'pv',     status: ['ok', 'Online'],  sub: '4 panele · DTU Hoymiles', views: ['podglad', 'dane', 'wykres', 'ustawienia'] },
     tank:   { name: 'Hydrofor',       icon: 'drop',   status: ['off', 'Offline'], sub: 'ostatnie uruchomienie 13:56', views: ['podglad', 'dane', 'wykres', 'operacje', 'ustawienia'] },
     'switch': { name: 'Włącznik',     icon: 'switch', status: ['ok', 'Online'],  sub: '2 przekaźniki · firmware 1.2.0', views: ['podglad', 'dane', 'harmonogram', 'operacje', 'ustawienia'] },
+    // strona kafelka pogody: zakładki jak widoki sterownika, bez stanu Online / Offline
+    pogoda: { name: 'Pogoda · Dom', icon: 'sun', sub: 'Open‑Meteo · prognoza i jakość powietrza', views: ['teraz', 'dni', 'pv', 'ogrzewanie', 'powietrze', 'wiatr'] },
     boiler: { name: 'Piec Pellux 200', icon: 'fire',  status: ['ok', 'Online'],  running: '2 h 08 min', sub: 'ecoMAX 860P2 · odczyt co 5 min', views: ['podglad', 'dane', 'wykres', 'harmonogram', 'alarmy', 'operacje', 'ustawienia'] }
   };
   var topbar = document.getElementById('topbar');
@@ -2549,7 +2594,7 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     var d = DEVICES[dev]; lastDevice = dev;
     var tabs = d.views.map(function (v) { return viewLink(dev, v, 'tab'); }).join('');
     topbar.innerHTML = '<div class="topbar-inner"><button type="button" class="icon-btn back" data-go="lista" aria-label="Wróć do listy sterowników">' + icon('back') + '</button>' +
-      '<div class="device-title"><h1>' + d.name + '</h1><span class="device-sub"><span class="chip chip-' + d.status[0] + '">' + (d.status[0] === 'off' ? '' : '<i class="dot"></i>') + d.status[1] + '</span>' + (d.running ? '<span class="state state-on sub-run" title="Pracuje od ' + d.running + '"><i class="dot"></i>' + d.running + '</span>' : '') + '<span class="sep">·</span>' + d.sub + '</span></div>' +
+      '<div class="device-title"><h1>' + d.name + '</h1><span class="device-sub">' + (d.status ? '<span class="chip chip-' + d.status[0] + '">' + (d.status[0] === 'off' ? '' : '<i class="dot"></i>') + d.status[1] + '</span>' + (d.running ? '<span class="state state-on sub-run" title="Pracuje od ' + d.running + '"><i class="dot"></i>' + d.running + '</span>' : '') + '<span class="sep">·</span>' : '') + d.sub + '</span></div>' +
       '<nav class="tabs" aria-label="Widoki sterownika">' + tabs + '</nav>' +
       '<div class="topbar-actions"><button type="button" class="icon-btn avatar" aria-label="Konto" data-modal="user-menu">RO</button></div></div>';
     // telefon: 4 pierwsze widoki + „Więcej”
@@ -2578,8 +2623,6 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     current = id; app.setAttribute('data-screen', id);
     renderChrome(target);
     document.getElementById('mock-jump').value = id;
-    // pasek zakładek pogody: wybrana zakładka widoczna (pasek przewija się w bok na telefonie)
-    var wxOn = target.querySelector('.wx-tabs .is-on'); if (wxOn) wxOn.parentNode.scrollLeft = wxOn.offsetLeft - 12;
     if (!(opts && opts.keepHash)) { try { history.replaceState(null, '', '#' + id); } catch (e) {} }
     window.scrollTo(0, 0); requestAnimationFrame(function () { window.scrollTo(0, 0); drawCharts(); });
   }
@@ -2682,16 +2725,8 @@ table.data td em { color: var(--run-fg); font-style: normal; font-weight: 600; }
     render();
   })();
 
-  // pogoda: zakładki wspólne dla sześciu ekranów, produkcja PV w dniach, jakość powietrza 24 h, wiatr 48 h
+  // pogoda: produkcja PV w dniach, jakość powietrza 24 h, wiatr 48 h (zakładki rysuje renderChrome jak widoki sterownika)
   (function () {
-    var TABS = [['teraz', 'Teraz'], ['dni', 'Najbliższe dni'], ['pv', 'Słońce i PV'], ['ogrzewanie', 'Ogrzewanie'], ['powietrze', 'Powietrze'], ['wiatr', 'Wiatr i opady']];
-    document.querySelectorAll('.wx-tabs').forEach(function (bar) {
-      var own = bar.getAttribute('data-wx-tab');
-      bar.setAttribute('role', 'radiogroup'); bar.setAttribute('aria-label', 'Widok pogody');
-      bar.innerHTML = TABS.map(function (t) {
-        return '<label class="seg' + (t[0] === own ? ' is-on' : '') + '"><input type="radio" name="wx-tab-' + own + '"' + (t[0] === own ? ' checked' : ' data-go="pogoda-' + t[0] + '"') + '><span>' + t[1] + '</span></label>';
-      }).join('');
-    });
     function wx(name, size) { return '<svg class="weather-icon" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><use href="#wx-' + name + '"/></svg>'; }
 
     var pv = [['Dzisiaj', '17.10', 'partly-d', 8.6, 'wyprodukowano · prognoza 9,1'], ['niedz.', '18.10', 'partly-d', 9.4], ['pon.', '19.10', 'cloudy', 3.2], ['wt.', '20.10', 'partly-d', 7.8], ['śr.', '21.10', 'partly-d', 8.9], ['czw.', '22.10', 'rain', 2.1], ['pt.', '23.10', 'rain', 4.5]];

@@ -59,7 +59,7 @@ Moduł odpowiada za:
 |---|---|
 | ![Strona pogody](img/pogoda.png) | ![Strona pogody na telefonie](img/pogoda-telefon.png) |
 
-*Strona pogody (kliknięcie kafelka pogody): zakładki Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady. „Teraz” to karta z temperaturą, opisem nieba, maksimum i minimum dnia, temperaturą odczuwalną, wiatrem, wilgotnością, ciśnieniem i godzinami słońca, pasek najbliższych 48 godzin (ikona, temperatura, prawdopodobieństwo opadu) i jutrzejsza temperatura. Bieżące warunki pochodzą z pomiaru pobranego przez włącznik, prognozę i jakość powietrza przeglądarka pobiera wprost z Open-Meteo.*
+*Strona pogody (kliknięcie kafelka pogody): zakładki Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady — jak widoki sterownika: w bocznym menu na komputerze, w dolnej nawigacji z „Więcej” na telefonie. „Teraz” to karta z temperaturą, opisem nieba, maksimum i minimum dnia, temperaturą odczuwalną, wiatrem, wilgotnością, ciśnieniem i godzinami słońca, pasek najbliższych 48 godzin (ikona, temperatura, prawdopodobieństwo opadu) i jutrzejsza temperatura. Bieżące warunki pochodzą z pomiaru pobranego przez włącznik, prognozę i jakość powietrza przeglądarka pobiera wprost z Open-Meteo.*
 
 | Telefon — pasek i dolna nawigacja | Telefon — „Więcej” |
 |---|---|

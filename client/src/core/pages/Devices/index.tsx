@@ -25,7 +25,7 @@ import { wsAddressServer } from '../../http';
 import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
-import { ageLabel, DeviceTileCard, ListIcon, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
+import { ageLabel, DeviceTileCard, ListIcon, SourceTip, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
 import { precipitationText, WeatherCodeIcon, weatherDescription } from '../../components/WeatherIcon';
 import { WeatherTileModal } from '../../components/WeatherTileModal';
 import { useDevice } from '../../context/DeviceContext';
@@ -424,7 +424,7 @@ export const Devices: React.FC = () => {
   const stop = (event: MouseEvent) => event.stopPropagation();
 
   // pasek pogody domu: ikona nieba (od 2026-10-18), temperatura i opis z Open-Meteo (bez czujnika kotła, od 2026-10-17),
-  // wiatr, wiek
+  // wiatr; źródło i wiek w dymku ikony „i” (od 2026-10-19, wcześniej tekst „Open-Meteo · X min temu”)
   const outdoorStrip = (() => {
     const weather = outdoor?.weather;
     const temperature = outdoor === undefined ? '…' : weather
@@ -438,7 +438,7 @@ export const Devices: React.FC = () => {
         {weather && <span className="outdoor-icon"><WeatherCodeIcon code={weather.code} isDay={weather.isDay} size={24} /></span>}
         <span className="outdoor-temp">{temperature}</span>
         <span className="outdoor-desc">{desc}</span>
-        {source && <span className="outdoor-src">{source}</span>}
+        {source && <span className="outdoor-src"><SourceTip text={source} detail="Pogodę pobiera sterownik włącznika z domowego łącza co 15 min." /></span>}
       </div>
     );
   })();

@@ -1,11 +1,12 @@
 // Strona pogody (/weather/:id), otwierana kliknięciem kafelka pogody na liście sterowników (pages/Devices).
 // Kafelek pokazuje bieżące warunki pobrane przez włącznik (GET /weather-tiles); prognozę i jakość powietrza ta strona
 // pobiera przeglądarką wprost z Open-Meteo (forecast.ts). Kafelek „Moja lokalizacja” (current) bierze położenie
-// z przeglądarki (core/currentPlace.ts). Zakładki (makieta #pogoda-*), wybrana w ?tab=:
+// z przeglądarki (core/currentPlace.ts). Zakładki (makieta #pogoda-*), wybrana w ?tab=; od 2026-10-19 rysuje je
+// pasek jak widoki sterownika (nav.tsx: boczne menu na komputerze, dolna nawigacja na telefonie):
 // „Teraz” (NowTab), „Najbliższe dni” (DaysTab), „Słońce i PV” (SunTab, prognoza produkcji dopasowana do DTU),
 // „Ogrzewanie” (HeatingTab, okno CWU w G12w), „Powietrze” (AirTab), „Wiatr i opady” (WindTab).
-// Nazwa miejsca trafia do paska aplikacji (WEATHER_TITLE_ID w core/App.tsx).
-import { useEffect, useMemo, useRef, useState } from 'react';
+// Nazwa miejsca trafia do paska aplikacji (WEATHER_TITLE_ID w nav.tsx).
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceRequests, WeatherTileRequests } from '../../api';
@@ -15,25 +16,19 @@ import { AirTab } from './AirTab';
 import { DaysTab } from './DaysTab';
 import { fetchForecast, Forecast } from './forecast';
 import { HeatingTab } from './HeatingTab';
+import { WEATHER_TITLE_ID, weatherTab } from './nav';
 import { NowTab } from './NowTab';
 import { PvLink, SunTab } from './SunTab';
 import { WindTab } from './WindTab';
 import './style.css';
 
-export const WEATHER_TITLE_ID = 'weather-title-place';
 const REFRESH_MS = 15 * 60 * 1000;
-
-const TABS = [
-  { key: 'now', label: 'Teraz' }, { key: 'days', label: 'Najbliższe dni' }, { key: 'pv', label: 'Słońce i PV' },
-  { key: 'heating', label: 'Ogrzewanie' }, { key: 'air', label: 'Powietrze' }, { key: 'wind', label: 'Wiatr i opady' },
-] as const;
-type TabKey = (typeof TABS)[number]['key'];
 
 export default function Weather() {
   const { id } = useParams();
   const location = useLocation();
-  const [search, setSearch] = useSearchParams();
-  const tab: TabKey = TABS.find((item) => item.key === search.get('tab'))?.key ?? 'now';
+  const [search] = useSearchParams();
+  const tab = weatherTab(search.get('tab'));
   // kafelek z listy (stan nawigacji) od razu, inaczej z GET /weather-tiles (wejście z adresu)
   const [tile, setTile] = useState<WeatherTile | null | undefined>((location.state as { tile?: WeatherTile } | null)?.tile);
   const [forecast, setForecast] = useState<Forecast | null>(null);
@@ -41,7 +36,6 @@ export default function Weather() {
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [pv, setPv] = useState<PvLink | null | undefined>(undefined);
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
   const here = useCurrentPlace(!!tile?.current);
   useEffect(() => setTitleSlot(document.getElementById(WEATHER_TITLE_ID)), []);
 
@@ -83,12 +77,6 @@ export default function Weather() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [lat, lon]);
 
-  // wybrana zakładka widoczna w pasku (na telefonie pasek przewija się w bok)
-  useEffect(() => {
-    const checked = tabsRef.current?.querySelector('input:checked')?.parentElement;
-    if (checked && tabsRef.current) tabsRef.current.scrollLeft = checked.offsetLeft - 12;
-  }, [tab]);
-
   const footer = useMemo(() => loadedAt
     ? `Open-Meteo · pobrana ${loadedAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}`
       + (tile?.current ? ' · Twoja lokalizacja' : '')
@@ -100,15 +88,6 @@ export default function Weather() {
   return (
     <div className="page page-narrow weather-page">
       {titleSlot && name && createPortal(` · ${name}`, titleSlot)}
-      <div className="segmented seg-inline wx-tabs" role="radiogroup" aria-label="Widok pogody" ref={tabsRef}>
-        {TABS.map((item) => (
-          <label key={item.key} className="seg">
-            <input type="radio" name="weather-tab" checked={tab === item.key}
-              onChange={() => setSearch(item.key === 'now' ? {} : { tab: item.key }, { replace: true, state: location.state })} />
-            <span>{item.label}</span>
-          </label>
-        ))}
-      </div>
       {locationProblem && <div className="alert alert-warn"><div><strong>{locationProblem}</strong></div></div>}
       {error && !forecast && <div className="alert alert-err"><div><strong>{error}</strong></div></div>}
       {!forecast && !error && !locationProblem && <p className="app-loading">{tile?.current && !here.place ? 'Ustalam położenie…' : 'Pobieram prognozę…'}</p>}
