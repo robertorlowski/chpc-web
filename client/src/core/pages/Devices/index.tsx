@@ -423,18 +423,25 @@ export const Devices: React.FC = () => {
   // przycisk w kafelku nie wybiera sterownika (kafelek jest odnośnikiem)
   const stop = (event: MouseEvent) => event.stopPropagation();
 
-  // pasek pogody domu: ikona nieba (od 2026-10-18), temperatura i opis z Open-Meteo (bez czujnika kotła, od 2026-10-17),
-  // wiatr; źródło i wiek w dymku ikony „i” (od 2026-10-19, wcześniej tekst „Open-Meteo · X min temu”)
+  // pasek pogody domu: ikona nieba (od 2026-10-18) i opis z Open-Meteo, wiatr, źródło tekstem; temperatura z czujnika
+  // zewnętrznego kotła, gdy serwer ma jego świeży odczyt (GET /temperature, temperatureSource = boiler, do 15 min), inaczej
+  // z Open-Meteo (od 2026-10-20: model z siatką ok. 2 km nie widzi inwersji w dolinie, różnica do ±3 °C; 17–19.10 pasek
+  // pokazywał tylko Open-Meteo)
   const outdoorStrip = (() => {
     const weather = outdoor?.weather;
-    const temperature = outdoor === undefined ? '…' : weather
-      ? `${weather.temperature.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
+    const fromBoiler = outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number';
+    const value = fromBoiler ? outdoor!.temperature as number : weather?.temperature;
+    const temperature = outdoor === undefined ? '…' : typeof value === 'number'
+      ? `${value.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
     const desc = weather
       ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`].join(' · ')
       : outdoor === undefined ? '' : 'brak pogody z włącznika';
     const source = weather ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : '';
+    const title = fromBoiler
+      ? `Temperatura: czujnik zewnętrzny kotła${weather ? ` (Open-Meteo: ${weather.temperature.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C)` : ''}. Niebo: Open-Meteo (pobiera włącznik).`
+      : 'Temperatura i pogoda: Open-Meteo (pobiera włącznik).';
     return (
-      <div className="outdoor-strip" title="Temperatura i pogoda: Open-Meteo (pobiera włącznik).">
+      <div className="outdoor-strip" title={title}>
         {weather && <span className="outdoor-icon"><WeatherCodeIcon code={weather.code} isDay={weather.isDay} size={24} /></span>}
         <span className="outdoor-temp">{temperature}</span>
         <span className="outdoor-desc">{desc}</span>
