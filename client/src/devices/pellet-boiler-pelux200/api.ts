@@ -1,4 +1,5 @@
 import { Requests } from '../../core/http';
+import { SimpleBoilerState } from '../../core/types';
 import {
   PelletBoilerAlerts, PelletBoilerAutoPellet, PelletBoilerChange, PelletBoilerFuel, PelletBoilerFuelPeriod, PelletBoilerCommand, PelletBoilerCurrentSchedule, PelletBoilerCwuLoading, PelletBoilerReading,
   PelletBoilerPendingTurnOn, PelletBoilerSchedule, PelletBoilerScheduleSettings, PelletBoilerSeason, PelletBoilerSettings,
@@ -52,6 +53,13 @@ export class PelletBoilerRequests {
   // reason: „dlaczego” w dzienniku operacji (np. przycisk, panel), bez niego „Zmiana w Ustawieniach.”
   static postCommands(changes: PelletBoilerChange[], reason?: string) {
     return Requests.post('/pellet-boiler-pelux200/commands', { changes, ...(reason ? { reason } : {}) }, false);
+  }
+
+  // przyciski kafelka prostego na liście sterowników (żaden sterownik nie jest wybrany, więc rootId jawnie);
+  // rzuca wyjątek z serverMessage (409: „włącz” rozpaliłoby kocioł w trybie pompy ciepła)
+  static simpleAction(device: { rootId: string; deviceId: string }, action: 'on' | 'off' | 'cwu-on' | 'cwu-off'): Promise<SimpleBoilerState> {
+    const query = `rootId=${encodeURIComponent(device.rootId)}&deviceId=${encodeURIComponent(device.deviceId)}`;
+    return Requests.put(`/pellet-boiler-pelux200/simple?${query}`, { action }, false, 'POST') as Promise<SimpleBoilerState>;
   }
 
   // --- harmonogram: sezon (zakres dat) i CWU od–do (okna godzin) ---

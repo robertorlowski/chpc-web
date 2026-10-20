@@ -28,6 +28,7 @@ import { acknowledgeAutoPellet, checkAutoPellet, getAutoPellet } from '../servic
 import { heatPumpRunningInHeatPumpMode } from '../services/pellet-boiler-pelux200-winter-cycle.service';
 import { pelletCwuModeChanged, setPelletCwuEnabled } from '../services/pellet-boiler-pelux200-pellet-cwu.service';
 import { describeIgnition, predictIgnition, turnOnAction, turnOnCheck } from '../services/pellet-boiler-pelux200-turn-on.service';
+import { SIMPLE_ACTIONS, SimpleAction, simpleBoilerAction } from '../services/pellet-boiler-pelux200-simple.service';
 import { PelletBoilerCommandChange } from '../types';
 import { firmwareOfferForRoot } from '../../../core/services/firmware.service';
 import { serverBaseUrl } from '../../../core/controllers/firmware.controller';
@@ -273,6 +274,21 @@ export async function postPelletBoilerTurnOn(req: Request<{}, {}, { action?: unk
   }
   try {
     return res.status(200).json(await turnOnAction(req.deviceRootId as string, action));
+  } catch (error) {
+    return commandError(res, error);
+  }
+}
+
+// POST /pellet-boiler-pelux200/simple {action: on | off | cwu-on | cwu-off} — przyciski kafelka prostego pieca
+// (pellet-boiler-pelux200-simple.service.ts); odpowiedź to stan kafelka; 409 z komunikatem, gdy „włącz” rozpaliłoby
+// kocioł w trybie pompy ciepła.
+export async function postPelletBoilerSimple(req: Request<{}, {}, { action?: unknown }>, res: Response) {
+  const action = req.body?.action;
+  if (typeof action !== 'string' || !SIMPLE_ACTIONS.includes(action as SimpleAction)) {
+    return res.status(400).json({ message: 'action: on, off, cwu-on albo cwu-off.' });
+  }
+  try {
+    return res.status(200).json(await simpleBoilerAction(req.deviceRootId as string, action as SimpleAction));
   } catch (error) {
     return commandError(res, error);
   }

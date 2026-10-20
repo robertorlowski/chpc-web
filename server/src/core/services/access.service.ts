@@ -42,6 +42,8 @@ const WRITE_RULES: { method: string; path: RegExp; tabs: string[] | 'any' }[] = 
   { method: 'POST', path: /^\/pellet-boiler-pelux200\/commands$/, tabs: ['/', '/settings'] },
   { method: 'PUT', path: /^\/pellet-boiler-pelux200\/schedule-settings$/, tabs: ['/schedules', '/settings'] },
   { method: 'POST', path: /^\/pellet-boiler-pelux200\/turn-on$/, tabs: ['/', '/settings'] },
+  // kafelek prosty pieca
+  { method: 'POST', path: /^\/pellet-boiler-pelux200\/simple$/, tabs: ['/', '/settings', SIMPLE_TAB] },
   { method: 'PUT', path: /^\/pellet-boiler-pelux200\/(pellet-cwu|season)$/, tabs: ['/', '/schedules', '/settings'] },
   { method: 'POST', path: /^\/pellet-boiler-pelux200\/auto-pellet\/ack$/, tabs: 'any' },
   { method: '*', path: /^\/pellet-boiler-pelux200\/schedules(\/[^/]+)?$/, tabs: ['/schedules'] },

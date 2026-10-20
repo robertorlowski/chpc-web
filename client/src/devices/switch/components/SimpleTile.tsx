@@ -14,7 +14,7 @@ import { ListIcon } from '../../../core/components/DeviceTileCard';
 import { SwitchRequests } from '../api';
 import { RelayMode } from '../types';
 import { formatDuration, whenText } from '../utils/format';
-import './simpleTile.css';
+import '../../../core/components/simpleTile.css';
 
 // „30 min”, „1 h 30 min”
 const minutesText = (minutes: number) => formatDuration(minutes * 60);

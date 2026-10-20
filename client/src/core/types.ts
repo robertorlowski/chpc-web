@@ -279,8 +279,24 @@ export type DeviceTile = {
   pumps?: { label: string; on: boolean }[];
   /** włącznik: domyślny czas „Włącz” w minutach (0 = bez limitu) dla kafelka prostego */
   onMinutes?: number;
+  /** kocioł: stan dla kafelka prostego (serwer: core/types.ts SimpleBoilerState) */
+  boiler?: SimpleBoilerState;
 };
 export type DeviceTiles = Record<string, DeviceTile>;
+
+// Kafelek prosty pieca (2026-10-21): regulator, palenie, sezon, CWU, temperatury i zlecenie w toku.
+export type SimpleBoilerState = {
+  online: boolean;
+  regulatorOn: boolean | null;
+  burning: boolean;
+  season: 'winter' | 'summer' | null;
+  cwuOn: boolean | null;
+  boilerTemp: number | null;
+  cwuTemp: number | null;
+  cwuTarget: number | null;
+  heatPumpMode: boolean;
+  pending: 'control' | 'cwu' | null;
+};
 
 // Kafelek prosty na liście sterowników (zamiast DeviceTileCard, gdy device.simple): treść kafelka z dużymi
 // przyciskami; onChanged po wysłaniu polecenia (lista odświeża kafelki), onOpen = nazwa otwiera pełne widoki

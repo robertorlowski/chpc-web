@@ -10,6 +10,7 @@ import { PelletBoilerPelux200Model } from './models/pellet-boiler-pelux200.model
 import { listAlerts } from './services/pellet-boiler-pelux200-alert.service';
 import { getPelletBoilerPelux200Last, getPollIntervalSeconds, readingResponding } from './services/pellet-boiler-pelux200.service';
 import { PelletBoilerPelux200Entry } from './types';
+import { simpleBoilerState } from './services/pellet-boiler-pelux200-simple.service';
 
 // stany z płomieniem (jak w kliencie): stabilizacja, rozpalanie, praca, nadzór, wygaszanie
 const FLAME_STATES = new Set([1, 2, 3, 4, 7]);
@@ -91,5 +92,7 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
     row,
     note,
     updatedAt: at.toISOString(),
+    // kafelek prosty (2026-10-21): regulator, sezon, CWU i zlecenie w toku
+    boiler: await simpleBoilerState(rootId, now),
   };
 }

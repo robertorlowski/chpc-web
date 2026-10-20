@@ -315,6 +315,55 @@ describe('Kocioł pelletowy Pellux 200', () => {
     vi.useRealTimers();
   });
 
+  it('kafelek prosty: włącz piec (regulator, harmonogram, CWU, Zima), CWU osobno, wyłącz; stan w kafelku', async () => {
+    const sn = 'AABBCC000021';
+    const { rootId } = (await register(sn)).body;
+    const simple = (action: string) => request(app).post(`/api/pellet-boiler-pelux200/simple?rootId=${rootId}`).send({ action });
+    const next = () => request(app).get(`/api/pellet-boiler-pelux200/commands/next?deviceId=${sn}`);
+    const result = (id: string) => request(app).post(`/api/pellet-boiler-pelux200/commands/result?deviceId=${sn}`).send({ id, ok: true });
+    const drain = async () => {
+      const taken: { kind: string; index: number; value: number }[] = [];
+      for (;;) {
+        const command = (await next()).body;
+        if (!command.id) return taken;
+        taken.push({ kind: command.kind, index: command.index, value: command.value });
+        await result(command.id).expect(201);
+      }
+    };
+    expect((await simple('boost')).status).toBe(400);
+    // kocioł wyłączony (stan 0), tryb Pellet (bez pompy ciepła), ustawienia z kopii kotła
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 0, heating_temp: 38, water_heater_temp: 44, water_heater_target: 55 }).expect(201);
+    await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`).send(archive.raw_hex).expect(201);
+    const settings = `/api/pellet-boiler-pelux200/schedule-settings?rootId=${rootId}`;
+    const saved = (await request(app).get(settings)).body;
+    await request(app).put(settings).send({ ...saved, enabled: false }).expect(200);
+
+    // kafelek przed: wyłączony, CWU i temperatury z odczytu, bez zlecenia w toku
+    const device = (await DeviceModel.findById(rootId))!;
+    expect((await pelletBoilerTile(rootId, device))?.boiler).toMatchObject({
+      online: true, regulatorOn: false, burning: false, season: 'winter', cwuOn: true, boilerTemp: 38, cwuTemp: 44, cwuTarget: 55, heatPumpMode: false, pending: null,
+    });
+
+    // „Włącz piec”: harmonogram włączony, zlecenie włącz regulator (Zima i CWU już ustawione w kopii kotła: bez zleceń)
+    const on = await simple('on').expect(200);
+    expect(on.body).toMatchObject({ pending: 'control' });
+    expect((await request(app).get(settings)).body.enabled).toBe(true);
+    expect(await drain()).toEqual([{ kind: 'control', index: 0, value: 1 }]);
+    await request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send({ state: 3, heating_temp: 60 }).expect(201);
+    expect((await pelletBoilerTile(rootId, device))?.boiler).toMatchObject({ regulatorOn: true, burning: true, pending: null });
+
+    // „Wyłącz CWU” / „Włącz CWU”: nr 122
+    expect((await simple('cwu-off').expect(200)).body.pending).toBe('cwu');
+    expect(await drain()).toEqual([{ kind: 'ecomax', index: 122, value: 0 }]);
+    expect((await simple('cwu-on').expect(200)).body.pending).toBe('cwu');
+    expect(await drain()).toEqual([{ kind: 'ecomax', index: 122, value: 1 }]);
+
+    // „Wyłącz piec”: harmonogram stoi, zlecenie wyłącz regulator
+    await simple('off').expect(200);
+    expect((await request(app).get(settings)).body.enabled).toBe(false);
+    expect(await drain()).toEqual([{ kind: 'control', index: 0, value: 0 }]);
+  });
+
   it('harmonogram czyszczenia: przełącznik z odczytu 0xB6, zlecenie schedule do sterownika, walidacja', async () => {
     const sn = 'AABBCC000019';
     const { rootId } = (await register(sn)).body;

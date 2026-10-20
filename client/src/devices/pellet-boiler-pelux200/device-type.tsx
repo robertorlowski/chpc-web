@@ -12,6 +12,7 @@ import { PelletBoilerSchedules } from './pages/Schedules';
 import { PelletBoilerSettings } from './pages/Settings';
 import { PelletBoilerAlertsPage } from './components/Alerts';
 import { BoilerConfigFields } from './components/BoilerConfigFields';
+import { PelletBoilerSimpleTile } from './components/SimpleTile';
 
 // Kocioł pelletowy: podgląd, dane z dnia, wykres temperatur, harmonogram (sezon, CWU od–do), alarmy, dziennik
 // operacji (wspólna strona core/pages/Operations) i ustawienia.
@@ -26,6 +27,8 @@ export const pelletBoilerDeviceType: DeviceTypeView = {
 	firmwareUpdates: true,
 	// okno „Dane sterownika”: powiązana pompa ciepła (bez niej kocioł tylko na pellecie)
 	DefinitionFields: BoilerConfigFields,
+	// kafelek prosty (duże przyciski na liście): włącz / wyłącz piec, CWU
+	SimpleTile: PelletBoilerSimpleTile,
 	views: [
 		{ path: '/', label: 'Kocioł', icon: <FlameIcon />, element: <PelletBoilerHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <PelletBoilerData /> },

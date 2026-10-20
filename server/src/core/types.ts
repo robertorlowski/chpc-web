@@ -229,6 +229,26 @@ export interface DeviceTile {
   pumps?: { label: string; on: boolean }[];
   /** włącznik: domyślny czas „Włącz” w minutach (0 = bez limitu) dla przycisku „Włącz bojler” kafelka prostego */
   onMinutes?: number;
+  /** kocioł: stan dla kafelka prostego (modules/pellet-boiler-pelux200/services/pellet-boiler-pelux200-simple.service.ts) */
+  boiler?: SimpleBoilerState;
+}
+
+/** Kafelek prosty pieca (2026-10-21): regulator, palenie, sezon, CWU, temperatury i zlecenie w toku. */
+export interface SimpleBoilerState {
+  online: boolean;
+  /** regulator włączony (stan ≠ 0); null bez odczytu */
+  regulatorOn: boolean | null;
+  burning: boolean;
+  season: 'winter' | 'summer' | null;
+  /** pompa CWU w regulatorze (nr 122 ≠ 0); null bez odczytu ustawień */
+  cwuOn: boolean | null;
+  boilerTemp: number | null;
+  cwuTemp: number | null;
+  cwuTarget: number | null;
+  /** tryb Pompa ciepła: „Włącz piec” ustawia Zimę przez cykl Zimy, a włączenie może być odrzucone (409) */
+  heatPumpMode: boolean;
+  /** zlecenie w toku: włącz/wyłącz regulator albo zmiana CWU */
+  pending: 'control' | 'cwu' | null;
 }
 
 // Wzór kafelka listy sterowników (projektant kafelka, GET/PUT /devices/tile-template; kontrakt z
