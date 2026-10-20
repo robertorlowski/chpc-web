@@ -28,6 +28,7 @@ Moduł odpowiada za:
 | Czynność | Gdzie |
 |---|---|
 | Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 90 dni. Mail wysyła sterownik w domu; gdy żaden nie jest w sieci, ekran pokazuje „Poczta jest chwilowo niedostępna…” |
+| Włączyć powiadomienia na telefon i w przeglądarce | „Moje dane” → karta „Powiadomienia” → „Włącz na tym urządzeniu” (zgoda przeglądarki), potem dla każdego sterownika zaznaczyć zdarzenia: start / stop sprężarki, błąd pompy, rozpalanie i wygaszenie kotła, alarm kotła, włączenie / wyłączenie przekaźnika, uruchomienie hydroforu, sterownik przestał / znów odpowiada; „domyślne” zaznacza najważniejsze. Cisza nocna od–do wstrzymuje wszystko poza pilnymi (błąd, alarm). Powiadomienia włącza się na każdym urządzeniu osobno, wybór zdarzeń jest wspólny dla konta; „Wyślij próbne” sprawdza, czy dochodzą |
 | Zobaczyć pogodę i prognozę dla miejscowości | kliknięcie kafelka pogody → strona pogody z zakładkami Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady; kafelek „Moja lokalizacja” bierze położenie z przeglądarki |
 | Zobaczyć wszystkie sterowniki i wybrać jeden | lista kafelków „Sterowniki” (`/devices`); aplikacja zawsze zaczyna od niej |
 | Nadać lub zmienić nazwę sterownika | ołówek na kafelku (po najechaniu) albo ołówek w karcie „Sterownik” w Ustawieniach |
@@ -100,6 +101,7 @@ Moduł odpowiada za:
 - **Część danych jest w pamięci serwera** (ostatnia telemetria, operacje ręczne, dane urządzeń). Restart serwera je czyści; sterownik odtwarza je przy kolejnej wysyłce.
 - **Temperatura zewnętrzna** pochodzi z jednej stacji IMGW (Zakopane) — dla instalacji w innym miejscu trzeba zmienić stację w kodzie.
 - **Poczta zależy od sterownika w domu.** Serwer na darmowym planie Render nie może łączyć się z SMTP, więc maile (kody logowania, zaproszenia, potwierdzenia) wysyła włącznik, a zapasowo `co`. Gdy oba są bez sieci, logowanie kodem nie działa (komunikat „Poczta jest chwilowo niedostępna”); zostaje konto systemowe z hasłem. Klucz płytki, która ma dostać dane poczty, zatwierdza użytkownik systemowy po porównaniu odcisku ze stroną `/install` płytki.
+- **Powiadomienia zależą od przeglądarki.** Na iPhonie działają tylko w aplikacji dodanej do ekranu początkowego (iOS 16.4+), w trybie incognito wcale, a Android potrafi opóźnić je przy oszczędzaniu baterii. Temperatura na kafelku „Dom” pochodzi z czujnika zewnętrznego kotła, gdy piec daje świeży pomiar (do 15 min); przy wyłączonym piecu z modelu pogodowego, który w dolinie myli się nocą o kilka stopni.
 - **Pogoda zależy od włącznika.** Bieżące warunki pobiera włącznik z domowego łącza (Render dzieli adres IP z innymi usługami i Open-Meteo odrzucało zapytania serwera); bez włącznika pasek i kafelki pogody pokazują ostatni odczyt, a potem prognozę.
 
 ## Słownik
@@ -118,6 +120,7 @@ Moduł odpowiada za:
 | **Kafelek** | pole na liście sterowników: sterownik z bieżącym stanem albo pogoda miejscowości |
 | **Strona pogody** | ekran po kliknięciu kafelka pogody: bieżące warunki, prognoza, słońce i PV, ogrzewanie, powietrze, wiatr i opady |
 | **Przekaźnik poczty** | sterownik w domu (włącznik, zapasowo `co`), który wysyła maile aplikacji; dane poczty dostaje zaszyfrowane swoim kluczem i trzyma tylko w pamięci |
+| **Powiadomienie Web Push** | komunikat systemowy na telefonie albo w przeglądarce o zdarzeniu sterownika; przeglądarka zapisuje subskrypcję, serwer wysyła przez usługę push przeglądarki |
 | **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, czas kompresora hydroforu) |
 | **Rejestr rodzajów sterowników** | miejsce w kodzie, gdzie każdy rodzaj opisuje swoje menu, ekrany i ustawienia domyślne |
 | **Motyw** | wygląd jasny albo ciemny („Instrument”); bez wyboru jasny, „Jak system” bierze ustawienie urządzenia |

@@ -29,6 +29,7 @@
 | `core/services/weather-tile.service.ts`, `models/weather-tile.model.ts`, `controllers/weather-tile.controller.ts` | kafelki pogody `weather_tiles` (`home` z `WEATHER_LOCATION`, najwyżej 8 na konto), `weatherQueries` — miejsca dla włącznika |
 | `core/services/mail.service.ts` | `sendMail`: przy `MAIL_RELAY=1` składa MIME (`MailComposer`) i odkłada w `mail_outbox`, inaczej SMTP wprost; `assertMailAvailable` (503 bez sterownika) |
 | `core/services/mail-relay.service.ts`, `models/mail-outbox.model.ts`, `controllers/mail-relay.controller.ts` | przekaźnik poczty: klucze płytek (`mailKey`, `mailKeyPending`, zatwierdzanie), szyfrowanie `encryptFor` (ECDH P-256 + AES-256-GCM), kolejka i dzierżawa maili (`FAILOVER_MS` 20 s, `LEASE_MS` 60 s, 3 próby, 15 min), `GET /mail/config`, `GET /mail/next`, `POST /mail/result` |
+| `core/services/push.service.ts`, `push-watchdog.service.ts`, `models/push-subscription.model.ts`, `controllers/push.controller.ts` | powiadomienia Web Push: katalog zdarzeń `PUSH_EVENTS`, `notify`, cisza nocna, próg 60 s, kasowanie wygasłych subskrypcji; wartownik offline / online z kafelków co minutę; `/push/*` |
 | `core/services/tile-layout.service.ts`, `tile.service.ts`, `tile-format.ts` | układ kafelków konta (`users.deviceOrder`, `hiddenTiles`) i dane kafelków `GET /devices/summary` (z `tile.ts` każdego modułu) |
 
 ## Pliki — klient (`client/src`)
@@ -67,6 +68,7 @@
 | `core/components/WeatherTileModal.tsx`, `LocationPicker.tsx` | okno „Kafelek pogody” (`.modal`): wyszukiwarka miejscowości (geokoder Open-Meteo z przeglądarki), współrzędne, usuwanie; wybór lokalizacji na mapie (konto) |
 | `core/pages/Weather/` (`index.tsx`, `nav.tsx` (pasek i zakładki w bocznym menu / dolnej nawigacji jak widoki sterownika, od 2026-10-19), `NowTab`, `DaysTab`, `SunTab`, `HeatingTab`, `AirTab`, `WindTab`, `forecast.ts`, `style.css`), `core/currentPlace.ts` | strona pogody `/weather/:id` (kliknięcie kafelka pogody; makieta `#pogoda-*`): zakładki w `?tab=` — Teraz, Najbliższe dni, Słońce i PV (prognoza produkcji dopasowana do DTU), Ogrzewanie (okno CWU w G12w), Powietrze, Wiatr i opady; bieżące warunki z `GET /weather-tiles`, prognoza i jakość powietrza wprost z Open-Meteo (`forecast.ts`); kafelek „Moja lokalizacja” (`current`) z położeniem z przeglądarki |
 | `core/components/MailKeyRow.tsx` | wiersz „Poczta” karty „Sterownik” (włącznik, pompa ciepła): stan klucza płytki (zatwierdzony / czeka / brak, odcisk), „Zatwierdź” po porównaniu z `/install` i „Usuń” — tylko użytkownik systemowy |
+| `core/components/PushSettingsCard.tsx`, `core/push.ts`, `public/sw.js` | karta „Powiadomienia” na `/account` (subskrypcja tej przeglądarki, lista przeglądarek, reguły, cisza nocna, próbne), rejestracja service workera i subskrypcji PushManager, odbiór powiadomień i otwarcie aplikacji po kliknięciu |
 | `core/pages/Firmware/` | `/firmware/:deviceType` (trybik na kafelku, użytkownik systemowy): karty „Aktualna wersja” (opis, data, rozmiar, SHA-256, przełącznik „Aktualizacje”; plus otwiera kartę „Dodaj wersję”), „Sterowniki tego rodzaju” (wersja z ostatniego zgłoszenia, chip stanu) i „Poprzednie wersje” (przywrócenie, usunięcie); poza kontekstem urządzenia |
 | `core/pages/_404.tsx` | pozostałość, nieużywane |
 
@@ -107,6 +109,7 @@ Działanie dla ścieżki z mapy:
 | `GET /temperature` | `rootId` | temperatura domu i pogoda domu `{temperature, temperatureSource, weather}` (czujnik kotła, bez świeżego odczytu prognoza) | 200 |
 | `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | publiczna (sesja) | kafelki pogody konta `{name, lat, lon, hidden}` z bieżącą pogodą; `home` bez usuwania; najwyżej 8 | 200; 400; 404 |
 | `POST` / `DELETE /devices/:rootId/mail-key` | publiczna (użytkownik systemowy) | zatwierdzenie `{fingerprint}` / usunięcie klucza płytki przekaźnika poczty | 200; 403; 404; 409 |
+| `GET /push/settings`, `POST /push/subscriptions`, `DELETE /push/subscriptions/:id`, `PUT /push/rules`, `POST /push/test` | zalogowany, bez `rootId` | ustawienia powiadomień (klucz VAPID, subskrypcje, reguły, katalog zdarzeń, sterowniki), subskrypcja przeglądarki, reguły `{rules: [{rootId, events}], quietFrom, quietTo}`, powiadomienie próbne | 200; 201; 204; 400; 403; 404; 409; 503 |
 | `GET /mail/config`, `GET /mail/next`, `POST /mail/result` | sterownik (`?rootId=&deviceId=`, bez logowania) | dane SMTP zaszyfrowane kluczem płytki; następny mail (zaszyfrowany, z dzierżawą); wynik `{id, ok, receipt, error?}` | 200; 204 brak maila; 403 klucz niezatwierdzony |
 
 WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"operation"|"update","rootId":"…"}`; połączenie bez `rootId` jest zamykane kodem 1008.
@@ -177,6 +180,7 @@ Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/model
 | `PORT` | port HTTP i WebSocket (domyślnie 3001) |
 | `API_KEY` | klucz dla `verifyApiKey` (obecnie nieużywany) |
 | `MAIL_RELAY=1` | maile wysyłają sterowniki (przekaźnik poczty) zamiast serwera; na Render obowiązkowe, bo darmowy plan blokuje SMTP (porty 25, 465, 587) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | powiadomienia Web Push; bez kluczy wyłączone (para: `npx web-push generate-vapid-keys` w `server/`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_ADMIN` | konto pocztowe (przy `MAIL_RELAY=1` przekazywane zaszyfrowane płytkom); nadawca `MyHome <SMTP_USER>`, odpowiedzi na `MAIL_FROM` |
 | `CLIENT_URL`, `SYSTEM_PASSWORD`, `INITIAL_OWNER_EMAIL`, `AUTH_DISABLED=1` | adres aplikacji w linkach z maili, hasło konta „system”, pierwszy właściciel, wyłączenie logowania (środowisko lokalne) |
 | `WEATHER_LOCATION` | współrzędne domu dla kafelka pogody „Dom” |
