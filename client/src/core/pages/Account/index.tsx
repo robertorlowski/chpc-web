@@ -162,7 +162,7 @@ export function Account() {
 
       <section className="card">
         <header className="card-head"><h2>Sesja</h2></header>
-        <p className="help">Zapamiętane logowanie („Tak” po zalogowaniu kodem) trwa 14 dni na tym urządzeniu; bez zapamiętania do zamknięcia przeglądarki. Wylogowanie kończy sesję na tym urządzeniu.</p>
+        <p className="help">Zapamiętane logowanie („Tak” po zalogowaniu kodem) trwa 90 dni na tym urządzeniu; bez zapamiętania do zamknięcia przeglądarki. Wylogowanie kończy sesję na tym urządzeniu.</p>
         <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>Wyloguj</button></div>
       </section>
 

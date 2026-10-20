@@ -41,7 +41,7 @@ export interface SessionEntry {
   _id: mongoose.Types.ObjectId;
   tokenHash: string;
   userId: string;
-  /** „Zapamiętać na 14 dni”: stałe 14 dni od zalogowania; bez tego 24 h od ostatniego użycia */
+  /** „Zapamiętać na 90 dni”: stałe 90 dni od zalogowania; bez tego 24 h od ostatniego użycia */
   remember: boolean;
   expiresAt: Date;
   lastSeenAt: Date;

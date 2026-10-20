@@ -37,7 +37,7 @@ const sameDevice = (a: Device, b: Device) =>
 	&& a.access === b.access && JSON.stringify(a.tabs ?? null) === JSON.stringify(b.tabs ?? null);
 
 // Bez sesji: ekran logowania (każda ścieżka; link z maila to /login?token=…). Nowe konto: formularz danych
-// (imię, nazwisko, kraj obowiązkowe). Po zalogowaniu kodem albo linkiem: pytanie o zapamiętanie na 14 dni.
+// (imię, nazwisko, kraj obowiązkowe). Po zalogowaniu kodem albo linkiem: pytanie o zapamiętanie na 90 dni.
 // /account/delete?token=… (link usunięcia konta z maila) działa także bez zalogowania.
 function AuthGate({ children }: { children: React.ReactNode }) {
 	const { status, user, askRemember, retry, setUser } = useAuth();

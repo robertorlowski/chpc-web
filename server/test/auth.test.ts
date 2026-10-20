@@ -1,5 +1,5 @@
 // Testy kont użytkowników (2026-10-11): logowanie i rejestracja kodem albo linkiem z maila, limity kodu,
-// „Zapamiętaj 14 dni”, dane konta (obowiązkowe imię, nazwisko, kraj), migracja sterowników do pierwszego konta,
+// „Zapamiętaj 90 dni”, dane konta (obowiązkowe imię, nazwisko, kraj), migracja sterowników do pierwszego konta,
 // użytkownik systemowy, udostępnianie z zakładkami (zapisy według zakładek), zmiana e-maila, wylogowanie,
 // usunięcie konta z danymi, endpointy sterowników i wywołania wewnętrzne bez logowania, układ listy i kafelki
 // pogody osobno dla konta, wzór kafelka tylko dla użytkownika systemowego.
@@ -109,7 +109,7 @@ describe('Konta użytkowników', () => {
     expect(me.body).toMatchObject({ profileComplete: true, city: '', country: 'Polska', location: { lat: 49.3, lng: 19.95 } });
   });
 
-  it('rejestracja linkiem: nowe konto, powiadomienie administratora, „Zapamiętaj 14 dni”, wylogowanie', async () => {
+  it('rejestracja linkiem: nowe konto, powiadomienie administratora, „Zapamiętaj 90 dni”, wylogowanie', async () => {
     process.env.MAIL_ADMIN = 'admin@example.pl';
     const email = 'nowy@example.pl';
     await request(app).post('/api/auth/start').send({ email }).expect(200);
