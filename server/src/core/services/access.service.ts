@@ -7,10 +7,14 @@ import { DeviceShareModel } from '../models/device-share.model';
 import { DeviceModel } from '../models/device.model';
 import { UserEntry } from '../models/user.model';
 
-/** ścieżki zakładek klienta (menu rodzaju sterownika); nie każdy rodzaj ma wszystkie */
-export const TABS = ['/', '/data', '/chart', '/schedules', '/alarms', '/operations', '/settings'] as const;
+/** ścieżki zakładek klienta (menu rodzaju sterownika); nie każdy rodzaj ma wszystkie. SIMPLE_TAB to nie zakładka,
+ *  tylko „Panel prosty” (2026-10-20): osoba widzi sterownik jako kafelek prosty na liście (duże przyciski) i nie
+ *  otwiera jego widoków; na razie włącznik */
+export const SIMPLE_TAB = 'simple';
+export const TABS = ['/', '/data', '/chart', '/schedules', '/alarms', '/operations', '/settings', SIMPLE_TAB] as const;
 export const TAB_LABELS: Record<string, string> = {
   '/': 'Podgląd', '/data': 'Dane', '/chart': 'Wykres', '/schedules': 'Harmonogram', '/alarms': 'Alarmy', '/operations': 'Operacje', '/settings': 'Ustawienia',
+  [SIMPLE_TAB]: 'Panel prosty',
 };
 
 export type DeviceAccess = { role: 'system' | 'owner' } | { role: 'shared'; tabs: string[] };
@@ -41,8 +45,8 @@ const WRITE_RULES: { method: string; path: RegExp; tabs: string[] | 'any' }[] = 
   { method: 'PUT', path: /^\/pellet-boiler-pelux200\/(pellet-cwu|season)$/, tabs: ['/', '/schedules', '/settings'] },
   { method: 'POST', path: /^\/pellet-boiler-pelux200\/auto-pellet\/ack$/, tabs: 'any' },
   { method: '*', path: /^\/pellet-boiler-pelux200\/schedules(\/[^/]+)?$/, tabs: ['/schedules'] },
-  // włącznik
-  { method: 'PUT', path: /^\/switch\/mode$/, tabs: ['/'] },
+  // włącznik: tryb z Podglądu i z przycisków kafelka prostego
+  { method: 'PUT', path: /^\/switch\/mode$/, tabs: ['/', SIMPLE_TAB] },
   { method: 'PUT', path: /^\/switch\/relays\/[^/]+$/, tabs: ['/settings'] },
   { method: '*', path: /^\/switch\/schedules(\/[^/]+)?$/, tabs: ['/schedules'] },
   // hydrofor: odczyty wodomierza w zakładce Dane

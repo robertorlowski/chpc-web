@@ -8,10 +8,12 @@ import type { WeekDay } from '../../core/types';
 export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 // Tryb przekaźnika: schedule — stan z harmonogramu; on — włączony bez limitu;
-// timer — włączony do until; off — wyłączony, harmonogram go nie włączy.
-// on, timer i off mają pierwszeństwo przed harmonogramem.
-export type RelayMode = 'schedule' | 'on' | 'timer' | 'off';
-export const RELAY_MODES: RelayMode[] = ['schedule', 'on', 'timer', 'off'];
+// timer — włączony do until; off — wyłączony, harmonogram go nie włączy;
+// pause — wyłączony do końca bieżącego okna harmonogramu (until), potem schedule
+// („Wyłącz bojler” na kafelku prostym, 2026-10-20: wyłącza teraz, następne włączenie z harmonogramu zostaje).
+// on, timer, off i pause mają pierwszeństwo przed harmonogramem.
+export type RelayMode = 'schedule' | 'on' | 'timer' | 'off' | 'pause';
+export const RELAY_MODES: RelayMode[] = ['schedule', 'on', 'timer', 'off', 'pause'];
 
 // Skąd przyszła zmiana trybu: aplikacja albo strona sterownika.
 export type CommandSource = 'app' | 'controller';
@@ -27,7 +29,7 @@ export interface SwitchRelay {
   relay: number;
   name: string;
   mode: RelayMode;
-  /** koniec trybu timer; po nim przekaźnik wraca do harmonogramu */
+  /** koniec trybu timer albo pause; po nim przekaźnik wraca do harmonogramu */
   until?: Date | null;
   modeSource?: CommandSource;
   modeChangedAt?: Date;
@@ -75,6 +77,7 @@ export interface RelayReport {
 export interface RelayCommand {
   on: boolean;
   offAfterS?: number;
-  /** tryb w chmurze, tylko do wyświetlenia na stronie sterownika */
+  /** tryb w chmurze, tylko do wyświetlenia na stronie sterownika; pause idzie jako schedule, bo firmware nie zna
+   *  tej nazwy i odrzuciłby całe polecenie (relayModeFromName → Unknown) */
   mode?: RelayMode;
 }

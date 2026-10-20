@@ -42,9 +42,13 @@ export async function ensureRelays(rootId: string, deviceId: string, count: numb
   await SwitchScheduleModel.deleteMany({ rootId, relay: { $gt: count } });
 }
 
-// Tryb timer po upływie until działa jak harmonogram (zapis w bazie przy najbliższym zgłoszeniu).
+// Tryby z końcem (timer, pause) po upływie until działają jak harmonogram (zapis w bazie przy najbliższym zgłoszeniu).
+const timed = (mode: RelayMode) => mode === 'timer' || mode === 'pause';
 const effectiveMode = (relay: RelayDoc, now: Date): RelayMode =>
-  relay.mode === 'timer' && (!relay.until || new Date(relay.until) <= now) ? 'schedule' : relay.mode;
+  timed(relay.mode) && (!relay.until || new Date(relay.until) <= now) ? 'schedule' : relay.mode;
+
+// tryb w poleceniu dla sterownika: firmware zna schedule / on / timer / off i odrzuca polecenie z inną nazwą
+const wireMode = (mode: RelayMode): RelayMode => (mode === 'pause' ? 'schedule' : mode);
 
 const secondsUntil = (until: Date, now: Date) => Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 1000));
 
@@ -61,6 +65,8 @@ export function relayCommand(
     const until = new Date(relay.until as Date);
     return { command: { on: true, offAfterS: secondsUntil(until, now) }, mode, until, scheduleId: null };
   }
+  // pause: wyłączony do końca okna, w którym go wyłączono; until to koniec tej przerwy
+  if (mode === 'pause') return { command: { on: false }, mode, until: new Date(relay.until as Date), scheduleId: null };
   const active = activeSchedule(schedules.filter((schedule) => schedule.relay === relay.relay), now);
   return active
     ? { command: { on: true, offAfterS: secondsUntil(active.until, now) }, mode, until: active.until, scheduleId: active.scheduleId }
@@ -147,7 +153,7 @@ export async function reportState(
     await recordActivation(rootId, relay, state, changedAt, bootAt, now);
     if (relay.on !== state.on) changed = true;
 
-    const expired = relay.mode === 'timer' && effectiveMode(relay, now) === 'schedule';
+    const expired = timed(relay.mode) && effectiveMode(relay, now) === 'schedule';
     await SwitchRelayModel.updateOne({ rootId, relay: relay.relay }, {
       $set: {
         on: state.on, changedAt, lastSeenAt: now, deviceId,
@@ -158,21 +164,23 @@ export async function reportState(
     const { command, mode, until, scheduleId } = relayCommand(relay, schedules, now);
     // dziennik operacji: polecenie zmienione przez harmonogram albo koniec czasu, potwierdzenie czekających zmian
     await noteRelayReport(rootId, relay, state.on, { on: command.on, mode, until, scheduleId }, schedules, now);
-    commands.push({ ...command, mode });
+    commands.push({ ...command, mode: wireMode(mode) });
   }
   return { relays: commands, changed };
 }
 
-// Zmiana trybu z aplikacji albo strony sterownika. minutes tylko dla timer.
+// Zmiana trybu z aplikacji albo strony sterownika. minutes tylko dla timer. pause wyłącza do końca okna
+// harmonogramu działającego teraz; poza oknem (przekaźnik włączony ręcznie albo wyłączony) to zwykły harmonogram.
 export async function setRelayMode(
   rootId: string,
   input: { relay?: unknown; mode?: unknown; minutes?: unknown },
   source: CommandSource,
   now = new Date(),
 ): Promise<RelayDoc | string> {
-  const { relay, mode, minutes } = input;
+  const { relay, minutes } = input;
+  let mode = input.mode;
   if (typeof mode !== 'string' || !RELAY_MODES.includes(mode as RelayMode)) {
-    return 'mode: schedule, on, timer albo off.';
+    return 'mode: schedule, on, timer, off albo pause.';
   }
   if (typeof relay !== 'number' || !Number.isInteger(relay)) return 'relay: numer przekaźnika.';
   let until: Date | undefined;
@@ -181,6 +189,11 @@ export async function setRelayMode(
       return `minutes: pełne minuty 1–${MAX_TIMER_MINUTES}.`;
     }
     until = new Date(now.getTime() + minutes * 60 * 1000);
+  }
+  if (mode === 'pause') {
+    const active = activeSchedule(await SwitchScheduleModel.find({ rootId, relay, enabled: true }).lean<ScheduleDoc[]>(), now);
+    if (active) until = active.until;
+    else mode = 'schedule';
   }
   const updated = await SwitchRelayModel.findOneAndUpdate(
     { rootId, relay },
@@ -226,7 +239,8 @@ export async function listRelays(rootId: string, now = new Date()) {
       desiredOn: command.on,
       until,
       scheduleId,
-      nextStart: mode === 'schedule' && !command.on ? nextScheduleStart(own, now) : null,
+      // pause: najbliższe włączenie po końcu przerwy (bieżące okno jest przerwane)
+      nextStart: (mode === 'schedule' || mode === 'pause') && !command.on ? nextScheduleStart(own, mode === 'pause' ? until as Date : now) : null,
     };
   });
 }

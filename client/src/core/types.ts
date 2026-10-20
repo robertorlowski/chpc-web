@@ -73,6 +73,9 @@ export type Device = {
   sortOrder?: number;
   // kafelek ukryty na liście (widoczny tylko w trybie „Zmień kolejność”)
   hidden?: boolean;
+  // kafelek prosty na liście tego konta (duże przyciski zamiast wartości; włącznik, 2026-10-20): przełącznik
+  // w oknie „Dane sterownika” albo udostępnienie „Panel prosty” (tabs: ['simple'])
+  simple?: boolean;
   // wersja firmware zgłoszona przy ostatnim uruchomieniu sterownika i czas zgłoszenia (ISO);
   // starsze sterowniki ich nie wysyłają
   firmwareVersion?: string;
@@ -240,6 +243,9 @@ export type DeviceTypeView = {
   DefinitionFields?: ComponentType<DeviceDefinitionFieldsProps>;
   /** dodatkowe ścieżki poza menu (np. /hp jako strona główna pompy) */
   extraRoutes?: { path: string; element: ReactElement }[];
+  /** kafelek prosty (duże przyciski na liście); rodzaj bez niego nie ma przełącznika „Kafelek prosty” ani
+   *  udostępnienia „Panel prosty” */
+  SimpleTile?: ComponentType<SimpleTileProps>;
 };
 
 // Kafelek sterownika na stronie /devices (GET /api/devices/summary, kontrakt z serwerem: core/types.ts DeviceTile).
@@ -250,7 +256,11 @@ export type TileIcon =
   'thermo' | 'target' | 'bolt' | 'sliders' | 'sun' | 'drop' | 'timer' | 'repeat' | 'flame' | 'tap'
   | 'pellet' | 'power' | 'battery' | 'panel' | 'bubbles' | 'waves';
 export type TileFact = { icon: TileIcon; value: string; label?: string };
-export type TileRelay = { name: string; on: boolean; text: string };
+// relay, mode, desiredOn, until, nextStart: pola kafelka prostego włącznika (devices/switch/components/SimpleTile)
+export type TileRelay = {
+  name: string; on: boolean; text: string;
+  relay?: number; mode?: string; desiredOn?: boolean; until?: string | null; nextStart?: string | null;
+};
 export type DeviceTile = {
   level: TileLevel;
   chip: string;
@@ -267,8 +277,24 @@ export type DeviceTile = {
   since?: string;
   /** wskaźniki pomp obiegu (kocioł: CO, CWU) */
   pumps?: { label: string; on: boolean }[];
+  /** włącznik: domyślny czas „Włącz” w minutach (0 = bez limitu) dla kafelka prostego */
+  onMinutes?: number;
 };
 export type DeviceTiles = Record<string, DeviceTile>;
+
+// Kafelek prosty na liście sterowników (zamiast DeviceTileCard, gdy device.simple): treść kafelka z dużymi
+// przyciskami; onChanged po wysłaniu polecenia (lista odświeża kafelki), onOpen = nazwa otwiera pełne widoki
+// (brak u osoby z samym udostępnieniem „Panel prosty”).
+export type SimpleTileProps = {
+  device: Device;
+  name: string;
+  tile?: DeviceTile;
+  now: number;
+  loading?: boolean;
+  tools?: ReactNode;
+  onOpen?: () => void;
+  onChanged: () => void;
+};
 
 // Dziennik operacji (GET /api/operations?date=, zakładka „Operacje”; kontrakt: server/src/core/types.ts i
 // core/services/operation-log.service.ts). planned: najpierw wpisy w toku, potem przejścia harmonogramu

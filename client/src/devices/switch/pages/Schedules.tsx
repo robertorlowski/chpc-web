@@ -50,6 +50,7 @@ const modeChip = (relay: SwitchRelay) => {
     case 'off': return <span className="chip chip-err">tryb „wyłączony” blokuje harmonogram</span>;
     case 'on': return <span className="chip chip-warn">tryb „włączony” blokuje harmonogram</span>;
     case 'timer': return <span className="chip chip-warn">włączony na czas, potem harmonogram</span>;
+    case 'pause': return <span className="chip chip-warn">wyłączony do końca okna, potem harmonogram</span>;
     default: return <span className="chip chip-ok"><i className="dot" />harmonogram</span>;
   }
 };

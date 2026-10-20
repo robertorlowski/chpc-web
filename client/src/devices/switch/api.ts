@@ -13,6 +13,12 @@ export class SwitchRequests {
     return Requests.put('/switch/mode', { relay, mode, ...(minutes ? { minutes } : {}) });
   }
 
+  // z kafelka prostego na liście sterowników: żaden sterownik nie jest wybrany, więc rootId i deviceId jawnie
+  static setModeFor(device: { rootId: string; deviceId: string }, relay: number, mode: RelayMode, minutes?: number): Promise<SwitchRelay> {
+    const query = `rootId=${encodeURIComponent(device.rootId)}&deviceId=${encodeURIComponent(device.deviceId)}`;
+    return Requests.put(`/switch/mode?${query}`, { relay, mode, ...(minutes ? { minutes } : {}) }, false);
+  }
+
   static renameRelay(relay: number, name: string) {
     return Requests.put(`/switch/relays/${relay}`, { name });
   }

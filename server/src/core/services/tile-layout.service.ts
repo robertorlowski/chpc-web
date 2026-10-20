@@ -1,31 +1,40 @@
 // Układ listy sterowników osobno dla każdego konta (decyzja użytkownika 2026-10-16): pola szachownicy
 // (users.deviceOrder: Root ID sterownika, id kafelka pogody albo null = puste pole) i ukryte kafelki
-// (users.hiddenTiles). Konto bez zapisanego układu: użytkownik systemowy dostaje układ wspólny sprzed kont
+// (users.hiddenTiles) i kafelki proste (users.simpleTiles: sterownik pokazywany z dużymi przyciskami, 2026-10-20).
+// Konto bez zapisanego układu: użytkownik systemowy dostaje układ wspólny sprzed kont
 // (devices/weather_tiles: sortOrder, hidden), pozostali kafelki po kolei, bez ukrytych. Bez req.user
 // (AUTH_DISABLED=1) obowiązuje układ wspólny jak przed kontami (device.service setDevicesOrder).
 import { UserEntry, UserModel } from '../models/user.model';
 
 export type TileViewer = Pick<UserEntry, '_id' | 'isSystem'>;
-type Layout = { order?: (string | null)[]; hidden?: string[] };
-type Placed = { id: string; sortOrder?: number; hidden?: boolean };
+type Layout = { order?: (string | null)[]; hidden?: string[]; simple?: string[] };
+type Placed = { id: string; sortOrder?: number; hidden?: boolean; simple?: boolean };
 
 // świeży odczyt: użytkownik z sesji bywa z pamięci podręcznej
 async function loadLayout(viewer: TileViewer): Promise<Layout> {
-  const user = await UserModel.findById(viewer._id).select('deviceOrder hiddenTiles').lean<UserEntry>();
-  return { order: user?.deviceOrder ?? undefined, hidden: user?.hiddenTiles ?? undefined };
+  const user = await UserModel.findById(viewer._id).select('deviceOrder hiddenTiles simpleTiles').lean<UserEntry>();
+  return { order: user?.deviceOrder ?? undefined, hidden: user?.hiddenTiles ?? undefined, simple: user?.simpleTiles ?? undefined };
 }
 
-// Pole i ukrycie kafelków w układzie konta (zastępuje sortOrder i hidden z dokumentów).
+// Pole, ukrycie i tryb prosty kafelków w układzie konta (zastępuje sortOrder i hidden z dokumentów).
 export async function placeForViewer<T extends Placed>(viewer: TileViewer, items: T[]): Promise<T[]> {
-  const { order, hidden } = await loadLayout(viewer);
+  const { order, hidden, simple } = await loadLayout(viewer);
   return items.map((item) => {
     const index = order ? order.indexOf(item.id) : -1;
     return {
       ...item,
       sortOrder: order ? (index >= 0 ? index : undefined) : viewer.isSystem ? item.sortOrder : undefined,
       hidden: hidden ? hidden.includes(item.id) : viewer.isSystem ? !!item.hidden : false,
+      simple: !!simple?.includes(item.id),
     };
   });
+}
+
+// Przełącznik „Kafelek prosty” w oknie „Dane sterownika”: tylko na koncie, od razu.
+export async function setViewerSimple(viewer: TileViewer, id: string, simple: boolean): Promise<void> {
+  const current = (await loadLayout(viewer)).simple ?? [];
+  const next = simple ? [...new Set([...current, id])] : current.filter((other) => other !== id);
+  await UserModel.updateOne({ _id: viewer._id }, { $set: { simpleTiles: next } });
 }
 
 // „Gotowe” w trybie „Zmień układ”: pola szachownicy konta (allowed = kafelki widoczne dla konta).

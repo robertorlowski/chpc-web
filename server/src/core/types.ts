@@ -193,6 +193,13 @@ export interface TileRelay {
   name: string;
   on: boolean;
   text: string;
+  /** pola kafelka prostego (włącznik, 2026-10-20): numer, tryb, stan żądany przez chmurę, koniec włączenia albo
+   *  przerwy (ISO) i najbliższe włączenie z harmonogramu po bieżącym stanie (ISO) */
+  relay?: number;
+  mode?: string;
+  desiredOn?: boolean;
+  until?: string | null;
+  nextStart?: string | null;
 }
 
 export interface DeviceTile {
@@ -220,6 +227,8 @@ export interface DeviceTile {
   since?: string;
   /** wskaźniki pomp obiegu (kocioł: CO, CWU); on = pompa pracuje */
   pumps?: { label: string; on: boolean }[];
+  /** włącznik: domyślny czas „Włącz” w minutach (0 = bez limitu) dla przycisku „Włącz bojler” kafelka prostego */
+  onMinutes?: number;
 }
 
 // Wzór kafelka listy sterowników (projektant kafelka, GET/PUT /devices/tile-template; kontrakt z

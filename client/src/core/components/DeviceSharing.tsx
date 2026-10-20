@@ -1,8 +1,10 @@
 // Karta „Udostępnianie” w Ustawieniach sterownika (konta użytkowników, 2026-10-11) w wyglądzie „Instrument”
 // (makieta #s-hp-ustawienia: .card z .card-head i przyciskiem „Udostępnij”, lista .people z awatarem, e-mailem
 // i zakładkami, ikony zmiany zakładek i cofnięcia dostępu). Okno „Udostępnij sterownik” (.modal: e-mail i zakładki
-// rodzaju sterownika jako .checks) służy też do zmiany zakładek. Tylko właściciel i użytkownik systemowy
-// (osoba z udostępnieniem karty nie widzi; serwer też odmawia). Do wstawienia w .stack / .grid-settings.
+// rodzaju sterownika jako .checks) służy też do zmiany zakładek. Rodzaje z kafelkiem prostym (SimpleTile w rejestrze,
+// np. włącznik) mają wybór „Pełna aplikacja” / „Panel prosty” (tabs: ['simple'] — osoba widzi tylko kafelek z dużymi
+// przyciskami, bez widoków sterownika). Tylko właściciel i użytkownik systemowy (osoba z udostępnieniem karty nie
+// widzi; serwer też odmawia). Do wstawienia w .stack / .grid-settings.
 import { FormEvent, useEffect, useState } from 'react';
 import { ShareRequests } from '../api';
 import { getDeviceTypeView } from '../device-types';
@@ -13,6 +15,9 @@ import { EditIcon, TrashIcon } from './icons';
 import './account.css';
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+// udostępnienie „Panel prosty” (serwer: access.service SIMPLE_TAB)
+const SIMPLE_TAB = 'simple';
+const isSimpleShare = (tabs: string[]) => tabs.includes(SIMPLE_TAB);
 
 // „AK” z imienia i nazwiska albo z e-maila do kółka przy osobie
 function initials(name: string | null, email: string): string {
@@ -24,12 +29,17 @@ function initials(name: string | null, email: string): string {
 function ShareDialog({ device, share, onClose, onSaved }: {
   device: Device; share: DeviceShare | null; onClose: () => void; onSaved: () => void;
 }) {
-  const views = getDeviceTypeView(device.deviceType).views;
+  const typeView = getDeviceTypeView(device.deviceType);
+  const views = typeView.views;
+  const simpleAvailable = !!typeView.SimpleTile;
   const [email, setEmail] = useState(share?.email ?? '');
-  const [tabs, setTabs] = useState<string[]>(share?.tabs ?? views.filter((view) => ['/', '/data', '/chart'].includes(view.path)).map((view) => view.path));
+  const [tabs, setTabs] = useState<string[]>(share && !isSimpleShare(share.tabs) ? share.tabs : views.filter((view) => ['/', '/data', '/chart'].includes(view.path)).map((view) => view.path));
+  // „Pełna aplikacja” (zakładki) albo „Panel prosty” (sam kafelek z dużymi przyciskami)
+  const [simple, setSimple] = useState(!!share && isSimpleShare(share.tabs));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const toggle = (path: string) => setTabs((current) => (current.includes(path) ? current.filter((tab) => tab !== path) : [...current, path]));
+  const chosen = simple ? [SIMPLE_TAB] : tabs;
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -42,8 +52,8 @@ function ShareDialog({ device, share, onClose, onSaved }: {
     setBusy(true);
     setError('');
     try {
-      if (share) await ShareRequests.update(device.rootId, share.id, tabs);
-      else await ShareRequests.add(device.rootId, email, tabs);
+      if (share) await ShareRequests.update(device.rootId, share.id, chosen);
+      else await ShareRequests.add(device.rootId, email, chosen);
       onSaved();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Nie udało się zapisać.');
@@ -63,21 +73,36 @@ function ShareDialog({ device, share, onClose, onSaved }: {
             <span>E-mail osoby</span>
             <input type="email" required disabled={!!share} autoFocus={!share} placeholder="imie@domena.pl" value={email} onChange={(event) => setEmail(event.target.value)} />
           </label>
-          <fieldset className="checks">
-            <legend>Zakładki, które zobaczy</legend>
-            {views.map((view) => (
-              <label key={view.path} className="check">
-                <input type="checkbox" checked={tabs.includes(view.path)} onChange={() => toggle(view.path)} />
-                <span>{view.path === '/' ? 'Podgląd' : view.label}</span>
+          {simpleAvailable && (
+            <fieldset className="checks">
+              <legend>Co zobaczy</legend>
+              <label className="check">
+                <input type="radio" name="share-kind" checked={!simple} onChange={() => setSimple(false)} />
+                <span>Pełna aplikacja</span><small>zakładki do wyboru niżej</small>
               </label>
-            ))}
-          </fieldset>
+              <label className="check">
+                <input type="radio" name="share-kind" checked={simple} onChange={() => setSimple(true)} />
+                <span>Panel prosty</span><small>jeden kafelek z dużymi przyciskami: Włącz / Wyłącz / harmonogram, z opisem, co się stanie; bez wykresów, harmonogramu i ustawień</small>
+              </label>
+            </fieldset>
+          )}
+          {!simple && (
+            <fieldset className="checks">
+              <legend>Zakładki, które zobaczy</legend>
+              {views.map((view) => (
+                <label key={view.path} className="check">
+                  <input type="checkbox" checked={tabs.includes(view.path)} onChange={() => toggle(view.path)} />
+                  <span>{view.path === '/' ? 'Podgląd' : view.label}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           {!share && <p className="help">Jeśli ta osoba nie ma konta, dostanie zaproszenie mailem; dostęp można cofnąć w każdej chwili.</p>}
           {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
         </div>
         <footer className="modal-foot">
           <button type="button" className="btn" onClick={onClose} disabled={busy}>Anuluj</button>
-          <button type="submit" className="btn btn-primary" disabled={busy || tabs.length === 0}>{share ? 'Zapisz' : 'Wyślij zaproszenie'}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || chosen.length === 0}>{share ? 'Zapisz' : 'Wyślij zaproszenie'}</button>
         </footer>
       </form>
     </div>
@@ -90,8 +115,8 @@ export function DeviceSharing({ device }: { device: Device }) {
   const [editing, setEditing] = useState<DeviceShare | null | undefined>(undefined);
   const views = getDeviceTypeView(device.deviceType);
   const tabLabel = (path: string) => (path === '/' ? 'Podgląd' : views.views.find((view) => view.path === path)?.label ?? path);
-  const tabsText = (share: DeviceShare) =>
-    share.tabs.length === views.views.length ? 'wszystkie zakładki' : share.tabs.map(tabLabel).join(', ');
+  const tabsText = (share: DeviceShare) => isSimpleShare(share.tabs) ? 'panel prosty (kafelek z dużymi przyciskami)'
+    : share.tabs.length === views.views.length ? 'wszystkie zakładki' : share.tabs.map(tabLabel).join(', ');
 
   const load = () => ShareRequests.list(device.rootId).then(setShares).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Nie udało się pobrać listy.'));
   useEffect(() => { void load(); }, [device.rootId]);

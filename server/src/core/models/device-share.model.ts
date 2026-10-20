@@ -9,7 +9,8 @@ export interface DeviceShareEntry {
   ownerId: string;
   email: string;
   userId?: string | null;
-  /** ścieżki zakładek klienta: '/', '/data', '/chart', '/schedules', '/alarms', '/settings' */
+  /** ścieżki zakładek klienta: '/', '/data', '/chart', '/schedules', '/alarms', '/settings'; 'simple' = „Panel prosty”
+   *  (kafelek z dużymi przyciskami na liście zamiast widoków; access.service SIMPLE_TAB) */
   tabs: string[];
   createdAt: Date;
   updatedAt: Date;

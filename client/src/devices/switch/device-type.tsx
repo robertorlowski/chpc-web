@@ -7,6 +7,7 @@ import { SwitchHome } from './pages/Home';
 import { SwitchData } from './pages/Data';
 import { SwitchSchedules } from './pages/Schedules';
 import { SwitchSettings } from './pages/Settings';
+import { SwitchSimpleTile } from './components/SimpleTile';
 
 // przełącznik suwakowy: obudowa i suwak. fill="none" na obrysach, bo menu (style.css,
 // header nav a svg) ustawia fill: white całej ikonie.
@@ -17,12 +18,14 @@ const SwitchIcon = ({ className }: { className?: string }) => (
 	</svg>
 );
 
-// Włącznik: przekaźniki (stan, tryb, sterowanie), włączenia w dniu, harmonogram i ustawienia.
+// Włącznik: przekaźniki (stan, tryb, sterowanie), włączenia w dniu, harmonogram i ustawienia; kafelek prosty
+// (duże przyciski na liście) dla osoby, która ma tylko włączać i wyłączać bojler.
 export const switchDeviceType: DeviceTypeView = {
 	type: DeviceType.SWITCH,
 	tileIcon: <SwitchIcon className="device-selection-icon" />,
 	label: 'Włącznik',
 	firmwareUpdates: true,
+	SimpleTile: SwitchSimpleTile,
 	views: [
 		{ path: '/', label: 'Włącznik', icon: <SwitchIcon />, element: <SwitchHome /> },
 		{ path: '/data', label: 'Dane', icon: <DataIcon />, element: <SwitchData /> },

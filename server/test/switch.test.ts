@@ -8,9 +8,11 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import app from '../src/core/app'
+import { DeviceModel } from '../src/core/models/device.model'
 import { SwitchRelayModel } from '../src/modules/switch/models/switch-relay.model'
 import { activeSchedule, nextScheduleStart } from '../src/modules/switch/services/switch-schedule.service'
-import { reportState, setRelayMode } from '../src/modules/switch/services/switch.service'
+import { listRelays, reportState, setRelayMode } from '../src/modules/switch/services/switch.service'
+import { switchTile } from '../src/modules/switch/tile'
 
 const register = (deviceId: string, extra: Record<string, unknown> = {}) =>
   request(app).post('/api/devices/register').send({ deviceId, deviceType: 'switch', relays: 1, ...extra });
@@ -98,6 +100,39 @@ describe('Włącznik (switch)', () => {
       expect((await reportState(rootId, 'SN', off, at('2026-10-05T17:30'))).relays)
         .toEqual([{ on: true, offAfterS: 1800, mode: 'schedule' }]);
       expect((await SwitchRelayModel.findOne({ rootId, relay: 1 }).lean())?.mode).toBe('schedule');
+    });
+
+    it('pause (kafelek prosty „Wyłącz bojler”): wyłącza do końca okna, potem harmonogram; sterownik dostaje schedule', async () => {
+      const { body } = await register('4CC382C520F9');
+      const rootId = body.rootId;
+      await request(app).post(`/api/switch/schedules?rootId=${rootId}`)
+        .send({ relay: 1, dayOfWeek: -1, startTime: '17:00', endTime: '18:00' }).expect(201);
+      const off = { relays: [{ on: false, changedS: 10 }] };
+
+      // w oknie 17:00–18:00: wyłączony do 18:00, najbliższe włączenie jutro 17:00
+      await setRelayMode(rootId, { relay: 1, mode: 'pause' }, 'app', at('2026-10-05T17:20'));
+      expect(await SwitchRelayModel.findOne({ rootId, relay: 1 }).lean()).toMatchObject({ mode: 'pause', until: at('2026-10-05T18:00') });
+      expect((await listRelays(rootId, at('2026-10-05T17:30')))[0])
+        .toMatchObject({ mode: 'pause', desiredOn: false, until: at('2026-10-05T18:00'), nextStart: at('2026-10-06T17:00') });
+      // firmware nie zna pause: w poleceniu schedule
+      expect((await reportState(rootId, 'SN', off, at('2026-10-05T17:40'))).relays).toEqual([{ on: false, mode: 'schedule' }]);
+      // następne okno działa normalnie, tryb w bazie wraca na schedule
+      expect((await reportState(rootId, 'SN', off, at('2026-10-06T17:10'))).relays)
+        .toEqual([{ on: true, offAfterS: 3000, mode: 'schedule' }]);
+      expect((await SwitchRelayModel.findOne({ rootId, relay: 1 }).lean())?.mode).toBe('schedule');
+
+      // poza oknem (np. włączony na czas) pause = harmonogram
+      await setRelayMode(rootId, { relay: 1, mode: 'timer', minutes: 30 }, 'app', at('2026-10-05T12:00'));
+      await setRelayMode(rootId, { relay: 1, mode: 'pause' }, 'app', at('2026-10-05T12:10'));
+      expect((await SwitchRelayModel.findOne({ rootId, relay: 1 }).lean())?.mode).toBe('schedule');
+
+      // kafelek: pola kafelka prostego — przy włączonym z harmonogramu najbliższe włączenie po końcu okna
+      const device = (await DeviceModel.findById(rootId))!;
+      const tile = await switchTile(rootId, device, at('2026-10-05T17:30'));
+      expect(tile).toMatchObject({ onMinutes: 30 });
+      expect(tile?.relays?.[0]).toMatchObject({
+        relay: 1, mode: 'schedule', desiredOn: true, until: at('2026-10-05T18:00').toISOString(), nextStart: at('2026-10-06T17:00').toISOString(),
+      });
     });
 
     it('sprawdza tryb i czas', async () => {

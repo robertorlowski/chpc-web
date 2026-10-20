@@ -178,6 +178,12 @@ describe('Konta użytkowników', () => {
     expect((await request(app).get('/api/devices').set(bearer(system))).body.find((d: Listed) => d.rootId === pumpRootId).hidden).toBe(false);
     expect((await DeviceModel.findById(pumpRootId).lean())?.hidden ?? false).toBe(false);
     await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ hidden: false }).expect(200);
+    // kafelek prosty tylko na koncie (users.simpleTiles)
+    expect((await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ simple: true }).expect(200)).body.simple).toBe(true);
+    expect((await request(app).get('/api/devices').set(bearer(robert))).body.find((d: Listed) => d.rootId === pumpRootId).simple).toBe(true);
+    expect((await request(app).get('/api/devices').set(bearer(system))).body.find((d: Listed) => d.rootId === pumpRootId).simple).toBe(false);
+    await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ simple: 'tak' }).expect(400);
+    await request(app).put(`/api/devices/${pumpRootId}`).set(bearer(robert)).send({ simple: false }).expect(200);
     await request(app).put('/api/devices/order').set(bearer(robert)).send({ rootIds: [pumpRootId, boilerRootId] }).expect(200);
     await request(app).delete(`/api/weather-tiles/${krakow.id}`).set(bearer(robert)).expect(204);
 
@@ -215,6 +221,15 @@ describe('Konta użytkowników', () => {
     });
     const shares = (await request(app).get(`/api/devices/${pumpRootId}/shares`).set(bearer(robert)).expect(200)).body;
     expect(shares[0]).toMatchObject({ registered: true, tabs: ['/', '/schedules'] });
+
+    // „Panel prosty”: sterownik na liście jako kafelek prosty (simple), bez zakładek; zapis trybu włącznika dozwolony
+    await request(app).put(`/api/devices/${pumpRootId}/shares/${share.id}`).set(bearer(robert)).send({ tabs: ['simple'] }).expect(200);
+    await vi.waitFor(async () => {
+      const simple = (await request(app).get('/api/devices').set(bearer(annaToken))).body[0];
+      expect(simple).toMatchObject({ tabs: ['simple'], simple: true });
+    });
+    expect((await request(app).put(`/api/switch/mode?rootId=${pumpRootId}`).set(bearer(annaToken)).send({ relay: 1, mode: 'off' })).status).not.toBe(403);
+    expect((await request(app).post(`/api/schedules?rootId=${pumpRootId}`).set(bearer(annaToken)).send({})).status).toBe(403);
 
     await request(app).delete(`/api/devices/${pumpRootId}/shares/${share.id}`).set(bearer(robert)).expect(204);
     expect((await request(app).get(`/api/hp?rootId=${pumpRootId}`).set(bearer(annaToken))).status).toBe(403);

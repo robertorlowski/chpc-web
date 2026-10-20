@@ -48,6 +48,8 @@ const RelayCard: React.FC<{
   const counting = relay.desiredOn && relay.until;
   const idleLabel = relay.mode === 'on'
     ? 'włączony bez limitu czasu'
+    : relay.mode === 'pause'
+      ? `wyłączony do ${formatMoment(relay.until)} (kafelek prosty), potem harmonogram${relay.nextStart ? `: ${formatMoment(relay.nextStart)}` : ''}`
     : relay.nextStart
       ? `następny start z harmonogramu: ${formatMoment(relay.nextStart)}${relay.mode === 'off' ? ' (po odblokowaniu)' : ''}`
       : relay.mode === 'off' ? 'harmonogram zablokowany' : 'brak zaplanowanych włączeń';

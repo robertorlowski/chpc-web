@@ -24,6 +24,8 @@ export interface UserEntry {
   deviceOrder?: (string | null)[];
   /** kafelki ukryte na liście tego konta (tile-layout.service.ts) */
   hiddenTiles?: string[];
+  /** sterowniki pokazywane na liście tego konta jako kafelek prosty (duże przyciski; włącznik, 2026-10-20) */
+  simpleTiles?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +43,7 @@ const UserSchema = new Schema<UserEntry>(
     location: { type: new Schema<UserLocation>({ lat: Number, lng: Number }, { _id: false }), default: null },
     deviceOrder: { type: [String], default: undefined },
     hiddenTiles: { type: [String], default: undefined },
+    simpleTiles: { type: [String], default: undefined },
   },
   { timestamps: true, collection: 'users' },
 );

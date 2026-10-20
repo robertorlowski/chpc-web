@@ -21,8 +21,8 @@ import {
 import { sendMessage } from '../websocket';
 import { serverBaseUrl } from './firmware.controller';
 import { UserEntry, UserModel } from '../models/user.model';
-import { accessibleDevices, canManage, deviceAccess } from '../services/access.service';
-import { placeForViewer, saveViewerOrder, setViewerHidden } from '../services/tile-layout.service';
+import { accessibleDevices, canManage, deviceAccess, SIMPLE_TAB } from '../services/access.service';
+import { placeForViewer, saveViewerOrder, setViewerHidden, setViewerSimple } from '../services/tile-layout.service';
 import { viewerWeatherTileIds } from '../services/weather-tile.service';
 import { AuthError, userName } from '../services/auth.service';
 import { createShare, deleteShare, listShares, updateShare } from '../services/share.service';
@@ -80,8 +80,9 @@ export async function updateProperties(req: Request<{}, {}, DeviceProperties>, r
   }
 }
 
-// Sterowniki widoczne dla użytkownika z właścicielem i rodzajem dostępu; pole szachownicy (sortOrder) i ukrycie
-// (hidden) z układu konta (tile-layout.service.ts).
+// Sterowniki widoczne dla użytkownika z właścicielem i rodzajem dostępu; pole szachownicy (sortOrder), ukrycie
+// (hidden) i kafelek prosty (simple) z układu konta (tile-layout.service.ts); udostępnienie „Panel prosty” daje
+// simple zawsze.
 async function userDevices(sessionUser: UserEntry) {
   const access = await accessibleDevices(sessionUser);
   const devices = (await listDevices()).filter((device) => access.has(String(device._id)));
@@ -96,11 +97,13 @@ async function userDevices(sessionUser: UserEntry) {
       id: rootId,
       access: entry.role,
       ...(entry.role === 'shared' ? { tabs: entry.tabs } : {}),
+      simple: false,
       owner: owner ? { id: String(owner._id), name: userName(owner), email: owner.email ?? null } : null,
     };
   });
   const rank = (device: { sortOrder?: number }) => device.sortOrder ?? Number.MAX_SAFE_INTEGER;
-  return (await placeForViewer(sessionUser, list)).sort((a, b) => rank(a) - rank(b)).map(({ id: _id, ...device }) => device);
+  return (await placeForViewer(sessionUser, list)).sort((a, b) => rank(a) - rank(b))
+    .map(({ id: _id, ...device }) => ({ ...device, simple: !!device.simple || !!device.tabs?.includes(SIMPLE_TAB) }));
 }
 
 // Zmiana sterownika z :rootId tylko dla właściciela i użytkownika systemowego (bez req.user: jak przed kontami).
@@ -246,27 +249,35 @@ export async function cancelDeviceFirmwareUpdate(req: Request<{ rootId: string }
 // pelletowego {boilerConfig} (powiązana pompa ciepła; 409, gdy moduł odrzuci, np. usunięcie pompy w trybie pompy);
 // rootId i deviceId nie podlegają edycji. Pusta nazwa jest dozwolona (klient pokazuje wtedy deviceId).
 // Definicja pompy nie zmienia trybu pracy ani temperatur, więc nie budzi schedulera.
+// {hidden} i {simple} (kafelek prosty) to układ konta: zapis tylko z kontem, dla każdego z dostępem do sterownika.
 export async function updateDevice(
-  req: Request<{ rootId: string }, {}, { name?: string; hidden?: unknown; pumpConfig?: unknown; boilerConfig?: unknown }>,
+  req: Request<{ rootId: string }, {}, { name?: string; hidden?: unknown; simple?: unknown; pumpConfig?: unknown; boilerConfig?: unknown }>,
   res: Response,
 ) {
-  const { name, hidden, pumpConfig, boilerConfig } = req.body ?? {};
+  const { name, hidden, simple, pumpConfig, boilerConfig } = req.body ?? {};
   if (name !== undefined && typeof name !== 'string') {
     return res.status(400).json({ message: 'name: napis.' });
   }
   if (hidden !== undefined && typeof hidden !== 'boolean') {
     return res.status(400).json({ message: 'hidden: true albo false.' });
   }
-  if (name === undefined && hidden === undefined && pumpConfig === undefined && boilerConfig === undefined) {
-    return res.status(400).json({ message: 'name, hidden, pumpConfig albo boilerConfig jest wymagane.' });
+  if (simple !== undefined && typeof simple !== 'boolean') {
+    return res.status(400).json({ message: 'simple: true albo false.' });
   }
-  // z kontem ukrycie kafelka zapisuje się w układzie konta (każdy z dostępem do sterownika, także udostępnionego)
-  if (req.user && hidden !== undefined) {
+  if (name === undefined && hidden === undefined && simple === undefined && pumpConfig === undefined && boilerConfig === undefined) {
+    return res.status(400).json({ message: 'name, hidden, simple, pumpConfig albo boilerConfig jest wymagane.' });
+  }
+  if (simple !== undefined && !req.user) return res.status(400).json({ message: 'simple: kafelek prosty wymaga konta.' });
+  // z kontem ukrycie i tryb prosty kafelka zapisują się w układzie konta (każdy z dostępem do sterownika, także udostępnionego)
+  if (req.user && (hidden !== undefined || simple !== undefined)) {
     const access = await accessibleDevices(req.user);
     if (!access.has(req.params.rootId)) return res.status(404).json({ message: 'Nie znaleziono sterownika.' });
-    const mine = await userDevices(req.user);
-    await setViewerHidden(req.user, req.params.rootId, hidden as boolean,
-      mine.map((device) => ({ id: device.rootId, hidden: device.hidden })));
+    if (hidden !== undefined) {
+      const mine = await userDevices(req.user);
+      await setViewerHidden(req.user, req.params.rootId, hidden as boolean,
+        mine.map((device) => ({ id: device.rootId, hidden: device.hidden })));
+    }
+    if (simple !== undefined) await setViewerSimple(req.user, req.params.rootId, simple as boolean);
     if (name === undefined && pumpConfig === undefined && boilerConfig === undefined) {
       return res.status(200).json((await userDevices(req.user)).find((device) => device.rootId === req.params.rootId));
     }

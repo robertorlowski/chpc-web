@@ -68,6 +68,8 @@ export const describeMode = (relay: SwitchRelay): { text: string; danger?: boole
       return { text: `Włączony na czas ${sourceLabel(relay.modeSource)}, do ${formatMoment(relay.until)}` };
     case 'off':
       return { text: 'Wyłączony · harmonogram zablokowany', danger: true };
+    case 'pause':
+      return { text: `Wyłączony do ${formatMoment(relay.until)} · potem harmonogram` };
     default:
       if (relay.desiredOn) return { text: `Harmonogram · włączony do ${formatMoment(relay.until)}` };
       return {
@@ -99,6 +101,15 @@ export const warsawDayBounds = (date: string) => {
   const next = new Date(`${date}T12:00:00Z`);
   next.setUTCDate(next.getUTCDate() + 1);
   return { start: midnight(date), end: midnight(next.toISOString().slice(0, 10)) };
+};
+
+// Zdania kafelka prostego: „dziś o 17:00”, „jutro o 05:00”, „23.10 o 05:00”.
+export const whenText = (iso: string) => {
+  const today = todayWarsaw();
+  const day = dayOf(iso);
+  if (day === today) return `dziś o ${formatTime(iso)}`;
+  if (day === shiftDate(today, 1)) return `jutro o ${formatTime(iso)}`;
+  return `${formatMoment(iso).replace(' ', ' o ')}`;
 };
 
 // Część włączenia przypadająca na dzień [dayStart, dayEnd) w sekundach (włączenia przez północ).

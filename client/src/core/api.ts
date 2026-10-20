@@ -28,6 +28,11 @@ export class DeviceRequests {
     return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { hidden }, false) as Promise<Device>;
   }
 
+  // przełącznik „Kafelek prosty” w oknie „Dane sterownika”: tylko na tym koncie (users.simpleTiles)
+  static setDeviceSimple(rootId: string, simple: boolean): Promise<Device> {
+    return Requests.put(`/devices/${encodeURIComponent(rootId)}`, { simple }, false) as Promise<Device>;
+  }
+
   // temperatura z czujnika kotła i pogoda z Open-Meteo nad kafelkami (null w polach bez świeżych danych); null przy błędzie
   static getOutdoorConditions(): Promise<OutdoorConditions | null> {
     return Requests.get('/temperature', false) as Promise<OutdoorConditions | null>;

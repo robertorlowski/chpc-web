@@ -1,6 +1,7 @@
 // Popup „Dane sterownika” (PUT /api/devices/:rootId) w wyglądzie „Instrument” (okno .modal z makiety
 // makiety/src/makieta.html, #modal-dane-sterownika): nazwa, rodzaj, SN (Device ID) i Root ID tylko do odczytu oraz
-// pola rodzaju sterownika (DefinitionFields z rejestru, np. konfiguracja pompy ciepła). Otwierany z kafelka na liście
+// pola rodzaju sterownika (DefinitionFields z rejestru, np. konfiguracja pompy ciepła) i przełącznik „Kafelek prosty”
+// (rodzaje z SimpleTile w rejestrze, np. włącznik; tylko na tym koncie, PUT {simple}). Otwierany z kafelka na liście
 // sterowników (pages/Devices) i z sekcji „Sterownik” w Ustawieniach. Zamykany przyciskiem Anuluj, ikoną zamknięcia,
 // klawiszem Esc albo kliknięciem w tło.
 import { FormEvent, useEffect, useState } from 'react';
@@ -28,6 +29,9 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const typeView = getDeviceTypeView(device.deviceType);
   const DefinitionFields = typeView.type === device.deviceType ? typeView.DefinitionFields : undefined;
+  // „Kafelek prosty”: tylko rodzaje z kafelkiem prostym; zapis osobno (układ konta), gdy się zmienił
+  const simpleAvailable = typeView.type === device.deviceType && !!typeView.SimpleTile;
+  const [simple, setSimple] = useState(!!device.simple);
   // pola rodzaju startują z bazy, nie z zapamiętanego wyboru (localStorage może nie mieć np. pumpConfig),
   // inaczej zapis samej nazwy nadpisałby je wartościami domyślnymi
   const [fresh, setFresh] = useState<Device | null>(null);
@@ -60,7 +64,8 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
     try {
       // pusta nazwa jest dozwolona (wraca wyświetlanie deviceId); onSaved dostaje całe urządzenie
       const updated = await DeviceRequests.updateDevice(device.rootId, { name: name.trim(), ...definition });
-      onSaved({ ...device, name: updated.name, pumpConfig: updated.pumpConfig, boilerConfig: updated.boilerConfig });
+      if (simpleAvailable && simple !== !!device.simple) await DeviceRequests.setDeviceSimple(device.rootId, simple);
+      onSaved({ ...device, name: updated.name, pumpConfig: updated.pumpConfig, boilerConfig: updated.boilerConfig, simple: simpleAvailable ? simple : device.simple });
     } catch (caught) {
       // 409: serwer odrzucił definicję z powodem (np. kocioł w trybie „Pompa ciepła” przy odłączaniu pompy)
       const failure = caught as { status?: number; serverMessage?: string };
@@ -97,6 +102,13 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
           </label>
           {/* pola rodzaju mają własne style pod .device-modal (np. devices/heat-pump/components/pumpConfig.css) */}
           {DefinitionFields && fresh && <div className="device-modal device-modal-embedded"><DefinitionFields device={fresh} onChange={setDefinition} /></div>}
+          {simpleAvailable && (
+            <label className="check">
+              <input type="checkbox" checked={simple} onChange={(event) => setSimple(event.currentTarget.checked)} />
+              <span>Kafelek prosty</span>
+              <small>Kafelek na liście rośnie i ma w środku duże przyciski: Włącz / Wyłącz / harmonogram, z opisem, co się stanie. Tak zobaczy go osoba, której udostępnisz sterownik jako „Panel prosty”. Dotyczy tylko Twojego konta; nazwa kafelka nadal otwiera pełne widoki.</small>
+            </label>
+          )}
           {error && <p className="device-modal-error" role="alert">{error}</p>}
         </div>
         <footer className="modal-foot">

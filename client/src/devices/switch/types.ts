@@ -3,8 +3,9 @@ import type { WeekDay } from '../../core/types';
 // Typy włącznika (odpowiedzi /api/switch/*); kontrakt z server/src/modules/switch/types.ts.
 
 // schedule — stan z harmonogramu; on — włączony bez limitu; timer — włączony do until;
-// off — wyłączony, harmonogram go nie włączy.
-export type RelayMode = 'schedule' | 'on' | 'timer' | 'off';
+// off — wyłączony, harmonogram go nie włączy; pause — wyłączony do końca bieżącego okna harmonogramu (until),
+// potem schedule („Wyłącz” na kafelku prostym).
+export type RelayMode = 'schedule' | 'on' | 'timer' | 'off' | 'pause';
 export type CommandSource = 'app' | 'controller';
 
 // Przekaźnik (GET /switch/relays): stan zgłoszony przez sterownik i tryb z chmury.
@@ -22,7 +23,7 @@ export type SwitchRelay = {
   online: boolean;
   /** stan, który chmura wysyła sterownikowi */
   desiredOn: boolean;
-  /** koniec włączenia: timer albo okno harmonogramu */
+  /** koniec włączenia (timer albo okno harmonogramu) albo przerwy (pause) */
   until: string | null;
   /** wpis harmonogramu działający teraz */
   scheduleId: string | null;

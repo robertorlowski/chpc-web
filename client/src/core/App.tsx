@@ -82,7 +82,7 @@ function SharedBanner() {
 	const { device } = useDevice();
 	if (device?.access !== 'shared') return null;
 	const views = getDeviceTypeView(device.deviceType).views;
-	const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : views.find((view) => view.path === path)?.label ?? path);
+	const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : path === 'simple' ? 'Panel prosty' : views.find((view) => view.path === path)?.label ?? path);
 	return <div className="shared-banner">Udostępnione przez {device.owner?.name ?? 'innego użytkownika'} · dostęp: {tabs.join(', ')}</div>;
 }
 

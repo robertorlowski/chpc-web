@@ -16,7 +16,9 @@ import { relayCommand } from './switch.service';
 type RelayDoc = SwitchRelay & { _id?: unknown };
 type ScheduleDoc = SwitchSchedule & { _id?: unknown };
 
-const MODE_NAMES: Record<RelayMode, string> = { schedule: 'Harmonogram', on: 'Włączony', timer: 'Włączony na czas', off: 'Wyłączony' };
+const MODE_NAMES: Record<RelayMode, string> = {
+  schedule: 'Harmonogram', on: 'Włączony', timer: 'Włączony na czas', off: 'Wyłączony', pause: 'Wyłączony do końca okna',
+};
 const hhmm = (date: Date) => formatInTimeZone(date, TIME_ZONE, 'HH:mm');
 const label = (relay: Pick<SwitchRelay, 'name' | 'relay'>) => relay.name?.trim() || `Przekaźnik ${relay.relay}`;
 const ref = (relay: number) => `relay:${relay}`;
@@ -46,8 +48,12 @@ export async function noteModeChange(rootId: string, relay: RelayDoc, source: Co
     ? `${label(relay)}: włącz na ${minutes ?? Math.round((until.getTime() - now.getTime()) / 60000)} min (do ${hhmm(until)})`
     : relay.mode === 'on' ? `${label(relay)}: włącz bez limitu`
     : relay.mode === 'off' ? `${label(relay)}: wyłącz (harmonogram zablokowany)`
+    : relay.mode === 'pause' && until ? `${label(relay)}: wyłącz do ${hhmm(until)} (potem harmonogram)`
     : `${label(relay)}: tryb Harmonogram (${command.on ? `włączony${until ? ` do ${hhmm(until)}` : ''}` : 'wyłączony'})`;
-  const button = { on: '„Włącz” bez limitu', timer: `„Włącz” z czasem ${minutes ?? '?'} min`, off: '„Wyłącz”', schedule: '„Harmonogram”' }[relay.mode];
+  const button = {
+    on: '„Włącz” bez limitu', timer: `„Włącz” z czasem ${minutes ?? '?'} min`, off: '„Wyłącz”', schedule: '„Harmonogram”',
+    pause: '„Wyłącz” do końca okna harmonogramu (kafelek prosty)',
+  }[relay.mode];
   const meta = source === 'controller'
     ? controllerMeta('Strona sterownika', 'Zmiana na stronie sterownika (sieć lokalna albo jego punkt dostępowy).')
     : appUserMeta('Włącznik', `Przycisk ${button}.`);
@@ -60,6 +66,9 @@ function changeMeta(previous: Desired, next: Desired, schedules: ScheduleDoc[], 
   const conditions = `tryb ${MODE_NAMES[next.mode]}`;
   if (previous.mode === 'timer' && next.mode === 'schedule') {
     return systemMeta('Harmonogram', 'Koniec włączenia na czas — dalej harmonogram.', conditions);
+  }
+  if (previous.mode === 'pause' && next.mode === 'schedule') {
+    return systemMeta('Harmonogram', 'Koniec wyłączenia do końca okna — dalej harmonogram.', conditions);
   }
   const entry = (id: string | null) => schedules.find((schedule) => String(schedule._id) === id);
   const started = entry(next.scheduleId);
@@ -108,6 +117,7 @@ export async function plannedSwitchOperations(rootId: string, now: Date, dayEnd:
       }
     }
     if (relay.mode === 'timer' && relay.until) reasons.set(new Date(relay.until).getTime(), 'Koniec włączenia na czas — dalej harmonogram.');
+    if (relay.mode === 'pause' && relay.until) reasons.set(new Date(relay.until).getTime(), 'Koniec wyłączenia do końca okna — dalej harmonogram.');
     for (const time of [...reasons.keys()].filter((t) => t > now.getTime() && t < dayEnd.getTime()).sort((a, b) => a - b)) {
       const before = relayCommand(relay, schedules, new Date(time - 1000));
       const after = relayCommand(relay, schedules, new Date(time + 1000));

@@ -15,6 +15,9 @@
 // Konta użytkowników: każde konto ma własny układ szachownicy, ukryte kafelki i kafelki pogody (zapis w koncie);
 // ołówek tylko przy własnych sterownikach (udostępnione: zakładki w podpowiedzi), trybik firmware i zajętość bazy tylko
 // dla użytkownika systemowego.
+// Kafelek prosty (2026-10-20): sterownik z device.simple (przełącznik w oknie „Dane sterownika” albo udostępnienie
+// „Panel prosty”) rysuje SimpleTile rodzaju z rejestru (włącznik: duże przyciski Włącz / Wyłącz) zamiast DeviceTileCard;
+// taki kafelek nie jest odnośnikiem — pełne widoki otwiera jego nazwa (nie u osoby z samym „Panelem prostym”).
 // Kafelki odświeżają się jak ekran główny pompy: po komunikacie WebSocket „update” któregokolwiek sterownika (jedno
 // połączenie ?rootIds=…, najwyżej raz na TILES_UPDATE_MIN_MS) i co TILES_REFRESH_MS, gdy żaden nic nie wysyła.
 import { CSSProperties, KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -112,10 +115,15 @@ const rememberDeviceCount = (count: number) => {
 function sharedInfo(device: Device): string | undefined {
   if (device.access !== 'shared') return undefined;
   const view = getDeviceTypeView(device.deviceType);
-  const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : view.views.find((entry) => entry.path === path)?.label ?? path);
+  const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : path === SIMPLE_TAB ? 'Panel prosty' : view.views.find((entry) => entry.path === path)?.label ?? path);
   const owner = device.owner?.name || device.owner?.email;
   return `${owner ? `Udostępnia: ${owner}. ` : ''}Dostęp: ${tabs.join(', ')}`;
 }
+
+// udostępnienie „Panel prosty” (server access.service SIMPLE_TAB): sam kafelek prosty, bez widoków sterownika
+const SIMPLE_TAB = 'simple';
+// osoba z samym „Panelem prostym” nie otwiera widoków sterownika (nazwa kafelka nie jest odnośnikiem)
+const canOpenViews = (device: Device) => device.access !== 'shared' || (device.tabs ?? []).some((tab) => tab !== SIMPLE_TAB);
 
 // odświeżanie stanu kafelków i wieku danych w stopce kafelka
 const TILES_REFRESH_MS = 30 * 1000;
@@ -474,8 +482,11 @@ export const Devices: React.FC = () => {
     const hidden = isHidden(item);
     const tile = item.kind === 'device' ? tiles[item.device.rootId] : undefined;
     const kind = item.kind === 'device' ? TILE_KINDS[item.device.deviceType] : 'weather';
+    // kafelek prosty (poza trybem „Zmień układ” i poza ukrytymi): przyciski w kafelku, nazwa otwiera widoki
+    const SimpleTile = item.kind === 'device' && item.device.simple && !reordering && !hidden
+      ? getDeviceTypeView(item.device.deviceType).SimpleTile : undefined;
     // kafelek pogody prowadzi do strony pogody (/weather/:id), sterownika — do jego widoków
-    const link = !reordering;
+    const link = !reordering && !SimpleTile && (item.kind === 'weather' || canOpenViews(item.device));
     const canEdit = item.kind === 'weather' || item.device.access !== 'shared';
     const tools = (
       <>
@@ -496,6 +507,7 @@ export const Devices: React.FC = () => {
     );
     const classes = ['tile', item.kind === 'device' ? 'tile-device' : 'tile-weather'];
     if (link) classes.push('is-link');
+    if (SimpleTile) classes.push('tile-simple');
     if (tile?.running && !hidden) classes.push('is-running');
     if (hidden) classes.push('is-hidden');
     if (moving === item.id) classes.push('is-moving');
@@ -515,7 +527,12 @@ export const Devices: React.FC = () => {
           ? 'Pogoda w bieżącej lokalizacji tego urządzenia · Open-Meteo'
           : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
         {item.kind === 'device' ? (
-          <DeviceTileCard deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} hidden={hidden} tools={tools} />
+          SimpleTile ? (
+            <SimpleTile device={item.device} name={label} tile={tile} now={now} loading={!tilesLoaded} tools={tools}
+              onOpen={canOpenViews(item.device) ? () => chooseDevice(item.device) : undefined} onChanged={loadTiles} />
+          ) : (
+            <DeviceTileCard deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} hidden={hidden} tools={tools} />
+          )
         ) : (
           <WeatherTileCard tile={item.weather} now={now} hidden={hidden} tools={tools} />
         )}
