@@ -1,9 +1,11 @@
 // Zakładka Harmonogram kotła (/schedules), układ „Instrument” (#s-boiler-harmonogram): w oknach godzin „Tryb Zima”
 // (nr 125; od 2026-10-15 z dwoma progami: Zima poniżej, Lato powyżej temperatury zewnętrznej) i CWU od–do; osobne listy
 // i osobne wartości poza harmonogramem dla trybu „Pompa ciepła” i „Pellet” (dni jak w pompie ciepła; okno przez północ
-// należy do dnia startu). Karta „Harmonogram”: czy działa (po „Włącz regulator” w Ustawieniach), która lista trybu
-// działa (z odczytu ustawień, nr 99 < 50 °C = pompa ciepła; przełącznik tylko do odczytu), temperatura zewnętrzna, stan
-// teraz i cykl Zimy. Dla każdego trybu karty „Tryb Zima · tryb” i „CWU · tryb” z wpisami (.entries: dzień, godziny,
+// należy do dnia startu). Karta „Harmonogram”: „Harmonogram działa – pompa ciepła / pelet” (czy działa po „Włącz
+// regulator” w Ustawieniach i która lista trybu działa: z odczytu ustawień, nr 99 < 50 °C = pompa ciepła; dawny
+// przełącznik „Lista trybu” usunięty 2026-10-20), temperatura zewnętrzna, stan teraz i cykl Zimy. Przy znaczniku „CWU -
+// grzanie peletem” w trybie pompy ciepła stan „Teraz” i „działa teraz” CWU dotyczą listy Pellet (state.pelletCwu), jak
+// u schedulera. Dla każdego trybu karty „Tryb Zima · tryb” i „CWU · tryb” z wpisami (.entries: dzień, godziny,
 // ustawienie, „działa teraz” przy wpisie z GET /schedules/current, odświeżanym co minutę) i wierszem „Poza harmonogramem”
 // z ołówkiem. Wpisy i „Poza harmonogramem” edytuje się w oknie modalnym; zapis od razu (PUT schedule-settings zmienia
 // tylko edytowany tryb). Serwer co minutę wylicza stan i przy jego zmianie zleca kotłowi jednym zleceniem sezon (nr 125),
@@ -13,6 +15,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { WeekDay } from '../../../core/types';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
+import { InfoTip, TipParagraph } from '../../../core/components/InfoTip';
 import { PelletBoilerRequests } from '../api';
 import { WinterCycleStatus } from '../components/WinterCycleStatus';
 import { IconBtn, Modal, Segmented } from '../components/ui';
@@ -217,6 +220,9 @@ export const PelletBoilerSchedules: React.FC = () => {
   };
 
   const running = (mode: PelletBoilerMode) => !!current?.enabled && current.mode === mode;
+  // lista CWU, która działa teraz: przy „CWU - grzanie peletem” w trybie pompy ciepła lista Pellet
+  const cwuFromPellet = !!current?.state?.pelletCwu;
+  const runningCwu = (mode: PelletBoilerMode) => !!current?.enabled && (cwuFromPellet ? mode === 'pellet' : current.mode === mode);
   const outdoor = current?.outdoorTemperature;
   const loaded = schedules !== null && settings !== null && heatPumpLinked !== undefined;
   // nagłówek karty trybu: „· pompa ciepła” tylko z powiązaną pompą ciepła
@@ -246,25 +252,32 @@ export const PelletBoilerSchedules: React.FC = () => {
         {settings && (
           <div className="form-row">
             <span className="t-name">
+              {/* z powiązaną pompą ciepła nazwa działającej listy trybu (z odczytu ustawień kotła, nr 99) */}
               Harmonogram {settings.enabled ? 'działa' : 'nie działa'}
-              <small>{settings.enabled ? 'wyłącza go „Wyłącz regulator” w Ustawieniach' : 'działa po „Włącz regulator” w Ustawieniach'}</small>
+              {heatPumpLinked && settings.enabled && ` – ${current?.mode ? MODE_LABEL[current.mode].toLowerCase() : 'tryb nieznany'}`}
+              {/* opis działania w dymku zamiast akapitu pod stanem (decyzja użytkownika 2026-10-20) */}
+              {settings.enabled && current?.state && (
+                <InfoTip label="Jak działa harmonogram">
+                  <TipParagraph>
+                    {current.state.mode === 'heat-pump'
+                      ? 'W trybie Pompa ciepła CWU zmienione na panelu wraca do harmonogramu w ciągu minuty (pompa ciepła nie dogrzeje wyższej temperatury); przy „CWU bez zmiany” poza wpisami zostaje.'
+                      : 'Ręczna zmiana CWU zostaje do następnego przejścia między wpisami.'}
+                  </TipParagraph>
+                  <TipParagraph>Sezon wybrany przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu.</TipParagraph>
+                </InfoTip>
+              )}
+              {/* bez opisu przy działającym harmonogramie (decyzja użytkownika 2026-10-20); podtytuł tylko gdy nie działa
+                  albo brak odczytu ustawień kotła */}
+              {(!settings.enabled || (heatPumpLinked && !current?.mode)) && (
+                <small>
+                  {!settings.enabled ? 'działa po „Włącz regulator” w Ustawieniach' : 'brak odczytu ustawień kotła — nie wiadomo, który tryb działa'}
+                </small>
+              )}
             </span>
             <span className={`chip ${settings.enabled ? 'chip-ok' : 'chip-off'}`}>{settings.enabled ? 'działa' : 'nie działa'}</span>
           </div>
         )}
-        {heatPumpLinked && (
-          <>
-            {/* lista trybu wybiera się sama (odczyt ustawień kotła): przełącznik tylko do odczytu */}
-            <Segmented name="boiler-schedule-mode" label="Lista trybu" disabled value={current?.mode ?? null}
-              options={MODES.map((mode) => ({ value: mode, label: `Lista: ${MODE_LABEL[mode].toLowerCase()}` }))} onChange={() => undefined} />
-            <p className="help">
-              Działa lista trybu z ostatniego odczytu ustawień (minimalna temperatura kotła nr 99 &lt; 50 °C = pompa ciepła).
-              Tryb pracy przełącza się w Ustawieniach.
-              {current && !current.mode && ' Brak odczytu ustawień kotła — nie wiadomo, który tryb działa.'}
-            </p>
-          </>
-        )}
-        <dl className="measures">
+        <dl className="measures measures-stack">
           <div><dt>Temperatura na zewnątrz</dt><dd>{typeof outdoor === 'number' ? `${outdoor.toFixed(1)} °C` : '---'}</dd></div>
           {current?.enabled && current.state && (
             <div>
@@ -272,19 +285,11 @@ export const PelletBoilerSchedules: React.FC = () => {
               <dd>
                 {current.state.season ? `${SEASON_LABEL[current.state.season]}, ` : ''}
                 {current.state.cwuUnchanged ? `CWU bez zmiany (w kotle: ${boilerCwuText(current.boilerCwu)})` : `CWU ${cwuText(current.state.cwuFrom, current.state.cwuTo)}`}
+                {cwuFromPellet && ' · z peletu'}
               </dd>
             </div>
           )}
         </dl>
-        {current?.enabled && current.state && (
-          <p className="help">
-            Zmiany sezonu i CWU idą do kotła jednym zleceniem przy przejściu między wpisami.{' '}
-            {current.state.mode === 'heat-pump'
-              ? 'W trybie Pompa ciepła CWU zmienione na panelu wraca do harmonogramu w ciągu minuty (pompa ciepła nie dogrzeje wyższej temperatury); przy „CWU bez zmiany” poza wpisami zostaje.'
-              : 'Ręczna zmiana CWU zostaje do następnego przejścia między wpisami.'}
-            {' '}Sezon wybrany przyciskiem w Ustawieniach działa do najbliższego początku albo końca wpisu sezonu.
-          </p>
-        )}
         <WinterCycleStatus cycle={current?.winterCycle} />
         {current?.lastError && <p className="help danger-text">Ostatni błąd: {current.lastError}</p>}
         {error && !showForm && !defaultsForm && <p className="help danger-text">{error}</p>}
@@ -295,10 +300,13 @@ export const PelletBoilerSchedules: React.FC = () => {
         const seasons = schedules.filter((s) => s.mode === mode && s.type === 'season');
         const cwu = schedules.filter((s) => s.mode === mode && (s.type ?? 'cwu') === 'cwu');
         const now = running(mode);
-        const defaultCurrent = now && !current?.scheduleId && !current?.seasonScheduleId;
+        // CWU: przy „CWU - grzanie peletem” działa lista Pellet, także gdy tryb kotła to pompa ciepła
+        const nowCwu = runningCwu(mode);
+        const defaultCurrent = nowCwu && !current?.scheduleId;
         const defaults = settings.defaults[mode];
         // tryb kotła z odczytu ustawień (nr 99), niezależnie od harmonogramu
         const listHint = heatPumpLinked ? (current?.mode === mode ? 'lista aktywna' : 'lista nieaktywna') : '';
+        const cwuHint = heatPumpLinked ? `${nowCwu ? 'lista aktywna' : 'lista nieaktywna'}${cwuFromPellet ? ' · CWU z peletu' : ''}` : '';
         return (
           <div key={mode} className="stack">
             <section className="card">
@@ -328,12 +336,12 @@ export const PelletBoilerSchedules: React.FC = () => {
               <header className="card-head">
                 <h2>CWU{modeSuffix(mode)}</h2>
                 <span className="card-head-tools">
-                  {listHint && <span className="card-hint">{listHint}</span>}
+                  {cwuHint && <span className="card-hint">{cwuHint}</span>}
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => openForm(mode, 'cwu')}>+ Dodaj wpis</button>
                 </span>
               </header>
               <ul className="entries">
-                {cwu.map((schedule) => row(schedule, now && schedule._id === current?.scheduleId, <>CWU {cwuText(schedule.cwuFrom ?? 0, schedule.cwuTo ?? 0)}</>))}
+                {cwu.map((schedule) => row(schedule, nowCwu && schedule._id === current?.scheduleId, <>CWU {cwuText(schedule.cwuFrom ?? 0, schedule.cwuTo ?? 0)}</>))}
                 {/* „Poza harmonogramem” jak wpis: ołówek otwiera okno, bez usuwania */}
                 <li className={`entry is-default${defaultCurrent ? ' is-current' : ''}`}>
                   <span className="entry-when"><strong>Poza harmonogramem</strong></span>

@@ -68,11 +68,12 @@ export const TILE_KINDS: Record<DeviceType, TileKind> = {
 };
 const KIND_ICONS: Record<TileKind, ListIconName> = { hp: 'hp', pv: 'pv', tank: 'drop', switch: 'switch', boiler: 'fire', weather: 'sun' };
 
-// Kolor chipu: „Online” zielony, „Offline” według poziomu kafelka (szary, gdy brak danych jest normalny: poziom ok
-// albo hydrofor, którego sterownik ma zasilanie tylko przy pracy pompy); inne napisy („Brak danych”) według poziomu.
+// Kolor chipu: „Online” zielony, „Offline” czerwony (decyzja użytkownika 2026-10-20: offline czerwony, wyłączony szary;
+// wyjątek hydrofor, którego sterownik ma zasilanie tylko przy pracy pompy — tam brak łączności jest normalny, szary);
+// inne napisy („Brak danych”) według poziomu.
 function chipClass(tile: DeviceTile, deviceType: DeviceType): string {
   if (tile.chip === 'Online') return 'ok';
-  if (tile.chip === 'Offline' && (tile.level === 'ok' || deviceType === DeviceType.WATER_PRESSURE_TANK)) return 'off';
+  if (tile.chip === 'Offline') return deviceType === DeviceType.WATER_PRESSURE_TANK ? 'off' : 'err';
   return tile.level === 'ok' ? 'off' : tile.level;
 }
 

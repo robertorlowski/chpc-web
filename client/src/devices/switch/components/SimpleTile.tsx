@@ -36,11 +36,12 @@ function describe(relay: TileRelay, online: boolean, onMinutes: number, now: num
   const stopSchedule = (hint: string): Action => ({ label: 'Wyłącz harmonogram uruchamiania', kind: 'plain', mode: 'off', hint });
 
   if (!online) {
-    return { chip: 'Offline', chipClass: 'chip-warn', state: `${name}: brak łączności`, detail: 'sterownik nie zgłasza się od 5 min · przyciski nie działają', actions: [] };
+    // chipy (decyzja użytkownika 2026-10-20, wszystkie kafelki): Offline czerwony, Wyłączony szary
+    return { chip: 'Offline', chipClass: 'chip-err', state: `${name}: brak łączności`, detail: 'sterownik nie zgłasza się od 5 min', actions: [] };
   }
   if (relay.mode === 'off') {
     return {
-      chip: 'Wyłączony', chipClass: 'chip-err', state: `${name} jest wyłączony`, detail: 'harmonogram uruchamiania jest wyłączony',
+      chip: 'Wyłączony', chipClass: 'chip-off', state: `${name} jest wyłączony`, detail: 'harmonogram uruchamiania jest wyłączony',
       actions: [
         turnOn(''),
         { label: 'Włączaj zgodnie z harmonogramem', kind: 'plain', mode: 'schedule',
@@ -94,11 +95,18 @@ export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOp
   const relays = tile?.relays ?? [];
   const online = tile?.chip === 'Online';
   // jeden przekaźnik z nazwą: jego nazwa w nagłówku kafelka (produkcja: włącznik „Włącznik”, przekaźnik „Bojler”)
-  const title = relays.length === 1 && relays[0].name ? relays[0].name : name;
+  const single = relays.length === 1;
+  const title = single && relays[0].name ? relays[0].name : name;
+  // jeden przekaźnik: chip stanu w nagłówku obok nazwy (jak na zwykłym kafelku), żeby nie zajmował osobnego wiersza
+  const chipOf = (relay: TileRelay) => {
+    const view = describe(relay, online, tile?.onMinutes ?? 30, now);
+    return <span className={`chip ${view.chipClass}`}>{view.chip === 'Włączony' && <i className="dot" />}{view.chip}</span>;
+  };
   const head = (
     <div className="tile-head">
       <span className="tile-icon"><ListIcon name="switch" /></span>
       <h2 className="tile-name">{onOpen ? <button type="button" className="simple-open" onClick={onOpen} title="Otwórz pełne widoki włącznika">{title}</button> : title}</h2>
+      {single && tile && chipOf(relays[0])}
       {tools && <span className="tile-tools">{tools}</span>}
     </div>
   );
@@ -114,10 +122,12 @@ export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOp
         const waiting = online && relay.desiredOn !== undefined && relay.on !== relay.desiredOn;
         return (
           <div key={number} className="simple-relay">
-            <div className="simple-top">
-              {relays.length > 1 && <span className="simple-relay-name">{relay.name}</span>}
-              <span className={`chip ${view.chipClass}`}>{view.chip === 'Włączony' && <i className="dot" />}{view.chip}</span>
-            </div>
+            {!single && (
+              <div className="simple-top">
+                <span className="simple-relay-name">{relay.name}</span>
+                {chipOf(relay)}
+              </div>
+            )}
             <div className="simple-state">{view.state}<small>{view.detail}</small></div>
             {waiting && <p className="simple-hint">Czeka na sterownik…</p>}
             <div className="simple-actions">

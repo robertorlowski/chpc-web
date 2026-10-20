@@ -164,8 +164,9 @@ export type PelletBoilerCurrentSchedule = {
   enabled: boolean;
   /** tryb z odczytu ustawień kotła; null bez odczytu */
   mode: PelletBoilerMode | null;
-  /** cwuUnchanged: teraz poza wpisami CWU z „CWU bez zmiany” (harmonogram nie zmienia CWU w kotle) */
-  state: ({ mode: PelletBoilerMode; season?: PelletBoilerSeason; cwuUnchanged?: boolean } & PelletBoilerCwuRange) | null;
+  /** cwuUnchanged: teraz poza wpisami CWU z „CWU bez zmiany” (harmonogram nie zmienia CWU w kotle);
+   *  pelletCwu: tryb pompy ciepła ze znacznikiem „CWU - grzanie peletem” — CWU od–do i scheduleId z listy Pellet */
+  state: ({ mode: PelletBoilerMode; season?: PelletBoilerSeason; cwuUnchanged?: boolean; pelletCwu?: boolean } & PelletBoilerCwuRange) | null;
   /** CWU ustawione teraz w kotle: zadana (nr 119) i „od” = zadana − histereza (nr 123) */
   boilerCwu?: Partial<PelletBoilerCwuRange>;
   /** tryb pompy ciepła (bez „CWU - grzanie peletem”) z zadaną CWU wyższą niż heatPumpCwuMax: pompa ciepła jej nie dogrzeje */

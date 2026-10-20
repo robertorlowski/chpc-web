@@ -263,6 +263,10 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     expect(on.body.pelletCwu).toMatchObject({ enabled: true, phase: 'idle', cwuFrom: 40, cwuTo: 55 });
     expect(await pending()).toEqual(['119=55', '123=15']);
     await finishAll();
+    // zakładka Harmonogram: „Teraz” i działający wpis CWU z listy Pellet, tak jak zleca scheduler (do 2026-10-20 lista pompy)
+    expect((await request(app).get(api('schedules/current'))).body).toMatchObject({
+      mode: 'heat-pump', state: { mode: 'heat-pump', cwuFrom: 40, cwuTo: 55, pelletCwu: true },
+    });
 
     // CWU 38 < 40: kocioł dostaje nastawy trybu Pellet 98, 99, 17, 101 (67 / 65 / 12 / 50), dalej tryb pompy ciepła
     await reading({ state: 5, water_heater_temp: 38, heating_temp: 32 });

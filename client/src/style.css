@@ -83,7 +83,7 @@ header.app-header a { color: inherit; text-decoration: none; }
 /* nazwa sterownika i stan */
 .device-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .device-title h1 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.device-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .device-sub .sep { opacity: .5; }
 .device-sub .chip { font-size: 11px; padding: 1px 7px; }
 
@@ -120,12 +120,13 @@ nav.app-tabs { display: none; }
 		border-radius: var(--radius-sm);
 		color: var(--bar-fg);
 		font-weight: 600;
-		font-size: 14px;
-		opacity: .8;
+		/* pełny kolor zamiast opacity: półprzezroczysty tekst w elemencie fixed traci wygładzanie subpikselowe i jest
+		   rozmyty (zgłoszenie 2026-10-20); 15 px dla czytelności w bocznym menu */
+		font-size: 15px;
 		text-decoration: none;
 	}
-	nav.app-tabs a:hover { opacity: 1; background: var(--hover); }
-	nav.app-tabs a.active { opacity: 1; background: var(--tab-active-bg); color: var(--tab-active-fg); }
+	nav.app-tabs a:hover { background: var(--hover); }
+	nav.app-tabs a.active { background: var(--tab-active-bg); color: var(--tab-active-fg); }
 	nav.app-tabs a svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 }
 

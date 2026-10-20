@@ -681,14 +681,25 @@ export async function getCurrentSchedule(rootId: string, now = new Date()) {
   const mode = await effectiveBoilerMode(rootId, boiler);
   const entries = await PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>();
   const outdoor = await boilerOutdoorTemperature(rootId, now);
+  // pelletCwu: CWU z peletu w trybie pompy ciepła (znacznik, faza, CWU od–do trybu Pellet)
+  const pelletCwu = await getPelletCwu(rootId);
   const current = mode
     ? scheduleState(settings, entries, mode, now, outdoor, settings.lastApplied?.seasonScheduleId)
     : { state: null, scheduleId: null, seasonScheduleId: null };
+  // znacznik „CWU - grzanie peletem” w trybie pompy ciepła: tak jak scheduler (currentState) CWU od–do i działający
+  // wpis CWU z listy Pellet (sezon zostaje z listy Pompa ciepła); do 2026-10-20 zakładka pokazywała tu listę pompy
+  if (mode === 'heat-pump' && pelletCwu.enabled && current.state) {
+    const pellet = scheduleState(settings, entries, 'pellet', now, outdoor);
+    const { cwuUnchanged: _unchanged, ...withoutUnchanged } = current.state;
+    current.state = {
+      ...withoutUnchanged, cwuFrom: pellet.state.cwuFrom, cwuTo: pellet.state.cwuTo, pelletCwu: true,
+      ...(pellet.state.cwuUnchanged ? { cwuUnchanged: true } : {}),
+    };
+    current.scheduleId = pellet.scheduleId;
+  }
   // winterCycle: cykl Zimy w trybie pompy ciepła (winter-cycle.service.ts), manualSeason: sezon z przycisku
   const saved = await PelletBoilerScheduleSettingsModel.findOne({ rootId }).select('winterCycle manualSeason')
     .lean<{ winterCycle?: PelletBoilerWinterCycle | null; manualSeason?: PelletBoilerManualSeason | null }>();
-  // pelletCwu: CWU z peletu w trybie pompy ciepła (znacznik, faza, CWU od–do trybu Pellet)
-  const pelletCwu = await getPelletCwu(rootId);
   // pendingTurnOn: włączenie regulatora czeka na nagrzanie kotła (turn-on.service.ts)
   const pendingTurnOn = await getPendingTurnOn(rootId);
   // hotBoilerFrom: pompa ciepła stoi przy kotle od tej temperatury (z odpowiedzi pompy; opis znacznika CWU z peletu)
