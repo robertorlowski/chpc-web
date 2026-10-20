@@ -268,17 +268,24 @@ const number01 = (value: number) => value.toLocaleString('pl-PL', { maximumFract
 
 // Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka: przy pogodzie
 // ikona „i” ze źródłem i wiekiem („Open-Meteo · X min temu”, od 2026-10-19 w dymku zamiast tekstu), bez pogody
-// ostrzeżenie tekstem. Także „Dom” pokazuje temperaturę z Open-Meteo (bez czujnika kotła, od 2026-10-17).
+// ostrzeżenie tekstem. „Dom” (od 2026-10-21, jak pasek nad listą) pokazuje temperaturę z czujnika zewnętrznego kotła
+// (sensor: świeży pomiar z GET /temperature, do 15 min; model ICON z siatką 2 km mylił się o kilka stopni przy nocnej
+// inwersji w dolinie), a niebo, wiatr i opad z Open-Meteo; bez świeżego pomiaru (piec wyłączony) temperatura z modelu.
 // Kafelek bieżącej lokalizacji (current): nazwa miejscowości i pogoda z przeglądarki (CurrentWeatherTileCard).
-export function WeatherTileCard({ tile, now, hidden, tools }: {
-  tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode;
+export function WeatherTileCard({ tile, now, hidden, tools, sensor }: {
+  tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode; sensor?: number | null;
 }) {
   if (tile.current) return <CurrentWeatherTileCard tile={tile} now={now} hidden={hidden} tools={tools} />;
   const weather = tile.weather;
+  const fromSensor = tile.home && typeof sensor === 'number';
   const foot = hidden ? HIDDEN_FOOT : weather
-    ? <SourceTip text={`Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`} detail="Pogodę pobiera sterownik włącznika z domowego łącza co 15 min." />
+    ? <SourceTip text={`${fromSensor ? 'czujnik kotła · ' : ''}Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`}
+        detail={fromSensor
+          ? `Temperatura z czujnika zewnętrznego kotła (Open-Meteo: ${number1(weather.temperature)} °C). Niebo, wiatr i opad pobiera sterownik włącznika z domowego łącza co 15 min.`
+          : 'Pogodę pobiera sterownik włącznika z domowego łącza co 15 min.'} />
     : tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)';
-  return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel="brak pogody z włącznika" />;
+  return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel="brak pogody z włącznika"
+    temperature={fromSensor ? sensor as number : undefined} />;
 }
 
 function CurrentWeatherTileCard({ tile, now, hidden, tools }: {
@@ -301,10 +308,12 @@ export function SourceTip({ text, detail }: { text: string; detail?: string }) {
   return <span className="source-text" title={detail}>{text}</span>;
 }
 
-function WeatherTileBody({ name, weather, foot, hidden, tools, chip, emptyLabel }: {
+function WeatherTileBody({ name, weather, foot, hidden, tools, chip, emptyLabel, temperature: override }: {
   name: string; weather: Weather | null; foot: ReactNode; hidden?: boolean; tools?: ReactNode; chip?: ReactNode; emptyLabel: string;
+  /** temperatura spoza pogody (czujnik kotła na kafelku „Dom”) */
+  temperature?: number;
 }) {
-  const temperature = weather?.temperature;
+  const temperature = override ?? weather?.temperature;
   const facts: Fact[] = weather ? [
     { dt: 'Wiatr', dd: `${Math.round(weather.windSpeed)} km/h` },
     { dt: 'Chmury', dd: `${Math.round(weather.cloudCover)} %` },

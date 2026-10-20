@@ -534,7 +534,8 @@ export const Devices: React.FC = () => {
             <DeviceTileCard deviceType={item.device.deviceType} name={label} tile={tile} now={now} loading={!tilesLoaded} hidden={hidden} tools={tools} />
           )
         ) : (
-          <WeatherTileCard tile={item.weather} now={now} hidden={hidden} tools={tools} />
+          <WeatherTileCard tile={item.weather} now={now} hidden={hidden} tools={tools}
+            sensor={item.weather.home && outdoor?.temperatureSource === 'boiler' ? outdoor.temperature : null} />
         )}
         {reordering && (
           <>

@@ -73,7 +73,9 @@ function Hourly({ forecast, start }: { forecast: Forecast; start: number }) {
   );
 }
 
-export function NowTab({ forecast, name }: { forecast: Forecast; name: string }) {
+// sensor: temperatura z czujnika zewnętrznego kotła („Dom”, od 2026-10-21) — w nagłówku zamiast modelu, model w dopisku;
+// bez świeżego pomiaru (piec wyłączony) zostaje model
+export function NowTab({ forecast, name, sensor }: { forecast: Forecast; name: string; sensor?: number | null }) {
   const { current, daily } = forecast;
   const today = todayIndex(forecast);
   const start = nextHourIndex(forecast);
@@ -84,11 +86,13 @@ export function NowTab({ forecast, name }: { forecast: Forecast; name: string })
         <div className="hero-main">
           <span className="hero-label wx-place"><ListIcon name="pin" />{name}</span>
           <div className="hero-value">
-            <span className="hero-num">{Math.round(current.temperature_2m)}</span><span className="hero-unit">°C</span>
+            <span className="hero-num">{Math.round(typeof sensor === 'number' ? sensor : current.temperature_2m)}</span><span className="hero-unit">°C</span>
           </div>
           <div className="wx-hero-desc">{capital(weatherDescription(current.weather_code))}</div>
           <div className="wx-hero-range">↑{deg(daily.temperature_2m_max[today])} / ↓{deg(daily.temperature_2m_min[today])}</div>
-          <span className="hero-note">Odczuwalna {deg(current.apparent_temperature)}</span>
+          <span className="hero-note">
+            {typeof sensor === 'number' ? `Czujnik kotła · model ${deg(current.temperature_2m)} · odczuwalna ${deg(current.apparent_temperature)}` : `Odczuwalna ${deg(current.apparent_temperature)}`}
+          </span>
         </div>
         <div className="hero-side"><div className="hero-kpis">
           <div className="kpi"><span className="kpi-label">Wiatr</span><span className="kpi-value">{Math.round(current.wind_speed_10m)}<small>km/h {windDirection(current.wind_direction_10m)}</small></span></div>

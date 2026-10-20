@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceRequests, WeatherTileRequests } from '../../api';
 import { currentPlaceProblem, useCurrentPlace } from '../../currentPlace';
-import { WeatherTile } from '../../types';
+import { OutdoorConditions, WeatherTile } from '../../types';
 import { AirTab } from './AirTab';
 import { DaysTab } from './DaysTab';
 import { fetchForecast, Forecast } from './forecast';
@@ -35,6 +35,8 @@ export default function Weather() {
   const [error, setError] = useState('');
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [pv, setPv] = useState<PvLink | null | undefined>(undefined);
+  // „Dom”: świeży pomiar czujnika zewnętrznego kotła (GET /temperature, do 15 min) zamiast temperatury z modelu w „Teraz”
+  const [outdoor, setOutdoor] = useState<OutdoorConditions | null>(null);
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
   const here = useCurrentPlace(!!tile?.current);
   useEffect(() => setTitleSlot(document.getElementById(WEATHER_TITLE_ID)), []);
@@ -77,6 +79,15 @@ export default function Weather() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [lat, lon]);
 
+  useEffect(() => {
+    if (!tile?.home) { setOutdoor(null); return undefined; }
+    const load = () => { void DeviceRequests.getOutdoorConditions().then((result) => setOutdoor(result)); };
+    load();
+    const timer = window.setInterval(load, 60_000);
+    return () => window.clearInterval(timer);
+  }, [tile?.home]);
+  const sensor = tile?.home && outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number' ? outdoor.temperature : null;
+
   const footer = useMemo(() => loadedAt
     ? `Open-Meteo · pobrana ${loadedAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}`
       + (tile?.current ? ' · Twoja lokalizacja' : '')
@@ -92,7 +103,7 @@ export default function Weather() {
       {error && !forecast && <div className="alert alert-err"><div><strong>{error}</strong></div></div>}
       {!forecast && !error && !locationProblem && <p className="app-loading">{tile?.current && !here.place ? 'Ustalam położenie…' : 'Pobieram prognozę…'}</p>}
       {forecast && lat !== null && lon !== null && (
-        tab === 'now' ? <NowTab forecast={forecast} name={name} />
+        tab === 'now' ? <NowTab forecast={forecast} name={name} sensor={sensor} />
           : tab === 'days' ? <DaysTab forecast={forecast} />
             : tab === 'pv' ? (pv === undefined ? <p className="app-loading">Pobieram produkcję z DTU…</p> : <SunTab forecast={forecast} pv={pv} />)
               : tab === 'heating' ? <HeatingTab forecast={forecast} />
