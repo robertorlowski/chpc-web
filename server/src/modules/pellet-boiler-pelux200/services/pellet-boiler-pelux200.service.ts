@@ -8,8 +8,26 @@ import { DeviceModel } from '../../../core/models/device.model';
 import { sendMessage } from '../../../core/websocket';
 import { setOutdoorTemperature } from '../../../core/services/meteo.service';
 import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
+import { notify } from '../../../core/services/push.service';
 
 export const DEFAULT_POLL_INTERVAL_SECONDS = 300;
+
+// stany z płomieniem (jak w tile.ts): rozpalanie, praca, nadzór, wygaszanie
+const FLAME_STATES = new Set([1, 2, 3, 4, 7]);
+const burning = (reading: { state?: number } | undefined) => reading?.state !== undefined && FLAME_STATES.has(reading.state);
+
+// Powiadomienia Web Push (core/services/push.service.ts): kocioł zaczął palić / wygaszony, nowy alarm.
+// previous = poprzedni odczyt (pamięć albo baza); bez niego (pierwszy odczyt) nic nie idzie.
+async function notifyBoilerEvents(rootId: string, previous: PelletBoilerPelux200Entry | undefined, reading: PelletBoilerPelux200Measurements) {
+  if (!previous) return;
+  const temp = typeof reading.heating_temp === 'number' ? ` · kocioł ${reading.heating_temp.toFixed(1)} °C` : '';
+  if (burning(previous) !== burning(reading)) {
+    await notify(rootId, burning(reading) ? 'burning-on' : 'burning-off', { body: `${burning(reading) ? 'Kocioł rozpala' : 'Kocioł wygaszony'}${temp}`, url: '/' });
+  }
+  if (reading.alarm === true && previous.alarm !== true) {
+    await notify(rootId, 'alarm', { body: `Alarm kotła${temp}`, url: '/alarms' });
+  }
+}
 
 const NUMBER_FIELDS = [
   'state', 'heating_temp', 'feeder_temp', 'water_heater_temp', 'outside_temp', 'return_temp',
@@ -75,10 +93,12 @@ export async function addPelletBoilerPelux200Reading(
 ) {
   const reading = roundTemperatures(measured);
   const device = await getDeviceInfo(rootId);
+  const previous = (await getPelletBoilerPelux200Last(rootId)) ?? undefined;
   const { doc } = await writeReading(rootId, {
     ...reading, rootId, deviceType: device.deviceType, deviceId: device.deviceId,
   }, readingKey);
   lastByRoot.set(rootId, doc as unknown as PelletBoilerPelux200Entry);
+  await notifyBoilerEvents(rootId, previous, reading);
   // czujnik zewnętrzny kotła = temperatura zewnętrzna całego serwera (pompa ciepła: t_out, ekran co)
   if (typeof reading.outside_temp === 'number') setOutdoorTemperature(reading.outside_temp, new Date());
   sendMessage('update', rootId);

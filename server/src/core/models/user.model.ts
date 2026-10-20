@@ -8,6 +8,18 @@ export interface UserLocation {
   lng: number;
 }
 
+export interface UserNotificationRule {
+  rootId: string;
+  /** klucze zdarzeń z katalogu rodzaju (PUSH_EVENTS w push.service.ts) */
+  events: string[];
+}
+
+export interface UserNotifications {
+  rules: UserNotificationRule[];
+  quietFrom?: string | null;
+  quietTo?: string | null;
+}
+
 export interface UserEntry {
   _id: mongoose.Types.ObjectId;
   /** małe litery; brak tylko u użytkownika systemowego */
@@ -26,6 +38,9 @@ export interface UserEntry {
   hiddenTiles?: string[];
   /** sterowniki pokazywane na liście tego konta jako kafelek prosty (duże przyciski; włącznik, 2026-10-20) */
   simpleTiles?: string[];
+  /** powiadomienia Web Push (2026-10-21, core/services/push.service.ts): zdarzenia wybrane dla sterowników
+   *  i cisza nocna (HH:mm, w Warszawie; pilne zdarzenia — błąd, alarm — idą mimo ciszy) */
+  notifications?: UserNotifications | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +59,14 @@ const UserSchema = new Schema<UserEntry>(
     deviceOrder: { type: [String], default: undefined },
     hiddenTiles: { type: [String], default: undefined },
     simpleTiles: { type: [String], default: undefined },
+    notifications: {
+      type: new Schema<UserNotifications>({
+        rules: { type: [new Schema<UserNotificationRule>({ rootId: { type: String, required: true }, events: { type: [String], default: [] } }, { _id: false })], default: [] },
+        quietFrom: { type: String, default: null },
+        quietTo: { type: String, default: null },
+      }, { _id: false }),
+      default: null,
+    },
   },
   { timestamps: true, collection: 'users' },
 );

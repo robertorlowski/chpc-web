@@ -2,7 +2,7 @@
 // i /api/device/properties (ustawienia wybranego urządzenia). Używane przez App, stronę Devices,
 // popup DeviceEditModal, Harmonogramy pompy oraz widoki hydroforu.
 import { Requests } from './http';
-import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceShare, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, MailKeyInfo, OperationsDay, OutdoorConditions, User, WeatherTile } from './types';
+import { DatabaseStats, Device, DeviceDefinition, DeviceProperties, DeviceShare, DeviceTiles, DeviceType, FirmwareSummary, FirmwareUpdateRequest, MailKeyInfo, OperationsDay, OutdoorConditions, PushRule, PushSettings, PushSubscriptionInfo, User, WeatherTile } from './types';
 
 // Urządzenia wszystkich rodzajów: lista, nazwa, sterownik domyślny i ustawienia (properties).
 export class DeviceRequests {
@@ -135,6 +135,17 @@ export const AuthRequests = {
   verifyEmail: (code: string) => Requests.json<User>('POST', '/auth/email-change/verify', { code }),
   deleteAccount: () => Requests.json<{ email: string; devices: number }>('POST', '/auth/delete'),
   confirmDelete: (token: string) => Requests.json<{ devices: number }>('POST', '/auth/delete/confirm', { token }),
+};
+
+// Powiadomienia Web Push konta (/api/push/*, 2026-10-21): ustawienia, subskrypcja tej przeglądarki, reguły, próbne.
+export const PushRequests = {
+  settings: () => Requests.json<PushSettings>('GET', '/push/settings'),
+  subscribe: (subscription: PushSubscriptionJSON, label: string) =>
+    Requests.json<PushSubscriptionInfo>('POST', '/push/subscriptions', { endpoint: subscription.endpoint, keys: subscription.keys, label }),
+  unsubscribe: (id: string) => Requests.json<null>('DELETE', `/push/subscriptions/${encodeURIComponent(id)}`),
+  saveRules: (rules: PushRule[], quietFrom: string | null, quietTo: string | null) =>
+    Requests.json<{ rules: PushRule[]; quietFrom: string | null; quietTo: string | null }>('PUT', '/push/rules', { rules, quietFrom, quietTo }),
+  test: () => Requests.json<{ sent: number }>('POST', '/push/test'),
 };
 
 // Udostępnianie sterownika (właściciel): osoby z dostępem i ich zakładki.

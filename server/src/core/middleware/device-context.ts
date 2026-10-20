@@ -43,7 +43,8 @@ export async function resolveDeviceContext(
   // /firmware/...: strona firmware i pobieranie pliku przez sterownik, bez urządzenia
   // /auth/...: logowanie i konto (bez urządzenia)
   // /mail/...: przekaźnik poczty, sterownik sprawdzany w kontrolerze (rootId i deviceId)
-  if (publicPaths.has(req.path) || req.path.startsWith('/devices/') || req.path.startsWith('/firmware/') || req.path.startsWith('/auth/') || req.path.startsWith('/mail/') || req.path.startsWith('/weather-tiles/')) return next();
+  // /push/...: powiadomienia Web Push konta (bez urządzenia)
+  if (publicPaths.has(req.path) || req.path.startsWith('/devices/') || req.path.startsWith('/firmware/') || req.path.startsWith('/auth/') || req.path.startsWith('/mail/') || req.path.startsWith('/weather-tiles/') || req.path.startsWith('/push/')) return next();
 
   const rootId = queryText(req.query.rootId);
   const deviceId = queryText(req.query.deviceId);

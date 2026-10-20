@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { activeSchedule, nextScheduleStart } from './switch-schedule.service';
 import { noteRelayReport } from './switch-operation-log.service';
+import { notify } from '../../../core/services/push.service';
 
 export const MAX_RELAYS = 16;
 // „Włącz na…”: od 1 min do 7 dni
@@ -151,7 +152,12 @@ export async function reportState(
     const state = report.relays[relay.relay - 1];
     const changedAt = new Date(now.getTime() - state.changedS * 1000);
     await recordActivation(rootId, relay, state, changedAt, bootAt, now);
-    if (relay.on !== state.on) changed = true;
+    if (relay.on !== state.on) {
+      changed = true;
+      // powiadomienie Web Push (core/services/push.service.ts): zmiana stanu przekaźnika według sterownika
+      const name = relay.name || `Przekaźnik ${relay.relay}`;
+      await notify(rootId, state.on ? 'relay-on' : 'relay-off', { body: `${name}: ${state.on ? 'włączony' : 'wyłączony'}.`, url: '/' }, now);
+    }
 
     const expired = timed(relay.mode) && effectiveMode(relay, now) === 'schedule';
     await SwitchRelayModel.updateOne({ rootId, relay: relay.relay }, {

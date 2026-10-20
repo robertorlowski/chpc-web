@@ -1,4 +1,5 @@
 // „Moje dane” (/account, menu konta w nagłówku; konta użytkowników, 2026-10-11) w wyglądzie „Instrument” z makiet/
+// (od 2026-10-21 także karta „Powiadomienia” — PushSettingsCard, Web Push)
 // (#s-konto, 2026-10-17): karty „Moje dane” (e-mail ze zmianą przez kod na nowy adres, dane i lokalizacja konta —
 // ProfileForm), „Sesja” (wylogowanie) i czerwona „Usunięcie konta” (.card-danger; link potwierdzający w mailu,
 // okno .modal). DeleteAccountConfirm (/account/delete?token=…) to strona z linku — działa także bez zalogowania.
@@ -6,6 +7,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthRequests } from '../../api';
 import { ProfileForm } from '../../components/ProfileForm';
+import { PushSettingsCard } from '../../components/PushSettingsCard';
 import { useAuth, userDisplayName } from '../../context/AuthContext';
 import { ApiError } from '../../http';
 import '../../components/account.css';
@@ -159,6 +161,8 @@ export function Account() {
         {saved && <div className="toast toast-ok">Zapisano.</div>}
         {user.isSystem && <p className="help">Użytkownik systemowy: logowanie hasłem, widzi wszystkie sterowniki i zmienia wzór kafelka oraz firmware.</p>}
       </section>
+
+      <PushSettingsCard />
 
       <section className="card">
         <header className="card-head"><h2>Sesja</h2></header>

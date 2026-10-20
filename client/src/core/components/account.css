@@ -337,3 +337,86 @@ button.icon-button.theme-toggle[type]:hover {
   margin: -1rem 0 0.75rem;
   text-align: center;
 }
+
+/* ---- karta „Powiadomienia” (PushSettingsCard, Web Push 2026-10-21): lista przeglądarek, reguły per sterownik, cisza nocna ---- */
+.push-card .push-actions {
+  margin-top: 4px;
+}
+
+.push-card .push-status {
+  color: var(--warn-fg);
+}
+
+.push-subscriptions .push-sub-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.push-subscriptions small {
+  display: block;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.push-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.push-device legend {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.push-device .push-type {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-3);
+}
+
+.push-device .push-legend-links {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.push-quiet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.push-quiet-head {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.push-quiet-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.push-quiet-fields .field {
+  width: 120px;
+}
+
+.push-quiet-fields .link-btn {
+  padding-bottom: 12px;
+}

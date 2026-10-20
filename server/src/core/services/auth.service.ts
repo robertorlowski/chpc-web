@@ -114,7 +114,8 @@ async function consumeCode(
 // Pamięć podręczna sesji (token → sesja i użytkownik) na 30 s: aplikacja odpytuje API co kilka sekund.
 const SESSION_CACHE_MS = 30 * 1000;
 const sessionCache = new Map<string, { at: number; session: SessionEntry; user: UserEntry }>();
-const forgetUserSessions = (userId: string) => {
+/** po zmianie dokumentu users poza tym serwisem (np. reguły powiadomień): następne żądanie czyta go z bazy */
+export const forgetUserSessions = (userId: string) => {
   for (const [key, value] of sessionCache) if (value.session.userId === userId) sessionCache.delete(key);
 };
 

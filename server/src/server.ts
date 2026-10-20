@@ -14,6 +14,8 @@ import { startPelletBoilerScheduler } from './modules/pellet-boiler-pelux200/ser
 import { removeExpiredPanelDetails } from './modules/heat-pump/services/pv.service';
 import { assignDefaultPumpConfigs } from './core/services/device.service';
 import { migrateOwners } from './core/services/auth.service';
+import { pushConfigured } from './core/services/push.service';
+import { startPushWatchdog } from './core/services/push-watchdog.service';
 
 const PANEL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -48,6 +50,7 @@ const PORT = Number(process.env.PORT ?? 3001);
   if (process.env.AUTH_DISABLED === '1') console.warn('[konta] AUTH_DISABLED=1: API bez logowania (tylko do testów)');
   if (!process.env.SYSTEM_PASSWORD) console.warn('[konta] brak SYSTEM_PASSWORD: logowanie systemowe wyłączone');
   if (!process.env.SMTP_HOST) console.warn('[konta] brak SMTP_HOST: maile tylko w logu');
+  if (!pushConfigured()) console.warn('[push] brak VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY: powiadomienia Web Push wyłączone');
 
   // BACKGROUND_JOBS=off: podgląd lokalny na bazie produkcyjnej bez schedulerów i czyszczenia PV
   // (inaczej drugi serwer zlecałby zmiany kotłu i kasował dane obok produkcji)
@@ -63,6 +66,8 @@ const PORT = Number(process.env.PORT ?? 3001);
     startScheduler();
     // harmonogram kotła pelletowego: sezon i CWU od–do, zlecenia zmian parametrów co minutę
     startPelletBoilerScheduler();
+    // powiadomienia Web Push offline / online z kafelków co minutę (core/services/push-watchdog.service.ts)
+    startPushWatchdog();
 
     // także przy starcie: serwer na Render bywa restartowany częściej niż raz na dobę
     void cleanPanelDetails();

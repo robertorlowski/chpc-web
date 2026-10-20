@@ -118,8 +118,26 @@ export type User = {
   profileComplete: boolean;
 };
 
+// Powiadomienia Web Push (karta „Powiadomienia” w /account, 2026-10-21; GET /push/settings)
+export type PushEventDefinition = { key: string; label: string; default: boolean; urgent?: boolean };
+export type PushSubscriptionInfo = { id: string; endpoint: string; label: string; createdAt: string; lastUsedAt: string | null };
+export type PushRule = { rootId: string; events: string[] };
+export type PushSettings = {
+  /** klucze VAPID są na serwerze */
+  configured: boolean;
+  publicKey: string | null;
+  subscriptions: PushSubscriptionInfo[];
+  rules: PushRule[];
+  quietFrom: string | null;
+  quietTo: string | null;
+  /** katalog zdarzeń według rodzaju sterownika */
+  events: Partial<Record<DeviceType, PushEventDefinition[]>>;
+  /** sterowniki konta, które mają zdarzenia */
+  devices: { rootId: string; name: string; deviceType: DeviceType }[];
+};
+
 // Osoba z dostępem do sterownika (karta „Udostępnianie”); registered = false: zaproszenie czeka na rejestrację
-export type DeviceShare = { id: string; email: string; name: string | null; registered: boolean; tabs: string[]; createdAt: string };
+export type DeviceShare ={ id: string; email: string; name: string | null; registered: boolean; tabs: string[]; createdAt: string };
 
 // Definicja kotła pelletowego (kontrakt z serwerem, core/types.ts): pompa ciepła trybu „Pompa ciepła”.
 export type BoilerConfig = { heatPumpRootId: string | null };

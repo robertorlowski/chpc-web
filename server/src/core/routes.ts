@@ -15,6 +15,7 @@ import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, upl
 import { getTemperature } from './controllers/meteo.controller'
 import { approveDeviceMailKey, getMailConfig, getNextMail, postMailResult, revokeDeviceMailKey } from './controllers/mail-relay.controller'
 import { getOperations } from './controllers/operation-log.controller'
+import { deletePushSubscription, getPushSettings, postPushSubscription, postPushTest, putPushRules } from './controllers/push.controller'
 import { getDatabaseStatsEntry } from './controllers/database.controller'
 import { getDeviceTilesEntry } from './controllers/device.controller'
 import { deleteTileTemplateEntry, getTileTemplateEntry, putTileTemplateEntry } from './controllers/tile-template.controller'
@@ -96,6 +97,13 @@ router.delete('/weather-tiles/:id', deleteWeatherTile)
 
 // dziennik operacji sterownika z dnia (zakładka „Operacje”)
 router.get('/operations', getOperations)
+
+// powiadomienia Web Push konta (karta „Powiadomienia” w /account; bez rootId, wymaga zalogowania)
+router.get('/push/settings', getPushSettings)
+router.post('/push/subscriptions', postPushSubscription)
+router.delete('/push/subscriptions/:id', deletePushSubscription)
+router.put('/push/rules', putPushRules)
+router.post('/push/test', postPushTest)
 
 // Moduły nie sprawdzają rodzaju urządzenia: np. /hp/add z rootId hydroforu
 // zostanie przyjęte. Rozdział rodzajów jest po stronie sterowników i klienta.
