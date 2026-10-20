@@ -38,8 +38,8 @@ Zmiany w `core` dla włącznika: `DeviceType.SWITCH`, `WeekDay` przeniesione do 
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
 | `POST /switch/state` | sterownik | `{uptimeS?, relays: [{on, changedS}], diag?, weather?}` (`diag` — diagnostyka firmware, `weather` — pogoda z Open-Meteo, punkt 5d CLAUDE.md; 1–16 przekaźników, `changedS` ≥ 0); sam `deviceId` wystarcza, 404/409 jak w core; odpowiedź 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` tylko przy zleceniu „Aktualizuj”; firmware od 1.1.0 aktualizuje się z niej bez restartu); złe dane 400 |
-| `PUT /switch/mode` | aplikacja, sterownik | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`; `minutes` tylko dla `timer`, pełne 1–10080; `source: "controller"` albo żądanie z samym `deviceId` = zmiana ze sterownika; odpowiedź: przekaźnik jak w `GET /switch/relays`; 400 zły tryb, numer, czas albo nieznany przekaźnik |
-| `GET /switch/relays` | aplikacja | przekaźniki: `relay`, `name`, `mode` (timer po czasie już jako `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (wpis działający teraz), `nextStart` |
+| `PUT /switch/mode` | aplikacja, sterownik | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`, `pause` (wyłączony do końca bieżącego okna harmonogramu, poza oknem = `schedule`); `minutes` tylko dla `timer`, pełne 1–10080; `source: "controller"` albo żądanie z samym `deviceId` = zmiana ze sterownika; odpowiedź: przekaźnik jak w `GET /switch/relays`; 400 zły tryb, numer, czas albo nieznany przekaźnik |
+| `GET /switch/relays` | aplikacja | przekaźniki: `relay`, `name`, `mode` (timer i pause po czasie już jako `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (wpis działający teraz), `nextStart` |
 | `PUT /switch/relays/:relay` | aplikacja | `{name}` (najwyżej 40 znaków, pusta = „Przekaźnik N”); 404 nieznany przekaźnik |
 | `GET /switch/schedules` | aplikacja | wszystkie wpisy (także wyłączone), po przekaźniku i godzinie startu |
 | `POST /switch/schedules` | aplikacja | `{relay, dayOfWeek \| date, startTime, endTime, enabled?}`; `relay` 1…liczba przekaźników, godziny `HH:mm`, `dayOfWeek` −3…6 (bez `date`); 201; 400 z opisem błędu |
@@ -58,7 +58,7 @@ Zgłoszenie (`POST /devices/register`, moduł core) z `deviceType: "switch"` prz
 |---|---|
 | `rootId`, `deviceId`, `relay` | identyfikacja; `relay` od 1 |
 | `name` | nazwa (≤ 40 znaków, domyślnie pusta) |
-| `mode`, `until` | tryb `schedule` \| `on` \| `timer` \| `off` (domyślnie `schedule`); `until` — koniec trybu `timer` |
+| `mode`, `until` | tryb `schedule` \| `on` \| `timer` \| `off` \| `pause` (domyślnie `schedule`); `until` — koniec trybu `timer` albo `pause` |
 | `modeSource`, `modeChangedAt` | kto i kiedy ustawił tryb (`app` \| `controller`) |
 | `on`, `changedAt` | stan zgłoszony przez sterownik i chwila jego zmiany (`teraz − changedS`) |
 | `lastSeenAt` | ostatnie zgłoszenie stanu (online < 30 s) |
@@ -89,7 +89,7 @@ npm test -w server -- --run       # server/test/switch.test.ts: 13 testów (serw
 node scripts/simulate-switch.mjs [--relays N] [--history]   # symulator sterownika (npm run local)
 ```
 
-`server/test/switch.test.ts` sprawdza: łączenie stykających się okien, okno przez północ należące do dnia startu, dni robocze bez świąt i wyłączny koniec okna, najbliższe włączenie, zgłoszenie z utworzeniem przekaźników i domyślnym czasem, polecenia w każdym trybie (także koniec timera), walidację trybu i czasu, zmianę trybu samym `deviceId` (strona sterownika), identyfikację jak w hydroforze (`deviceId`, 404, 409), historię z czasem ze sterownika, koniec włączenia na ostatnim zgłoszeniu po utracie zasilania, walidację, zmianę i usunięcie wpisu, zmianę nazwy przekaźnika.
+`server/test/switch.test.ts` sprawdza: łączenie stykających się okien, okno przez północ należące do dnia startu, dni robocze bez świąt i wyłączny koniec okna, najbliższe włączenie, zgłoszenie z utworzeniem przekaźników i domyślnym czasem, polecenia w każdym trybie (także koniec timera), tryb `pause` (koniec okna, `schedule` w poleceniu dla sterownika, dane kafelka prostego), walidację trybu i czasu, zmianę trybu samym `deviceId` (strona sterownika), identyfikację jak w hydroforze (`deviceId`, 404, 409), historię z czasem ze sterownika, koniec włączenia na ostatnim zgłoszeniu po utracie zasilania, walidację, zmianę i usunięcie wpisu, zmianę nazwy przekaźnika.
 
 Symulator (`scripts/simulate-switch.mjs`) zgłasza się z SN `4C0000000E2E` (albo `SIMULATED_SN`), co 5 s wysyła stan, wykonuje polecenia z lokalnym odliczaniem i reaguje na WebSocket `operation`; `--history` dopisuje wprost do bazy lokalnej włączenia z 7 dni.
 

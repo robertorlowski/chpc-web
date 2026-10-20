@@ -27,14 +27,15 @@ The module is responsible for:
 
 | Action | Where |
 |---|---|
-| Log in | login screen: e-mail → code from the mail (or a link from the mail); after login the question "Zapamiętać?" (remember?) — a remembered session lasts 14 days. The mail is sent by a controller at home; when none is online the screen says "Poczta jest chwilowo niedostępna…" (mail temporarily unavailable) |
+| Log in | login screen: e-mail → code from the mail (or a link from the mail); after login the question "Zapamiętać?" (remember?) — a remembered session lasts 90 days. The mail is sent by a controller at home; when none is online the screen says "Poczta jest chwilowo niedostępna…" (mail temporarily unavailable) |
 | See the weather and forecast for a town | click a weather tile → the weather page with the tabs Teraz (now), Najbliższe dni (next days), Słońce i PV (sun and PV), Ogrzewanie (heating), Powietrze (air), Wiatr i opady (wind and precipitation); the "Moja lokalizacja" tile takes the position from the browser |
 | See all controllers and choose one | the "Sterowniki" tile list (`/devices`); the application always starts there |
 | Give or change a controller name | pencil on the tile (on hover) or the pencil in the "Sterownik" card in Settings |
 | Arrange tiles, hide a tile, add a weather tile for any town | grid icon in the bar → "Zmień układ" (change layout) mode: arrows (move, swap), eye (hide), "+ kafelek pogody" (weather tile) in an empty field, "Gotowe" (done) |
 | Switch to another controller | the back arrow in the bar (to the list) or, on a phone, "Więcej" (more) → "Lista sterowników" (controller list) |
 | See the Root ID, SN, IP address and firmware of a controller | the "Dane sterownika" dialog and the "Sterownik" card in Settings |
-| Share a controller with another person (selected tabs) | the "Udostępnianie" (sharing) card in Settings → "Udostępnij" |
+| Share a controller with another person (selected tabs or "Panel prosty") | the "Udostępnianie" (sharing) card in Settings → "Udostępnij"; "Panel prosty" (simple panel) = the person sees only the simple tile (big buttons), no controller views |
+| Turn on the simple tile on your own list (boiler switch: on / off / schedule; pellet boiler: turn the boiler on / off / DHW) | pencil on the tile → "Dane sterownika" → "Kafelek prosty"; this account only |
 | Browse the controller's operations log | the "Operacje" tab (all kinds except photovoltaics) |
 | Change the theme | the moon / sun icon in the bar (light ↔ dark) or the account menu: Jasny / Ciemny / Jak system (light / dark / as system) |
 | Change account data, log out, delete the account | the account menu (avatar in the bar) → "Moje dane" (my data) |
@@ -43,7 +44,7 @@ The user interface is in Polish; the screenshots below show it as is.
 
 ![Controller list](../../../moduly/core/img/lista-sterownikow.png)
 
-*Controller list (production, computer, light theme): the home weather strip at the top, tiles in a fixed layout — the icon and the left edge in the kind's colour (sun — photovoltaics, waves — heat pump, drop — water pressure tank, flame — pellet boiler, toggle — switch), the name, an Online / Offline chip, a big value with a caption, fact fields (heat pump: power, compressor and outlet water temperature; boiler: DHW and both mixers; photovoltaics: today's yield; tank: pump, runs, last run), a state badge ("pracuje" — running, CO / CWU), a warning and the "dane sprzed …" (data from …) footer; the switch shows its relays with toggles. Below, weather tiles; at the bottom, the status bar with database usage (system user only). The pencil and the firmware cog appear when hovering a tile. The screenshots in this documentation come from the production installation (2026-10-18); the name, e-mail, address, SN, Root ID, IP addresses and microinverter serial numbers are altered.*
+*Controller list (production, computer, light theme): the home weather strip at the top, tiles in a fixed layout — the icon and the left edge in the kind's colour (sun — photovoltaics, waves — heat pump, drop — water pressure tank, flame — pellet boiler, toggle — switch), the name, an Online / Offline chip (Offline red; the tank grey, because its controller is powered only while the pump runs), a big value with a caption, fact fields (heat pump: power, compressor and outlet water temperature; boiler: DHW and both mixers; photovoltaics: today's yield; tank: pump, runs, last run), a state badge ("pracuje" — running, CO / CWU), a warning and the "dane sprzed …" (data from …) footer; the switch shows its relays with toggles. Below, weather tiles; at the bottom, the status bar with database usage (system user only). The pencil and the firmware cog appear when hovering a tile. The screenshots in this documentation come from the production installation (2026-10-18); the name, e-mail, address, SN, Root ID, IP addresses and microinverter serial numbers are altered.*
 
 ![Controller list on a phone](../../../moduly/core/img/lista-sterownikow-telefon.png)
 
@@ -114,7 +115,8 @@ The user interface is in Polish; the screenshots below show it as is.
 | **Root ID** (`rootId`) | the device (role) identifier in the database; the application and the controller send it with every request |
 | **Controller registration** (zgłoszenie) | the request a controller sends at start; creates the device or returns the existing one |
 | **Account** | an application user: e-mail, first and last name, location; own controllers, own tile layout and weather tiles |
-| **Share** (udostępnienie) | another account's access to a controller with selected tabs; the owner can change or revoke it |
+| **Share** (udostępnienie) | another account's access to a controller with selected tabs or as a "Panel prosty"; the owner can change or revoke it |
+| **Simple tile** (kafelek prosty) | the switch or boiler tile on the list with big buttons instead of values (2026-10-20); two such tiles fit on a phone screen without scrolling |
 | **Tile** (kafelek) | a field on the controller list: a controller with its current state or the weather of a town |
 | **Weather page** | the screen behind a weather tile: current conditions, forecast, sun and PV, heating, air, wind and precipitation |
 | **Mail relay** (przekaźnik poczty) | a controller at home (the switch, `co` as a fallback) that sends the application's mails; it receives the mail credentials encrypted with its own key and keeps them only in memory |

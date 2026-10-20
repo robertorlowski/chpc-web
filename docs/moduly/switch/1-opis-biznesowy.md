@@ -52,6 +52,9 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej (jeden przekaźnik „Bojler”
 | **Włączony na czas** | „Włącz” z czasem > 0 | włączony do końca czasu, potem wraca do harmonogramu |
 | **Włączony bez limitu** | „Włącz” z czasem 0 h 0 min | włączony, dopóki użytkownik nie zmieni trybu |
 | **Wyłączony** | „Wyłącz” | wyłączony; **harmonogram go nie włączy**, dopóki użytkownik nie wybierze „Harmonogram” |
+| **Wyłączony do końca okna** | „Wyłącz” na kafelku prostym | wyłączony do końca okna harmonogramu działającego teraz, potem harmonogram (następne włączenie zostaje); poza oknem to zwykły „Harmonogram” |
+
+**Kafelek prosty** (2026-10-20, dla osoby, która ma tylko włączać i wyłączać bojler): na liście sterowników zamiast zwykłego kafelka — zdanie o stanie („Bojler jest włączony · zgodnie z harmonogramem · wyłączy się dziś o 06:00”) i dwa duże przyciski z opisem, co się stanie: przy wyłączonym ręcznie „Włącz” (na domyślny czas z Ustawień) i „Włączaj zgodnie z harmonogramem”; przy włączonym „Wyłącz” (do końca okna) i „Wyłącz harmonogram uruchamiania”; przy wyłączonym z harmonogramu „Włącz” i „Wyłącz harmonogram uruchamiania”. Włącza się go w oknie „Dane sterownika” („Kafelek prosty”, tylko własne konto) albo udostępnia jako „Panel prosty”.
 
 Ten sam wybór jest na stronie samego sterownika (sieć lokalna), więc włącznik da się obsłużyć także bez internetu.
 

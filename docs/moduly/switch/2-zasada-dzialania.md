@@ -37,6 +37,7 @@ flowchart TD
 
 - **`offAfterS`** to liczba sekund do wyłączenia. Sterownik odlicza ją sam, więc bez internetu dokończy włączenie i się wyłączy. Każde kolejne zgłoszenie odświeża odliczanie.
 - **Timer po upływie `until`** działa jak harmonogram; przy najbliższym zgłoszeniu serwer zapisuje w bazie tryb `schedule`.
+- **`pause`** (kafelek prosty, 2026-10-20): wyłączony do końca okna harmonogramu działającego teraz (`until` = koniec okna), potem `schedule`; ustawiony poza oknem od razu staje się `schedule`. Sterownik dostaje go jako `schedule`, bo firmware odrzuca polecenie z nieznaną nazwą trybu.
 - **Tryby są trwałe** (kolekcja `switch_relays`): restart serwera ich nie kasuje, inaczej niż ręczne operacje pompy ciepła.
 - Każda odpowiedź niesie też `mode` (tylko do wyświetlenia na stronie sterownika).
 

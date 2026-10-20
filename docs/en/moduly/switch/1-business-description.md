@@ -54,6 +54,9 @@ The screenshots come from the local demo database (one relay "Bojler", data from
 | **On for a time** | "Włącz" with a time > 0 | on until the time runs out, then back to the schedule |
 | **On without a limit** | "Włącz" with 0 h 0 min | on until the user changes the mode |
 | **Off** | "Wyłącz" | off; **the schedule will not turn it on** until the user selects "Harmonogram" |
+| **Off until the end of the window** | "Wyłącz" on the simple tile | off until the end of the schedule window active now, then the schedule (the next activation stays); outside a window it is a plain "Harmonogram" |
+
+**Simple tile** (2026-10-20, for a person who only turns the boiler on and off): on the controller list instead of the normal tile — a sentence about the state ("Bojler jest włączony · zgodnie z harmonogramem · wyłączy się dziś o 06:00") and two big buttons with a description of what will happen: when off manually "Włącz" (for the default time from Settings) and "Włączaj zgodnie z harmonogramem"; when on "Wyłącz" (until the end of the window) and "Wyłącz harmonogram uruchamiania"; when off by the schedule "Włącz" and "Wyłącz harmonogram uruchamiania". It is turned on in the "Dane sterownika" dialog ("Kafelek prosty", own account only) or shared as "Panel prosty".
 
 The same choice is on the controller's own page (local network), so the switch can be operated without the internet as well.
 

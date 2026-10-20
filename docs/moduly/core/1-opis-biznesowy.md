@@ -27,21 +27,22 @@ Moduł odpowiada za:
 
 | Czynność | Gdzie |
 |---|---|
-| Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 14 dni. Mail wysyła sterownik w domu; gdy żaden nie jest w sieci, ekran pokazuje „Poczta jest chwilowo niedostępna…” |
+| Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 90 dni. Mail wysyła sterownik w domu; gdy żaden nie jest w sieci, ekran pokazuje „Poczta jest chwilowo niedostępna…” |
 | Zobaczyć pogodę i prognozę dla miejscowości | kliknięcie kafelka pogody → strona pogody z zakładkami Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady; kafelek „Moja lokalizacja” bierze położenie z przeglądarki |
 | Zobaczyć wszystkie sterowniki i wybrać jeden | lista kafelków „Sterowniki” (`/devices`); aplikacja zawsze zaczyna od niej |
 | Nadać lub zmienić nazwę sterownika | ołówek na kafelku (po najechaniu) albo ołówek w karcie „Sterownik” w Ustawieniach |
 | Ułożyć kafelki, ukryć kafelek, dodać kafelek pogody dla dowolnej miejscowości | ikona siatki w pasku → tryb „Zmień układ”: strzałki (przeniesienie, zamiana), oko (ukrycie), „+ kafelek pogody” w pustym polu, „Gotowe” |
 | Przełączyć się na inny sterownik | strzałka wstecz w pasku (do listy) albo na telefonie „Więcej” → „Lista sterowników” |
 | Zobaczyć Root ID, SN, adres IP i firmware sterownika | okno „Dane sterownika” i karta „Sterownik” w Ustawieniach |
-| Udostępnić sterownik innej osobie (wybrane zakładki) | karta „Udostępnianie” w Ustawieniach → „Udostępnij” |
+| Udostępnić sterownik innej osobie (wybrane zakładki albo „Panel prosty”) | karta „Udostępnianie” w Ustawieniach → „Udostępnij”; „Panel prosty” = osoba widzi sam kafelek prosty (duże przyciski), bez widoków sterownika |
+| Włączyć kafelek prosty na własnej liście (bojler: Włącz / Wyłącz / harmonogram; piec: Włącz piec / Wyłącz piec / CWU) | ołówek na kafelku → „Dane sterownika” → „Kafelek prosty”; dotyczy tylko tego konta |
 | Przejrzeć dziennik operacji sterownika | zakładka „Operacje” (wszystkie rodzaje poza fotowoltaiką) |
 | Zmienić motyw | ikona księżyca / słońca w pasku (jasny ↔ ciemny) albo menu konta: Jasny / Ciemny / Jak system |
 | Zmienić dane konta, wylogować się, usunąć konto | menu konta (awatar w pasku) → „Moje dane” |
 
 ![Lista sterowników](img/lista-sterownikow.png)
 
-*Lista sterowników (produkcja, komputer, motyw jasny): pasek pogody domu u góry, kafelki w stałym układzie — ikona i lewa krawędź w kolorze rodzaju (słońce — fotowoltaika, fale — pompa ciepła, kropla — hydrofor, płomień — kocioł pelletowy, przełącznik — włącznik), nazwa, chip Online / Offline, duża wartość z opisem, pola faktów (pompa: moc, temperatura sprężarki i wody wyjściowej; kocioł: CWU i oba mieszacze; fotowoltaika: produkcja dziś; hydrofor: pompa, uruchomienia, ostatnie), plakietka stanu („pracuje”, CO / CWU), ostrzeżenie i stopka „dane sprzed …”; włącznik pokazuje listę przekaźników z przełącznikami. Niżej kafelki pogody, na dole stopka z zajętością bazy (tylko użytkownik systemowy). Ołówek i trybik firmware pojawiają się po najechaniu na kafelek. Zrzuty w tej dokumentacji pochodzą z instalacji produkcyjnej (2026-10-18); imię, e-mail, adres, SN, Root ID, adresy IP i numery mikrofalowników są zmienione.*
+*Lista sterowników (produkcja, komputer, motyw jasny): pasek pogody domu u góry, kafelki w stałym układzie — ikona i lewa krawędź w kolorze rodzaju (słońce — fotowoltaika, fale — pompa ciepła, kropla — hydrofor, płomień — kocioł pelletowy, przełącznik — włącznik), nazwa, chip Online / Offline (Offline czerwony; hydrofor szary, bo jego sterownik ma zasilanie tylko przy pracy pompy), duża wartość z opisem, pola faktów (pompa: moc, temperatura sprężarki i wody wyjściowej; kocioł: CWU i oba mieszacze; fotowoltaika: produkcja dziś; hydrofor: pompa, uruchomienia, ostatnie), plakietka stanu („pracuje”, CO / CWU), ostrzeżenie i stopka „dane sprzed …”; włącznik pokazuje listę przekaźników z przełącznikami. Niżej kafelki pogody, na dole stopka z zajętością bazy (tylko użytkownik systemowy). Ołówek i trybik firmware pojawiają się po najechaniu na kafelek. Zrzuty w tej dokumentacji pochodzą z instalacji produkcyjnej (2026-10-18); imię, e-mail, adres, SN, Root ID, adresy IP i numery mikrofalowników są zmienione.*
 
 ![Lista sterowników na telefonie](img/lista-sterownikow-telefon.png)
 
@@ -112,7 +113,8 @@ Moduł odpowiada za:
 | **Root ID** (`rootId`) | identyfikator urządzenia (roli) w bazie danych; aplikacja i sterownik podają go przy każdym zapytaniu |
 | **Zgłoszenie sterownika** | zapytanie, które sterownik wysyła przy starcie; tworzy urządzenie albo zwraca istniejące |
 | **Konto** | użytkownik aplikacji: e-mail, imię i nazwisko, lokalizacja; własne sterowniki, własny układ kafelków i kafelki pogody |
-| **Udostępnienie** | dostęp innego konta do sterownika z wybranymi zakładkami; właściciel może go zmienić albo cofnąć |
+| **Udostępnienie** | dostęp innego konta do sterownika z wybranymi zakładkami albo jako „Panel prosty”; właściciel może go zmienić albo cofnąć |
+| **Kafelek prosty** | kafelek włącznika albo pieca na liście z dużymi przyciskami zamiast wartości (2026-10-20); dwa takie kafelki mieszczą się na ekranie telefonu bez przewijania |
 | **Kafelek** | pole na liście sterowników: sterownik z bieżącym stanem albo pogoda miejscowości |
 | **Strona pogody** | ekran po kliknięciu kafelka pogody: bieżące warunki, prognoza, słońce i PV, ogrzewanie, powietrze, wiatr i opady |
 | **Przekaźnik poczty** | sterownik w domu (włącznik, zapasowo `co`), który wysyła maile aplikacji; dane poczty dostaje zaszyfrowane swoim kluczem i trzyma tylko w pamięci |

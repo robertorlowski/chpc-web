@@ -13,6 +13,7 @@ Moduł pozwala:
 - **zobaczyć bieżący stan kotła** — także z telefonu, bez podchodzenia do panelu;
 - **przejrzeć odczyty z wybranego dnia** i pobrać je jako plik CSV;
 - **ustawić, jak często sterownik odczytuje kocioł** (od pół minuty do godziny; domyślnie co 5 minut);
+- **kafelek prosty** (2026-10-21, dla osoby, która ma tylko włączać i wyłączać piec): na liście sterowników chip „Włączony · Zima / Lato”, „Wyłączony” albo „Offline”, plakietka „Praca” przy paleniu, „Piec włączony / wyłączony” z opisem ogrzewania domu i temperaturą kotła oraz przyciski: „Włącz piec” (włącza regulator, Zimę i CWU, jeśli było wyłączone), „Wyłącz piec”, „Włącz CWU” / „Wyłącz CWU” z linią „CWU teraz X °C, zadana Y °C”; włączany w oknie „Dane sterownika” („Kafelek prosty”) albo udostępniany jako „Panel prosty” — opis mechanizmu w [CLAUDE.md](../../../CLAUDE.md), punkt 5c;
 - w aplikacji są też zakładki Wykres (temperatury dnia, spalony pellet), Harmonogram (sezon i CWU w oknach godzin), Alarmy i Operacje oraz zmiana parametrów regulatora z Ustawień — opis w [CLAUDE.md](../../../CLAUDE.md), punkt 5c; niniejsza dokumentacja opisuje etap odczytu i wygląd ekranów.
 
 ## Stan wdrożenia
@@ -49,7 +50,7 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej z odczytami z 12–13.10.2026 (
 
 ![Widok Harmonogram](img/piec-harmonogram.png)
 
-*Harmonogram: karta „Harmonogram” (czy działa, która lista trybu działa, temperatura na zewnątrz, stan teraz, ostatni błąd) i dla każdego trybu karty „Tryb Zima · …” i „CWU · …” z wpisami (dzień, godziny, ustawienie; „działa teraz” przy wpisie albo pozycji „Poza harmonogramem”), ołówkiem, koszem i „+ Dodaj wpis”.*
+*Harmonogram: karta „Harmonogram” („Harmonogram działa – pompa ciepła / pelet” z dymkiem „i”, temperatura na zewnątrz, stan teraz — przy znaczniku „CWU – grzanie peletem” CWU z listy Pellet z dopiskiem „z peletu” — i ostatni błąd; od 2026-10-20 bez przełącznika „Lista: pompa ciepła / pelet”) i dla każdego trybu karty „Tryb Zima · …” i „CWU · …” z wpisami (dzień, godziny, ustawienie; „działa teraz” przy wpisie albo pozycji „Poza harmonogramem”), ołówkiem, koszem i „+ Dodaj wpis”.*
 
 ![Widok Ustawienia](img/piec-ustawienia.png)
 

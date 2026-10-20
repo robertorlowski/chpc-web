@@ -25,7 +25,8 @@ Bez schedulera i bez serwisu operacji. Moduł importuje tylko z `core` (`device-
 | `pages/Home.tsx` | układ „Instrument”: pasek Offline, karta hero (temperatura kotła, zadana, stan z płomieniem, chipy sezonu i trybu, KPI), karty CWU i mieszaczy, „Urządzenia kotła”, „Pozostałe”; odświeżanie co 30 s |
 | `pages/Data.tsx` | pasek filtrów (dzień, „Wszystkie parametry”, CSV) i karta „Odczyty dnia” (`.table-wrap` z przyklejonym nagłówkiem) |
 | `pages/Chart.tsx` | temperatury dnia z chipami serii i pasem palenia albo spalony pellet; kolory z `core/chartColors.ts` |
-| `pages/Schedules.tsx` | karta „Harmonogram” i karty wpisów „Tryb Zima · …” / „CWU · …” (`.entries`, „działa teraz”, „Poza harmonogramem”), okno wpisu `.modal` |
+| `components/SimpleTile.tsx` | kafelek prosty na liście sterowników (`DeviceTile.boiler` z `GET /devices/summary`, akcje `POST /pellet-boiler-pelux200/simple {action: on \| off \| cwu-on \| cwu-off}`, serwer `services/pellet-boiler-pelux200-simple.service.ts`) |
+| `pages/Schedules.tsx` | karta „Harmonogram” („Harmonogram działa – tryb”, dymek „i”; przy „CWU – grzanie peletem” stan „Teraz” i „działa teraz” z listy Pellet — `state.pelletCwu` z `GET /schedules/current`) i karty wpisów „Tryb Zima · …” / „CWU · …” (`.entries`, „działa teraz”, „Poza harmonogramem”), okno wpisu `.modal` |
 | `pages/Settings.tsx` | dwie kolumny: „Tryb pracy”, „Główne parametry” i „Ostatnie zmiany” (`components/MainParameters.tsx`); karta „Odczyt” (interwał w sekundach 30–3600), „Ustawienia zaawansowane” (`components/AdvancedSettings.tsx`), karta „Sterownik” (`ControllerCard` z `core`) i „Udostępnianie” |
 | `components/Alerts.tsx`, `ui.tsx`, `icons.tsx`, `WinterCycleStatus.tsx`, `ModeProfiles.tsx` | zakładka Alarmy, wspólne elementy widoków kotła (`DateNav`, `Segmented`, `CsvButton`, okno), ikony, stan cyklu Zimy, nastawy trybów |
 | `pages/style.css` | style widoków kotła |

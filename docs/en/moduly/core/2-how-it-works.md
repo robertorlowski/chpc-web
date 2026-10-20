@@ -119,7 +119,7 @@ For ordinary endpoints (outside `controllerPaths`) the context is determined by 
 flowchart TD
     S["application opened"] --> AUTH{"session in the browser<br/>(localStorage chpc.session)?"}
     AUTH -- no --> LOGIN["login screen:<br/>e-mail → code or link from the mail"]
-    LOGIN --> REM["question „Zapamiętać?”:<br/>yes = 14 days, no = until the browser is closed"]
+    LOGIN --> REM["question „Zapamiętać?”:<br/>yes = 90 days, no = until the browser is closed"]
     REM --> FIRST
     AUTH -- yes --> FIRST{"first opening in this<br/>browser session (sessionStorage)?"}
     FIRST -- yes --> DEV["/devices: tile list"]
@@ -132,10 +132,10 @@ flowchart TD
     APP -- "back arrow or „Więcej” → Lista sterowników" --> DEV
 ```
 
-- Without a session every path shows the login screen (`AuthGate`); the link from the mail leads to `/login?token=…`. A new account must first fill in the first name, last name and country. A "remembered" session lasts 14 days from login, an unremembered one 24 h from last use (it disappears when the browser is closed).
+- Without a session every path shows the login screen (`AuthGate`); the link from the mail leads to `/login?token=…`. A new account must first fill in the first name, last name and country. A "remembered" session lasts 90 days from login, an unremembered one 24 h from last use (it disappears when the browser is closed).
 - A new browser session always starts from the tile list (`sessionStorage` `chpc.startedOnList`); there is no default controller and no automatic choice.
 - The selected controller is kept in `localStorage` (`chpc.selectedDevice`), so a page reload stays on its screens. A remembered controller that no longer exists in the database (e.g. after switching from the local to the production database) is removed from browser memory. A network error removes nothing.
-- A controller shared by another account has a "Udostępnione przez …" (shared by) banner above the content and only the shared tabs in the menu.
+- A controller shared by another account has a "Udostępnione przez …" (shared by) banner above the content and only the shared tabs in the menu. A "Panel prosty" share (`tabs: ['simple']`) gives no tab: the person sees only the simple tile on the list (switch: on / off / schedule, boiler: turn on / off / DHW) and may only send those commands (`PUT /switch/mode`, `POST /pellet-boiler-pelux200/simple`). The owner turns the simple tile on for their own list with the toggle in the "Dane sterownika" dialog (`users.simpleTiles`).
 
 ## Menu and screens from the registry
 

@@ -49,7 +49,7 @@ The application interface is in Polish; the screenshots show it as is. They come
 
 ![Schedule view](../../../moduly/pellet-boiler-pelux200/img/piec-harmonogram.png)
 
-*"Harmonogram" (Schedule): the "Harmonogram" card (whether it runs, which mode list is active, outdoor temperature, state now, last error) and, for each mode, the "Tryb Zima · …" and "CWU · …" cards with entries (day, hours, setting; "działa teraz" at the entry or at the "Poza harmonogramem" item), a pencil, a bin and "+ Dodaj wpis".*
+*"Harmonogram" (Schedule): the "Harmonogram" card ("Harmonogram działa – pompa ciepła / pelet" with an "i" tip, outdoor temperature, state now — with the "CWU – grzanie peletem" flag the DHW range comes from the Pellet list, marked "z peletu" — and the last error; since 2026-10-20 without the "Lista: pompa ciepła / pelet" switch) and, for each mode, the "Tryb Zima · …" and "CWU · …" cards with entries (day, hours, setting; "działa teraz" at the entry or at the "Poza harmonogramem" item), a pencil, a bin and "+ Dodaj wpis".*
 
 ![Settings view](../../../moduly/pellet-boiler-pelux200/img/piec-ustawienia.png)
 

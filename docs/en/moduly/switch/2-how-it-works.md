@@ -37,6 +37,7 @@ flowchart TD
 
 - **`offAfterS`** is the number of seconds until switch-off. The controller counts it down by itself, so without the internet it finishes the activation and turns off. Every following report refreshes the countdown.
 - **A timer after `until`** acts as the schedule; at the next report the server stores mode `schedule` in the database.
+- **`pause`** (simple tile, 2026-10-20): off until the end of the schedule window active now (`until` = end of the window), then `schedule`; set outside a window it becomes `schedule` at once. The controller receives it as `schedule`, because the firmware rejects a command with an unknown mode name.
 - **Modes are persistent** (collection `switch_relays`): a server restart does not clear them, unlike the manual operations of the heat pump.
 - Every reply also carries `mode` (for display on the controller page only).
 

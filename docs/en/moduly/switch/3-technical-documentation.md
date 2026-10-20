@@ -38,8 +38,8 @@ Changes in `core` for the switch: `DeviceType.SWITCH`, `WeekDay` moved to `core/
 | Method and path | Who | Description |
 |---|---|---|
 | `POST /switch/state` | controller | `{uptimeS?, relays: [{on, changedS}], diag?, weather?}` (`diag` — firmware diagnostics, `weather` — Open-Meteo weather, CLAUDE.md section 5d; 1–16 relays, `changedS` ≥ 0); `deviceId` alone is enough, 404/409 as in core; reply 200 `{relays: [{on, offAfterS?, mode}], firmware?}` (`firmware: {version, url, sha256, request}` only with an "Aktualizuj" request; firmware from 1.1.0 updates from it without a restart); bad data 400 |
-| `PUT /switch/mode` | application, controller | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`; `minutes` only for `timer`, whole 1–10080; `source: "controller"` or a request with `deviceId` only = change from the controller; reply: the relay as in `GET /switch/relays`; 400 bad mode, number, time or unknown relay |
-| `GET /switch/relays` | application | relays: `relay`, `name`, `mode` (an expired timer already as `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (entry active now), `nextStart` |
+| `PUT /switch/mode` | application, controller | `{relay, mode, minutes?, source?}`; `mode`: `schedule`, `on`, `timer`, `off`, `pause` (off until the end of the current schedule window, outside a window = `schedule`); `minutes` only for `timer`, whole 1–10080; `source: "controller"` or a request with `deviceId` only = change from the controller; reply: the relay as in `GET /switch/relays`; 400 bad mode, number, time or unknown relay |
+| `GET /switch/relays` | application | relays: `relay`, `name`, `mode` (an expired timer or pause already as `schedule`), `modeSource`, `modeChangedAt`, `on`, `changedAt`, `lastSeenAt`, `online`, `desiredOn`, `until`, `scheduleId` (entry active now), `nextStart` |
 | `PUT /switch/relays/:relay` | application | `{name}` (at most 40 characters, empty = "Przekaźnik N"); 404 unknown relay |
 | `GET /switch/schedules` | application | all entries (disabled ones too), by relay and start time |
 | `POST /switch/schedules` | application | `{relay, dayOfWeek \| date, startTime, endTime, enabled?}`; `relay` 1…number of relays, times `HH:mm`, `dayOfWeek` −3…6 (without `date`); 201; 400 with an error message |
@@ -58,7 +58,7 @@ The registration (`POST /devices/register`, core module) with `deviceType: "swit
 |---|---|
 | `rootId`, `deviceId`, `relay` | identification; `relay` from 1 |
 | `name` | name (≤ 40 characters, empty by default) |
-| `mode`, `until` | mode `schedule` \| `on` \| `timer` \| `off` (default `schedule`); `until` — end of `timer` mode |
+| `mode`, `until` | mode `schedule` \| `on` \| `timer` \| `off` \| `pause` (default `schedule`); `until` — end of `timer` or `pause` mode |
 | `modeSource`, `modeChangedAt` | who set the mode and when (`app` \| `controller`) |
 | `on`, `changedAt` | state reported by the controller and the moment it changed (`now − changedS`) |
 | `lastSeenAt` | last state report (online < 5 min) |
@@ -89,7 +89,7 @@ npm test -w server -- --run       # server/test/switch.test.ts: 13 tests (server
 node scripts/simulate-switch.mjs [--relays N] [--history]   # controller simulator (npm run local)
 ```
 
-`server/test/switch.test.ts` checks: merging of touching windows, a window across midnight belonging to its start day, working days without holidays and the exclusive window end, the next activation, registration creating relays and returning the default time, commands in every mode (including the end of a timer), mode and time validation, a mode change with `deviceId` only (controller page), identification as for the tank (`deviceId`, 404, 409), history with times from the controller, closing an activation at the last report after a power loss, validating, changing and deleting an entry, renaming a relay.
+`server/test/switch.test.ts` checks: merging of touching windows, a window across midnight belonging to its start day, working days without holidays and the exclusive window end, the next activation, registration creating relays and returning the default time, commands in every mode (including the end of a timer), the `pause` mode (end of the window, `schedule` in the command for the controller, simple-tile data), mode and time validation, a mode change with `deviceId` only (controller page), identification as for the tank (`deviceId`, 404, 409), history with times from the controller, closing an activation at the last report after a power loss, validating, changing and deleting an entry, renaming a relay.
 
 The simulator (`scripts/simulate-switch.mjs`) registers with SN `4C0000000E2E` (or `SIMULATED_SN`), sends the state every 5 s, executes commands with a local countdown and reacts to the WebSocket `operation`; `--history` writes activations from 7 days directly into the local database.
 
