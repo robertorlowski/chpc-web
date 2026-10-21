@@ -117,7 +117,6 @@ export const en: Record<keyof typeof pl, string> = {
   'login.otherEmail': 'Another e-mail address',
   'login.linkFailedHint': 'Enter your e-mail and we will send a new code.',
   'login.demo': 'See the demo version',
-  'login.systemHint': 'Signing in as “system” shows a password field (system user).',
 
   // ---- remember dialog
   'remember.title': 'Stay signed in for 90 days?',

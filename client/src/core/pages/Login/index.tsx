@@ -152,7 +152,6 @@ export function Login() {
             <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => void enterDemo()}>{t('login.demo')}</button>
           </div>
         )}
-        <p className="auth-foot">{t('login.systemHint')}</p>
       </div>
     </div>
   );

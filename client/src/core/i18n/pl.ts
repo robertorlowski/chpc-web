@@ -117,7 +117,6 @@ export const pl = {
   'login.otherEmail': 'Inny adres e-mail',
   'login.linkFailedHint': 'Podaj e-mail, wyślemy nowy kod.',
   'login.demo': 'Zobacz wersję demo',
-  'login.systemHint': 'Logowanie „system” pokazuje pole hasła (użytkownik systemowy).',
 
   // ---- pytanie o zapamiętanie
   'remember.title': 'Zapamiętać logowanie na 90 dni?',
