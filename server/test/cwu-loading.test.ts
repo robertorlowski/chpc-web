@@ -406,6 +406,63 @@ describe('Ładowanie CWU (kocioł w trybie pompy ciepła)', () => {
     expect(await boilerCommands()).toEqual(['99=65']);
   });
 
+  // Produkcja 2026-10-21: CWU spadła dokładnie do „od” (50 − 20 = 30,0 °C), regulator sam zaczął ładowanie (pompa CWU)
+  // i rozpalił kocioł, zanim cykl CWU z peletu wystartował (warunek „< od”); automatyczne przejście przełączyło kocioł
+  // na stałe na Pellet. Teraz: start cyklu przy CWU = „od” albo przy pracującej pompie CWU, rozpalenie zostaje w trybie
+  // pompy ciepła, a po nagrzaniu wracają nastawy pompy ciepła.
+  it('CWU z peletu: regulator sam ładuje CWU na progu „od” — cykl zamiast przejścia na Pellet, potem nastawy pompy ciepła', async () => {
+    const setup = async (sn: string) => {
+      const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;
+      await request(app).put(`/api/devices/${boilerRoot}`).send({ boilerConfig: { heatPumpRootId: pumpRoot } }).expect(200);
+      const ecomax = Buffer.from(archiveHeatPump.raw_hex.ecomax_parameters, 'hex');
+      ecomax[3 + 3 * 99] = 30;
+      ecomax[3 + 3 * 122] = 1;
+      await request(app).post(`/api/pellet-boiler-pelux200/settings?deviceId=${sn}`)
+        .send({ ...archiveHeatPump.raw_hex, ecomax_parameters: ecomax.toString('hex') }).expect(201);
+      const api = (path: string) => `/api/pellet-boiler-pelux200/${path}?rootId=${boilerRoot}`;
+      const reading = (body: object) => request(app).post(`/api/pellet-boiler-pelux200/add?deviceId=${sn}`).send(body).expect(201);
+      // ciepła woda: cykl stoi, odczyt progów „od” / „do” trybu Pellet
+      await reading({ state: 5, water_heater_temp: 60, heating_temp: 38, water_heater_pump: false });
+      await request(app).put(api('pellet-cwu')).send({ enabled: true }).expect(200);
+      const idle = await runPelletCwu(boilerRoot);
+      expect(idle.phase).toBe('idle');
+      return { boilerRoot, api, reading, from: idle.cwuFrom as number, to: idle.cwuEnd as number };
+    };
+    const settle = () => new Promise((done) => setTimeout(done, 300));
+    const commands = (rootId: string) => PelletBoilerCommandModel.find({ rootId }).sort({ createdAt: 1, _id: 1 }).lean();
+
+    // 1. CWU równa „od”, pompa CWU jeszcze stoi: cykl startuje (dawniej dopiero poniżej „od”)
+    const a = await setup('AABBCC0000C1');
+    await a.reading({ state: 5, water_heater_temp: a.from, heating_temp: 38, water_heater_pump: false });
+    expect((await runPelletCwu(a.boilerRoot)).phase).toBe('heating');
+
+    // 2. poranek 21.10: pompa CWU pracuje (regulator ładuje), potem rozpalenie przed krokiem schedulera
+    const b = await setup('AABBCC0000C2');
+    await b.reading({ state: 5, water_heater_temp: b.from + 0.5, heating_temp: 37, water_heater_pump: true });
+    await settle();
+    await b.reading({ state: 2, water_heater_temp: b.from + 0.5, heating_temp: 35, water_heater_pump: true });
+    await settle();
+    // bez przejścia na Pellet: brak komunikatu, cykl CWU z peletu trwa, tryb nadal Pompa ciepła
+    expect((await request(app).get(b.api('auto-pellet'))).body).toBeNull();
+    const current = (await request(app).get(b.api('schedules/current'))).body;
+    expect(current.pelletCwu.phase).toBe('heating');
+    expect(current.mode).toBe('heat-pump');
+    // zlecenia: nastawy kotła cyklu (98, 99, 17, 101), bez mieszacza i bez nr 122 z pełnego profilu Pellet
+    // (119 / 123 to CWU trybu Pellet z harmonogramu po zaznaczeniu znacznika)
+    const started = await commands(b.boilerRoot);
+    const keys = started.map((c) => `${c.kind}:${c.index}=${c.value}`);
+    expect(keys.filter((k) => /^ecomax:(98|99|17|101)=/.test(k))).toEqual(['ecomax:98=67', 'ecomax:99=65', 'ecomax:17=12', 'ecomax:101=50']);
+    expect(keys.some((k) => k.startsWith('mixer') || k.startsWith('ecomax:122='))).toBe(false);
+    await PelletBoilerCommandModel.updateMany({ rootId: b.boilerRoot, status: 'pending' }, { $set: { status: 'done' } });
+
+    // woda nagrzana do celu: wracają nastawy pompy ciepła, faza stygnięcia
+    await b.reading({ state: 3, water_heater_temp: b.to, heating_temp: 60, water_heater_pump: true });
+    expect((await runPelletCwu(b.boilerRoot)).phase).toBe('cooling');
+    const back = (await commands(b.boilerRoot)).slice(started.length).map((c) => `${c.index}=${c.value}`);
+    expect(back).toEqual(['99=30', '98=30', '17=20', '101=30']);
+    expect((await request(app).get(b.api('auto-pellet'))).body).toBeNull();
+  });
+
   it('„Włącz regulator” w trybie pompy ciepła: blokada, gdy kocioł rozpaliłby się na pellecie; włączenie po nagrzaniu', async () => {
     const sn = 'AABBCC0000B5';
     const boilerRoot = (await register(sn, 'pellet-boiler-pelux200')).body.rootId;

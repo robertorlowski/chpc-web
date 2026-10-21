@@ -6,7 +6,11 @@
 // z aplikacji w trakcie cyklu (wybór trybu pracy) kończy cykl bez przywracania nastaw (pelletCwuModeChanged).
 // Krok co minutę (scheduler kotła, po harmonogramie), na ostatnim świeżym odczycie kotła:
 //   idle    → regulator włączony, CWU w kotle włączone (nr 122 ≠ 0; przy wyłączonym cykl nie startuje i go nie włącza)
-//             i CWU (water_heater_temp) < „od” trybu Pellet (harmonogram Pellet albo jego ustawienie poza harmonogramem):
+//             i CWU (water_heater_temp) ≤ „od” trybu Pellet (harmonogram Pellet albo jego ustawienie poza harmonogramem)
+//             albo regulator już sam ładuje CWU (pompa CWU pracuje, CWU ≤ „od” + REGULATOR_START_MARGIN): przy
+//             zadanej i histerezie CWU z trybu Pellet regulator zaczyna ładowanie dokładnie na „od” (50 − 20 = 30,0 °C),
+//             a dawny warunek „< od” przegrywał z nim — kocioł rozpalał się poza cyklem i automatyczne przejście
+//             przełączało go na stałe na Pellet (produkcja 2026-10-21, 8:39–8:46);
 //             nastawy trybu Pellet w kolejności 98 → 99 → 17 → 101 (67 / 65 / 12 / 50) — kocioł rozpala i przy
 //             priorytecie CWU ładuje wodę; faza heating;
 //   heating → CWU ≥ min(„do” trybu Pellet, zadana CWU z odczytu kotła water_heater_target; kocioł nie grzeje CWU
@@ -42,6 +46,8 @@ export const MAX_HEATING_MS = 3 * 60 * 60 * 1000;
 const MAX_COOLING_MS = 6 * 60 * 60 * 1000;
 // odczyt kotła co 60 s; starszy = brak danych, cykl czeka
 const READING_MAX_AGE_MS = 15 * 60 * 1000;
+// start cyklu przy pracującej pompie CWU: do „od” + tyle °C (woda zdąży się lekko ogrzać przed krokiem schedulera)
+const REGULATOR_START_MARGIN = 2;
 // stabilizacja, rozpalanie, praca, nadzór
 const BURNING_STATES = [1, 2, 3, 4];
 // zadana (98), minimum (99), histereza (17) kotła i start pompy CO (101); kolejność zleceń: zadana przed minimum przy
@@ -124,7 +130,8 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
   const [settings, last, entries, scheduleSettings] = await Promise.all([
     PelletBoilerSettingsModel.findOne({ rootId }).lean<PelletBoilerSettingsEntry>(),
     getPelletBoilerPelux200Last(rootId) as Promise<{
-      heating_temp?: number; water_heater_temp?: number; water_heater_target?: number; state?: number; createdAt?: Date;
+      heating_temp?: number; water_heater_temp?: number; water_heater_target?: number; water_heater_pump?: boolean;
+      state?: number; createdAt?: Date;
     } | null>,
     PelletBoilerScheduleModel.find({ rootId }).lean<PelletBoilerScheduleEntry[]>(),
     getScheduleSettings(rootId),
@@ -148,6 +155,8 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
   const regulatorOn = fresh && typeof last?.state === 'number' && last.state !== 0;
   // CWU wyłączone w regulatorze (nr 122 = 0): cykl nie startuje, a trwający się kończy (noc 12/13.10: pellet grzał CO)
   const cwuOn = cwuEnabledInBoiler(settings);
+  // regulator sam ładuje CWU (pompa CWU pracuje w świeżym odczycie)
+  const regulatorLoadsCwu = fresh && last?.water_heater_pump === true;
 
   // koniec grzania: nastawy pompy ciepła (tylko w jej trybie; po przejściu na Pellet zostają nastawy Pelletu)
   const finish = async (error: string | null) => {
@@ -167,16 +176,18 @@ export async function runPelletCwu(rootId: string, now = new Date()): Promise<Pe
 
   try {
     if (state.phase === 'idle') {
-      if (state.enabled && heatPumpMode && regulatorOn && cwuOn && cwuTemp !== null && cwuTemp < cwuFrom) {
+      const cwuCold = cwuTemp !== null
+        && (cwuTemp <= cwuFrom || (regulatorLoadsCwu && cwuTemp <= cwuFrom + REGULATOR_START_MARGIN));
+      if (state.enabled && heatPumpMode && regulatorOn && cwuOn && cwuCold) {
         const changes = await boilerChanges(rootId, 'pellet');
         if (changes.length) {
           await createCommands(rootId, { changes }, systemMeta(
             'CWU z peletu', 'Włączone „CWU - grzanie peletem”: kocioł grzeje CWU peletem — nastawy kotła trybu Pellet (98, 99, 17, 101).',
-            `CWU ${cwuTemp === null || cwuTemp === undefined ? '?' : cwuTemp} °C poniżej „od” ${cwuFrom} °C, cel ${cwuEnd} °C; regulator włączony`,
+            `CWU ${cwuTemp === null || cwuTemp === undefined ? '?' : cwuTemp} °C, „od” ${cwuFrom} °C${regulatorLoadsCwu ? ', regulator ładuje CWU' : ''}, cel ${cwuEnd} °C; regulator włączony`,
           ));
         }
         Object.assign(state, { phase: 'heating', since: now, burning: false, error: null });
-        console.log(`[pellet cwu z peletu] ${rootId} CWU ${cwuTemp} °C < ${cwuFrom} — kocioł grzeje CWU peletem do ${cwuEnd} °C`);
+        console.log(`[pellet cwu z peletu] ${rootId} CWU ${cwuTemp} °C, „od” ${cwuFrom}${regulatorLoadsCwu ? ', pompa CWU pracuje' : ''} — kocioł grzeje CWU peletem do ${cwuEnd} °C`);
       }
     } else if (state.phase === 'heating') {
       if (fresh && BURNING_STATES.includes(last?.state ?? -1)) state.burning = true;
