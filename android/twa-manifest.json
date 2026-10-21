@@ -1,0 +1,42 @@
+{
+  "packageId": "pl.infotower.myhome",
+  "host": "hpweb.onrender.com",
+  "name": "My Home",
+  "launcherName": "My Home",
+  "display": "standalone",
+  "themeColor": "#1e2126",
+  "themeColorDark": "#1e2126",
+  "navigationColor": "#1e2126",
+  "navigationColorDark": "#1e2126",
+  "navigationDividerColor": "#1e2126",
+  "navigationDividerColorDark": "#1e2126",
+  "backgroundColor": "#f1f2f4",
+  "enableNotifications": true,
+  "startUrl": "/devices",
+  "iconUrl": "https://hpweb.onrender.com/icon-512.png",
+  "maskableIconUrl": "https://hpweb.onrender.com/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://hpweb.onrender.com/manifest.webmanifest",
+  "fullScopeUrl": "https://hpweb.onrender.com/",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "orientation": "portrait",
+  "fingerprints": [
+    { "name": "upload", "value": "A3:63:61:8C:F9:FF:39:EE:E8:83:48:A7:FF:80:47:62:6A:03:FB:8D:E5:14:5A:89:6E:09:DC:52:67:7E:13:7E" }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "minSdkVersion": 24
+}

@@ -57,3 +57,11 @@ makiety/zrzuty/
 # zrzuty do dokumentacji (scripts/zrzuty-dokumentacji.mjs): token sesji i maska danych osobowych, wynik
 /scripts/zrzuty.local.json
 /scripts/zrzuty/
+
+# Android (TWA, Bubblewrap): klucz podpisu i hasła poza gitem
+android/android.keystore
+android/keystore.local.json
+android/app/build/
+android/build/
+android/.gradle/
+android/app-release*.a*

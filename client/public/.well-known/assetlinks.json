@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pl.infotower.myhome",
+      "sha256_cert_fingerprints": [
+        "A3:63:61:8C:F9:FF:39:EE:E8:83:48:A7:FF:80:47:62:6A:03:FB:8D:E5:14:5A:89:6E:09:DC:52:67:7E:13:7E"
+      ]
+    }
+  }
+]
