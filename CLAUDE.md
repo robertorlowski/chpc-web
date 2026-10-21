@@ -34,7 +34,7 @@ Oba firmware przeniesiono 2026-09-27 z historią z osobnych repozytoriów [heatp
 
 Każdy firmware ma własny `README.md`, a CHPC także `devices/chpc/CLAUDE.md` ze szczegółami. Ten plik zawiera to, co jest potrzebne do pracy nad całym łańcuchem.
 
-**Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`, build na Render uruchamiany ręcznie, nie automatycznie po pushu), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
+**Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`; od 2026-10-21 Render buduje serwer `chpc-server` i witrynę `home24` automatycznie po każdym pushu do `main`, więc push `main` = wdrożenie; dawna witryna `hpweb` bez auto-deploy), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
 
 ## 1. Podział systemu (chpc-web)
 
