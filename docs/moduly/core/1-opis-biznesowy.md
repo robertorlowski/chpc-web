@@ -12,7 +12,7 @@ Moduł odpowiada za:
 - **samodzielne zgłaszanie się sterowników**: nowy sterownik po podłączeniu do internetu sam pojawia się w aplikacji, nie trzeba go nigdzie wpisywać;
 - **nazwy sterowników**, układ kafelków i kafelki pogody;
 - **konta użytkowników**: logowanie e-mailem i kodem, dane konta, udostępnianie sterownika innej osobie z wyborem zakładek;
-- **wspólny wygląd**: pasek sterownika z zakładkami, dolną nawigację na telefonie, motyw jasny i ciemny, okna dialogowe, kartę „Sterownik” i dziennik operacji;
+- **wspólny wygląd**: pasek sterownika z zakładkami, dolną nawigację na telefonie, motyw jasny i ciemny, język polski albo angielski, okna dialogowe, kartę „Sterownik” i dziennik operacji;
 - **menu i ekrany zależne od rodzaju sterownika** (pompa ma harmonogramy, hydrofor i fotowoltaika nie);
 - **wspólne usługi**: temperaturę zewnętrzną (IMGW), pogodę domu i miejscowości z kafelków (Open-Meteo, pobierana przez włącznik), stronę pogody z prognozą, kalendarz polskich świąt, szybkie powiadamianie sterownika i przeglądarki (WebSocket);
 - **pocztę**: kody logowania i powiadomienia wysyłają sterowniki w domu (włącznik, zapasowo `co`), bo serwer na darmowym planie Render nie może łączyć się z pocztą.
@@ -41,6 +41,7 @@ Moduł odpowiada za:
 | Włączyć kafelek prosty na własnej liście (bojler: Włącz / Wyłącz / harmonogram; piec: Włącz piec / Wyłącz piec / CWU) | ołówek na kafelku → „Dane sterownika” → „Kafelek prosty”; dotyczy tylko tego konta |
 | Przejrzeć dziennik operacji sterownika | zakładka „Operacje” (wszystkie rodzaje poza fotowoltaiką) |
 | Zmienić motyw | ikona księżyca / słońca w pasku (jasny ↔ ciemny) albo menu konta: Jasny / Ciemny / Jak system |
+| Zmienić język | przełącznik PL / EN w pasku logowania albo menu konta: Polski / English; bez wyboru język przeglądarki (inny niż polski i angielski = polski); po zalogowaniu wybór jest zapisany w koncie i obowiązuje na każdym urządzeniu, także w mailach, powiadomieniach i komunikatach serwera |
 | Zmienić dane konta, wylogować się, usunąć konto | menu konta (awatar w pasku) → „Moje dane” |
 
 ![Lista sterowników](img/lista-sterownikow.png)
@@ -129,3 +130,4 @@ Moduł odpowiada za:
 | **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, czas kompresora hydroforu) |
 | **Rejestr rodzajów sterowników** | miejsce w kodzie, gdzie każdy rodzaj opisuje swoje menu, ekrany i ustawienia domyślne |
 | **Motyw** | wygląd jasny albo ciemny („Instrument”); bez wyboru jasny, „Jak system” bierze ustawienie urządzenia |
+| **Język** | polski albo angielski: teksty aplikacji, kafelki, maile, powiadomienia i komunikaty błędów serwera; z przeglądarki, a po zalogowaniu z konta. Nazwy zapisane w bazie (powody zleceń, dziennik operacji, oceny parametrów kotła) są po polsku |

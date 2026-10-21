@@ -12,7 +12,7 @@ The module is responsible for:
 - **self-registration of controllers**: a new controller shows up in the application by itself once it is on the internet; nothing has to be typed in;
 - **controller names**, the tile layout and weather tiles;
 - **user accounts**: login by e-mail and code, account data, sharing a controller with another person with a choice of tabs;
-- **the shared look**: the controller bar with tabs, the bottom navigation on a phone, the light and dark theme, dialogs, the "Sterownik" card and the operations log;
+- **the shared look**: the controller bar with tabs, the bottom navigation on a phone, the light and dark theme, Polish or English language, dialogs, the "Sterownik" card and the operations log;
 - **menus and screens that depend on the controller kind** (the heat pump has schedules, the water pressure tank and photovoltaics do not);
 - **shared services**: outdoor temperature (IMGW), the weather of the home and of the weather tiles (Open-Meteo, fetched by the switch), a weather page with a forecast, the Polish public holiday calendar, fast notifications to the controller and the browser (WebSocket);
 - **mail**: login codes and notifications are sent by the controllers at home (the switch, with `co` as a fallback), because the server on Render's free plan cannot reach a mail server.
@@ -41,6 +41,7 @@ The module is responsible for:
 | Turn on the simple tile on your own list (boiler switch: on / off / schedule; pellet boiler: turn the boiler on / off / DHW) | pencil on the tile → "Dane sterownika" → "Kafelek prosty"; this account only |
 | Browse the controller's operations log | the "Operacje" tab (all kinds except photovoltaics) |
 | Change the theme | the moon / sun icon in the bar (light ↔ dark) or the account menu: Jasny / Ciemny / Jak system (light / dark / as system) |
+| Change the language | the PL / EN toggle on the login bar or the account menu: Polski / English; without a choice the browser language (anything other than Polish or English = Polish); after signing in the choice is stored in the account and applies on every device, also to mails, notifications and server messages |
 | Change account data, log out, delete the account | the account menu (avatar in the bar) → "Moje dane" (my data) |
 
 The user interface is in Polish; the screenshots below show it as is.
@@ -131,3 +132,4 @@ The user interface is in Polish; the screenshots below show it as is.
 | **Settings** (`properties`) | controller settings stored in the cloud (e.g. heat pump temperatures, the tank compressor time) |
 | **Controller kind registry** | the place in the code where each kind describes its menu, screens and default settings |
 | **Theme** (motyw) | the light or dark look ("Instrument"); light without a choice, "Jak system" follows the device setting |
+| **Language** (język) | Polish or English: application texts, tiles, mails, notifications and server error messages; from the browser, after signing in from the account. Names stored in the database (request reasons, the operations log, boiler parameter ratings) stay Polish |

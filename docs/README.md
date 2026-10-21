@@ -47,7 +47,7 @@ Najważniejsza zasada: **sterowniki inicjują połączenie, serwer tylko odpowia
 
 | Moduł | Co robi | Kod | Dokumentacja |
 |---|---|---|---|
-| **core** | część wspólna aplikacji: urządzenia, zgłoszenie sterownika, lista kafelków i wybór sterownika, konta użytkowników, wspólny wygląd „Instrument” (pasek, zakładki, motyw), dziennik operacji, WebSocket, temperatura, kalendarz | `server/src/core`, `client/src/core` | [docs/moduly/core](moduly/core/1-opis-biznesowy.md) |
+| **core** | część wspólna aplikacji: urządzenia, zgłoszenie sterownika, lista kafelków i wybór sterownika, konta użytkowników, wspólny wygląd „Instrument” (pasek, zakładki, motyw, język polski / angielski), dziennik operacji, WebSocket, temperatura, kalendarz | `server/src/core`, `client/src/core` | [docs/moduly/core](moduly/core/1-opis-biznesowy.md) |
 | **heat-pump** | pompa ciepła w aplikacji: telemetria, PV, operacje, scheduler, harmonogramy, widoki | `server/src/modules/heat-pump`, `client/src/devices/heat-pump` | [docs/moduly/heat-pump](moduly/heat-pump/1-opis-biznesowy.md) |
 | **water-pressure-tank** | hydrofor w aplikacji: uruchomienia, woda z czasu pompy i wodomierza, widoki | `server/src/modules/water-pressure-tank`, `client/src/devices/water-pressure-tank` | [docs/moduly/water-pressure-tank](moduly/water-pressure-tank/1-opis-biznesowy.md) |
 | **pellet-boiler-pelux200** | kocioł pelletowy w aplikacji: odczyty kotła, interwał odpytywania, widoki (tylko podgląd) | `server/src/modules/pellet-boiler-pelux200`, `client/src/devices/pellet-boiler-pelux200` | [docs/moduly/pellet-boiler-pelux200](moduly/pellet-boiler-pelux200/1-opis-biznesowy.md) |
