@@ -14,7 +14,7 @@ flowchart LR
     RTC["RTC DS3231 + NTP"] --> CO
     BTN["przycisk GPIO5"] --> CO
     CO <-- "Wi-Fi: HTTPS + WebSocket" --> SRV["My Home"]
-    CO -- "AP HP-CO-setup, strony WWW :80" --> USR["telefon / laptop"]
+    CO -- "AP MyHome-HeatPump-XXXX, strony WWW :80" --> USR["telefon / laptop"]
 ```
 
 Na magistrali transmisję zaczyna tylko `co`. Między ramkami jest co najmniej 500 ms; koniec ramki to 5 ms ciszy; brak odpowiedzi po 3 s to timeout.
@@ -122,7 +122,7 @@ sequenceDiagram
     C->>C: skasuj Root ID, rozłącz WebSocket, zarejestruj się ponownie
 ```
 
-Punkt dostępowy `HP-CO-setup` (otwarty) startuje ze sterownikiem. `AccessPointPolicy` wyłącza go, gdy przez 3 min Wi-Fi ma adres, a każde żądanie do chmury dostaje odpowiedź HTTP (dowolny kod). Wraca, gdy Wi-Fi jest rozłączone dłużej niż 1 min albo chmura milczy 5 min.
+Punkt dostępowy `MyHome-HeatPump-XXXX` (otwarty) startuje ze sterownikiem. `AccessPointPolicy` wyłącza go, gdy przez 3 min Wi-Fi ma adres, a każde żądanie do chmury dostaje odpowiedź HTTP (dowolny kod). Wraca, gdy Wi-Fi jest rozłączone dłużej niż 1 min albo chmura milczy 5 min.
 
 ## Szacunek COP
 

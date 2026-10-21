@@ -72,7 +72,7 @@ Stronę serwerową (API, kolekcje, woda z czasu pompy, wodomierz) opisuje [modu�
 | `src/compressor.*` | automat kompresora: start, ponowne uruchomienie, praca ręczna (`startManual`, `stop`, `manual()`, `manualSeconds()`), wyłączenie po czasie, `firstStartS`/`lastEndS`/`restarts` |
 | `src/settings.*` | ustawienia z chmury (JSON ↔ struktura, walidacja; tylko `compressorSeconds`), czas z `/install` |
 | `src/run_report.*` | `RunRecord` (z `manualCompressorS`), JSON wysyłki, kolejka 40 uruchomień w NVS (`BlobStore`, blob w wersji 2), `queuePreviousRun` |
-| `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_SSID`, `AP_PASSWORD`, `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
+| `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_PASSWORD` (nazwę sieci `MyHome-WaterPump-XXXX` firmware składa z SN), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
 | `test/test_logic/test_main.cpp` | 25 testów `native` |
 
 ## Stałe
@@ -86,7 +86,7 @@ Stronę serwerową (API, kolekcje, woda z czasu pompy, wodomierz) opisuje [modu�
 | `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (praca po „Turn on” najdłużej 30 min) | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (adres `http://` działa bez TLS) | `firmware.hpp` |
 | `REGISTER_RETRY_MS`, `COMPRESSOR_SEND_RETRY_MS` | 10 s | `water-pressure-tank.cpp` |
-| `AP_ADDRESS` | `10.11.16.1` | `water-pressure-tank.cpp` |
+| `AP_ADDRESS` | `10.10.10.1` | `water-pressure-tank.cpp` |
 | `RunQueue::CAPACITY` | 40 | `run_report.hpp` |
 
 ## NVS (przestrzeń `wp`)

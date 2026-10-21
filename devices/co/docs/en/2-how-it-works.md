@@ -14,7 +14,7 @@ flowchart LR
     RTC["RTC DS3231 + NTP"] --> CO
     BTN["button GPIO5"] --> CO
     CO <-- "Wi-Fi: HTTPS + WebSocket" --> SRV["My Home"]
-    CO -- "AP HP-CO-setup, web pages :80" --> USR["phone / laptop"]
+    CO -- "AP MyHome-HeatPump-XXXX, web pages :80" --> USR["phone / laptop"]
 ```
 
 Only `co` starts transmissions on the bus. There are at least 500 ms between frames; the end of a frame is 5 ms of silence; no answer within 3 s is a timeout.
@@ -122,7 +122,7 @@ sequenceDiagram
     C->>C: drop the Root ID, disconnect the WebSocket, register again
 ```
 
-The `HP-CO-setup` access point (open) starts with the controller. `AccessPointPolicy` switches it off when for 3 min Wi-Fi has an address and every cloud request gets an HTTP reply (any code). It comes back when Wi-Fi has been disconnected for more than 1 min or the cloud has been silent for 5 min.
+The `MyHome-HeatPump-XXXX` access point (open) starts with the controller. `AccessPointPolicy` switches it off when for 3 min Wi-Fi has an address and every cloud request gets an HTTP reply (any code). It comes back when Wi-Fi has been disconnected for more than 1 min or the cloud has been silent for 5 min.
 
 ## COP estimate
 

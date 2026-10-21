@@ -32,7 +32,7 @@ flowchart LR
 
 ## Controller pages (phone)
 
-After start the controller's Wi-Fi network `Wlacznik-setup` (address `10.11.17.1`) is up; one minute after connecting to the home network it disappears and the pages are available at the controller's IP address (shown in the application: Ustawienia → Sterownik).
+After start the controller's Wi-Fi network `MyHome-Switch-XXXX` (XXXX = last 4 SN characters, address `10.10.10.1`) is up; one minute after connecting to the home network it disappears and the pages are available at the controller's IP address (shown in the application: Ustawienia → Sterownik).
 
 | Main page | Installation |
 |---|---|
@@ -61,7 +61,7 @@ From version 1.3.5 the controller pages are in English (no language selection); 
 2. **`src/secrets.h`** (local, outside git, template `secrets.example.h`): access point name and password (empty password = open network), `/install` login, optionally a default Wi-Fi.
 3. **First flashing** through the P1 header and a USB-TTL adapter ([part 3](3-technical-documentation.md#first-flashing-through-the-p1-header)). Mind the power: the header's 3V3 pin is 3.3 V, and the adapter cannot supply enough current.
 4. **Installation** by a person qualified for 230 V work: 230 V input terminals, the load on the relay contact, enclosure, protection ([diagram](3-technical-documentation.md#wiring-installation)).
-5. **Wi-Fi**: connect a phone to `Wlacznik-setup`, page `http://10.11.17.1/install`.
+5. **Wi-Fi**: connect a phone to `MyHome-Switch-XXXX`, page `http://10.10.10.1/install`.
 6. **In the application**: relay name (Ustawienia), schedule, optionally the "default" star.
 7. **Further versions** over the network (firmware page in the application or `/install`).
 
@@ -82,6 +82,6 @@ Deployment state: since 2026-10-03 one switch with firmware 1.0.3 runs in produc
 | **Command** | the cloud's reply to a state report: on (for `offAfterS` seconds or without a limit) or off |
 | **Countdown** | time until switch-off counted by the controller; works without the network |
 | **Local change** | "Turn on" / "Turn off" / "Schedule" from the controller page; waits to be sent to the cloud |
-| **AP** | the `Wlacznik-setup` access point: the controller's own Wi-Fi network for configuration |
+| **AP** | the `MyHome-Switch-XXXX` access point: the controller's own Wi-Fi network for configuration |
 | **OTA** | firmware update over the network |
 | **P1 header** | the programming header on the board: `GND`, `RX`, `TX`, `3V3` |

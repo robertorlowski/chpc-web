@@ -72,7 +72,7 @@ The server side (API, collections, water from pump time, water meter) is describ
 | `src/compressor.*` | compressor state machine: start, restart, manual operation (`startManual`, `stop`, `manual()`, `manualSeconds()`), stop after time, `firstStartS`/`lastEndS`/`restarts` |
 | `src/settings.*` | cloud settings (JSON ↔ struct, validation; only `compressorSeconds`), time from `/install` |
 | `src/run_report.*` | `RunRecord` (with `manualCompressorS`), report JSON, queue of 40 runs in NVS (`BlobStore`, blob version 2), `queuePreviousRun` |
-| `src/secrets.example.h` | template of `secrets.h` (outside git): `AP_SSID`, `AP_PASSWORD`, `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
+| `src/secrets.example.h` | template of `secrets.h` (outside git): `AP_PASSWORD` (the firmware builds the network name `MyHome-WaterPump-XXXX` from the SN), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
 | `test/test_logic/test_main.cpp` | 25 `native` tests |
 
 ## Constants
@@ -86,7 +86,7 @@ The server side (API, collections, water from pump time, water meter) is describ
 | `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (run after "Turn on" at most 30 min) | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (an `http://` address works without TLS) | `firmware.hpp` |
 | `REGISTER_RETRY_MS`, `COMPRESSOR_SEND_RETRY_MS` | 10 s | `water-pressure-tank.cpp` |
-| `AP_ADDRESS` | `10.11.16.1` | `water-pressure-tank.cpp` |
+| `AP_ADDRESS` | `10.10.10.1` | `water-pressure-tank.cpp` |
 | `RunQueue::CAPACITY` | 40 | `run_report.hpp` |
 
 ## NVS (namespace `wp`)

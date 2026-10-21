@@ -15,7 +15,7 @@ sequenceDiagram
     E->>E: NVS: Wi-Fi, Root ID, settings
     E->>K: after 1 s: on for compressor_seconds
     E->>E: queue: previous run never delivered → queue;<br/>new runId
-    E->>E: Wi-Fi STA + access point 10.11.16.1, web pages
+    E->>E: Wi-Fi STA + access point 10.10.10.1, web pages
     opt compressor time changed on /install
         E->>S: PUT /water-pressure-tank/settings {compressor_seconds}
     end

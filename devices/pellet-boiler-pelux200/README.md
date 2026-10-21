@@ -60,7 +60,7 @@ Zamienione przewody A/B dają odwrócony sygnał na wyjściu danych modułu (TXD
 
 ## Wi-Fi i punkt dostępowy
 
-- Punkt dostępowy `Piec-setup` pod adresem `10.11.18.1` (hydrofor ma `10.11.16.1`, włącznik `10.11.17.1`), domyślnie otwarty (`AP_PASSWORD` krótsze niż 8 znaków = bez hasła). Działa po starcie razem z Wi-Fi (AP+STA), wyłącza się po 1 min połączenia z siecią domową i wraca po 1 min bez Wi-Fi.
+- Punkt dostępowy `MyHome-PelletBoiler-XXXX` (XXXX = ostatnie 4 znaki SN; od 2026-10-10, wcześniej `Piec-setup`) pod adresem `10.10.10.1` (ten sam we wszystkich sterownikach), domyślnie otwarty (`AP_PASSWORD` krótsze niż 8 znaków = bez hasła). Działa po starcie razem z Wi-Fi (AP+STA), wyłącza się po 1 min połączenia z siecią domową i wraca po 1 min bez Wi-Fi.
 - Wi-Fi ustawia się na stronie `/install`; zapis trafia do NVS i ma pierwszeństwo przed `WIFI_SSID`/`WIFI_PASSWORD` z `secrets.h`.
 - NVS: przestrzeń `pel` (`wifi_ssid`, `wifi_pass`, `root_id`, `poll_s`, `bus_inv`, `ota_tried` od 1.5.0).
 - **Moc nadajnika 8,5 dBm** (`WIFI_TX_POWER`, od 2026-10-03): ESP32-C3 SuperMini przy pełnej mocy często nie łączy się z siecią — przy kotle płytka przez wiele minut miała status 6; po obniżeniu mocy łączy się w ok. 2 s (2026-10-03, RSSI −74 dBm za ścianą). Moc jest ustawiana po każdej zmianie trybu Wi-Fi.

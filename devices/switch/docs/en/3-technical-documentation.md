@@ -73,7 +73,7 @@ With the adapter connected, "Brownout detected" and a start in programming mode 
 | `src/relays.*` | `RelayBank`: `applyCloud` (cloud command, ignored while `pending`), `applyLocal` (change from the page), `update` (end of countdown), `pendingMinutes`, `confirmPending` (by change number) |
 | `src/protocol.*` | `buildStateReport`, `applyStateResponse`, `buildModeBody`, `parseDefaultMinutes` |
 | `src/ota.*` | `parseOtaOffer` (`{version, url, sha256, request}`), `otaKey` (`version#request`), `shouldUpdate` (one attempt per request) |
-| `src/secrets.example.h` | template of `secrets.h` (outside git): `AP_SSID` ("Wlacznik-setup"), `AP_PASSWORD` (empty = open AP), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
+| `src/secrets.example.h` | template of `secrets.h` (outside git): `AP_PASSWORD` (empty = open AP; the firmware builds the network name `MyHome-Switch-XXXX` from the SN, the old `AP_SSID` is unused), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
 | `test/test_logic/test_main.cpp` | 12 `native` tests |
 
 ## Constants
@@ -92,7 +92,7 @@ With the adapter connected, "Brownout detected" and a start in programming mode 
 | `AP_OFF_AFTER_MS` / `AP_ON_AFTER_MS` | 1 min / 1 min | `switch.cpp` |
 | `HTTP_TIMEOUT_MS` / `REGISTER_TIMEOUT_MS` / `OTA_TIMEOUT_MS` | 4 s / 8 s / 15 s | `switch.cpp` |
 | `STATUS_LOG_MS` | 30 s | `switch.cpp` |
-| `AP_ADDRESS` | `10.11.17.1` | `switch.cpp` |
+| `AP_ADDRESS` | `10.10.10.1` | `switch.cpp` |
 
 ## NVS (namespace `sw`)
 
@@ -145,7 +145,7 @@ esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_r
 ```
 
    `boot_app0.bin` is in `framework-arduinoespressif32/tools/partitions/` (PlatformIO package), the other files in `.pio/build/esp32dev/`.
-5. Disconnect power and the adapter, power the board normally. Connect a phone to `Wlacznik-setup` and set the Wi-Fi on `http://10.11.17.1/install`.
+5. Disconnect power and the adapter, power the board normally. Connect a phone to `MyHome-Switch-XXXX` and set the Wi-Fi on `http://10.10.10.1/install`.
 
 **Further versions over Wi-Fi:**
 

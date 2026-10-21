@@ -10,7 +10,7 @@ sequenceDiagram
     participant S as My Home
     E->>E: relay pins = "off", only then OUTPUT
     E->>E: NVS "sw": Wi-Fi, Root ID, default on time
-    E->>E: AP Wlacznik-setup (10.11.17.1) + Wi-Fi STA, web pages
+    E->>E: AP MyHome-Switch-XXXX (10.10.10.1) + Wi-Fi STA, web pages
     Note over E: relays off, mode "unknown"
     E->>S: POST /devices/register {deviceId, deviceType: switch, name, version, ip, relays}
     S-->>E: {rootId, settings: {default_on_minutes, firmware?}}
@@ -93,7 +93,7 @@ stateDiagram-v2
     Off --> On: Wi-Fi disconnected for 1 min
 ```
 
-The `Wlacznik-setup` AP is open by default (password shorter than 8 characters or empty). It does not run permanently, because the `/` page lets anyone switch the relay without a login. One minute after connecting is enough for the phone to see the result of saving Wi-Fi on `/install`. With the AP off, the pages are at the controller's IP address in the home network.
+The `MyHome-Switch-XXXX` AP is open by default (password shorter than 8 characters or empty). It does not run permanently, because the `/` page lets anyone switch the relay without a login. One minute after connecting is enough for the phone to see the result of saving Wi-Fi on `/install`. With the AP off, the pages are at the controller's IP address in the home network.
 
 ## Over-the-air update (OTA)
 

@@ -31,7 +31,7 @@ Every pump start is a new controller start. There is no clock or battery; the cl
 
 ## Controller pages (phone)
 
-Near the controller its own Wi-Fi network is available (address `10.11.16.1`); on the home network, its IP address.
+Near the controller its own Wi-Fi network `MyHome-WaterPump-XXXX` is available (XXXX = last 4 SN characters, address `10.10.10.1`); on the home network, its IP address.
 
 | Main page | Installation |
 |---|---|

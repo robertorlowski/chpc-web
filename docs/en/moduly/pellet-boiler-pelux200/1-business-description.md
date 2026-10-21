@@ -57,7 +57,7 @@ The application interface is in Polish; the screenshots show it as is. They come
 
 ## First start
 
-1. Connect the boiler controller to the boiler's ecoMAX controller following the [wiring description](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (Polish) and set its Wi-Fi (access point `Piec-setup`, page `/install`; [controller README](../../../../devices/pellet-boiler-pelux200/README.md)).
+1. Connect the boiler controller to the boiler's ecoMAX controller following the [wiring description](../../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) (Polish) and set its Wi-Fi (access point `MyHome-PelletBoiler-XXXX` (XXXX = last 4 SN characters), page `http://10.10.10.1/install`; [controller README](../../../../devices/pellet-boiler-pelux200/README.md)).
 2. Once connected to Wi-Fi, the controller registers itself with the cloud as "Piec Pellux 200". The boiler appears on the device list; data appears once the controller receives valid frames from the boiler.
 3. Choose the boiler on the list, optionally rename it (pencil on the tile).
 4. In Settings change the polling interval if 5 minutes does not suit.

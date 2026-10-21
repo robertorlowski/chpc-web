@@ -10,7 +10,7 @@ sequenceDiagram
     participant S as My Home
     E->>E: piny przekaźników = „wyłączony”, dopiero potem OUTPUT
     E->>E: NVS „sw”: Wi-Fi, Root ID, domyślny czas włączenia
-    E->>E: AP Wlacznik-setup (10.11.17.1) + Wi-Fi STA, strony WWW
+    E->>E: AP MyHome-Switch-XXXX (10.10.10.1) + Wi-Fi STA, strony WWW
     Note over E: przekaźniki wyłączone, tryb „nieznany”
     E->>S: POST /devices/register {deviceId, deviceType: switch, name, version, ip, relays}
     S-->>E: {rootId, settings: {default_on_minutes, firmware?}}
@@ -93,7 +93,7 @@ stateDiagram-v2
     Wyłączony --> Włączony: Wi-Fi rozłączone od 1 min
 ```
 
-AP `Wlacznik-setup` jest domyślnie otwarty (hasło krótsze niż 8 znaków albo puste). Nie działa stale, bo strona `/` pozwala przełączać przekaźnik bez logowania. Minuta po połączeniu wystarcza, żeby telefon zobaczył wynik zapisu Wi-Fi na `/install`. Przy wyłączonym AP strony są pod adresem IP sterownika w sieci domowej.
+AP `MyHome-Switch-XXXX` jest domyślnie otwarty (hasło krótsze niż 8 znaków albo puste). Nie działa stale, bo strona `/` pozwala przełączać przekaźnik bez logowania. Minuta po połączeniu wystarcza, żeby telefon zobaczył wynik zapisu Wi-Fi na `/install`. Przy wyłączonym AP strony są pod adresem IP sterownika w sieci domowej.
 
 ## Aktualizacja przez sieć (OTA)
 

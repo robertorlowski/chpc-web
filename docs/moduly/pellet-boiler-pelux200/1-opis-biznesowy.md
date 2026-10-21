@@ -58,7 +58,7 @@ Zrzuty pochodzą z lokalnej bazy demonstracyjnej z odczytami z 12–13.10.2026 (
 
 ## Pierwsze uruchomienie
 
-1. Podłączyć sterownik pieca do regulatora kotła według [opisu podłączenia](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) i ustawić mu Wi-Fi (punkt dostępowy `Piec-setup`, strona `/install`; [README sterownika](../../../devices/pellet-boiler-pelux200/README.md)).
+1. Podłączyć sterownik pieca do regulatora kotła według [opisu podłączenia](../../../devices/pellet-boiler-pelux200/docs/piec-pellux200.md) i ustawić mu Wi-Fi (punkt dostępowy `MyHome-PelletBoiler-XXXX` (XXXX = ostatnie 4 znaki SN), strona `http://10.10.10.1/install`; [README sterownika](../../../devices/pellet-boiler-pelux200/README.md)).
 2. Po połączeniu z Wi-Fi sterownik sam zgłasza się do chmury jako „Piec Pellux 200”. Kocioł pojawia się na liście urządzeń; dane pojawią się, gdy sterownik odbierze z kotła poprawne ramki.
 3. Wybrać kocioł na liście, opcjonalnie zmienić mu nazwę (ołówek na kafelku).
 4. W Ustawieniach zmienić odstęp odpytywania, jeśli 5 minut nie odpowiada.

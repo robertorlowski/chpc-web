@@ -18,7 +18,7 @@ Od 2026-10-03 odczyt pieca pelletowego Pellux 200 działa na osobnej płytce —
 ## Dla kogo
 
 - **Właściciel** — nie musi nic robić; sterownik działa sam. Może zajrzeć na jego stronę w sieci domowej albo na ekran.
-- **Instalator** — przy montażu ustawia Wi-Fi (przez punkt dostępowy `HP-CO-setup` i stronę `/install`); sterownik sam zgłasza się do chmury.
+- **Instalator** — przy montażu ustawia Wi-Fi (przez punkt dostępowy `MyHome-HeatPump-XXXX` (XXXX = ostatnie 4 znaki SN) i stronę `http://10.10.10.1/install`); sterownik sam zgłasza się do chmury.
 - **Serwisant** — przyciskiem na obudowie może odciąć pompę od chmury (tryb lokalny) albo przełączyć ją ręcznie na CO lub CWU.
 
 ## Co umożliwia
@@ -61,7 +61,7 @@ Pierwsze naciśnięcie tylko pokazuje tryb; kolejne przechodzą dalej: `OFF → 
 ## Ograniczenia
 
 - Polecenia z chmury docierają do pompy przy najbliższej wymianie (10–30 s), szybciej tylko akcje odblokowania i restartu — **i tylko w trybie `CLOUD`**; w innych trybach te akcje przepadają.
-- Punkt dostępowy `HP-CO-setup` jest otwarty (bez hasła) i działa tylko przez pierwsze minuty albo gdy nie ma Wi-Fi lub chmury.
+- Punkt dostępowy `MyHome-HeatPump-XXXX` jest otwarty (bez hasła) i działa tylko przez pierwsze minuty albo gdy nie ma Wi-Fi lub chmury.
 - Login i hasło do `/install` są wpisane w kod; strony `/` i `/telemetry.json` są otwarte dla każdego w sieci domowej.
 - Sterownik nie weryfikuje certyfikatu serwera (HTTPS bez sprawdzania).
 

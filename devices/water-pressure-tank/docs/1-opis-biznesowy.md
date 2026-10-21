@@ -31,7 +31,7 @@ Każde uruchomienie pompy to nowy start sterownika. Nie ma zegara ani baterii; g
 
 ## Strony sterownika (telefon)
 
-W zasięgu sterownika działa jego sieć Wi-Fi (adres `10.11.16.1`), a w sieci domowej — jego adres IP.
+W zasięgu sterownika działa jego sieć Wi-Fi `MyHome-WaterPump-XXXX` (XXXX = ostatnie 4 znaki SN, adres `10.10.10.1`), a w sieci domowej — jego adres IP.
 
 | Strona główna | Instalacja |
 |---|---|

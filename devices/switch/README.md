@@ -31,5 +31,5 @@ Pierwsze wgranie tylko przez złącze P1 i przejściówkę USB-TTL (płytka nie 
 ## Stała konfiguracja w kodzie
 
 - Przekaźnik na `GPIO2`, stan wysoki = włączony (`RELAY_PINS = {2}`, `RELAY_ACTIVE_HIGH = true`). GPIO2 to pin trybu startu ESP32; wyjściem staje się dopiero w `setup()`.
-- Punkt dostępowy `Wlacznik-setup` pod adresem `10.11.17.1` (hydrofor ma `10.11.16.1`), domyślnie otwarty; działa po starcie i po 1 min bez Wi-Fi.
+- Punkt dostępowy `MyHome-Switch-XXXX` (XXXX = ostatnie 4 znaki SN; od 2026-10-10, wcześniej `Wlacznik-setup`) pod adresem `10.10.10.1` (ten sam we wszystkich sterownikach), domyślnie otwarty; działa po starcie i po 1 min bez Wi-Fi.
 - Złącze P1 ma pin **3V3 (3,3 V, nie 5 V)**. Płytkę zasila się z 230 V albo z osobnego źródła 3,3 V — nie z przejściówki.

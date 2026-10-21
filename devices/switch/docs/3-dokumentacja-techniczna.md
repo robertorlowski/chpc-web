@@ -73,7 +73,7 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 | `src/relays.*` | `RelayBank`: `applyCloud` (polecenie chmury, pomijane przy `pending`), `applyLocal` (zmiana ze strony), `update` (koniec odliczania), `pendingMinutes`, `confirmPending` (po numerze zmiany) |
 | `src/protocol.*` | `buildStateReport`, `applyStateResponse`, `buildModeBody`, `parseDefaultMinutes` |
 | `src/ota.*` | `parseOtaOffer` (`{version, url, sha256, request}`), `otaKey` (`wersja#request`), `shouldUpdate` (jedna próba na zlecenie) |
-| `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_SSID` („Wlacznik-setup”), `AP_PASSWORD` (puste = AP otwarty), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
+| `src/secrets.example.h` | wzór `secrets.h` (poza gitem): `AP_PASSWORD` (puste = AP otwarty; nazwę sieci `MyHome-Switch-XXXX` firmware składa z SN, dawne `AP_SSID` nie jest używane), `INSTALL_USER`, `INSTALL_PASSWORD`, `WIFI_SSID`, `WIFI_PASSWORD` |
 | `test/test_logic/test_main.cpp` | 12 testów `native` |
 
 ## Stałe
@@ -92,7 +92,7 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 | `AP_OFF_AFTER_MS` / `AP_ON_AFTER_MS` | 1 min / 1 min | `switch.cpp` |
 | `HTTP_TIMEOUT_MS` / `REGISTER_TIMEOUT_MS` / `OTA_TIMEOUT_MS` | 4 s / 8 s / 15 s | `switch.cpp` |
 | `STATUS_LOG_MS` | 30 s | `switch.cpp` |
-| `AP_ADDRESS` | `10.11.17.1` | `switch.cpp` |
+| `AP_ADDRESS` | `10.10.10.1` | `switch.cpp` |
 
 ## NVS (przestrzeń `sw`)
 
@@ -145,7 +145,7 @@ esptool.py --chip esp32 --port COMx --baud 115200 --before no_reset --after no_r
 ```
 
    `boot_app0.bin` jest w `framework-arduinoespressif32/tools/partitions/` (pakiet PlatformIO), pozostałe pliki w `.pio/build/esp32dev/`.
-5. Odłączyć zasilanie i przejściówkę, zasilić płytkę normalnie. Telefonem połączyć się z `Wlacznik-setup` i ustawić Wi-Fi na `http://10.11.17.1/install`.
+5. Odłączyć zasilanie i przejściówkę, zasilić płytkę normalnie. Telefonem połączyć się z `MyHome-Switch-XXXX` i ustawić Wi-Fi na `http://10.10.10.1/install`.
 
 **Kolejne wersje przez Wi-Fi:**
 

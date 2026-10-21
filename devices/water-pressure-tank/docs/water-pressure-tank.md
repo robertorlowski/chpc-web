@@ -107,7 +107,7 @@ Kompresor startuje raz i nie jest przerywany. Zapobiega temu, co działo się w 
 ### 4.1 Sieć i dostęp
 
 - Wi-Fi, Root ID, ustawienia z chmury, licznik uruchomień, bieżące uruchomienie i kolejka są zapisane w pamięci NVS (trwała pamięć ESP32 na ustawienia, przestrzeń `wp`). Wartości domyślne Wi-Fi dają `src/secrets.h`; zapis z `/install` ma pierwszeństwo.
-- **Punkt dostępowy** działa przez cały czas pracy sterownika pod adresem `10.11.16.1` (jak w poprzednim szkicu). Nie ma go tylko wtedy, gdy nie da się uruchomić modułu radiowego (komunikat w konsoli). Nazwa i hasło są w `src/secrets.h` (poza gitem, wzór w `secrets.example.h`). Hasło krótsze niż 8 znaków (np. puste) daje sieć otwartą, bo WPA2 wymaga co najmniej 8 znaków.
+- **Punkt dostępowy** działa przez cały czas pracy sterownika pod adresem `10.10.10.1` jako sieć `MyHome-WaterPump-XXXX` (od 2026-10-10; wcześniej `10.11.16.1`). Nie ma go tylko wtedy, gdy nie da się uruchomić modułu radiowego (komunikat w konsoli). Nazwa i hasło są w `src/secrets.h` (poza gitem, wzór w `secrets.example.h`). Hasło krótsze niż 8 znaków (np. puste) daje sieć otwartą, bo WPA2 wymaga co najmniej 8 znaków.
 - W sieci domowej strony są też dostępne pod adresem IP sterownika (widocznym na `/install`).
 - Strona `/install` jest chroniona tym samym loginem i hasłem co w sterowniku `co` (`INSTALL_USER`, `INSTALL_PASSWORD` w `secrets.h`).
 

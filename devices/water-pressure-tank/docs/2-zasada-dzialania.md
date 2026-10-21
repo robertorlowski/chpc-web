@@ -15,7 +15,7 @@ sequenceDiagram
     E->>E: NVS: Wi-Fi, Root ID, ustawienia
     E->>K: po 1 s: włącz na compressor_seconds
     E->>E: kolejka: poprzednie uruchomienie bez doręczenia → kolejka;<br/>nowy runId
-    E->>E: Wi-Fi STA + punkt dostępowy 10.11.16.1, strony WWW
+    E->>E: Wi-Fi STA + punkt dostępowy 10.10.10.1, strony WWW
     opt czas kompresora zmieniony na /install
         E->>S: PUT /water-pressure-tank/settings {compressor_seconds}
     end

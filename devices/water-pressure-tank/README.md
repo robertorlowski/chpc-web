@@ -29,7 +29,7 @@ pio test -e native                       # testy logiki na PC
 
 - Przekaźnik na `GPIO26` (pin „P26”), moduł sterowany stanem niskim (`RELAY_ACTIVE_HIGH = false`) z rezystorem 10 kΩ z `IN` do `3V3` ESP32. Przy module sterowanym stanem wysokim (zworka H) zmień na `true` i daj rezystor do masy.
 - Kompresor startuje 1 s po podaniu zasilania (`COMPRESSOR_START_DELAY_MS`).
-- Punkt dostępowy pod adresem `10.11.16.1`, jak w poprzednim szkicu.
+- Punkt dostępowy `MyHome-WaterPump-XXXX` (XXXX = ostatnie 4 znaki SN, otwarty) pod adresem `10.10.10.1` (od 2026-10-10; wcześniej `10.11.16.1`).
 - Zasilanie 5 V na pin `5V`/`VIN`, nigdy na `3V3`; nic na `CMD`, `SD0–SD3`, `CLK` ani `GPIO12` (płytka nie startuje: `invalid header`).
 
 Poprzednia wersja (szkic Arduino) leży w `D:\DevLocal\arduino_src\hydrofor\hydrofor.ino`.

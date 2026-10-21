@@ -18,7 +18,7 @@ Since 2026-10-03 the Pellux 200 pellet boiler is read by a separate board — [d
 ## Who uses it
 
 - **The owner** — does nothing; the controller works by itself. They can look at its page on the home network or at its display.
-- **The installer** — sets the Wi-Fi during installation (through the `HP-CO-setup` access point and the `/install` page); the controller registers with the cloud by itself.
+- **The installer** — sets the Wi-Fi during installation (through the `MyHome-HeatPump-XXXX` access point (XXXX = last 4 SN characters) and the `http://10.10.10.1/install` page); the controller registers with the cloud by itself.
 - **The service technician** — with the button on the housing can cut the pump off from the cloud (local mode) or switch it manually to CO or CWU.
 
 ## What it enables
@@ -61,7 +61,7 @@ The first press only shows the mode; further presses move on: `OFF → CLOUD →
 ## Limitations
 
 - Cloud commands reach the pump at the next exchange (10–30 s); only the unlock and restart actions are faster — **and only in `CLOUD` mode**; in other modes those actions are lost.
-- The `HP-CO-setup` access point is open (no password) and runs only for the first minutes or when Wi-Fi or the cloud is missing.
+- The `MyHome-HeatPump-XXXX` access point is open (no password) and runs only for the first minutes or when Wi-Fi or the cloud is missing.
 - The `/install` login and password are written in the code; the `/` and `/telemetry.json` pages are open to anyone on the home network.
 - The controller does not verify the server certificate (HTTPS without checking).
 

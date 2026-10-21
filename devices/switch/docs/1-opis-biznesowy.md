@@ -32,7 +32,7 @@ flowchart LR
 
 ## Strony sterownika (telefon)
 
-Po starcie działa sieć Wi-Fi sterownika `Wlacznik-setup` (adres `10.11.17.1`); po minucie połączenia z siecią domową znika, a strony są pod adresem IP sterownika (widać go w aplikacji: Ustawienia → Sterownik).
+Po starcie działa sieć Wi-Fi sterownika `MyHome-Switch-XXXX` (XXXX = ostatnie 4 znaki SN, adres `10.10.10.1`); po minucie połączenia z siecią domową znika, a strony są pod adresem IP sterownika (widać go w aplikacji: Ustawienia → Sterownik).
 
 | Strona główna | Instalacja |
 |---|---|
@@ -61,7 +61,7 @@ Od wersji 1.3.5 strony sterownika są po angielsku (bez wyboru języka); niżej 
 2. **`src/secrets.h`** (lokalny, poza gitem, wzór `secrets.example.h`): nazwa i hasło punktu dostępowego (puste hasło = sieć otwarta), login `/install`, opcjonalnie domyślne Wi-Fi.
 3. **Pierwsze wgranie** przez złącze P1 i przejściówkę USB-TTL ([część 3](3-dokumentacja-techniczna.md#pierwsze-wgranie-przez-złącze-p1)). Uwaga na zasilanie: pin 3V3 złącza to 3,3 V, a prąd z przejściówki nie wystarcza.
 4. **Montaż** przez osobę uprawnioną do prac przy 230 V: zaciski wejścia 230 V, odbiornik na styku przekaźnika, obudowa, zabezpieczenie ([schemat](3-dokumentacja-techniczna.md#podłączenie-instalacja)).
-5. **Wi-Fi**: telefonem do sieci `Wlacznik-setup`, strona `http://10.11.17.1/install`.
+5. **Wi-Fi**: telefonem do sieci `MyHome-Switch-XXXX`, strona `http://10.10.10.1/install`.
 6. **W aplikacji**: nazwa przekaźnika (Ustawienia), harmonogram, ewentualnie gwiazdka „domyślny”.
 7. **Kolejne wersje** przez sieć (strona firmware w aplikacji albo `/install`).
 
@@ -82,6 +82,6 @@ Stan wdrożenia: od 2026-10-03 na produkcji działa jeden włącznik, przekaźni
 | **Polecenie** | odpowiedź chmury na zgłoszenie stanu: włącz (na `offAfterS` sekund albo bez limitu) albo wyłącz |
 | **Odliczanie** | czas do wyłączenia liczony przez sterownik; działa bez sieci |
 | **Zmiana lokalna** | „Turn on” / „Turn off” / „Schedule” ze strony sterownika; czeka na wysłanie do chmury |
-| **AP** | punkt dostępowy `Wlacznik-setup`: własna sieć Wi-Fi sterownika do konfiguracji |
+| **AP** | punkt dostępowy `MyHome-Switch-XXXX`: własna sieć Wi-Fi sterownika do konfiguracji |
 | **OTA** | aktualizacja firmware przez sieć |
 | **Złącze P1** | złącze programowania na płytce: `GND`, `RX`, `TX`, `3V3` |

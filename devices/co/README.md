@@ -50,7 +50,7 @@ Cały system jest w repozytorium [robertorlowski/my-home](https://github.com/rob
   Ustawieniach) i zapisuje otrzymany Root ID w NVS, gdy jest inny niż
   zapisany. Znany SN dostaje z powrotem swój dotychczasowy Root ID. Gdy serwer odpowie 409 (Root ID należy do innego SN),
   sterownik kasuje Root ID i rejestruje się ponownie.
-- **Punkt dostępowy** `HP-CO-setup` startuje razem ze sterownikiem i jest
+- **Punkt dostępowy** `MyHome-HeatPump-XXXX` (XXXX = ostatnie 4 znaki SN, otwarty, adres `10.10.10.1`; od 2026-10-10, wcześniej `HP-CO-setup`) startuje razem ze sterownikiem i jest
   wyłączany po 3 min stabilnego dostępu do chmury; wraca po 1 min bez Wi-Fi
   albo po 5 min bez odpowiedzi chmury.
 - **Tryby.** Przycisk na GPIO5 przełącza tryb sterownika
@@ -60,7 +60,7 @@ Cały system jest w repozytorium [robertorlowski/my-home](https://github.com/rob
   `work_mode` z chmury (`M`, `A`, `PV`, `CWU`, `OFF`). Pełna semantyka trybów:
   [docs/server-driven-refactor-2026-09-20.md](docs/server-driven-refactor-2026-09-20.md#6-semantyka-trybów).
 - **Strony WWW na porcie 80**, w sieci lokalnej i na własnym, otwartym punkcie
-  dostępowym `HP-CO-setup`, gdy jest włączony:
+  dostępowym `MyHome-HeatPump-XXXX`, gdy jest włączony:
 
   | Adres | Dostęp | Zawartość |
   |---|---|---|
@@ -122,7 +122,7 @@ pio test -e native
 | [test_operation_controller](test/test_operation_controller/test_main.cpp) | scalanie operacji z chmury, tryby, reguły `OFF` i `AUTO_PV`, brak powtórnych komend |
 | [test_pv_data_processor](test/test_pv_data_processor/test_main.cpp) | parser odpowiedzi Modbus z DTU Hoymiles |
 | [test_modbus_frame](test/test_modbus_frame/test_main.cpp) | kodowanie ramek RS-485 i CRC |
-| [test_access_point_policy](test/test_access_point_policy/test_main.cpp) | kiedy wyłączyć i włączyć punkt dostępowy `HP-CO-setup` |
+| [test_access_point_policy](test/test_access_point_policy/test_main.cpp) | kiedy wyłączyć i włączyć punkt dostępowy `MyHome-HeatPump-XXXX` |
 
 **E2E całego łańcucha** (chpc ⇄ RS-485 ⇄ co ⇄ My Home ⇄ przeglądarka) są
 w `test/e2e/` w katalogu głównym My Home; instrukcja w `devices/chpc/test/README.md`.
