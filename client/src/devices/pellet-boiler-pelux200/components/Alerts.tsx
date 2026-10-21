@@ -10,6 +10,7 @@ import { PelletBoilerRequests } from '../api';
 import { PelletBoilerAlert, PelletBoilerAlerts } from '../types';
 import { alertDuration, alertName, bannerAlerts, endUnknown, formatAlertTime, POWER_LOSS } from '../utils/alerts';
 import { Alert, Icon, Segmented } from './ui';
+import { getLang, locale, t as tr, useLang } from '../../../core/i18n';
 
 const REFRESH_MS = 60_000;
 const DAY_MS = 24 * 3600 * 1000;
@@ -26,24 +27,25 @@ function useAlerts(): PelletBoilerAlerts | null | undefined {
 }
 
 const endText = (alert: PelletBoilerAlert) =>
-  !alert.to ? 'trwa' : endUnknown(alert) ? 'koniec nieznany' : formatAlertTime(alert.to);
+  !alert.to ? tr('sw.table.ongoing') : endUnknown(alert) ? tr('pb.alerts.endUnknown') : formatAlertTime(alert.to);
 const period = (alert: PelletBoilerAlert) => `${formatAlertTime(alert.from)} – ${endText(alert)}`;
 
 const TIME_ZONE = 'Europe/Warsaw';
-const hourOf = (iso: string) => new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' });
+const hourOf = (iso: string) => new Date(iso).toLocaleTimeString(locale(getLang()), { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' });
 // „dziś”, „wczoraj” albo „12.10” (z rokiem, gdy inny niż bieżący)
 const dayOf = (iso: string, now = new Date()) => {
   const date = new Date(iso);
   const day = (value: Date) => value.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
-  if (day(date) === day(now)) return 'dziś';
-  if (day(date) === day(new Date(now.getTime() - DAY_MS))) return 'wczoraj';
+  if (day(date) === day(now)) return tr('wx.today');
+  if (day(date) === day(new Date(now.getTime() - DAY_MS))) return tr('pb.yesterday');
   const sameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString('pl-PL', { timeZone: TIME_ZONE, day: 'numeric', month: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  return date.toLocaleDateString(locale(getLang()), { timeZone: TIME_ZONE, day: 'numeric', month: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
 };
 
 // Strona główna: czerwony komunikat (jak w makiecie „alert”), tylko gdy jest powód (alarm trwa albo nowy skończył się
 // w ostatnich 24 h); kliknięcie otwiera zakładkę Alarmy.
 export const AlertsBanner: React.FC = () => {
+  const { t } = useLang();
   const data = useAlerts();
   const items = bannerAlerts(data?.alerts ?? []);
   if (!items.length) return null;
@@ -54,7 +56,7 @@ export const AlertsBanner: React.FC = () => {
         {items.map((alert) => (
           <span key={`${alert.code}-${alert.from}`}>
             <strong>{alertName(alert.code)}</strong>
-            {alert.active ? ` · od ${formatAlertTime(alert.from, false)}, trwa` : ` · ${period(alert)}`}
+            {alert.active ? ` · ${t('pb.alerts.sinceOngoing', { time: formatAlertTime(alert.from, false) })}` : ` · ${period(alert)}`}
           </span>
         ))}
       </div>
@@ -63,14 +65,15 @@ export const AlertsBanner: React.FC = () => {
 };
 
 type Range = 'active' | '30' | 'all';
-const RANGES: { value: Range; label: string }[] = [
-  { value: 'active', label: 'Aktywne' }, { value: '30', label: '30 dni' }, { value: 'all', label: 'Wszystkie' },
+const ranges = (): { value: Range; label: string }[] => [
+  { value: 'active', label: tr('pb.alerts.active') }, { value: '30', label: tr('pb.alerts.days30') }, { value: 'all', label: tr('ops.filter.all') },
 ];
 
 // Zakładka Alarmy (/alarms): karta „Aktywne” zawsze; „Historia” według zakresu (Aktywne = tylko trwające,
 // 30 dni = z ostatnich 30 dni, Wszystkie = cały dziennik), od najnowszego; zaniki zasilania domyślnie ukryte
 // (prawie cały dziennik).
 export const PelletBoilerAlertsPage: React.FC = () => {
+  const { t, tn } = useLang();
   const data = useAlerts();
   const [range, setRange] = useState<Range>('30');
   const [showPowerLoss, setShowPowerLoss] = useState(false);
@@ -78,50 +81,50 @@ export const PelletBoilerAlertsPage: React.FC = () => {
   const all = (data?.alerts ?? []).filter((alert) => showPowerLoss || alert.code !== POWER_LOSS);
   const active = all.filter((alert) => alert.active);
   const history = all.filter((alert) => range === 'all' || (range === 'active' ? alert.active : now - new Date(alert.from).getTime() <= 30 * DAY_MS));
-  const historyHint = range === 'active' ? 'trwające' : range === '30' ? 'ostatnie 30 dni' : 'cały dziennik';
+  const historyHint = range === 'active' ? t('pb.alerts.ongoing') : range === '30' ? t('pb.alerts.last30') : t('pb.alerts.wholeLog');
 
   return (
     <div className="page page-device boiler-page">
       <div className="filters">
-        <Segmented name="boiler-alerts-range" label="Zakres" inline value={range} options={RANGES} onChange={setRange} />
+        <Segmented name="boiler-alerts-range" label={t('wt.data.scope')} inline value={range} options={ranges()} onChange={setRange} />
         <label className="check">
           <input type="checkbox" checked={showPowerLoss} onChange={(event) => setShowPowerLoss(event.currentTarget.checked)} />
-          <span>Zaniki zasilania</span>
+          <span>{t('pb.alerts.powerLosses')}</span>
         </label>
-        <span className="card-hint">dziennik alarmów z panelu kotła</span>
+        <span className="card-hint">{t('pb.alerts.hint')}</span>
       </div>
       <section className="card">
-        <header className="card-head"><h2>Aktywne</h2><span className={`chip ${active.length ? 'chip-err' : 'chip-off'}`}>{active.length}</span></header>
-        {data === undefined && <span className="help">Wczytywanie…</span>}
-        {data === null && <span className="help danger-text">Nie udało się wczytać dziennika.</span>}
-        {data && active.length === 0 && <span className="help">Brak aktywnych alarmów.</span>}
+        <header className="card-head"><h2>{t('pb.alerts.active')}</h2><span className={`chip ${active.length ? 'chip-err' : 'chip-off'}`}>{active.length}</span></header>
+        {data === undefined && <span className="help">{t('common.loading')}</span>}
+        {data === null && <span className="help danger-text">{t('ops.loadFailed')}</span>}
+        {data && active.length === 0 && <span className="help">{t('pb.alerts.noneActive')}</span>}
         {active.map((alert) => (
           <Alert key={`${alert.code}-${alert.from}`} kind="warn" title={alertName(alert.code)}>
-            kod {alert.code} · od {formatAlertTime(alert.from, false)} ({alertDuration(alert)}){alert.uncertain && ' · data niepewna'}
+            {t('pv.set.code')} {alert.code} · {t('hp.since', { time: formatAlertTime(alert.from, false) })} ({alertDuration(alert)}){alert.uncertain && ` · ${t('pb.alerts.uncertain')}`}
           </Alert>
         ))}
       </section>
       <section className="card">
-        <header className="card-head"><h2>Historia</h2><span className="card-hint">{historyHint} · {history.length} {history.length === 1 ? 'alarm' : 'alarmów'}</span></header>
-        {data && history.length === 0 && <span className="help">Brak alarmów.</span>}
+        <header className="card-head"><h2>{t('pb.alerts.history')}</h2><span className="card-hint">{historyHint} · {tn('pb.alerts.count', history.length)}</span></header>
+        {data && history.length === 0 && <span className="help">{t('pb.alerts.none')}</span>}
         {history.length > 0 && (
           <ol className="timeline">
             {history.map((alert) => (
               <li key={`${alert.code}-${alert.from}`} className={`tl ${alert.active ? 'tl-err' : 'tl-sys'}`}>
                 <span className="tl-time">{hourOf(alert.from)}<small>{dayOf(alert.from)}</small></span>
-                <span className="tl-who">Regulator{(alert.uncertain || endUnknown(alert)) && ' · data niepewna'}</span>
+                <span className="tl-who">{t('pb.alerts.regulator')}{(alert.uncertain || endUnknown(alert)) && ` · ${t('pb.alerts.uncertain')}`}</span>
                 <span className="tl-what">
-                  <strong>{alertName(alert.code)}</strong> kod {alert.code}
-                  {alert.active ? ` · od ${formatAlertTime(alert.from, false)} (${alertDuration(alert)})`
-                    : endUnknown(alert) ? ' · koniec nieznany'
-                    : alert.to ? ` · zakończony ${formatAlertTime(alert.to, false)} · ${alertDuration(alert)}` : ''}
+                  <strong>{alertName(alert.code)}</strong> {t('pv.set.code')} {alert.code}
+                  {alert.active ? ` · ${t('hp.since', { time: formatAlertTime(alert.from, false) })} (${alertDuration(alert)})`
+                    : endUnknown(alert) ? ` · ${t('pb.alerts.endUnknown')}`
+                    : alert.to ? ` · ${t('pb.alerts.endedAt', { time: formatAlertTime(alert.to, false) })} · ${alertDuration(alert)}` : ''}
                 </span>
-                <span className={`tl-state chip ${alert.active ? 'chip-err' : 'chip-off'}`}>{alert.active ? 'aktywny' : 'zakończony'}</span>
+                <span className={`tl-state chip ${alert.active ? 'chip-err' : 'chip-off'}`}>{alert.active ? t('pb.alerts.activeOne') : t('pb.alerts.ended')}</span>
               </li>
             ))}
           </ol>
         )}
-        {data?.readAt && <span className="help">Dziennik z panelu kotła, odczyt {formatAlertTime(data.readAt)}</span>}
+        {data?.readAt && <span className="help">{t('pb.alerts.readAt', { time: formatAlertTime(data.readAt) })}</span>}
       </section>
     </div>
   );

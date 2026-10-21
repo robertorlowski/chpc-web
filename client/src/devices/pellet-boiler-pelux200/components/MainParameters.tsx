@@ -18,9 +18,10 @@ import {
 } from '../types';
 import { WinterCycleStatus } from './WinterCycleStatus';
 import { IconBtn, Modal, Segmented, hourMinute } from './ui';
-import { formatDateTime, formatNumber, heatPumpDataMissing, readingStateName, stateName, workModeName } from '../utils/boiler';
-import { NOT_RESPONDING_TEXT, useLastReading } from '../utils/useLastReading';
+import { formatDateTime, formatNumber, heatPumpDataMissing, readingStateName, stateName, workModeKey } from '../utils/boiler';
+import { notRespondingText, useLastReading } from '../utils/useLastReading';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
+import { t as tr, useLang } from '../../../core/i18n';
 
 // zdarzenie okna po zleceniu zmiany: MainParameters odświeża wartości i liczbę zmian w toku
 export const COMMANDS_CHANGED = 'pellet-boiler-commands-changed';
@@ -33,28 +34,30 @@ export type Item = { kind: 'ecomax' | 'mixer'; mixer?: number; index: number };
 // weather: mieszacz ze sterowaniem pogodowym (nr 4 Tak/Nie); krzywa (nr 5) i przesunięcie (nr 6) tylko przy „Tak”,
 // zadana (nr 0) jest wtedy liczona z krzywej (decyzja użytkownika 2026-10-08)
 // extra: parametr kotła pokazany na liście pod zadaną (CWU: tryb pracy pompy CWU nr 122, „Wyłączony” na czerwono)
+// title: klucz słownika pb.sec.<title> (sectionTitle)
 type Section = { title: string; items: Item[]; min?: number; max?: number; cleanSchedule?: boolean; weather?: boolean; extra?: number };
+const sectionTitle = (section: Section) => tr(`pb.sec.${section.title}`);
 const ecomax = (indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'ecomax', index }));
 const mixerItems = (mixer: number, indexes: number[]): Item[] => indexes.map((index) => ({ kind: 'mixer', mixer, index }));
 const WEATHER_SWITCH = 4;
 const WEATHER_FIELDS = [5, 6];
 const SECTIONS: Section[] = [
-  { title: 'Kocioł', items: ecomax([98, 99, 17, 101, 105]), min: 99, cleanSchedule: true },
-  { title: 'CWU', items: ecomax([119, 123, 122]), extra: 122 },
-  { title: 'Mieszacz 1', items: mixerItems(1, [0, 1, 2, 4, 5, 6]), min: 1, max: 2, weather: true },
+  { title: 'boiler', items: ecomax([98, 99, 17, 101, 105]), min: 99, cleanSchedule: true },
+  { title: 'cwu', items: ecomax([119, 123, 122]), extra: 122 },
+  { title: 'mixer1', items: mixerItems(1, [0, 1, 2, 4, 5, 6]), min: 1, max: 2, weather: true },
   // mieszacz 2: regulator nie podaje nastaw (same FF), serwer zakłada zadaną 20–40 °C i zakresy mieszacza 1
-  { title: 'Mieszacz 2', items: mixerItems(2, [0, 4, 5, 6]), weather: true },
+  { title: 'mixer2', items: mixerItems(2, [0, 4, 5, 6]), weather: true },
 ];
 
 // Wybory zamiast liczb (kolejność według kopii ustawień; 125 niepotwierdzona na kotle).
-export const CHOICES: Record<string, string[]> = {
-  'ecomax:122': ['Wyłączony', 'Priorytet', 'Bez priorytetu'],
-  'ecomax:125': ['Zima', 'Lato', 'Auto'],
+const choices = (): Record<string, string[]> => ({
+  'ecomax:122': [tr('pb.cwuMode.off'), tr('pb.cwuMode.priority'), tr('pb.cwuMode.noPriority')],
+  'ecomax:125': [tr('pb.winter'), tr('pb.summer'), tr('pb.auto')],
   // sterowanie pogodowe mieszacza (nr 4): Nie / Tak (decyzja użytkownika 2026-10-08)
-  'mixer:4': ['Nie', 'Tak'],
-};
+  'mixer:4': [tr('common.no'), tr('common.yes')],
+});
 export const choicesOf = (item: Item, parameter: PelletBoilerParameter) =>
-  CHOICES[`${item.kind}:${item.index}`] ?? (parameter.kind === 'switch' ? ['wył.', 'wł.'] : null);
+  choices()[`${item.kind}:${item.index}`] ?? (parameter.kind === 'switch' ? [tr('pb.offAbbr'), tr('pb.onAbbr')] : null);
 
 // Nastawy trybów pracy przychodzą z serwera (GET /schedule-settings, pole profiles; edycja w Ustawieniach
 // zaawansowanych, grupa „Pompa ciepła / Pellet”). Klucz „ecomax:<nr>” albo „mixer<n>:<nr>”.
@@ -89,14 +92,13 @@ export const orderChanges = (changes: PelletBoilerChange[], settings: PelletBoil
 type Profile = { key: PelletBoilerMode; label: string; changes: PelletBoilerChange[] };
 // stany „postoju” regulatora (pauza, czuwanie): zmiana trybu dozwolona z wyłączeniem regulatora
 const STANDBY_STATES = [5, 6];
-const PROFILE_LABEL: Record<PelletBoilerMode, string> = { 'heat-pump': 'Pompa ciepła', pellet: 'Pellet' };
-const MODE_OPTIONS = (['heat-pump', 'pellet'] as PelletBoilerMode[]).map((key) => ({ value: key, label: PROFILE_LABEL[key] }));
+const profileLabel = (key: PelletBoilerMode) => tr(key === 'heat-pump' ? 'type.heat_pump' : 'pb.pellet');
 type SeasonKey = 'winter' | 'summer';
 // liczba zleceń pokazywanych w „Ostatnich zmianach” (pełny dziennik w zakładce Operacje)
 const RECENT_COMMANDS = 5;
-const STATUS_CHIP: Record<PelletBoilerCommand['status'], { label: string; chip: string }> = {
-  pending: { label: 'czeka', chip: 'chip-warn' }, sent: { label: 'wysłane', chip: 'chip-warn' }, done: { label: 'wykonane', chip: 'chip-ok' },
-  error: { label: 'błąd', chip: 'chip-err' }, replaced: { label: 'zastąpione', chip: 'chip-off' },
+// etykieta statusu ze słownika pb.cmd.<status>
+const STATUS_CHIP: Record<PelletBoilerCommand['status'], string> = {
+  pending: 'chip-warn', sent: 'chip-warn', done: 'chip-ok', error: 'chip-err', replaced: 'chip-off',
 };
 
 // harmonogram czyszczenia kotła w regulatorze (nr 4 w PyPlumIO); godziny ustawia się na panelu
@@ -134,16 +136,16 @@ export const ratingClass = (rating?: string) => {
 
 const errorMessage = async (response: Response | null | undefined) => {
   try {
-    return (await response?.json())?.message ?? 'Nie udało się zlecić zmiany.';
+    return (await response?.json())?.message ?? tr('pb.cmdFailed');
   } catch {
-    return 'Nie udało się zlecić zmiany.';
+    return tr('pb.cmdFailed');
   }
 };
 
 // Opis i ocena parametru w dymku „i”.
 const ParameterTip: React.FC<{ parameter: PelletBoilerParameter; children?: React.ReactNode }> = ({ parameter, children }) => (
   (parameter.description || parameter.rating || children) ? (
-    <InfoTip label="Opis parametru">
+    <InfoTip label={tr('pb.paramDescription')}>
       {parameter.description && <TipParagraph>{parameter.description}</TipParagraph>}
       {parameter.rating && <span className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</span>}
       {children}
@@ -163,19 +165,19 @@ const ParameterField: React.FC<{
       <label htmlFor={id}>
         {parameter.label ?? parameter.name}
         <ParameterTip parameter={parameter} />
-        <small>nr {parameter.index} · {rangeText(item, parameter)}{note && <> · {note}</>}</small>
+        <small>{tr('pb.no')} {parameter.index} · {rangeText(item, parameter)}{note && <> · {note}</>}</small>
       </label>
       <div className="range-inputs">
         {choices ? (
           <select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
-            {parameter.unknown && <option value="">— nieznane —</option>}
+            {parameter.unknown && <option value="">{tr('pb.unknownOption')}</option>}
             {choices.map((label, index) => index >= parameter.min && index <= parameter.max
               && <option key={index} value={String(index)}>{label}</option>)}
           </select>
         ) : (
           <>
             <input id={id} type="number" inputMode="decimal" step={parameter.step ?? 1} value={value} disabled={disabled} autoFocus={autoFocus}
-              placeholder={parameter.unknown ? 'nieznana' : undefined} onChange={(event) => onChange(event.currentTarget.value)} />
+              placeholder={parameter.unknown ? tr('pb.unknownValue') : undefined} onChange={(event) => onChange(event.currentTarget.value)} />
             {parameter.unit && <span className="unit-txt">{parameter.unit}</span>}
           </>
         )}
@@ -187,7 +189,7 @@ const ParameterField: React.FC<{
 const ServiceConfirm: React.FC<{ checked: boolean; onChange: (checked: boolean) => void }> = ({ checked, onChange }) => (
   <label className="check boiler-confirm">
     <input type="checkbox" checked={checked} onChange={(event) => onChange(event.currentTarget.checked)} />
-    <span>Rozumiem, że to parametr serwisowy, i zmieniam go na własną odpowiedzialność.</span>
+    <span>{tr('pb.serviceConfirm')}</span>
   </label>
 );
 
@@ -207,7 +209,7 @@ export const EditPanel: React.FC<{
     event.preventDefault();
     const number = Number(value.replace(',', '.'));
     if (!Number.isFinite(number) || number < parameter.min || number > parameter.max) {
-      return setError(`Dozwolone: ${rangeText(item, parameter)}.`);
+      return setError(tr('pb.allowed', { range: rangeText(item, parameter) }));
     }
     setSending(true);
     const response = await PelletBoilerRequests.postCommands([{ ...item, value: toRaw(parameter, number) }], reason);
@@ -223,18 +225,15 @@ export const EditPanel: React.FC<{
   return (
     <Modal title={parameter.label ?? parameter.name} onClose={onClose} onSubmit={send}
       footer={<>
-        <button type="button" className="btn" onClick={onClose}>Anuluj</button>
-        <button type="submit" className="btn btn-primary" disabled={sending || (service && !confirmed)}>Zapisz</button>
+        <button type="button" className="btn" onClick={onClose}>{tr('common.cancel')}</button>
+        <button type="submit" className="btn btn-primary" disabled={sending || (service && !confirmed)}>{tr('common.save')}</button>
       </>}>
       <div className="form-grid">
         <ParameterField item={item} parameter={parameter} value={value} onChange={setValue} autoFocus
-          note={<>teraz {display(item, parameter, parameter.value)}</>} />
+          note={<>{tr('pb.nowLower')} {display(item, parameter, parameter.value)}</>} />
       </div>
       {service && <ServiceConfirm checked={confirmed} onChange={setConfirmed} />}
-      <p className="help">
-        Zmiana trafia do sterownika pieca od razu i zwykle w kilka sekund do regulatora (także przy pracującym kotle); potem sterownik
-        odczytuje ustawienia od nowa. Gdy kocioł nie przesyła danych, zmiany nie da się zlecić.
-      </p>
+      <p className="help">{tr('pb.editHelp')}</p>
       {error && <p className="help danger-text">{error}</p>}
     </Modal>
   );
@@ -288,7 +287,7 @@ const GroupEditPanel: React.FC<{
         if (section.max !== undefined && values[section.max] !== undefined) max = numberOf(section.max);
       }
       if (!Number.isFinite(number) || number < min || number > max) {
-        return setError(`${parameter.label ?? parameter.name}: dozwolone ${display(item, parameter, min)} – ${display(item, parameter, max)}.`);
+        return setError(`${parameter.label ?? parameter.name}: ${tr('pb.allowedLower', { range: `${display(item, parameter, min)} – ${display(item, parameter, max)}` })}`);
       }
     }
     const rank = ({ item, parameter }: (typeof changed)[number]) => {
@@ -302,7 +301,7 @@ const GroupEditPanel: React.FC<{
     const response = await PelletBoilerRequests.postCommands([
       ...ordered.map(({ item, parameter }): PelletBoilerChange => ({ ...item, value: toRaw(parameter, numberOf(item.index)) })),
       ...(scheduleChanged ? [{ kind: 'schedule', index: CLEAN_SCHEDULE, value: scheduleOn ? 1 : 0 } as PelletBoilerChange] : []),
-    ], `Zmiana w „Główne parametry”, ${section.title}.`);
+    ], `Zmiana w „Główne parametry”, ${sectionTitle(section)}.`);
     setSending(false);
     if (response?.status === 201) {
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
@@ -312,10 +311,10 @@ const GroupEditPanel: React.FC<{
   };
 
   return (
-    <Modal title={`Grupa: ${section.title.toLowerCase()}`} onClose={onClose} onSubmit={send}
+    <Modal title={`${tr('pb.group')}: ${sectionTitle(section).toLowerCase()}`} onClose={onClose} onSubmit={send}
       footer={<>
-        <button type="button" className="btn" onClick={onClose}>Anuluj</button>
-        <button type="submit" className="btn btn-primary" disabled={sending || (service && !confirmed)}>Zapisz</button>
+        <button type="button" className="btn" onClick={onClose}>{tr('common.cancel')}</button>
+        <button type="submit" className="btn btn-primary" disabled={sending || (service && !confirmed)}>{tr('common.save')}</button>
       </>}>
       <div className="form-grid">
         {fields.map(({ item, parameter }) => {
@@ -324,26 +323,23 @@ const GroupEditPanel: React.FC<{
           return (
             <ParameterField key={item.index} item={item} parameter={parameter} value={values[item.index]} disabled={!!fromCurve}
               onChange={(next) => setValues({ ...values, [item.index]: next })}
-              note={fromCurve ? 'zadaną liczy regulator z krzywej' : undefined} />
+              note={fromCurve ? tr('pb.fromCurve') : undefined} />
           );
         })}
         {schedule && (
           <>
-            <label htmlFor="boiler-field-clean">{schedule.label}<small>godziny czyszczenia ustawia się na panelu kotła</small></label>
+            <label htmlFor="boiler-field-clean">{schedule.label}<small>{tr('pb.cleanHoursOnPanel')}</small></label>
             <div className="range-inputs">
               <select id="boiler-field-clean" value={scheduleOn ? '1' : '0'} onChange={(event) => setScheduleOn(event.currentTarget.value === '1')}>
-                <option value="1">Tak</option>
-                <option value="0">Nie</option>
+                <option value="1">{tr('common.yes')}</option>
+                <option value="0">{tr('common.no')}</option>
               </select>
             </div>
           </>
         )}
       </div>
       {service && <ServiceConfirm checked={confirmed} onChange={setConfirmed} />}
-      <p className="help">
-        Wysyłane są tylko zmienione pola, po kolei: granice poszerzające zakres przed zadaną, zawężające po niej; każde następne po
-        potwierdzeniu poprzedniego przez regulator i ponownym odczycie ustawień (zwykle kilka sekund na pole). Zapis działa w każdym stanie kotła.
-      </p>
+      <p className="help">{tr('pb.groupHelp')}</p>
       {error && <p className="help danger-text">{error}</p>}
     </Modal>
   );
@@ -363,6 +359,8 @@ const ParamRow: React.FC<{
 
 // onReady: wołane raz, gdy są dane potrzebne do narysowania (Ustawienia rysują stronę w całości, bez mrugania)
 export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) => {
+  const { t } = useLang();
+  const MODE_OPTIONS = (['heat-pump', 'pellet'] as PelletBoilerMode[]).map((key) => ({ value: key, label: profileLabel(key) }));
   const [settings, setSettings] = useState<PelletBoilerSettings | null | undefined>(undefined);
   const [commands, setCommands] = useState<PelletBoilerCommand[]>([]);
   const [editing, setEditing] = useState<Section | null>(null);
@@ -396,7 +394,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   const pendingChanges = (changes: PelletBoilerChange[]) => orderChanges(
     changes.filter((change) => findIn(settings ?? null, change)?.raw[0] !== change.value), settings ?? null);
   const profiles: Profile[] = (['heat-pump', 'pellet'] as PelletBoilerMode[]).map((key) => ({
-    key, label: PROFILE_LABEL[key],
+    key, label: profileLabel(key),
     changes: Object.entries(scheduleSettings?.profiles[key] ?? {}).map(([name, value]) => ({ ...itemOfKey(name), value })),
   }));
 
@@ -442,7 +440,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   // i bez cyklu Zimy (serwer też traktuje kocioł jak Pellet).
   const heatPumpLinked = useHeatPumpLinked();
   const [current, setCurrent] = useState<PelletBoilerCurrentSchedule | null>(null);
-  const heatPumpMode = !!heatPumpLinked && workModeName(settings ?? null, current?.pelletCwu) === 'Pompa ciepła';
+  const heatPumpMode = !!heatPumpLinked && workModeKey(settings ?? null, current?.pelletCwu) === 'heat-pump';
   useEffect(() => { PelletBoilerRequests.getCurrentSchedule().then(setCurrent); }, [commands]);
   const wantedWinter = heatPumpMode && (current?.manualSeason === 'winter' || !!current?.winterCycle);
   const loaded = settings !== undefined && scheduleSettings !== null && current !== null && heatPumpLinked !== undefined;
@@ -456,7 +454,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       setCurrent(await PelletBoilerRequests.setPelletCwu(enabled));
       setPelletCwuError('');
     } catch {
-      setPelletCwuError('Nie udało się zapisać ustawienia.');
+      setPelletCwuError(t('pb.saveSettingFailed'));
     } finally {
       setPelletCwuSaving(false);
     }
@@ -464,20 +462,18 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   };
   const setSeason = async (value: number, label: string) => {
     if (heatPumpMode) {
-      const message = value === 0
-        ? 'Przełączyć na Zimę z pompą ciepła? Kocioł przejdzie na Zimę, gdy kocioł albo woda w pompie ciepła osiągnie temperaturę, do której grzeje pompa, minus 3 °C (do tego czasu pompa ciepła dostaje wymuszenie startu), a wróci na Lato poniżej 30 °C przy stojącej pompie CO.'
-        : 'Przełączyć kocioł na Lato?';
+      const message = t(value === 0 ? 'pb.confirmWinterHp' : 'pb.confirmSummer');
       if (!window.confirm(message)) return;
       try {
         setCurrent(await PelletBoilerRequests.setSeason(value === 0 ? 'winter' : 'summer'));
         setSeasonError('');
       } catch {
-        setSeasonError('Nie udało się zmienić sezonu.');
+        setSeasonError(t('pb.seasonFailed'));
       }
       load();
       return;
     }
-    if (!window.confirm(`Przełączyć kocioł na tryb: ${label}?`)) return;
+    if (!window.confirm(t('pb.confirmSeason', { label }))) return;
     const response = await PelletBoilerRequests.postCommands([{ kind: 'ecomax', index: 125, value }], `Przycisk ${label} w „Sezon”.`);
     setSeasonError(response?.status === 201 ? '' : await errorMessage(response));
     load();
@@ -511,7 +507,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   const startHeatPump = async () => {
     const pending = await PelletBoilerRequests.postTurnOn('start-heat-pump') as { message?: string; since?: string } | null;
     if (!pending?.since) {
-      setTurnOnError(pending?.message ?? 'Nie udało się uruchomić pompy ciepła.');
+      setTurnOnError(pending?.message ?? t('pb.startPumpFailed'));
       return;
     }
     setTurnOnBlock(null);
@@ -540,12 +536,8 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       }
     }
     const question = on
-      ? (regulatorAlready
-        ? 'Regulator już pracuje. Uruchomić harmonogram CWU?'
-        : 'Włączyć regulator? Kocioł będzie pracował według sezonu i ustawień, harmonogram zacznie działać.')
-      : (regulatorAlready
-        ? 'Regulator jest już wyłączony. Zatrzymać harmonogram CWU?'
-        : 'Wyłączyć regulator? Kocioł nie rozpali się (pellet przejdzie w wygaszanie), harmonogram przestanie działać.');
+      ? t(regulatorAlready ? 'pb.confirmScheduleStart' : 'pb.confirmRegulatorOn')
+      : t(regulatorAlready ? 'pb.confirmScheduleStop' : 'pb.confirmRegulatorOff');
     if (!window.confirm(question)) return;
     try {
       if (scheduleSettings.enabled !== on) {
@@ -563,7 +555,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       }
       load();
     } catch {
-      setWorkError('Nie udało się wysłać.');
+      setWorkError(t('pb.sendFailed'));
     }
   };
 
@@ -582,15 +574,15 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       setLastReading(last ?? null);
       const state = last?.state;
       if (state === undefined) {
-        setModeBlocked('Brak odczytu stanu kotła — nie można zmienić trybu.');
+        setModeBlocked(t('pb.modeNoState'));
         return;
       }
       if (state !== 0 && !STANDBY_STATES.includes(state)) {
-        setModeBlocked(`Kocioł pracuje (stan: ${stateName(state)}). Zmiana trybu możliwa, gdy kocioł jest na postoju albo wyłączony.`);
+        setModeBlocked(t('pb.modeBoilerWorking', { state: stateName(state) }));
         return;
       }
       needsOff = state !== 0;
-      if (needsOff && !window.confirm('Zmiana trybu pracy wymaga wyłączonego kotła. Wyłączyć regulator?')) return;
+      if (needsOff && !window.confirm(t('pb.confirmModeOff'))) return;
     }
     setProfileError('');
     setProfileNeedsOff(needsOff);
@@ -599,8 +591,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   };
 
   const ready = settings && settings.readAt;
-  const currentMode = workModeName(settings ?? null, current?.pelletCwu);
-  const modeValue: PelletBoilerMode | null = currentMode === 'Pompa ciepła' ? 'heat-pump' : currentMode === 'Pellet' ? 'pellet' : null;
+  const modeValue: PelletBoilerMode | null = workModeKey(settings ?? null, current?.pelletCwu);
   // CWU wyłączone w regulatorze (nr 122 = 0): „CWU - grzanie peletem” nie wystartuje (serwer, noc 12/13.10)
   const cwuOffInBoiler = findIn(settings ?? null, { kind: 'ecomax', index: 122 })?.value === 0;
   const cleanSchedule = settings?.schedules?.find((schedule) => schedule.index === CLEAN_SCHEDULE);
@@ -614,81 +605,73 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   };
   const labelOf = (change: PelletBoilerChange) => {
     const parameter = findIn(settings ?? null, change);
-    const where = change.kind === 'mixer' ? `Mieszacz ${change.mixer}: ` : '';
-    return { name: `${where}${parameter?.label ?? `nr ${change.index}`}`, parameter };
+    const where = change.kind === 'mixer' ? `${t('boiler.mixer', { n: change.mixer ?? 0 })}: ` : '';
+    return { name: `${where}${parameter?.label ?? `${t('pb.no')} ${change.index}`}`, parameter };
   };
   // opis zlecenia w „Ostatnich zmianach”: „Zadana CWU nr 119: 55 → 50”, „Włącz regulator”, „Czyszczenie: Tak”
   const commandText = (command: PelletBoilerCommand) => {
-    if (command.kind === 'control') return command.value ? 'Włącz regulator' : 'Wyłącz regulator';
-    if (command.kind === 'schedule') return `Harmonogram czyszczenia: ${command.value ? 'Tak' : 'Nie'}`;
+    if (command.kind === 'control') return t(command.value ? 'pb.regulatorOn' : 'pb.regulatorOff');
+    if (command.kind === 'schedule') return `${t('pb.cleanSchedule')}: ${t(command.value ? 'common.yes' : 'common.no')}`;
     const { name, parameter } = labelOf(command);
     const item: Item = { kind: command.kind, mixer: command.mixer, index: command.index };
     const value = parameter ? display(item, parameter, fromRaw(parameter, command.value)) : String(command.value);
     const previous = parameter && typeof command.previous === 'number' ? `${display(item, parameter, fromRaw(parameter, command.previous))} → ` : '';
-    return `${command.label ?? name} nr ${command.index}: ${previous}${value}`;
+    return `${command.label ?? name} ${t('pb.no')} ${command.index}: ${previous}${value}`;
   };
   const recent = commands.slice(0, RECENT_COMMANDS);
   // zmiana w toku dla wiersza listy: chip „czeka” przy parametrze grupy
   const pendingFor = (section: Section) => commands.find((command) => (command.status === 'pending' || command.status === 'sent')
     && section.items.some((item) => item.kind === command.kind && item.index === command.index && (item.kind !== 'mixer' || item.mixer === command.mixer)));
-  const waitChip = <span className="chip chip-warn">czeka</span>;
+  const waitChip = <span className="chip chip-warn">{t('pb.cmd.pending')}</span>;
 
   return (
     <>
       <section className="card">
-        <header className="card-head"><h2>Tryb pracy</h2><span className="card-hint">{heatPumpLinked ? 'zestawy nastaw · wysyłane tylko różnice' : 'sezon = parametr nr 125'}</span></header>
-        {offline && <p className="help danger-text">{NOT_RESPONDING_TEXT}</p>}
+        <header className="card-head"><h2>{t('pb.workMode')}</h2><span className="card-hint">{t(heatPumpLinked ? 'pb.workModeHintProfiles' : 'pb.workModeHintSeason')}</span></header>
+        {offline && <p className="help danger-text">{notRespondingText()}</p>}
         {heatPumpLinked && (
           <>
-            <Segmented name="boiler-work-mode" label="Tryb pracy kotła" value={modeValue} options={MODE_OPTIONS}
+            <Segmented name="boiler-work-mode" label={t('pb.boilerWorkMode')} value={modeValue} options={MODE_OPTIONS}
               disabled={!ready || !scheduleSettings || modeChangePending || offline}
               onChange={(mode) => { const item = profiles.find((entry) => entry.key === mode); if (item && mode !== modeValue) openProfile(item); }} />
-            {modeChangePending && <p className="help"><strong>Zmiana trybu czeka na wyłączenie kotła.</strong></p>}
+            {modeChangePending && <p className="help"><strong>{t('pb.modeChangeWaiting')}</strong></p>}
             {modeBlocked && <p className="help danger-text">{modeBlocked}</p>}
           </>
         )}
         {/* bez Auto (decyzja użytkownika 2026-10-04): tylko Zima i Lato; opcja poza zakresem parametru nieaktywna */}
-        <Segmented name="boiler-season" label="Sezon" value={seasonValue} disabled={!summer || offline}
+        <Segmented name="boiler-season" label={t('pb.season')} value={seasonValue} disabled={!summer || offline}
           options={[
-            { value: 'winter' as SeasonKey, label: 'Zima', disabled: !!summer && (0 < summer.min || 0 > summer.max) },
-            { value: 'summer' as SeasonKey, label: 'Lato', disabled: !!summer && (1 < summer.min || 1 > summer.max) },
+            { value: 'winter' as SeasonKey, label: t('pb.winter'), disabled: !!summer && (0 < summer.min || 0 > summer.max) },
+            { value: 'summer' as SeasonKey, label: t('pb.summer'), disabled: !!summer && (1 < summer.min || 1 > summer.max) },
           ]}
           onChange={(season) => {
             const value = season === 'winter' ? 0 : 1;
-            if (heatPumpMode ? season !== seasonValue : summer?.value !== value) setSeason(value, season === 'winter' ? 'Zima' : 'Lato');
+            if (heatPumpMode ? season !== seasonValue : summer?.value !== value) setSeason(value, t(season === 'winter' ? 'pb.winter' : 'pb.summer'));
           }} />
         <p className="help">
-          {heatPumpLinked && '„Pompa ciepła”: kocioł tylko dogrzewa, „Pellet”: kocioł grzeje sam (nastawy trybów w Ustawieniach zaawansowanych). '}
-          Sezon = parametr nr 125: Lato — kocioł grzeje tylko CWU, Zima — także CO.
+          {heatPumpLinked && `${t('pb.workModeHelpHp')} `}
+          {t('pb.seasonHelp')}
           {heatPumpMode && (
             <InfoTip>
               <TipParagraph>
-                Zima z pompą ciepła: kocioł przechodzi na Zimę, gdy kocioł albo woda w pompie ciepła osiągnie
-                {typeof current?.winterCycle?.winterFrom === 'number'
-                  ? ` ${formatNumber(current.winterCycle.winterFrom)} °C (temperatura, do której grzeje pompa, minus 3 °C)`
-                  : ' temperaturę, do której grzeje pompa, minus 3 °C'}; do tego czasu pompa ciepła dostaje wymuszenie startu.
-                Na Lato wraca poniżej 30 °C przy stojącej pompie CO.
+                {t('pb.winterTip1', { from: typeof current?.winterCycle?.winterFrom === 'number'
+                  ? t('pb.winterTipFrom', { value: formatNumber(current.winterCycle.winterFrom) })
+                  : t('pb.winterTipFromUnknown') })}
               </TipParagraph>
-              <TipParagraph>
-                Razem z Latem zadana mieszacza 1 spada do minimum. Na Zimie wraca, gdy woda w pompie po spadku poniżej
-                minimalnej zadanej pompy wróci do niej, utrzyma temperaturę przez 15 min albo wzrośnie o 5 °C.
-              </TipParagraph>
-              <TipParagraph>
-                Wybór przełącznikiem działa do najbliższego początku albo końca wpisu sezonu w Harmonogramie, potem sezon
-                ustawia harmonogram. Wybór sezonu, który harmonogram ustawia teraz, wraca do harmonogramu.
-              </TipParagraph>
+              <TipParagraph>{t('pb.winterTip2')}</TipParagraph>
+              <TipParagraph>{t('pb.winterTip3')}</TipParagraph>
             </InfoTip>
           )}
         </p>
-        {summer?.value === 2 && <p className="help">Teraz kocioł jest w trybie Auto (przełączanie według temperatury zewnętrznej).</p>}
+        {summer?.value === 2 && <p className="help">{t('pb.autoNow')}</p>}
         {heatPumpMode && <WinterCycleStatus cycle={current?.winterCycle} />}
         {/* sezon z przełącznika: do kiedy, potem harmonogram (wybór sezonu z harmonogramu wraca do niego) */}
         {heatPumpMode && current?.manualSeason && (
           <p className="help">
-            Ustawienie ręczne: {current.manualSeason === 'winter' ? 'Zima' : 'Lato'}
+            {t('pb.manualSeason')}: {t(current.manualSeason === 'winter' ? 'pb.winter' : 'pb.summer')}
             {current.manualSeasonUntil
-              ? ` do ${hourMinute(current.manualSeasonUntil)}, potem zgodnie z harmonogramem`
-              : ', do zmiany sezonu w harmonogramie'}
+              ? t('pb.manualSeasonUntil', { time: hourMinute(current.manualSeasonUntil) })
+              : t('pb.manualSeasonSchedule')}
           </p>
         )}
         {seasonError && <p className="help danger-text">{seasonError}</p>}
@@ -701,44 +684,32 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
               <input type="checkbox" checked={current.pelletCwu.enabled} disabled={pelletCwuSaving || !heatPumpMode}
                 onChange={(event) => setPelletCwu(event.currentTarget.checked)} />
               <span>
-                CWU - grzanie peletem
+                {t('pb.pelletCwu')}
                 <InfoTip>
-                  <TipParagraph>
-                    W trybie Pompa ciepła CWU grzeje kocioł peletem według ustawień trybu Pellet:
-                    od {current.pelletCwu.cwuFrom ?? '…'} °C do {current.pelletCwu.cwuTo ?? '…'} °C (Harmonogram, tryb Pellet).
-                    Gdy zadana CWU w kotle jest niższa niż „do”, grzanie kończy się na zadanej.
-                    Grzanie zaczyna się tylko przy włączonym regulatorze i włączonym CWU w kotle.
-                  </TipParagraph>
-                  <TipParagraph>
-                    Na czas grzania kocioł dostaje nastawy trybu Pellet (zadana, minimum i histereza kotła, start pompy CO),
-                    a potem nastawy trybu Pompa ciepła. Tryb pracy zostaje „Pompa ciepła”.
-                  </TipParagraph>
-                  <TipParagraph>
-                    Pompa ciepła stoi, gdy kocioł się rozpala lub pali albo ma co najmniej {current.hotBoilerFrom ?? 52} °C,
-                    i rusza, gdy kocioł spadnie poniżej {(current.hotBoilerFrom ?? 52) - 2} °C.
-                    W trybie Pellet znacznik jest nieaktywny.
-                  </TipParagraph>
+                  <TipParagraph>{t('pb.pelletCwuTip1', { from: current.pelletCwu.cwuFrom ?? '…', to: current.pelletCwu.cwuTo ?? '…' })}</TipParagraph>
+                  <TipParagraph>{t('pb.pelletCwuTip2')}</TipParagraph>
+                  <TipParagraph>{t('pb.pelletCwuTip3', { hot: current.hotBoilerFrom ?? 52, cold: (current.hotBoilerFrom ?? 52) - 2 })}</TipParagraph>
                 </InfoTip>
               </span>
-              <small>w trybie Pompa ciepła CWU grzeje kocioł peletem według ustawień trybu Pellet</small>
+              <small>{t('pb.pelletCwuHint')}</small>
             </label>
             {current.pelletCwu.enabled && heatPumpMode && cwuOffInBoiler && (
-              <p className="help danger-text">CWU w kotle jest wyłączone – grzanie peletem nie wystartuje. Włącz CWU w Głównych parametrach.</p>
+              <p className="help danger-text">{t('pb.pelletCwuOffInBoiler')}</p>
             )}
             {current.pelletCwu.phase === 'heating' && (
               <p className="help">
-                <strong>Kocioł grzeje CWU peletem</strong> od {formatDateTime(current.pelletCwu.since ?? undefined)}
-                {typeof current.pelletCwu.cwuTemp === 'number' && <> (CWU {formatNumber(current.pelletCwu.cwuTemp)} °C)</>}
-                {typeof current.pelletCwu.cwuEnd === 'number' && <>, do {formatNumber(current.pelletCwu.cwuEnd)} °C</>}.
+                <strong>{t('pb.pelletCwuHeating')}</strong> {t('hp.since', { time: formatDateTime(current.pelletCwu.since ?? undefined) })}
+                {typeof current.pelletCwu.cwuTemp === 'number' && <> ({t('tile.cwu')} {formatNumber(current.pelletCwu.cwuTemp)} °C)</>}
+                {typeof current.pelletCwu.cwuEnd === 'number' && <>, {t('common.to')} {formatNumber(current.pelletCwu.cwuEnd)} °C</>}.
               </p>
             )}
             {current.pelletCwu.phase === 'cooling' && (
               <p className="help">
-                <strong>Pompa ciepła czeka na spadek kotła poniżej 50 °C</strong>
-                {typeof current.pelletCwu.boilerTemp === 'number' && <> (teraz {formatNumber(current.pelletCwu.boilerTemp)} °C)</>}.
+                <strong>{t('pb.pelletCwuCooling')}</strong>
+                {typeof current.pelletCwu.boilerTemp === 'number' && <> ({t('pb.nowLower')} {formatNumber(current.pelletCwu.boilerTemp)} °C)</>}.
               </p>
             )}
-            {current.pelletCwu.error && <p className="help danger-text">Ostatnie grzanie CWU przerwane: {current.pelletCwu.error}.</p>}
+            {current.pelletCwu.error && <p className="help danger-text">{t('pb.pelletCwuInterrupted')}: {current.pelletCwu.error}.</p>}
             {pelletCwuError && <p className="help danger-text">{pelletCwuError}</p>}
           </>
         )}
@@ -746,44 +717,44 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
 
       <section className="card">
         <header className="card-head">
-          <h2>Główne parametry</h2>
-          {ready && <span className="card-hint">odczyt {hourMinute(settings.readAt)}</span>}
+          <h2>{t('pb.mainParams')}</h2>
+          {ready && <span className="card-hint">{t('hp.reading')} {hourMinute(settings.readAt)}</span>}
         </header>
-        {!heatPumpLinked && offline && <p className="help danger-text">{NOT_RESPONDING_TEXT}</p>}
-        {settings === undefined && <span className="help">Wczytywanie…</span>}
-        {settings !== undefined && !ready && <span className="help">Brak odczytu ustawień — sterownik jeszcze ich nie wysłał.</span>}
+        {!heatPumpLinked && offline && <p className="help danger-text">{notRespondingText()}</p>}
+        {settings === undefined && <span className="help">{t('common.loading')}</span>}
+        {settings !== undefined && !ready && <span className="help">{t('pb.noSettingsReading')}</span>}
         {scheduleSettings && (
           <>
             <div className="form-row">
               <span className="t-name">
-                Regulator{' '}
+                {t('pb.alerts.regulator')}{' '}
                 {regulatorOn === undefined
-                  ? <span className="chip chip-off">brak odczytu</span>
-                  : <span className={`chip ${regulatorOn ? 'chip-ok' : 'chip-off'}`}>{regulatorOn ? 'włączony' : 'wyłączony'}</span>}
+                  ? <span className="chip chip-off">{t('pb.home.noReading')}</span>
+                  : <span className={`chip ${regulatorOn ? 'chip-ok' : 'chip-off'}`}>{t(regulatorOn ? 'sw.sch.enabled' : 'pb.disabledLower')}</span>}
                 <small>
-                  {boilerState !== undefined && <>stan: {readingStateName(lastReading)}{heatPumpDataMissing(lastReading, heatPumpMode) ? ', brak danych z pompy ciepła' : ''} · </>}
+                  {boilerState !== undefined && <>{t('pb.stateLower')}: {readingStateName(lastReading)}{heatPumpDataMissing(lastReading, heatPumpMode) ? `, ${t('pb.home.noPumpData')}` : ''} · </>}
                   {controlPending
-                    ? `${controlPending.value ? 'włączenie' : 'wyłączenie'} regulatora czeka na sterownik`
-                    : `harmonogram ${scheduleSettings.enabled ? 'działa' : 'nie działa'}`}
+                    ? t(controlPending.value ? 'pb.regulatorOnPending' : 'pb.regulatorOffPending')
+                    : t(scheduleSettings.enabled ? 'pb.sch.runs' : 'pb.sch.notRunning')}
                 </small>
               </span>
               <span className="boiler-btn-row">
                 <button type="button" className="btn btn-ghost btn-sm" disabled={(regulatorOn === true && scheduleSettings.enabled) || !!controlPending || offline}
-                  onClick={() => setWork(true)}>Włącz regulator</button>
+                  onClick={() => setWork(true)}>{t('pb.regulatorOn')}</button>
                 <button type="button" className="btn btn-ghost btn-sm" disabled={(regulatorOn === false && !scheduleSettings.enabled) || !!controlPending || offline}
-                  onClick={() => setWork(false)}>Wyłącz regulator</button>
+                  onClick={() => setWork(false)}>{t('pb.regulatorOff')}</button>
               </span>
             </div>
             {current?.pendingTurnOn && (
               <div className="form-row">
                 <span className="t-name">
-                  Włączenie czeka, aż kocioł osiągnie {current.pendingTurnOn.startBelow ?? '…'} °C
+                  {t('pb.turnOnWaiting', { temp: current.pendingTurnOn.startBelow ?? '…' })}
                   <small>
-                    {typeof lastReading?.heating_temp === 'number' && <>teraz {formatNumber(lastReading.heating_temp)} °C</>}
-                    {current.pendingTurnOn.heatPumpStarted && <>; pompa ciepła uruchomiona</>}
+                    {typeof lastReading?.heating_temp === 'number' && <>{t('pb.nowLower')} {formatNumber(lastReading.heating_temp)} °C</>}
+                    {current.pendingTurnOn.heatPumpStarted && <>; {t('pb.heatPumpStarted')}</>}
                   </small>
                 </span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelPendingTurnOn}>Anuluj włączenie</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={cancelPendingTurnOn}>{t('pb.cancelTurnOn')}</button>
               </div>
             )}
             {workError && <p className="help danger-text">{workError}</p>}
@@ -792,6 +763,7 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
         {ready && (
           <ul className="params">
             {SECTIONS.map((section) => {
+              const title = sectionTitle(section);
               const item = section.items[0];
               const parameter = findIn(settings, item);
               const pending = pendingFor(section);
@@ -799,17 +771,17 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
               const rows: React.ReactNode[] = [];
               if (parameter) {
                 rows.push(
-                  <ParamRow key={`${section.title}-target`} name={`${section.title} · ${parameter.label ?? parameter.name}`}
-                    note={<>nr {parameter.index} · {rangeText(item, parameter)}{mixerAssumed && ' · zadana z odczytu pracy kotła'}</>}
+                  <ParamRow key={`${section.title}-target`} name={`${title} · ${parameter.label ?? parameter.name}`}
+                    note={<>{t('pb.no')} {parameter.index} · {rangeText(item, parameter)}{mixerAssumed && ` · ${t('pb.targetFromReading')}`}</>}
                     value={shownValue(item, parameter)} chip={pending && waitChip} disabled={offline}
-                    editLabel={`Zmień grupę ${section.title.toLowerCase()}`} onEdit={() => setEditing(section)} />,
+                    editLabel={t('pb.changeGroup', { name: title.toLowerCase() })} onEdit={() => setEditing(section)} />,
                 );
               } else {
                 // mieszacz bez nastaw w odczycie ustawień (regulator podaje same FF): zadana z odczytu pracy, bez ołówka
                 const target = item.kind === 'mixer' ? lastReading?.[`mixer${item.mixer}_target` as keyof PelletBoilerReading] : undefined;
                 rows.push(
-                  <ParamRow key={`${section.title}-readonly`} name={`${section.title} · zadana`} note="brak nastaw w odczycie · zmiana tylko na panelu kotła"
-                    value={typeof target === 'number' ? `${formatNumber(target)} °C` : '—'} editLabel="Zmień" />,
+                  <ParamRow key={`${section.title}-readonly`} name={`${title} · ${t('tile.setpoint')}`} note={t('pb.noSettingsPanelOnly')}
+                    value={typeof target === 'number' ? `${formatNumber(target)} °C` : '—'} editLabel={t('pb.change')} />,
                 );
               }
               if (section.extra !== undefined) {
@@ -818,9 +790,9 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
                 if (extra) {
                   const off = section.extra === 122 && !extra.unknown && extra.value === 0;
                   rows.push(
-                    <ParamRow key={`${section.title}-extra`} name={`${section.title} · ${extra.label ?? extra.name}`}
-                      note={<>nr {extra.index}</>} value={shownValue(extraItem, extra)} off={off} disabled={offline}
-                      editLabel={`Zmień grupę ${section.title.toLowerCase()}`} onEdit={() => setEditing(section)} />,
+                    <ParamRow key={`${section.title}-extra`} name={`${title} · ${extra.label ?? extra.name}`}
+                      note={<>{t('pb.no')} {extra.index}</>} value={shownValue(extraItem, extra)} off={off} disabled={offline}
+                      editLabel={t('pb.changeGroup', { name: title.toLowerCase() })} onEdit={() => setEditing(section)} />,
                   );
                 }
               }
@@ -828,9 +800,9 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
               // w regulatorze zmienia się tylko przełącznik, godziny zostają); stan z ostatniego odczytu ustawień
               if (section.cleanSchedule && cleanSchedule) {
                 rows.push(
-                  <ParamRow key={`${section.title}-clean`} name={`${section.title} · ${cleanSchedule.label}`}
-                    note="godziny ustawia się na panelu kotła" value={cleanSchedule.enabled ? 'Tak' : 'Nie'} chip={cleanPending && waitChip}
-                    disabled={offline} editLabel={`Zmień: ${cleanSchedule.label}`} onEdit={() => setEditing(section)} />,
+                  <ParamRow key={`${section.title}-clean`} name={`${title} · ${cleanSchedule.label}`}
+                    note={t('pb.hoursOnPanel')} value={t(cleanSchedule.enabled ? 'common.yes' : 'common.no')} chip={cleanPending && waitChip}
+                    disabled={offline} editLabel={`${t('pb.change')}: ${cleanSchedule.label}`} onEdit={() => setEditing(section)} />,
                 );
               }
               if (section.weather && parameter) {
@@ -843,10 +815,10 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
                   const on = !weather.unknown && weather.value === 1;
                   const mixerItem = (index: number): Item => ({ kind: 'mixer', mixer: item.mixer, index });
                   rows.push(
-                    <ParamRow key={`${section.title}-weather`} name={`${section.title} · sterowanie pogodowe`}
-                      note={on && curve && shift ? <>krzywa {shownValue(mixerItem(5), curve)} · przesunięcie {shownValue(mixerItem(6), shift)}</> : <>nr {WEATHER_SWITCH}</>}
-                      value={weather.unknown ? '?' : on ? 'Tak' : 'Nie'} disabled={offline}
-                      editLabel={`Zmień grupę ${section.title.toLowerCase()}`} onEdit={() => setEditing(section)} />,
+                    <ParamRow key={`${section.title}-weather`} name={`${title} · ${t('pb.weatherControl')}`}
+                      note={on && curve && shift ? <>{t('pb.curve')} {shownValue(mixerItem(5), curve)} · {t('pb.shift')} {shownValue(mixerItem(6), shift)}</> : <>{t('pb.no')} {WEATHER_SWITCH}</>}
+                      value={weather.unknown ? '?' : t(on ? 'common.yes' : 'common.no')} disabled={offline}
+                      editLabel={t('pb.changeGroup', { name: title.toLowerCase() })} onEdit={() => setEditing(section)} />,
                   );
                 }
               }
@@ -855,19 +827,16 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
           </ul>
         )}
         {ready && (
-          <p className="help">
-            Ołówek otwiera okno całej grupy (kocioł: 98, 99, 17, 101, 105; CWU: 119, 123, 122; mieszacz: 0, 1, 2, 4, 5, 6).
-            Odczyt ustawień: {formatDateTime(settings.readAt)}.
-          </p>
+          <p className="help">{t('pb.mainParamsHelp')} {t('pb.adv.readAt', { time: formatDateTime(settings.readAt) })}</p>
         )}
       </section>
 
       <section className="card">
         <header className="card-head">
-          <h2>Ostatnie zmiany</h2>
-          <span className="card-hint">{inProgress ? 'odświeżane co 10 s' : ''}{inProgress && ' · '}<Link to="/operations" className="link">Operacje</Link></span>
+          <h2>{t('pb.recentChanges')}</h2>
+          <span className="card-hint">{inProgress ? t('pb.refresh10s') : ''}{inProgress && ' · '}<Link to="/operations" className="link">{t('view.operations')}</Link></span>
         </header>
-        {recent.length === 0 && <span className="help">Brak zleceń.</span>}
+        {recent.length === 0 && <span className="help">{t('pb.noCommands')}</span>}
         {recent.length > 0 && (
           <ul className="people">
             {recent.map((command) => (
@@ -876,12 +845,12 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
                   <strong>{commandText(command)}</strong>
                   <small>
                     {hourMinute(command.createdAt)}
-                    {command.status === 'done' && command.doneAt && ` · wykonane ${hourMinute(command.doneAt)}`}
+                    {command.status === 'done' && command.doneAt && ` · ${t('pb.cmd.done')} ${hourMinute(command.doneAt)}`}
                     {command.status === 'error' && command.error && ` · ${command.error}`}
-                    {command.status === 'sent' && ' · wysłane do sterownika'}
+                    {command.status === 'sent' && ` · ${t('pb.sentToController')}`}
                   </small>
                 </span>
-                <span className={`chip ${STATUS_CHIP[command.status].chip}`}>{STATUS_CHIP[command.status].label}</span>
+                <span className={`chip ${STATUS_CHIP[command.status]}`}>{t(`pb.cmd.${command.status}`)}</span>
               </li>
             ))}
           </ul>
@@ -894,33 +863,33 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       )}
 
       {turnOnBlock && (
-        <Modal title="Uwaga" onClose={() => setTurnOnBlock(null)} small
+        <Modal title={t('pb.attention')} onClose={() => setTurnOnBlock(null)} small
           footer={<>
-            <button type="button" className="btn" onClick={() => setTurnOnBlock(null)}>Anuluj</button>
-            <button type="button" className="btn btn-ghost" onClick={switchToPellet}>Przełącz na Pellet</button>
-            <button type="button" className="btn btn-primary" onClick={startHeatPump}>Uruchom pompę ciepła</button>
+            <button type="button" className="btn" onClick={() => setTurnOnBlock(null)}>{t('common.cancel')}</button>
+            <button type="button" className="btn btn-ghost" onClick={switchToPellet}>{t('pb.switchToPellet')}</button>
+            <button type="button" className="btn btn-primary" onClick={startHeatPump}>{t('pb.startHeatPump')}</button>
           </>}>
-          <p>Zbyt niska temperatura kotła — wymagane jest uruchomienie pompy ciepła lub przełączenie trybu pracy na Pellet.</p>
+          <p>{t('pb.turnOnBlocked')}</p>
           {turnOnError && <p className="help danger-text">{turnOnError}</p>}
         </Modal>
       )}
 
       {profile && (
-        <Modal title={`Tryb pracy: ${profile.label}`} onClose={() => setProfile(null)}
+        <Modal title={`${t('pb.workMode')}: ${profile.label}`} onClose={() => setProfile(null)}
           footer={<>
-            <button type="button" className="btn" onClick={() => setProfile(null)}>Anuluj</button>
-            <button type="button" className="btn btn-primary" onClick={sendProfile} disabled={pendingChanges(profile.changes).length === 0}>Przełącz</button>
+            <button type="button" className="btn" onClick={() => setProfile(null)}>{t('common.cancel')}</button>
+            <button type="button" className="btn btn-primary" onClick={sendProfile} disabled={pendingChanges(profile.changes).length === 0}>{t('pb.switch')}</button>
           </>}>
           {pendingChanges(profile.changes).length === 0
-            ? <p>Ustawienia kotła już odpowiadają temu trybowi.</p>
-            : <p>Zostaną zlecone zmiany (w tej kolejności):</p>}
+            ? <p>{t('pb.profileAlready')}</p>
+            : <p>{t('pb.profileChanges')}</p>}
           <ul className="params">
             {pendingChanges(profile.changes).map((change) => {
               const { name, parameter } = labelOf(change);
               const item: Item = { kind: change.kind === 'mixer' ? 'mixer' : 'ecomax', mixer: change.mixer, index: change.index };
               return (
                 <li key={`${change.kind}-${change.mixer ?? 0}-${change.index}`}>
-                  <span className="param-name">{name}<small>nr {change.index}</small></span>
+                  <span className="param-name">{name}<small>{t('pb.no')} {change.index}</small></span>
                   <span className="param-val">
                     {parameter && <span className="boiler-prev">{display(item, parameter, parameter.value)} → </span>}
                     {parameter ? display(item, parameter, fromRaw(parameter, change.value)) : change.value}
@@ -930,15 +899,12 @@ export const MainParameters: React.FC<{ onReady?: () => void }> = ({ onReady }) 
             })}
           </ul>
           {profileNeedsOff && pendingChanges(profile.changes).length > 0 && (
-            <p className="help">
-              Najpierw zostanie wyłączony regulator; zmiany pójdą do kotła, gdy zgłosi stan „wyłączony”
-              (przy paleniu pelletu po wygaszeniu).
-            </p>
+            <p className="help">{t('pb.profileNeedsOff')}</p>
           )}
           {pendingChanges(profile.changes).length > 0 && (
             <label className="check">
               <input type="checkbox" checked={turnOnAfter} onChange={(event) => setTurnOnAfter(event.currentTarget.checked)} />
-              <span>Po zmianie włączyć regulator</span>
+              <span>{t('pb.turnOnAfter')}</span>
             </label>
           )}
           {profileError && <p className="help danger-text">{profileError}</p>}

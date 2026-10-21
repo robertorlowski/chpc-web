@@ -5,8 +5,10 @@
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
 import { Device, DeviceDefinitionFieldsProps, DeviceType } from '../../../core/types';
+import { useLang } from '../../../core/i18n';
 
 export function BoilerConfigFields({ device, onChange }: DeviceDefinitionFieldsProps) {
+  const { t } = useLang();
   const [heatPumpRootId, setHeatPumpRootId] = useState<string>(device.boilerConfig?.heatPumpRootId ?? '');
   const [pumps, setPumps] = useState<Device[] | null>(null);
 
@@ -24,9 +26,9 @@ export function BoilerConfigFields({ device, onChange }: DeviceDefinitionFieldsP
 
   return (
     <label>
-      <span>Pompa ciepła</span>
+      <span>{t('type.heat_pump')}</span>
       <select value={heatPumpRootId} onChange={(event) => setHeatPumpRootId(event.currentTarget.value)} disabled={!pumps}>
-        <option value="">brak (kocioł tylko na pellecie)</option>
+        <option value="">{t('pb.config.noPump')}</option>
         {pumps?.map((pump) => (
           <option key={pump.rootId} value={pump.rootId}>{pump.name || pump.deviceId}</option>
         ))}

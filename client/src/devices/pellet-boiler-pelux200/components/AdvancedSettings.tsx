@@ -15,9 +15,10 @@ import { ADVANCED_SETTINGS_EDIT } from '../config';
 import { ModeProfiles } from './ModeProfiles';
 import { useLastReading } from '../utils/useLastReading';
 import { useHeatPumpLinked } from '../utils/useHeatPumpLinked';
+import { t as tr, useLang } from '../../../core/i18n';
 
 const formatValue = (parameter: PelletBoilerParameter, value: number) => {
-  if (parameter.kind === 'switch' && parameter.min === 0 && parameter.max === 1) return value ? 'wł.' : 'wył.';
+  if (parameter.kind === 'switch' && parameter.min === 0 && parameter.max === 1) return tr(value ? 'pb.onAbbr' : 'pb.offAbbr');
   const unit = parameter.unit ? ` ${parameter.unit}` : '';
   return `${formatNumber(value, 2)}${unit}`;
 };
@@ -25,28 +26,29 @@ const formatValue = (parameter: PelletBoilerParameter, value: number) => {
 const ParameterRow: React.FC<{ parameter: PelletBoilerParameter; onEdit: () => void; disabled?: boolean }> = ({ parameter, onEdit, disabled }) => (
   <li>
     <span className="param-name">
-      {parameter.label ?? parameter.name ?? `Parametr nr ${parameter.index}`}
+      {parameter.label ?? parameter.name ?? tr('pb.paramN', { n: parameter.index })}
       {(parameter.description || parameter.rating) && (
-        <InfoTip label="Opis parametru">
+        <InfoTip label={tr('pb.paramDescription')}>
           {parameter.description && <TipParagraph>{parameter.description}</TipParagraph>}
           {parameter.rating && <span className={`boiler-parameter-rating ${ratingClass(parameter.rating)}`}>{parameter.rating}</span>}
         </InfoTip>
       )}
       <small>
-        nr {parameter.index}
+        {tr('pb.no')} {parameter.index}
         {parameter.name && <> · {formatValue(parameter, parameter.min)} – {formatValue(parameter, parameter.max)}</>}
         {parameter.name && <> · <code>{parameter.name}</code></>}
         {parameter.rating && <> · {parameter.rating.toLowerCase()}</>}
       </small>
     </span>
-    <span className="param-val">{parameter.name ? formatValue(parameter, parameter.value) : `surowo ${parameter.raw.join(', ')}`}</span>
+    <span className="param-val">{parameter.name ? formatValue(parameter, parameter.value) : `${tr('pb.raw')} ${parameter.raw.join(', ')}`}</span>
     {parameter.name && ADVANCED_SETTINGS_EDIT && (
-      <IconBtn name="edit" label={`Zmień: ${parameter.label ?? parameter.name}`} disabled={disabled} onClick={onEdit} />
+      <IconBtn name="edit" label={`${tr('pb.change')}: ${parameter.label ?? parameter.name}`} disabled={disabled} onClick={onEdit} />
     )}
   </li>
 );
 
 export const AdvancedSettings: React.FC = () => {
+  const { t } = useLang();
   // kocioł nie przesyła danych: ołówki zmian nieaktywne (jak w MainParameters)
   const { responding } = useLastReading();
   // nastawy trybów Pompa ciepła / Pellet tylko z powiązaną pompą ciepła (definicja kotła)
@@ -71,33 +73,30 @@ export const AdvancedSettings: React.FC = () => {
   const count = (settings?.groups ?? []).reduce((sum, group) => sum + group.parameters.length, 0);
   const mixerCount = (settings?.mixers ?? []).filter((mixer) => !mixer.assumed).reduce((sum, mixer) => sum + mixer.parameters.length, 0);
   const hint = settings?.readAt
-    ? `${count} parametrów kotła · ${mixerCount} mieszacza · ${ADVANCED_SETTINGS_EDIT ? 'edycja' : 'podgląd'}`
-    : 'wszystkie parametry regulatora';
+    ? t('pb.adv.hint', { count, mixerCount, mode: t(ADVANCED_SETTINGS_EDIT ? 'pb.adv.edit' : 'pb.adv.view') })
+    : t('pb.adv.allParams');
 
   return (
     <details className="card card-details" open={open} onToggle={toggle}>
-      <summary><h2>Ustawienia zaawansowane</h2><span className="card-hint">{hint}</span></summary>
-      {settings === undefined && <p className="help">Wczytywanie…</p>}
-      {settings === null && <p className="help danger-text">Nie udało się pobrać ustawień kotła.</p>}
+      <summary><h2>{t('pb.adv.title')}</h2><span className="card-hint">{hint}</span></summary>
+      {settings === undefined && <p className="help">{t('common.loading')}</p>}
+      {settings === null && <p className="help danger-text">{t('pb.adv.loadFailed')}</p>}
       {settings && !settings.readAt && (
-        <p className="help">
-          Brak odczytu. Sterownik pieca wysyła ustawienia regulatora po każdym uruchomieniu,
-          gdy słyszy kocioł (firmware 1.1.0 lub nowszy).
-        </p>
+        <p className="help">{t('pb.adv.noReading')}</p>
       )}
       {settings?.readAt && (
         <>
           <p className="help">
-            Odczyt z regulatora: {formatDateTime(settings.readAt)}.{' '}
+            {t('pb.adv.readAt', { time: formatDateTime(settings.readAt) })}{' '}
             {ADVANCED_SETTINGS_EDIT
-              ? 'Ołówek zleca zmianę (sterownik pieca wyśle ją do regulatora zwykle w kilka sekund); parametry „Tylko serwis” i „Nie ruszać” wymagają potwierdzenia.'
-              : <>Tylko podgląd: zmiana tych parametrów jest wyłączona w aplikacji (<code>ADVANCED_SETTINGS_EDIT = false</code>). Główne nastawy zmienisz w „Głównych parametrach”.</>}
+              ? t('pb.adv.editHelp')
+              : <>{t('pb.adv.viewHelpBefore')} (<code>ADVANCED_SETTINGS_EDIT = false</code>). {t('pb.adv.viewHelpAfter')}</>}
           </p>
           {heatPumpLinked && (
             <details className="boiler-group">
               <summary>
-                Pompa ciepła / Pellet <span className="card-hint">nastawy trybów</span>
-                <InfoTip>Te nastawy zleca przełącznik „Pompa ciepła” / „Pellet” w Trybie pracy (tylko wartości różne od obecnych). Przy pracującym regulatorze najpierw go wyłącza, a nastawy idą po zgłoszeniu stanu „wyłączony”. CWU w każdym trybie ustawia harmonogram (zakładka Harmonogram).</InfoTip>
+                {t('type.heat_pump')} / {t('pb.pellet')} <span className="card-hint">{t('pb.adv.modeProfiles')}</span>
+                <InfoTip>{t('pb.adv.modeProfilesTip')}</InfoTip>
               </summary>
               <ModeProfiles settings={settings} />
             </details>
@@ -113,7 +112,7 @@ export const AdvancedSettings: React.FC = () => {
           ))}
           {settings.mixers?.filter((mixer) => !mixer.assumed).map((mixer) => (
             <details key={`mixer-${mixer.mixer}`} className="boiler-group">
-              <summary>Mieszacz {mixer.mixer} <span className="card-hint">{mixer.parameters.length}</span></summary>
+              <summary>{t('boiler.mixer', { n: mixer.mixer })} <span className="card-hint">{mixer.parameters.length}</span></summary>
               <ul className="params">{mixer.parameters.map((p) => (
                 <ParameterRow key={p.index} parameter={p}
                   disabled={!responding} onEdit={() => setEditing({ item: { kind: 'mixer', mixer: mixer.mixer, index: p.index }, parameter: p })} />

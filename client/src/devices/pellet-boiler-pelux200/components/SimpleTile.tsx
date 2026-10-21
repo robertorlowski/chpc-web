@@ -8,13 +8,15 @@ import { useEffect, useState } from 'react';
 import { SimpleBoilerState, SimpleTileProps } from '../../../core/types';
 import { ListIcon } from '../../../core/components/DeviceTileCard';
 import { PelletBoilerRequests } from '../api';
+import { useLang } from '../../../core/i18n';
 import '../../../core/components/simpleTile.css';
 
 type Action = 'on' | 'off' | 'cwu-on' | 'cwu-off';
-const SEASON_LABEL = { winter: 'Zima', summer: 'Lato' } as const;
-const temp = (value: number | null) => (value === null ? '—' : `${value.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C`);
 
 export function PelletBoilerSimpleTile({ device, name, tile, now: _now, loading, tools, onOpen, onChanged }: SimpleTileProps) {
+  const { t, locale } = useLang();
+  const SEASON_LABEL = { winter: t('pb.winter'), summer: t('pb.summer') } as const;
+  const temp = (value: number | null) => (value === null ? '—' : `${value.toLocaleString(locale, { maximumFractionDigits: 1 })} °C`);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const boiler: SimpleBoilerState | undefined = tile?.boiler;
@@ -29,7 +31,7 @@ export function PelletBoilerSimpleTile({ device, name, tile, now: _now, loading,
     } catch (caught) {
       // 409: w trybie pompy ciepła „włącz” rozpaliłoby kocioł — komunikat serwera
       const failure = caught as { serverMessage?: string };
-      setError(failure.serverMessage ?? 'Nie udało się wysłać polecenia. Spróbuj jeszcze raz.');
+      setError(failure.serverMessage ?? t('sw.simple.sendFailed'));
       setBusy(false);
     }
   };
@@ -37,59 +39,59 @@ export function PelletBoilerSimpleTile({ device, name, tile, now: _now, loading,
   // chip w nagłówku: Offline (czerwony), Wyłączony (szary), Włączony · Zima / Lato (zielony), Wysyłanie… (szary)
   const chip = (() => {
     if (!boiler) return null;
-    if (!boiler.online) return <span className="chip chip-err">Offline</span>;
-    if (boiler.pending) return <span className="chip chip-off">Wysyłanie…</span>;
-    if (boiler.regulatorOn === false) return <span className="chip chip-off">Wyłączony</span>;
-    return <span className="chip chip-ok"><i className="dot" />Włączony{boiler.season ? ` · ${SEASON_LABEL[boiler.season]}` : ''}</span>;
+    if (!boiler.online) return <span className="chip chip-err">{t('chip.offline')}</span>;
+    if (boiler.pending) return <span className="chip chip-off">{t('pb.simple.sending')}</span>;
+    if (boiler.regulatorOn === false) return <span className="chip chip-off">{t('sw.simple.chipOff')}</span>;
+    return <span className="chip chip-ok"><i className="dot" />{t('sw.simple.chipOn')}{boiler.season ? ` · ${SEASON_LABEL[boiler.season]}` : ''}</span>;
   })();
   const head = (
     <div className="tile-head">
       <span className="tile-icon"><ListIcon name="fire" /></span>
-      <h2 className="tile-name">{onOpen ? <button type="button" className="simple-open" onClick={onOpen} title="Otwórz pełne widoki pieca">{name}</button> : name}</h2>
+      <h2 className="tile-name">{onOpen ? <button type="button" className="simple-open" onClick={onOpen} title={t('pb.simple.openViews')}>{name}</button> : name}</h2>
       {chip}
       {tools && <span className="tile-tools">{tools}</span>}
     </div>
   );
   if (!boiler) {
-    return <>{head}{loading ? <span className="skeleton skeleton-main" /> : <p className="simple-hint">Brak danych pieca.</p>}</>;
+    return <>{head}{loading ? <span className="skeleton skeleton-main" /> : <p className="simple-hint">{t('pb.simple.noData')}</p>}</>;
   }
 
   const on = boiler.regulatorOn !== false;
-  const heating = boiler.season === 'winter' ? 'Ogrzewanie domu włączone (Zima)'
-    : boiler.season === 'summer' ? 'Ogrzewanie domu wyłączone (Lato)' : 'Ogrzewanie domu —';
-  const state = !boiler.online ? 'Piec nie odpowiada'
-    : boiler.pending === 'control' ? (on ? 'Wyłączanie pieca…' : 'Włączanie pieca…')
-    : on ? 'Piec włączony' : 'Piec wyłączony';
-  const detail = !boiler.online ? 'sterownik pieca nie zgłasza się'
-    : boiler.pending ? 'polecenie wysłane · piec potwierdzi w ciągu minuty'
-    : `${on ? heating : 'Ogrzewanie domu wyłączone'} · kocioł ${temp(boiler.boilerTemp)}${!on || !boiler.burning ? '' : ''}`;
+  const heating = boiler.season === 'winter' ? t('pb.simple.heatingOnWinter')
+    : boiler.season === 'summer' ? t('pb.simple.heatingOffSummer') : t('pb.simple.heatingUnknown');
+  const state = !boiler.online ? t('pb.simple.notResponding')
+    : boiler.pending === 'control' ? (on ? t('pb.simple.turningOff') : t('pb.simple.turningOn'))
+    : on ? t('pb.simple.boilerOn') : t('pb.simple.boilerOff');
+  const detail = !boiler.online ? t('pb.simple.controllerSilent')
+    : boiler.pending ? t('pb.simple.pendingDetail')
+    : `${on ? heating : t('pb.simple.heatingOff')} · ${t('boiler.boiler')} ${temp(boiler.boilerTemp)}`;
   const disabled = busy || !boiler.online || !!boiler.pending;
-  const cwuLine = <p className="simple-hint"><b>CWU teraz {temp(boiler.cwuTemp)}, zadana {temp(boiler.cwuTarget)}</b></p>;
+  const cwuLine = <p className="simple-hint"><b>{t('pb.simple.cwuLine', { now: temp(boiler.cwuTemp), target: temp(boiler.cwuTarget) })}</b></p>;
 
   return (
     <>
       {head}
       <div className="simple-state-row">
         <div className="simple-state">{state}<small>{detail}</small></div>
-        {boiler.online && boiler.burning && <span className="state state-on is-running" title="Kocioł pali"><i className="dot" />Praca</span>}
+        {boiler.online && boiler.burning && <span className="state state-on is-running" title={t('tile.boilerBurning')}><i className="dot" />{t('pb.state.3')}</span>}
       </div>
       {boiler.online && (
         <div className="simple-actions">
           {on ? (
             <>
               <div className="simple-act">
-                <button type="button" className="btn btn-danger" disabled={disabled} onClick={() => void send('off')}>Wyłącz piec</button>
+                <button type="button" className="btn btn-danger" disabled={disabled} onClick={() => void send('off')}>{t('pb.simple.turnOffBoiler')}</button>
               </div>
               <div className="simple-act">
                 {boiler.cwuOn === false
-                  ? <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => void send('cwu-on')}>Włącz CWU</button>
-                  : <button type="button" className="btn btn-plain" disabled={disabled} onClick={() => void send('cwu-off')}>Wyłącz CWU</button>}
+                  ? <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => void send('cwu-on')}>{t('pb.simple.cwuOn')}</button>
+                  : <button type="button" className="btn btn-plain" disabled={disabled} onClick={() => void send('cwu-off')}>{t('pb.simple.cwuOff')}</button>}
                 {cwuLine}
               </div>
             </>
           ) : (
             <div className="simple-act">
-              <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => void send('on')}>Włącz piec</button>
+              <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => void send('on')}>{t('pb.simple.turnOnBoiler')}</button>
             </div>
           )}
         </div>

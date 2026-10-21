@@ -7,10 +7,11 @@ import { PelletBoilerRequests } from '../api';
 import { useSaveNotice } from '../../../core/components/Notification';
 import { PelletBoilerMode, PelletBoilerParameter, PelletBoilerScheduleSettings, PelletBoilerSettings } from '../types';
 import { COMMANDS_CHANGED, PROFILE_ROWS, choicesOf, display, itemOfKey } from './MainParameters';
+import { t as tr, useLang } from '../../../core/i18n';
 
-const MODES: { key: PelletBoilerMode; label: string }[] = [
-  { key: 'heat-pump', label: 'Pompa ciepła' },
-  { key: 'pellet', label: 'Pellet' },
+const modes = (): { key: PelletBoilerMode; label: string }[] => [
+  { key: 'heat-pump', label: tr('type.heat_pump') },
+  { key: 'pellet', label: tr('pb.pellet') },
 ];
 
 const findParameter = (settings: PelletBoilerSettings, key: string): PelletBoilerParameter | undefined => {
@@ -23,6 +24,8 @@ const toRaw = (p: PelletBoilerParameter, value: number) => Math.round(value / (p
 const fromRaw = (p: PelletBoilerParameter, raw: number) => Math.round((raw - (p.offset ?? 0)) * (p.step ?? 1) * 1e6) / 1e6;
 
 export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ settings }) => {
+  const { t } = useLang();
+  const MODES = modes();
   const [schedule, setSchedule] = useState<PelletBoilerScheduleSettings | null>(null);
   // wartości formularza w jednostkach (tekst), klucz: tryb → parametr
   const [values, setValues] = useState<Record<PelletBoilerMode, Record<string, string>> | null>(null);
@@ -56,7 +59,7 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
         const text = values[mode][key];
         if (!parameter || text === undefined || text === '') continue;
         const number = Number(text.replace(',', '.'));
-        if (!Number.isFinite(number)) return setError(`${label}: ${parameter.label}: nieprawidłowa liczba.`);
+        if (!Number.isFinite(number)) return setError(`${label}: ${parameter.label}: ${t('pb.profiles.invalidNumber')}`);
         profiles[mode][key] = toRaw(parameter, number);
       }
     }
@@ -64,21 +67,21 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
       const saved = await PelletBoilerRequests.saveScheduleSettings({ ...schedule, profiles });
       setSchedule(saved);
       setError('');
-      showNotice('Zapisano nastawy trybów.');
+      showNotice(t('pb.profiles.saved'));
       window.dispatchEvent(new Event(COMMANDS_CHANGED));
     } catch {
-      setError('Nie udało się zapisać nastaw.');
+      setError(t('pb.profiles.saveFailed'));
     } });
   };
 
-  if (!values) return <p className="help">Wczytywanie nastaw trybów…</p>;
+  if (!values) return <p className="help">{t('common.loading')}</p>;
 
   return (
     <form className="boiler-profiles-table" onSubmit={save}>
       <div className="table-wrap">
       <table className="data">
         <thead>
-          <tr><th>Parametr</th>{MODES.map((mode) => <th key={mode.key}>{mode.label}</th>)}</tr>
+          <tr><th>{t('pb.profiles.parameter')}</th>{MODES.map((mode) => <th key={mode.key}>{mode.label}</th>)}</tr>
         </thead>
         <tbody>
           {PROFILE_ROWS.map((key) => {
@@ -86,10 +89,10 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
             if (!parameter) return null;
             const item = itemOfKey(key);
             const choices = choicesOf(item, parameter);
-            const name = `${item.kind === 'mixer' ? `Mieszacz ${item.mixer}: ` : ''}${parameter.label ?? parameter.name}`;
+            const name = `${item.kind === 'mixer' ? `${t('boiler.mixer', { n: item.mixer ?? 0 })}: ` : ''}${parameter.label ?? parameter.name}`;
             return (
               <tr key={key}>
-                <td title={`zakres ${display(item, parameter, parameter.min)} – ${display(item, parameter, parameter.max)}`}>
+                <td title={`${t('pb.range')} ${display(item, parameter, parameter.min)} – ${display(item, parameter, parameter.max)}`}>
                   {name}{parameter.unit && !choices ? ` [${parameter.unit}]` : ''}
                 </td>
                 {MODES.map(({ key: mode }) => (
@@ -113,7 +116,7 @@ export const ModeProfiles: React.FC<{ settings: PelletBoilerSettings }> = ({ set
       </div>
       {error && <p className="help danger-text">{error}</p>}
       {notice && <p className="help">{notice}</p>}
-      <div className="actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Zapisz nastawy</button></div>
+      <div className="actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{t('pb.profiles.save')}</button></div>
     </form>
   );
 };

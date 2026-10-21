@@ -2,6 +2,22 @@
 // i wybór alarmów do paska na stronie głównej. Kody za PyPlumIO (const.py, AlertType); nazwy po polsku jak
 // w instrukcji kotła, gdzie się dało.
 import { PelletBoilerAlert } from '../types';
+import { getLang, locale, t as tr } from '../../../core/i18n';
+
+const ALERT_NAMES_EN: Record<number, string> = {
+  0: 'Power loss', 1: 'Boiler temperature sensor damaged', 2: 'Maximum boiler temperature exceeded',
+  3: 'Feeder temperature sensor damaged', 4: 'Maximum feeder temperature exceeded', 5: 'Exhaust temperature sensor damaged',
+  6: 'Maximum exhaust temperature exceeded', 7: 'Kindling attempt failed', 8: 'No fuel', 9: 'Leak detected',
+  10: 'Pressure sensor damaged', 11: 'Fan failure', 12: 'Air pressure too low', 13: 'Burning-off failed',
+  14: 'Flame sensor damaged', 15: 'Actuator blocked', 16: 'Invalid parameters', 17: 'Condensation warning',
+  18: 'Boiler STB tripped', 19: 'Feeder STB tripped', 20: 'Water pressure too low', 21: 'Water pressure too high',
+  22: 'Feeder blocked', 23: 'Flame loss', 24: 'Exhaust fan failure', 25: 'External feeder failure',
+  26: 'Solar collector sensor damaged', 27: 'Solar circuit sensor damaged', 28: 'H1 circuit sensor damaged',
+  29: 'H2 circuit sensor damaged', 30: 'H3 circuit sensor damaged', 31: 'Outdoor temperature sensor damaged',
+  32: 'DHW temperature sensor damaged', 33: 'H0 circuit sensor damaged', 34: 'Frost protection without a heat source',
+  35: 'Frost protection with a heat source', 36: 'Solar collector temperature exceeded', 37: 'Underfloor heating temperature exceeded',
+  38: 'Boiler cooling', 39: 'No connection to the ecoLAMBDA module',
+};
 
 const ALERT_NAMES: Record<number, string> = {
   0: 'Zanik zasilania',
@@ -50,10 +66,10 @@ export const POWER_LOSS = 0;
 // pasek na stronie głównej: alarm, który trwa albo skończył się w ostatnich 24 h
 export const BANNER_HOURS = 24;
 
-export const alertName = (code: number) => ALERT_NAMES[code] ?? `Alarm nr ${code}`;
+export const alertName = (code: number) => (getLang() === 'en' ? ALERT_NAMES_EN[code] : ALERT_NAMES[code]) ?? tr('pb.alertN', { n: code });
 
 export const formatAlertTime = (iso: string, withYear = true) =>
-  new Date(iso).toLocaleString('pl-PL', {
+  new Date(iso).toLocaleString(locale(getLang()), {
     timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', ...(withYear ? { year: 'numeric' } : {}),
     hour: '2-digit', minute: '2-digit',
   });
@@ -68,7 +84,7 @@ export function alertDuration(alert: PelletBoilerAlert, now = Date.now()): strin
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
-  return `${Math.floor(hours / 24)} dni ${hours % 24} h`;
+  return `${tr('age.days', { n: Math.floor(hours / 24) })} ${hours % 24} h`;
 }
 
 // Pasek na stronie głównej: alarm trwający (zawsze) albo nowy (nie z pierwszego przesłania), który skończył się

@@ -16,31 +16,33 @@ import { PelletBoilerRequests } from '../api';
 import { DateNav, Segmented } from '../components/ui';
 import { PelletBoilerFuel, PelletBoilerFuelPeriod, PelletBoilerReading } from '../types';
 import { formatNumber, formatTemp, isBurning, todayWarsaw } from '../utils/boiler';
+import { getLang, locale, t as tr, useLang } from '../../../core/i18n';
 import './style.css';
 
 type SeriesKey = 'mixer1_temp' | 'water_heater_temp' | 'heating_temp' | 'mixer2_temp' | 'outside_temp';
 
-const SERIES_DEF: { key: SeriesKey; label: string; color: keyof ReturnType<typeof cc>; visible: boolean }[] = [
-  { key: 'heating_temp', label: 'Kocioł', color: 's1', visible: true },
-  { key: 'water_heater_temp', label: 'CWU', color: 's2', visible: true },
-  { key: 'mixer1_temp', label: 'CO (mieszacz 1)', color: 's3', visible: true },
-  { key: 'mixer2_temp', label: 'Mieszacz 2', color: 's4', visible: true },
-  { key: 'outside_temp', label: 'Zewnętrzna', color: 'axis', visible: false },
+// etykiety serii ze słownika pb.chart.series.<klucz>
+const SERIES_DEF: { key: SeriesKey; color: keyof ReturnType<typeof cc>; visible: boolean }[] = [
+  { key: 'heating_temp', color: 's1', visible: true },
+  { key: 'water_heater_temp', color: 's2', visible: true },
+  { key: 'mixer1_temp', color: 's3', visible: true },
+  { key: 'mixer2_temp', color: 's4', visible: true },
+  { key: 'outside_temp', color: 'axis', visible: false },
 ];
-const seriesColors = () => { const c = cc(); return SERIES_DEF.map((series) => ({ ...series, color: c[series.color] })); };
+const seriesColors = () => { const c = cc(); return SERIES_DEF.map((series) => ({ ...series, label: tr(`pb.chart.series.${series.key}`), color: c[series.color] })); };
 
 const timeLabel = (ms: number) =>
-  Number.isFinite(ms) ? new Date(ms).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
+  Number.isFinite(ms) ? new Date(ms).toLocaleTimeString(locale(getLang()), { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
 
-const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
-const PERIODS: { value: PelletBoilerFuelPeriod; label: string }[] = [
-  { value: 'day', label: 'Dzień' }, { value: 'month', label: 'Miesiąc' }, { value: 'year', label: 'Rok' },
+const monthShort = (month: number) => new Date(2026, month - 1, 1).toLocaleDateString(locale(getLang()), { month: 'short' }).replace('.', '');
+const periods = (): { value: PelletBoilerFuelPeriod; label: string }[] => [
+  { value: 'day', label: tr('period.day') }, { value: 'month', label: tr('period.month') }, { value: 'year', label: tr('period.year') },
 ];
 
 // cena pelletu [zł/t], gdy kocioł nie ma jej w ustawieniach (serwer: DEFAULT_PELLET_PRICE_PER_TON)
 const DEFAULT_PRICE_PER_TON = 2000;
 const MAX_PRICE_PER_TON = 100000;
-const formatMoney = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatMoney = (value: number) => value.toLocaleString(locale(getLang()), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const axisProps = () => ({ tick: { fill: cc().axis, fontSize: 12 }, stroke: cc().line });
 
@@ -60,6 +62,7 @@ const burningRanges = (data: { time: number; burning: boolean }[]) => {
 // od firmware 1.7.1; szacunek regulatora z pracy podajnika). Pod nim koszt ogrzewania [zł] = kg / 1000 × cena pelletu
 // (cała historia tą samą ceną) i karta z ceną pelletu do zapisu (przycisk skrajnie z prawej).
 const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = ({ date, setDate }) => {
+  const { t } = useLang();
   const [period, setPeriod] = useState<PelletBoilerFuelPeriod>('day');
   const [fuel, setFuel] = useState<PelletBoilerFuel | null | undefined>(undefined);
   const [yearText, setYearText] = useState<string | null>(null);
@@ -80,7 +83,7 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
     PelletBoilerRequests.getFuel(period, date).then(setFuel);
   }, [period, date]);
   const data = (fuel?.buckets ?? []).map((bucket) => ({
-    label: period === 'year' ? MONTHS[bucket.key - 1] : String(bucket.key),
+    label: period === 'year' ? monthShort(bucket.key) : String(bucket.key),
     kg: bucket.kg,
     cost: Math.round(bucket.kg * price / 10) / 100,
   }));
@@ -88,15 +91,15 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
     event.preventDefault();
     const value = Number(priceText.replace(',', '.'));
     if (priceText.trim() === '' || !Number.isFinite(value) || value < 0 || value > MAX_PRICE_PER_TON) {
-      return setPriceError(`Cena pelletu: liczba 0–${MAX_PRICE_PER_TON} zł za tonę.`);
+      return setPriceError(t('pb.chart.priceInvalid', { max: MAX_PRICE_PER_TON }));
     }
     setPriceError('');
     await run(async () => { try {
       const saved = await DeviceRequests.updateDeviceProperties({ ...(properties ?? {}), pellet_price_per_ton: value });
       setProperties(saved);
-      showNotice('Cena pelletu zapisana.');
+      showNotice(t('pb.chart.priceSaved'));
     } catch {
-      setPriceError('Nie udało się zapisać ceny pelletu.');
+      setPriceError(t('pb.chart.priceSaveFailed'));
     } });
   };
   const bars = (key: 'kg' | 'cost', title: string, color: string, unit: string, name: string) => (
@@ -118,14 +121,14 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
   return (
     <>
       <div className="filters">
-        <Segmented name="boiler-fuel-period" label="Okres" inline value={period} options={PERIODS} onChange={setPeriod} />
+        <Segmented name="boiler-fuel-period" label={t('period.label')} inline value={period} options={periods()} onChange={setPeriod} />
         {period === 'day' && <DateNav date={date} today={todayWarsaw()} onChange={setDate} />}
         {period === 'month' && (
-          <input className="boiler-period-input" type="month" value={date.slice(0, 7)} aria-label="Miesiąc"
+          <input className="boiler-period-input" type="month" value={date.slice(0, 7)} aria-label={t('period.month')}
             onChange={(event) => event.currentTarget.value && setDate(`${event.currentTarget.value}-01`)} />
         )}
         {period === 'year' && (
-          <input className="boiler-period-input" type="number" min={2020} max={2100} aria-label="Rok" value={yearText ?? date.slice(0, 4)}
+          <input className="boiler-period-input" type="number" min={2020} max={2100} aria-label={t('period.year')} value={yearText ?? date.slice(0, 4)}
             onBlur={() => setYearText(null)}
             onChange={(event) => {
               const text = event.currentTarget.value;
@@ -134,23 +137,23 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
             }} />
         )}
       </div>
-      {fuel === undefined && <section className="card"><span className="help">Wczytywanie…</span></section>}
-      {fuel === null && <section className="card"><span className="help danger-text">Nie udało się wczytać danych.</span></section>}
-      {fuel && fuel.counterKg === null && <section className="card"><span className="help">Brak licznika pelletu w tym okresie (sterownik od wersji 1.7.1).</span></section>}
+      {fuel === undefined && <section className="card"><span className="help">{t('common.loading')}</span></section>}
+      {fuel === null && <section className="card"><span className="help danger-text">{t('pv.loadFailed')}</span></section>}
+      {fuel && fuel.counterKg === null && <section className="card"><span className="help">{t('pb.chart.noCounter')}</span></section>}
       {fuel && fuel.counterKg !== null && (
         <>
           <div className="stat-row">
-            <div className="stat"><span className="stat-label">Spalony pellet</span><span className="stat-value">{formatNumber(fuel.totalKg)}<small>kg</small></span></div>
-            <div className="stat"><span className="stat-label">Koszt ogrzewania</span><span className="stat-value">{formatMoney(fuel.totalKg * price / 1000)}<small>zł</small></span></div>
+            <div className="stat"><span className="stat-label">{t('pb.chart.burned')}</span><span className="stat-value">{formatNumber(fuel.totalKg)}<small>kg</small></span></div>
+            <div className="stat"><span className="stat-label">{t('pb.chart.heatingCost')}</span><span className="stat-value">{formatMoney(fuel.totalKg * price / 1000)}<small>zł</small></span></div>
           </div>
-          {bars('kg', 'Spalony pellet [kg]', cc().heat, 'kg', 'Pellet')}
-          {bars('cost', 'Koszt ogrzewania [zł]', cc().s1, 'zł', 'Koszt')}
+          {bars('kg', `${t('pb.chart.burned')} [kg]`, cc().heat, 'kg', t('pb.pellet'))}
+          {bars('cost', `${t('pb.chart.heatingCost')} [zł]`, cc().s1, 'zł', t('pb.chart.cost'))}
         </>
       )}
       <form className="card" onSubmit={savePrice}>
-        <header className="card-head"><h2>Cena pelletu</h2><span className="card-hint">cała historia liczona tą samą ceną</span></header>
+        <header className="card-head"><h2>{t('pb.chart.pelletPrice')}</h2><span className="card-hint">{t('pb.chart.priceHint')}</span></header>
         <div className="form-grid">
-          <label htmlFor="boiler-price">Cena pelletu</label>
+          <label htmlFor="boiler-price">{t('pb.chart.pelletPrice')}</label>
           <div className="range-inputs">
             <input id="boiler-price" className="w-wide" type="number" min={0} max={MAX_PRICE_PER_TON} step="any" value={priceText}
               disabled={properties === null} onChange={(event) => setPriceText(event.currentTarget.value)} />
@@ -158,7 +161,7 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
           </div>
         </div>
         {priceError && <p className="help danger-text">{priceError}</p>}
-        <div className="actions"><button type="submit" className="btn btn-primary" disabled={busy || properties === null}>Zapisz</button></div>
+        <div className="actions"><button type="submit" className="btn btn-primary" disabled={busy || properties === null}>{t('common.save')}</button></div>
       </form>
       <Notification message={notice} />
     </>
@@ -166,12 +169,13 @@ const FuelChart: React.FC<{ date: string; setDate: (date: string) => void }> = (
 };
 
 type ChartMode = 'temperatures' | 'fuel';
-const CHART_MODES: { value: ChartMode; label: string }[] = [
-  { value: 'temperatures', label: 'Temperatury' },
-  { value: 'fuel', label: 'Spalony pellet' },
+const chartModes = (): { value: ChartMode; label: string }[] => [
+  { value: 'temperatures', label: tr('hp.chart.temperatures') },
+  { value: 'fuel', label: tr('pb.chart.burned') },
 ];
 
 export const PelletBoilerChart: React.FC = () => {
+  const { t } = useLang();
   const [mode, setMode] = useState<ChartMode>('temperatures');
   const [date, setDate] = useState(todayWarsaw());
   const [readings, setReadings] = useState<PelletBoilerReading[] | null>(null);
@@ -195,11 +199,11 @@ export const PelletBoilerChart: React.FC = () => {
   return (
     <div className="page page-device boiler-page">
       <div className="filters">
-        <Segmented name="boiler-chart-mode" label="Rodzaj wykresu" inline value={mode} options={CHART_MODES} onChange={setMode} />
+        <Segmented name="boiler-chart-mode" label={t('pb.chart.kind')} inline value={mode} options={chartModes()} onChange={setMode} />
         {mode === 'temperatures' && (
           <>
             <DateNav date={date} today={todayWarsaw()} onChange={setDate} />
-            <div className="chipset" role="group" aria-label="Serie">
+            <div className="chipset" role="group" aria-label={t('pb.chart.series')}>
               {series.map((item) => (
                 <label key={item.key} className="chip-check">
                   <input type="checkbox" checked={visible[item.key]}
@@ -215,13 +219,13 @@ export const PelletBoilerChart: React.FC = () => {
       {mode === 'temperatures' && (
         <section className="card">
           <header className="card-head">
-            <h2>Temperatury kotła</h2>
+            <h2>{t('pb.chart.boilerTemps')}</h2>
             <div className="legend">
               {shown.map((item) => <span key={item.key} className="lg"><i style={{ background: item.color }} />{item.label}</span>)}
             </div>
           </header>
-          {readings === null && <span className="help">Wczytywanie…</span>}
-          {readings?.length === 0 && <span className="help">Brak odczytów w tym dniu.</span>}
+          {readings === null && <span className="help">{t('common.loading')}</span>}
+          {readings?.length === 0 && <span className="help">{t('pv.noneDay')}</span>}
           {readings && readings.length > 0 && (
             <div className="chart boiler-chart boiler-chart-lg">
               <ResponsiveContainer width="100%" height="100%">
@@ -242,7 +246,7 @@ export const PelletBoilerChart: React.FC = () => {
               </ResponsiveContainer>
             </div>
           )}
-          <p className="help">Okresy palenia (stany stabilizacja, rozpalanie, praca, nadzór, wygaszanie) są podświetlone pasem na wykresie.</p>
+          <p className="help">{t('pb.chart.burningHelp')}</p>
         </section>
       )}
     </div>

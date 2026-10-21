@@ -7,7 +7,8 @@ import { useEffect, useState } from 'react';
 import { PelletBoilerRequests } from '../api';
 import { CsvButton, DateNav } from '../components/ui';
 import { PelletBoilerReading } from '../types';
-import { READING_COLUMNS, downloadText, readingsToCsv, todayWarsaw, withFuelDelta } from '../utils/boiler';
+import { readingColumns, downloadText, readingsToCsv, todayWarsaw, withFuelDelta } from '../utils/boiler';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 // kolumny liczbowe wyrównane do prawej (jak w makiecie): wszystkie poza czasem, stanem i flagami
@@ -15,6 +16,7 @@ const NUMERIC = new Set(['createdAt', 'state', 'mixer1_valve', 'mixer2_valve']);
 const isNumeric = (key: string) => !NUMERIC.has(key) && !['fan', 'feeder', 'lighter', 'circulation_pump', 'alarm', 'heating_pump', 'water_heater_pump', 'mixer1_pump', 'mixer2_pump'].includes(key);
 
 export const PelletBoilerData: React.FC = () => {
+  const { t } = useLang();
   const [date, setDate] = useState(todayWarsaw());
   const [readings, setReadings] = useState<PelletBoilerReading[] | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -24,7 +26,7 @@ export const PelletBoilerData: React.FC = () => {
     PelletBoilerRequests.getList(date).then((result) => setReadings(withFuelDelta(result ?? [])));
   }, [date]);
 
-  const columns = READING_COLUMNS.filter((column) => showAll || column.main);
+  const columns = readingColumns().filter((column) => showAll || column.main);
 
   return (
     <div className="page page-device boiler-page">
@@ -32,18 +34,18 @@ export const PelletBoilerData: React.FC = () => {
         <DateNav date={date} today={todayWarsaw()} onChange={setDate} />
         <label className="check">
           <input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.currentTarget.checked)} />
-          <span>Wszystkie parametry</span>
-          <small>domyślnie główne kolumny; CSV zawsze pełny</small>
+          <span>{t('pb.data.allParams')}</span>
+          <small>{t('pb.data.allParamsHint')}</small>
         </label>
         <CsvButton disabled={!readings?.length} onClick={() => readings && downloadText(readingsToCsv(readings), `kociol-${date}.csv`)} />
       </div>
       <section className="card card-table">
         <header className="card-head">
-          <h2>Odczyty dnia</h2>
-          <span className="card-hint">od najnowszego{readings ? ` · ${readings.length} odczytów` : ''}</span>
+          <h2>{t('hp.data.title')}</h2>
+          <span className="card-hint">{t('pv.data.newestFirst')}{readings ? ` · ${t('pb.data.readings', { n: readings.length })}` : ''}</span>
         </header>
-        {readings === null && <span className="help">Wczytywanie…</span>}
-        {readings?.length === 0 && <span className="help">Brak odczytów w tym dniu.</span>}
+        {readings === null && <span className="help">{t('common.loading')}</span>}
+        {readings?.length === 0 && <span className="help">{t('pv.noneDay')}</span>}
         {readings && readings.length > 0 && (
           <div className="table-wrap boiler-table-fill">
             <table className="data">

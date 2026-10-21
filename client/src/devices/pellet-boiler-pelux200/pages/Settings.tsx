@@ -19,6 +19,7 @@ import { DEFAULT_POLL_SECONDS } from '../utils/boiler';
 import { AdvancedSettings } from '../components/AdvancedSettings';
 import { MainParameters } from '../components/MainParameters';
 import { IconBtn } from '../components/ui';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 // interwał w pełnych sekundach (jak w ustawieniach urządzenia); do 2026-10-13 w minutach, ale pole liczbowe nie pokazywało
@@ -28,6 +29,7 @@ const MAX_SECONDS = 3600;
 const READY_TIMEOUT_MS = 5000;
 
 export const PelletBoilerSettings: React.FC = () => {
+  const { t } = useLang();
   const { device, selectDevice } = useDevice();
   const isDemo = !!useAuth().user?.isDemo;
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
@@ -56,7 +58,7 @@ export const PelletBoilerSettings: React.FC = () => {
     event.preventDefault();
     const value = Number(seconds);
     if (!Number.isInteger(value) || value < MIN_SECONDS || value > MAX_SECONDS) {
-      return setError(`Odpytywanie pieca: pełne sekundy ${MIN_SECONDS}–${MAX_SECONDS}.`);
+      return setError(t('pb.set.pollInvalid', { min: MIN_SECONDS, max: MAX_SECONDS }));
     }
     setError('');
     await run(async () => { try {
@@ -65,9 +67,9 @@ export const PelletBoilerSettings: React.FC = () => {
         poll_interval_seconds: value,
       });
       setProperties(saved);
-      showNotice('Zapisano. Sterownik pobierze nową wartość przy następnym wysłaniu danych.', 4000);
+      showNotice(t('pb.set.saved'), 4000);
     } catch {
-      setError('Nie udało się zapisać ustawień.');
+      setError(t('sw.set.saveFailed'));
     } });
   };
 
@@ -76,29 +78,26 @@ export const PelletBoilerSettings: React.FC = () => {
   return (
     <div className="page page-device boiler-page">
       <Notification message={notice} />
-      {!ready && <section className="card"><span className="help">Wczytywanie…</span></section>}
+      {!ready && <section className="card"><span className="help">{t('common.loading')}</span></section>}
       <div className="grid-2 grid-settings" style={ready ? undefined : { display: 'none' }}>
         <div className="stack">
           <MainParameters onReady={() => setMainReady(true)} />
         </div>
         <div className="stack">
           <form className="card" onSubmit={save}>
-            <header className="card-head"><h2>Odczyt</h2></header>
+            <header className="card-head"><h2>{t('pv.set.reading')}</h2></header>
             <div className="form-grid">
-              <label htmlFor="boiler-poll">Interwał odpytywania pieca</label>
+              <label htmlFor="boiler-poll">{t('pb.set.pollInterval')}</label>
               <div className="range-inputs">
                 <input id="boiler-poll" className="w-wide" type="number" min={MIN_SECONDS} max={MAX_SECONDS} step={1} value={seconds}
                   onChange={(event) => setSeconds(event.currentTarget.value)} />
                 <span className="unit-txt">s</span>
               </div>
             </div>
-            <p className="help">
-              {MIN_SECONDS}–{MAX_SECONDS} s, domyślnie {DEFAULT_POLL_SECONDS} s. Krótszy odstęp to szybsza reakcja harmonogramu, cyklu Zimy
-              i ładowania CWU, które korzystają z ostatniego odczytu; sterownik pobiera nową wartość przy następnej wysyłce.
-            </p>
+            <p className="help">{t('pb.set.pollHelp', { min: MIN_SECONDS, max: MAX_SECONDS, default: DEFAULT_POLL_SECONDS })}</p>
             {error && <p className="help danger-text">{error}</p>}
             <div className="actions">
-              <button type="submit" className="btn btn-primary" disabled={properties === null || busy}>Zapisz</button>
+              <button type="submit" className="btn btn-primary" disabled={properties === null || busy}>{t('common.save')}</button>
             </div>
           </form>
 
@@ -106,12 +105,12 @@ export const PelletBoilerSettings: React.FC = () => {
 
           <section className="card">
             <header className="card-head">
-              <h2>Sterownik</h2>
-              <IconBtn name="edit" label="Zmień dane sterownika" disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
+              <h2>{t('nav.device')}</h2>
+              <IconBtn name="edit" label={t('controller.edit')} disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
             </header>
             {/* wiersze core (DeviceAddress, FirmwareStatus) mają układ „etykieta: wartość”, więc cała lista jest tak samo rysowana (.boiler-kv) */}
             <div className="boiler-kv">
-              <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
+              <div><span className="label">{t('deviceEdit.name')}:</span><span>{device?.name?.trim() || '---'}</span></div>
               {!isDemo && <div><span className="label">SN:</span><code>{device?.deviceId ?? '---'}</code></div>}
               {!isDemo && <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>}
               <DeviceAddress device={device} />

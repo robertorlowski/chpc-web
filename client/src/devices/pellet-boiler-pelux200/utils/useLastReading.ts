@@ -8,7 +8,9 @@ import { PelletBoilerReading } from '../types';
 
 const REFRESH_MS = 30_000;
 
-export const NOT_RESPONDING_TEXT = 'Kocioł nie przesyła danych.';
+import { t as tr } from '../../../core/i18n';
+
+export const notRespondingText = () => tr('pb.notResponding');
 
 export function useLastReading(refreshKey?: unknown) {
   // undefined: jeszcze nie wczytano (przyciski nie są wtedy blokowane), null: brak odpowiedzi serwera

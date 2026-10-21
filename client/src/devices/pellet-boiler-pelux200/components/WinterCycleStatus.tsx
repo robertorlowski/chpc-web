@@ -3,27 +3,25 @@
 // ≥ max pompy ciepła − 3 °C, Lato przy < 30 °C i stojącej pompie CO.
 import { PelletBoilerWinterCycle } from '../types';
 import { formatDateTime, formatNumber } from '../utils/boiler';
-
-const time = (value?: string | null) =>
-  value ? new Date(value).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '';
+import { useLang } from '../../../core/i18n';
 
 export function WinterCycleStatus({ cycle }: { cycle?: PelletBoilerWinterCycle | null }) {
+  const { t, locale } = useLang();
   if (!cycle) return null;
-  const temperature = cycle.temperature === null ? 'brak świeżego odczytu' : `teraz ${formatNumber(cycle.temperature)} °C`;
-  const pump = typeof cycle.pumpTemperature === 'number' ? `, pompa ${formatNumber(cycle.pumpTemperature)} °C` : '';
+  const time = (value?: string | null) => (value ? new Date(value).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : '');
+  const temperature = cycle.temperature === null ? t('pb.wc.noFresh') : t('pb.wc.now', { value: formatNumber(cycle.temperature) });
+  const pump = typeof cycle.pumpTemperature === 'number' ? t('pb.wc.pump', { value: formatNumber(cycle.pumpTemperature) }) : '';
   return (
     <p className="help boiler-winter-cycle">
       {cycle.phase === 'waiting'
-        ? <>Zima z pompą ciepła: kocioł na Lecie czeka na {formatNumber(cycle.winterFrom ?? 45)} °C w kotle albo na pompie ({temperature}{pump}) od {formatDateTime(cycle.since)}
-          {cycle.forcedAt ? `; wymuszony start pompy ciepła ${time(cycle.forcedAt)}` : ''}.</>
-        : <>Zima z pompą ciepła: kocioł na Zimie; Lato, gdy spadnie poniżej 30 °C i stanie pompa CO ({temperature}).</>}
+        ? <>{t('pb.wc.waiting', { from: formatNumber(cycle.winterFrom ?? 45), temperature, pump, since: formatDateTime(cycle.since) })}
+          {cycle.forcedAt ? t('pb.wc.forced', { time: time(cycle.forcedAt) }) : ''}.</>
+        : <>{t('pb.wc.winter', { temperature })}</>}
       {cycle.mixer && <>
-        {' '}Mieszacz 1 obniżony do {formatNumber(cycle.mixer.lowered)} °C, wróci do {formatNumber(cycle.mixer.saved)} °C
-        {` na Zimie, gdy woda w pompie ciepła wróci do ${formatNumber(cycle.mixer.restoreFrom ?? 40)} °C`}
+        {' '}{t('pb.wc.mixer', { lowered: formatNumber(cycle.mixer.lowered), saved: formatNumber(cycle.mixer.saved), restore: formatNumber(cycle.mixer.restoreFrom ?? 40) })}
         {typeof cycle.mixer.reference === 'number'
-          ? `, utrzyma ${formatNumber(cycle.mixer.reference)} °C przez 15 min (od ${time(cycle.mixer.referenceAt)})`
-            + ` albo wzrośnie do ${formatNumber(cycle.mixer.reference + 5)} °C${pump ? ` (${pump.slice(2)})` : ''}`
-          : ', utrzyma temperaturę przez 15 min albo wzrośnie o 5 °C'}.
+          ? t('pb.wc.mixerRef', { ref: formatNumber(cycle.mixer.reference), time: time(cycle.mixer.referenceAt), plus: formatNumber(cycle.mixer.reference + 5), pump: pump ? ` (${pump.slice(2)})` : '' })
+          : t('pb.wc.mixerNoRef')}.
       </>}
     </p>
   );

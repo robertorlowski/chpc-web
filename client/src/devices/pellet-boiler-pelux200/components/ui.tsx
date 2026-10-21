@@ -3,6 +3,7 @@
 // (.date-nav: poprzedni / następny dzień i pole daty), przycisk CSV i przełącznik segmentowy (.segmented).
 // Komponenty tylko dla client/src/devices/pellet-boiler-pelux200/.
 import { ReactNode, useEffect } from 'react';
+import { getLang, locale, useLang } from '../../../core/i18n';
 
 type IconName = 'prev' | 'next' | 'download' | 'close' | 'bell' | 'fire' | 'up' | 'down' | 'edit' | 'trash' | 'plus';
 
@@ -43,6 +44,7 @@ export const Modal: React.FC<{
   title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; onSubmit?: (event: React.FormEvent) => void;
   labelledBy?: string; small?: boolean;
 }> = ({ title, onClose, children, footer, onSubmit, labelledBy = 'boiler-modal-title', small }) => {
+  const { t } = useLang();
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', closeOnEscape);
@@ -55,7 +57,7 @@ export const Modal: React.FC<{
       <Tag className={`modal${small ? ' modal-sm' : ''}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} onSubmit={onSubmit}>
         <header className="modal-head">
           <h2 id={labelledBy}>{title}</h2>
-          <IconBtn name="close" label="Zamknij" onClick={onClose} />
+          <IconBtn name="close" label={t('common.close')} onClick={onClose} />
         </header>
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
@@ -77,18 +79,21 @@ const formatDay = (date: string) => {
 
 // Nawigacja po dniach (.date-nav): strzałki, data w środku jako pole daty (kliknięcie otwiera kalendarz),
 // „dziś” przy dzisiejszej dacie, następny dzień nieaktywny po dzisiejszym. today: YYYY-MM-DD w Warszawie.
-export const DateNav: React.FC<{ date: string; today: string; onChange: (date: string) => void }> = ({ date, today, onChange }) => (
+export const DateNav: React.FC<{ date: string; today: string; onChange: (date: string) => void }> = ({ date, today, onChange }) => {
+  const { t } = useLang();
+  return (
   <div className="date-nav">
-    <IconBtn name="prev" label="Poprzedni dzień" onClick={() => onChange(shiftDay(date, -1))} />
+    <IconBtn name="prev" label={t('common.prevDay')} onClick={() => onChange(shiftDay(date, -1))} />
     <label className="date-cur">
       <span className="date-cur-text">{formatDay(date)}</span>
-      {date === today && <small>dziś</small>}
-      <input type="date" value={date} max={today} aria-label="Dzień"
+      {date === today && <small>{t('wx.today')}</small>}
+      <input type="date" value={date} max={today} aria-label={t('common.day')}
         onChange={(event) => event.currentTarget.value && onChange(event.currentTarget.value)} />
     </label>
-    <IconBtn name="next" label="Następny dzień" disabled={date >= today} onClick={() => onChange(shiftDay(date, 1))} />
+    <IconBtn name="next" label={t('common.nextDay')} disabled={date >= today} onClick={() => onChange(shiftDay(date, 1))} />
   </div>
-);
+  );
+};
 
 export const CsvButton: React.FC<{ onClick: () => void; disabled?: boolean }> = ({ onClick, disabled }) => (
   <button type="button" className="btn btn-ghost btn-sm" disabled={disabled} onClick={onClick}>
@@ -124,4 +129,4 @@ export const Alert: React.FC<{ kind: 'warn' | 'err'; title: ReactNode; children?
 
 // Godzina HH:MM w Warszawie.
 export const hourMinute = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
+  iso ? new Date(iso).toLocaleTimeString(locale(getLang()), { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' }) : '';
