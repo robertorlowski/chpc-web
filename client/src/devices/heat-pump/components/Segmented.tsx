@@ -1,7 +1,7 @@
 // Przełącznik segmentowy z makiety (.segmented / .seg, makieta.css): grupa radio, zaznaczony segment w kolorze
 // akcentu. Używany do trybu pracy pompy (Harmonogram, Ustawienia), rodzaju wpisu i okresu wykresu.
 // inline = segmenty na szerokość treści (pasek filtrów), domyślnie na całą szerokość karty.
-import { PUMP_WORK_MODE_LABELS, PumpWorkMode } from '../types';
+import { PumpWorkMode, pumpWorkModeLabel } from '../types';
 
 export type SegmentedOption<T extends string> = { value: T; label: string; title?: string };
 
@@ -29,16 +29,12 @@ export function Segmented<T extends string>({ name, label, value, options, onCha
   );
 }
 
-// Tryb pracy pompy: Ręczny / Automatyczny / Wyłączony (etykiety z types.ts; OFF w makiecie to „Wyłączony”).
-export const WORK_MODE_OPTIONS: ReadonlyArray<SegmentedOption<PumpWorkMode>> = [
-  { value: 'MANUAL', label: PUMP_WORK_MODE_LABELS.MANUAL },
-  { value: 'AUTO', label: PUMP_WORK_MODE_LABELS.AUTO },
-  { value: 'OFF', label: 'Wyłączony' },
+// Tryb pracy pompy: Ręczny / Automatyczny / Wyłączony (słownik hp.mode.*; OFF w makiecie to „Wyłączony”).
+export const workModeOptions = (t: (key: string) => string): ReadonlyArray<SegmentedOption<PumpWorkMode>> => [
+  { value: 'MANUAL', label: pumpWorkModeLabel('MANUAL', t) },
+  { value: 'AUTO', label: pumpWorkModeLabel('AUTO', t) },
+  { value: 'OFF', label: t('hp.mode.offLabel') },
 ];
 
-// Opis trybu pod przełącznikiem.
-export const WORK_MODE_HINTS: Record<PumpWorkMode, string> = {
-  MANUAL: 'Ustawienia domyślne; harmonogram nie działa.',
-  AUTO: 'Według harmonogramu; poza wpisami obowiązuje ustawienie domyślne.',
-  OFF: 'Pompa wyłączona.',
-};
+// Opis trybu pod przełącznikiem (słownik hp.modeHint.*).
+export const workModeHint = (mode: PumpWorkMode, t: (key: string) => string): string => t(`hp.modeHint.${mode}`);

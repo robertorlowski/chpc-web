@@ -15,7 +15,8 @@ import { ControllerCard } from '../../../../core/components/ControllerCard';
 import { DeviceSharing } from '../../../../core/components/DeviceSharing';
 import { useDevice } from '../../../../core/context/DeviceContext';
 import { errorDescription, ERROR_LOCK_LIMIT, isLocked } from '../../utils/errors';
-import { Segmented, WORK_MODE_OPTIONS } from '../../components/Segmented';
+import { Segmented, workModeOptions } from '../../components/Segmented';
+import { useLang } from '../../../../core/i18n';
 import { Switch } from '../../components/Switch';
 import { BellIcon, CheckIcon } from '../../components/icons';
 
@@ -23,9 +24,9 @@ import { BellIcon, CheckIcon } from '../../components/icons';
 const EEV_SETPOINT_MIN = 0.1;
 const EEV_SETPOINT_MAX = 8;
 
-const RUNNING_LOCK_HINT ="Sprężarka pracuje: pompy działają automatycznie, a wymuszenie pompa przyjmuje tylko w spoczynku";
-
 export const Settings: React.FC = () => {
+	const { t } = useLang();
+	const RUNNING_LOCK_HINT = t('hp.set.runningLock');
 	// defaultOperation: stan z serwera; valueOpration: tylko pola zmienione przez użytkownika,
 	// bo operacja ręczna nadpisuje harmonogram wyłącznie w przekazanych polach
 	const [defaultOperation, setDefaultOperation] = useState<OperationEntry>({});
@@ -63,10 +64,10 @@ export const Settings: React.FC = () => {
 	};
 
 	const handleRestart = () => {
-		if (!window.confirm('Zrestartować sterownik pompy? Sprężarka i pompy zostaną zatrzymane, a start nastąpi po ok. 90 s.')) {
+		if (!window.confirm(t('hp.set.restartConfirm'))) {
 			return;
 		}
-		runAction('restart', 'Polecenie restartu wysłane do sterownika.');
+		runAction('restart', t('hp.set.restartSent'));
 	};
 
 	// tryb pracy urządzenia (ręczny / automatyczny / OFF): zmiana tutaj = zmiana w Harmonogramie
@@ -88,12 +89,12 @@ export const Settings: React.FC = () => {
 	const temperatureProblem = useMemo(() => {
 		const changed = [valueOpration.temp_min, valueOpration.temp_max].filter((value) => value !== undefined);
 		if (changed.some((value) => !Number.isFinite(Number(value)) || Number(value) < 1 || Number(value) > 50)) {
-			return 'Temperatura: 1–50 °C.';
+			return t('hp.tempRange', { min: 1, max: 50 });
 		}
 		const min = Number(valueOpration.temp_min ?? defaultOperation.temp_min);
 		const max = Number(valueOpration.temp_max ?? defaultOperation.temp_max);
 		return changed.length > 0 && Number.isFinite(min) && Number.isFinite(max) && min > max
-			? 'Temperatura od nie może być wyższa niż do.'
+			? t('hp.tempOrder')
 			: '';
 	}, [valueOpration, defaultOperation]);
 
@@ -121,7 +122,7 @@ export const Settings: React.FC = () => {
 		);
 	}, []);
 
-	const showSaveNotice = () => showNotice('Polecenie wysłane do sterownika.', 4000);
+	const showSaveNotice = () => showNotice(t('hp.set.sent'), 4000);
 
 	// Wysyła tylko zmienione pola (POST /operation/set): tryb pracy zapisuje serwer w ustawieniach
 	// urządzenia (jak Harmonogram, ręczne ustawienia znikają), temperatury i reszta idą od razu na pompę
@@ -155,26 +156,26 @@ export const Settings: React.FC = () => {
 			<Notification message={saveNotice} />
 			<div className="grid-2 grid-settings">
 				<section className="card">
-					<header className="card-head"><h2>Ustaw</h2><span className="card-hint">polecenie do sterownika</span></header>
-					<Segmented name="u-tryb" label="Tryb pracy" value={selectedWorkMode} options={WORK_MODE_OPTIONS}
+					<header className="card-head"><h2>{t('hp.set.title')}</h2><span className="card-hint">{t('hp.set.hint')}</span></header>
+					<Segmented name="u-tryb" label={t('hp.workMode')} value={selectedWorkMode} options={workModeOptions(t)}
 						onChange={(mode) => {
 							// tryb zapisany = tryb urządzenia; ten sam wybór co w danych nie jest wysyłany
 							const { work_mode: _previous, ...rest } = valueOpration;
 							setValueOperation(mode === pumpWorkMode(defaultOperation.work_mode) ? rest : { ...rest, work_mode: mode });
 						}} />
 					<div className="form-grid">
-						<label htmlFor="u-tmin">Temperatura od / do</label>
+						<label htmlFor="u-tmin">{t('hp.tempFromTo')}</label>
 						<div className="range-inputs">
-							<input type="number" id="u-tmin" name="temp_min" aria-label="Temperatura od" aria-invalid={!!temperatureProblem}
+							<input type="number" id="u-tmin" name="temp_min" aria-label={t('hp.tempFrom')} aria-invalid={!!temperatureProblem}
 								placeholder={defaultOperation.temp_min} value={valueOpration.temp_min ?? ''}
 								onChange={(e) => setOptional('temp_min', e.currentTarget.value)} />
 							<span className="dash">–</span>
-							<input type="number" name="temp_max" aria-label="Temperatura do" aria-invalid={!!temperatureProblem}
+							<input type="number" name="temp_max" aria-label={t('hp.tempTo')} aria-invalid={!!temperatureProblem}
 								placeholder={defaultOperation.temp_max} value={valueOpration.temp_max ?? ''}
 								onChange={(e) => setOptional('temp_max', e.currentTarget.value)} />
 							<span className="unit-txt">°C</span>
 						</div>
-						<label htmlFor="u-watt" title="Maksymalna moc sprężarki; 1001–4000 W, powyżej 3200 W włącza ochronę przepływu">Limit mocy</label>
+						<label htmlFor="u-watt" title={t('hp.set.powerLimitTip')}>{t('hp.powerLimit')}</label>
 						<div className="range-inputs">
 							<input type="number" id="u-watt" name="working_watt" className="w-wide"
 								placeholder={defaultOperation.working_watt} value={valueOpration.working_watt ?? ''}
@@ -191,7 +192,7 @@ export const Settings: React.FC = () => {
 								placeholder={defaultOperation.eev_max_pulse_open} value={valueOpration.eev_max_pulse_open ?? ''}
 								onChange={(e) => setOptional('eev_max_pulse_open', e.currentTarget.value)} />
 						</div>
-						<label htmlFor="u-eevsp" title={`Przegrzanie EEV ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}>Przegrzanie EEV</label>
+						<label htmlFor="u-eevsp" title={`${t('hp.eevSuperheat')} ${EEV_SETPOINT_MIN}–${EEV_SETPOINT_MAX} °C`}>{t('hp.eevSuperheat')}</label>
 						<div className="range-inputs">
 							<input type="number" id="u-eevsp" name="eev_setpoint" step="0.1" min={EEV_SETPOINT_MIN} max={EEV_SETPOINT_MAX}
 								aria-invalid={!eevSetpointValid} placeholder={defaultOperation.eev_setpoint} value={valueOpration.eev_setpoint ?? ''}
@@ -200,59 +201,59 @@ export const Settings: React.FC = () => {
 						</div>
 					</div>
 					{temperatureProblem && <p className="field-error">{temperatureProblem}</p>}
-					{!eevSetpointValid && <p className="field-error">Przegrzanie EEV: {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C.</p>}
+					{!eevSetpointValid && <p className="field-error">{t('hp.eevSuperheat')}: {EEV_SETPOINT_MIN}–{EEV_SETPOINT_MAX} °C.</p>}
 					<ul className="toggle-list">
 						<li>
-							<span className="t-name">Wymuszenie pracy <small>tylko w spoczynku sprężarki</small></span>
-							<Switch label="Wymuszenie pracy" disabled={!forceEditable}
-								title={running ? RUNNING_LOCK_HINT : forceEditable ? 'Wymuszenie pracy (pompa kasuje je po zatrzymaniu sprężarki)' : 'W trybie OFF sterownik nie wymusza pracy'}
+							<span className="t-name">{t('hp.set.force')} <small>{t('hp.set.forceOnlyIdle')}</small></span>
+							<Switch label={t('hp.set.force')} disabled={!forceEditable}
+								title={running ? RUNNING_LOCK_HINT : forceEditable ? t('hp.set.forceTip') : t('hp.set.forceOff')}
 								on={(valueOpration.force ?? defaultOperation.force) === "1"} onChange={toggle('force')} />
 						</li>
 						<li>
-							<span className="t-name">Pompa ciepłej wody</span>
-							<Switch label="Pompa ciepłej wody" disabled={running} title={running ? RUNNING_LOCK_HINT : 'Pompa ciepłej wody'}
+							<span className="t-name">{t('hp.set.hotPump')}</span>
+							<Switch label={t('hp.set.hotPump')} disabled={running} title={running ? RUNNING_LOCK_HINT : t('hp.set.hotPump')}
 								on={(valueOpration.hot_pomp ?? defaultOperation.hot_pomp) === "1"} onChange={toggle('hot_pomp')} />
 						</li>
 						<li>
-							<span className="t-name">Pompa zimnej wody</span>
-							<Switch label="Pompa zimnej wody" disabled={running} title={running ? RUNNING_LOCK_HINT : 'Pompa zimnej wody'}
+							<span className="t-name">{t('hp.set.coldPump')}</span>
+							<Switch label={t('hp.set.coldPump')} disabled={running} title={running ? RUNNING_LOCK_HINT : t('hp.set.coldPump')}
 								on={(valueOpration.cold_pomp ?? defaultOperation.cold_pomp) === "1"} onChange={toggle('cold_pomp')} />
 						</li>
 					</ul>
-					<p className="help">Wyszarzone przełączniki pokazują stan z pompy; przy pracującej sprężarce pompa steruje nimi sama. Puste pole = wartość bez zmian (w polu stan z pompy).</p>
-					{error && <p className="field-error">Wystąpił błąd podczas wykonywania operacji.</p>}
+					<p className="help">{t('hp.set.help')}</p>
+					{error && <p className="field-error">{t('hp.set.error')}</p>}
 					<div className="actions">
-						<button type="button" className="btn btn-primary" data-action="send-operation" disabled={!enableSave || busy} onClick={handleSave}>Zmień</button>
+						<button type="button" className="btn btn-primary" data-action="send-operation" disabled={!enableSave || busy} onClick={handleSave}>{t('hp.set.change')}</button>
 					</div>
-					{saveNotice && <div className="toast toast-ok" role="status"><CheckIcon />{saveNotice} Sterownik zastosuje je przy następnym odczycie (10–30 s).</div>}
+					{saveNotice && <div className="toast toast-ok" role="status"><CheckIcon />{saveNotice} {t('hp.set.applyNote')}</div>}
 				</section>
 
 				<div className="stack">
 					<section className="card">
 						<header className="card-head">
-							<h2>Błędy sterownika</h2>
-							<span className="card-hint">licznik {errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`} · blokada przy {ERROR_LOCK_LIMIT}</span>
+							<h2>{t('hp.set.errorsTitle')}</h2>
+							<span className="card-hint">{t('hp.counter')} {errorCount === undefined ? '---' : `${errorCount}/${ERROR_LOCK_LIMIT}`} · {t('hp.set.lockAt', { n: ERROR_LOCK_LIMIT })}</span>
 						</header>
 						{errorText || locked ? (
 							<div className="alert alert-err">
 								<BellIcon />
 								<div>
-									<strong>{locked ? 'Sterowanie zablokowane' : `Błąd ${lastError?.error_code} · ${errorText}`}</strong>
-									<span>{locked ? `${errorCount}/${ERROR_LOCK_LIMIT} błędów; odblokuj, żeby pompa wróciła do pracy` : lastError?.time}</span>
+									<strong>{locked ? t('hp.set.controlLocked') : `${t('hp.set.errorWord')} ${lastError?.error_code} · ${errorText}`}</strong>
+									<span>{locked ? t('hp.set.lockedText', { count: `${errorCount}/${ERROR_LOCK_LIMIT}` }) : lastError?.time}</span>
 								</div>
 							</div>
 						) : (
-							<p className="help"><span className="ok-text">Brak błędów</span> w ostatnich 24 godzinach.</p>
+							<p className="help"><span className="ok-text">{t('hp.set.noErrors')}</span> {t('hp.set.last24h')}</p>
 						)}
 						<div className="actions actions-split">
 							<button type="button" className="btn" disabled={!locked || busy}
-								title={locked ? 'Zeruje licznik błędów i zdejmuje blokadę; pompa działa dalej' : 'Sterownik nie jest zablokowany'}
-								onClick={() => runAction('error_reset', 'Polecenie odblokowania wysłane do sterownika.')}>
-								Odblokuj
+								title={locked ? t('hp.set.unlockTip') : t('hp.set.notLocked')}
+								onClick={() => runAction('error_reset', t('hp.set.unlockSent'))}>
+								{t('hp.set.unlock')}
 							</button>
-							<button type="button" className="btn btn-danger-ghost" title="Uruchamia sterownik od nowa (przerwa startowa ok. 90 s)"
+							<button type="button" className="btn btn-danger-ghost" title={t('hp.set.restartTip')}
 								disabled={busy} onClick={handleRestart}>
-								Restart sterownika
+								{t('hp.set.restart')}
 							</button>
 						</div>
 					</section>

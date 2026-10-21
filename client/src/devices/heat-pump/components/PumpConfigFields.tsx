@@ -3,6 +3,7 @@
 // Ustawiana raz przy montażu; zmiana nie zmienia trybu pracy ani temperatur. Zapis razem z nazwą.
 import { useEffect, useState } from 'react';
 import { DeviceDefinitionFieldsProps, PumpConfig, PumpConnection } from '../../../core/types';
+import { useLang } from '../../../core/i18n';
 import './pumpConfig.css';
 
 // Pojemność podpowiadana dla podłączenia; zakres jak na serwerze (device.service.ts).
@@ -17,6 +18,7 @@ const initialConfig = (config?: PumpConfig): PumpConfig =>
   config ?? { connection: 'cwu', pvDtu: true, pvForce: false };
 
 export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsProps) {
+  const { t } = useLang();
   const [config, setConfig] = useState<PumpConfig>(() => initialConfig(device.pumpConfig));
   // pusty tekst = pojemność niewpisana (zapis bez tankLiters, serwer podaje co wtedy domyślne 300 l)
   const [liters, setLiters] = useState(config.tankLiters === undefined ? '' : String(config.tankLiters));
@@ -43,10 +45,10 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
 
   return (
     <section className="pump-config" aria-labelledby="pump-config-title">
-      <h3 id="pump-config-title">Konfiguracja pompy</h3>
+      <h3 id="pump-config-title">{t('hp.config.title')}</h3>
       <div className="pump-config-line">
-        <span className="pump-config-label">Podłączenie pompy:</span>
-        <div className="pump-config-seg" role="group" aria-label="Podłączenie pompy">
+        <span className="pump-config-label">{t('hp.config.connection')}:</span>
+        <div className="pump-config-seg" role="group" aria-label={t('hp.config.connection')}>
           {(['cwu', 'co'] as const).map((connection) => (
             <button
               key={connection}
@@ -55,13 +57,13 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
               aria-pressed={config.connection === connection}
               onClick={() => pickConnection(connection)}
             >
-              {connection.toUpperCase()}
+              {connection === 'cwu' ? t('tile.cwu') : t('hp.co')}
             </button>
           ))}
         </div>
       </div>
       <div className="pump-config-line">
-        <label className="pump-config-label" htmlFor="pump-config-liters">Pojemność zbiornika:</label>
+        <label className="pump-config-label" htmlFor="pump-config-liters">{t('hp.config.tankLiters')}:</label>
         <input
           id="pump-config-liters"
           type="number"
@@ -70,22 +72,22 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
           max={TANK_LITERS_MAX}
           step={1}
           value={liters}
-          placeholder="brak"
+          placeholder={t('hp.config.none')}
           aria-invalid={!litersValid}
           onChange={(event) => setLiters(event.currentTarget.value)}
         />
         <span>l</span>
       </div>
-      {!litersValid && <p className="device-modal-error">Pojemność: pełne litry {TANK_LITERS_MIN}–{TANK_LITERS_MAX} albo puste.</p>}
+      {!litersValid && <p className="device-modal-error">{t('hp.config.litersError', { min: TANK_LITERS_MIN, max: TANK_LITERS_MAX })}</p>}
 
-      <div className="pump-config-pv-title">Fotowoltaika</div>
+      <div className="pump-config-pv-title">{t('type.photovoltaic')}</div>
       <label className="pump-config-check">
         <input
           type="checkbox"
           checked={config.pvDtu}
           onChange={(event) => setConfig({ ...config, pvDtu: event.currentTarget.checked })}
         />
-        <span>Panele Hoymiles podłączone przez DTU (RS-485)</span>
+        <span>{t('hp.config.pvDtu')}</span>
       </label>
       <label className={`pump-config-check${config.pvDtu ? '' : ' disabled'}`}>
         <input
@@ -94,12 +96,12 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
           checked={config.pvDtu && config.pvForce}
           onChange={(event) => setConfig({ ...config, pvForce: event.currentTarget.checked })}
         />
-        <span>Wymuś pracę przy produkcji PV &gt; 2 kW</span>
+        <span>{t('hp.config.pvForce')}</span>
       </label>
 
       <div className="pump-config-schema">
         <div className="pump-config-schema-title">
-          Schemat podłączenia: {config.connection === 'cwu' ? 'zasobnik CWU' : 'bufor CO / piec'}
+          {t('hp.config.schema')}: {config.connection === 'cwu' ? t('hp.config.cwuTank') : t('hp.config.coBuffer')}
         </div>
         <ConnectionSchema connection={config.connection} liters={litersValid && !litersEmpty ? litersValue : null} />
       </div>
@@ -110,6 +112,7 @@ export function PumpConfigFields({ device, onChange }: DeviceDefinitionFieldsPro
 // Schemat hydrauliczny: gorąca woda z pompy do górnego króćca, zimna z dołu zbiornika do pompy. Niski (300 × 150),
 // opisy krótkie i nad / pod strzałkami, żeby się nie nakładały, a okno mieściło się na ekranie telefonu.
 function ConnectionSchema({ connection, liters }: { connection: PumpConnection; liters: number | null }) {
+  const { t } = useLang();
   const cwu = connection === 'cwu';
   const hot = 'var(--danger)';
   const cold = 'var(--c-water)';
@@ -117,7 +120,7 @@ function ConnectionSchema({ connection, liters }: { connection: PumpConnection; 
     <svg
       viewBox="0 0 300 150"
       role="img"
-      aria-label={cwu ? 'Schemat: pompa ciepła podłączona do zasobnika CWU' : 'Schemat: pompa ciepła podłączona do bufora CO lub pieca'}
+      aria-label={cwu ? t('hp.config.schemaCwu') : t('hp.config.schemaCo')}
     >
       <defs>
         <marker id="pump-arrow-hot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -128,20 +131,20 @@ function ConnectionSchema({ connection, liters }: { connection: PumpConnection; 
         </marker>
       </defs>
       <rect x="100" y="8" width="70" height="134" rx={cwu ? 26 : 6} style={{ fill: 'var(--card)', stroke: 'var(--fg-3)' }} strokeWidth="2" />
-      <text x="135" y="62" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? 'Zasobnik' : 'Bufor CO'}</text>
-      <text x="135" y="76" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? 'CWU' : '/ piec'}</text>
+      <text x="135" y="62" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? t('hp.config.svgTank') : t('hp.config.svgBuffer')}</text>
+      <text x="135" y="76" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--fg)' }}>{cwu ? t('tile.cwu') : t('hp.config.svgBoiler')}</text>
       {liters !== null && <text x="135" y="91" textAnchor="middle" fontSize="10" style={{ fill: 'var(--fg-2)' }}>{liters} l</text>}
       <rect x="226" y="52" width="68" height="46" rx="6" style={{ fill: 'var(--accent)' }} />
-      <text x="260" y="72" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>Pompa</text>
-      <text x="260" y="86" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>ciepła</text>
+      <text x="260" y="72" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>{t('hp.config.svgPump1')}</text>
+      <text x="260" y="86" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--accent-fg)' }}>{t('hp.config.svgPump2')}</text>
       <path d="M260 52 V26 H172" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
-      <text x="216" y="20" textAnchor="middle" fontSize="10" fill={hot}>gorąca</text>
+      <text x="216" y="20" textAnchor="middle" fontSize="10" fill={hot}>{t('hp.config.svgHot')}</text>
       <path d="M172 122 H260 V98" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />
-      <text x="216" y="138" textAnchor="middle" fontSize="10" fill={cold}>zimna</text>
+      <text x="216" y="138" textAnchor="middle" fontSize="10" fill={cold}>{t('hp.config.svgCold')}</text>
       <path d="M98 26 H8" fill="none" stroke={hot} strokeWidth="3" markerEnd="url(#pump-arrow-hot)" />
-      <text x="8" y="20" fontSize="10" fill={hot}>{cwu ? 'do kranów' : 'zasilanie CO'}</text>
+      <text x="8" y="20" fontSize="10" fill={hot}>{cwu ? t('hp.config.svgTaps') : t('hp.config.svgCoSupply')}</text>
       <path d="M8 122 H98" fill="none" stroke={cold} strokeWidth="3" markerEnd="url(#pump-arrow-cold)" />
-      <text x="8" y="138" fontSize="10" fill={cold}>{cwu ? 'woda z sieci' : 'powrót CO'}</text>
+      <text x="8" y="138" fontSize="10" fill={cold}>{cwu ? t('hp.config.svgMains') : t('hp.config.svgCoReturn')}</text>
     </svg>
   );
 }

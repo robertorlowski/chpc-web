@@ -11,11 +11,8 @@ export type WorkMode = 'M' | 'A' | 'CWU' | 'OFF';
 // ręczny = ustawienia domyślne, automatyczny = harmonogram (poza wpisami ustawienia domyślne), OFF.
 export type PumpWorkMode = 'MANUAL' | 'AUTO' | 'OFF';
 
-export const PUMP_WORK_MODE_LABELS: Record<PumpWorkMode, string> = {
-  MANUAL: 'Ręczny',
-  AUTO: 'Automatyczny',
-  OFF: 'OFF',
-};
+// etykiety trybów w języku aplikacji (core/i18n, klucze hp.mode.*); OFF zostaje „OFF” w danych
+export const pumpWorkModeLabel = (mode: PumpWorkMode, t: (key: string) => string): string => (mode === 'OFF' ? 'OFF' : t(`hp.mode.${mode}`));
 
 // Dawne wartości properties.work_mode czytane jak serwer (pump-mode.service.ts).
 export const pumpWorkMode = (value?: string): PumpWorkMode =>

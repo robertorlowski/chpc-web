@@ -14,6 +14,7 @@ import { ClipLoader } from 'react-spinners';
 import { cc } from '../../../../core/chartColors';
 import { DateNav, formatDayLabel, isToday, useHpDates } from '../../components/DateNav';
 import { DownloadIcon } from '../../components/icons';
+import { getLang, locale, t as tr, useLang } from '../../../../core/i18n';
 
 // co od 1.2.0: MANUAL / AUTO / OFF = MAN / AUTO / OFF (krótko, żeby kolumna nie nachodziła na sąsiednią; 2026-10-12).
 // Starsze rekordy: A i M (grzanie CO) = CO, CWU, OFF i PV bez zmian (decyzja 2026-10-04: dawnych kodów nie przerabiać).
@@ -23,28 +24,24 @@ const formatDataWorkMode = (workMode?: string): string => (
 );
 
 // kolumny tabeli: nagłówek, pole rekordu, opis skrótu (podpowiedź nagłówka), liczba miejsc po przecinku
+// kolumny: nagłówek i podpowiedź ze słownika (hp.col.<klucz>, hp.colHint.<klucz>)
 type Column = { header: string; key: keyof THPL; hint: string; digits?: number; unit?: string };
-const COLUMNS: Column[] = [
-  { header: 'Moc', key: 'Watts', hint: 'moc pobierana przez pompę [W]', digits: 0, unit: ' W' },
-  { header: 'PV', key: 'pv', hint: 'moc instalacji fotowoltaicznej [W]', digits: 0, unit: ' W' },
-  { header: 'T. zbiornik', key: 'Ttarget', hint: 'temperatura czujnika w środku zbiornika [°C]' },
-  { header: 'T. wyj.', key: 'Tho', hint: 'temperatura wody wychodzącej [°C]' },
-  { header: 'T. przed par.', key: 'Tbe', hint: 'temperatura przed parownikiem [°C]' },
-  { header: 'T. za par.', key: 'Tae', hint: 'temperatura za parownikiem [°C]' },
-  { header: 'T. spręż.', key: 'Tsump', hint: 'temperatura karteru sprężarki [°C]' },
-  { header: 'EEV', key: 'EEV_pos', hint: 'pozycja zaworu rozprężnego (EEV pozycja)', digits: 0 },
-  { header: 'ΔT', key: 'EEV_dt', hint: 'EEV dt, różnica temperatur zaworu rozprężnego' },
-  { header: 'T. zewn.', key: 't_out' as keyof THPL, hint: 'temperatura zewnętrzna [°C]' },
+const COLUMN_DEFS: { key: keyof THPL; digits?: number; unit?: string }[] = [
+  { key: 'Watts', digits: 0, unit: ' W' }, { key: 'pv', digits: 0, unit: ' W' }, { key: 'Ttarget' }, { key: 'Tho' }, { key: 'Tbe' }, { key: 'Tae' },
+  { key: 'Tsump' }, { key: 'EEV_pos', digits: 0 }, { key: 'EEV_dt' }, { key: 't_out' as keyof THPL },
 ];
+const columns = (): Column[] => COLUMN_DEFS.map((column) => ({ ...column, header: tr(`hp.col.${String(column.key)}`), hint: tr(`hp.colHint.${String(column.key)}`) }));
 
 const formatCell = (value: unknown, digits = 1, unit = ''): string => {
   if (value === undefined || value === null || value === '') return '—';
   const number = Number(value);
   if (Number.isNaN(number)) return String(value);
-  return number.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits }) + unit;
+  return number.toLocaleString(locale(getLang()), { minimumFractionDigits: digits, maximumFractionDigits: digits }) + unit;
 };
 
 export const HeatPumpTable: React.FC = () => {
+	const { t } = useLang();
+	const COLUMNS = columns();
 	const [rows, setRows] = useState<THPL[]>([]);
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string | null>(null);
@@ -119,44 +116,44 @@ export const HeatPumpTable: React.FC = () => {
 		[allData, selectedDate]
 	);
 
-	if (error) return <div className="page page-device hp-view"><p className="help">Błąd: {error}</p></div>;
+	if (error) return <div className="page page-device hp-view"><p className="help">{t('ops.error')}: {error}</p></div>;
 
 	const timeOfDay = (time?: string) => time?.split(' ')[1] ?? '';
 
   return (
     <div className="page page-device hp-view hp-data">
       <div className="filters">
-        <DateNav unit="dzień" value={selectedDate} onChange={setSelectedDate} note={isToday(selectedDate) ? 'dziś' : undefined}
+        <DateNav unit={t('common.dayUnit')} value={selectedDate} onChange={setSelectedDate} note={isToday(selectedDate) ? t('wx.today') : undefined}
           items={dates.map((date) => ({ value: date, label: formatDayLabel(date) }))} />
         <label className="check">
           <input type="checkbox" name="allData" checked={allData} onChange={(e) => setAllData(e.target.checked)} />
-          <span>Wszystkie odczyty</span>
-          <small>domyślnie praca sprężarki i błędy</small>
+          <span>{t('hp.data.allReadings')}</span>
+          <small>{t('hp.data.allReadingsHint')}</small>
         </label>
         <button type="button" className="btn btn-ghost btn-sm" disabled={downloading} onClick={handleDownloadCsv}
-          title="Pobierz wszystkie odczyty bieżącego roku (CSV)">
-          <DownloadIcon />{downloading ? 'Pobieranie…' : 'CSV'}
+          title={t('hp.data.csvTip')}>
+          <DownloadIcon />{downloading ? t('common.downloading') : 'CSV'}
         </button>
       </div>
 
       <section className="card card-table">
         <header className="card-head">
-          <h2>Odczyty dnia</h2>
+          <h2>{t('hp.data.title')}</h2>
           <span className="card-hint">
-            {loading ? 'ładowanie…' : `${rows.length} odczytów · sprężarka pracowała ${formatDuration(workSeconds)}`}
+            {loading ? t('common.loading') : t('hp.data.summary', { n: rows.length, time: formatDuration(workSeconds) })}
           </span>
         </header>
         {loading && <div className="loading"><ClipLoader size={32} color={cc().axis} /></div>}
-        {!loading && rows.length === 0 && <p className="help">Brak odczytów {allData ? 'z tego dnia' : 'z pracy sprężarki w tym dniu'}.</p>}
+        {!loading && rows.length === 0 && <p className="help">{allData ? t('hp.data.noneDay') : t('hp.data.noneCompressor')}</p>}
         {rows.length > 0 && (
           <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Czas</th>
-                  <th title="tryb pracy zgłoszony przez sterownik">Praca</th>
+                  <th>{t('hp.data.time')}</th>
+                  <th title={t('hp.data.workTip')}>{t('hp.data.work')}</th>
                   {COLUMNS.map((column) => <th key={column.key} className="num" title={column.hint}>{column.header}</th>)}
-                  <th className="num" title="sprężarka pracuje (HPS)">Spręż.</th>
+                  <th className="num" title={t('hp.data.compressorTip')}>{t('hp.data.compressor')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,20 +161,20 @@ export const HeatPumpTable: React.FC = () => {
                   <tr key={`${row.time}-${index}`} className={row.error_code ? 'is-err' : ''}>
                     <td>
                       {timeOfDay(row.time)}
-                      {row.error_code ? <> <span className="chip chip-err" title={errorDescription(row.error_code)}>błąd {row.error_code}</span></> : null}
+                      {row.error_code ? <> <span className="chip chip-err" title={errorDescription(row.error_code)}>{t('hp.errorLower')} {row.error_code}</span></> : null}
                     </td>
                     <td>{formatDataWorkMode(row.work_mode)}</td>
                     {COLUMNS.map((column) => (
                       <td key={column.key} className="num">{formatCell(row[column.key], column.digits, column.unit)}</td>
                     ))}
-                    <td className="num">{row.HPS === true || Number(row.HPS) > 0 ? <><i className="dot dot-run" />tak</> : '—'}</td>
+                    <td className="num">{row.HPS === true || Number(row.HPS) > 0 ? <><i className="dot dot-run" />{t('common.yesLower')}</> : '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <footer className="table-foot">Wiersz z błędem sterownika jest podświetlony (opis błędu po najechaniu na chip). Przewijanie w poziomie tylko w tabeli.</footer>
+        <footer className="table-foot">{t('hp.data.foot')}</footer>
       </section>
     </div>
   );

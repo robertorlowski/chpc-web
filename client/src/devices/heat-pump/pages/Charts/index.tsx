@@ -6,6 +6,7 @@
 // serie. Dane pobierane przy zmianie okresu, daty lub filtra; oś czasu dnia bieżącego przesuwa się co minutę,
 // ale nowe dane nie są dociągane. Kolory wykresów z tokenów przez cc() (core/chartColors.ts).
 import '../style.css';
+import { getLang, locale, t as tr, useLang } from '../../../../core/i18n';
 import './style.css';
 import { cc } from '../../../../core/chartColors';
 import { useEffect, useMemo, useState } from 'react';
@@ -36,10 +37,10 @@ import { DateNav, formatDayLabel, isToday, useHpDates } from '../../components/D
 
 type ChartPeriod = 'day' | 'month' | 'year';
 
-const PERIOD_OPTIONS = [
-  { value: 'day', label: 'Dzień' },
-  { value: 'month', label: 'Miesiąc' },
-  { value: 'year', label: 'Rok' },
+const periodOptions = () => [
+  { value: 'day', label: tr('period.day') },
+  { value: 'month', label: tr('period.month') },
+  { value: 'year', label: tr('period.year') },
 ] as const;
 
 type ChartPoint = {
@@ -153,26 +154,26 @@ const getDayTicks = (endMinutes: number): number[] => {
   return ticks;
 };
 
-const fmt = (value: number, digits = 2) => value.toLocaleString('pl-PL', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const fmt = (value: number, digits = 2) => value.toLocaleString(locale(getLang()), { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 // Serie wykresów: klucz danych, etykieta legendy, kolor z tokenów (cc()), jednostka w dymku.
 type SeriesKey = 'Watts' | 'pv' | 'cost' | 'Tbe' | 'Tae' | 'Tho' | 'Ttarget';
 type Series = { key: SeriesKey; label: string; color: string; unit: string; digits: number };
 
 const tempSeries = (colors: ReturnType<typeof cc>): Series[] => [
-  { key: 'Ttarget', label: 'T. zbiornika', color: colors.s1, unit: ' °C', digits: 1 },
-  { key: 'Tho', label: 'T. wody wyj.', color: colors.s2, unit: ' °C', digits: 1 },
-  { key: 'Tbe', label: 'T. przed parownikiem', color: colors.s3, unit: ' °C', digits: 1 },
-  { key: 'Tae', label: 'T. za parownikiem', color: colors.s4, unit: ' °C', digits: 1 },
+  { key: 'Ttarget', label: tr('hp.chart.tank'), color: colors.s1, unit: ' °C', digits: 1 },
+  { key: 'Tho', label: tr('hp.tOut'), color: colors.s2, unit: ' °C', digits: 1 },
+  { key: 'Tbe', label: tr('hp.tBeforeEvap'), color: colors.s3, unit: ' °C', digits: 1 },
+  { key: 'Tae', label: tr('hp.tAfterEvap'), color: colors.s4, unit: ' °C', digits: 1 },
 ];
 const powerSeries = (colors: ReturnType<typeof cc>): Series[] => [
-  { key: 'Watts', label: 'Pobór sprężarki', color: colors.s1, unit: ' W', digits: 0 },
-  { key: 'pv', label: 'Produkcja PV', color: colors.sun, unit: ' W', digits: 0 },
+  { key: 'Watts', label: tr('hp.chart.compressorDraw'), color: colors.s1, unit: ' W', digits: 0 },
+  { key: 'pv', label: tr('hp.chart.pvProduction'), color: colors.sun, unit: ' W', digits: 0 },
 ];
 const energySeries = (colors: ReturnType<typeof cc>): Series[] => [
-  { key: 'Watts', label: 'Energia pobrana', color: colors.s1, unit: ' kWh', digits: 2 },
-  { key: 'pv', label: 'Z PV', color: colors.sun, unit: ' kWh', digits: 2 },
-  { key: 'cost', label: 'Koszt G12w', color: colors.s2, unit: ' PLN', digits: 2 },
+  { key: 'Watts', label: tr('hp.chart.energyConsumed'), color: colors.s1, unit: ' kWh', digits: 2 },
+  { key: 'pv', label: tr('hp.chart.fromPv'), color: colors.sun, unit: ' kWh', digits: 2 },
+  { key: 'cost', label: tr('hp.chart.costG12w'), color: colors.s2, unit: ' PLN', digits: 2 },
 ];
 
 type ChartTooltipProps = {
@@ -205,7 +206,7 @@ const Legend: React.FC<{ series: Series[]; hidden: Set<SeriesKey>; onToggle: (ke
   <div className="legend">
     {series.map((entry) => (
       <button type="button" key={entry.key} className={`lg${hidden.has(entry.key) ? ' is-off' : ''}`}
-        aria-pressed={!hidden.has(entry.key)} title={hidden.has(entry.key) ? 'Pokaż serię' : 'Ukryj serię'}
+        aria-pressed={!hidden.has(entry.key)} title={hidden.has(entry.key) ? tr('chart.showSeries') : tr('chart.hideSeries')}
         onClick={() => onToggle(entry.key)}>
         <i style={{ background: entry.color }} />{entry.label}
       </button>
@@ -213,10 +214,11 @@ const Legend: React.FC<{ series: Series[]; hidden: Set<SeriesKey>; onToggle: (ke
   </div>
 );
 
-const MONTH_NAMES = Array.from({ length: 12 }, (_, month) =>
-  new Date(2026, month, 1).toLocaleDateString('pl-PL', { month: 'long' }));
+const monthNames = () => Array.from({ length: 12 }, (_, month) =>
+  new Date(2026, month, 1).toLocaleDateString(locale(getLang()), { month: 'long' }));
 
 export const HeatPumpChart: React.FC = () => {
+  const { t } = useLang();
   const [filteredData, setFilteredData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -261,7 +263,7 @@ export const HeatPumpChart: React.FC = () => {
     const months: Array<{ value: string; label: string }> = [];
     for (const year of years) {
       for (let month = year === now.getFullYear() ? now.getMonth() : 11; month >= 0; month -= 1) {
-        months.push({ value: toDateString(new Date(year, month, 1)), label: `${MONTH_NAMES[month]} ${year}` });
+        months.push({ value: toDateString(new Date(year, month, 1)), label: `${monthNames()[month]} ${year}` });
       }
     }
     return months;
@@ -468,39 +470,39 @@ export const HeatPumpChart: React.FC = () => {
     : <XAxis tick={axisTick} stroke={colors.line} dataKey="time" minTickGap={40} />;
   const dayLabel = (label: string | number | undefined) => (allData ? formatTimeValue(Number(label)) : String(label ?? ''));
   const periodLabel = (label: string | number | undefined) => (period === 'month'
-    ? `${label} ${MONTH_NAMES[selectedMonth]}`
-    : `${MONTH_NAMES[Number(label) - 1] ?? label} ${selectedYear}`);
-  const dateNote = isDay && isToday(selectedDate) ? 'dziś' : undefined;
+    ? `${label} ${monthNames()[selectedMonth]}`
+    : `${monthNames()[Number(label) - 1] ?? label} ${selectedYear}`);
+  const dateNote = isDay && isToday(selectedDate) ? t('wx.today') : undefined;
 
   return (
     <div className="page page-device hp-view hp-charts">
       <div className="filters">
-        <Segmented inline name="hp-okres" label="Okres" value={period} options={PERIOD_OPTIONS} onChange={changePeriod} />
-        <DateNav unit={isDay ? 'dzień' : period === 'month' ? 'miesiąc' : 'rok'} items={navItems} value={navValue}
+        <Segmented inline name="hp-okres" label={t('period.label')} value={period} options={periodOptions()} onChange={changePeriod} />
+        <DateNav unit={isDay ? t('common.dayUnit') : period === 'month' ? t('common.monthUnit') : t('common.yearUnit')} items={navItems} value={navValue}
           onChange={setSelectedDate} note={dateNote} />
         {isDay && (
           <label className="check">
             <input type="checkbox" checked={allData} onChange={(event) => setAllData(event.target.checked)} />
-            <span>Cały dzień</span>
-            <small>bez zaznaczenia tylko praca sprężarki</small>
+            <span>{t('hp.chart.wholeDay')}</span>
+            <small>{t('hp.chart.wholeDayHint')}</small>
           </label>
         )}
       </div>
 
       <div className="stat-row">
-        <div className="stat"><span className="stat-label">Pobór</span><span className="stat-value">{fmt(kwh)}<small>kWh</small></span></div>
-        <div className="stat"><span className="stat-label">Z sieci</span><span className="stat-value">{fmt(kwhGrid)}<small>kWh</small></span></div>
-        <div className="stat"><span className="stat-label">Koszt G12w</span><span className="stat-value">{fmt(cost)}<small>PLN</small></span></div>
+        <div className="stat"><span className="stat-label">{t('hp.consumption')}</span><span className="stat-value">{fmt(kwh)}<small>kWh</small></span></div>
+        <div className="stat"><span className="stat-label">{t('hp.chart.fromGrid')}</span><span className="stat-value">{fmt(kwhGrid)}<small>kWh</small></span></div>
+        <div className="stat"><span className="stat-label">{t('hp.chart.costG12w')}</span><span className="stat-value">{fmt(cost)}<small>PLN</small></span></div>
         {isDay
-          ? <div className="stat"><span className="stat-label">Czas pracy</span><span className="stat-value">{formatDuration(workSeconds).replace(/ (h|min)/g, ' $1')}</span></div>
-          : <div className="stat"><span className="stat-label">Z PV</span><span className="stat-value">{fmt(Math.max(0, kwh - kwhGrid))}<small>kWh</small></span></div>}
+          ? <div className="stat"><span className="stat-label">{t('hp.chart.workTime')}</span><span className="stat-value">{formatDuration(workSeconds).replace(/ (h|min)/g, ' $1')}</span></div>
+          : <div className="stat"><span className="stat-label">{t('hp.chart.fromPv')}</span><span className="stat-value">{fmt(Math.max(0, kwh - kwhGrid))}<small>kWh</small></span></div>}
       </div>
 
       {isDay ? (
         <>
           <section className="card">
             <header className="card-head">
-              <h2>Temperatury</h2>
+              <h2>{t('hp.chart.temperatures')}</h2>
               <Legend series={temps} hidden={hidden} onToggle={toggle} />
             </header>
             <div className="chart chart-lg">
@@ -521,7 +523,7 @@ export const HeatPumpChart: React.FC = () => {
           </section>
           <section className="card">
             <header className="card-head">
-              <h2>Moc i produkcja PV</h2>
+              <h2>{t('hp.chart.powerAndPv')}</h2>
               <Legend series={powers} hidden={hidden} onToggle={toggle} />
             </header>
             <div className="chart chart-md">
@@ -536,13 +538,13 @@ export const HeatPumpChart: React.FC = () => {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <p className="help">Temperatury i moc są na osobnych wykresach z jedną osią każdy; wspólna oś czasu.</p>
+            <p className="help">{t('hp.chart.dayHelp')}</p>
           </section>
         </>
       ) : (
         <section className="card">
           <header className="card-head">
-            <h2>Energia i koszt</h2>
+            <h2>{t('hp.chart.energyAndCost')}</h2>
             <Legend series={energies} hidden={hidden} onToggle={toggle} />
           </header>
           <div className="chart chart-lg">
@@ -560,7 +562,7 @@ export const HeatPumpChart: React.FC = () => {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <p className="help">{period === 'month' ? 'Dni miesiąca' : 'Miesiące roku'}: energia pobrana i część z PV w kWh, koszt w taryfie G12w z bilansu serwera.</p>
+          <p className="help">{period === 'month' ? t('hp.chart.daysOfMonth') : t('hp.chart.monthsOfYear')}: {t('hp.chart.periodHelp')}</p>
         </section>
       )}
     </div>

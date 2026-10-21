@@ -7,6 +7,7 @@ import { IconButton } from '../../../core/components/IconButton';
 import { HpRequests } from '../api';
 import { formatDateYMD } from '../utils/utils';
 import { NextIcon, PrevIcon } from './icons';
+import { useLang } from '../../../core/i18n';
 
 type Props = {
   /** pozycje od najnowszej do najstarszej, wartość i etykieta */
@@ -20,24 +21,25 @@ type Props = {
 };
 
 export function DateNav({ items, value, onChange, note, unit }: Props) {
+  const { t } = useLang();
   const index = items.findIndex((item) => item.value === value);
   const older = index >= 0 && index < items.length - 1 ? items[index + 1] : undefined;
   const newer = index > 0 ? items[index - 1] : undefined;
   const current = items[index];
   return (
     <div className="date-nav">
-      <IconButton className="date-nav-btn" label={`Poprzedni ${unit}`} icon={<PrevIcon />} disabled={!older}
+      <IconButton className="date-nav-btn" label={t('common.prevUnit', { unit })} icon={<PrevIcon />} disabled={!older}
         onClick={() => older && onChange(older.value)} />
       <span className="date-cur">
-        <select aria-label="Wybór daty" value={value} onChange={(event) => onChange(event.target.value)} disabled={items.length === 0}>
-          {items.length === 0 && <option value="">Brak danych</option>}
+        <select aria-label={t('common.pickDate')} value={value} onChange={(event) => onChange(event.target.value)} disabled={items.length === 0}>
+          {items.length === 0 && <option value="">{t('chip.noData')}</option>}
           {index < 0 && value && <option value={value}>{value}</option>}
           {items.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
-        <span className="date-cur-text" aria-hidden="true">{current?.label ?? (value || 'Brak danych')}</span>
+        <span className="date-cur-text" aria-hidden="true">{current?.label ?? (value || t('chip.noData'))}</span>
         {note && <small>{note}</small>}
       </span>
-      <IconButton className="date-nav-btn" label={`Następny ${unit}`} icon={<NextIcon />} disabled={!newer}
+      <IconButton className="date-nav-btn" label={t('common.nextUnit', { unit })} icon={<NextIcon />} disabled={!newer}
         onClick={() => newer && onChange(newer.value)} />
     </div>
   );
