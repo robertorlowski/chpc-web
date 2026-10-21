@@ -117,7 +117,6 @@ export const pl = {
   'login.otherEmail': 'Inny adres e-mail',
   'login.linkFailedHint': 'Podaj e-mail, wyślemy nowy kod.',
   'login.demo': 'Zobacz wersję demo',
-  'login.demoHint': 'Podgląd działającej instalacji bez logowania. Niczego nie da się w niej zmienić.',
   'login.systemHint': 'Logowanie „system” pokazuje pole hasła (użytkownik systemowy).',
 
   // ---- pytanie o zapamiętanie
