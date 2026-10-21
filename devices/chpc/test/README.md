@@ -30,7 +30,7 @@ Uwagi:
 **Dodatkowo dla E2E** (wszystko jest w jednym repozytorium chpc-web):
 
 ```sh
-git clone https://github.com/robertorlowski/chpc-web.git
+git clone https://github.com/robertorlowski/my-home.git
 cd chpc-web
 
 # co: pobranie ArduinoJson do .pio/libdeps/native (potrzebne do zbudowania bridge.exe)
@@ -112,11 +112,11 @@ Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo
 ```sh
 # Terminal 1: w chpc-web lokalna baza Mongo (.local-db, port 27027), serwer 4001 i klient 5173.
 # Zostaw uruchomione; Ctrl+C zatrzymuje wszystko.
-cd D:/DevLocal/arduino_src/chpc-web
+cd D:/DevLocal/arduino_src/my-home
 npm run local
 
 # Terminal 2 (Git Bash): budowanie mostu i test
-cd D:/DevLocal/arduino_src/chpc-web/test/e2e
+cd D:/DevLocal/arduino_src/my-home/test/e2e
 sh build-bridge.sh     # buduje bridge.exe; powtórz po każdej zmianie firmware albo kodu co
                        # (co w innym miejscu: CO_DIR=/sciezka/do/co sh build-bridge.sh)
 node run-e2e.mjs       # uruchamia scenariusz

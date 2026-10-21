@@ -21,7 +21,7 @@ DTU Hoymiles (0x69) ─┘                 │
 
 Powiązane repozytoria:
 
-Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/chpc-web)
+Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/my-home)
 (od 2026-09-27; wcześniej to był osobny projekt heatpomp):
 
 | Katalog w chpc-web | Rola |
@@ -147,7 +147,7 @@ lub interfejsów tych plików wymaga poprawki w `test/e2e/build-bridge.sh`.
 
 ## Dokumentacja
 
-- [chpc-web/CLAUDE.md](https://github.com/robertorlowski/chpc-web/blob/main/CLAUDE.md):
+- [chpc-web/CLAUDE.md](https://github.com/robertorlowski/my-home/blob/main/CLAUDE.md):
   opis całego systemu i kontraktów między repozytoriami; chpc-web jest projektem
   wiodącym.
 - [docs/server-driven-refactor-2026-09-20.md](docs/server-driven-refactor-2026-09-20.md):
