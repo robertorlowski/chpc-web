@@ -7,7 +7,7 @@
 `co` is a small computer (ESP32) mounted next to the heat pump. It is the **translator between the pump and the cloud**:
 
 - it reads the state of the heat pump (the CHPC controller) and of the photovoltaic installation (Hoymiles microinverters),
-- sends the data to the chpc-web application,
+- sends the data to the My Home application,
 - receives settings from the cloud (mode, temperatures, forced start…) and passes them to the pump,
 - makes sure the pump really has those settings — CHPC does not acknowledge commands, so `co` checks and repeats them when needed.
 

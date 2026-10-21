@@ -4,7 +4,7 @@
 >
 > **Zmiana w wersji 1.3.0 (2026-10-02).** Opisane niżej zbiorniki w ustawieniach (`tanks`, rodzaje `air`/`membrane`, `k`, `precharge`/`p0`), progi presostatu (`pressure_low`, `pressure_high`), szacunek wody z prawa Boyle'a, sugerowane `k` i kalkulator w Ustawieniach zostały usunięte. Woda jest teraz liczona przy odczycie jako czas pracy pompy (bez ręcznej pracy kompresora) × przepływ pompy wyliczony z odczytów wodomierza: [moduł water-pressure-tank, zasada działania](../../../docs/moduly/water-pressure-tank/2-zasada-dzialania.md#woda-z-czasu-pracy-pompy-i-wodomierza). Ustawienia hydroforu to tylko `compressor_seconds`. Strona sterownika ma przyciski „Włącz”, „Wyłącz” i „Uruchom na N s”. Treść poniżej zostaje jako historia decyzji.
 
-Dokumentacja działania sterownika hydroforu i jego obsługi w chpc-web. Stan: 2026-09-28, wersja 4 (zatwierdzona do implementacji).
+Dokumentacja działania sterownika hydroforu i jego obsługi w My Home. Stan: 2026-09-28, wersja 4 (zatwierdzona do implementacji).
 
 ## Nazwy
 

@@ -7,7 +7,7 @@
 ```mermaid
 flowchart LR
     ECO["kocioł Pellux 200<br/>regulator ecoMAX<br/>(moduł A)"] -- "RS-485 115200 baud<br/>ramki SensorData,<br/>tylko odbiór" --> CO["sterownik pieca<br/>(ESP32-C3 + HW-519)"]
-    CO -- "POST /devices/register<br/>(przy każdym starcie)" --> SRV["chpc-web"]
+    CO -- "POST /devices/register<br/>(przy każdym starcie)" --> SRV["My Home"]
     CO -- "POST /pellet-boiler-pelux200/add<br/>co poll_interval_seconds" --> SRV
     SRV -- "{poll_interval_seconds}" --> CO
     SRV --> DB[("MongoDB:<br/>devices,<br/>pellet_boiler_pelux200")]

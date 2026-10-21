@@ -10,7 +10,7 @@ This repository is a fork of [gonzho000/chpc](https://github.com/gonzho000/chpc)
 - faster response on the bus;
 - a Wokwi simulation for testing without hardware.
 
-**Documentation in the chpc-web system** (business description, how it works, technical documentation): [Polish](./docs/1-opis-biznesowy.md) · [English](./docs/en/1-business-description.md). Where this README and those documents differ, the documents prevail.
+**Documentation in the My Home system** (business description, how it works, technical documentation): [Polish](./docs/1-opis-biznesowy.md) · [English](./docs/en/1-business-description.md). Where this README and those documents differ, the documents prevail.
 
 ![Installation example](./docs/m_CHPC_i2.jpg)
 
@@ -231,12 +231,12 @@ Seven scenario suites (54 tests) cover:
 pio test -e native
 ```
 
-**Full chain.** [test/e2e/](../../test/e2e/) in the chpc-web root connects:
+**Full chain.** [test/e2e/](../../test/e2e/) in the My Home root connects:
 - the simulated firmware;
 - the real logic of the ESP32 master controller;
 - a local copy of the web app, including controller registration and the UI.
 
-See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it. Results are written locally to `test/raport-testow/` in the chpc-web root, which is not kept in git.
+See [test/README.md](./test/README.md#2-cały-łańcuch-e2e) for how to run it. Results are written locally to `test/raport-testow/` in the My Home root, which is not kept in git.
 
 ## Simulation (Wokwi)
 

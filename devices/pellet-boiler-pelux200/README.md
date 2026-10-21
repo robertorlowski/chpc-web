@@ -1,6 +1,6 @@
 ﻿# Piec Pellux 200 — sterownik `pellet-boiler-pelux200`
 
-Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519 na magistrali regulatora ecoMAX kotła pelletowego Pellux 200 Touch. Przedstawia się regulatorowi jako moduł ecoNET (`0x56`), dzięki czemu dostaje ramki `SensorData`, dekoduje je i co kilka minut wysyła ostatni odczyt do chpc-web; czyta też wszystkie ustawienia regulatora (kopia na wypadek awarii) i na polecenie z konsoli USB zmienia jeden parametr kotła przy kotle zatrzymanym (sprawdzone: CWU 55 → 50 °C). Z aplikacji kotłem nie steruje. Firmware 1.1.0 (sprawdzony na kotle 2026-10-03).
+Sterownik na płytce ESP32-C3 SuperMini z modułem RS-485 HW-519 na magistrali regulatora ecoMAX kotła pelletowego Pellux 200 Touch. Przedstawia się regulatorowi jako moduł ecoNET (`0x56`), dzięki czemu dostaje ramki `SensorData`, dekoduje je i co kilka minut wysyła ostatni odczyt do My Home; czyta też wszystkie ustawienia regulatora (kopia na wypadek awarii) i na polecenie z konsoli USB zmienia jeden parametr kotła przy kotle zatrzymanym (sprawdzone: CWU 55 → 50 °C). Z aplikacji kotłem nie steruje. Firmware 1.1.0 (sprawdzony na kotle 2026-10-03).
 
 Do 2026-10-02 tę rolę pełnił sterownik `co` (drugi UART, piny GPIO16 i GPIO4); od 2026-10-03 działa na tej osobnej płytce, a kontrakt z chmurą się nie zmienił.
 

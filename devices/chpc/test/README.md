@@ -5,7 +5,7 @@ Wszystkie testy działają na komputerze, bez płytki, czujników i produkcyjnej
 | Rodzaj | Katalog | Co sprawdza | Czas |
 |---|---|---|---|
 | Symulacja firmware (Unity) | `sim_env/`, `test_chpc_*/` | logikę sterownika: czujniki, termostat, zabezpieczenia, RS-485, EEPROM | ok. 10 s |
-| Cały łańcuch (E2E) | `e2e/` | chpc ⇄ RS-485 ⇄ co ⇄ serwer chpc-web ⇄ przeglądarka | kilka minut |
+| Cały łańcuch (E2E) | `e2e/` | chpc ⇄ RS-485 ⇄ co ⇄ serwer My Home ⇄ przeglądarka | kilka minut |
 
 Trzeci, dodatkowy rodzaj testów, czyli prawdziwy `firmware.hex` w symulatorze Wokwi, jest w osobnym katalogu [`test-wokwi/`](../test-wokwi/README.md).
 
@@ -19,7 +19,7 @@ Polecenia wpisuje się w **Git Bash** (skrypt `build-bridge.sh` wymaga powłoki 
 | Python 3 | wymagany przez PlatformIO | `winget install Python.Python.3.12` | `python --version` |
 | PlatformIO Core | `pio test`, pobiera Unity | `pip install -U platformio` albo rozszerzenie PlatformIO IDE w VS Code | `pio --version` (testowane na 6.2) |
 | g++ (MinGW-w64) | kompilacja firmware na PC i `bridge.exe` | `winget install BrechtSanders.WinLibs.POSIX.UCRT` | `g++ --version` (testowane na 16.1) |
-| Node.js 20+ | tylko E2E i chpc-web | `winget install OpenJS.NodeJS.LTS` | `node --version` (testowane na 22.13) |
+| Node.js 20+ | tylko E2E i My Home | `winget install OpenJS.NodeJS.LTS` | `node --version` (testowane na 22.13) |
 | Microsoft Edge | tylko E2E (Playwright używa systemowego Edge) | jest w Windows | — |
 
 Uwagi:
@@ -27,23 +27,23 @@ Uwagi:
 - PlatformIO dla środowiska `native` używa `g++` z `PATH`, więc katalog `bin` MinGW musi być w `PATH`. Winget dodaje go sam.
 - Do samej symulacji firmware (punkt 1) wystarczą Python, PlatformIO i g++.
 
-**Dodatkowo dla E2E** (wszystko jest w jednym repozytorium chpc-web):
+**Dodatkowo dla E2E** (wszystko jest w jednym repozytorium My Home):
 
 ```sh
 git clone https://github.com/robertorlowski/my-home.git
-cd chpc-web
+cd my-home
 
 # co: pobranie ArduinoJson do .pio/libdeps/native (potrzebne do zbudowania bridge.exe)
 cd devices/co && pio test -e native
 
-# chpc-web: zależności serwera i klienta; MongoDB pobiera się sama przy pierwszym "npm run local"
+# My Home: zależności serwera i klienta; MongoDB pobiera się sama przy pierwszym "npm run local"
 cd ../.. && npm install
 
 # Playwright dla testu E2E (przeglądarki nie trzeba pobierać, używany jest Edge)
 cd test/e2e && npm install
 ```
 
-Pierwsze `npm run local` w chpc-web pobiera plik binarny MongoDB (ok. 100 MB), więc potrzebny jest internet.
+Pierwsze `npm run local` w My Home pobiera plik binarny MongoDB (ok. 100 MB), więc potrzebny jest internet.
 
 ## 1. Symulacja firmware (Unity)
 
@@ -70,7 +70,7 @@ Funkcje pomocnicze z `chpc_sim.h`:
 | [`test_chpc_boot`](test_chpc_boot/test_main.cpp) | 5 | wykrywanie czujników i zapis adresów w EEPROM; drugi start z adresami z EEPROM; odpowiedź RS-485 w czasie pauzy startowej (< 0,7 s); kalibracja EEV (480 → 0 → 45) rozłożona na pauzę startową, z odstępem kroków `EEV_PULSE_CALIB_MILLIS`; żaden przekaźnik nie klika po włączeniu zasilania |
 | [`test_chpc_eev`](test_chpc_eev/test_main.cpp) | 7 | zawór w postoju: pozycja oczekiwania, po `EEV_REST_CLOSE_MILLIS` (5 min) zero; otwarcie przed startem (sprężarka czeka na zawór); łagodny start: przy mokrej parze (Tae < Tbe, przegrzanie ze znakiem, ujemne `EEV_dt`) zawór schodzi do 40 (`EEV_SOFTSTART_MIN`), po 1 min wraca do EEV min; otwieranie przy dużym przegrzaniu |
 | [`test_chpc_thermostat`](test_chpc_thermostat/test_main.cpp) | 10 | start sprężarki poniżej T min i brak startu powyżej; pompy; pozycja EEV w spoczynku i w pracy; minimalny czas pracy i postoju; energia (`lt_pow`) i czas (`lt_hp_on`) cyklu; opóźnione wyłączenie pomp; grzałka karteru; rotacja ekranów LCD |
-| [`test_chpc_rs485`](test_chpc_rs485/test_main.cpp) | 11 | JSON zawiera wszystkie klucze używane przez `co` i chpc-web; czas odpowiedzi; wszystkie komendy (setpoint, delta, limit mocy, granice EEV, przegrzanie EEV, pompy, grzałka, CO, force); dwie sklejone ramki; ignorowanie ruchu innych urządzeń; ustawienia po restarcie |
+| [`test_chpc_rs485`](test_chpc_rs485/test_main.cpp) | 11 | JSON zawiera wszystkie klucze używane przez `co` i My Home; czas odpowiedzi; wszystkie komendy (setpoint, delta, limit mocy, granice EEV, przegrzanie EEV, pompy, grzałka, CO, force); dwie sklejone ramki; ignorowanie ruchu innych urządzeń; ustawienia po restarcie |
 | [`test_chpc_protection`](test_chpc_protection/test_main.cpp) | 12 | przegrzanie strony gorącej i tłoczenia; zamarzanie ssania; zamarzanie parownika (`Tbe` < −1 °C ponad 60 s, krótki spadek ignorowany); przeciążenie; sprężarka bez poboru mocy; niska temperatura karteru; brak przepływu przy 3200 W i powyżej; zawieszony przekaźnik (zgłaszany tylko przy wyłączonych pompach, nie przy pompach na wspólnym zasilaniu ani wybiegu pompy gorącej); utrata i powrót czujnika |
 | [`test_chpc_lock`](test_chpc_lock/test_main.cpp) | 5 | 5 błędów blokuje sterownik; zablokowany odpowiada, ale nie steruje; odblokowanie `0x10` (sprężarka rusza dopiero po domknięciu EEV); restart `0x11` |
 | [`test_chpc_frost_buttons`](test_chpc_frost_buttons/test_main.cpp) | 7 | ochrona przed zamarzaniem (także z odłączonym czujnikiem); przejście menu z ekranu CO dalej; tekst menu nie jest nadpisywany przez ekran główny; ustawianie EEV min z menu; przytrzymany przycisk nie blokuje pętli |
@@ -101,16 +101,16 @@ Wynik powinien kończyć się linią `44 test cases: 44 succeeded`. Błąd kompi
 
 [`e2e/`](e2e/) łączy trzy projekty:
 - `bridge.exe` (budowany przez `build-bridge.sh`): symulowany firmware chpc + oryginalny kod `co` (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`);
-- `run-e2e.mjs`: udaje `co` wobec lokalnego serwera chpc-web (HTTP) i klika po interfejsie przez Playwright w systemowym Edge.
+- `run-e2e.mjs`: udaje `co` wobec lokalnego serwera My Home (HTTP) i klika po interfejsie przez Playwright w systemowym Edge.
 
 Scenariusz: rejestracja sterownika w interfejsie, harmonogram, pełny cykl grzania z COP, zmiana ustawień z panelu, przeciążenie (dzwonek, wiersz na liście), blokada x5 i „Odblokuj”, restart z panelu, zamarzanie, utrata czujnika, kilka godzin pracy oraz układ widoków przy 360, 768 i 1280 px.
 
 ### Jak uruchomić
 
-Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Test leży w `test/e2e/` w katalogu głównym chpc-web i domyślnie bierze kod `co` z `devices/co`; inną ścieżkę podaje się w zmiennej `CO_DIR`.
+Wymagane: środowisko z [punktu 0](#0-instalacja-środowiska-windows-jednorazowo), razem z częścią „Dodatkowo dla E2E”. Test leży w `test/e2e/` w katalogu głównym My Home i domyślnie bierze kod `co` z `devices/co`; inną ścieżkę podaje się w zmiennej `CO_DIR`.
 
 ```sh
-# Terminal 1: w chpc-web lokalna baza Mongo (.local-db, port 27027), serwer 4001 i klient 5173.
+# Terminal 1: w My Home lokalna baza Mongo (.local-db, port 27027), serwer 4001 i klient 5173.
 # Zostaw uruchomione; Ctrl+C zatrzymuje wszystko.
 cd D:/DevLocal/arduino_src/my-home
 npm run local
@@ -124,4 +124,4 @@ node run-e2e.mjs       # uruchamia scenariusz
 
 Test startuje, gdy http://localhost:4001 i http://localhost:5173 odpowiadają. Każdy krok wypisuje w konsoli `OK` albo `BŁĄD`.
 
-Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do `test/raport-testow/` w chpc-web: `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`. Katalog tworzy się przy uruchomieniu testu i jest w `.gitignore`, więc istnieje tylko lokalnie.
+Każde uruchomienie rejestruje w lokalnej bazie nowy sterownik `hp-test-<data>`. Produkcyjna baza nie jest używana. Wyniki trafiają do `test/raport-testow/` w My Home: `e2e-wyniki.json`, `e2e-log.txt` i zrzuty ekranu w `zrzuty/`. Katalog tworzy się przy uruchomieniu testu i jest w `.gitignore`, więc istnieje tylko lokalnie.

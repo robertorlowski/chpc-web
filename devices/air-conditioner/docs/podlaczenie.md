@@ -21,7 +21,7 @@ dalej, bo klimatyzator odsyła w odpowiedzi swój bieżący stan.
 ```text
 Sinclair (płyta jednostki wewnętrznej)
   └─ gniazdo modułu Wi-Fi: +5V, GND, TX, RX (UART 4800 8E1, 5 V)
-       └─ konwerter BSS138 ─ ESP32-C3 SuperMini ─ Wi-Fi ─ chpc-web
+       └─ konwerter BSS138 ─ ESP32-C3 SuperMini ─ Wi-Fi ─ My Home
 ```
 
 ## 2. Schemat

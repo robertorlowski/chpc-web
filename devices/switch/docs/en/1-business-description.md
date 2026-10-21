@@ -19,7 +19,7 @@ The schedule, modes and activation history are kept by the cloud: see the [switc
 
 ```mermaid
 flowchart LR
-    APP["application<br/>(mode, schedule)"] --> SRV["chpc-web"]
+    APP["application<br/>(mode, schedule)"] --> SRV["My Home"]
     SRV -- "every 5 s: on / off,<br/>offAfterS" --> E["ESP32<br/>(countdown)"]
     E --> R["30 A relay"] --> L["230 V load<br/>(e.g. water heater)"]
     P["controller page<br/>(phone)"] --> E

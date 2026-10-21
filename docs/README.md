@@ -1,4 +1,4 @@
-# Dokumentacja systemu chpc-web
+# Dokumentacja systemu My Home
 
 [English](en/README.md)
 
@@ -24,9 +24,9 @@ flowchart LR
     PEL["Piec<br/>sterownik (ESP32-C3 + RS-485)"]
     HYD["Hydrofor<br/>sterownik (ESP32)"]
     SW["Włącznik<br/>sterownik (ESP32 + przekaźnik)"]
-    SRV["chpc-web — serwer<br/>(Node.js, Render)"]
+    SRV["My Home — serwer<br/>(Node.js, Render)"]
     DB[("MongoDB Atlas")]
-    WEB["chpc-web — aplikacja WWW<br/>(przeglądarka, telefon)"]
+    WEB["My Home — aplikacja WWW<br/>(przeglądarka, telefon)"]
     IMGW["IMGW<br/>temperatura zewnętrzna"]
 
     CHPC <-- "RS-485<br/>komendy i stan (JSON)" --> CO

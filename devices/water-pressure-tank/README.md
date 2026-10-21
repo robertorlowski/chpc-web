@@ -1,6 +1,6 @@
 # Hydrofor — sterownik `water-pressure-tank`
 
-Sterownik ESP32 DevKit (moduł WROOM-32), który przy każdym uruchomieniu pompy hydroforu raz włącza kompresor dobijający powietrze do zbiornika, a dane uruchomienia wysyła do chpc-web.
+Sterownik ESP32 DevKit (moduł WROOM-32), który przy każdym uruchomieniu pompy hydroforu raz włącza kompresor dobijający powietrze do zbiornika, a dane uruchomienia wysyła do My Home.
 
 Dokumentacja: **[1. Opis biznesowy](docs/1-opis-biznesowy.md)** (z listą kontrolną przed wdrożeniem) · [2. Zasada działania](docs/2-zasada-dzialania.md) · [3. Dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) (schemat podłączenia) · [English](docs/en/1-business-description.md). Pierwotna specyfikacja: [docs/water-pressure-tank.md](docs/water-pressure-tank.md).
 

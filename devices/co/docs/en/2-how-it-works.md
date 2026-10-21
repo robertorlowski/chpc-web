@@ -13,7 +13,7 @@ flowchart LR
     CO --> LCD["ST7735 display 128×160"]
     RTC["RTC DS3231 + NTP"] --> CO
     BTN["button GPIO5"] --> CO
-    CO <-- "Wi-Fi: HTTPS + WebSocket" --> SRV["chpc-web"]
+    CO <-- "Wi-Fi: HTTPS + WebSocket" --> SRV["My Home"]
     CO -- "AP HP-CO-setup, web pages :80" --> USR["phone / laptop"]
 ```
 
@@ -59,7 +59,7 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant S as chpc-web
+    participant S as My Home
     participant C as cloud_client
     participant P as operation_parser
     participant O as operation_controller
@@ -111,7 +111,7 @@ The CO and CWU relays switch together: on in `M`, `A`, `PV` (unless `co_pomp` = 
 ```mermaid
 sequenceDiagram
     participant C as co
-    participant S as chpc-web
+    participant S as My Home
     C->>S: every request ?deviceId=SN (&rootId= if stored)
     alt start, IP address change or after a 409
         C->>S: POST /api/devices/register {deviceType: heat_pump, deviceId: SN, ip} (retry every 60 s)

@@ -7,7 +7,7 @@
 ```mermaid
 sequenceDiagram
     participant E as ESP32
-    participant S as chpc-web
+    participant S as My Home
     E->>E: piny przekaźników = „wyłączony”, dopiero potem OUTPUT
     E->>E: NVS „sw”: Wi-Fi, Root ID, domyślny czas włączenia
     E->>E: AP Wlacznik-setup (10.11.17.1) + Wi-Fi STA, strony WWW
@@ -47,7 +47,7 @@ Komunikat WebSocket `{"type":"operation"}` (zmiana trybu albo harmonogramu w apl
 sequenceDiagram
     participant P as strona / (telefon)
     participant E as ESP32
-    participant S as chpc-web
+    participant S as My Home
     P->>E: POST /relay?n=1&mode=timer&minutes=30
     E->>E: przekaźnik od razu; pending (numer zmiany)
     E->>S: PUT /switch/mode {relay, mode, minutes, source: controller}

@@ -7,7 +7,7 @@
 `co` to mały komputer (ESP32) zamontowany przy pompie ciepła. Jest **tłumaczem między pompą a chmurą**:
 
 - czyta stan pompy ciepła (sterownik CHPC) i instalacji fotowoltaicznej (mikrofalowniki Hoymiles),
-- wysyła te dane do aplikacji chpc-web,
+- wysyła te dane do aplikacji My Home,
 - odbiera z chmury ustawienia (tryb, temperatury, wymuszenie…) i przekazuje je pompie,
 - pilnuje, żeby pompa naprawdę miała te ustawienia — CHPC nie potwierdza poleceń, więc `co` sprawdza i w razie potrzeby powtarza.
 

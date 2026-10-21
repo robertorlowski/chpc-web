@@ -1,6 +1,6 @@
 # Włącznik — sterownik `switch`
 
-Sterownik na gotowej płytce „ESP32 Relay AC X1” (ESP32-WROOM-32E, przekaźnik 30 A, zasilacz 230 V na płytce), który włącza i wyłącza odbiornik 230 V według poleceń z chpc-web: harmonogram, włączenie na czas albo bez limitu, wyłączenie. Zgłasza się do chmury sam, a nowe wersje firmware pobiera przez sieć (OTA).
+Sterownik na gotowej płytce „ESP32 Relay AC X1” (ESP32-WROOM-32E, przekaźnik 30 A, zasilacz 230 V na płytce), który włącza i wyłącza odbiornik 230 V według poleceń z My Home: harmonogram, włączenie na czas albo bez limitu, wyłączenie. Zgłasza się do chmury sam, a nowe wersje firmware pobiera przez sieć (OTA).
 
 Dokumentacja: **[1. Opis biznesowy](docs/1-opis-biznesowy.md)** (z listą kontrolną przed wdrożeniem) · [2. Zasada działania](docs/2-zasada-dzialania.md) · [3. Dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) (schematy podłączenia, pierwsze wgranie) · [English](docs/en/1-business-description.md). Strona chmury i aplikacji: [moduł switch](../../docs/moduly/switch/1-opis-biznesowy.md).
 

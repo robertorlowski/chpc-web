@@ -23,7 +23,7 @@ Od 2026-10-03 odczyt pieca Pellux 200 (magistrala ecoMAX, dawniej UART2 tego ste
 |---|---|
 | `main.cpp` | pętla główna: odczyty CHPC i PV, przycisk trybu, wymiana z chmurą, odpowiedzi `co` jako urządzenia 0x10 |
 | `access_point_policy.*` | kiedy AP `HP-CO-setup` ma działać (3 min / 1 min / 5 min) |
-| `cloud_client.*` | HTTPS do chpc-web (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, obsługa 409 |
+| `cloud_client.*` | HTTPS do My Home (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, obsługa 409 |
 | `command_sink.hpp` | interfejs kolejki komend (na urządzeniu `SerialBus`, w testach `RecordingSink`) |
 | `config_portal.*` | serwer WWW na porcie 80 (`/`, `/telemetry.json`, `/pv.json`, `/install`, `/save`) |
 | `cop_estimator.*` | szacunek COP zbiornika 300 l dla cyklu sprężarki |

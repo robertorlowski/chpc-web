@@ -1,4 +1,4 @@
-# Makiety nowego wyglądu chpc-web
+# Makiety nowego wyglądu My Home
 
 Statyczne prototypy HTML nowego wyglądu aplikacji (klient React w `client/`).
 Nie są częścią builda ani klienta; nie mają zależności poza czcionkami z Google Fonts.

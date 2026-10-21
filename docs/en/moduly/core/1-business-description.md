@@ -4,7 +4,7 @@
 
 ## Why this module exists
 
-Core is the shared part of the chpc-web application, independent of the device kind. It lets one application handle several controllers of different kinds (today a heat pump, photovoltaics, a water pressure tank, a switch and a pellet boiler), switch between them and add new kinds without rebuilding everything.
+Core is the shared part of the My Home application, independent of the device kind. It lets one application handle several controllers of different kinds (today a heat pump, photovoltaics, a water pressure tank, a switch and a pellet boiler), switch between them and add new kinds without rebuilding everything.
 
 The module is responsible for:
 

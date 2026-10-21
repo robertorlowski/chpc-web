@@ -19,7 +19,7 @@ Harmonogram, tryby i historię włączeń prowadzi chmura: opis w [module switch
 
 ```mermaid
 flowchart LR
-    APP["aplikacja<br/>(tryb, harmonogram)"] --> SRV["chpc-web"]
+    APP["aplikacja<br/>(tryb, harmonogram)"] --> SRV["My Home"]
     SRV -- "co 5 s: on / off,<br/>offAfterS" --> E["ESP32<br/>(odliczanie)"]
     E --> R["przekaźnik 30 A"] --> L["odbiornik 230 V<br/>(np. bojler)"]
     P["strona sterownika<br/>(telefon)"] --> E

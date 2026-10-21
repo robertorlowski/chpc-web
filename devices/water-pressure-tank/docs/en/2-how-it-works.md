@@ -9,7 +9,7 @@ sequenceDiagram
     participant Z as power (pressure switch)
     participant E as ESP32 DevKit
     participant K as compressor
-    participant S as chpc-web
+    participant S as My Home
     Z->>E: 5 V (together with the pump)
     E->>E: relay pin = "off", only then OUTPUT
     E->>E: NVS: Wi-Fi, Root ID, settings

@@ -2,7 +2,7 @@
 
 **Dokumentacja:** [opis biznesowy](docs/1-opis-biznesowy.md) · [zasada działania](docs/2-zasada-dzialania.md) · [dokumentacja techniczna](docs/3-dokumentacja-techniczna.md) · [English](docs/en/1-business-description.md)
 
-Firmware sterownika, który łączy pompę ciepła CHPC z chmurą `chpc-web`.
+Firmware sterownika, który łączy pompę ciepła CHPC z chmurą My Home.
 Sterownik odczytuje pompę i instalację fotowoltaiczną po RS-485, wysyła
 telemetrię do chmury i wykonuje ustawienia, które z niej otrzymuje.
 
@@ -12,7 +12,7 @@ Od 2026-10-03 odczyt pieca Pellux 200 działa na osobnej płytce —
 
 ```text
 pompa CHPC (0x41) ───┐
-                     ├── RS-485 ── co (ESP32) ── Wi-Fi / HTTPS ── chpc-web ── przeglądarka
+                     ├── RS-485 ── co (ESP32) ── Wi-Fi / HTTPS ── My Home ── przeglądarka
 DTU Hoymiles (0x69) ─┘                 │
                                        ├── przekaźniki CO / CWU
                                        ├── wyświetlacz ST7735, RTC DS3231
@@ -24,7 +24,7 @@ Powiązane repozytoria:
 Cały system jest w repozytorium [robertorlowski/my-home](https://github.com/robertorlowski/my-home)
 (od 2026-09-27; wcześniej to był osobny projekt heatpomp):
 
-| Katalog w chpc-web | Rola |
+| Katalog w My Home | Rola |
 |---|---|
 | `devices/co` (ten katalog) | firmware `co` na ESP32 |
 | `devices/chpc` | firmware pompy CHPC (Arduino Pro Mini) |
@@ -103,7 +103,7 @@ w `~/.platformio/penv/Scripts/`).
    ```
 
 Przed wgraniem firmware z nową funkcją chmury najpierw wdróż odpowiednią wersję
-`chpc-web`, na przykład endpoint rejestracji.
+My Home, na przykład endpoint rejestracji.
 
 ## Testy
 
@@ -121,8 +121,8 @@ pio test -e native
 | [test_modbus_frame](test/test_modbus_frame/test_main.cpp) | kodowanie ramek RS-485 i CRC |
 | [test_access_point_policy](test/test_access_point_policy/test_main.cpp) | kiedy wyłączyć i włączyć punkt dostępowy `HP-CO-setup` |
 
-**E2E całego łańcucha** (chpc ⇄ RS-485 ⇄ co ⇄ chpc-web ⇄ przeglądarka) są
-w `test/e2e/` w katalogu głównym chpc-web; instrukcja w `devices/chpc/test/README.md`.
+**E2E całego łańcucha** (chpc ⇄ RS-485 ⇄ co ⇄ My Home ⇄ przeglądarka) są
+w `test/e2e/` w katalogu głównym My Home; instrukcja w `devices/chpc/test/README.md`.
 Most testowy kompiluje z tego repozytorium pliki `src/operation_parser.cpp`,
 `src/operation_controller.cpp`, `src/modbus_frame.cpp` i
 `src/cop_estimator.cpp`, a ArduinoJson bierze z `.pio/libdeps/native`, więc
@@ -134,7 +134,7 @@ lub interfejsów tych plików wymaga poprawki w `test/e2e/build-bridge.sh`.
 | Plik | Odpowiedzialność |
 |---|---|
 | `main.cpp` | pętla główna: odczyty, przycisk, wymiana z chmurą |
-| `cloud_client` | HTTPS i WebSocket do `chpc-web`, rejestracja urządzenia |
+| `cloud_client` | HTTPS i WebSocket do My Home, rejestracja urządzenia |
 | `operation_parser` | JSON operacji z chmury → struktury domenowe |
 | `operation_controller` | stan z chmury, tryby, efektywne komendy i przekaźniki |
 | `serial_bus`, `modbus_frame` | kolejka RS-485 z priorytetami, kodowanie ramek, CRC |
@@ -147,8 +147,8 @@ lub interfejsów tych plików wymaga poprawki w `test/e2e/build-bridge.sh`.
 
 ## Dokumentacja
 
-- [chpc-web/CLAUDE.md](https://github.com/robertorlowski/my-home/blob/main/CLAUDE.md):
-  opis całego systemu i kontraktów między repozytoriami; chpc-web jest projektem
+- [my-home/CLAUDE.md](https://github.com/robertorlowski/my-home/blob/main/CLAUDE.md):
+  opis całego systemu i kontraktów między repozytoriami; My Home jest projektem
   wiodącym.
 - [docs/server-driven-refactor-2026-09-20.md](docs/server-driven-refactor-2026-09-20.md):
   obecna architektura, przepływ operacji, tryby, UART, chmura.

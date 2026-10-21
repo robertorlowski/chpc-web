@@ -4,7 +4,7 @@
 
 ## Po co jest ten moduł
 
-Core to część wspólna aplikacji chpc-web, niezależna od rodzaju urządzenia. Dzięki niej w jednej aplikacji można mieć kilka sterowników różnych rodzajów (dziś pompę ciepła, fotowoltaikę, hydrofor, włącznik i kocioł pelletowy), przełączać się między nimi i dodawać nowe rodzaje bez przebudowy całości.
+Core to część wspólna aplikacji My Home, niezależna od rodzaju urządzenia. Dzięki niej w jednej aplikacji można mieć kilka sterowników różnych rodzajów (dziś pompę ciepła, fotowoltaikę, hydrofor, włącznik i kocioł pelletowy), przełączać się między nimi i dodawać nowe rodzaje bez przebudowy całości.
 
 Moduł odpowiada za:
 

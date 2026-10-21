@@ -9,7 +9,7 @@ sequenceDiagram
     participant Z as zasilanie (presostat)
     participant E as ESP32 DevKit
     participant K as kompresor
-    participant S as chpc-web
+    participant S as My Home
     Z->>E: 5 V (razem z pompą)
     E->>E: pin przekaźnika = „wyłączony”, dopiero potem OUTPUT
     E->>E: NVS: Wi-Fi, Root ID, ustawienia

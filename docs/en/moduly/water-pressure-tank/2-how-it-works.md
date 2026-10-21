@@ -9,7 +9,7 @@ flowchart LR
     PS["pressure switch"] -- "power only<br/>while the pump runs" --> ESP["tank controller<br/>ESP32"]
     PS --> PUMP["pump"]
     ESP --> COMP["compressor<br/>(relay)"]
-    ESP -- "POST /devices/register<br/>(once per start)" --> SRV["chpc-web"]
+    ESP -- "POST /devices/register<br/>(once per start)" --> SRV["My Home"]
     ESP -- "POST /water-pressure-tank/add<br/>every 1 s" --> SRV
     ESP -- "PUT /water-pressure-tank/settings<br/>(time from /install)" --> SRV
     SRV --> DB[("MongoDB:<br/>devices, water_pressure_tank,<br/>water_meter")]

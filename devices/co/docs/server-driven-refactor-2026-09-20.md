@@ -360,7 +360,7 @@ Testy parsera PV kodują założony układ rekordu DTU. Chronią przed regresją
 dokumentują interpretację, ale nie zastępują weryfikacji na prawdziwym
 falowniku.
 
-Testy E2E całego łańcucha (chpc ⇄ RS-485 ⇄ co ⇄ chpc-web ⇄ przeglądarka)
+Testy E2E całego łańcucha (chpc ⇄ RS-485 ⇄ co ⇄ My Home ⇄ przeglądarka)
 są w repozytorium `chpc`, w katalogu `test/e2e/`, razem z raportem. Most
 testowy kompiluje z tego repozytorium moduły `operation_parser`,
 `operation_controller`, `modbus_frame` i `cop_estimator`.

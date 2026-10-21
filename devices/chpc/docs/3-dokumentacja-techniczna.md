@@ -93,7 +93,7 @@ Odpowiedź na `0x01` — jedna linia JSON zakończona CRLF, kolejność kluczy:
 `Tbe`, `Tae`, `Tco`, `Tho`, `Ttarget`, `Tsump`, `EEV_dt`, `Tmax`, `Tmin` (= Tmax − delta), `Watts`, `EEV` (nastawa przegrzania), `EEV_pos`, `EEV_pulse`, `SHS`, `HCS`, `CCS`, `HPS`, `F`, `CO`, `WWatt`, `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`, `lt_pow` (Wh od startu sprężarki), `lt_hp_on` (s pracy bieżącej lub ostatniej). Temperatury i część liczb są napisami.
 
 - `HCS` obejmuje też ręczne wymuszenie i ochronę przed mrozem; `CCS` i `SHS` — ręczne wymuszenie.
-- Klucze, na których polegają `co` i chpc-web, wymienia [dokumentacja modułu heat-pump](../../../docs/moduly/heat-pump/3-dokumentacja-techniczna.md). **Nie zmieniać nazw ani kolejności bez zmiany po obu stronach.**
+- Klucze, na których polegają `co` i My Home, wymienia [dokumentacja modułu heat-pump](../../../docs/moduly/heat-pump/3-dokumentacja-techniczna.md). **Nie zmieniać nazw ani kolejności bez zmiany po obu stronach.**
 - Firmware **nie wysyła** klucza z wersją (`FW`), choć wcześniejsze opisy (CLAUDE.md) o nim mówiły; nie ma go w żadnym commicie.
 
 ## EEPROM

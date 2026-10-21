@@ -23,7 +23,7 @@ Since 2026-10-03 the Pellux 200 boiler (ecoMAX bus, formerly on this controller'
 |---|---|
 | `main.cpp` | main loop: CHPC and PV readings, mode button, cloud exchange, `co` replies as device 0x10 |
 | `access_point_policy.*` | when the `HP-CO-setup` AP should run (3 min / 1 min / 5 min) |
-| `cloud_client.*` | HTTPS to chpc-web (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, 409 handling |
+| `cloud_client.*` | HTTPS to My Home (`hp/add`, `pv/add`, `devices/register`), WebSocket `/ws?rootId=`, 409 handling |
 | `command_sink.hpp` | command queue interface (`SerialBus` on the device, `RecordingSink` in tests) |
 | `config_portal.*` | web server on port 80 (`/`, `/telemetry.json`, `/pv.json`, `/install`, `/save`) |
 | `cop_estimator.*` | COP estimate of the 300 l tank per compressor cycle |

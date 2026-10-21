@@ -37,15 +37,15 @@ The "redefined" warnings for `DISPLAY`, `INPUTS`, `BUTTON_REPEAT_MS` and similar
   - A reboot is `resetGlobalsLikeReboot()` + `setup()`. It also restarts `millis()` from zero.
   - Long waits use `runMs(ms, 1000..2000)`. Right after a stop, sample densely (`runMs(3000)`), otherwise the RMS power window still carries the old power.
   - Firmware functions that are called before they are defined need a prototype in `chpc_sim.h`. Arduino IDE and PlatformIO add these prototypes automatically; this build does not.
-- **Full chain across all three projects.** `test/e2e/` in the chpc-web root (not in this folder) joins the pieces:
+- **Full chain across all three projects.** `test/e2e/` in the My Home root (not in this folder) joins the pieces:
   - `bridge.exe`, built by `build-bridge.sh`, combines the simulated firmware with the real `co` code (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`);
-  - `run-e2e.mjs` plays `co`'s HTTP role against a local `chpc-web` and drives the web UI with Playwright and the system Edge.
+  - `run-e2e.mjs` plays `co`'s HTTP role against a local My Home and drives the web UI with Playwright and the system Edge.
 
   To run it:
-  1. start `npm run local` in chpc-web: a persistent MongoDB in `.local-db/` plus the server on 4001 and the client on 5173;
-  2. from the chpc-web root: `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
+  1. start `npm run local` in My Home: a persistent MongoDB in `.local-db/` plus the server on 4001 and the client on 5173;
+  2. from the My Home root: `cd test/e2e && npm install && sh build-bridge.sh && node run-e2e.mjs`.
 
-  Results go to `test/raport-testow/` in the chpc-web root (`e2e-wyniki.json`, `e2e-log.txt`, screenshots). The folder is created by the run and ignored by git, so it exists only locally.
+  Results go to `test/raport-testow/` in the My Home root (`e2e-wyniki.json`, `e2e-log.txt`, screenshots). The folder is created by the run and ignored by git, so it exists only locally.
 
 **Simulation (Wokwi, secondary).** [test-wokwi/](test-wokwi/) (described in its README.md) holds a Wokwi project: `diagram.json` (a Nano stands in for the Pro Mini), `wokwi.toml` (points to the PlatformIO build) and `scenario.yaml`. The scenario runs the whole flow. It discovers the sensors (each DS18B20 is attached through a push button to mimic plugging it in), sends RS-485 frames, resets the board and checks that EEPROM survived. The CI token is in `.wokwi-token` in the repo root, which git ignores. `wokwi-cli` is not installed globally; download `wokwi-cli-win-x64.exe` from the wokwi-cli GitHub releases.
 
@@ -90,7 +90,7 @@ The sketch uses the usual `setup()`/`loop()` structure. All state is in globals,
 
 ## RS-485 contract with the `co` controller
 
-The bus master is the ESP32 firmware `co` in `devices/co` of the same chpc-web repository (PlatformIO; the old `D:\DevLocal\arduino_src\heatpump` copy is out of date). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
+The bus master is the ESP32 firmware `co` in `devices/co` of the same My Home repository (PlatformIO; the old `D:\DevLocal\arduino_src\heatpump` copy is out of date). It polls this heat pump, forwards the data to a cloud service, computes COP and sends settings back. **Any change to the frame format, command codes, value encoding or JSON keys must be made in both projects.** On the `co` side, the relevant code is:
 
 - `src/modbus_frame.cpp`: command encoding, covered by `test/test_modbus_frame` (`pio test -e native`).
 - `src/serial_bus.cpp`: queue, timing and frame detection.
@@ -137,13 +137,13 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 
 - **COP calculation:** `HPS` (>0 = compressor running), `Tho`, `Ttarget`. Also `lt_pow`: Wh used since the last compressor start, reset at every start. And `lt_hp_on`: seconds of the current run, or the length of the last run once the compressor has stopped.
 - **Dashboard:** `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `HCS`, `CCS`.
-- **Web app (chpc-web):** `EEVmax` and `EEVmin`, the current EEV limits. They also fill in the defaults of the Settings form.
+- **Web app (My Home):** `EEVmax` and `EEVmin`, the current EEV limits. They also fill in the defaults of the Settings form.
 - **Errors:**
   - `ERR`: code of the last error event;
   - `ERRn`: event sequence number, which grows with every event, so a repeated code is still a new event;
   - `ERRc`: `error_count`; 5 means locked.
 
-  The codes are `ERRC_*` in the firmware and `client/src/devices/heat-pump/utils/errors.ts` in chpc-web; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low, 13 Tbe (evaporating below −1 °C for over 60 s: the plate heat exchanger may freeze). Each event also shows `ERR: …` on the LCD.
+  The codes are `ERRC_*` in the firmware and `client/src/devices/heat-pump/utils/errors.ts` in My Home; change both together. 1 sensor, 2 overload, 3 no flow, 4 wattage min, 5 Tho, 6 Tsump high, 7 Tbc, 8 Tae, 9 Tco, 10 relay, 11 locked x5, 12 Tsump low, 13 Tbe (evaporating below −1 °C for over 60 s: the plate heat exchanger may freeze). Each event also shows `ERR: …` on the LCD.
 - **Cloud:** the whole object is forwarded as telemetry `HP`.
 
 **Known mismatches with the current firmware:**
@@ -151,9 +151,9 @@ JSON keys `co` depends on (don't rename or remove them; adding keys is fine with
 - `0x04` above `T_SETPOINT_MAX` and `0x05` above `T_DELTA_MAX` are silently ignored.
 - With `RS485_HUMAN` (the `wokwi` env only), `PrintS_and_D()` also writes status and error text to the bus without being asked. That breaks the rule against sending unrequested data and can corrupt HP or PV reads. The production build (`promini`, `RS485_PYTHON`) does not do this.
 
-## Cloud path: `co` ⇄ `chpc-web`
+## Cloud path: `co` ⇄ My Home
 
-The data from this firmware continues to a web app, `D:\DevLocal\arduino_src\chpc-web` (its own git repo). It has an Express + TypeScript + Mongoose server in `server/src`, a React + Vite client in `client/src`, and a description of the whole system, which is the leading one for all three repos, in its `CLAUDE.md`. It is deployed at `https://chpc-web.onrender.com`. The whole chain is **chpc ⇄ RS-485 ⇄ co ⇄ HTTPS/WebSocket ⇄ chpc-web**. A change to any field has to be followed through all three repos. On the `co` side, the relevant files are `src/cloud_client.cpp`, `telemetry.cpp`, `operation_parser.cpp` and `operation_controller.cpp`.
+The data from this firmware continues to the My Home web app in the root of this repository (`D:\DevLocal\arduino_src\my-home`). It has an Express + TypeScript + Mongoose server in `server/src`, a React + Vite client in `client/src`, and a description of the whole system, which is the leading one for all three repos, in its `CLAUDE.md`. It is deployed at `https://chpc-web.onrender.com`. The whole chain is **chpc ⇄ RS-485 ⇄ co ⇄ HTTPS/WebSocket ⇄ My Home**. A change to any field has to be followed through all three repos. On the `co` side, the relevant files are `src/cloud_client.cpp`, `telemetry.cpp`, `operation_parser.cpp` and `operation_controller.cpp`.
 
 **Telemetry.** `co` sends `POST /api/hp/add?rootId=<id>` every 10 s while the compressor runs and every 30 s when idle. The body contains:
 - `HP`: the JSON from `StatsSerial()`, forwarded unchanged;
@@ -191,7 +191,7 @@ Where the values come from:
 `co` sends each value only once, and does not resend it until it changes.
 
 **Validation happens in three places, each silently:**
-- `chpc-web` checks nothing: neither the UI nor `/operation/set` has range checks.
+- My Home checks nothing: neither the UI nor `/operation/set` has range checks.
 - `co` rounds `co_*`/`cwu_*` to whole degrees in 1–50, and accepts `working_watt` 0–25599, `eev_max_pulse_open` 0–255 and `eev_setpoint` 0–255.99.
 - CHPC applies its own limits (see the RS-485 table).
 
@@ -203,4 +203,4 @@ A value rejected downstream still shows as "set" in the web UI. Compare it with 
 - (fixed 2026-09-24) The client's energy-cost code (`client/src/devices/heat-pump/utils/energy-cost-g12w.ts`) parsed only `YYYY-MM-DD`, while `co` sends `YYYY.MM.DD`. Dotted timestamps fell back to `new Date()`, which depends on the browser: Chrome/Edge read browser-local time, stricter engines threw "Nieprawidłowy czas" and no cost was shown. The parser now accepts both separators and always uses Warsaw time.
 - The time of an error is the time of the telemetry record that first carries the new `ERRn` (see **Errors** above), so it is accurate to 10–30 s. CHPC has no clock.
 - The server's API-key check (`verifyApiKey`) is disabled in `server/src/core/app.ts`. `POST /api/operation/set` is open and unvalidated.
-- `chpc-web` tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler, `EEVmin` storage, error-event detection and one-shot actions. They do not cover the WebSocket.
+- My Home tests (`npm test -w server`, vitest + mongodb-memory-server) cover the scheduler, `EEVmin` storage, error-event detection and one-shot actions. They do not cover the WebSocket.

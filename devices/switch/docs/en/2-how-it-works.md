@@ -7,7 +7,7 @@
 ```mermaid
 sequenceDiagram
     participant E as ESP32
-    participant S as chpc-web
+    participant S as My Home
     E->>E: relay pins = "off", only then OUTPUT
     E->>E: NVS "sw": Wi-Fi, Root ID, default on time
     E->>E: AP Wlacznik-setup (10.11.17.1) + Wi-Fi STA, web pages
@@ -47,7 +47,7 @@ The WebSocket message `{"type":"operation"}` (a mode or schedule change in the a
 sequenceDiagram
     participant P as page / (phone)
     participant E as ESP32
-    participant S as chpc-web
+    participant S as My Home
     P->>E: POST /relay?n=1&mode=timer&minutes=30
     E->>E: relay at once; pending (change number)
     E->>S: PUT /switch/mode {relay, mode, minutes, source: controller}

@@ -9,7 +9,7 @@ flowchart LR
     PS["presostat"] -- "zasilanie tylko<br/>w czasie pracy pompy" --> ESP["sterownik hydroforu<br/>ESP32"]
     PS --> PUMP["pompa"]
     ESP --> COMP["kompresor<br/>(przekaźnik)"]
-    ESP -- "POST /devices/register<br/>(raz na start)" --> SRV["chpc-web"]
+    ESP -- "POST /devices/register<br/>(raz na start)" --> SRV["My Home"]
     ESP -- "POST /water-pressure-tank/add<br/>co 1 s" --> SRV
     ESP -- "PUT /water-pressure-tank/settings<br/>(czas z /install)" --> SRV
     SRV --> DB[("MongoDB:<br/>devices, water_pressure_tank,<br/>water_meter")]

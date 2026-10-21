@@ -38,7 +38,7 @@ Obserwacja jednego pełnego cyklu grzania CWU (wymuszony start), uzupełniona o 
 | 15:40 | Restart sterownika po wgraniu firmware; kalibracja zaworu widoczna w telemetrii (EEV 232 → 381 → 30 → 45) |
 | 15:42 | T min zmienione z 25 na 23 °C (delta 23 → 25) bez komendy z `co` – najpewniej przyciskami; przywrócone przełączeniem `co` na CLOUD |
 | 15:53 | `co` w trybie CLOUD/CWU, pompa 48/25 °C |
-| 15:55:49 | **Start sprężarki** wymuszony ręcznym `force: "1"` z chpc-web |
+| 15:55:49 | **Start sprężarki** wymuszony ręcznym `force: "1"` z My Home |
 | 16:02–16:10 | Test: EEV max 60 → 64 → 60 (bez wpływu na parowanie, patrz 5.4) |
 | 16:07, 16:33 | Pomiary temperatury wody źródła |
 | ~16:40 | Pomiar temperatur zbiornika (góra/dół) |
@@ -75,7 +75,7 @@ Obserwacja jednego pełnego cyklu grzania CWU (wymuszony start), uzupełniona o 
 
 **Podział energii:** od 36,9 do 45,0 °C (8,1 K `Ttarget`) – 40 min i 2,03 kWh; od 45,0 do 48,0 °C (3 K) – 38 min i **2,10 kWh**.
 
-### Poprzednie cykle (telemetria chpc-web)
+### Poprzednie cykle (telemetria My Home)
 
 | Start | Tryb | Czas | Energia | Moc śr. | Tae−Tbe | Zawór | Ttarget | Tho maks. | Tsump maks. |
 |---|---|---|---|---|---|---|---|---|---|
@@ -140,7 +140,7 @@ Dobieg po zatrzymaniu (firmware: pompa zimna 10 s, gorąca 60 s):
 - po zatrzymaniu obie pompy pracują 60 s (dobieg strony gorącej); dobieg strony zimnej (10 s) nie ma znaczenia;
 - ochrona przed zamarzaniem strony gorącej (`frost_protect`) włącza też pompę głębinową (~0,5 kW), choć wystarczyłaby obiegowa;
 - opóźnione wyłączanie strony zimnej w firmware (zatrzymanie pompy źródła dopiero przy `Tae`, `Tbe` > 0 °C) nie działa, bo pompa źródła nie jest na tym przekaźniku;
-- `HCS`/`CCS` w telemetrii i w chpc-web nie opisują pomp osobno.
+- `HCS`/`CCS` w telemetrii i w My Home nie opisują pomp osobno.
 
 Uwaga: przekładnik mierzy prąd × 230 V (moc pozorna) minus stałe 120 W, więc przy małych obciążeniach wartości są orientacyjne.
 
@@ -156,7 +156,7 @@ Dopóki to nie zostanie uzupełnione, **nie należy testować słabszych pomp ź
 
 ### 5.8 Sterowanie (znalezione przy okazji)
 
-- **Ręczne force z chpc-web działało bez końca:** CHPC kasuje force po zatrzymaniu, ale `co` wysyłał je ponownie, bo ręczne nadpisanie zostawało na serwerze – pompa trzymałaby zbiornik w 45–48 °C. Poprawione w chpc-web (`consumeManualForceOnStart`): ręczne force znika po pierwszym starcie sprężarki, force z harmonogramu (`forceStart`) obowiązuje przez cały wpis. Wymaga wdrożenia serwera.
+- **Ręczne force z My Home działało bez końca:** CHPC kasuje force po zatrzymaniu, ale `co` wysyłał je ponownie, bo ręczne nadpisanie zostawało na serwerze – pompa trzymałaby zbiornik w 45–48 °C. Poprawione w My Home (`consumeManualForceOnStart`): ręczne force znika po pierwszym starcie sprężarki, force z harmonogramu (`forceStart`) obowiązuje przez cały wpis. Wymaga wdrożenia serwera.
 - **T min 23 °C zamiast 25 °C:** zmiana delty o 2 K (4 kroki po 0,5 K) o 15:42, gdy `co` był w trybie OFF/MANUAL_CWU i nie wysyłał temperatur – najpewniej przyciskami. Przeliczenie min/max → delta w `co` działa poprawnie (potwierdzone w historii).
 - **Tryby `co`:** w MANUAL_CO/MANUAL_CWU `co` nie wysyła ustawień (pełne sterowanie lokalne); w L-OFF wyłącza CO i force przy każdym odczycie.
 
@@ -170,11 +170,11 @@ Dopóki to nie zostanie uzupełnione, **nie należy testować słabszych pomp ź
 | 4 | **Strona zimna – potem pompa:** zatapialna odśrodkowa do czystej wody, ≥ 40–50 L/min przy ~6 m, P1 ≤ 0,4–0,5 kW, pływak zablokowany, na podstawce nad dnem | **+10–15% COP** | nie pompa obiegowa na ssaniu (kawitacja, zapowietrzenie) |
 | 5 | **Temperatura CWU:** 45 °C zamiast 48 °C, jeśli wystarcza | do ~50% energii cyklu CWU | ostatnie 3 K zużyły 2,10 z 4,14 kWh |
 | 6 | **Czujnik `Tco`** na wyjściu wody z wymiennika; w firmware `T_COLD_MIN` dla wody ~+2 °C | bezpieczeństwo | przed jakimikolwiek zmianami strony zimnej |
-| 7 | **Ochrona po `Tbe`** w firmware: stop, gdy `Tbe` < −1 °C dłużej niż 60 s, kod błędu 13 w chpc-web | bezpieczeństwo | **zrobione** (firmware po 26.09, `ERR: Temp. Tbe`) |
+| 7 | **Ochrona po `Tbe`** w firmware: stop, gdy `Tbe` < −1 °C dłużej niż 60 s, kod błędu 13 w My Home | bezpieczeństwo | **zrobione** (firmware po 26.09, `ERR: Temp. Tbe`) |
 | 8 | **Rozdzielić pompy na przekaźniki:** obiegowa na `HCS` (pin 7), głębinowa na `CCS` (pin 10) | ochrona przed zamarzaniem bez pompy głębinowej, właściwy dobieg, osobne `HCS`/`CCS` w telemetrii | 5.6 |
 | 9 | **Czujniki `Tae`/`Tbe`:** pasta termoprzewodząca, opaska, izolacja; potem zadane przegrzanie 4–5 K zamiast 0,5 K | regulacja zaworu zacznie działać | `EEVmax` zostawić 60 |
 | 10 | **Dodatkowe czujniki:** `Thi` (powrót do pompy), `Tbc` (tłoczenie), drugi czujnik w zbiorniku (środek/dół) | rzetelny COP i diagnostyka | firmware obsługuje `Thi` i `Tbc` |
-| 11 | **Wdrożyć poprawkę force** w chpc-web | koniec niechcianych wymuszonych startów | 5.8 |
+| 11 | **Wdrożyć poprawkę force** w My Home | koniec niechcianych wymuszonych startów | 5.8 |
 
 ## 7. Pomiary do wykonania po zmianach
 
@@ -188,7 +188,7 @@ Dopóki to nie zostanie uzupełnione, **nie należy testować słabszych pomp ź
 
 | Plik | Zawartość |
 |---|---|
-| `dane/serwer-2026-09-26.json` | telemetria z chpc-web (`GET /api/hp/4day?date=2026-09-26`), rekordy co 10–30 s |
+| `dane/serwer-2026-09-26.json` | telemetria z My Home (`GET /api/hp/4day?date=2026-09-26`), rekordy co 10–30 s |
 | `dane/cykl.csv` | wyciąg 15:50–17:20 (separator `;`) |
 | `dane/log-praca-sprezarki.log` | log odczytów `GET /api/hp` co 10 s zbierany w trakcie obserwacji |
 | `dane/charakterystyka-SQIBO-0.37.jpg` | wykres producenta (hypo.pl) |

@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart LR
-    ESP["switch<br/>ESP32 + relay"] -- "POST /devices/register<br/>(start, relays)" --> SRV["chpc-web"]
+    ESP["switch<br/>ESP32 + relay"] -- "POST /devices/register<br/>(start, relays)" --> SRV["My Home"]
     ESP -- "POST /switch/state every 5 s<br/>{uptimeS, relays: [{on, changedS}]}" --> SRV
     SRV -- "reply: {relays: [{on, offAfterS?, mode}]}" --> ESP
     ESP -- "PUT /switch/mode<br/>(change from the controller page)" --> SRV

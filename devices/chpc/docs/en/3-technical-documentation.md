@@ -93,7 +93,7 @@ Reply to `0x01` — one JSON line ending in CRLF, key order:
 `Tbe`, `Tae`, `Tco`, `Tho`, `Ttarget`, `Tsump`, `EEV_dt`, `Tmax`, `Tmin` (= Tmax − delta), `Watts`, `EEV` (superheat setpoint), `EEV_pos`, `EEV_pulse`, `SHS`, `HCS`, `CCS`, `HPS`, `F`, `CO`, `WWatt`, `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`, `lt_pow` (Wh since compressor start), `lt_hp_on` (s of the current or last run). Temperatures and some numbers are strings.
 
 - `HCS` also covers manual override and frost protection; `CCS` and `SHS` cover manual override.
-- The keys that `co` and chpc-web rely on are listed in the [heat-pump module documentation](../../../../docs/en/moduly/heat-pump/3-technical-documentation.md). **Do not rename or reorder them without changing both sides.**
+- The keys that `co` and My Home rely on are listed in the [heat-pump module documentation](../../../../docs/en/moduly/heat-pump/3-technical-documentation.md). **Do not rename or reorder them without changing both sides.**
 - The firmware **does not send** a version key (`FW`), although earlier descriptions (CLAUDE.md) mentioned one; it is not in any commit.
 
 ## EEPROM

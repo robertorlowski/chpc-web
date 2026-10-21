@@ -1,8 +1,8 @@
-# chpc-web system documentation
+# My Home system documentation
 
 [Polski](../README.md)
 
-The system controls a domestic heat pump (CHPC) from the cloud, collects data from the photovoltaic installation, monitors a water pressure tank (hydrofor), shows the data of a pellet boiler and controls a 230 V switch. This file is the entry point: it describes the whole and leads to the documentation of each module. The Polish documentation is the primary one; the application's user interface is in Polish.
+The system controls a domestic heat pump (CHPC) from the cloud, collects data from the photovoltaic installation, monitors a water pressure tank (hydrofor), shows the data of a pellet boiler and controls a 230 V switch. This file is the entry point: it describes the whole and leads to the documentation of each module. The Polish documentation is the primary one; the application's user interface is in Polish or English (chosen by the user).
 
 ## What the system does
 
@@ -24,9 +24,9 @@ flowchart LR
     PEL["Boiler<br/>controller (ESP32-C3 + RS-485)"]
     HYD["Water pressure tank<br/>controller (ESP32)"]
     SW["Switch<br/>controller (ESP32 + relay)"]
-    SRV["chpc-web — server<br/>(Node.js, Render)"]
+    SRV["My Home — server<br/>(Node.js, Render)"]
     DB[("MongoDB Atlas")]
-    WEB["chpc-web — web application<br/>(browser, phone)"]
+    WEB["My Home — web application<br/>(browser, phone)"]
     IMGW["IMGW<br/>outdoor temperature"]
 
     CHPC <-- "RS-485<br/>commands and state (JSON)" --> CO

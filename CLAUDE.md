@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Ten plik jest przewodnikiem dla Claude Code (claude.ai/code) i dla ludzi pracujących z tym repozytorium. **chpc-web jest wiodącym projektem całego systemu.** Repozytorium zawiera cały łańcuch sterowania pompą ciepła: serwer, klienta i oba firmware w `devices/`. Zmiana kontraktu (pola telemetrii, klucze operacji, komendy RS-485) zaczyna się od tego opisu i obejmuje wszystkie części, których dotyczy, najlepiej w jednym commicie.
+Ten plik jest przewodnikiem dla Claude Code (claude.ai/code) i dla ludzi pracujących z tym repozytorium. **My Home jest wiodącym projektem całego systemu.** Repozytorium zawiera cały łańcuch sterowania pompą ciepła: serwer, klienta i oba firmware w `devices/`. Zmiana kontraktu (pola telemetrii, klucze operacji, komendy RS-485) zaczyna się od tego opisu i obejmuje wszystkie części, których dotyczy, najlepiej w jednym commicie.
 
 Commity, komentarze i dokumentacja są po polsku.
 
@@ -9,7 +9,7 @@ Commity, komentarze i dokumentacja są po polsku.
 ## 0. System i repozytoria
 
 ```text
-CHPC (Pro Mini) ⇄ RS-485 ⇄ co (ESP32) ⇄ HTTPS / WebSocket ⇄ chpc-web (serwer) ⇄ przeglądarka (klient)
+CHPC (Pro Mini) ⇄ RS-485 ⇄ co (ESP32) ⇄ HTTPS / WebSocket ⇄ My Home (serwer) ⇄ przeglądarka (klient)
                              │                                   │
 DTU Hoymiles (PV) ───────────┘                                   └── MongoDB
 ```
@@ -36,7 +36,7 @@ Każdy firmware ma własny `README.md`, a CHPC także `devices/chpc/CLAUDE.md` z
 
 **Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`; od 2026-10-21 Render buduje serwer `chpc-server` i witrynę `home24` automatycznie po każdym pushu do `main`, więc push `main` = wdrożenie; dawna witryna `hpweb` bez auto-deploy), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
 
-## 1. Podział systemu (chpc-web)
+## 1. Podział systemu (My Home)
 
 Repozytorium składa się z dwóch aplikacji (npm workspaces):
 
@@ -245,7 +245,7 @@ To jest główny moment przekazania wyliczonej operacji do sterownika. Scheduler
 - estymacja COP zbiornika: `cop`, `cop_min`, `cop_max`, `t_min`, `t_max`, `cop_bottom_start`;
 - liczniki diagnostyczne: `serial_queue_overflow`, `serial_read_timeout`, `serial_receive_overflow`, `pv_crc_error`, `hp_json_error`, `pv_frame_error`, `cloud_http_status`, `cloud_request_error`, `websocket_disconnect`, `cloud_response_parse_error`, `operation_validation_error`, `preference_validation_error`.
 
-Klucze `HP`, na których polegają `co` i chpc-web (nie wolno ich zmieniać ani usuwać):
+Klucze `HP`, na których polegają `co` i My Home (nie wolno ich zmieniać ani usuwać):
 
 - COP: `HPS` (>0 = sprężarka pracuje), `Tho`, `Ttarget`, `lt_pow` (Wh od startu sprężarki), `lt_hp_on` (s pracy bieżącej lub ostatniej);
 - widoki: `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `EEVmax`, `EEVmin`;
@@ -538,7 +538,7 @@ Nie ma osobnego przycisku wyłączania operacji ręcznej w interfejsie.
 
 ### Walidacja w trzech miejscach, każda po cichu
 
-- chpc-web nie sprawdza nic: ani interfejs, ani `/operation/set` nie mają kontroli zakresów;
+- My Home nie sprawdza nic: ani interfejs, ani `/operation/set` nie mają kontroli zakresów;
 - `co` zaokrągla `co_*`/`cwu_*` do pełnych stopni w zakresie 1–50 i przyjmuje `working_watt` 0–25599, `eev_max_pulse_open` i `eev_min_pulse_open` 0–255 oraz `eev_setpoint` 0–255,99;
 - CHPC stosuje własne limity (punkt 13).
 
@@ -738,7 +738,7 @@ Harmonogram nie zawiera `co_pomp`. To pole nie jest wymagane ani zapisywane dla 
 
 ## 11. Testy
 
-### chpc-web
+### My Home
 
 Testy serwera znajdują się w:
 
@@ -808,13 +808,13 @@ Przebieg 2026-09-29 (dokumentacja i komentarze, zmiany tylko w komentarzach): se
 
 Przebieg 2026-09-28 (hydrofor): serwer 71/71 + `tsc` OK, klient `vite build` OK, `co` 64/64 + build `esp32dev`, CHPC 54/54 + build Pro Mini, hydrofor 20/20 + build `esp32c3`; widoki hydroforu sprawdzone w Edge przy 360 i 1280 px (bez przewijania w poziomie i błędów konsoli). E2E łańcucha pompy nie był uruchamiany (nieaktualny, punkt 15).
 
-Wcześniejszy pełny przebieg (2026-09-24): serwer chpc-web 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
+Wcześniejszy pełny przebieg (2026-09-24): serwer My Home 12/12 + `tsc` OK (po dodaniu edycji nazwy i błędu przy blokadzie: 20/20), klient `vite build` OK, `co` 38/38, CHPC 44/44, E2E 48/48 (30 funkcjonalnych + 18 układu widoków), build Pro Mini OK.
 
 ### E2E całego łańcucha
 
-Testy są w `test/e2e/` (do 2026-09-27 w repozytorium `chpc`). `bridge.exe` łączy symulowany firmware CHPC z prawdziwym kodem `co` (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`), a `run-e2e.mjs` odgrywa rolę HTTP `co` wobec lokalnego chpc-web i steruje interfejsem przez Playwright z systemowym Edge.
+Testy są w `test/e2e/` (do 2026-09-27 w repozytorium `chpc`). `bridge.exe` łączy symulowany firmware CHPC z prawdziwym kodem `co` (`operation_parser`, `operation_controller`, `modbus_frame`, `cop_estimator`), a `run-e2e.mjs` odgrywa rolę HTTP `co` wobec lokalnego My Home i steruje interfejsem przez Playwright z systemowym Edge.
 
-1. W chpc-web: `npm run local` (baza, serwer 4001, klient 5173).
+1. W My Home: `npm run local` (baza, serwer 4001, klient 5173).
 2. W `devices/co`: `pio test -e native` (pobiera ArduinoJson potrzebny do mostu).
 3. W `test/e2e`: `npm install && sh build-bridge.sh && node run-e2e.mjs` (kod `co` z `devices/co`, inna ścieżka w `CO_DIR`).
 
