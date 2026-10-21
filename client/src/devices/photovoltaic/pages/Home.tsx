@@ -10,9 +10,10 @@ import { OfflineBanner } from '../../../core/components/OfflineBanner';
 import { PhotovoltaicRequests } from '../api';
 import { PvCurrent, PvDay, PvPanel } from '../types';
 import {
-  STATE_LABELS, formatDateTime, formatDay, formatEnergy, formatPower, formatTime, plural, shortSerial, splitEnergy, splitPower,
+  stateLabel, formatDateTime, formatDay, formatEnergy, formatPower, formatTime, plural, shortSerial, splitEnergy, splitPower,
   splitTemp, todayWarsaw, warsawDay,
 } from '../utils/pv';
+import { t as tr, useLang } from '../../../core/i18n';
 import './style.css';
 
 const REFRESH_MS = 60_000;
@@ -29,13 +30,14 @@ const Kpi = ({ label, value }: { label: string; value: [string, string] }) => (
 );
 
 const chipFor = ({ panel, low }: PanelRow) => {
-  if (panel.state === 'offline' || panel.state === 'alarm') return <span className="chip chip-err">{STATE_LABELS[panel.state]}</span>;
-  if (low) return <span className="chip chip-warn">słabiej</span>;
-  if (panel.state === 'produces') return <span className="chip chip-ok">{STATE_LABELS.produces}</span>;
-  return <span className="chip chip-off">{STATE_LABELS.idle}</span>;
+  if (panel.state === 'offline' || panel.state === 'alarm') return <span className="chip chip-err">{stateLabel(panel.state)}</span>;
+  if (low) return <span className="chip chip-warn">{tr('pv.weaker')}</span>;
+  if (panel.state === 'produces') return <span className="chip chip-ok">{stateLabel('produces')}</span>;
+  return <span className="chip chip-off">{stateLabel('idle')}</span>;
 };
 
 export const PhotovoltaicHome: React.FC = () => {
+  const { t } = useLang();
   const [current, setCurrent] = useState<PvCurrent | null | undefined>(undefined);
   const [day, setDay] = useState<PvDay | null>(null);
 
@@ -66,43 +68,43 @@ export const PhotovoltaicHome: React.FC = () => {
   const chartData = (day?.points ?? []).map((p) => ({ label: formatTime(p.t), moc: p.power }));
   const [powerNum, powerUnit] = splitPower(current?.power);
   const note = [
-    day?.peakW !== undefined ? `szczyt dnia ${formatPower(day.peakW)} o ${formatTime(day.peakAt)}` : '',
-    panels.length ? plural(panels.length, ['panel', 'panele', 'paneli']) : '',
-    inverters.length ? `${plural(inverters.length, ['mikrofalownik', 'mikrofalowniki', 'mikrofalowników'])} HMS` : '',
-    current?.readAt ? `odczyt ${formatDateTime(current.readAt)}` : '',
+    day?.peakW !== undefined ? t('pv.home.dayPeak', { power: formatPower(day.peakW), time: formatTime(day.peakAt) }) : '',
+    panels.length ? plural(panels.length, 'pv.n.panels') : '',
+    inverters.length ? `${plural(inverters.length, 'pv.n.inverters')} HMS` : '',
+    current?.readAt ? `${t('hp.reading')} ${formatDateTime(current.readAt)}` : '',
   ].filter(Boolean).join(' · ');
   const panelsHint = inverters.length === 1
-    ? `mikrofalownik ${shortSerial(inverters[0])} · pasek względem szczytu dnia`
-    : `${plural(inverters.length, ['mikrofalownik', 'mikrofalowniki', 'mikrofalowników'])} · pasek względem szczytu dnia`;
+    ? `${t('pv.inverterLower')} ${shortSerial(inverters[0])} · ${t('pv.home.barHint')}`
+    : `${plural(inverters.length, 'pv.n.inverters')} · ${t('pv.home.barHint')}`;
 
   return (
     <div className="page page-device pv-page">
-      {current === undefined && <section className="card"><p className="help">Wczytywanie…</p></section>}
-      {current === null && <section className="card"><p className="help danger-text">Nie udało się pobrać danych.</p></section>}
-      {current && !current.readAt && <section className="card"><p className="help">Brak odczytów z instalacji PV.</p></section>}
+      {current === undefined && <section className="card"><p className="help">{t('common.loading')}</p></section>}
+      {current === null && <section className="card"><p className="help danger-text">{t('pv.loadFailed')}</p></section>}
+      {current && !current.readAt && <section className="card"><p className="help">{t('pv.home.noReadings')}</p></section>}
       {current?.readAt && (
         <>
-          {current.stale && <OfflineBanner since={current.readAt} detail="DTU nie przysłało nowego odczytu." />}
+          {current.stale && <OfflineBanner since={current.readAt} detail={t('pv.home.stale')} />}
           <section className="hero card card-hero">
             <div className="hero-main">
-              <span className="hero-label">Moc teraz</span>
+              <span className="hero-label">{t('pv.home.powerNow')}</span>
               <div className="hero-value"><span className="hero-num">{powerNum}</span>{powerUnit && <span className="hero-unit">{powerUnit}</span>}</div>
               <span className="hero-note">{note}</span>
             </div>
             <div className="hero-side">
               <div className="hero-kpis">
-                <Kpi label="Dziś" value={splitEnergy(current.todayWh)} />
-                <Kpi label="Miesiąc" value={splitEnergy(current.monthWh)} />
-                <Kpi label="Łącznie" value={splitEnergy(current.totalWh)} />
-                <Kpi label="Falownik" value={splitTemp(current.temperature)} />
+                <Kpi label={t('tile.icon.battery')} value={splitEnergy(current.todayWh)} />
+                <Kpi label={t('period.month')} value={splitEnergy(current.monthWh)} />
+                <Kpi label={t('pv.home.total')} value={splitEnergy(current.totalWh)} />
+                <Kpi label={t('tile.inverter')} value={splitTemp(current.temperature)} />
               </div>
             </div>
           </section>
 
           <section className="card">
             <header className="card-head">
-              <h2>Moc w ciągu dnia</h2>
-              {day && <span className="card-hint">odczyty co 5 min · {formatDay(day.date)}</span>}
+              <h2>{t('pv.home.dayPower')}</h2>
+              {day && <span className="card-hint">{t('pv.home.every5min')} · {formatDay(day.date)}</span>}
             </header>
             {chartData.length ? (
               <div className="chart chart-md">
@@ -111,25 +113,25 @@ export const PhotovoltaicHome: React.FC = () => {
                     <CartesianGrid stroke={cc().grid} vertical={false} />
                     <XAxis dataKey="label" stroke={cc().line} tick={{ fill: cc().axis, fontSize: 11 }} tickLine={false} interval="preserveStartEnd" minTickGap={40} />
                     <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={52} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => `${value} W`} />
-                    <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), 'Moc']} />
+                    <Tooltip {...tooltipStyle()} formatter={(value) => [formatPower(Number(value)), t('tile.icon.bolt')]} />
                     <Area type="monotone" dataKey="moc" stroke={cc().sun} strokeWidth={2} fill={cc().sun} fillOpacity={0.28} isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            ) : <p className="help">Brak odczytów z tego dnia.</p>}
+            ) : <p className="help">{t('pv.noneDay')}</p>}
           </section>
 
           <section className="card">
             <header className="card-head">
-              <h2>Panele</h2>
+              <h2>{t('tile.icon.panel')}</h2>
               {current.panelsAvailable && <span className="card-hint">{panelsHint}</span>}
             </header>
-            {!current.panelsAvailable && <p className="help">Ostatni odczyt nie ma szczegółów paneli.</p>}
+            {!current.panelsAvailable && <p className="help">{t('pv.home.noPanelDetails')}</p>}
             {current.panelsAvailable && (
               <ul className="panels">
                 {rows.map((row) => (
                   <li key={row.panel.key} className={row.low ? 'is-low' : undefined}>
-                    <span className="panel-name">Port {row.panel.port}</span>
+                    <span className="panel-name">{t('pv.portCap')} {row.panel.port}</span>
                     <span className="bar" aria-hidden="true">
                       <span style={{ '--p': `${Math.round(100 * (row.panel.power ?? 0) / maxPanelPower)}%` } as React.CSSProperties} />
                     </span>
@@ -137,8 +139,8 @@ export const PhotovoltaicHome: React.FC = () => {
                     <span className="panel-sub">
                       {[
                         inverters.length > 1 ? shortSerial(row.panel.serial) : '',
-                        row.panel.prod_today !== undefined ? `${formatEnergy(row.panel.prod_today)} dziś` : '',
-                        row.low ? `${row.belowPct} % poniżej średniej` : '',
+                        row.panel.prod_today !== undefined ? `${formatEnergy(row.panel.prod_today)} ${t('wx.today')}` : '',
+                        row.low ? t('pv.home.belowAverage', { pct: row.belowPct }) : '',
                       ].filter(Boolean).join(' · ')}
                     </span>
                     {chipFor(row)}

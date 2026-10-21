@@ -4,6 +4,7 @@
 // otwiera kalendarz przeglądarki — makieta ma same strzałki, aplikacja zachowuje bezpośredni wybór dnia).
 import { MouseEvent } from 'react';
 import { formatDay, formatMonth, shiftDate, todayWarsaw } from '../utils/pv';
+import { useLang } from '../../../core/i18n';
 
 const Icon = ({ d }: { d: string }) => (
   <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
@@ -35,11 +36,6 @@ export function Segmented<T extends string>({ name, label, value, options, onCha
 
 type DateUnit = 'day' | 'month' | 'year';
 
-const UNIT_LABELS: Record<DateUnit, [string, string]> = {
-  day: ['Poprzedni dzień', 'Następny dzień'],
-  month: ['Poprzedni miesiąc', 'Następny miesiąc'],
-  year: ['Poprzedni rok', 'Następny rok'],
-};
 
 // kalendarz przeglądarki po kliknięciu etykiety (showPicker nie wszędzie jest; wtedy zostaje samo pole)
 const openPicker = (event: MouseEvent<HTMLInputElement>) => {
@@ -49,11 +45,14 @@ const openPicker = (event: MouseEvent<HTMLInputElement>) => {
 
 // date: YYYY-MM-DD (miesiąc i rok biorą swój przedrostek); dalej niż dziś nie da się przejść
 export function DateNav({ unit, date, onChange }: { unit: DateUnit; date: string; onChange: (date: string) => void }) {
+  const { t } = useLang();
   const today = todayWarsaw();
   const prefix = unit === 'day' ? 10 : unit === 'month' ? 7 : 4;
   const isToday = date.slice(0, prefix) === today.slice(0, prefix);
   const text = unit === 'day' ? formatDay(date) : unit === 'month' ? formatMonth(date) : date.slice(0, 4);
-  const [prevLabel, nextLabel] = UNIT_LABELS[unit];
+  const unitName = t(unit === 'day' ? 'common.dayUnit' : unit === 'month' ? 'common.monthUnit' : 'common.yearUnit');
+  const prevLabel = t('common.prevUnit', { unit: unitName });
+  const nextLabel = t('common.nextUnit', { unit: unitName });
   return (
     <div className="date-nav">
       <button type="button" className="icon-btn sm" aria-label={prevLabel} onClick={() => onChange(shiftDate(date, unit, -1))}>
@@ -61,13 +60,13 @@ export function DateNav({ unit, date, onChange }: { unit: DateUnit; date: string
       </button>
       <label className="date-cur">
         {text}
-        {isToday && <small>{unit === 'day' ? 'dziś' : unit === 'month' ? 'ten miesiąc' : 'ten rok'}</small>}
+        {isToday && <small>{unit === 'day' ? t('wx.today') : unit === 'month' ? t('pv.thisMonth') : t('pv.thisYear')}</small>}
         {unit === 'day' && (
-          <input className="date-pick" type="date" value={date} max={today} aria-label="Wybierz dzień" onClick={openPicker}
+          <input className="date-pick" type="date" value={date} max={today} aria-label={t('common.pickDate')} onClick={openPicker}
             onChange={(event) => event.currentTarget.value && onChange(event.currentTarget.value)} />
         )}
         {unit === 'month' && (
-          <input className="date-pick" type="month" value={date.slice(0, 7)} max={today.slice(0, 7)} aria-label="Wybierz miesiąc" onClick={openPicker}
+          <input className="date-pick" type="month" value={date.slice(0, 7)} max={today.slice(0, 7)} aria-label={t('pv.pickMonth')} onClick={openPicker}
             onChange={(event) => event.currentTarget.value && onChange(`${event.currentTarget.value}-01`)} />
         )}
       </label>
