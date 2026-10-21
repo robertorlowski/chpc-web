@@ -131,11 +131,11 @@
 .boiler-page .measures dd { white-space: normal; text-align: right; }
 /* Harmonogram: „Temperatura na zewnątrz” i „Teraz” zawsze jeden pod drugim (w dwóch kolumnach zdanie „Teraz”
    rozciągało się na całą szerokość, 2026-10-20) */
-.boiler-page .measures-stack { grid-template-columns: 1fr; column-gap: 0; }
-/* etykieta w kolumnie stałej szerokości, wartość obok do lewej (decyzja użytkownika 2026-10-20) */
-.boiler-page .measures-stack div { display: grid; grid-template-columns: 12em minmax(0, 1fr); column-gap: 12px; align-items: baseline; }
+.boiler-page .measures-stack { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+/* wartość zaraz za etykietą, bez wyrównywania wierszy w kolumnę (decyzja użytkownika 2026-10-21; wcześniej
+   etykieta w kolumnie 12em i wartość odstawała); długie zdanie „Teraz” zawija się pod etykietę */
+.boiler-page .measures-stack div { display: flex; flex-wrap: wrap; justify-content: flex-start; column-gap: 12px; row-gap: 2px; align-items: baseline; }
 .boiler-page .measures-stack div:nth-child(2) { border-top: 1px solid var(--line-soft); }
 .boiler-page .measures-stack dd { text-align: left; max-width: none; }
-@media (max-width: 400px) { .boiler-page .measures-stack div { grid-template-columns: 9em minmax(0, 1fr); } }
 .boiler-page .boiler-profiles-table table.data { white-space: normal; }
 .boiler-page .boiler-profiles-table table.data th, .boiler-page .boiler-profiles-table table.data td { padding: 6px 8px; }
