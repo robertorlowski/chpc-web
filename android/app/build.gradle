@@ -22,7 +22,7 @@ plugins {
 
 def twaManifest = [
     applicationId: 'pl.infotower.myhome',
-    hostName: 'hpweb.onrender.com', // The domain being opened in the TWA.
+    hostName: 'home24.onrender.com', // The domain being opened in the TWA.
     launchUrl: '/devices', // The start path for the TWA. Must be relative to the domain.
     name: 'My Home', // The application name.
     launcherName: 'My Home', // The name shown on the Android Launcher.
@@ -57,8 +57,8 @@ android {
         applicationId "pl.infotower.myhome"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 1
-        versionName ""
+        versionCode 2
+        versionName "1.0.1"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -76,12 +76,12 @@ android {
             // The URL the Web Manifest for the Progressive Web App that the TWA points to. This
             // is used by Chrome OS and Meta Quest to open the Web version of the PWA instead of
             // the TWA, as it will probably give a better user experience for non-mobile devices.
-            resValue "string", "webManifestUrl", 'https://hpweb.onrender.com/manifest.webmanifest'
+            resValue "string", "webManifestUrl", 'https://home24.onrender.com/manifest.webmanifest'
         
 
         
             // This is used by Meta Quest.
-            resValue "string", "fullScopeUrl", 'https://hpweb.onrender.com/'
+            resValue "string", "fullScopeUrl", 'https://home24.onrender.com/'
         
 
         

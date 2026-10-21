@@ -22,7 +22,7 @@ const require = createRequire(join(HERE, '..', 'test', 'e2e', 'package.json'));
 const { chromium } = require('playwright');
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : fallback; };
-const WEB = arg('--web', 'https://hpweb.onrender.com');
+const WEB = arg('--web', 'https://home24.onrender.com');
 const API = arg('--api', 'https://chpc-web.onrender.com/api');
 const FILTER = process.argv.slice(2).find((a) => !a.startsWith('--') && !process.argv[process.argv.indexOf(a) - 1]?.startsWith('--')) ?? '';
 const OUT = join(HERE, 'zrzuty');

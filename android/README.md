@@ -1,7 +1,7 @@
 # Aplikacja Androida (TWA)
 
 Opakowanie aplikacji webowej w aplikację Androida metodą Trusted Web Activity (2026-10-21): aplikacja otwiera
-`https://hpweb.onrender.com` w Chrome bez paska adresu, z ikoną i powiadomieniami Web Push. Projekt generuje
+`https://home24.onrender.com` w Chrome bez paska adresu, z ikoną i powiadomieniami Web Push. Projekt generuje
 [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) z pliku `twa-manifest.json`; kodu Androida nie pisze się
 ręcznie. Aktualizacje aplikacji to nadal build klienta na Render — pakiet w sklepie zmienia się tylko przy zmianie
 ikony, nazwy, domeny albo wersji Androida.
@@ -41,7 +41,7 @@ wpisuje 21 i build się wywraca — `minSdkVersion` jest poprawione w `twa-manif
 ## Instalacja na telefonie bez sklepu
 
 `app-release-signed.apk` przez USB (`adb install`) albo plik na telefonie („zezwól na instalację z tego źródła”).
-Pasek adresu znika, gdy `https://hpweb.onrender.com/.well-known/assetlinks.json` odpowiada z `Content-Type:
+Pasek adresu znika, gdy `https://home24.onrender.com/.well-known/assetlinks.json` odpowiada z `Content-Type:
 application/json` i zawiera odcisk klucza, którym podpisano pakiet.
 
 ## Google Play (etap 2b)
