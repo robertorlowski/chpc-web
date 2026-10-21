@@ -29,6 +29,8 @@ Moduł odpowiada za:
 |---|---|
 | Zalogować się | ekran logowania: e-mail → kod z maila (albo link z maila); po zalogowaniu pytanie „Zapamiętać?” — sesja zapamiętana trwa 90 dni. Mail wysyła sterownik w domu; gdy żaden nie jest w sieci, ekran pokazuje „Poczta jest chwilowo niedostępna…” |
 | Włączyć powiadomienia na telefon i w przeglądarce | „Moje dane” → karta „Powiadomienia” → „Włącz na tym urządzeniu” (zgoda przeglądarki), potem dla każdego sterownika zaznaczyć zdarzenia: start / stop sprężarki, błąd pompy, rozpalanie i wygaszenie kotła, alarm kotła, włączenie / wyłączenie przekaźnika, uruchomienie hydroforu, sterownik przestał / znów odpowiada; „domyślne” zaznacza najważniejsze. Cisza nocna od–do wstrzymuje wszystko poza pilnymi (błąd, alarm). Powiadomienia włącza się na każdym urządzeniu osobno, wybór zdarzeń jest wspólny dla konta; „Wyślij próbne” sprawdza, czy dochodzą |
+| Pokazać instalację komuś bez konta | ekran logowania → „Zobacz wersję demo”: podgląd sterowników właściciela wskazanego na serwerze, tylko do odczytu (każda próba zmiany kończy się komunikatem), bez numerów seryjnych, adresów i położenia domu; żółty pasek „Wersja demo” i „Wyjdź”; sesja 2 godziny |
+| Mieć aplikację na telefonie | Chrome na Androidzie: menu → „Dodaj do ekranu głównego” (aplikacja PWA z ikoną, bez paska adresu, otwiera się także bez sieci z ekranem „Brak połączenia”); iPhone: Udostępnij → „Do ekranu początkowego”. Pakiet Androida (TWA, `android/`) można zainstalować z pliku `.apk` albo docelowo z Google Play |
 | Zobaczyć pogodę i prognozę dla miejscowości | kliknięcie kafelka pogody → strona pogody z zakładkami Teraz, Najbliższe dni, Słońce i PV, Ogrzewanie, Powietrze, Wiatr i opady; kafelek „Moja lokalizacja” bierze położenie z przeglądarki |
 | Zobaczyć wszystkie sterowniki i wybrać jeden | lista kafelków „Sterowniki” (`/devices`); aplikacja zawsze zaczyna od niej |
 | Nadać lub zmienić nazwę sterownika | ołówek na kafelku (po najechaniu) albo ołówek w karcie „Sterownik” w Ustawieniach |
@@ -102,6 +104,7 @@ Moduł odpowiada za:
 - **Temperatura zewnętrzna** pochodzi z jednej stacji IMGW (Zakopane) — dla instalacji w innym miejscu trzeba zmienić stację w kodzie.
 - **Poczta zależy od sterownika w domu.** Serwer na darmowym planie Render nie może łączyć się z SMTP, więc maile (kody logowania, zaproszenia, potwierdzenia) wysyła włącznik, a zapasowo `co`. Gdy oba są bez sieci, logowanie kodem nie działa (komunikat „Poczta jest chwilowo niedostępna”); zostaje konto systemowe z hasłem. Klucz płytki, która ma dostać dane poczty, zatwierdza użytkownik systemowy po porównaniu odcisku ze stroną `/install` płytki.
 - **Powiadomienia zależą od przeglądarki.** Na iPhonie działają tylko w aplikacji dodanej do ekranu początkowego (iOS 16.4+), w trybie incognito wcale, a Android potrafi opóźnić je przy oszczędzaniu baterii. Temperatura na kafelku „Dom” pochodzi z czujnika zewnętrznego kotła, gdy piec daje świeży pomiar (do 15 min); przy wyłączonym piecu z modelu pogodowego, który w dolinie myli się nocą o kilka stopni.
+- **Wersja demo jest publiczna.** Każdy, kto zna adres aplikacji, widzi dane instalacji właściciela (temperatury, historię, harmonogramy). Serwer ukrywa dane wrażliwe i blokuje zapisy, ale sam podgląd jest jawny; wyłącza się go, usuwając `DEMO_OWNER_EMAIL` z konfiguracji serwera.
 - **Pogoda zależy od włącznika.** Bieżące warunki pobiera włącznik z domowego łącza (Render dzieli adres IP z innymi usługami i Open-Meteo odrzucało zapytania serwera); bez włącznika pasek i kafelki pogody pokazują ostatni odczyt, a potem prognozę.
 
 ## Słownik
@@ -121,6 +124,8 @@ Moduł odpowiada za:
 | **Strona pogody** | ekran po kliknięciu kafelka pogody: bieżące warunki, prognoza, słońce i PV, ogrzewanie, powietrze, wiatr i opady |
 | **Przekaźnik poczty** | sterownik w domu (włącznik, zapasowo `co`), który wysyła maile aplikacji; dane poczty dostaje zaszyfrowane swoim kluczem i trzyma tylko w pamięci |
 | **Powiadomienie Web Push** | komunikat systemowy na telefonie albo w przeglądarce o zdarzeniu sterownika; przeglądarka zapisuje subskrypcję, serwer wysyła przez usługę push przeglądarki |
+| **Wersja demo** | publiczne wejście bez hasła z ekranu logowania: sesja tylko do odczytu na koncie właściciela, 2 godziny, bez danych wrażliwych |
+| **PWA / TWA** | aplikacja webowa instalowana z przeglądarki („Dodaj do ekranu głównego”) / jej opakowanie w aplikację Androida do Google Play (katalog `android/`) |
 | **Ustawienia** (`properties`) | ustawienia sterownika zapisane w chmurze (np. temperatury pompy, czas kompresora hydroforu) |
 | **Rejestr rodzajów sterowników** | miejsce w kodzie, gdzie każdy rodzaj opisuje swoje menu, ekrany i ustawienia domyślne |
 | **Motyw** | wygląd jasny albo ciemny („Instrument”); bez wyboru jasny, „Jak system” bierze ustawienie urządzenia |

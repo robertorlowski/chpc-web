@@ -30,6 +30,7 @@
 | `core/services/mail.service.ts` | `sendMail`: with `MAIL_RELAY=1` composes MIME (`MailComposer`) and queues it in `mail_outbox`, otherwise direct SMTP; `assertMailAvailable` (503 without a controller) |
 | `core/services/mail-relay.service.ts`, `models/mail-outbox.model.ts`, `controllers/mail-relay.controller.ts` | mail relay: board keys (`mailKey`, `mailKeyPending`, approval), `encryptFor` encryption (ECDH P-256 + AES-256-GCM), mail queue and lease (`FAILOVER_MS` 20 s, `LEASE_MS` 60 s, 3 attempts, 15 min), `GET /mail/config`, `GET /mail/next`, `POST /mail/result` |
 | `core/services/push.service.ts`, `push-watchdog.service.ts`, `models/push-subscription.model.ts`, `controllers/push.controller.ts` | Web Push notifications: event catalogue `PUSH_EVENTS`, `notify`, quiet hours, 60 s threshold, deletion of expired subscriptions; offline / online watchdog from the tiles every minute; `/push/*` |
+| `core/services/auth.service.ts` (`demoLogin`, `demoAvailable`), `core/middleware/session.ts` (`scrubDemo`), `core/services/access.service.ts` (the `demo` role) | demo mode: a read-only session on the `DEMO_OWNER_EMAIL` account, write blocking, removal of sensitive data from responses |
 | `core/services/tile-layout.service.ts`, `tile.service.ts`, `tile-format.ts` | the account's tile layout (`users.deviceOrder`, `hiddenTiles`) and tile data `GET /devices/summary` (from each module's `tile.ts`) |
 
 ## Files — client (`client/src`)
@@ -70,6 +71,9 @@
 | `core/pages/Weather/` (`index.tsx`, `NowTab`, `DaysTab`, `SunTab`, `HeatingTab`, `AirTab`, `WindTab`, `forecast.ts`, `style.css`), `core/currentPlace.ts` | the weather page `/weather/:id` (click on a weather tile; mock-up `#pogoda-*`): tabs in `?tab=` — Teraz, Najbliższe dni, Słońce i PV (yield forecast fitted to the DTU), Ogrzewanie (DHW window in G12w), Powietrze, Wiatr i opady; current conditions from `GET /weather-tiles`, forecast and air quality directly from Open-Meteo (`forecast.ts`); the "Moja lokalizacja" tile (`current`) with the browser's position |
 | `core/components/MailKeyRow.tsx` | the "Poczta" row of the "Sterownik" card (switch, heat pump): board key state (approved / pending / none, fingerprint), "Zatwierdź" after comparing with `/install` and "Usuń" — system user only |
 | `core/components/PushSettingsCard.tsx`, `core/push.ts`, `public/sw.js` | the "Powiadomienia" card on `/account` (this browser's subscription, list of browsers, rules, quiet hours, test), service worker and PushManager subscription registration, receiving notifications and opening the application on click |
+| `core/App.tsx` (`DemoBanner`, `DemoToast`), `core/http.ts`, `core/auth.ts`, `core/types.ts` (`canEditDevice`) | demo mode in the client: the bar, writes stopped with a message, the `chpc.demo` flag, editing only own controllers |
+| `public/manifest.webmanifest`, `public/icon-*.png`, `public/.well-known/assetlinks.json`, `index.tsx` (`sw.js` registration) | PWA: manifest with PNG icons, Digital Asset Links for the Android app, service worker with the cached shell (see `public/sw.js` above) |
+| `android/` (`twa-manifest.json`, `build.ps1`, `README.md`) | the Android package (TWA, Bubblewrap); the signing key and passwords outside git |
 | `core/pages/_404.tsx` | leftover, unused |
 
 ## API
@@ -110,6 +114,7 @@ Paths outside the map (application, `GET`s, `/device/properties`) require `rootI
 | `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | public (session) | the account's weather tiles `{name, lat, lon, hidden}` with current weather; `home` cannot be deleted; at most 8 | 200; 400; 404 |
 | `POST` / `DELETE /devices/:rootId/mail-key` | public (system user) | approve `{fingerprint}` / remove the mail relay board key | 200; 403; 404; 409 |
 | `GET /push/settings`, `POST /push/subscriptions`, `DELETE /push/subscriptions/:id`, `PUT /push/rules`, `POST /push/test` | signed in, no `rootId` | notification settings (VAPID key, subscriptions, rules, event catalogue, controllers), browser subscription, rules `{rules: [{rootId, events}], quietFrom, quietTo}`, test notification | 200; 201; 204; 400; 403; 404; 409; 503 |
+| `GET /auth/demo`, `POST /auth/demo` | public | demo mode: availability `{available}` / read-only session (404 without `DEMO_OWNER_EMAIL`, 429 on too many entries) | 200; 404; 429 |
 | `GET /mail/config`, `GET /mail/next`, `POST /mail/result` | controller (`?rootId=&deviceId=`, no login) | SMTP credentials encrypted with the board key; next mail (encrypted, leased); result `{id, ok, receipt, error?}` | 200; 204 no mail; 403 key not approved |
 
 WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"operation"|"update","rootId":"…"}`; a connection without `rootId` is closed with code 1008.
@@ -180,6 +185,7 @@ The device document is shared by all kinds, so `core/models/device.model.ts` imp
 | `API_KEY` | key for `verifyApiKey` (currently unused) |
 | `MAIL_RELAY=1` | the controllers send the mail (mail relay) instead of the server; mandatory on Render, whose free plan blocks SMTP (ports 25, 465, 587) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push notifications; disabled without the keys (pair: `npx web-push generate-vapid-keys` in `server/`) |
+| `DEMO_OWNER_EMAIL` | e-mail of the account shown read-only in demo mode; without a value there is no "Zobacz wersję demo" button |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `MAIL_ADMIN` | the mail account (with `MAIL_RELAY=1` handed to the boards encrypted); sender `MyHome <SMTP_USER>`, replies to `MAIL_FROM` |
 | `CLIENT_URL`, `SYSTEM_PASSWORD`, `INITIAL_OWNER_EMAIL`, `AUTH_DISABLED=1` | application address in mail links, the "system" account password, the first owner, login disabled (local environment) |
 | `WEATHER_LOCATION` | home coordinates for the "Dom" weather tile |
