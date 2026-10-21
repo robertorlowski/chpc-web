@@ -7,7 +7,7 @@ import { sendMessage } from '../../../core/websocket';
 import { HpEntryModel } from '../models/hp.model';
 import { getTemperature } from '../../../core/services/meteo.service';
 import { formatInTimeZone } from 'date-fns-tz';
-import { TIME_ZONE } from '../../../core/time';
+import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 import { forgetDeviceInfo, getDeviceInfo } from '../../../core/services/device-info.service';
 import { notify } from '../../../core/services/push.service';
 
@@ -130,23 +130,6 @@ export function getHpDiagnostics(rootId: string) {
 // Dni z danymi (YYYY.MM.DD, Warszawa); addHpData dopisuje dzień tylko do już wczytanego zbioru.
 const availableDatesByRoot = new Map<string, Set<string>>();
 
-// Migracja jednorazowa: przypisuje urządzeniu rekordy hp sprzed wprowadzenia rootId.
-// Obecnie nigdzie niewywoływana.
-export const assignLegacyHpData = async (rootId: string) => {
-  const device = await getDeviceInfo(rootId);
-
-  await HpEntryModel.updateMany(
-    { $or: [{ rootId: { $exists: false } }, { rootId }] },
-    {
-      $set: {
-        rootId,
-        deviceType: device.deviceType,
-        deviceId: device.deviceId,
-      },
-    },
-  );
-};
-
 // Usuwa telemetrię urządzenia (kolekcja pv zostaje) i czyści pamięć podręczną.
 export const clearData = async (rootId: string) => {
   await HpEntryModel.deleteMany({ rootId });
@@ -208,9 +191,10 @@ export const getHpLastData = async (rootId: string) => {
 
 // GET /hp/all: rekordy od 1 stycznia bieżącego roku. Granica roku liczona w strefie
 // serwera (na Render UTC), nie w czasie warszawskim.
+// Dane od początku bieżącego roku w czasie warszawskim (do 2026-10-21: rok w strefie serwera, czyli UTC na Render).
 export const getHpAllData = async (rootId: string) => {
-  const currentYear = new Date().getFullYear();
-  const startOfCurrentYear = new Date(currentYear, 0, 1);
+  const currentYear = formatInTimeZone(new Date(), TIME_ZONE, 'yyyy');
+  const startOfCurrentYear = warsawDayBoundsUTC(`${currentYear}-01-01`).startUTC;
 
   const doc = await HpEntryModel
     .find({ rootId, createdAt: { $gte: startOfCurrentYear } })
@@ -218,32 +202,6 @@ export const getHpAllData = async (rootId: string) => {
     .lean<HpEntry>();
   return doc;
 }
-
-// Nieużywane (hp.controller tylko importuje); doba w strefie serwera, nie Warszawy.
-// Endpoint /hp/4day liczy granice przez core/time.ts.
-export const getHpDataForDay = async (rootId: string, day: Date) => {
-  // ustawiamy początek dnia (00:00:00.000)
-  const startOfDay = new Date(day);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  // ustawiamy koniec dnia (23:59:59.999)
-  const endOfDay = new Date(day);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const doc = await HpEntryModel
-    .find({ rootId,
-      createdAt: {
-        $gte: startOfDay,
-        $lte: endOfDay,
-      },
-    })
-    .sort({ createdAt: -1 })
-    .lean<HpEntry>();
-
-  return doc;
-};
-
-
 
 // CHPC podaje kod ostatniego błędu (ERR) i numer kolejny zdarzenia (ERRn).
 // Nowy błąd to zmiana ERRn przy niezerowym ERR; zwraca jego kod albo undefined.

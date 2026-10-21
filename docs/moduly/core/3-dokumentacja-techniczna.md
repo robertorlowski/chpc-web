@@ -128,7 +128,6 @@ WebSocket: `ws(s)://<serwer>/ws?rootId=<rootId>`. Serwer wysyła `{"type":"opera
 | `ipAddress`, `ipSeenAt` | string, Date | adres IPv4 sterownika w sieci lokalnej z pola `ip` zgłoszenia i czas zgłoszenia; bez pola zostaje ostatni znany; w kliencie wiersz „Adres IP” w Ustawieniach (`DeviceAddress`) |
 | `properties` | obiekt | ustawienia; pompa: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (domyślnie `CWU`); hydrofor: `compressor_seconds` (1–3600); kocioł pelletowy: `poll_interval_seconds` (liczba całkowita 30–3600, domyślnie 300; co ile sekund sterownik wysyła odczyt kotła); włącznik: `default_on_minutes` (pełne minuty 0–10080, 0 = bez limitu, domyślnie 30) |
 | `schedules[]` | obiekt | harmonogramy pompy ciepła (moduł heat-pump) |
-| `settings` | obiekt | starsze ustawienia czasowe pompy (nieużywane przez scheduler) |
 | `createdAt`, `updatedAt` | Date | znaczniki czasu |
 
 Dokument urządzenia jest wspólny dla wszystkich rodzajów, dlatego `core/models/device.model.ts` importuje schematy części z modułów (harmonogram, starsze ustawienia pompy).

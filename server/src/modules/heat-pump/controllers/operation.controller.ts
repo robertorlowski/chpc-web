@@ -2,7 +2,7 @@
 // (/operation/set) i akcje jednorazowe (/operation/action). Stan operacji jest
 // tylko w pamięci (services/operation.service.ts); do sterownika trafia przez /hp/add.
 import { Request, Response } from 'express'
-import { addOperationAction, clearOperation, getOperationData, OPERATION_ACTIONS, OperationAction, setManualOperationData } from '../services/operation.service';
+import { addOperationAction, getOperationData, OPERATION_ACTIONS, OperationAction, setManualOperationData } from '../services/operation.service';
 import { OperationEntry, PumpWorkMode } from '../types';
 import { getHpLastData } from '../services/hp.service';
 import { PUMP_WORK_MODES, pumpWorkMode, temperatureError, temperatureFields } from '../services/pump-mode.service';
@@ -54,21 +54,6 @@ export async function getOperation(req: Request, res: Response) {
   try { 
     console.log("Get operation");
     return res.status(200).send(getOperationData(req.deviceRootId as string));
-  } catch (error) {
-    return res.status(500).send({ error: error })
-  }
-}
-
-// Starszy sposób odbioru operacji (poza /hp/add); kasuje ją, więc sterownik co
-// jej już nie dostanie. Klient i obecny co go nie używają.
-export async function getAndClearOperation(req: Request, res: Response) {
-  try { 
-    console.log("Get & Clear operation");
-    const operation: OperationEntry = {};
-    Object.assign(operation, getOperationData(req.deviceRootId as string));
-    clearOperation(req.deviceRootId as string);
-    return res.status(200).send(operation);
-
   } catch (error) {
     return res.status(500).send({ error: error })
   }

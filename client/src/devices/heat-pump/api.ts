@@ -40,7 +40,6 @@ export class HpRequests {
   }
 
   // dzień albo zakres dni czasu warszawskiego; serwer przyjmuje YYYY.MM.DD i YYYY-MM-DD.
-  // Ścieżka /hp/4Day działa, bo trasy Express nie rozróżniają wielkości liter (na serwerze /hp/4day).
   static getHpData4Day(day?: string, endDay?: string) : Promise<HpEntry[]> {
       if (!day || (endDay && !day)) {
         return Promise.resolve([])
@@ -50,7 +49,7 @@ export class HpRequests {
         ? `startDate=${encodeURIComponent(day)}&endDate=${encodeURIComponent(endDay)}`
         : `date=${encodeURIComponent(day)}`;
 
-      return Requests.get(`/hp/4Day?${query}`);
+      return Requests.get(`/hp/4day?${query}`);
   }
 
   // wartości początkowe zakładki Ustawienia zbudowane przez serwer z ostatniej telemetrii
@@ -93,8 +92,9 @@ export class HpRequests {
     return Requests.get('/schedules/current');
   }
 
+  // rzuca ApiError przy błędzie zapisu (Requests.post połykał błędy i formularz pokazywał sukces)
   static createSchedule(data: Omit<ScheduleEntry, 'enabled'> & { enabled?: boolean }) {
-    return Requests.post('/schedules', data);
+    return Requests.json<ScheduleEntry>('POST', '/schedules', data, true);
   }
 
   static updateSchedule(id: string, data: Omit<ScheduleEntry, 'enabled'> & { enabled?: boolean }) {

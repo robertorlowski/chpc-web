@@ -46,7 +46,7 @@ Repozytorium składa się z dwóch aplikacji (npm workspaces):
 **Serwer jest podzielony według rodzaju sterownika** (`server/src`):
 
 - `core/` — część wspólna: urządzenia (lista, zgłoszenie, nazwa, domyślny, `properties`), temperatura zewnętrzna, kalendarz, kontekst urządzenia, WebSocket;
-- `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy, starsze `settings`;
+- `modules/heat-pump/` — pompa ciepła (sterownik `co`): telemetria `hp`, PV, operacje, scheduler, harmonogramy;
 - `modules/water-pressure-tank/` — hydrofor: uruchomienia, wodomierz, czas kompresora;
 - `modules/pellet-boiler-pelux200/` — kocioł pelletowy Pellux 200 (regulator ecoMAX): odczyty w kolekcji `pellet_boiler_pelux200`, interwał odpytywania (punkt 5c);
 - `modules/switch/` — włącznik: przekaźniki i ich tryby (`switch_relays`), harmonogramy (`switch_schedules`), historia włączeń (`switch_activations`), polecenia liczone przy każdym zgłoszeniu stanu (punkt 5d);
@@ -151,7 +151,7 @@ Model główny to `DeviceModel` z kolekcją `devices`. Urządzenie zawiera międ
 - `ipAddress`, `ipSeenAt` — adres IPv4 sterownika w sieci lokalnej i czas zgłoszenia, które go niosło (pole `ip`; bez niego zostaje ostatni znany); klient pokazuje go w karcie „Sterownik” w Ustawieniach (`DeviceAddress`) jako odnośnik do stron sterownika;
 - `sortOrder` — numer pola kafelka na liście sterowników (szachownica, punkt 9; wspólny z `weather_tiles`), `hidden` — kafelek ukryty (widoczny tylko w trybie „Zmień układ”);
 - `properties` — ustawienia domyślne;
-- `schedules` — osadzone definicje harmonogramów pompy (włącznik ma własną kolekcję `switch_schedules`).
+- `schedules` — osadzone definicje harmonogramów pompy (włącznik ma własną kolekcję `switch_schedules`). Dawne pole `settings` (starszy model ustawień czasowych, kolekcja `settings`, `GET /settings`, `POST /settings/set`) usunięte 2026-10-21 razem z nieużywanym `/operation/getAndClear`; stare dokumenty zachowują pole, schemat je pomija.
 
 ### `properties`
 
@@ -217,10 +217,6 @@ Subskrypcje Web Push (punkt 5g), jedna na przeglądarkę / telefon: `userId`, `e
 ### `mail_outbox`
 
 Kolejka maili dla przekaźnika poczty (punkt 5f): `to`, `subject`, `raw` (cała wiadomość MIME), `status` (`pending`, `sending`, `sent`, `error`, `expired`), `attempts`, `leasedBy`, `leaseUntil`, `receipt`, `failedBy`, `sentBy`, `sentAt`, `error`, `expiresAt` (15 min); TTL dobę po utworzeniu. W `devices` przekaźniki mają `mailKey {publicKey, fingerprint, approvedAt, seenAt}` i `mailKeyPending`.
-
-### `settings`
-
-Kolekcja `settings` przechowuje starszy model ustawień czasowych (`night_hour`, `settings`, `cwu_settings`). Aktualny scheduler korzysta z `devices.schedules`, a nie z tej kolekcji.
 
 ## 5. Telemetria pompy
 
@@ -561,7 +557,7 @@ Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządze
 | `GET /api/device/properties` | wartości domyślne urządzenia |
 | `PUT /api/device/properties` | zapis wartości domyślnych |
 | `GET /api/hp` | ostatnia telemetria (z bieżącym PV) |
-| `GET /api/hp/all` | dane od początku bieżącego roku |
+| `GET /api/hp/all` | dane od początku bieżącego roku (czas warszawski) |
 | `GET /api/hp/dates` | dni, dla których są dane |
 | `GET /api/hp/4day?date=...` | dane dla jednego dnia |
 | `GET /api/hp/monthly-summary` | podsumowania energii |
@@ -573,7 +569,6 @@ Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządze
 | `POST /api/pv/add` | zapis odczytu PV (sterownik) |
 | `GET /api/operation` | przygotowany zestaw wartości do widoku ustawień |
 | `GET /api/operation/get` | bieżąca operacja z pamięci |
-| `GET /api/operation/getAndClear` | pobranie i wyczyszczenie operacji |
 | `POST /api/operation/set` | zapis operacji ręcznej |
 | `POST /api/operation/action` | akcja jednorazowa `error_reset` albo `restart` |
 | `GET /api/schedules` | lista harmonogramów |
@@ -581,8 +576,6 @@ Trasy składa [`server/src/core/routes.ts`](server/src/core/routes.ts): urządze
 | `POST /api/schedules` | utworzenie harmonogramu |
 | `PUT /api/schedules/:id` | aktualizacja harmonogramu |
 | `DELETE /api/schedules/:id` | usunięcie harmonogramu |
-| `GET /api/settings` | starsze ustawienia czasowe |
-| `POST /api/settings/set` | zapis starszych ustawień |
 | `GET /api/push/settings` | powiadomienia Web Push konta (punkt 5g): `{configured, publicKey, subscriptions, rules, quietFrom, quietTo, events, devices}`; bez `rootId`, wymaga zalogowania |
 | `POST /api/push/subscriptions`, `DELETE /api/push/subscriptions/:id` | subskrypcja przeglądarki `{endpoint, keys, label}` (ten sam endpoint = nadpisanie) / usunięcie |
 | `PUT /api/push/rules` | `{rules: [{rootId, events}], quietFrom, quietTo}` — tylko dostępne sterowniki i zdarzenia rodzaju |
@@ -795,7 +788,7 @@ Pierwsze uruchomienie testów pobiera binarkę MongoDB i może przekroczyć domy
 
 Testy pieca pelletowego są w [`server/test/pellet-boiler-pelux200.test.ts`](server/test/pellet-boiler-pelux200.test.ts) (10: dwie role tego samego SN, routing po `deviceId` i rodzaju, zapis i walidacja odczytu, `last`, `list`, `poll_interval_seconds`, ustawienia regulatora z kopii kotła: rozkodowanie, grupy, krok i przesunięcie, mieszacz, walidacja hex).
 
-Wzór kafelka i kafelki pogody: [`server/test/tile-template.test.ts`](server/test/tile-template.test.ts) (4: brak wzoru, zapis bez obcych kluczy, walidacja, powrót do wbudowanego) i [`server/test/weather-tiles.test.ts`](server/test/weather-tiles.test.ts) (4: kafelek „Dom”, dodawanie, limit, ukrywanie, układ wspólny ze sterownikami z pustym polem, miejsca dla włącznika i pogoda z tablicy i z obiektu). Serwer razem: 184 (2026-10-16); 198 od 2026-10-17; 202 od 2026-10-19 (`mail-relay.test.ts`, 5: klucz czeka na zatwierdzenie, dane SMTP zaszyfrowane kluczem płytki i nieczytelne dla obcego klucza, 503 bez sterownika, mail z potwierdzeniem, przejęcie przez `co` po czasie, po błędzie i po dzierżawie); 216 od 2026-10-21 (`push.test.ts`, 6: ustawienia i katalog, subskrypcja i reguły, start sprężarki tylko do osoby z regułą, cisza nocna i próg powtórzeń, wygasła subskrypcja 410, wartownik offline). `cwu-loading.test.ts` bywa niestabilny w pełnym przebiegu (sam przechodzi).
+Wzór kafelka i kafelki pogody: [`server/test/tile-template.test.ts`](server/test/tile-template.test.ts) (4: brak wzoru, zapis bez obcych kluczy, walidacja, powrót do wbudowanego) i [`server/test/weather-tiles.test.ts`](server/test/weather-tiles.test.ts) (4: kafelek „Dom”, dodawanie, limit, ukrywanie, układ wspólny ze sterownikami z pustym polem, miejsca dla włącznika i pogoda z tablicy i z obiektu). Serwer razem: 184 (2026-10-16); 198 od 2026-10-17; 202 od 2026-10-19 (`mail-relay.test.ts`, 5: klucz czeka na zatwierdzenie, dane SMTP zaszyfrowane kluczem płytki i nieczytelne dla obcego klucza, 503 bez sterownika, mail z potwierdzeniem, przejęcie przez `co` po czasie, po błędzie i po dzierżawie); 216 od 2026-10-21 (`push.test.ts`, 6: ustawienia i katalog, subskrypcja i reguły, start sprężarki tylko do osoby z regułą, cisza nocna i próg powtórzeń, wygasła subskrypcja 410, wartownik offline). `cwu-loading.test.ts` bywa niestabilny w pełnym przebiegu (sam przechodzi). Od 2026-10-21 także `demo.test.ts` (5) i bez testu starszych `settings`: razem 219.
 
 Zrzuty ekranów w `docs/moduly/*/img/` są od 2026-10-18 **z instalacji produkcyjnej** (wcześniej z bazy lokalnej po `seed-local.mjs`): robi je `node scripts/zrzuty-dokumentacji.mjs [filtr]` (Edge przez Playwright z `test/e2e`, token sesji i pary maskowania z `scripts/zrzuty.local.json` poza gitem; SN, Root ID, adresy IP i numery mikrofalowników maskuje sam, mapę konta rozmywa; widoki dnia dla wczoraj), wynik w `scripts/zrzuty/` do skopiowania do `docs/`. Dane osobowe (imię, e-mail, adres, współrzędne) nie mogą trafić do repozytorium ani na zrzuty.
 

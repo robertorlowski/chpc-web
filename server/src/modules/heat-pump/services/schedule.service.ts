@@ -1,10 +1,8 @@
 
 // CRUD harmonogramów pompy osadzonych w urządzeniu (devices.schedules), dla
 // schedule.controller. O tym, który harmonogram działa, decyduje scheduler.service.ts.
-import { ScheduleEntry, WeekDay } from '../types';
-import { DeviceType } from '../../../core/types';
+import { ScheduleEntry } from '../types';
 import { DeviceDocument, DeviceModel } from '../../../core/models/device.model';
-import { getLocalDayOfWeek, isPolishDayOff } from '../../../core/services/calendar.service';
 
 
 export async function saveSchedule(
@@ -111,71 +109,3 @@ export async function deleteSchedule(
   }
 }
 
-function getStartOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-
-  return result;
-}
-
-function getEndOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(23, 59, 59, 999);
-
-  return result;
-}
-
-// Harmonogramy obowiązujące w danym dniu. Obecnie nieużywane (brak endpointu).
-// Uwaga: dzień tygodnia i święta liczy w Warszawie, ale porównanie date używa doby
-// w strefie serwera (getStartOfDay/getEndOfDay) — inaczej niż scheduler.
-export async function getSchedulesForDate(
-  rootId: string,
-  selectedDate: Date,
-): Promise<ScheduleEntry[]> {
-  const root = await DeviceModel.findById(rootId)
-    .select('schedules')
-    .lean<DeviceDocument>();
-
-  if (!root) {
-    throw new Error(`Configuration with ID not found: ${rootId}`);
-  }
-
-  const schedules = root?.schedules ?? [];
-  const dayOfWeek = getLocalDayOfWeek(selectedDate) as WeekDay;
-  const dayOff = isPolishDayOff(selectedDate);
-
-  const startOfDay = getStartOfDay(selectedDate);
-  const endOfDay = getEndOfDay(selectedDate);
-
-  const schedulesForSpecificDate = schedules.filter(
-    (schedule) =>
-      schedule.enabled &&
-      schedule.date &&
-      new Date(schedule.date) >= startOfDay &&
-      new Date(schedule.date) <= endOfDay,
-  );
-
-  const schedulesForWeekDay = schedules.filter(
-    (schedule) =>
-      schedule.enabled &&
-      !schedule.date &&
-      (schedule.dayOfWeek === dayOfWeek ||
-        schedule.dayOfWeek === WeekDay.ANY_DAY ||
-        (schedule.dayOfWeek === WeekDay.WORKDAYS
-          && dayOfWeek >= WeekDay.MONDAY
-          && dayOfWeek <= WeekDay.FRIDAY
-          && !dayOff) ||
-        (schedule.dayOfWeek === WeekDay.DAYS_OFF && dayOff)),
-  );
-
-  return [
-    ...schedulesForSpecificDate,
-    ...schedulesForWeekDay,
-  ].sort((first: ScheduleEntry, second: ScheduleEntry) => {
-    if ( !!first.date && !!second.date && first.date  !== second.date) {
-      return new Date(second.date).getTime() - new Date(first.date).getTime();
-    }
-
-    return first.startTime.localeCompare(second.startTime);
-  });
-}

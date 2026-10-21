@@ -1,4 +1,4 @@
-import type { PumpWorkMode, ScheduleEntry, SettingsEntry, WorkMode } from '../modules/heat-pump/types';
+import type { PumpWorkMode, ScheduleEntry, WorkMode } from '../modules/heat-pump/types';
 
 // Typy części wspólnej: urządzenie, jego ustawienia i opis rodzaju sterownika.
 
@@ -102,8 +102,7 @@ export interface Device {
   pumpConfig?: PumpConfig;
   /** kocioł pelletowy: powiązana pompa ciepła; brak pola = jeszcze nie ustawione (uzupełniane przy starcie serwera) */
   boilerConfig?: BoilerConfig;
-  // pompa ciepła: starsze ustawienia czasowe i harmonogramy
-  settings?: SettingsEntry;
+  // pompa ciepła: harmonogramy
   schedules?: ScheduleEntry[];
   properties?: DeviceProperties;
 }

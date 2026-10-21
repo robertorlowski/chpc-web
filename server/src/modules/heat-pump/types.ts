@@ -1,7 +1,6 @@
 import type { DeviceType } from '../../core/types';
 
-// Typy pompy ciepła: telemetria (hp), PV z DTU (pv), operacje dla sterownika co,
-// harmonogramy i starsze ustawienia czasowe (settings).
+// Typy pompy ciepła: telemetria (hp), PV z DTU (pv), operacje dla sterownika co, harmonogramy.
 
 // HH:mm dla startTime/endTime harmonogramu
 export const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -175,25 +174,6 @@ export interface HpEntry {
   t_out? :number,
   error_code?: number
 }
-
-// Starszy model ustawień czasowych (kolekcja settings), niezależny od harmonogramów.
-export interface TimeSlot {
-    slot_start_hour?: Number,
-    slot_start_minute?: Number,
-    slot_stop_hour?: Number,
-    slot_stop_minute?: Number,
-    work_mode?: String,
-    min_temp?: number;
-    max_temp?: number;
-    force?: String;
-};
-
-export interface SettingsEntry {
-  rootId?: string;
-  night_hour?: TimeSlot,
-  settings?: TimeSlot[],
-  cwu_settings?: TimeSlot[]
-};
 
 // Operacja dla sterownika co (pole operation w odpowiedzi /hp/add). Wszystkie
 // wartości to napisy ("0"/"1", "45"). co zamienia zmienione wartości na komendy

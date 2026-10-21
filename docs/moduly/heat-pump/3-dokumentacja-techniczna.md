@@ -6,24 +6,21 @@
 
 | Plik | Rola |
 |---|---|
-| `routes.ts` | trasy modułu: `/hp`, `/pv`, `/operation`, `/schedules`, `/settings` |
+| `routes.ts` | trasy modułu: `/hp`, `/pv`, `/operation`, `/schedules` |
 | `device-type.ts` | wpis do rejestru rodzajów (pompa nie ma ustawień w odpowiedzi na zgłoszenie) |
 | `types.ts` | `HpEntry`, `HpMetrics`, `PvEntry`, `PvMetrics`, `PvPanel`, `OperationEntry`, `ScheduleEntry`, `ScheduleType`, `WeekDay`, `WorkMode`, `SettingsEntry`, `TimeSlot` |
 | `controllers/hp.controller.ts` | `addHp` (telemetria → operacja), odczyty dnia/zakresu/roku, bilans miesięczny, ostatni błąd, czyszczenie |
 | `controllers/operation.controller.ts` | operacja do formularza, zapis ręczny, akcje jednorazowe (+ WebSocket `operation`) |
 | `controllers/pv.controller.ts` | zapis i odczyt PV |
 | `controllers/schedule.controller.ts` | CRUD harmonogramów, harmonogram działający teraz |
-| `controllers/settings.controller.ts` | starsze ustawienia czasowe (kolekcja `settings`) |
 | `services/hp.service.ts` | zapis telemetrii, wykrywanie zdarzeń błędów, pamięć podręczna ostatniej telemetrii i dni z danymi |
 | `services/operation.service.ts` | mapy operacji w pamięci, scalanie ręcznych pól, akcje, `consumeManualForceOnStart`, M→A |
 | `services/scheduler.service.ts` | przebieg co minutę, wybór harmonogramu, operacja domyślna, `getCurrentSchedule` |
 | `services/schedule.service.ts` | harmonogramy osadzone w urządzeniu, filtr dla daty |
 | `services/pv.service.ts` | ostatni odczyt PV (≤ 3 min), podsumowanie do `GET /hp`, czyszczenie paneli po 90 dniach |
-| `services/settings.service.ts` | starsze ustawienia czasowe |
 | `models/hp.model.ts` | kolekcja `hp` (ścisły schemat telemetrii) |
 | `models/pv.model.ts` | kolekcja `pv` i schemat podsumowania PV osadzany w `hp` |
 | `models/schedule.model.ts` | schemat harmonogramu (osadzony w `devices.schedules`) |
-| `models/settings.model.ts` | kolekcja `settings` i schemat starszych ustawień |
 
 ## Pliki — klient (`client/src/devices/heat-pump`)
 
@@ -41,9 +38,8 @@
 | `components/Segmented.tsx`, `components/Switch.tsx` | przełącznik segmentowy (tryb pracy, okres wykresu) i przełącznik `.switch` z makiety |
 | `components/PumpConfigFields.tsx`, `pumpConfig.css` | pola okna „Dane sterownika”: podłączenie CWU / CO ze schematem, pojemność zbiornika, PV |
 | `components/icons.tsx` | ikony widoków pompy |
-| `components/ResourceBlock.tsx` | pozostałość (starsze ustawienia czasowe), nieużywane |
 | `utils/utils.ts` | pobranie i spłaszczenie danych dnia do tabeli i wykresu |
-| `utils/energy.ts`, `utils/energy-cost-g12w.ts` | energia z telemetrii i koszt w taryfie G12w (czas warszawski, format `YYYY.MM.DD`) |
+| `utils/energy-cost-g12w.ts` | koszt energii w taryfie G12w (czas warszawski, format `YYYY.MM.DD`) |
 | `utils/errors.ts` | opisy kodów błędów CHPC (zmieniać razem z `ERRC_*` w firmware) |
 
 ## API
@@ -61,12 +57,11 @@
 | `POST /pv/add` | `co` | odczyt PV; wymagane `total_power`; odpowiedź `{}` (201) |
 | `GET /pv`, `GET /pv/range?date=` / `?startDate=&endDate=` | aplikacja | ostatni odczyt z panelami / odczyty z zakresu |
 | `GET /operation` | aplikacja | wartości do formularza Ustawień |
-| `GET /operation/get`, `GET /operation/getAndClear` | diagnostyka | bieżąca operacja z pamięci |
+| `GET /operation/get` | diagnostyka | bieżąca operacja z pamięci |
 | `POST /operation/set` | aplikacja | zapis operacji ręcznej |
 | `POST /operation/action` | aplikacja | `{action: "error_reset" \| "restart"}` |
 | `GET /schedules`, `POST /schedules`, `PUT /schedules/:id`, `DELETE /schedules/:id` | aplikacja | harmonogramy |
 | `GET /schedules/current` | aplikacja | `{scheduleId, work_mode}`; `scheduleId: null` = ustawienie domyślne |
-| `GET /settings`, `POST /settings/set` | — | starsze ustawienia czasowe |
 
 ## Kontrakt operacji (serwer → `co`)
 
@@ -104,7 +99,6 @@ Pusta operacja `{}` niczego nie zmienia; `co` nie wysyła ponownie wartości, kt
 | `pv` | odczyt DTU: podsumowanie + `panels[]` (port mikrofalownika: moc, napięcia, prąd, temperatura, status, alarm) | `{rootId, createdAt}`, `{createdAt}`; `panels` usuwane po 90 dniach |
 | `devices.schedules[]` | `type` (`co`/`cwu`/`off`), `enabled`, `dayOfWeek` (-1 każdy, -2 robocze, -3 wolne, 0–6), `date?`, `startTime`, `endTime` (`HH:mm`), `forceStart`, `minTemperature?`, `maxTemperature?` | osadzone w urządzeniu |
 | `devices.properties` | `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` | — |
-| `settings` | starsze ustawienia czasowe | nieużywane przez scheduler |
 
 ## Stałe
 
@@ -135,11 +129,6 @@ Test całego łańcucha (`test/e2e`, most z prawdziwym kodem `co` i symulowanym 
 - **Operacje ręczne i ostatnia telemetria tylko w pamięci** — restart serwera je kasuje.
 - **Harmonogram na konkretny dzień tygodnia przez północ** (np. poniedziałek 22:00–06:00) działa w poniedziałek 00:00–06:00 i 22:00–24:00, a nie we wtorek rano — dzień jest sprawdzany dla bieżącej chwili. Wpisy „każdy dzień” działają zgodnie z oczekiwaniem.
 - **Koszt G12w liczony dwa razy, inaczej**: klient (wykres dnia) traktuje święta jako strefę tańszą i dzieli przedziały na granicach stref, serwer (`monthly-summary`) nie zna świąt i przypisuje strefę po godzinie próbki. W święta dzień i miesiąc mogą pokazać inny koszt. Stawki i godziny stref są wpisane w kod w obu miejscach.
-- **Rekord `hp` powstaje tylko przy niezerowym `HP.Ttarget`** (warunek „prawdziwościowy”), więc odczyt z Ttarget = 0 °C nie zostałby zapisany.
-- **`GET /hp/all`** liczy początek roku w strefie serwera (UTC na Render), nie w czasie warszawskim.
-- **Nowy harmonogram** zapisywany przez `Requests.post` nie pokaże błędu zapisu (edycja przez `put` pokaże).
-- **Wykres dnia**: `parseSelectedDate` tworzy `new Date("2026.09.29")` — działa w Chromium/Edge, w Firefoksie i Safari może dać nieprawidłową datę.
-- **Nieużywany kod**: `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `setOperationData`, `/operation/getAndClear`, `utils/energy.ts` (`energyKWh`).
-- **Klient woła `/hp/4Day`**, a trasa to `/hp/4day` — działa, bo Express domyślnie ignoruje wielkość liter.
+- **Rekord `hp` powstaje tylko przy niezerowym `HP.Ttarget`** — celowo: zbiornik nigdy nie jest chłodzony do 0 °C, więc 0 oznacza brak odczytu z CHPC.
 - **Nie łączyć `hp` z `pv` w agregacji** (limit 32 MB sortowania w Atlasie, brak `allowDiskUse`).
-- **Kolekcja `settings`** i `components/ResourceBlock.tsx` to pozostałości starszego modelu ustawień.
+- Porządki 2026-10-21: `GET /hp/all` liczy początek roku w czasie warszawskim; nowy harmonogram pokazuje błąd zapisu (`Requests.json`); klient woła `/hp/4day`; usunięte nieużywane `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `/operation/getAndClear`, `utils/energy.ts`, `components/ResourceBlock.tsx` oraz starszy model ustawień czasowych (kolekcja `settings`, `GET /settings`, `POST /settings/set`, pole `devices.settings`; stare dokumenty zachowują to pole, schemat je pomija). `setOperationData` zostaje (używa go `onPropertiesSaved`).

@@ -128,7 +128,6 @@ WebSocket: `ws(s)://<server>/ws?rootId=<rootId>`. The server sends `{"type":"ope
 | `ipAddress`, `ipSeenAt` | string, Date | controller IPv4 address in the local network from the registration `ip` field and its time; without the field the last known one stays; shown in the client as "Adres IP" in Settings (`DeviceAddress`) |
 | `properties` | object | settings; heat pump: `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` (default `CWU`); tank: `compressor_seconds` (1–3600); pellet boiler: `poll_interval_seconds` (integer 30–3600, default 300; seconds between boiler readings sent by the controller); switch: `default_on_minutes` (whole minutes 0–10080, 0 = no limit, default 30) |
 | `schedules[]` | object | heat pump schedules (heat-pump module) |
-| `settings` | object | legacy heat pump time settings (not used by the scheduler) |
 | `createdAt`, `updatedAt` | Date | timestamps |
 
 The device document is shared by all kinds, so `core/models/device.model.ts` imports part schemas from the modules (schedule, legacy pump settings).

@@ -1,7 +1,7 @@
 // Testy API wspólnego i telemetrii pompy (supertest na core/app, baza w
 // mongodb-memory-server, meteo zamockowane): ostatnia telemetria, zapis EEVmin,
 // zdarzenia błędów CHPC (okno 24 h, blokada ERRc >= 5), akcje jednorazowe,
-// zgłoszenie i zmiana nazwy sterownika, t_out w odpowiedzi /hp/add, starsze settings.
+// zgłoszenie i zmiana nazwy sterownika, t_out w odpowiedzi /hp/add.
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -19,7 +19,6 @@ import { DeviceModel } from '../src/core/models/device.model'
 import { assignDefaultPumpConfigs } from '../src/core/services/device.service'
 import { heatPumpTile } from '../src/modules/heat-pump/tile'
 import { HpEntryModel } from '../src/modules/heat-pump/models/hp.model'
-import { SettingsEntryModel } from '../src/modules/heat-pump/models/settings.model'
 import { DeviceType } from '../src/core/types'
 
 describe('API with MongoDB', () => {
@@ -51,11 +50,6 @@ describe('API with MongoDB', () => {
       HP: { Ttarget: 45 },
     });
 
-    await SettingsEntryModel.create({
-      rootId,
-      settings: [],
-      cwu_settings: [],
-    });
   });
 
   afterAll(async () => {
@@ -511,14 +505,6 @@ describe('API with MongoDB', () => {
 
     const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));
     expect(lostFor2h?.level).toBe('err');
-  });
-
-  it('returns settings for the selected device', async () => {
-    const response = await request(app)
-      .get(`/api/settings?rootId=${rootId}&deviceId=${deviceId}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.rootId).toBe(rootId);
   });
 });
 

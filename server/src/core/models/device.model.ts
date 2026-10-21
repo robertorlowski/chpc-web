@@ -4,7 +4,6 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 import { Device, DeviceProperties, DeviceType } from '../types';
 import { ScheduleEntrySchema } from '../../modules/heat-pump/models/schedule.model';
-import { SettingsEntrySchema } from '../../modules/heat-pump/models/settings.model';
 
 // Ustawienia wszystkich rodzajów sterowników w jednym polu properties.
 const DevicePropertiesSchema = new Schema<DeviceProperties>(
@@ -112,8 +111,7 @@ const DeviceSchema = new Schema<DeviceDocument>(
     // właściciel (konta użytkowników, 2026-10-11): _id z users; brak = sterownik bez właściciela (widzi go tylko
     // użytkownik systemowy). Sterownik zgłaszający się sam nie dostaje właściciela.
     ownerId: { type: String, default: null, index: true },
-    // pompa ciepła (settings to starszy model ustawień czasowych, nieużywany przez scheduler)
-    settings: { type: SettingsEntrySchema },
+    // pompa ciepła (dawne pole settings — starszy model ustawień czasowych — usunięte 2026-10-21; w starych dokumentach zostaje, schemat je pomija)
     schedules: { type: [ScheduleEntrySchema] },
     properties: { type: DevicePropertiesSchema },
   },

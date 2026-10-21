@@ -1,20 +1,7 @@
-// Typy pompy ciepła: telemetria, PV, operacje, harmonogramy i starsze ustawienia czasowe.
+// Typy pompy ciepła: telemetria, PV, operacje, harmonogramy.
 // Kontrakt z serwerem (server/src/modules/heat-pump/types.ts); nowe pole telemetrii trzeba dodać
 // tutaj, w typach i schemacie serwera oraz w widokach, inaczej nie zostanie zapisane ani pokazane.
 
-// TimeSlot i SettingsEntry: starszy model ustawień czasowych (kolekcja settings), nieużywany przez scheduler.
-export type TimeSlot = {
-    slot_start_hour?: number,
-    slot_start_minute?: number,
-    slot_stop_hour?: number,
-    slot_stop_minute?: number
-};
-
-export type SettingsEntry  = {
-  night_hour?: TimeSlot,
-  settings?: TimeSlot[],
-  cwu_settings?: TimeSlot[]
-};
 
 // Tryb sterownika co w telemetrii: M — CO, A — CO z harmonogramem, CWU, OFF; może być też 'PV'
 // (tryb lokalny co). Dawne wartości properties.work_mode (do 2026-10-05).

@@ -6,24 +6,21 @@
 
 | File | Role |
 |---|---|
-| `routes.ts` | module routes: `/hp`, `/pv`, `/operation`, `/schedules`, `/settings` |
+| `routes.ts` | module routes: `/hp`, `/pv`, `/operation`, `/schedules` |
 | `device-type.ts` | entry in the kind registry (the pump has no settings in the registration reply) |
 | `types.ts` | `HpEntry`, `HpMetrics`, `PvEntry`, `PvMetrics`, `PvPanel`, `OperationEntry`, `ScheduleEntry`, `ScheduleType`, `WeekDay`, `WorkMode`, `SettingsEntry`, `TimeSlot` |
 | `controllers/hp.controller.ts` | `addHp` (telemetry → operation), day/range/year reads, monthly balance, latest error, clearing |
 | `controllers/operation.controller.ts` | operation for the form, manual save, one-off actions (+ WebSocket `operation`) |
 | `controllers/pv.controller.ts` | PV save and read |
 | `controllers/schedule.controller.ts` | schedule CRUD, schedule in force now |
-| `controllers/settings.controller.ts` | legacy time settings (`settings` collection) |
 | `services/hp.service.ts` | telemetry save, error event detection, cache of the latest telemetry and of days with data |
 | `services/operation.service.ts` | operation maps in memory, manual field merging, actions, `consumeManualForceOnStart`, M→A |
 | `services/scheduler.service.ts` | the per-minute run, schedule selection, default operation, `getCurrentSchedule` |
 | `services/schedule.service.ts` | schedules embedded in the device, filter for a date |
 | `services/pv.service.ts` | latest PV reading (≤ 3 min), summary for `GET /hp`, panel cleanup after 90 days |
-| `services/settings.service.ts` | legacy time settings |
 | `models/hp.model.ts` | `hp` collection (strict telemetry schema) |
 | `models/pv.model.ts` | `pv` collection and the PV summary schema embedded in `hp` |
 | `models/schedule.model.ts` | schedule schema (embedded in `devices.schedules`) |
-| `models/settings.model.ts` | `settings` collection and the legacy settings schema |
 
 ## Files — client (`client/src/devices/heat-pump`)
 
@@ -41,9 +38,8 @@
 | `components/Segmented.tsx`, `components/Switch.tsx` | the segmented switch (operating mode, chart period) and the `.switch` toggle from the mock-up |
 | `components/PumpConfigFields.tsx`, `pumpConfig.css` | "Dane sterownika" dialog fields: CWU / CO connection with a diagram, tank volume, PV |
 | `components/icons.tsx` | heat pump view icons |
-| `components/ResourceBlock.tsx` | leftover (legacy time settings), unused |
 | `utils/utils.ts` | fetching and flattening a day's data for the table and the chart |
-| `utils/energy.ts`, `utils/energy-cost-g12w.ts` | energy from telemetry and cost in the G12w tariff (Warsaw time, `YYYY.MM.DD` format) |
+| `utils/energy-cost-g12w.ts` | energy cost in the G12w tariff (Warsaw time, `YYYY.MM.DD` format) |
 | `utils/errors.ts` | CHPC error code descriptions (change together with `ERRC_*` in the firmware) |
 
 ## API
@@ -61,12 +57,11 @@
 | `POST /pv/add` | `co` | PV reading; `total_power` required; reply `{}` (201) |
 | `GET /pv`, `GET /pv/range?date=` / `?startDate=&endDate=` | application | latest reading with panels / readings in a range |
 | `GET /operation` | application | values for the Settings form |
-| `GET /operation/get`, `GET /operation/getAndClear` | diagnostics | current operation from memory |
+| `GET /operation/get` | diagnostics | current operation from memory |
 | `POST /operation/set` | application | save a manual operation |
 | `POST /operation/action` | application | `{action: "error_reset" \| "restart"}` |
 | `GET /schedules`, `POST /schedules`, `PUT /schedules/:id`, `DELETE /schedules/:id` | application | schedules |
 | `GET /schedules/current` | application | `{scheduleId, work_mode}`; `scheduleId: null` = default setting |
-| `GET /settings`, `POST /settings/set` | — | legacy time settings |
 
 ## Operation contract (server → `co`)
 
@@ -104,7 +99,6 @@ An empty operation `{}` changes nothing; `co` does not resend a value that has n
 | `pv` | DTU reading: summary + `panels[]` (microinverter port: power, voltages, current, temperature, status, alarm) | `{rootId, createdAt}`, `{createdAt}`; `panels` removed after 90 days |
 | `devices.schedules[]` | `type` (`co`/`cwu`/`off`), `enabled`, `dayOfWeek` (-1 every, -2 working, -3 off, 0–6), `date?`, `startTime`, `endTime` (`HH:mm`), `forceStart`, `minTemperature?`, `maxTemperature?` | embedded in the device |
 | `devices.properties` | `co_min`, `co_max`, `cwu_min`, `cwu_max`, `work_mode` | — |
-| `settings` | legacy time settings | not used by the scheduler |
 
 ## Constants
 
@@ -135,11 +129,6 @@ The whole-chain test (`test/e2e`, a bridge with the real `co` code and a simulat
 - **Manual operations and the latest telemetry live only in memory** — a server restart clears them.
 - **A schedule for a specific weekday crossing midnight** (e.g. Monday 22:00–06:00) is active on Monday 00:00–06:00 and 22:00–24:00, not on Tuesday morning — the day is checked for the current moment. "Every day" entries work as expected.
 - **The G12w cost is computed twice, differently**: the client (day chart) treats holidays as the cheap zone and splits intervals at zone boundaries, the server (`monthly-summary`) knows no holidays and assigns the zone by the sample hour. On holidays the day and the month may show a different cost. Rates and zone hours are hard-coded in both places.
-- **An `hp` record is created only for a non-zero `HP.Ttarget`** (a truthiness check), so a reading with Ttarget = 0 °C would not be stored.
-- **`GET /hp/all`** computes the start of the year in the server time zone (UTC on Render), not in Warsaw time.
-- **A new schedule** saved with `Requests.post` shows no save error (editing with `put` does).
-- **Day chart**: `parseSelectedDate` does `new Date("2026.09.29")` — fine in Chromium/Edge, may give an invalid date in Firefox and Safari.
-- **Unused code**: `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `setOperationData`, `/operation/getAndClear`, `utils/energy.ts` (`energyKWh`).
-- **The client calls `/hp/4Day`** while the route is `/hp/4day` — it works because Express ignores letter case by default.
+- **An `hp` record is created only for a non-zero `HP.Ttarget`** — on purpose: the tank is never cooled down to 0 °C, so 0 means no reading from CHPC.
 - **Never join `hp` with `pv` in an aggregation** (32 MB Atlas sort limit, no `allowDiskUse`).
-- **The `settings` collection** and `components/ResourceBlock.tsx` are leftovers of an older settings model.
+- Clean-up 2026-10-21: `GET /hp/all` computes the start of the year in Warsaw time; a new schedule shows its save error (`Requests.json`); the client calls `/hp/4day`; removed the unused `getSchedulesForDate`, `getHpDataForDay`, `assignLegacyHpData`, `/operation/getAndClear`, `utils/energy.ts`, `components/ResourceBlock.tsx` and the legacy time settings model (`settings` collection, `GET /settings`, `POST /settings/set`, the `devices.settings` field; old documents keep the field, the schema ignores it). `setOperationData` stays (used by `onPropertiesSaved`).
