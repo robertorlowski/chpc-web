@@ -14,7 +14,7 @@ CHPC (Pro Mini) ⇄ RS-485 ⇄ co (ESP32) ⇄ HTTPS / WebSocket ⇄ My Home (ser
 DTU Hoymiles (PV) ───────────┘                                   └── MongoDB
 ```
 
-Repozytorium [robertorlowski/my-home](https://github.com/robertorlowski/my-home) (do 2026-10-21 `chpc-web`; stare adresy przekierowują), lokalnie `D:DevLocalrduino_srcmy-home`; usługi na Render: serwer `chpc-server` (`chpc-web.onrender.com`), witryna klienta `home24` (`home24.onrender.com`, od 2026-10-21) i dawna witryna `hpweb` (`hpweb.onrender.com`; do usunięcia po przejściu telefonów na `home24`: PWA i pakiet TWA 1.0.0 były przypięte do tej domeny):
+Repozytorium [robertorlowski/my-home](https://github.com/robertorlowski/my-home) (do 2026-10-21 `chpc-web`; stare adresy przekierowują), lokalnie `D:DevLocalrduino_srcmy-home`; usługi na Render: serwer `chpc-server` (`chpc-web.onrender.com`), witryny klienta `home24` (`home24.onrender.com`, od 2026-10-21; domena PWA i pakietu TWA) i `myhome24` (`myhome24.onrender.com`, od 2026-10-21, ta sama konfiguracja); dawna witryna `hpweb` (`hpweb.onrender.com`) usunięta 2026-10-21 — PWA i pakiet TWA 1.0.0 z tej domeny przestały działać. Na serwerze `CLIENT_URL` = `chpc-web`, `home24`, `myhome24`:
 
 | Katalog | Rola |
 |---|---|
@@ -34,7 +34,7 @@ Oba firmware przeniesiono 2026-09-27 z historią z osobnych repozytoriów [heatp
 
 Każdy firmware ma własny `README.md`, a CHPC także `devices/chpc/CLAUDE.md` ze szczegółami. **Strony WWW i ekran sterowników są tylko po angielsku**, bez wyboru języka (od 2026-10-21: `co` 1.3.3, włącznik 1.3.5, hydrofor 1.3.2, piec 1.10.1; także stan przekaźnika poczty i błędy SMTP z `devices/common/mail_relay`); komentarze w kodzie i log konsoli szeregowej zostają po polsku, a nazwy wysyłane w zgłoszeniu (`DEVICE_NAME`: „Hydrofor”, „Włącznik”, „Piec Pellux 200”), klucze JSON, NVS i nazwy sieci AP się nie zmieniły. Ten plik zawiera to, co jest potrzebne do pracy nad całym łańcuchem.
 
-**Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`; od 2026-10-21 Render buduje serwer `chpc-server` i witrynę `home24` automatycznie po każdym pushu do `main`, więc push `main` = wdrożenie; dawna witryna `hpweb` bez auto-deploy), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
+**Kolejność wdrożenia.** Wspólny commit nie wdraża wszystkiego naraz. Najpierw wdraża się serwer (`main`; od 2026-10-21 Render buduje serwer `chpc-server` i witryny `home24` i `myhome24` automatycznie po każdym pushu do `main`, więc push `main` = wdrożenie), potem firmware `co` (wgranie do ESP32), a na końcu CHPC. Serwer musi znać nowe pole lub endpoint, zanim wyśle je sterownik.
 
 ## 1. Podział systemu (My Home)
 
