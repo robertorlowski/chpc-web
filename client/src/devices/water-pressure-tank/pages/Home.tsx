@@ -16,6 +16,7 @@ import {
   todayWarsaw, weekDayShort,
 } from '../utils/water';
 import { OfflineIcon } from '../components/TankIcons';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 // Uruchomienia odświeżane co 5 s (sterownik wysyła stan co 1 s, bieżące uruchomienie ma inProgress
@@ -30,15 +31,8 @@ const Switch: React.FC<{ on: boolean; label: string }> = ({ on, label }) => (
     aria-label={label} />
 );
 
-const plural = (count: number, one: string, few: string, many: string) => {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (count === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
-
 export const WaterPressureTankHome: React.FC = () => {
+  const { t, tn, locale } = useLang();
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [flow, setFlow] = useState<WaterFlow | null>(null);
   const [month, setMonth] = useState<WaterSummary | null>(null);
@@ -95,10 +89,10 @@ export const WaterPressureTankHome: React.FC = () => {
         <div className="banner banner-off" role="status">
           <OfflineIcon />
           <div>
-            <strong>Offline{lastRun ? ` od ${ageLabel(Math.max(0, now - new Date(lastRun.pumpEnd).getTime()))}` : ''}</strong>
+            <strong>{lastRun ? t('offline.since', { age: ageLabel(Math.max(0, now - new Date(lastRun.pumpEnd).getTime())) }) : t('chip.offline')}</strong>
             <span>
-              sterownik ma zasilanie tylko w czasie pracy pompy;
-              {lastRun ? ` ostatnie uruchomienie ${dayWarsaw(lastRun.pumpStart) === today ? '' : `${weekDayShort(dayWarsaw(lastRun.pumpStart))} `}${formatTime(lastRun.pumpStart).slice(0, 5)}.` : ` brak uruchomień od ${WEEK_DAYS} dni.`}
+              {t('wt.home.offlineNote')}
+              {lastRun ? ` ${t('wt.home.lastRun', { when: `${dayWarsaw(lastRun.pumpStart) === today ? '' : `${weekDayShort(dayWarsaw(lastRun.pumpStart))} `}${formatTime(lastRun.pumpStart).slice(0, 5)}` })}` : ` ${t('wt.home.noRunsDays', { n: WEEK_DAYS })}`}
             </span>
           </div>
         </div>
@@ -106,30 +100,30 @@ export const WaterPressureTankHome: React.FC = () => {
 
       <section className="hero card card-hero">
         <div className="hero-main">
-          <span className="hero-label">{hasFlow ? 'Woda dziś' : 'Pompa dziś'}</span>
+          <span className="hero-label">{hasFlow ? t('wt.home.waterToday') : t('wt.home.pumpToday')}</span>
           <div className="hero-value">
             {hasFlow
               ? <><span className="hero-num">{water === null ? '0' : formatLiters(Math.round(water))}</span><span className="hero-unit">l</span></>
               : <span className="hero-num tank-hero-text">{formatDuration(pumpSeconds)}</span>}
           </div>
           <span className="hero-note">
-            {runs.length} {plural(runs.length, 'uruchomienie', 'uruchomienia', 'uruchomień')} · pompa {formatDuration(pumpSeconds)}
-            {hasFlow && monthLiters !== null && <> · {formatLiters(Math.round(monthLiters))} l w tym miesiącu</>}
-            {!hasFlow && <> · woda po dwóch odczytach wodomierza</>}
+            {tn('wt.runs', runs.length)} · {t('tank.pump')} {formatDuration(pumpSeconds)}
+            {hasFlow && monthLiters !== null && <> · {t('wt.home.inMonth', { liters: formatLiters(Math.round(monthLiters)) })}</>}
+            {!hasFlow && <> · {t('wt.home.waterAfterReadings')}</>}
           </span>
         </div>
         <div className="hero-side">
           <ul className="toggle-list toggle-hero">
-            <li><span className="t-name">Pompa wody</span><Switch on={!!current} label="Pompa wody" /></li>
-            <li><span className="t-name">Kompresor powietrza</span><Switch on={!!current?.compressorRunning} label="Kompresor" /></li>
+            <li><span className="t-name">{t('wt.home.waterPump')}</span><Switch on={!!current} label={t('wt.home.waterPump')} /></li>
+            <li><span className="t-name">{t('wt.home.airCompressor')}</span><Switch on={!!current?.compressorRunning} label={t('tile.icon.bubbles')} /></li>
           </ul>
           <div className="hero-kpis">
             <div className="kpi">
-              <span className="kpi-label">Czas kompresora</span>
+              <span className="kpi-label">{t('wt.home.compressorTime')}</span>
               <span className="kpi-value">{properties?.compressor_seconds ?? '—'}<small>s</small></span>
             </div>
             <div className="kpi">
-              <span className="kpi-label">Przepływ</span>
+              <span className="kpi-label">{t('wt.flow')}</span>
               <span className="kpi-value">{hasFlow ? formatLiters(Math.round(flow!.litersPerMinute!)) : '—'}<small>l/min</small></span>
             </div>
           </div>
@@ -138,27 +132,27 @@ export const WaterPressureTankHome: React.FC = () => {
 
       <section className="card card-table">
         <header className="card-head">
-          <h2>Dzisiejsze uruchomienia</h2>
+          <h2>{t('wt.home.todayRuns')}</h2>
           {runs.length > 0 && (
-            <span className="card-hint">{hasFlow ? `razem ${formatLiters(Math.round(water ?? 0))} l` : `pompa ${formatDuration(pumpSeconds)}`}</span>
+            <span className="card-hint">{hasFlow ? `${t('wt.total')} ${formatLiters(Math.round(water ?? 0))} l` : `${t('tank.pump')} ${formatDuration(pumpSeconds)}`}</span>
           )}
         </header>
-        {weekRuns === null && <p className="help">Wczytywanie…</p>}
-        {weekRuns !== null && runs.length === 0 && <p className="help">Dziś pompa jeszcze nie pracowała.</p>}
+        {weekRuns === null && <p className="help">{t('common.loading')}</p>}
+        {weekRuns !== null && runs.length === 0 && <p className="help">{t('wt.home.noneToday')}</p>}
         {sortedRuns.length > 0 && (
           <div className="table-wrap">
             <table className="data">
-              <thead><tr><th>Godzina</th><th className="num">Kompresor</th><th className="num">Pompa</th><th className="num">Woda</th></tr></thead>
+              <thead><tr><th>{t('wt.col.time')}</th><th className="num">{t('tile.icon.bubbles')}</th><th className="num">{t('tile.icon.timer')}</th><th className="num">{t('tile.icon.drop')}</th></tr></thead>
               <tbody>
                 {sortedRuns.map((run) => (
                   <tr key={run._id}>
-                    <td title={run.timeApproximate ? 'Czas przybliżony: uruchomienie bez sieci' : undefined}>
+                    <td title={run.timeApproximate ? t('wt.approximateTip') : undefined}>
                       {run.timeApproximate ? '≈ ' : ''}{formatTime(run.pumpStart)}
                     </td>
                     <td className="num">
-                      {run.compressorRunning ? <em>pracuje</em> : compressorSeconds(run) !== undefined ? `${compressorSeconds(run)} s` : run.inProgress ? <em>pracuje</em> : '—'}
+                      {run.compressorRunning ? <em>{t('tile.running')}</em> : compressorSeconds(run) !== undefined ? `${compressorSeconds(run)} s` : run.inProgress ? <em>{t('tile.running')}</em> : '—'}
                     </td>
-                    <td className="num" title={run.manualSeconds ? `Bez ${run.manualSeconds} s ręcznej pracy kompresora` : undefined}>
+                    <td className="num" title={run.manualSeconds ? t('wt.manualTip', { n: run.manualSeconds }) : undefined}>
                       {run.inProgress ? <em>{formatDuration(run.pumpSeconds)} …</em> : formatDuration(run.pumpSeconds)}
                     </td>
                     <td className="num">{run.waterLiters === null ? '—' : `${formatLiters(Math.round(run.waterLiters))} l`}</td>
@@ -172,8 +166,8 @@ export const WaterPressureTankHome: React.FC = () => {
 
       <section className="card">
         <header className="card-head">
-          <h2>Zużycie w tygodniu</h2>
-          <span className="card-hint">{hasFlow ? 'litry na dzień' : 'minuty pracy pompy na dzień'}</span>
+          <h2>{t('wt.home.weekUsage')}</h2>
+          <span className="card-hint">{hasFlow ? t('wt.home.litersPerDay') : t('wt.home.minutesPerDay')}</span>
         </header>
         <div className="chart chart-md">
           <ResponsiveContainer width="100%" height="100%">
@@ -181,11 +175,11 @@ export const WaterPressureTankHome: React.FC = () => {
               <CartesianGrid stroke={cc().grid} vertical={false} />
               <XAxis dataKey="day" interval={0} tick={{ fill: cc().axis, fontSize: 11 }} stroke={cc().line} tickLine={false} />
               <YAxis tick={{ fill: cc().axis, fontSize: 11 }} stroke={cc().line} tickLine={false} axisLine={false} width={44}
-                tickFormatter={(value: number) => `${value.toLocaleString('pl-PL')} ${hasFlow ? 'l' : 'min'}`} />
+                tickFormatter={(value: number) => `${value.toLocaleString(locale)} ${hasFlow ? 'l' : 'min'}`} />
               <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }}
                 formatter={(value, _name, item) => hasFlow
-                  ? [`${formatLiters(Number(value))} l, pompa ${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Woda']
-                  : [`${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Pompa']}
+                  ? [`${formatLiters(Number(value))} l, ${t('tank.pump')} ${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} ${t('wt.runsAbbr')})`, t('tile.icon.drop')]
+                  : [`${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} ${t('wt.runsAbbr')})`, t('tile.icon.timer')]}
                 labelFormatter={(label, payload) => payload?.[0]?.payload?.date ?? label} />
               <Bar dataKey="value" fill={cc().water} radius={[2, 2, 0, 0]} />
             </BarChart>

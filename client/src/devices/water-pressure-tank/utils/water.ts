@@ -2,20 +2,22 @@
 // przesuwanie dnia / miesiąca, eksport CSV. Wodę i efektywny czas pompy liczy serwer (pola waterLiters
 // i pumpSeconds uruchomień).
 import { WaterPressureTankRun } from '../types';
+import { getLang, locale, t as tr } from '../../../core/i18n';
 
 const TIME_ZONE = 'Europe/Warsaw';
+const loc = () => locale(getLang());
 
 export const formatLiters = (value: number | null | undefined) =>
-  value === null || value === undefined ? '---' : value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
+  value === null || value === undefined ? '---' : value.toLocaleString(loc(), { maximumFractionDigits: 1 });
 
 export const formatTime = (iso?: string) =>
-  iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE }) : '---';
+  iso ? new Date(iso).toLocaleTimeString(loc(), { timeZone: TIME_ZONE }) : '---';
 
 export const formatDateTime = (iso?: string) =>
-  iso ? new Date(iso).toLocaleString('pl-PL', { timeZone: TIME_ZONE }) : '---';
+  iso ? new Date(iso).toLocaleString(loc(), { timeZone: TIME_ZONE }) : '---';
 
 export const formatDate = (iso?: string) =>
-  iso ? new Date(iso).toLocaleDateString('pl-PL', { timeZone: TIME_ZONE }) : '---';
+  iso ? new Date(iso).toLocaleDateString(loc(), { timeZone: TIME_ZONE }) : '---';
 
 const secondsBetween = (from?: string, to?: string) =>
   from && to ? Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000)) : undefined;
@@ -54,14 +56,14 @@ export const shiftMonth = (month: string, n: number) => {
 
 // Nazwy okresów w nawigacji po dacie: „16 października 2026”, „październik 2026”, „2026”.
 export const dayLabel = (date: string) =>
-  new Date(`${date}T12:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+  new Date(`${date}T12:00:00`).toLocaleDateString(loc(), { day: 'numeric', month: 'long', year: 'numeric' });
 export const monthLabel = (month: string) =>
-  new Date(`${month}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  new Date(`${month}-01T12:00:00`).toLocaleDateString(loc(), { month: 'long', year: 'numeric' });
 
 // Skrót dnia tygodnia („pt”, „sb”) dla daty YYYY-MM-DD, jak na osi wykresu tygodnia w makiecie
 // (dwuliterowe, bo „niedz.” z toLocaleDateString nie mieści się na telefonie).
-const WEEK_DAYS_SHORT = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
-export const weekDayShort = (date: string) => WEEK_DAYS_SHORT[new Date(`${date}T12:00:00`).getDay()];
+const WEEK_DAYS_SHORT = { pl: ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'], en: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] };
+export const weekDayShort = (date: string) => WEEK_DAYS_SHORT[getLang()][new Date(`${date}T12:00:00`).getDay()];
 
 // Pierwszy i ostatni dzień miesiąca "YYYY-MM" jako YYYY-MM-DD (parametry from/to dla GET /runs).
 export const monthBounds = (month: string) => {
@@ -79,14 +81,14 @@ export const sumPumpSeconds = (runs: WaterPressureTankRun[]) => runs.reduce((sum
 
 // CSV dla Excela z polskimi ustawieniami: separator ';', przecinek dziesiętny w litrach.
 export const runsToCsv = (runs: WaterPressureTankRun[]) => {
-  const header = ['Data', 'Start pompy', 'Pompa [s]', 'Kompresor [s]', 'Woda [l]', 'Czas przybliżony'];
+  const header = [tr('wt.csv.date'), tr('wt.csv.start'), tr('wt.csv.pump'), tr('wt.csv.compressor'), tr('wt.csv.water'), tr('sw.csv.approximate')];
   const rows = runs.map((run) => [
     formatDate(run.pumpStart),
     formatTime(run.pumpStart),
     run.pumpSeconds ?? '',
     compressorSeconds(run) ?? '',
     run.waterLiters === null ? '' : String(run.waterLiters).replace('.', ','),
-    run.timeApproximate ? 'tak' : '',
+    run.timeApproximate ? tr('common.yesLower') : '',
   ].join(';'));
   return [header.join(';'), ...rows].join('\n');
 };

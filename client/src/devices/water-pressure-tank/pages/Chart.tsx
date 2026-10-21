@@ -11,35 +11,37 @@ import { WaterMeterSummary, WaterSummary, WaterSummaryPeriod } from '../types';
 import { dayLabel, formatDuration, formatLiters, monthLabel, shiftDay, shiftMonth, todayWarsaw } from '../utils/water';
 import { DateNav } from '../components/DateNav';
 import { DurationValue } from '../components/DurationValue';
+import { getLang, locale, t as tr, useLang } from '../../../core/i18n';
 import './style.css';
 
-const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
-const MONTH_NAMES = [
-  'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień',
-];
+// nazwy miesięcy w języku aplikacji (skrót na osi, pełna w podpowiedzi)
+const monthOf = (month: number, style: 'short' | 'long') => new Date(2026, month - 1, 1).toLocaleDateString(locale(getLang()), { month: style });
+const MONTHS_OF = (month: number) => monthOf(month, 'short').replace('.', '');
+const MONTH_NAME_OF = (month: number) => { const name = monthOf(month, 'long'); return name.charAt(0).toUpperCase() + name.slice(1); };
 
-const PERIODS: { value: WaterSummaryPeriod; label: string; unit: string; title: string }[] = [
-  { value: 'day', label: 'Dzień', unit: 'dzień', title: 'Zużycie wody w godzinach' },
-  { value: 'month', label: 'Miesiąc', unit: 'miesiąc', title: 'Zużycie wody w dniach' },
-  { value: 'year', label: 'Rok', unit: 'rok', title: 'Zużycie wody w miesiącach' },
+const periods = (): { value: WaterSummaryPeriod; label: string; unit: string; title: string }[] => [
+  { value: 'day', label: tr('period.day'), unit: tr('common.dayUnit'), title: tr('wt.chart.hours') },
+  { value: 'month', label: tr('period.month'), unit: tr('common.monthUnit'), title: tr('wt.chart.days') },
+  { value: 'year', label: tr('period.year'), unit: tr('common.yearUnit'), title: tr('wt.chart.months') },
 ];
 
 // oś Y w jednej jednostce: m³, gdy największa wartość ma co najmniej 10 000 l
 // (etykiety w litrach nie mieszczą się wtedy na telefonie)
 const axisFormatter = (maxLiters: number) => (value: number) =>
   maxLiters >= 10000
-    ? `${(value / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} m³`
-    : `${value.toLocaleString('pl-PL')} l`;
+    ? `${(value / 1000).toLocaleString(locale(getLang()), { maximumFractionDigits: 1 })} m³`
+    : `${value.toLocaleString(locale(getLang()))} l`;
 
 const bucketLabel = (period: WaterSummaryPeriod, key: number) =>
-  period === 'day' ? `${key}:00` : period === 'month' ? String(key) : MONTHS[key - 1];
+  period === 'day' ? `${key}:00` : period === 'month' ? String(key) : MONTHS_OF(key);
 
 const axisProps = () => ({ tick: { fill: cc().axis, fontSize: 11 }, stroke: cc().line, tickLine: false });
 
 // Wykres wody hydroforu: dzień w godzinach, miesiąc w dniach, rok w miesiącach.
 // Rok może pokazać obok szacunku zużycie z odczytów wodomierza.
 export const WaterPressureTankChart: React.FC = () => {
+  const { t, locale: loc } = useLang();
+  const PERIODS = periods();
   const [period, setPeriod] = useState<WaterSummaryPeriod>('month');
   const [date, setDate] = useState(todayWarsaw());
   const [summary, setSummary] = useState<WaterSummary | null>(null);
@@ -80,7 +82,7 @@ export const WaterPressureTankChart: React.FC = () => {
   const data = (summary?.buckets ?? []).map((bucket) => ({
     label: bucketLabel(period, bucket.key),
     // podpowiedź: w roku pełna nazwa miesiąca
-    tooltipLabel: period === 'year' ? `${MONTH_NAMES[bucket.key - 1]} ${year}` : bucketLabel(period, bucket.key),
+    tooltipLabel: period === 'year' ? `${MONTH_NAME_OF(bucket.key)} ${year}` : bucketLabel(period, bucket.key),
     // bez przepływu słupki pokazują czas pracy pompy w minutach
     woda: hasFlow ? bucket.waterLiters ?? 0 : Math.round(bucket.pumpSeconds / 6) / 10,
     pumpSeconds: bucket.pumpSeconds,
@@ -91,10 +93,10 @@ export const WaterPressureTankChart: React.FC = () => {
   const runs = data.reduce((sum, item) => sum + item.runs, 0);
 
   const meterData = (meter?.months ?? []).map((item) => ({
-    month: MONTHS[item.month - 1],
-    monthName: `${MONTH_NAMES[item.month - 1]} ${year}`,
-    wodomierz: item.meterLiters,
-    'z czasu pompy': item.estimatedLiters,
+    month: MONTHS_OF(item.month),
+    monthName: `${MONTH_NAME_OF(item.month)} ${year}`,
+    [t('wt.chart.meterSeries')]: item.meterLiters,
+    [t('wt.chart.estimatedSeries')]: item.estimatedLiters,
   }));
   const meterReady = (meter?.periods.length ?? 0) > 0;
   // bez odczytów do porównania zostaje zwykły wykres zużycia
@@ -103,7 +105,7 @@ export const WaterPressureTankChart: React.FC = () => {
   return (
     <main className="page page-device tank-page">
       <div className="filters">
-        <div className="segmented seg-inline" role="radiogroup" aria-label="Okres">
+        <div className="segmented seg-inline" role="radiogroup" aria-label={t('period.label')}>
           {PERIODS.map((item) => (
             <label key={item.value} className="seg">
               <input type="radio" name="tank-period" value={item.value} checked={period === item.value} onChange={() => setPeriod(item.value)} />
@@ -116,27 +118,27 @@ export const WaterPressureTankChart: React.FC = () => {
 
       <div className="stat-row">
         <div className="stat">
-          <span className="stat-label">Woda</span>
+          <span className="stat-label">{t('tile.icon.drop')}</span>
           <span className="stat-value">{summary === null ? '…' : hasFlow ? <>{formatLiters(Math.round(total))}<small>l</small></> : '—'}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Pompa</span>
+          <span className="stat-label">{t('tile.icon.timer')}</span>
           <span className="stat-value">{summary === null ? '…' : <DurationValue seconds={totalSeconds} />}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Uruchomień</span>
+          <span className="stat-label">{t('tile.icon.repeat')}</span>
           <span className="stat-value">{summary === null ? '…' : runs}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Przepływ</span>
+          <span className="stat-label">{t('wt.flow')}</span>
           <span className="stat-value">{summary === null ? '…' : hasFlow ? <>{formatLiters(Math.round(summary!.flow.litersPerMinute!))}<small>l/min</small></> : '—'}</span>
         </div>
       </div>
 
       <section className="card">
         <header className="card-head">
-          <h2>{meterMode ? 'Wodomierz i woda z czasu pompy' : hasFlow || summary === null ? periodInfo.title : 'Czas pracy pompy'}</h2>
-          <span className="card-hint">{meterMode ? 'litry w miesiącach' : hasFlow ? 'litry · najedź na słupek' : 'minuty · najedź na słupek'}</span>
+          <h2>{meterMode ? t('wt.chart.meterTitle') : hasFlow || summary === null ? periodInfo.title : t('wt.chart.pumpTime')}</h2>
+          <span className="card-hint">{meterMode ? t('wt.chart.litersInMonths') : hasFlow ? t('wt.chart.litersHover') : t('wt.chart.minutesHover')}</span>
         </header>
         <div className="chart chart-lg">
           <ResponsiveContainer width="100%" height="100%">
@@ -144,13 +146,13 @@ export const WaterPressureTankChart: React.FC = () => {
               <BarChart data={meterData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={cc().grid} vertical={false} />
                 <XAxis {...axisProps()} dataKey="month" interval="preserveStartEnd" />
-                <YAxis {...axisProps()} axisLine={false} width={56} tickFormatter={axisFormatter(Math.max(0, ...meterData.flatMap((item) => [item.wodomierz ?? 0, item['z czasu pompy'] ?? 0])))} />
+                <YAxis {...axisProps()} axisLine={false} width={56} tickFormatter={axisFormatter(Math.max(0, ...meterData.flatMap((item) => [Number(item[t('wt.chart.meterSeries')]) || 0, Number(item[t('wt.chart.estimatedSeries')]) || 0])))} />
                 <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }}
                   formatter={(item) => `${formatLiters(Number(item))} l`}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.monthName ?? label} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="wodomierz" fill={cc().water} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="z czasu pompy" fill={cc().muted} radius={[2, 2, 0, 0]} />
+                <Bar dataKey={t('wt.chart.meterSeries')} fill={cc().water} radius={[2, 2, 0, 0]} />
+                <Bar dataKey={t('wt.chart.estimatedSeries')} fill={cc().muted} radius={[2, 2, 0, 0]} />
               </BarChart>
             ) : (
               <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -158,11 +160,11 @@ export const WaterPressureTankChart: React.FC = () => {
                 <XAxis {...axisProps()} dataKey="label" ticks={xTicks} interval={xTicks ? 0 : "preserveStartEnd"} />
                 <YAxis {...axisProps()} axisLine={false} width={56} tickFormatter={hasFlow
                   ? axisFormatter(Math.max(0, ...data.map((item) => item.woda)))
-                  : (value: number) => `${value.toLocaleString('pl-PL')} min`} />
+                  : (value: number) => `${value.toLocaleString(loc)} min`} />
                 <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }}
                   formatter={(value, _name, item) => hasFlow
-                    ? [`${formatLiters(Number(value))} l, pompa ${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Woda']
-                    : [`${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} uruch.)`, 'Pompa']}
+                    ? [`${formatLiters(Number(value))} l, ${t('tank.pump')} ${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} ${t('wt.runsAbbr')})`, t('tile.icon.drop')]
+                    : [`${formatDuration(item.payload.pumpSeconds)} (${item.payload.runs} ${t('wt.runsAbbr')})`, t('tile.icon.timer')]}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipLabel ?? label} />
                 <Bar dataKey="woda" fill={cc().water} radius={[2, 2, 0, 0]} />
               </BarChart>
@@ -172,17 +174,15 @@ export const WaterPressureTankChart: React.FC = () => {
         {period === 'year' && (
           <label className="check">
             <input type="checkbox" checked={showMeter} onChange={(event) => setShowMeter(event.currentTarget.checked)} />
-            <span>Pokaż odczyty z wodomierza</span>
-            <small>wodomierz obok wody z czasu pompy{meter?.flow.litersPerMinute != null ? `, liczonej przepływem ${formatLiters(meter.flow.litersPerMinute)} l/min` : ''}</small>
+            <span>{t('wt.chart.showMeter')}</span>
+            <small>{t('wt.chart.showMeterHint')}{meter?.flow.litersPerMinute != null ? t('wt.chart.withFlow', { flow: formatLiters(meter.flow.litersPerMinute) }) : ''}</small>
           </label>
         )}
         {meterWanted && meter !== null && !meterReady && (
-          <p className="help danger-text">Brak odczytów wodomierza do porównania w tym roku (potrzebne są co najmniej dwa).</p>
+          <p className="help danger-text">{t('wt.chart.noMeterYear')}</p>
         )}
         <p className="help">
-          {summary !== null && !hasFlow
-            ? 'Słupki pokazują czas pracy pompy: ilość wody pojawi się po dwóch odczytach wodomierza (Dane → Odczyty wodomierza), z których liczony jest przepływ pompy.'
-            : 'Bez przepływu (mniej niż dwa odczyty wodomierza) wykres pokazuje czas pracy pompy w minutach. W widoku roku znacznik „Pokaż odczyty z wodomierza” zestawia wodomierz z wodą z czasu pompy.'}
+          {summary !== null && !hasFlow ? t('wt.chart.helpNoFlow') : t('wt.chart.help')}
         </p>
       </section>
     </main>

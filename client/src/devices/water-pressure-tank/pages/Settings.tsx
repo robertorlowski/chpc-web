@@ -16,12 +16,14 @@ import { useDevice } from '../../../core/context/DeviceContext';
 import { WaterPressureTankRequests } from '../api';
 import { WaterFlow } from '../types';
 import { FlowDetails } from '../components/FlowDetails';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 // Ustawienia hydroforu: czas kompresora. Sterownik pobiera go przy swoim następnym
 // starcie (zgłoszenie w chmurze). Wody nie ustawia się: serwer liczy ją z czasu pracy
 // pompy i przepływu z wodomierza (zakładka Dane → Odczyty wodomierza).
 export const WaterPressureTankSettings: React.FC = () => {
+  const { t } = useLang();
   const { device, selectDevice } = useDevice();
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [compressor, setCompressor] = useState('');
@@ -45,15 +47,15 @@ export const WaterPressureTankSettings: React.FC = () => {
     event.preventDefault();
     const seconds = Number(compressor);
     if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600) {
-      return setError('Czas pracy kompresora: pełne sekundy od 1 do 3600.');
+      return setError(t('wt.set.compressorInvalid'));
     }
     setError('');
     await run(async () => { try {
       const saved = await DeviceRequests.updateDeviceProperties({ ...properties, compressor_seconds: seconds });
       setProperties(saved);
-      showNotice('Zapisano. Sterownik pobierze ustawienia przy następnym uruchomieniu pompy.', 4000);
+      showNotice(t('wt.set.saved'), 4000);
     } catch {
-      setError('Nie udało się zapisać ustawień.');
+      setError(t('sw.set.saveFailed'));
     } });
   };
 
@@ -63,22 +65,22 @@ export const WaterPressureTankSettings: React.FC = () => {
       <div className="grid-2 grid-settings">
         <div className="stack">
           <form className="card" onSubmit={save}>
-            <header className="card-head"><h2>Kompresor</h2><span className="card-hint">od następnego uruchomienia pompy</span></header>
+            <header className="card-head"><h2>{t('tile.icon.bubbles')}</h2><span className="card-hint">{t('wt.set.fromNextRun')}</span></header>
             <div className="form-grid">
-              <label htmlFor="tank-compressor">Czas pracy kompresora</label>
+              <label htmlFor="tank-compressor">{t('wt.set.compressorTime')}</label>
               <div className="range-inputs">
                 <input type="number" id="tank-compressor" min={1} max={3600} value={compressor}
                   onChange={(event) => setCompressor(event.currentTarget.value)} />
                 <span className="unit-txt">s</span>
               </div>
             </div>
-            <p className="help">1–3600 s. Sterownik włącza kompresor raz, 1 s po starcie; zmianę pobiera przy zgłoszeniu.</p>
+            <p className="help">{t('wt.set.compressorHelp')}</p>
             {error && <p className="help danger-text">{error}</p>}
-            <div className="actions"><button type="submit" className="btn btn-primary" disabled={properties === null || busy}>Zapisz</button></div>
+            <div className="actions"><button type="submit" className="btn btn-primary" disabled={properties === null || busy}>{t('common.save')}</button></div>
           </form>
 
           <section className="card">
-            <header className="card-head"><h2>Przepływ pompy</h2><span className="card-hint">z wodomierza</span></header>
+            <header className="card-head"><h2>{t('wt.set.pumpFlow')}</h2><span className="card-hint">{t('wt.set.fromMeter')}</span></header>
             <FlowDetails flow={flow} />
           </section>
         </div>
@@ -86,12 +88,12 @@ export const WaterPressureTankSettings: React.FC = () => {
         <div className="stack">
           <section className="card">
             <header className="card-head">
-              <h2>Sterownik</h2>
-              <IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
+              <h2>{t('nav.device')}</h2>
+              <IconButton label={t('controller.edit')} icon={<EditIcon />} disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
             </header>
             {/* wiersze jak dl.kv makiety; DeviceAddress i FirmwareStatus (core) dają <div><span class="label">…</span>…</div> */}
             <div className="tank-kv">
-              <div><span className="label">Nazwa</span><span>{device?.name?.trim() || '—'}</span></div>
+              <div><span className="label">{t('deviceEdit.name')}</span><span>{device?.name?.trim() || '—'}</span></div>
               <div><span className="label">SN</span><code>{device?.deviceId ?? '—'}</code></div>
               <div><span className="label">Root ID</span><code>{device?.rootId ?? '—'}</code></div>
               <DeviceAddress device={device} />

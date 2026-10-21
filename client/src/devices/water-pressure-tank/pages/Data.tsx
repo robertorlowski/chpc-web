@@ -14,26 +14,20 @@ import {
 } from '../utils/water';
 import { DateNav } from '../components/DateNav';
 import { DownloadIcon } from '../components/TankIcons';
+import { getLang, locale, useLang } from '../../../core/i18n';
 import './style.css';
 
 type View = 'runs' | 'meter';
 
-const TABS: { value: View; label: string }[] = [
-  { value: 'runs', label: 'Uruchomienia pompy' },
-  { value: 'meter', label: 'Odczyty wodomierza' },
+const TABS: { value: View; key: string }[] = [
+  { value: 'runs', key: 'wt.data.runsTab' },
+  { value: 'meter', key: 'wt.data.meterTab' },
 ];
-
-const plural = (count: number, one: string, few: string, many: string) => {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (count === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-};
 
 // Zakładka Dane hydroforu: uruchomienia pompy z miesiąca i odczyty wodomierza.
 // Porównanie wodomierza z szacunkiem jest na Wykresie (Rok).
 export const WaterPressureTankData: React.FC = () => {
+  const { t } = useLang();
   const [view, setView] = useState<View>('runs');
   const [month, setMonth] = useState(todayWarsaw().slice(0, 7));
   const [runs, setRuns] = useState<WaterPressureTankRun[] | null>(null);
@@ -47,17 +41,17 @@ export const WaterPressureTankData: React.FC = () => {
   return (
     <main className="page page-device tank-page">
       <div className="filters">
-        <div className="segmented seg-inline" role="radiogroup" aria-label="Zakres">
+        <div className="segmented seg-inline" role="radiogroup" aria-label={t('wt.data.scope')}>
           {TABS.map((tab) => (
             <label key={tab.value} className="seg">
               <input type="radio" name="tank-data-view" checked={view === tab.value} onChange={() => setView(tab.value)} />
-              <span>{tab.label}</span>
+              <span>{t(tab.key)}</span>
             </label>
           ))}
         </div>
         {view === 'runs' && (
           <>
-            <DateNav label={monthLabel(month)} unit="miesiąc" onPrev={() => setMonth(shiftMonth(month, -1))}
+            <DateNav label={monthLabel(month)} unit={t('common.monthUnit')} onPrev={() => setMonth(shiftMonth(month, -1))}
               onNext={() => setMonth(shiftMonth(month, 1))} nextDisabled={month >= currentMonth} />
             <button type="button" className="btn btn-ghost btn-sm" disabled={!runs?.length}
               onClick={() => runs && downloadText(runsToCsv(runs), `hydrofor-${month}.csv`)}>
@@ -72,50 +66,51 @@ export const WaterPressureTankData: React.FC = () => {
 };
 
 function RunsCard({ runs }: { runs: WaterPressureTankRun[] | null }) {
+  const { t, tn } = useLang();
   const water = runs ? sumWater(runs) : null;
   return (
     <section className="card card-table">
       <header className="card-head">
-        <h2>Uruchomienia w miesiącu</h2>
+        <h2>{t('wt.data.monthRuns')}</h2>
         {runs && runs.length > 0 && (
           <span className="card-hint">
-            {water !== null && <>razem {formatLiters(Math.round(water))} l · </>}
-            pompa {formatDuration(sumPumpSeconds(runs))} · {runs.length} {plural(runs.length, 'uruchomienie', 'uruchomienia', 'uruchomień')}
+            {water !== null && <>{t('wt.total')} {formatLiters(Math.round(water))} l · </>}
+            {t('tank.pump')} {formatDuration(sumPumpSeconds(runs))} · {tn('wt.runs', runs.length)}
           </span>
         )}
       </header>
-      {runs === null && <p className="help">Wczytywanie…</p>}
-      {runs?.length === 0 && <p className="help">Brak uruchomień w tym miesiącu.</p>}
+      {runs === null && <p className="help">{t('common.loading')}</p>}
+      {runs?.length === 0 && <p className="help">{t('wt.data.noneMonth')}</p>}
       {runs && runs.length > 0 && (
         <>
           <div className="table-wrap">
             <table className="data">
               <thead>
-                <tr><th>Data</th><th>Godzina</th><th className="num">Kompresor</th><th className="num">Pompa</th><th className="num">Woda</th><th>Uwagi</th></tr>
+                <tr><th>{t('wt.csv.date')}</th><th>{t('wt.col.time')}</th><th className="num">{t('tile.icon.bubbles')}</th><th className="num">{t('tile.icon.timer')}</th><th className="num">{t('tile.icon.drop')}</th><th>{t('wt.col.notes')}</th></tr>
               </thead>
               <tbody>
                 {[...runs].reverse().map((run) => (
                   <tr key={run._id}>
                     <td>{formatDate(run.pumpStart)}</td>
-                    <td title={run.timeApproximate ? 'Czas przybliżony: uruchomienie bez sieci' : undefined}>
+                    <td title={run.timeApproximate ? t('wt.approximateTip') : undefined}>
                       {run.timeApproximate ? '≈ ' : ''}{formatTime(run.pumpStart)}
                     </td>
                     <td className="num">{compressorSeconds(run) !== undefined ? `${compressorSeconds(run)} s` : '—'}</td>
-                    <td className="num" title={run.manualSeconds ? `Bez ${run.manualSeconds} s ręcznej pracy kompresora` : undefined}>
+                    <td className="num" title={run.manualSeconds ? t('wt.manualTip', { n: run.manualSeconds }) : undefined}>
                       {run.inProgress ? <em>{formatDuration(run.pumpSeconds)} …</em> : formatDuration(run.pumpSeconds)}
                     </td>
                     <td className="num">{run.waterLiters === null ? '—' : `${formatLiters(Math.round(run.waterLiters))} l`}</td>
                     <td>
-                      {run.timeApproximate && <span className="chip chip-off">z kolejki</span>}
-                      {run.inProgress && <span className="chip chip-ok">trwa</span>}
-                      {!!run.manualSeconds && <span className="chip chip-warn">kompresor ręcznie {run.manualSeconds} s</span>}
+                      {run.timeApproximate && <span className="chip chip-off">{t('wt.data.queued')}</span>}
+                      {run.inProgress && <span className="chip chip-ok">{t('sw.table.ongoing')}</span>}
+                      {!!run.manualSeconds && <span className="chip chip-warn">{t('wt.data.manualCompressor', { n: run.manualSeconds })}</span>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <footer className="table-foot">„≈” = czas przybliżony (uruchomienie z kolejki, bez sieci). Pompa bez ręcznej pracy kompresora.</footer>
+          <footer className="table-foot">{t('wt.data.foot')}</footer>
         </>
       )}
     </section>
@@ -126,11 +121,12 @@ function RunsCard({ runs }: { runs: WaterPressureTankRun[] | null }) {
 // żeby w każdej strefie wypadał tego samego dnia.
 const readingDate = (date: string) => new Date(`${date}T12:00:00`).toISOString();
 
-const formatM3 = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const formatM3 = (value: number) => value.toLocaleString(locale(getLang()), { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 // Odczyty wodomierza: formularz i lista od najnowszego; przy każdym odczycie przyrost od poprzedniego, a gdy
 // serwer policzył ten okres (meter/summary) — czas pompy i przepływ okresu.
 function MeterCard() {
+  const { t, locale: loc } = useLang();
   const [readings, setReadings] = useState<WaterMeterReading[] | null>(null);
   const [summary, setSummary] = useState<WaterMeterSummary | null>(null);
   const [readAt, setReadAt] = useState(todayWarsaw());
@@ -149,17 +145,17 @@ function MeterCard() {
     event.preventDefault();
     const valueM3 = Number(value.replace(',', '.'));
     if (!readAt) {
-      setError('Podaj datę odczytu.');
+      setError(t('wt.meter.dateRequired'));
       return;
     }
     if (!value.trim() || !Number.isFinite(valueM3) || valueM3 < 0) {
-      setError('Podaj stan wodomierza w m³.');
+      setError(t('wt.meter.valueRequired'));
       return;
     }
     setError('');
     const response = await WaterPressureTankRequests.addMeterReading({ readAt: readingDate(readAt), valueM3, note });
     if (!response || !response.ok) {
-      setError('Nie udało się zapisać odczytu.');
+      setError(t('wt.meter.saveFailed'));
       return;
     }
     setValue('');
@@ -168,12 +164,12 @@ function MeterCard() {
   };
 
   const remove = async (reading: WaterMeterReading) => {
-    if (!window.confirm(`Usunąć odczyt ${formatDate(reading.readAt)} (${reading.valueM3} m³)?`)) return;
+    if (!window.confirm(t('wt.meter.deleteConfirm', { date: formatDate(reading.readAt), value: reading.valueM3 }))) return;
     try {
       await WaterPressureTankRequests.deleteMeterReading(reading._id);
       load();
     } catch {
-      setError('Nie udało się usunąć odczytu.');
+      setError(t('wt.meter.deleteFailed'));
     }
   };
 
@@ -182,21 +178,21 @@ function MeterCard() {
 
   return (
     <section className="card">
-      <header className="card-head"><h2>Odczyty wodomierza</h2><span className="card-hint">z nich liczony jest przepływ</span></header>
+      <header className="card-head"><h2>{t('wt.data.meterTab')}</h2><span className="card-hint">{t('wt.meter.hint')}</span></header>
       <form className="form-row" onSubmit={add}>
         <div className="range-inputs tank-meter-inputs">
-          <input type="date" value={readAt} aria-label="Data odczytu" onChange={(event) => setReadAt(event.currentTarget.value)} />
-          <input type="text" inputMode="decimal" className="w-wide" placeholder="stan m³" aria-label="Stan wodomierza [m³]"
+          <input type="date" value={readAt} aria-label={t('wt.meter.readDate')} onChange={(event) => setReadAt(event.currentTarget.value)} />
+          <input type="text" inputMode="decimal" className="w-wide" placeholder={t('wt.meter.valuePlaceholder')} aria-label={t('wt.meter.valueLabel')}
             value={value} onChange={(event) => setValue(event.currentTarget.value)} />
           <span className="unit-txt">m³</span>
-          <input type="text" className="w-text" placeholder="uwagi (opcjonalnie)" aria-label="Uwagi"
+          <input type="text" className="w-text" placeholder={t('wt.meter.notePlaceholder')} aria-label={t('wt.col.notes')}
             value={note} onChange={(event) => setNote(event.currentTarget.value)} />
         </div>
-        <button type="submit" className="btn btn-primary btn-sm">Dodaj odczyt</button>
+        <button type="submit" className="btn btn-primary btn-sm">{t('wt.meter.add')}</button>
       </form>
       {error && <p className="help danger-text">{error}</p>}
-      {readings === null && <p className="help">Wczytywanie…</p>}
-      {readings?.length === 0 && <p className="help">Brak odczytów. Po dwóch odczytach z pracą pompy między nimi serwer policzy przepływ i wodę.</p>}
+      {readings === null && <p className="help">{t('common.loading')}</p>}
+      {readings?.length === 0 && <p className="help">{t('wt.meter.none')}</p>}
       {readings && readings.length > 0 && (
         <ul className="people">
           {[...readings].reverse().map((reading, index, list) => {
@@ -208,15 +204,15 @@ function MeterCard() {
                   <strong>{formatDate(reading.readAt)} · {formatM3(reading.valueM3)} m³</strong>
                   <small>
                     {previous
-                      ? <>+ {((reading.valueM3 - previous.valueM3)).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} m³ od poprzedniego</>
-                      : 'pierwszy odczyt'}
+                      ? <>+ {((reading.valueM3 - previous.valueM3)).toLocaleString(loc, { maximumFractionDigits: 2 })} m³ {t('wt.meter.sincePrevious')}</>
+                      : t('wt.meter.first')}
                     {period && period.pumpSeconds > 0 && (
-                      <> · pompa {formatDuration(period.pumpSeconds)} · {(period.meterLiters / (period.pumpSeconds / 60)).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} l/min</>
+                      <> · {t('tank.pump')} {formatDuration(period.pumpSeconds)} · {(period.meterLiters / (period.pumpSeconds / 60)).toLocaleString(loc, { maximumFractionDigits: 1 })} l/min</>
                     )}
                     {reading.note && <> · {reading.note}</>}
                   </small>
                 </span>
-                <IconButton label="Usuń odczyt" variant="danger" icon={<TrashIcon />} onClick={() => remove(reading)} />
+                <IconButton label={t('wt.meter.delete')} variant="danger" icon={<TrashIcon />} onClick={() => remove(reading)} />
               </li>
             );
           })}

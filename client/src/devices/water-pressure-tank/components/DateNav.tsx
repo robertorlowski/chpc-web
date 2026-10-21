@@ -2,6 +2,7 @@
 // w przód, nieaktywna przy bieżącym okresie. Używana w Danych (miesiąc) i na Wykresie (dzień / miesiąc / rok).
 import { IconButton } from '../../../core/components/IconButton';
 import { NextIcon, PrevIcon } from './TankIcons';
+import { useLang } from '../../../core/i18n';
 
 export const DateNav: React.FC<{
   label: string;
@@ -10,10 +11,13 @@ export const DateNav: React.FC<{
   nextDisabled?: boolean;
   /** nazwa jednostki w podpowiedziach strzałek, np. „miesiąc” */
   unit: string;
-}> = ({ label, onPrev, onNext, nextDisabled, unit }) => (
+}> = ({ label, onPrev, onNext, nextDisabled, unit }) => {
+  const { t } = useLang();
+  return (
   <div className="date-nav">
-    <IconButton label={`Poprzedni ${unit}`} icon={<PrevIcon />} onClick={onPrev} />
+    <IconButton label={t('common.prevUnit', { unit })} icon={<PrevIcon />} onClick={onPrev} />
     <span className="date-cur">{label}</span>
-    <IconButton label={`Następny ${unit}`} icon={<NextIcon />} onClick={onNext} disabled={nextDisabled} />
+    <IconButton label={t('common.nextUnit', { unit })} icon={<NextIcon />} onClick={onNext} disabled={nextDisabled} />
   </div>
-);
+  );
+};
