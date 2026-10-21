@@ -5,7 +5,8 @@
 // zamiast składać wiersze samodzielnie. Dane IP i firmware z GET /api/devices (useCurrentDevice). Włącznik i pompa
 // ciepła mają też wiersz „Poczta” (MailKeyRow: klucz płytki przekaźnika poczty).
 import { ReactNode, useState } from 'react';
-import { Device } from '../types';
+import { canEditDevice, Device } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { ControllerCardTitle } from './ControllerCardTitle';
 import { DeviceAddressRow, useCurrentDevice } from './DeviceAddress';
 import { FirmwareActions, FirmwareRows, useFirmwareStatus } from './FirmwareStatus';
@@ -20,6 +21,8 @@ export const ControllerCard: React.FC<{
   /** dodatkowe wiersze <div><dt/><dd/></div> rodzaju (np. liczba przekaźników) przed adresem IP */
   children?: ReactNode;
 }> = ({ device, onEdit, children }) => {
+  const { user } = useAuth();
+  const isDemo = !!user?.isDemo;
   const { current, reload } = useCurrentDevice(device);
   const firmware = useFirmwareStatus(device);
   const [copied, setCopied] = useState(false);
@@ -34,17 +37,17 @@ export const ControllerCard: React.FC<{
 
   return (
     <section className="card">
-      <ControllerCardTitle disabled={!device || device.access === 'shared'} onEdit={onEdit} />
+      <ControllerCardTitle disabled={!canEditDevice(device)} onEdit={onEdit} />
       <dl className="kv">
         <div><dt>Nazwa</dt><dd>{device?.name?.trim() || '—'}</dd></div>
-        <div><dt>SN</dt><dd><code>{device?.deviceId ?? '---'}</code></dd></div>
-        <div>
+        {!isDemo && <div><dt>SN</dt><dd><code>{device?.deviceId ?? '---'}</code></dd></div>}
+        {!isDemo && <div>
           <dt>Root ID</dt>
           <dd>
             <code title={device?.rootId}>{device ? shortId(device.rootId) : '---'}</code>
             {device && <button type="button" className="link-btn" onClick={copy}>{copied ? 'skopiowano' : 'kopiuj'}</button>}
           </dd>
-        </div>
+        </div>}
         {children}
         <DeviceAddressRow current={current} />
         <FirmwareRows state={firmware} />

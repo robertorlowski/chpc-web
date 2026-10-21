@@ -127,6 +127,9 @@ export const AuthRequests = {
   verifyCode: (email: string, code: string) => Requests.json<Session>('POST', '/auth/verify', { email, code }),
   verifyLink: (token: string) => Requests.json<Session>('POST', '/auth/verify', { token }),
   system: (password: string) => Requests.json<Session>('POST', '/auth/system', { password }),
+  // wersja demo: dostępność (przycisk pod logowaniem) i wejście bez hasła (sesja 2 h, tylko odczyt)
+  demoAvailable: () => Requests.json<{ available: boolean }>('GET', '/auth/demo'),
+  demo: () => Requests.json<Session>('POST', '/auth/demo'),
   remember: (remember: boolean) => Requests.json<{ remember: boolean }>('POST', '/auth/remember', { remember }),
   logout: () => Requests.json<null>('POST', '/auth/logout'),
   me: () => Requests.json<User>('GET', '/auth/me'),

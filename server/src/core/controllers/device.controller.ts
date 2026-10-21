@@ -92,13 +92,17 @@ async function userDevices(sessionUser: UserEntry) {
     const rootId = String(device._id);
     const entry = access.get(rootId)!;
     const owner = device.ownerId ? owners.get(device.ownerId) : undefined;
+    const demo = !!sessionUser.isDemo;
+    const publicDevice = toPublicDevice(device);
     return {
-      ...toPublicDevice(device),
+      ...publicDevice,
+      // wersja demo: bez numeru seryjnego, adresu IP i klucza poczty
+      ...(demo ? { deviceId: '', ipAddress: undefined, ipSeenAt: undefined, mailKey: undefined } : {}),
       id: rootId,
       access: entry.role,
       ...(entry.role === 'shared' ? { tabs: entry.tabs } : {}),
       simple: false,
-      owner: owner ? { id: String(owner._id), name: userName(owner), email: owner.email ?? null } : null,
+      owner: owner ? (demo ? { id: '', name: 'Właściciel', email: null } : { id: String(owner._id), name: userName(owner), email: owner.email ?? null }) : null,
     };
   });
   const rank = (device: { sortOrder?: number }) => device.sortOrder ?? Number.MAX_SAFE_INTEGER;

@@ -17,13 +17,15 @@ export const TAB_LABELS: Record<string, string> = {
   [SIMPLE_TAB]: 'Panel prosty',
 };
 
-export type DeviceAccess = { role: 'system' | 'owner' } | { role: 'shared'; tabs: string[] };
+/** demo (2026-10-21): sterowniki właściciela z DEMO_OWNER_EMAIL tylko do odczytu (zapisy blokuje authorize) */
+export type DeviceAccess = { role: 'system' | 'owner' | 'demo' } | { role: 'shared'; tabs: string[] };
 
 export async function deviceAccess(user: UserEntry, rootId: string): Promise<DeviceAccess | null> {
   if (user.isSystem) return { role: 'system' };
   const device = await DeviceModel.findById(rootId).select('ownerId').lean<{ ownerId?: string | null }>();
   if (!device) return null;
-  if (device.ownerId && device.ownerId === String(user._id)) return { role: 'owner' };
+  if (device.ownerId && device.ownerId === String(user._id)) return { role: user.isDemo ? 'demo' : 'owner' };
+  if (user.isDemo) return null;
   const share = await DeviceShareModel.findOne({ rootId, userId: String(user._id) }).select('tabs').lean<{ tabs: string[] }>();
   return share ? { role: 'shared', tabs: share.tabs } : null;
 }
@@ -72,8 +74,9 @@ export async function accessibleDevices(user: UserEntry): Promise<Map<string, De
     return result;
   }
   for (const device of await DeviceModel.find({ ownerId: String(user._id) }).select('_id').lean()) {
-    result.set(String(device._id), { role: 'owner' });
+    result.set(String(device._id), { role: user.isDemo ? 'demo' : 'owner' });
   }
+  if (user.isDemo) return result;
   for (const share of await DeviceShareModel.find({ userId: String(user._id) }).select('rootId tabs').lean()) {
     if (!result.has(share.rootId)) result.set(share.rootId, { role: 'shared', tabs: share.tabs });
   }

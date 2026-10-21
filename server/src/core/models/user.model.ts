@@ -25,6 +25,8 @@ export interface UserEntry {
   /** małe litery; brak tylko u użytkownika systemowego */
   email?: string;
   isSystem?: boolean;
+  /** tylko w pamięci (sesja demo, auth.service.ts): dokument właściciela widziany w trybie tylko do odczytu */
+  isDemo?: boolean;
   firstName?: string;
   lastName?: string;
   street?: string;

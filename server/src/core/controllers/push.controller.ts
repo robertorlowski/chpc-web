@@ -31,6 +31,7 @@ const signedIn = (req: Request, res: Response) => {
 export const getPushSettings = run(async (req, res) => {
   if (!signedIn(req, res)) return;
   const user = req.user!;
+  if (user.isDemo) throw new PushError('Wersja demo: powiadomienia są wyłączone.', 403);
   const access = await accessibleDevices(user);
   const devices = (await DeviceModel.find({ _id: { $in: [...access.keys()] } }).select('name deviceId deviceType sortOrder').lean<{ _id: unknown; name?: string; deviceId: string; deviceType: DeviceType; sortOrder?: number }[]>())
     .filter((device) => pushEventsFor(device.deviceType).length > 0)

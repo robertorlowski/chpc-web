@@ -86,6 +86,22 @@ export function Login() {
     }
   };
 
+  // wersja demo (2026-10-21): przycisk pod formularzem, gdy serwer ma DEMO_OWNER_EMAIL
+  const [demo, setDemo] = useState(false);
+  useEffect(() => { AuthRequests.demoAvailable().then((result) => setDemo(result.available)).catch(() => setDemo(false)); }, []);
+  const enterDemo = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const session = await AuthRequests.demo();
+      signIn(session.token, session.user);
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const waitText = `${Math.floor(wait / 60)}:${String(wait % 60).padStart(2, '0')}`;
 
@@ -128,6 +144,12 @@ export function Login() {
               <button type="button" className="link-btn" onClick={() => { setSentTo(null); setError(''); }}>Inny adres e-mail</button>
             </div>
           </form>
+        )}
+        {demo && sentTo === null && (
+          <div className="auth-demo">
+            <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => void enterDemo()}>Zobacz wersję demo</button>
+            <p className="help">Podgląd działającej instalacji bez logowania. Niczego nie da się w niej zmienić.</p>
+          </div>
         )}
         <p className="auth-foot">Logowanie „system” pokazuje pole hasła (użytkownik systemowy).</p>
       </div>

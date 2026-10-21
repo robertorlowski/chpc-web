@@ -3,8 +3,8 @@
 // middleware (session.ts), więc te, które dotyczą zalogowanego, sprawdzają req.user same (signedIn).
 import { Request, Response } from 'express';
 import {
-  AuthError, confirmDeleteAccount, logout, publicUser, setRemember, startDeleteAccount, startEmailChange, startLogin,
-  systemLogin, updateProfile, verifyEmailChange, verifyLogin,
+  AuthError, confirmDeleteAccount, demoAvailable, demoLogin, logout, publicUser, setRemember, startDeleteAccount, startEmailChange,
+  startLogin, systemLogin, updateProfile, verifyEmailChange, verifyLogin,
 } from '../services/auth.service';
 import { MailUnavailableError } from '../services/mail-relay.service';
 
@@ -49,6 +49,15 @@ export const authSystem = run(async (req, res) => {
 });
 
 // POST /auth/remember {remember}: odpowiedź na „Zapamiętać Twoje dane … na najbliższe 90 dni?”
+// GET /auth/demo: czy wersja demo jest włączona (przycisk pod logowaniem); POST /auth/demo: sesja demo (2 h, tylko odczyt)
+export const authDemoAvailable = run(async (_req, res) => {
+  res.status(200).json({ available: demoAvailable() });
+});
+
+export const authDemo = run(async (req, res) => {
+  res.status(200).json(await demoLogin(req.ip ?? ''));
+});
+
 export const authRemember = run(async (req, res) => {
   if (!signedIn(req, res)) return;
   res.status(200).json(await setRemember(req.sessionToken as string, req.body?.remember === true));

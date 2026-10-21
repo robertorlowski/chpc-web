@@ -8,8 +8,8 @@ import {
   updateProperties,
 } from './controllers/device.controller'
 import {
-  authDelete, authDeleteConfirm, authEmailChange, authEmailChangeVerify, authLogout, authMe, authRemember, authStart,
-  authSystem, authUpdateMe, authVerify,
+  authDelete, authDeleteConfirm, authDemo, authDemoAvailable, authEmailChange, authEmailChangeVerify, authLogout, authMe, authRemember,
+  authStart, authSystem, authUpdateMe, authVerify,
 } from './controllers/auth.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
@@ -33,6 +33,9 @@ const router = express.Router()
 router.post('/auth/start', authStart)
 router.post('/auth/verify', authVerify)
 router.post('/auth/system', authSystem)
+// wersja demo (publiczny podgląd konta z DEMO_OWNER_EMAIL, tylko odczyt)
+router.get('/auth/demo', authDemoAvailable)
+router.post('/auth/demo', authDemo)
 router.post('/auth/remember', authRemember)
 router.post('/auth/logout', authLogout)
 router.get('/auth/me', authMe)

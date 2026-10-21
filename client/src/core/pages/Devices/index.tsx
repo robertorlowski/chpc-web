@@ -25,7 +25,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DeviceRequests, WeatherTileRequests } from '../../api';
 import { wsAddressServer } from '../../http';
-import { DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
+import { canEditDevice, DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { ageLabel, DeviceTileCard, ListIcon, SourceTip, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
@@ -487,7 +487,7 @@ export const Devices: React.FC = () => {
       ? getDeviceTypeView(item.device.deviceType).SimpleTile : undefined;
     // kafelek pogody prowadzi do strony pogody (/weather/:id), sterownika — do jego widoków
     const link = !reordering && !SimpleTile && (item.kind === 'weather' || canOpenViews(item.device));
-    const canEdit = item.kind === 'weather' || item.device.access !== 'shared';
+    const canEdit = item.kind === 'weather' ? !user?.isDemo : canEditDevice(item.device);
     const tools = (
       <>
         {canEdit && (

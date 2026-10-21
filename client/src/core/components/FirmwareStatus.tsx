@@ -12,7 +12,7 @@
 // z komunikatem. Stan pracy z GET /devices/summary (kafelek listy), odświeżany co 15 s, gdy jest nowsza wersja.
 import { useEffect, useState } from 'react';
 import { DeviceRequests, FirmwareRequests } from '../api';
-import { Device, DeviceTile, DeviceType, FirmwareSummary } from '../types';
+import { canEditDevice, Device, DeviceTile, DeviceType, FirmwareSummary } from '../types';
 import { getDeviceTypeView } from '../device-types';
 import { useCurrentDevice } from './DeviceAddress';
 import './firmwareStatus.css';
@@ -111,7 +111,7 @@ export function useFirmwareStatus(device: Device | null): FirmwareState {
 
   return {
     supported, current, version, offered, differs, pending, busy, error, update, cancel,
-    canRequest: !!current && current.access !== 'shared', blocked,
+    canRequest: canEditDevice(current), blocked,
   };
 }
 

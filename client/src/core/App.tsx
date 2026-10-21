@@ -12,6 +12,7 @@ import { WeatherBottomNav, WeatherHeader } from './pages/Weather/nav';
 import { Firmware } from './pages/Firmware';
 import { TileDesigner } from './pages/TileDesigner';
 import { useDevice } from './context/DeviceContext';
+import { DEMO_BLOCKED_EVENT } from './auth';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Fragment, useEffect, useState } from 'react';
 import { DeviceRequests } from './api';
@@ -84,6 +85,29 @@ function SharedBanner() {
 	const views = getDeviceTypeView(device.deviceType).views;
 	const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : path === 'simple' ? 'Panel prosty' : views.find((view) => view.path === path)?.label ?? path);
 	return <div className="shared-banner">Udostępnione przez {device.owner?.name ?? 'innego użytkownika'} · dostęp: {tabs.join(', ')}</div>;
+}
+
+// Wersja demo (2026-10-21): żółty pasek na każdej stronie i komunikat, gdy próba zapisu została zatrzymana (core/http.ts).
+function DemoBanner() {
+	const { user, logout } = useAuth();
+	if (!user?.isDemo) return null;
+	return (
+		<div className="shared-banner demo-banner">
+			Wersja demo – podgląd bez możliwości zmian. <button type="button" className="link-btn" onClick={() => void logout()}>Wyjdź</button>
+		</div>
+	);
+}
+
+function DemoToast() {
+	const [visible, setVisible] = useState(false);
+	useEffect(() => {
+		let timer: number | undefined;
+		const show = () => { setVisible(true); window.clearTimeout(timer); timer = window.setTimeout(() => setVisible(false), 3000); };
+		window.addEventListener(DEMO_BLOCKED_EVENT, show);
+		return () => { window.removeEventListener(DEMO_BLOCKED_EVENT, show); window.clearTimeout(timer); };
+	}, []);
+	if (!visible) return null;
+	return <div className="demo-toast" role="status">W wersji demo nie można niczego zmienić.</div>;
 }
 
 // Strażnik: bez wybranego sterownika każda ścieżka poza /devices przekierowuje na listę kafelków (pages/Devices).
@@ -180,6 +204,8 @@ function AppContent() {
 
 				<main className="app-main">
 				{/* w treści strony, nie pod stałym nagłówkiem */}
+				<DemoBanner />
+				<DemoToast />
 				{isDevice && <SharedBanner />}
 				<Routes>
 					<Route path="/devices" element={<Devices />} />

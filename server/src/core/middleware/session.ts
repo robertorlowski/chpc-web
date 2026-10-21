@@ -80,8 +80,40 @@ function systemOnly(req: Request) {
   return req.method === 'POST' && req.path === '/devices';
 }
 
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// Wersja demo: siatka bezpieczeństwa na odpowiedzi — każdy JSON traci klucze z danymi wrażliwymi, bo numer seryjny
+// (deviceId = MAC płytki) jest w rekordach telemetrii, a sam SN wystarcza do poleceń sterownika (PUT /switch/mode ze
+// źródłem controller); e-mail, adres i położenie to dane właściciela. Kontrolery dodatkowo zaokrąglają współrzędne
+// kafelków pogody i anonimizują dziennik operacji.
+const DEMO_HIDDEN_KEYS = new Set(['deviceId', 'ipAddress', 'ipSeenAt', 'mailKey', 'mailKeyPending', 'email', 'street', 'postalCode', 'city', 'location', 'endpoint']);
+export function scrubDemo(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(scrubDemo);
+  if (value && typeof value === 'object') {
+    // tylko zwykłe obiekty i tablice; Date, ObjectId itp. zostają (res.json serializuje je przez toJSON)
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return value;
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (!DEMO_HIDDEN_KEYS.has(key)) out[key] = scrubDemo(item);
+    }
+    return out;
+  }
+  return value;
+}
+function scrubDemoResponses(res: Response) {
+  const json = res.json.bind(res);
+  res.json = ((body: unknown) => json(scrubDemo(body))) as Response['json'];
+}
+
 export async function authorize(req: Request, res: Response, next: NextFunction) {
-  if (authDisabled() || isPublic(req)) return next();
+  if (authDisabled()) return next();
+  // wersja demo: żadnych zapisów, także w /auth/* (zmiana e-maila i usunięcie konta właściciela); zostaje wylogowanie
+  if (req.user?.isDemo && !READ_METHODS.has(req.method) && !(req.method === 'POST' && req.path === '/auth/logout')) {
+    return res.status(403).json({ message: 'Wersja demo: zmiany są wyłączone.', demo: true });
+  }
+  if (req.user?.isDemo) scrubDemoResponses(res);
+  if (isPublic(req)) return next();
   const user = req.user;
   if (!user) return res.status(401).json({ message: 'Zaloguj się.' });
   if (systemOnly(req) && !user.isSystem) return res.status(403).json({ message: 'Tylko użytkownik systemowy.' });

@@ -11,7 +11,12 @@ export async function getOperations(req: Request, res: Response) {
   const date = typeof req.query.date === 'string' && req.query.date ? req.query.date : formatInTimeZone(new Date(), TIME_ZONE, 'yyyy-MM-dd');
   if (!DATE.test(date)) return res.status(400).json({ message: 'date: RRRR-MM-DD.' });
   try {
-    return res.status(200).json(await getOperationsDay(req.deviceRootId as string, date));
+    const day = await getOperationsDay(req.deviceRootId as string, date);
+    if (!req.user?.isDemo) return res.status(200).json(day);
+    // wersja demo: bez imion użytkowników
+    const anonymous = <T extends { actor: { type: string; name?: string } }>(entry: T): T =>
+      (entry.actor.type === 'user' ? { ...entry, actor: { type: 'user', name: 'Użytkownik' } } : entry);
+    return res.status(200).json({ ...day, planned: day.planned.map(anonymous), done: day.done.map(anonymous) });
   } catch (error) {
     return res.status(500).json({ message: String(error) });
   }

@@ -7,7 +7,8 @@
 // i properties; najpóźniej po READY_TIMEOUT_MS), bez tego sekcje dorysowywały się po kolei i strona „mrugała” (2026-10-13).
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
-import { DeviceProperties } from '../../../core/types';
+import { canEditDevice, DeviceProperties } from '../../../core/types';
+import { useAuth } from '../../../core/context/AuthContext';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { DeviceAddress } from '../../../core/components/DeviceAddress';
@@ -28,6 +29,7 @@ const READY_TIMEOUT_MS = 5000;
 
 export const PelletBoilerSettings: React.FC = () => {
   const { device, selectDevice } = useDevice();
+  const isDemo = !!useAuth().user?.isDemo;
   const [properties, setProperties] = useState<DeviceProperties | null>(null);
   const [seconds, setSeconds] = useState('');
   const [mainReady, setMainReady] = useState(false);
@@ -105,13 +107,13 @@ export const PelletBoilerSettings: React.FC = () => {
           <section className="card">
             <header className="card-head">
               <h2>Sterownik</h2>
-              <IconBtn name="edit" label="Zmień dane sterownika" disabled={!device || device.access === 'shared'} onClick={() => setEditingDevice(true)} />
+              <IconBtn name="edit" label="Zmień dane sterownika" disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
             </header>
             {/* wiersze core (DeviceAddress, FirmwareStatus) mają układ „etykieta: wartość”, więc cała lista jest tak samo rysowana (.boiler-kv) */}
             <div className="boiler-kv">
               <div><span className="label">Nazwa:</span><span>{device?.name?.trim() || '---'}</span></div>
-              <div><span className="label">SN:</span><code>{device?.deviceId ?? '---'}</code></div>
-              <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>
+              {!isDemo && <div><span className="label">SN:</span><code>{device?.deviceId ?? '---'}</code></div>}
+              {!isDemo && <div><span className="label">Root ID:</span><code>{device?.rootId ?? '---'}</code></div>}
               <DeviceAddress device={device} />
               <FirmwareStatus device={device} actionsClassName="actions boiler-kv-actions" />
             </div>

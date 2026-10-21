@@ -1,5 +1,5 @@
 import { getSelectedDevice } from './context/DeviceContext';
-import { getToken, notifyUnauthorized } from './auth';
+import { getToken, isDemoSession, notifyDemoBlocked, notifyUnauthorized } from './auth';
 
 // Połączenie z serwerem: adresy API i WebSocket oraz zapytania z kontekstem
 // wybranego urządzenia (rootId, deviceId). API poszczególnych rodzajów
@@ -18,7 +18,8 @@ function withDeviceContext(path: string, includeDevice: boolean) {
   if (!device) throw new Error('Wybierz urządzenie przed użyciem aplikacji.');
 
   const separator = path.includes('?') ? '&' : '?';
-  const params = `rootId=${encodeURIComponent(device.rootId)}&deviceId=${encodeURIComponent(device.deviceId)}`;
+  // wersja demo nie dostaje numeru seryjnego (deviceId pusty); serwer wymaga tylko rootId
+  const params = `rootId=${encodeURIComponent(device.rootId)}&deviceId=${encodeURIComponent(device.deviceId ?? '')}`;
   return `${path}${separator}${params}`;
 }
 
@@ -54,6 +55,12 @@ const authHeader = (): Record<string, string> => {
 };
 
 const apiFetch = async (input: string, init: RequestInit) => {
+  // wersja demo: zapis nie wychodzi z przeglądarki (serwer i tak odpowiedziałby 403), a App pokazuje komunikat
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && isDemoSession() && !input.endsWith('/auth/logout')) {
+    notifyDemoBlocked();
+    return new Response(JSON.stringify({ message: 'Wersja demo: zmiany są wyłączone.', demo: true }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
   const response = await fetch(input, init);
   if (response.status === 401 && getToken()) notifyUnauthorized();
   return response;

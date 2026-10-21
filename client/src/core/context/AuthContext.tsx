@@ -3,7 +3,7 @@
 // wylogowanie i reakcja na 401 z serwera (sesja wygasła, konto usunięte) — powrót do ekranu logowania.
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { AuthRequests } from '../api';
-import { clearToken, getToken, storeToken, UNAUTHORIZED_EVENT } from '../auth';
+import { clearToken, getToken, setDemoSession, storeToken, UNAUTHORIZED_EVENT } from '../auth';
 import { ApiError } from '../http';
 import { User } from '../types';
 import { useDevice } from './DeviceContext';
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('loading');
     AuthRequests.me()
       .then((me) => {
+        setDemoSession(!!me.isDemo);
         setUserState(me);
         setStatus('signed');
       })
@@ -63,8 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // inny użytkownik może mieć inne sterowniki: start od listy
     clearDevice();
     storeToken(token, false);
+    setDemoSession(!!signedUser.isDemo);
     setUserState(signedUser);
-    setAskRemember(true);
+    setAskRemember(!signedUser.isDemo);
     setStatus('signed');
   };
 

@@ -99,7 +99,9 @@ export type Device = {
 };
 
 // owner: właściciel, shared: udostępniony (tylko zakładki tabs), system: użytkownik systemowy
-export type DeviceAccess = 'owner' | 'shared' | 'system';
+export type DeviceAccess = 'owner' | 'shared' | 'system' | 'demo';
+/** sterownik do edycji: własny albo systemowy; udostępniony i wersja demo tylko do odczytu */
+export const canEditDevice = (device?: Device | null) => !!device && device.access !== 'shared' && device.access !== 'demo';
 export type DeviceOwner = { id: string; name: string; email: string | null };
 
 // Konto (GET /api/auth/me); profileComplete = imię, nazwisko i kraj wpisane (system zawsze)
@@ -108,6 +110,8 @@ export type User = {
   id: string;
   email: string | null;
   isSystem: boolean;
+  /** wersja demo (2026-10-21): konto właściciela tylko do odczytu, profil „Demo” */
+  isDemo: boolean;
   firstName: string;
   lastName: string;
   street: string;

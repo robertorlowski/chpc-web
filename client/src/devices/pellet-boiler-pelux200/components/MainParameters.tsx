@@ -170,7 +170,7 @@ const ParameterField: React.FC<{
           <select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
             {parameter.unknown && <option value="">— nieznane —</option>}
             {choices.map((label, index) => index >= parameter.min && index <= parameter.max
-              && <option key={label} value={String(index)}>{label}</option>)}
+              && <option key={index} value={String(index)}>{label}</option>)}
           </select>
         ) : (
           <>

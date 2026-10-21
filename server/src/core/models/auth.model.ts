@@ -43,6 +43,8 @@ export interface SessionEntry {
   userId: string;
   /** „Zapamiętać na 90 dni”: stałe 90 dni od zalogowania; bez tego 24 h od ostatniego użycia */
   remember: boolean;
+  /** wersja demo (2026-10-21): sesja na koncie właściciela z DEMO_OWNER_EMAIL, tylko odczyt, 2 h bez przedłużania */
+  demo?: boolean;
   expiresAt: Date;
   lastSeenAt: Date;
   createdAt: Date;
@@ -53,6 +55,7 @@ const SessionSchema = new Schema<SessionEntry>(
     tokenHash: { type: String, required: true, unique: true },
     userId: { type: String, required: true },
     remember: { type: Boolean, default: false },
+    demo: { type: Boolean, default: false },
     expiresAt: { type: Date, required: true },
     lastSeenAt: { type: Date, required: true },
   },

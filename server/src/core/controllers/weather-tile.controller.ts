@@ -8,9 +8,14 @@ import { createWeatherTile, listWeatherTiles, removeWeatherTile, updateWeatherTi
 const fail = (res: Response, error: unknown) =>
   res.status(String(error).includes('not found') ? 404 : 400).json({ message: String(error) });
 
+// wersja demo: współrzędne zaokrąglone do 0,05° (ok. 5 km), żeby nie zdradzać położenia domu
+const coarse = (value: number | null) => (value === null ? null : Math.round(value * 20) / 20);
+
 export async function getWeatherTiles(req: Request, res: Response) {
   try {
-    return res.status(200).json(await listWeatherTiles(req.user));
+    const tiles = await listWeatherTiles(req.user);
+    if (req.user?.isDemo) return res.status(200).json(tiles.map((tile) => ({ ...tile, lat: coarse(tile.lat), lon: coarse(tile.lon) })));
+    return res.status(200).json(tiles);
   } catch (error) {
     return res.status(500).json({ message: String(error) });
   }

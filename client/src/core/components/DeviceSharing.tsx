@@ -9,7 +9,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { ShareRequests } from '../api';
 import { getDeviceTypeView } from '../device-types';
 import { ApiError } from '../http';
-import { Device, DeviceShare } from '../types';
+import { canEditDevice, Device, DeviceShare } from '../types';
 import { IconButton } from './IconButton';
 import { EditIcon, TrashIcon } from './icons';
 import './account.css';
@@ -119,8 +119,9 @@ export function DeviceSharing({ device }: { device: Device }) {
     : share.tabs.length === views.views.length ? 'wszystkie zakładki' : share.tabs.map(tabLabel).join(', ');
 
   const load = () => ShareRequests.list(device.rootId).then(setShares).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Nie udało się pobrać listy.'));
-  useEffect(() => { void load(); }, [device.rootId]);
-  if (device.access === 'shared') return null;
+  // udostępnione i demo: bez listy (serwer odpowiada 403)
+  useEffect(() => { if (canEditDevice(device)) void load(); }, [device.rootId]);
+  if (!canEditDevice(device)) return null;
 
   const remove = async (share: DeviceShare) => {
     if (!window.confirm(`Odebrać dostęp: ${share.name ?? share.email}?`)) return;

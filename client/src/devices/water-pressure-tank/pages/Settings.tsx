@@ -4,7 +4,7 @@
 // z przyciskiem „Aktualizuj” — komponenty core) i „Udostępnianie” (DeviceSharing).
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../../../core/api';
-import { DeviceProperties } from '../../../core/types';
+import { canEditDevice, DeviceProperties } from '../../../core/types';
 import Notification, { useSaveNotice } from '../../../core/components/Notification';
 import { DeviceEditModal } from '../../../core/components/DeviceEditModal';
 import { FirmwareStatus } from '../../../core/components/FirmwareStatus';
@@ -87,7 +87,7 @@ export const WaterPressureTankSettings: React.FC = () => {
           <section className="card">
             <header className="card-head">
               <h2>Sterownik</h2>
-              <IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!device || device.access === 'shared'} onClick={() => setEditingDevice(true)} />
+              <IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={!canEditDevice(device)} onClick={() => setEditingDevice(true)} />
             </header>
             {/* wiersze jak dl.kv makiety; DeviceAddress i FirmwareStatus (core) dają <div><span class="label">…</span>…</div> */}
             <div className="tank-kv">

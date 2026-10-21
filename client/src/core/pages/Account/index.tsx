@@ -150,6 +150,22 @@ export function Account() {
   const [saved, setSaved] = useState(false);
   if (!user) return null;
 
+  // wersja demo: jedna karta z wyjaśnieniem i wyjściem (bez danych, powiadomień i usuwania konta)
+  if (user.isDemo) {
+    return (
+      <div className="page page-narrow account-page">
+        <section className="card">
+          <header className="card-head"><h2>Konto demo</h2></header>
+          <p className="help">
+            Wersja demo pokazuje działającą instalację właściciela tylko do odczytu: sterowniki, pomiary, wykresy i harmonogramy.
+            Żadnej zmiany nie da się zapisać, a numery seryjne, adresy i położenie domu są ukryte. Sesja trwa 2 godziny.
+          </p>
+          <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>Wyjdź z wersji demo</button></div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page page-narrow account-page">
       <section className="card">

@@ -20,6 +20,9 @@ export const MAX_ATTEMPTS = 5;
 export const SESSION_REMEMBER_MS = 90 * 24 * 60 * 60 * 1000;
 // sesja bez „Zapamiętaj”: klient trzyma token do zamknięcia przeglądarki, serwer najwyżej 24 h od ostatniego użycia
 export const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
+/** wersja demo: sesja 2 h bez przedłużania (publiczny podgląd konta z DEMO_OWNER_EMAIL, tylko odczyt) */
+export const SESSION_DEMO_MS = 2 * 60 * 60 * 1000;
+const DEMO_RATE_LIMIT = { windowMs: 10 * 60 * 1000, max: 10 };
 const SESSION_TOUCH_MS = 5 * 60 * 1000;
 const SYSTEM_MAX_FAILURES = 5;
 const SYSTEM_LOCK_MS = 60 * 1000;
@@ -47,7 +50,15 @@ export const userName = (user: UserEntry) =>
   user.isSystem ? SYSTEM_LOGIN : [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '';
 
 export function publicUser(user: UserEntry) {
+  // wersja demo: zamiast danych właściciela stały profil „Demo” (bez e-maila, adresu i lokalizacji)
+  if (user.isDemo) {
+    return {
+      id: String(user._id), email: null, isSystem: false, isDemo: true, firstName: 'Demo', lastName: '', street: '', postalCode: '',
+      city: '', country: '', location: null, profileComplete: true,
+    };
+  }
   return {
+    isDemo: false,
     id: String(user._id),
     email: user.email ?? null,
     isSystem: !!user.isSystem,
@@ -137,10 +148,16 @@ export async function sessionFromToken(token: string): Promise<{ session: Sessio
     return { session: cached.session, user: cached.user };
   }
   const session = await SessionModel.findOne({ tokenHash: key, expiresAt: { $gt: new Date(now) } }).lean<SessionEntry>();
-  const user = session ? await UserModel.findById(session.userId).lean<UserEntry>() : null;
+  let user = session ? await UserModel.findById(session.userId).lean<UserEntry>() : null;
   if (!session || !user) {
     sessionCache.delete(key);
     return null;
+  }
+  // sesja demo: konto właściciela widziane tylko do odczytu (flaga w pamięci, nie w bazie), bez przedłużania
+  if (session.demo) {
+    user = { ...user, isDemo: true };
+    sessionCache.set(key, { at: now, session, user });
+    return { session, user };
   }
   // bez „Zapamiętaj”: 24 h od ostatniego użycia (zapis najwyżej co 5 min)
   if (!session.remember && now - new Date(session.lastSeenAt).getTime() > SESSION_TOUCH_MS) {
@@ -222,6 +239,42 @@ export async function systemLogin(password: unknown) {
   const user = await ensureSystemUser();
   return { token: await createSession(String(user._id)), created: false, user: publicUser(user) };
 }
+
+// ------------------------------------------------------------------ wersja demo (2026-10-21)
+// Publiczny podgląd konta z DEMO_OWNER_EMAIL: przycisk „Zobacz wersję demo” pod logowaniem, bez linku i hasła.
+// Sesja na dokumencie właściciela z demo: true (sessionFromToken dokłada isDemo); zapisy blokuje authorize
+// (core/middleware/session.ts), a dane wrażliwe ukrywają kontrolery (SN, IP, współrzędne, imiona).
+const demoAttempts = new Map<string, number[]>();
+
+export const demoAvailable = () => !!process.env.DEMO_OWNER_EMAIL;
+
+export async function demoOwner(): Promise<UserEntry | null> {
+  const email = process.env.DEMO_OWNER_EMAIL?.trim().toLowerCase();
+  if (!email) return null;
+  return UserModel.findOne({ email }).lean<UserEntry>();
+}
+
+export async function demoLogin(ip: string) {
+  const owner = await demoOwner();
+  if (!owner) throw new AuthError('Wersja demo jest wyłączona.', 404);
+  // najwyżej DEMO_RATE_LIMIT.max wejść z jednego adresu w oknie (darmowy plan Render i Atlas)
+  const now = Date.now();
+  const recent = (demoAttempts.get(ip) ?? []).filter((at) => now - at < DEMO_RATE_LIMIT.windowMs);
+  if (recent.length >= DEMO_RATE_LIMIT.max) {
+    throw new AuthError('Za dużo wejść do wersji demo — spróbuj za kilka minut.', 429, Math.ceil(DEMO_RATE_LIMIT.windowMs / 1000));
+  }
+  recent.push(now);
+  demoAttempts.set(ip, recent);
+  const token = newToken();
+  await SessionModel.create({
+    tokenHash: sha256(token), userId: String(owner._id), remember: false, demo: true,
+    expiresAt: new Date(now + SESSION_DEMO_MS), lastSeenAt: new Date(now),
+  });
+  return { token, created: false, user: publicUser({ ...owner, isDemo: true }) };
+}
+
+/** testy */
+export const resetDemoAttempts = () => demoAttempts.clear();
 
 export async function ensureSystemUser(): Promise<UserEntry> {
   return (await UserModel.findOneAndUpdate(
