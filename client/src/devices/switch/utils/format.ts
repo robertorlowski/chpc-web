@@ -1,15 +1,17 @@
 // Formaty włącznika: czasy w Europe/Warsaw, opis trybu przekaźnika, odliczanie, CSV włączeń.
 import { SwitchActivation, SwitchRelay } from '../types';
+import { getLang, locale, t as tr } from '../../../core/i18n';
 
 const TIME_ZONE = 'Europe/Warsaw';
+const loc = () => locale(getLang());
 
 export const todayWarsaw = () => new Date().toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
 
 export const formatTime = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' }) : '---';
+  iso ? new Date(iso).toLocaleTimeString(loc(), { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit' }) : '---';
 
 export const formatTimeSeconds = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString('pl-PL', { timeZone: TIME_ZONE }) : '---';
+  iso ? new Date(iso).toLocaleTimeString(loc(), { timeZone: TIME_ZONE }) : '---';
 
 const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
 
@@ -17,7 +19,7 @@ const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZ
 export const formatMoment = (iso?: string | null) => {
   if (!iso) return '---';
   if (dayOf(iso) === todayWarsaw()) return formatTime(iso);
-  const date = new Date(iso).toLocaleDateString('pl-PL', { timeZone: TIME_ZONE, day: '2-digit', month: '2-digit' });
+  const date = new Date(iso).toLocaleDateString(loc(), { timeZone: TIME_ZONE, day: '2-digit', month: '2-digit' });
   return `${date} ${formatTime(iso)}`;
 };
 
@@ -40,11 +42,11 @@ export const formatCountdown = (until: string, now: number) => {
   return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
 };
 
-const sourceLabel = (source: string | null | undefined) => source === 'controller' ? 'ze sterownika' : 'z aplikacji';
+const sourceLabel = (source: string | null | undefined) => tr(source === 'controller' ? 'sw.fromController' : 'sw.fromApp');
 
 // kolumna „Źródło” w tabelach włączeń
 export const activationSourceLabel = (source: SwitchActivation['source']) =>
-  source === 'schedule' ? 'harmonogram' : source === 'controller' ? 'sterownik' : 'aplikacja';
+  tr(source === 'schedule' ? 'sw.sourceSchedule' : source === 'controller' ? 'sw.sourceController' : 'sw.sourceApp');
 
 // „16.10.2026” z daty YYYY-MM-DD (nawigacja po dniach)
 export const formatDateLabel = (date: string) => {
@@ -63,24 +65,24 @@ export const shiftDate = (date: string, days: number) => {
 export const describeMode = (relay: SwitchRelay): { text: string; danger?: boolean } => {
   switch (relay.mode) {
     case 'on':
-      return { text: `Włączony ręcznie (bez limitu) ${sourceLabel(relay.modeSource)}, od ${formatMoment(relay.modeChangedAt)}` };
+      return { text: tr('sw.mode.on', { source: sourceLabel(relay.modeSource), since: formatMoment(relay.modeChangedAt) }) };
     case 'timer':
-      return { text: `Włączony na czas ${sourceLabel(relay.modeSource)}, do ${formatMoment(relay.until)}` };
+      return { text: tr('sw.mode.timer', { source: sourceLabel(relay.modeSource), until: formatMoment(relay.until) }) };
     case 'off':
-      return { text: 'Wyłączony · harmonogram zablokowany', danger: true };
+      return { text: tr('sw.mode.off'), danger: true };
     case 'pause':
-      return { text: `Wyłączony do ${formatMoment(relay.until)} · potem harmonogram` };
+      return { text: tr('sw.mode.pause', { until: formatMoment(relay.until) }) };
     default:
-      if (relay.desiredOn) return { text: `Harmonogram · włączony do ${formatMoment(relay.until)}` };
+      if (relay.desiredOn) return { text: tr('sw.mode.scheduleOn', { until: formatMoment(relay.until) }) };
       return {
         text: relay.nextStart
-          ? `Harmonogram · wyłączony, następne włączenie ${formatMoment(relay.nextStart)}`
-          : 'Harmonogram · wyłączony, brak zaplanowanych włączeń',
+          ? tr('sw.mode.scheduleNext', { next: formatMoment(relay.nextStart) })
+          : tr('sw.mode.scheduleNone'),
       };
   }
 };
 
-export const relayLabel = (relay: Pick<SwitchRelay, 'relay' | 'name'>) => relay.name?.trim() || `Przekaźnik ${relay.relay}`;
+export const relayLabel = (relay: Pick<SwitchRelay, 'relay' | 'name'>) => relay.name?.trim() || tr('switch.relay', { n: relay.relay });
 
 // przesunięcie Warszawy względem UTC w chwili date [ms]
 const warsawOffset = (date: Date) => {
@@ -107,9 +109,9 @@ export const warsawDayBounds = (date: string) => {
 export const whenText = (iso: string) => {
   const today = todayWarsaw();
   const day = dayOf(iso);
-  if (day === today) return `dziś o ${formatTime(iso)}`;
-  if (day === shiftDate(today, 1)) return `jutro o ${formatTime(iso)}`;
-  return `${formatMoment(iso).replace(' ', ' o ')}`;
+  if (day === today) return tr('sw.todayAt', { time: formatTime(iso) });
+  if (day === shiftDate(today, 1)) return tr('sw.tomorrowAt', { time: formatTime(iso) });
+  return `${formatMoment(iso).replace(' ', ` ${tr('sw.at')} `)}`;
 };
 
 // Część włączenia przypadająca na dzień [dayStart, dayEnd) w sekundach (włączenia przez północ).
@@ -121,13 +123,13 @@ export const secondsInDay = (activation: SwitchActivation, dayStart: number, day
 
 // CSV dla Excela z polskimi ustawieniami (separator ';').
 export const activationsToCsv = (activations: SwitchActivation[], names: Map<number, string>) => {
-  const header = ['Przekaźnik', 'Włączenie', 'Wyłączenie', 'Czas [s]', 'Czas przybliżony'];
+  const header = [tr('sw.csv.relay'), tr('sw.csv.on'), tr('sw.csv.off'), tr('sw.csv.seconds'), tr('sw.csv.approximate')];
   const rows = activations.map((activation) => [
-    names.get(activation.relay) ?? `Przekaźnik ${activation.relay}`,
-    new Date(activation.onAt).toLocaleString('pl-PL', { timeZone: TIME_ZONE }),
-    activation.offAt ? new Date(activation.offAt).toLocaleString('pl-PL', { timeZone: TIME_ZONE }) : '',
+    names.get(activation.relay) ?? tr('switch.relay', { n: activation.relay }),
+    new Date(activation.onAt).toLocaleString(loc(), { timeZone: TIME_ZONE }),
+    activation.offAt ? new Date(activation.offAt).toLocaleString(loc(), { timeZone: TIME_ZONE }) : '',
     activation.durationS,
-    activation.approximate ? 'tak' : '',
+    activation.approximate ? tr('common.yesLower') : '',
   ].join(';'));
   return [header.join(';'), ...rows].join('\n');
 };

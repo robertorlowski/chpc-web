@@ -14,6 +14,7 @@ import { ListIcon } from '../../../core/components/DeviceTileCard';
 import { SwitchRequests } from '../api';
 import { RelayMode } from '../types';
 import { formatDuration, whenText } from '../utils/format';
+import { t as tr, useLang } from '../../../core/i18n';
 import '../../../core/components/simpleTile.css';
 
 // „30 min”, „1 h 30 min”
@@ -29,52 +30,53 @@ function describe(relay: TileRelay, online: boolean, onMinutes: number, now: num
   const left = until ? Math.max(0, Math.round((new Date(until).getTime() - now) / 1000)) : 0;
   // „Włącz”: na domyślny czas z ustawień właściciela; 0 = bez limitu
   const turnOn = (back: string): Action => ({
-    label: 'Włącz', sub: name, kind: 'primary',
+    label: tr('sw.simple.turnOn'), sub: name, kind: 'primary',
     mode: onMinutes > 0 ? 'timer' : 'on', minutes: onMinutes > 0 ? onMinutes : undefined,
-    hint: onMinutes > 0 ? `${name} uruchomi się teraz na ${minutesText(onMinutes)}${back}.` : `${name} włączy się teraz i zostanie włączony, aż go wyłączysz.`,
+    hint: onMinutes > 0 ? tr('sw.simple.turnOnHint', { name, time: minutesText(onMinutes), back }) : tr('sw.simple.turnOnUnlimitedHint', { name }),
   });
-  const stopSchedule = (hint: string): Action => ({ label: 'Wyłącz harmonogram uruchamiania', kind: 'plain', mode: 'off', hint });
+  const stopSchedule = (hint: string): Action => ({ label: tr('sw.simple.stopSchedule'), kind: 'plain', mode: 'off', hint });
 
   if (!online) {
     // chipy (decyzja użytkownika 2026-10-20, wszystkie kafelki): Offline czerwony, Wyłączony szary
-    return { chip: 'Offline', chipClass: 'chip-err', state: `${name}: brak łączności`, detail: 'sterownik nie zgłasza się od 5 min', actions: [] };
+    return { chip: tr('chip.offline'), chipClass: 'chip-err', state: tr('sw.simple.noLink', { name }), detail: tr('sw.simple.noLinkDetail'), actions: [] };
   }
   if (relay.mode === 'off') {
     return {
-      chip: 'Wyłączony', chipClass: 'chip-off', state: `${name} jest wyłączony`, detail: 'harmonogram uruchamiania jest wyłączony',
+      chip: tr('sw.simple.chipOff'), chipClass: 'chip-off', state: tr('sw.simple.isOff', { name }), detail: tr('sw.simple.scheduleStopped'),
       actions: [
         turnOn(''),
-        { label: 'Włączaj zgodnie z harmonogramem', kind: 'plain', mode: 'schedule',
-          hint: next ? `${name} uruchomi się automatycznie ${whenText(next)}.` : `Brak zaplanowanych włączeń — ${name} pozostanie wyłączony.` },
+        { label: tr('sw.simple.followSchedule'), kind: 'plain', mode: 'schedule',
+          hint: next ? tr('sw.simple.willStart', { name, when: whenText(next) }) : tr('sw.simple.noStartsStaysOff', { name }) },
       ],
     };
   }
   if (relay.desiredOn) {
-    const detail = relay.mode === 'on' ? 'bez limitu czasu'
-      : relay.mode === 'timer' ? `na czas · wyłączy się ${until ? whenText(until) : '—'} (zostało ${formatDuration(left)})`
-      : `zgodnie z harmonogramem · wyłączy się ${until ? whenText(until) : '—'}`;
+    const detail = relay.mode === 'on' ? tr('sw.simple.unlimited')
+      : relay.mode === 'timer' ? tr('sw.simple.timedDetail', { when: until ? whenText(until) : '—', left: formatDuration(left) })
+      : tr('sw.simple.scheduleOnDetail', { when: until ? whenText(until) : '—' });
     return {
-      chip: 'Włączony', chipClass: 'chip-ok', state: `${name} jest włączony`, detail,
+      chip: tr('sw.simple.chipOn'), chipClass: 'chip-ok', state: tr('sw.simple.isOn', { name }), detail,
       actions: [
-        { label: 'Wyłącz', sub: name, kind: 'danger', mode: 'pause',
-          hint: next ? `${name} wyłączy się teraz i będzie automatycznie uruchomiony ${whenText(next)}.` : `${name} wyłączy się teraz; brak zaplanowanych włączeń.` },
-        stopSchedule(`${name} wyłączy się teraz i nie będzie automatycznie uruchomiony.`),
+        { label: tr('sw.simple.turnOff'), sub: name, kind: 'danger', mode: 'pause',
+          hint: next ? tr('sw.simple.turnOffHint', { name, when: whenText(next) }) : tr('sw.simple.turnOffNoStarts', { name }) },
+        stopSchedule(tr('sw.simple.stopScheduleOnHint', { name })),
       ],
     };
   }
   const detail = relay.mode === 'pause' && until
-    ? `do ${whenText(until)} · potem harmonogram${next ? ` (włączy się ${whenText(next)})` : ''}`
-    : next ? `zgodnie z harmonogramem · włączy się ${whenText(next)}` : 'zgodnie z harmonogramem · brak zaplanowanych włączeń';
+    ? `${tr('sw.simple.pausedUntil', { when: whenText(until) })}${next ? ` (${tr('sw.simple.willTurnOn', { when: whenText(next) })})` : ''}`
+    : next ? tr('sw.simple.scheduleNextDetail', { when: whenText(next) }) : tr('sw.simple.scheduleNoStarts');
   return {
-    chip: 'Wyłączony', chipClass: 'chip-off', state: `${name} jest wyłączony`, detail,
+    chip: tr('sw.simple.chipOff'), chipClass: 'chip-off', state: tr('sw.simple.isOff', { name }), detail,
     actions: [
-      turnOn(', a potem wróci do harmonogramu'),
-      stopSchedule(`${name} nie będzie automatycznie uruchomiony.`),
+      turnOn(tr('sw.simple.backToSchedule')),
+      stopSchedule(tr('sw.simple.stopScheduleOffHint', { name })),
     ],
   };
 }
 
 export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOpen, onChanged }: SimpleTileProps) {
+  const { t } = useLang();
   // przekaźnik, dla którego poszło polecenie: przyciski nieaktywne do odświeżenia kafelka
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -87,7 +89,7 @@ export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOp
       await SwitchRequests.setModeFor(device, relay, action.mode, action.minutes);
       onChanged();
     } catch {
-      setError('Nie udało się wysłać polecenia. Spróbuj jeszcze raz.');
+      setError(t('sw.simple.sendFailed'));
       setBusy(null);
     }
   };
@@ -100,18 +102,18 @@ export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOp
   // jeden przekaźnik: chip stanu w nagłówku obok nazwy (jak na zwykłym kafelku), żeby nie zajmował osobnego wiersza
   const chipOf = (relay: TileRelay) => {
     const view = describe(relay, online, tile?.onMinutes ?? 30, now);
-    return <span className={`chip ${view.chipClass}`}>{view.chip === 'Włączony' && <i className="dot" />}{view.chip}</span>;
+    return <span className={`chip ${view.chipClass}`}>{view.chipClass === 'chip-ok' && <i className="dot" />}{view.chip}</span>;
   };
   const head = (
     <div className="tile-head">
       <span className="tile-icon"><ListIcon name="switch" /></span>
-      <h2 className="tile-name">{onOpen ? <button type="button" className="simple-open" onClick={onOpen} title="Otwórz pełne widoki włącznika">{title}</button> : title}</h2>
+      <h2 className="tile-name">{onOpen ? <button type="button" className="simple-open" onClick={onOpen} title={t('sw.simple.openViews')}>{title}</button> : title}</h2>
       {single && tile && chipOf(relays[0])}
       {tools && <span className="tile-tools">{tools}</span>}
     </div>
   );
   if (!tile) {
-    return <>{head}{loading ? <span className="skeleton skeleton-main" /> : <p className="simple-hint">Brak danych włącznika.</p>}</>;
+    return <>{head}{loading ? <span className="skeleton skeleton-main" /> : <p className="simple-hint">{t('sw.simple.noData')}</p>}</>;
   }
   return (
     <>
@@ -129,7 +131,7 @@ export function SwitchSimpleTile({ device, name, tile, now, loading, tools, onOp
               </div>
             )}
             <div className="simple-state">{view.state}<small>{view.detail}</small></div>
-            {waiting && <p className="simple-hint">Czeka na sterownik…</p>}
+            {waiting && <p className="simple-hint">{t('sw.waiting')}</p>}
             <div className="simple-actions">
               {view.actions.map((action) => (
                 <div key={action.label} className="simple-act">

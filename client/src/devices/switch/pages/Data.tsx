@@ -11,6 +11,7 @@ import {
 } from '../utils/format';
 import { DownloadIcon, NextIcon, PrevIcon } from '../components/icons';
 import { ActivationsTable } from '../components/ActivationsTable';
+import { getLang, locale, useLang } from '../../../core/i18n';
 import './style.css';
 
 const TIME_ZONE = 'Europe/Warsaw';
@@ -20,11 +21,12 @@ const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZ
 const momentIn = (iso: string, date: string) => {
   const time = formatTimeSeconds(iso);
   if (dayOf(iso) === date) return time;
-  const day = new Date(iso).toLocaleDateString('pl-PL', { timeZone: TIME_ZONE, day: '2-digit', month: '2-digit' });
+  const day = new Date(iso).toLocaleDateString(locale(getLang()), { timeZone: TIME_ZONE, day: '2-digit', month: '2-digit' });
   return `${day} ${time}`;
 };
 
 export const SwitchData: React.FC = () => {
+  const { t } = useLang();
   const [date, setDate] = useState(todayWarsaw());
   const [relayFilter, setRelayFilter] = useState(0);
   const [relays, setRelays] = useState<SwitchRelay[]>([]);
@@ -59,22 +61,22 @@ export const SwitchData: React.FC = () => {
     <div className="page page-device switch-page">
       <div className="filters">
         <div className="date-nav">
-          <button type="button" className="icon-btn sm" aria-label="Poprzedni dzień" onClick={() => setDate(shiftDate(date, -1))}><PrevIcon /></button>
+          <button type="button" className="icon-btn sm" aria-label={t('common.prevDay')} onClick={() => setDate(shiftDate(date, -1))}><PrevIcon /></button>
           <span className="date-cur">
-            <button type="button" className="date-pick" title="Wybierz dzień z kalendarza" onClick={openPicker}>
-              {formatDateLabel(date)}{date === today && <small>dziś</small>}
+            <button type="button" className="date-pick" title={t('common.pickFromCalendar')} onClick={openPicker}>
+              {formatDateLabel(date)}{date === today && <small>{t('wx.today')}</small>}
             </button>
-            <input ref={dateInput} type="date" className="date-hidden" tabIndex={-1} aria-label="Dzień" value={date} max={today}
+            <input ref={dateInput} type="date" className="date-hidden" tabIndex={-1} aria-label={t('common.day')} value={date} max={today}
               onChange={(event) => event.currentTarget.value && setDate(event.currentTarget.value)} />
           </span>
-          <button type="button" className="icon-btn sm" aria-label="Następny dzień" disabled={date >= today}
+          <button type="button" className="icon-btn sm" aria-label={t('common.nextDay')} disabled={date >= today}
             onClick={() => setDate(shiftDate(date, 1))}><NextIcon /></button>
         </div>
         {relays.length > 1 && (
-          <div className="segmented seg-inline" role="radiogroup" aria-label="Przekaźnik">
+          <div className="segmented seg-inline" role="radiogroup" aria-label={t('sw.relay')}>
             <label className="seg">
               <input type="radio" name="sw-dane-r" checked={relayFilter === 0} onChange={() => setRelayFilter(0)} />
-              <span>Wszystkie</span>
+              <span>{t('ops.filter.all')}</span>
             </label>
             {relays.map((relay) => (
               <label className="seg" key={relay.relay}>
@@ -92,16 +94,16 @@ export const SwitchData: React.FC = () => {
 
       <section className="card card-table">
         <header className="card-head">
-          <h2>Włączenia w dniu</h2>
-          {shown.length > 0 && <span className="card-hint">razem w dniu {formatDuration(total)}</span>}
+          <h2>{t('sw.data.title')}</h2>
+          {shown.length > 0 && <span className="card-hint">{t('sw.data.total', { time: formatDuration(total) })}</span>}
         </header>
-        {activations === null && <p className="help">Wczytywanie…</p>}
-        {activations !== null && shown.length === 0 && <p className="help">Brak włączeń w tym dniu.</p>}
+        {activations === null && <p className="help">{t('common.loading')}</p>}
+        {activations !== null && shown.length === 0 && <p className="help">{t('sw.data.none')}</p>}
         {shown.length > 0 && (
           <ActivationsTable activations={shown} names={names} showRelay={relays.length > 1}
             moment={(iso) => momentIn(iso, date)} />
         )}
-        <footer className="table-foot">„≈” = koniec po utracie zasilania (ostatnie zgłoszenie przed restartem). Włączenie przez północ liczy się do dnia startu.</footer>
+        <footer className="table-foot">{t('sw.data.foot')}</footer>
       </section>
     </div>
   );

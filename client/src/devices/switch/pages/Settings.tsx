@@ -12,9 +12,11 @@ import { DeviceSharing } from '../../../core/components/DeviceSharing';
 import { useDevice } from '../../../core/context/DeviceContext';
 import { SwitchRequests } from '../api';
 import { SwitchRelay } from '../types';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 export const SwitchSettings: React.FC = () => {
+  const { t } = useLang();
   const { device, selectDevice } = useDevice();
   const [relays, setRelays] = useState<SwitchRelay[] | null>(null);
   const [names, setNames] = useState<Record<number, string>>({});
@@ -41,16 +43,16 @@ export const SwitchSettings: React.FC = () => {
   const saveNames = async (event: FormEvent) => {
     event.preventDefault();
     if (Object.values(names).some((name) => name.trim().length > 40)) {
-      return setNamesError('Nazwa przekaźnika: najwyżej 40 znaków.');
+      return setNamesError(t('sw.set.nameTooLong'));
     }
     setNamesError('');
     await run(async () => { try {
       const changed = (relays ?? []).filter((relay) => (names[relay.relay] ?? '').trim() !== relay.name);
       await Promise.all(changed.map((relay) => SwitchRequests.renameRelay(relay.relay, (names[relay.relay] ?? '').trim())));
       setRelays((current) => current?.map((relay) => ({ ...relay, name: (names[relay.relay] ?? '').trim() })) ?? null);
-      showNotice('Nazwy zapisane.');
+      showNotice(t('sw.set.namesSaved'));
     } catch {
-      setNamesError('Nie udało się zapisać nazw.');
+      setNamesError(t('sw.set.namesFailed'));
     } });
   };
 
@@ -59,16 +61,16 @@ export const SwitchSettings: React.FC = () => {
     event.preventDefault();
     const minutes = Number(defaultMinutes);
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
-      return setMinutesError('Domyślny czas: pełne minuty od 0 (bez limitu) do 10080 (7 dni).');
+      return setMinutesError(t('sw.set.minutesInvalid'));
     }
     setMinutesError('');
     await run(async () => { try {
       if (minutes !== properties?.default_on_minutes) {
         setProperties(await DeviceRequests.updateDeviceProperties({ ...properties, default_on_minutes: minutes }));
       }
-      showNotice('Zapisano.');
+      showNotice(t('common.saved'));
     } catch {
-      setMinutesError('Nie udało się zapisać ustawień.');
+      setMinutesError(t('sw.set.saveFailed'));
     } });
   };
 
@@ -78,17 +80,17 @@ export const SwitchSettings: React.FC = () => {
       <div className="grid-2 grid-settings">
         <div className="stack">
           <form className="card" onSubmit={saveNames}>
-            <header className="card-head"><h2>Przekaźniki</h2><span className="card-hint">nazwy do 40 znaków</span></header>
-            {relays === null && <p className="help">Wczytywanie…</p>}
-            {relays?.length === 0 && <p className="help">Sterownik nie zgłosił jeszcze przekaźników.</p>}
+            <header className="card-head"><h2>{t('sw.relays')}</h2><span className="card-hint">{t('sw.set.namesHint')}</span></header>
+            {relays === null && <p className="help">{t('common.loading')}</p>}
+            {relays?.length === 0 && <p className="help">{t('sw.noRelays')}</p>}
             {relays && relays.length > 0 && (
               <div className="form-grid">
                 {relays.map((relay) => (
                   <Fragment key={relay.relay}>
-                    <label htmlFor={`sw-n${relay.relay}`}>Przekaźnik {relay.relay}</label>
+                    <label htmlFor={`sw-n${relay.relay}`}>{t('switch.relay', { n: relay.relay })}</label>
                     <div className="range-inputs">
                       <input type="text" id={`sw-n${relay.relay}`} className="w-text" maxLength={40}
-                        placeholder={`Przekaźnik ${relay.relay}`} value={names[relay.relay] ?? ''}
+                        placeholder={t('switch.relay', { n: relay.relay })} value={names[relay.relay] ?? ''}
                         onChange={(event) => {
                           // wartość odczytana od razu: w funkcji aktualizującej stan currentTarget jest już null
                           const value = event.currentTarget.value;
@@ -101,24 +103,24 @@ export const SwitchSettings: React.FC = () => {
             )}
             {namesError && <p className="danger-text">{namesError}</p>}
             <div className="actions">
-              <button type="submit" className="btn btn-primary" disabled={!relays?.length || busy}>Zapisz nazwy</button>
+              <button type="submit" className="btn btn-primary" disabled={!relays?.length || busy}>{t('sw.set.saveNames')}</button>
             </div>
           </form>
 
           <form className="card" onSubmit={saveMinutes}>
-            <header className="card-head"><h2>Czas włączenia</h2><span className="card-hint">podpowiedź dla „Włącz”</span></header>
+            <header className="card-head"><h2>{t('sw.home.onTime')}</h2><span className="card-hint">{t('sw.set.onTimeHint')}</span></header>
             <div className="form-grid">
-              <label htmlFor="sw-def">Domyślny czas</label>
+              <label htmlFor="sw-def">{t('sw.set.defaultTime')}</label>
               <div className="range-inputs">
                 <input type="number" id="sw-def" min={0} max={10080} value={defaultMinutes}
                   onChange={(event) => setDefaultMinutes(event.currentTarget.value)} />
                 <span className="unit-txt">min</span>
               </div>
             </div>
-            <p className="help">0 = bez limitu, najwyżej 10 080 min (7 dni). Na stronie sterownika obowiązuje po jego restarcie.</p>
+            <p className="help">{t('sw.set.defaultTimeHelp')}</p>
             {minutesError && <p className="danger-text">{minutesError}</p>}
             <div className="actions">
-              <button type="submit" className="btn btn-primary" disabled={properties === null || busy}>Zapisz</button>
+              <button type="submit" className="btn btn-primary" disabled={properties === null || busy}>{t('common.save')}</button>
             </div>
           </form>
         </div>
@@ -126,7 +128,7 @@ export const SwitchSettings: React.FC = () => {
         <div className="stack">
           {/* karta „Sterownik” z core: nazwa, SN, Root ID, adres IP, firmware i „Aktualizuj firmware”; tu dodatkowo liczba przekaźników */}
           <ControllerCard device={device} onEdit={() => setEditingDevice(true)}>
-            <div><dt>Przekaźniki</dt><dd>{relays?.length ?? '---'}</dd></div>
+            <div><dt>{t('sw.relays')}</dt><dd>{relays?.length ?? '---'}</dd></div>
           </ControllerCard>
           {/* udostępnianie sterownika (tylko właściciel; konta użytkowników) */}
           {device && <DeviceSharing device={device} />}

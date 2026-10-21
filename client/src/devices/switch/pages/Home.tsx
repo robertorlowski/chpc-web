@@ -16,6 +16,7 @@ import {
   relayLabel, secondsInDay, todayWarsaw, warsawDayBounds,
 } from '../utils/format';
 import { ActivationsTable } from '../components/ActivationsTable';
+import { useLang } from '../../../core/i18n';
 import './style.css';
 
 const REFRESH_MS = 5_000;
@@ -28,6 +29,7 @@ const RelayCard: React.FC<{
   busy: boolean;
   onMode: (mode: RelayMode, minutes?: number) => void;
 }> = ({ relay, now, defaultMinutes, busy, onMode }) => {
+  const { t } = useLang();
   const [hours, setHours] = useState(String(Math.floor(defaultMinutes / 60)));
   const [minutes, setMinutes] = useState(String(defaultMinutes % 60));
   useEffect(() => {
@@ -41,18 +43,18 @@ const RelayCard: React.FC<{
   const timerMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
   const timeValid = timerMinutes >= 0 && timerMinutes <= 10080;
   const turnOn = () => (timerMinutes > 0 ? onMode('timer', timerMinutes) : onMode('on'));
-  const title = relay.on ? 'Przekaźnik włączony (stan ze sterownika)' : 'Przekaźnik wyłączony (stan ze sterownika)';
+  const title = relay.on ? t('sw.home.relayOnTitle') : t('sw.home.relayOffTitle');
   const manualOn = relay.mode === 'on' || relay.mode === 'timer';
 
   // odliczanie: do końca włączenia (timer albo okno harmonogramu); bez niego następny start z harmonogramu
   const counting = relay.desiredOn && relay.until;
   const idleLabel = relay.mode === 'on'
-    ? 'włączony bez limitu czasu'
+    ? t('sw.home.onUnlimited')
     : relay.mode === 'pause'
-      ? `wyłączony do ${formatMoment(relay.until)} (kafelek prosty), potem harmonogram${relay.nextStart ? `: ${formatMoment(relay.nextStart)}` : ''}`
+      ? `${t('sw.home.pausedUntil', { until: formatMoment(relay.until) })}${relay.nextStart ? `: ${formatMoment(relay.nextStart)}` : ''}`
     : relay.nextStart
-      ? `następny start z harmonogramu: ${formatMoment(relay.nextStart)}${relay.mode === 'off' ? ' (po odblokowaniu)' : ''}`
-      : relay.mode === 'off' ? 'harmonogram zablokowany' : 'brak zaplanowanych włączeń';
+      ? `${t('sw.home.nextStart', { when: formatMoment(relay.nextStart) })}${relay.mode === 'off' ? ` ${t('sw.home.afterUnlock')}` : ''}`
+      : relay.mode === 'off' ? t('sw.home.scheduleBlocked') : t('sw.home.noStarts');
 
   return (
     <section className={`card card-relay${relay.desiredOn ? ' is-on' : ''}${relay.mode === 'off' ? ' is-blocked' : ''}`}>
@@ -63,12 +65,12 @@ const RelayCard: React.FC<{
       </header>
       <div className={`relay-state${mode.danger ? ' danger-text' : ''}`}><i className="dot" />{mode.text}</div>
       {!relay.online && (
-        <OfflineBanner since={relay.lastSeenAt ?? undefined} now={now} detail={relay.lastSeenAt ? undefined : 'sterownik jeszcze się nie zgłosił.'} />
+        <OfflineBanner since={relay.lastSeenAt ?? undefined} now={now} detail={relay.lastSeenAt ? undefined : t('sw.home.notReported')} />
       )}
       {counting ? (
-        <div className="countdown" title={`Wyłączenie o ${formatTime(relay.until)}`}>
+        <div className="countdown" title={t('sw.home.offAt', { time: formatTime(relay.until) })}>
           <span className="countdown-num">{formatCountdown(relay.until!, now)}</span>
-          <span className="countdown-label">do wyłączenia</span>
+          <span className="countdown-label">{t('sw.home.untilOff')}</span>
         </div>
       ) : (
         <div className="countdown is-idle">
@@ -76,34 +78,35 @@ const RelayCard: React.FC<{
           <span className="countdown-label">{idleLabel}</span>
         </div>
       )}
-      {relay.on !== relay.desiredOn && relay.online && <p className="help">Czeka na sterownik…</p>}
+      {relay.on !== relay.desiredOn && relay.online && <p className="help">{t('sw.waiting')}</p>}
       <div className="actions actions-3">
         <button type="button" className={`btn btn-primary${manualOn ? ' is-active' : ''}`} disabled={busy || !timeValid}
-          onClick={turnOn}>Włącz</button>
+          onClick={turnOn}>{t('sw.simple.turnOn')}</button>
         <button type="button" className={`btn${relay.mode === 'off' ? ' is-active' : ''}`} disabled={busy}
-          onClick={() => onMode('off')}>Wyłącz</button>
+          onClick={() => onMode('off')}>{t('sw.simple.turnOff')}</button>
         <button type="button" className={`btn btn-ghost${relay.mode === 'schedule' ? ' is-active' : ''}`} disabled={busy}
-          onClick={() => onMode('schedule')}>Harmonogram</button>
+          onClick={() => onMode('schedule')}>{t('view.schedules')}</button>
       </div>
       <div className="form-row">
-        <label htmlFor={`sw${relay.relay}-h`}>Czas włączenia</label>
+        <label htmlFor={`sw${relay.relay}-h`}>{t('sw.home.onTime')}</label>
         <div className="range-inputs">
-          <input type="number" id={`sw${relay.relay}-h`} min={0} max={168} value={hours} aria-label="Godziny"
+          <input type="number" id={`sw${relay.relay}-h`} min={0} max={168} value={hours} aria-label={t('sw.home.hours')}
             onChange={(event) => setHours(event.currentTarget.value)} />
           <span className="unit-txt">h</span>
-          <input type="number" id={`sw${relay.relay}-m`} min={0} max={59} value={minutes} aria-label="Minuty"
+          <input type="number" id={`sw${relay.relay}-m`} min={0} max={59} value={minutes} aria-label={t('sw.home.minutes')}
             onChange={(event) => setMinutes(event.currentTarget.value)} />
           <span className="unit-txt">min</span>
         </div>
       </div>
       <p className={`help${timeValid ? '' : ' danger-text'}`}>
-        {!timeValid ? 'Najwyżej 7 dni (168 h).' : '„Włącz” działa na ten czas; 0 h 0 min = bez limitu.'}
+        {!timeValid ? t('sw.home.maxWeek') : t('sw.home.onTimeHelp')}
       </p>
     </section>
   );
 };
 
 export const SwitchHome: React.FC = () => {
+  const { t } = useLang();
   const [relays, setRelays] = useState<SwitchRelay[] | null>(null);
   const [activations, setActivations] = useState<SwitchActivation[] | null>(null);
   const [defaultMinutes, setDefaultMinutes] = useState(30);
@@ -149,7 +152,7 @@ export const SwitchHome: React.FC = () => {
       const updated = await SwitchRequests.setMode(relay, mode, minutes);
       setRelays((current) => current?.map((item) => item.relay === relay ? updated : item) ?? null);
     } catch {
-      setError('Nie udało się zmienić trybu przekaźnika.');
+      setError(t('sw.home.modeFailed'));
     } finally {
       setBusy(null);
     }
@@ -162,8 +165,8 @@ export const SwitchHome: React.FC = () => {
 
   return (
     <div className="page page-device switch-page">
-      {relays === null && <section className="card"><p className="help">Wczytywanie…</p></section>}
-      {relays?.length === 0 && <section className="card"><p className="help">Sterownik nie zgłosił jeszcze przekaźników.</p></section>}
+      {relays === null && <section className="card"><p className="help">{t('common.loading')}</p></section>}
+      {relays?.length === 0 && <section className="card"><p className="help">{t('sw.noRelays')}</p></section>}
       {error && <section className="card card-danger"><p className="danger-text">{error}</p></section>}
       {relays && relays.length > 0 && (
         <div className="grid-2">
@@ -176,11 +179,11 @@ export const SwitchHome: React.FC = () => {
 
       <section className="card card-table">
         <header className="card-head">
-          <h2>Dziś</h2>
-          {sorted.length > 0 && <span className="card-hint">razem {formatDuration(total)}</span>}
+          <h2>{t('wx.todayCap')}</h2>
+          {sorted.length > 0 && <span className="card-hint">{t('sw.home.total', { time: formatDuration(total) })}</span>}
         </header>
-        {activations === null && <p className="help">Wczytywanie…</p>}
-        {activations?.length === 0 && <p className="help">Dziś nie było włączeń.</p>}
+        {activations === null && <p className="help">{t('common.loading')}</p>}
+        {activations?.length === 0 && <p className="help">{t('sw.home.noneToday')}</p>}
         {sorted.length > 0 && (
           <ActivationsTable activations={sorted} names={names} showRelay={(relays?.length ?? 0) > 1} moment={formatMoment} />
         )}
