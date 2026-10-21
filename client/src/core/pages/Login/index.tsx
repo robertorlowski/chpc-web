@@ -149,7 +149,7 @@ export function Login() {
         )}
         {demo && sentTo === null && (
           <div className="auth-demo">
-            <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => void enterDemo()}>{t('login.demo')}</button>
+            <button type="button" className="link-btn" disabled={busy} onClick={() => void enterDemo()}>{t('login.demo')}</button>
           </div>
         )}
       </div>

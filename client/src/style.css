@@ -524,4 +524,7 @@ body .settings.fill-page > section > .resource:first-child {
 .demo-banner { background: var(--warn-bg); color: var(--warn-fg); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .demo-banner .link-btn { color: inherit; font-weight: 600; }
 .demo-toast { position: fixed; left: 50%; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; padding: 10px 16px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-fg); font-size: 14px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
-.auth-demo { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; }
+/* wersja demo: mały, wyciszony odnośnik pod formularzem, żeby nie konkurował z logowaniem */
+.auth-demo { margin-top: 12px; text-align: center; }
+.auth-demo .link-btn { color: var(--fg-3); font-weight: 500; font-size: 12px; }
+.auth-demo .link-btn:hover { color: var(--fg-2); }
