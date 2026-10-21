@@ -15,12 +15,13 @@ import { DeviceRequests, FirmwareRequests } from '../api';
 import { canEditDevice, Device, DeviceTile, DeviceType, FirmwareSummary } from '../types';
 import { getDeviceTypeView } from '../device-types';
 import { useCurrentDevice } from './DeviceAddress';
+import { t as tr, useLang } from '../i18n';
+import { dateTimeLabel } from '../i18n/format';
 import './firmwareStatus.css';
 
 const REFRESH_MS = 15000;
 
-const formatDateTime = (value?: string) =>
-  value ? new Date(value).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '---';
+const formatDateTime = (value?: string) => dateTimeLabel(value);
 
 export type FirmwareState = {
   supported: boolean;
@@ -45,9 +46,9 @@ export type FirmwareState = {
 function updateBlocker(device: Device, tile: DeviceTile | undefined): string | undefined {
   if (!tile) return undefined;
   if (device.deviceType === DeviceType.HP && tile.running)
-    return 'Sprężarka pracuje.';
+    return tr('fwStatus.compressorRuns');
   if (device.deviceType === DeviceType.SWITCH && tile.relays?.some((relay) => relay.on))
-    return 'Przekaźnik włączony.';
+    return tr('fwStatus.relayOn');
   return undefined;
 }
 
@@ -95,14 +96,14 @@ export function useFirmwareStatus(device: Device | null): FirmwareState {
       await action();
       reload();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Operacja nie powiodła się.');
+      setError(reason instanceof Error ? reason.message : tr('common.operationFailed'));
     }
     setBusy(false);
   };
 
   const update = () => {
     if (!device) return;
-    if (!window.confirm(`Zaktualizować firmware sterownika do wersji ${offered}? Sterownik po pobraniu się zrestartuje.`)) return;
+    if (!window.confirm(tr('fwStatus.confirm', { version: offered ?? '' }))) return;
     run(() => DeviceRequests.requestFirmwareUpdate(device.rootId));
   };
   const cancel = () => {
@@ -117,6 +118,7 @@ export function useFirmwareStatus(device: Device | null): FirmwareState {
 
 // Wiersze <div><dt/><dd/></div> do <dl class="kv">: Firmware z chipem stanu i Ostatnie zgłoszenie.
 export const FirmwareRows: React.FC<{ state: FirmwareState }> = ({ state }) => {
+  const { t } = useLang();
   const { current, version, offered, differs, pending } = state;
   if (!state.supported) return null;
   return (
@@ -126,16 +128,16 @@ export const FirmwareRows: React.FC<{ state: FirmwareState }> = ({ state }) => {
         <dd>
           {version ?? (current ? '—' : '---')}{' '}
           {current && (pending
-            ? <span className="chip chip-warn">zlecona {pending.version}</span>
+            ? <span className="chip chip-warn">{t('fwStatus.requested')} {pending.version}</span>
             : differs
-              ? <span className="chip chip-warn">dostępna {offered}</span>
-              : <span className={`chip ${version ? 'chip-ok' : 'chip-off'}`}>{version ? 'aktualny' : 'brak danych'}</span>)}
-          {current && !version && <small className="block">starszy firmware nie zgłasza wersji</small>}
-          {pending && <small className="block">zlecona {formatDateTime(pending.requestedAt)}, czeka na sterownik</small>}
+              ? <span className="chip chip-warn">{t('fwStatus.available')} {offered}</span>
+              : <span className={`chip ${version ? 'chip-ok' : 'chip-off'}`}>{version ? t('fw.chipCurrent') : t('fwStatus.noData')}</span>)}
+          {current && !version && <small className="block">{t('fw.olderNoVersion')}</small>}
+          {pending && <small className="block">{t('fwStatus.requestedAt', { time: formatDateTime(pending.requestedAt) })}</small>}
         </dd>
       </div>
       {current?.firmwareSeenAt && (
-        <div><dt>Ostatnie zgłoszenie</dt><dd>{formatDateTime(current.firmwareSeenAt)}</dd></div>
+        <div><dt>{t('fwStatus.lastReport')}</dt><dd>{formatDateTime(current.firmwareSeenAt)}</dd></div>
       )}
     </>
   );
@@ -145,6 +147,7 @@ export const FirmwareRows: React.FC<{ state: FirmwareState }> = ({ state }) => {
 // wersji przycisku nie ma; gdy sterownik teraz nie może się zaktualizować, przycisk jest nieaktywny, a obok komunikat.
 // Bez przycisku także, gdy rodzaj nie ma OTA albo oglądający nie jest właścicielem.
 export const FirmwareActions: React.FC<{ state: FirmwareState; className?: string }> = ({ state, className }) => {
+  const { t } = useLang();
   const { supported, current, pending, differs, busy, error, canRequest, blocked } = state;
   if (!supported || !current || !canRequest) return null;
   if (!pending && !differs) return error ? <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div> : null;
@@ -153,11 +156,11 @@ export const FirmwareActions: React.FC<{ state: FirmwareState; className?: strin
       {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
       <div className={className ?? 'actions'}>
         {pending
-          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={state.cancel}>Anuluj aktualizację</button>
+          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={state.cancel}>{t('fwStatus.cancelUpdate')}</button>
           : <>
               {blocked && <span className="firmware-blocked">{blocked}</span>}
               <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !!blocked} onClick={state.update}
-                title={blocked ?? `Zleć aktualizację do wersji ${state.offered}`}>Aktualizuj firmware</button>
+                title={blocked ?? t('fwStatus.requestTitle', { version: state.offered ?? '' })}>{t('fwStatus.update')}</button>
             </>}
       </div>
     </>

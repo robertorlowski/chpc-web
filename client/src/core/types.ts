@@ -297,6 +297,8 @@ export type DeviceTile = {
   note?: { level: 'warn' | 'err'; text: string };
   updatedAt?: string;
   foot?: string;
+  /** hydrofor: początek ostatniego uruchomienia (ISO), gdy pompa nie pracuje; kafelek pisze „ostatnie uruchomienie …” */
+  lastRunAt?: string;
   /** początek bieżącej pracy przy running (ISO; kocioł: palenie) — czas pracy w plakietce stanu */
   since?: string;
   /** wskaźniki pomp obiegu (kocioł: CO, CWU) */

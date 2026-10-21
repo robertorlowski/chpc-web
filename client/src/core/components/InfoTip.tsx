@@ -3,6 +3,7 @@
 // 360 px; ponowne dotknięcie, dotknięcie obok (pointerdown: także iPhone, gdzie puste miejsce nie daje mousedown),
 // Esc albo przewinięcie strony go zamyka. Na ekranie zostają stany na żywo, ostrzeżenia i instrukcje.
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLang } from '../i18n';
 import './infoTip.css';
 
 const MARGIN = 8;
@@ -12,7 +13,9 @@ const MAX_WIDTH = 320;
 // Akapit w dymku (span blokowy: dymek bywa w label, summary i nagłówkach, gdzie nie wolno używać p ani div).
 export const TipParagraph = ({ children }: { children: ReactNode }) => <span className="info-tip-paragraph">{children}</span>;
 
-export function InfoTip({ children, label = 'Informacja' }: { children: ReactNode; label?: string }) {
+export function InfoTip({ children, label: labelProp }: { children: ReactNode; label?: string }) {
+  const { t } = useLang();
+  const label = labelProp ?? t('common.info');
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);

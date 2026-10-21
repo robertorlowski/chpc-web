@@ -7,7 +7,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { DeviceRequests } from '../api';
 import { getDeviceTypeView } from '../device-types';
-import { Device, DeviceDefinition, DeviceType } from '../types';
+import { Device, DeviceDefinition } from '../types';
+import { useLang } from '../i18n';
 import { ListIcon } from './DeviceTileCard';
 import './deviceEditModal.css';
 
@@ -17,11 +18,10 @@ type Props = {
   onSaved: (device: Device) => void;
 };
 
-// nazwa rodzaju w polu „Rodzaj”: z rejestru (label); rodzaje bez label mają nazwę tutaj
-const TYPE_NAMES: Partial<Record<DeviceType, string>> = { [DeviceType.HP]: 'Pompa ciepła', [DeviceType.PHOTOVOLTAIC]: 'Fotowoltaika' };
-const typeLabel = (device: Device) => getDeviceTypeView(device.deviceType).label ?? TYPE_NAMES[device.deviceType] ?? device.deviceType;
-
 export function DeviceEditModal({ device, onClose, onSaved }: Props) {
+  const { t } = useLang();
+  // nazwa rodzaju w polu „Rodzaj”: słownik type.<rodzaj> (core/i18n)
+  const typeLabel = (item: Device) => t(`type.${item.deviceType}`);
   const [name, setName] = useState(device.name ?? '');
   // undefined = pola rodzaju bez zmian, null = pole z błędem (zapis zablokowany)
   const [definition, setDefinition] = useState<DeviceDefinition | null | undefined>(undefined);
@@ -43,7 +43,7 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
       const found = devices?.find((item) => item.rootId === device.rootId);
       if (!active) return;
       if (found) setFresh(found);
-      else setError('Nie udało się odczytać danych sterownika.');
+      else setError(t('deviceEdit.loadFailed'));
     });
     return () => { active = false; };
   }, [DefinitionFields, device.rootId]);
@@ -69,7 +69,7 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
     } catch (caught) {
       // 409: serwer odrzucił definicję z powodem (np. kocioł w trybie „Pompa ciepła” przy odłączaniu pompy)
       const failure = caught as { status?: number; serverMessage?: string };
-      setError(failure.status === 409 && failure.serverMessage ? failure.serverMessage : 'Nie udało się zapisać danych sterownika.');
+      setError(failure.status === 409 && failure.serverMessage ? failure.serverMessage : t('deviceEdit.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -80,16 +80,16 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
       <div className="scrim" onClick={onClose} />
       <form className="modal" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" onSubmit={save}>
         <header className="modal-head">
-          <h2 id="device-modal-title">Dane sterownika</h2>
-          <button type="button" className="icon-btn sm" aria-label="Zamknij" onClick={onClose}><ListIcon name="close" /></button>
+          <h2 id="device-modal-title">{t('deviceEdit.title')}</h2>
+          <button type="button" className="icon-btn sm" aria-label={t('common.close')} onClick={onClose}><ListIcon name="close" /></button>
         </header>
         <div className="modal-body">
           <label className="field">
-            <span>Nazwa</span>
+            <span>{t('deviceEdit.name')}</span>
             <input type="text" name="name" value={name} placeholder={device.deviceId} autoFocus onChange={(event) => setName(event.currentTarget.value)} />
           </label>
           <label className="field is-readonly">
-            <span>Rodzaj</span>
+            <span>{t('deviceEdit.type')}</span>
             <input type="text" value={`${typeLabel(device)} (${device.deviceType})`} readOnly />
           </label>
           <label className="field is-readonly">
@@ -105,15 +105,15 @@ export function DeviceEditModal({ device, onClose, onSaved }: Props) {
           {simpleAvailable && (
             <label className="check">
               <input type="checkbox" checked={simple} onChange={(event) => setSimple(event.currentTarget.checked)} />
-              <span>Kafelek prosty</span>
-              <small>Kafelek na liście rośnie i ma w środku duże przyciski: Włącz / Wyłącz / harmonogram, z opisem, co się stanie. Tak zobaczy go osoba, której udostępnisz sterownik jako „Panel prosty”. Dotyczy tylko Twojego konta; nazwa kafelka nadal otwiera pełne widoki.</small>
+              <span>{t('deviceEdit.simple')}</span>
+              <small>{t('deviceEdit.simpleHint')}</small>
             </label>
           )}
           {error && <p className="device-modal-error" role="alert">{error}</p>}
         </div>
         <footer className="modal-foot">
-          <button type="button" className="btn" onClick={onClose}>Anuluj</button>
-          <button type="submit" className="btn btn-primary" disabled={saving || definition === null || (!!DefinitionFields && !fresh)}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="submit" className="btn btn-primary" disabled={saving || definition === null || (!!DefinitionFields && !fresh)}>{saving ? t('common.saving') : t('common.save')}</button>
         </footer>
       </form>
     </div>

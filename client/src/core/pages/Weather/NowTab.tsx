@@ -3,6 +3,7 @@
 import { ListIcon } from '../../components/DeviceTileCard';
 import { weatherDescription, WeatherCodeIcon } from '../../components/WeatherIcon';
 import { capital, deg, dayOf, Forecast, hourOf, nextHourIndex, todayIndex, weekday, windDirection } from './forecast';
+import { t as tr, useLang } from '../../i18n';
 
 const HOURS = 48;
 export const COLUMN = 58;
@@ -25,15 +26,15 @@ function summary(forecast: Forecast, start: number): string {
   const text = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
   const hour = Number(hourOf(forecast.current.time).slice(0, 2));
   const evening = hour >= 15 || hour < 4;
-  return `${capital(text)}. ${evening ? 'Min.' : 'Maks.'} temp. ${Math.round(evening ? Math.min(...temps) : Math.max(...temps))} °C.`;
+  return `${capital(text)}. ${tr(evening ? 'wx.minTemp' : 'wx.maxTemp', { value: Math.round(evening ? Math.min(...temps) : Math.max(...temps)) })}`;
 }
 
 function tomorrowText(diff: number) {
-  if (diff <= -4) return 'Temperatury wyraźnie niższe niż dzisiaj';
-  if (diff < 0) return 'Temperatury nieco niższe niż dzisiaj';
-  if (diff === 0) return 'Temperatury podobne do dzisiejszych';
-  if (diff < 4) return 'Temperatury nieco wyższe niż dzisiaj';
-  return 'Temperatury wyraźnie wyższe niż dzisiaj';
+  if (diff <= -4) return tr('wx.tomorrowMuchColder');
+  if (diff < 0) return tr('wx.tomorrowColder');
+  if (diff === 0) return tr('wx.tomorrowSimilar');
+  if (diff < 4) return tr('wx.tomorrowWarmer');
+  return tr('wx.tomorrowMuchWarmer');
 }
 
 // Prognoza godzinowa: kolumny w poziomym przewijaniu (strona się nie przewija), pod temperaturami linia z kropkami.
@@ -50,7 +51,7 @@ function Hourly({ forecast, start }: { forecast: Forecast; start: number }) {
   const width = hours.length * COLUMN;
   const points = hours.map((hour, index) => `${index * COLUMN + COLUMN / 2},${y(hour.temp)}`).join(' ');
   return (
-    <div className="wx-hourly" role="list" aria-label={`Prognoza na ${HOURS} godziny`}>
+    <div className="wx-hourly" role="list" aria-label={tr('wx.hourlyLabel', { n: HOURS })}>
       <div className="wx-hourly-row" style={{ width }}>
         {hours.map((hour) => (
           <div key={hour.time} role="listitem" className={`wx-hour${hourOf(hour.time) === '00:00' ? ' is-midnight' : ''}`} style={{ width: COLUMN }}>
@@ -76,6 +77,7 @@ function Hourly({ forecast, start }: { forecast: Forecast; start: number }) {
 // sensor: temperatura z czujnika zewnętrznego kotła („Dom”, od 2026-10-21) — w nagłówku zamiast modelu, model w dopisku;
 // bez świeżego pomiaru (piec wyłączony) zostaje model
 export function NowTab({ forecast, name, sensor }: { forecast: Forecast; name: string; sensor?: number | null }) {
+  const { t } = useLang();
   const { current, daily } = forecast;
   const today = todayIndex(forecast);
   const start = nextHourIndex(forecast);
@@ -91,19 +93,19 @@ export function NowTab({ forecast, name, sensor }: { forecast: Forecast; name: s
           <div className="wx-hero-desc">{capital(weatherDescription(current.weather_code))}</div>
           <div className="wx-hero-range">↑{deg(daily.temperature_2m_max[today])} / ↓{deg(daily.temperature_2m_min[today])}</div>
           <span className="hero-note">
-            {typeof sensor === 'number' ? `Czujnik kotła · model ${deg(current.temperature_2m)} · odczuwalna ${deg(current.apparent_temperature)}` : `Odczuwalna ${deg(current.apparent_temperature)}`}
+            {typeof sensor === 'number' ? t('wx.sensorNote', { model: deg(current.temperature_2m), feels: deg(current.apparent_temperature) }) : t('wx.feelsLike', { value: deg(current.apparent_temperature) })}
           </span>
         </div>
         <div className="hero-side"><div className="hero-kpis">
-          <div className="kpi"><span className="kpi-label">Wiatr</span><span className="kpi-value">{Math.round(current.wind_speed_10m)}<small>km/h {windDirection(current.wind_direction_10m)}</small></span></div>
-          <div className="kpi"><span className="kpi-label">Wilgotność</span><span className="kpi-value">{Math.round(current.relative_humidity_2m)}<small>%</small></span></div>
-          <div className="kpi"><span className="kpi-label">Ciśnienie</span><span className="kpi-value">{Math.round(current.pressure_msl)}<small>hPa</small></span></div>
-          <div className="kpi"><span className="kpi-label">Słońce</span><span className="kpi-value">{hourOf(daily.sunrise[today])}<small>– {hourOf(daily.sunset[today])}</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('weather.wind')}</span><span className="kpi-value">{Math.round(current.wind_speed_10m)}<small>km/h {windDirection(current.wind_direction_10m)}</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.humidity')}</span><span className="kpi-value">{Math.round(current.relative_humidity_2m)}<small>%</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.pressure')}</span><span className="kpi-value">{Math.round(current.pressure_msl)}<small>hPa</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.sun')}</span><span className="kpi-value">{hourOf(daily.sunrise[today])}<small>– {hourOf(daily.sunset[today])}</small></span></div>
         </div></div>
       </section>
 
       <section className="card">
-        <div className="card-head"><h2>Najbliższe 48 godzin</h2><span className="card-hint">przewiń w bok</span></div>
+        <div className="card-head"><h2>{t('wx.next48')}</h2><span className="card-hint">{t('wx.scrollHint')}</span></div>
         <p className="wx-summary">{summary(forecast, start)}</p>
         <Hourly forecast={forecast} start={start} />
       </section>
@@ -111,7 +113,7 @@ export function NowTab({ forecast, name, sensor }: { forecast: Forecast; name: s
       {diff !== null && (
         <section className="card wx-tomorrow">
           <div>
-            <span className="wx-tomorrow-label">Jutrzejsza temperatura</span>
+            <span className="wx-tomorrow-label">{t('wx.tomorrowTemp')}</span>
             <strong>{tomorrowText(diff)}</strong>
           </div>
           <span className="wx-tomorrow-value">{Math.abs(diff)}°{diff < 0 ? '↓' : diff > 0 ? '↑' : ''}</span>

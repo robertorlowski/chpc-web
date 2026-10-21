@@ -6,20 +6,20 @@
 // Dane z GET /api/devices/summary (DeviceTile): wartość główna, wartości boczne i wiersz wartości są tu rozkładane
 // na pola makiety osobno dla każdego rodzaju (shapeTile). Kafelek pogody (WeatherTileCard) z GET /api/weather-tiles.
 // Ikony rodzajów i narzędzi to ikony makiety (ListIcon, kreska 1.8), żeby animacje .is-running z makieta.css działały.
+// Teksty w języku aplikacji (core/i18n): etykiety z serwera przychodzą już w języku żądania (Accept-Language), chipy
+// 'Online' / 'Offline' / 'Brak danych' / 'Brak uruchomień' są identyfikatorami i tłumaczy je chipText.
 import { ReactNode } from 'react';
 import { DeviceTile, DeviceType, TileFact, Weather, WeatherTile } from '../types';
 import { precipitationText, weatherDescription, WeatherIcon } from './WeatherIcon';
 import { currentPlaceProblem, useCurrentPlace } from '../currentPlace';
+import { useLang } from '../i18n';
+import { ageLabel, number, number1, warsawTime, whenLabel } from '../i18n/format';
 
-// „8 s”, „5 min”, „3 h”, „2 dni” — wiek danych w stopce kafelka (używane też w OfflineBanner)
-export function ageLabel(ms: number): string {
-  const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds} s`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.round(minutes / 60);
-  return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} dni`;
-}
+export { ageLabel } from '../i18n/format';
+
+// chip kafelka: identyfikator z serwera → tekst w języku aplikacji
+const CHIP_KEYS: Record<string, string> = { Online: 'chip.online', Offline: 'chip.offline', 'Brak danych': 'chip.noData', 'Brak uruchomień': 'chip.noRuns' };
+export const chipText = (chip: string, t: (key: string) => string) => (CHIP_KEYS[chip] ? t(CHIP_KEYS[chip]) : chip);
 
 // ---- ikony makiety (jeden zestaw, kreska 1.8; makieta.html, ICONS) ----
 const ICON_PATHS: Record<string, string> = {
@@ -83,21 +83,22 @@ function splitValue(value: string): { big: string; unit?: string } {
   return match ? { big: match[1], unit: match[2] } : { big: value };
 }
 
-// podpis pola, gdy serwer nie podał etykiety (np. tryb pracy pompy ma pustą etykietę)
-const ICON_LABELS: Partial<Record<TileFact['icon'], string>> = {
-  sliders: 'Tryb', bolt: 'Moc', thermo: 'Temp.', pellet: 'Pellet', tap: 'CWU', battery: 'Dziś', panel: 'Panele',
-  timer: 'Pompa', repeat: 'Uruchomień', bubbles: 'Kompresor', target: 'Cel', drop: 'Woda', sun: 'Moc',
+// podpis pola, gdy serwer nie podał etykiety (np. tryb pracy pompy ma pustą etykietę): klucz słownika tile.icon.<ikona>
+const ICON_KEYS: Partial<Record<TileFact['icon'], string>> = {
+  sliders: 'tile.icon.sliders', bolt: 'tile.icon.bolt', thermo: 'tile.icon.thermo', pellet: 'tile.icon.pellet', tap: 'tile.icon.tap', battery: 'tile.icon.battery',
+  panel: 'tile.icon.panel', timer: 'tile.icon.timer', repeat: 'tile.icon.repeat', bubbles: 'tile.icon.bubbles', target: 'tile.icon.target', drop: 'tile.icon.drop', sun: 'tile.icon.sun',
 };
 type Fact = { dt: string; dd: string };
+type T = (key: string, params?: Record<string, string | number>) => string;
 
-// czas pracy w plakietce stanu: „49 min”, „2 h 08 min” (jak w makiecie)
-function workTime(ms: number): string {
+// czas pracy w plakietce stanu: „49 min”, „2 h 08 min” (jak w makiecie); withSeconds: poniżej minuty „40 s” (pompa hydroforu)
+function workTime(ms: number, withSeconds = false): string {
+  if (withSeconds && ms < 60000) return `${Math.max(0, Math.floor(ms / 1000))} s`;
   const minutes = Math.max(0, Math.floor(ms / 60000));
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
 }
-const clock = (iso: string) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
-const fact = (item: TileFact, dt?: string): Fact => ({ dt: dt ?? (item.label || ICON_LABELS[item.icon] || ''), dd: item.value });
+const fact = (t: T, item: TileFact, dt?: string): Fact => ({ dt: dt ?? (item.label || (ICON_KEYS[item.icon] ? t(ICON_KEYS[item.icon]!) : '')), dd: item.value });
 
 type Shape = {
   big?: string;
@@ -114,7 +115,7 @@ type Shape = {
 // Rozkład danych kafelka (DeviceTile) na pola makiety: wartość główna z opisem, stan pracy po prawej, pola dt/dd.
 // Każdy rodzaj inaczej składa opis pod dużą liczbą (jak w makiecie: „zbiornik · cel 38–45”, „dziś · 7 507 l
 // w miesiącu”, „moc teraz · 4 panele”, „kocioł · zadana 67”).
-function shapeTile(kind: TileKind, tile: DeviceTile, now: number): Shape {
+function shapeTile(kind: TileKind, tile: DeviceTile, now: number, t: T): Shape {
   const side = tile.side ?? [];
   const row = tile.row ?? [];
   const shape: Shape = { facts: [] };
@@ -123,42 +124,43 @@ function shapeTile(kind: TileKind, tile: DeviceTile, now: number): Shape {
   switch (kind) {
     case 'hp': {
       const target = side.find((item) => item.icon === 'target');
-      shape.label = target ? `${label} · cel ${target.value}` : label;
-      shape.facts = [...side.filter((item) => item !== target), ...row.filter((item) => item.icon !== 'sliders')].map((item) => fact(item));
-      if (tile.running) shape.state = { text: 'pracuje', title: 'Sprężarka pracuje' };
+      shape.label = target ? `${label} · ${t('tile.target')} ${target.value}` : label;
+      shape.facts = [...side.filter((item) => item !== target), ...row.filter((item) => item.icon !== 'sliders')].map((item) => fact(t, item));
+      if (tile.running) shape.state = { text: t('tile.running'), title: t('header.compressorRuns') };
       break;
     }
     case 'pv': {
       const panels = side.find((item) => item.icon === 'panel');
-      shape.label = `${label === 'teraz' ? 'moc teraz' : label}${panels ? ` · ${panels.value} ${panels.label ?? 'paneli'}` : ''}`;
-      shape.facts = [...side.filter((item) => item !== panels).map((item) => fact(item)), ...row.map((item) => fact(item, item.icon === 'thermo' ? 'Falownik' : undefined))];
+      shape.label = `${t('tile.powerNow')}${panels ? ` · ${panels.value} ${panels.label ?? t('tile.icon.panel')}` : ''}`;
+      shape.facts = [...side.filter((item) => item !== panels).map((item) => fact(t, item)), ...row.map((item) => fact(t, item, item.icon === 'thermo' ? t('tile.inverter') : undefined))];
       break;
     }
     case 'tank': {
-      shape.label = tile.main2 ? `${label} · ${tile.main2.value} w miesiącu` : label;
-      shape.facts = row.map((item) => fact(item));
-      // stopka rodzaju: „ostatnie uruchomienie 13.10 19:07” → pole Ostatnie; „pompa pracuje 4 min” → stan pracy
-      const foot = tile.foot ?? '';
-      if (foot.startsWith('ostatnie uruchomienie ')) shape.facts.push({ dt: 'Ostatnie', dd: foot.slice('ostatnie uruchomienie '.length) });
-      else if (foot.startsWith('pompa pracuje ')) shape.state = { text: foot.slice('pompa pracuje '.length), title: `Pompa pracuje od ${foot.slice('pompa pracuje '.length)}` };
-      else if (foot) shape.foot = foot;
+      shape.label = tile.main2 ? `${label} · ${t('tile.inMonth', { value: tile.main2.value })}` : label;
+      shape.facts = row.map((item) => fact(t, item));
+      // praca pompy (since) → stan pracy z czasem; postój (lastRunAt) → pole Ostatnie z chwilą startu
+      if (tile.running && tile.since) {
+        const time = workTime(now - new Date(tile.since).getTime(), true);
+        shape.state = { text: time, title: t('tile.pumpRunningFor', { time }) };
+      } else if (tile.lastRunAt) shape.facts.push({ dt: t('tile.lastRun'), dd: whenLabel(tile.lastRunAt, now) });
+      else if (tile.foot) shape.foot = tile.foot;
       break;
     }
     case 'boiler': {
       // „kocioł · zadana 67”, pola CWU / Mieszacz 1 / Mieszacz 2, przy paleniu czas palenia i pompy CO / CWU
-      shape.label = label.replace(' → ', ' · zadana ');
-      shape.facts = [...side.map((item) => fact(item, item.icon === 'tap' ? 'CWU' : undefined)), ...row.map((item) => fact(item))];
+      shape.label = label.replace(' → ', ` · ${t('tile.setpoint')} `);
+      shape.facts = [...side.map((item) => fact(t, item, item.icon === 'tap' ? t('tile.cwu') : undefined)), ...row.map((item) => fact(t, item))];
       if (tile.running) {
         shape.state = tile.since
-          ? { text: workTime(now - new Date(tile.since).getTime()), title: `Kocioł pali od ${clock(tile.since)}` }
-          : { text: 'pali', title: 'Kocioł pali' };
+          ? { text: workTime(now - new Date(tile.since).getTime()), title: t('tile.burningSince', { time: warsawTime(tile.since) }) }
+          : { text: t('tile.burning'), title: t('tile.boilerBurning') };
       }
       shape.pumps = tile.pumps;
       break;
     }
     default:
       shape.label = label;
-      shape.facts = [...side.map((item) => fact(item)), ...row.map((item) => fact(item))];
+      shape.facts = [...side.map((item) => fact(t, item)), ...row.map((item) => fact(t, item))];
   }
   if (kind !== 'tank' && tile.foot) shape.foot = tile.foot;
   return shape;
@@ -186,8 +188,6 @@ function Skeleton() {
   );
 }
 
-// stopka „kafelek ukryty …” zamiast wieku danych (tylko w trybie „Zmień układ”, gdzie ukryte kafelki widać)
-const HIDDEN_FOOT = 'kafelek ukryty · widoczny tylko w trybie „Zmień układ”';
 
 export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, tools }: {
   deviceType: DeviceType; name: string; tile?: DeviceTile; now: number;
@@ -199,14 +199,16 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
   tools?: ReactNode;
 }) {
   const kind = TILE_KINDS[deviceType] ?? 'hp';
+  const { t } = useLang();
+  const HIDDEN_FOOT = t('tile.hiddenFoot');
   const head = (
     <div className="tile-head">
       <span className="tile-icon"><ListIcon name={KIND_ICONS[kind]} /></span>
       <h2 className="tile-name">{name}</h2>
-      {hidden ? <span className="chip chip-off">Ukryty</span> : tile && (
+      {hidden ? <span className="chip chip-off">{t('tile.hidden')}</span> : tile && (
         <span className={`chip chip-${chipClass(tile, deviceType)}${tile.running ? ' is-running' : ''}`}
-          title={tile.running ? 'Pracuje' : undefined}>
-          {(tile.chip === 'Online' || tile.running) && <i className="dot" />}{tile.chip}
+          title={tile.running ? t('header.running') : undefined}>
+          {(tile.chip === 'Online' || tile.running) && <i className="dot" />}{chipText(tile.chip, t)}
         </span>
       )}
       {tools && <span className="tile-tools">{tools}</span>}
@@ -215,8 +217,8 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
   if (loading && !tile) return <>{head}<Skeleton /></>;
   if (!tile) return <>{head}{hidden && <footer className="tile-foot">{HIDDEN_FOOT}</footer>}</>;
 
-  const shape = shapeTile(kind, tile, now);
-  const age = tile.updatedAt ? `dane sprzed ${ageLabel(now - new Date(tile.updatedAt).getTime())}` : '';
+  const shape = shapeTile(kind, tile, now, t);
+  const age = tile.updatedAt ? t('tile.dataAge', { age: ageLabel(now - new Date(tile.updatedAt).getTime()) }) : '';
   const foot = hidden ? HIDDEN_FOOT : [shape.foot, age].filter(Boolean).join(' · ');
   return (
     <>
@@ -227,7 +229,7 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
             <div key={relay.name} className="relay">
               <span className="relay-name">{relay.name}</span>
               {/* tryb „Wyłączony” blokuje harmonogram: opis na czerwono jak w makiecie */}
-              <span className={`relay-desc${relay.text.startsWith('wyłączony ręcznie') ? ' danger-text' : ''}`}>{relay.text}</span>
+              <span className={`relay-desc${relay.mode === 'off' ? ' danger-text' : ''}`}>{relay.text}</span>
               <span className={`switch${relay.on ? ' is-on' : ''}`} role="switch" aria-checked={relay.on} aria-label={relay.name} />
             </div>
           ))}
@@ -244,9 +246,9 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
             <div className="tile-side">
               {shape.state && <span className="state state-on" title={shape.state.title}><i className="dot" />{shape.state.text}</span>}
               {shape.pumps?.length ? (
-                <span className="pumps" aria-label="Pompy obiegu">
+                <span className="pumps" aria-label={t('tile.pumps')}>
                   {shape.pumps.map((pump) => (
-                    <span key={pump.label} className={`pump${pump.on ? ' is-on' : ''}`} title={`Pompa ${pump.label} ${pump.on ? 'pracuje' : 'stoi'}`}>
+                    <span key={pump.label} className={`pump${pump.on ? ' is-on' : ''}`} title={pump.on ? t('tile.pumpRuns', { name: pump.label }) : t('tile.pumpIdle', { name: pump.label })}>
                       <i className="dot" />{pump.label}
                     </span>
                   ))}
@@ -263,8 +265,7 @@ export function DeviceTileCard({ deviceType, name, tile, now, loading, hidden, t
   );
 }
 
-const number1 = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const number01 = (value: number) => value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
+const number01 = (value: number) => number(value, 1);
 
 // Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka: przy pogodzie
 // ikona „i” ze źródłem i wiekiem („Open-Meteo · X min temu”, od 2026-10-19 w dymku zamiast tekstu), bez pogody
@@ -275,31 +276,33 @@ const number01 = (value: number) => value.toLocaleString('pl-PL', { maximumFract
 export function WeatherTileCard({ tile, now, hidden, tools, sensor }: {
   tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode; sensor?: number | null;
 }) {
+  const { t } = useLang();
   if (tile.current) return <CurrentWeatherTileCard tile={tile} now={now} hidden={hidden} tools={tools} />;
   const weather = tile.weather;
   const fromSensor = tile.home && typeof sensor === 'number';
-  const foot = hidden ? HIDDEN_FOOT : weather
-    ? <SourceTip text={`${fromSensor ? 'czujnik kotła · ' : ''}Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`}
+  const foot = hidden ? t('tile.hiddenFoot') : weather
+    ? <SourceTip text={`${fromSensor ? `${t('weather.boilerSensor')} · ` : ''}Open-Meteo · ${t('weather.ago', { age: ageLabel(now - new Date(weather.at).getTime()) })}`}
         detail={fromSensor
-          ? `Temperatura z czujnika zewnętrznego kotła (Open-Meteo: ${number1(weather.temperature)} °C). Niebo, wiatr i opad pobiera sterownik włącznika z domowego łącza co 15 min.`
-          : 'Pogodę pobiera sterownik włącznika z domowego łącza co 15 min.'} />
-    : tile.home ? 'włącznik nie zgłosił pogody od 45 min' : 'czeka na włącznik (firmware od 1.2.0)';
-  return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel="brak pogody z włącznika"
+          ? t('weather.sensorDetail', { temperature: number1(weather.temperature) })
+          : t('weather.switchDetail')} />
+    : tile.home ? t('weather.homeNoReport') : t('weather.waitingSwitch');
+  return <WeatherTileBody name={tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} emptyLabel={t('weather.noneFromSwitch')}
     temperature={fromSensor ? sensor as number : undefined} />;
 }
 
 function CurrentWeatherTileCard({ tile, now, hidden, tools }: {
   tile: WeatherTile; now: number; hidden?: boolean; tools?: ReactNode;
 }) {
+  const { t } = useLang();
   const { status, place } = useCurrentPlace(!hidden);
-  const problem = currentPlaceProblem(status);
+  const problem = currentPlaceProblem(status, t);
   const weather = place?.weather ?? null;
-  const foot = hidden ? HIDDEN_FOOT : problem && !weather ? problem
-    : weather ? <SourceTip text={`Twoja lokalizacja · Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu`} detail="Położenie i pogodę pobiera ta przeglądarka." />
-      : 'ustalam położenie…';
-  const chip = <span className="chip chip-loc" title="Bieżąca lokalizacja tego urządzenia"><ListIcon name="locate" />tu jesteś</span>;
+  const foot = hidden ? t('tile.hiddenFoot') : problem && !weather ? problem
+    : weather ? <SourceTip text={`${t('weather.yourLocation')} · Open-Meteo · ${t('weather.ago', { age: ageLabel(now - new Date(weather.at).getTime()) })}`} detail={t('weather.browserDetail')} />
+      : t('weather.locating');
+  const chip = <span className="chip chip-loc" title={t('weather.currentLocationTitle')}><ListIcon name="locate" />{t('weather.youAreHere')}</span>;
   return <WeatherTileBody name={place?.name ?? tile.name} weather={weather} foot={foot} hidden={hidden} tools={tools} chip={chip}
-    emptyLabel={problem ? 'brak położenia' : 'ustalam położenie…'} />;
+    emptyLabel={problem ? t('weather.noLocation') : t('weather.locating')} />;
 }
 
 // Źródło i wiek pogody jako tekst (stopka kafelka pogody, pasek pogody nad listą), np. „Open-Meteo · 10 min temu”;
@@ -313,18 +316,19 @@ function WeatherTileBody({ name, weather, foot, hidden, tools, chip, emptyLabel,
   /** temperatura spoza pogody (czujnik kotła na kafelku „Dom”) */
   temperature?: number;
 }) {
+  const { t } = useLang();
   const temperature = override ?? weather?.temperature;
   const facts: Fact[] = weather ? [
-    { dt: 'Wiatr', dd: `${Math.round(weather.windSpeed)} km/h` },
-    { dt: 'Chmury', dd: `${Math.round(weather.cloudCover)} %` },
-    { dt: 'Opad', dd: weather.snowfall > 0 ? `${number01(weather.snowfall)} cm` : `${number01(weather.precipitation)} mm` },
+    { dt: t('weather.wind'), dd: `${Math.round(weather.windSpeed)} km/h` },
+    { dt: t('weather.clouds'), dd: `${Math.round(weather.cloudCover)} %` },
+    { dt: t('weather.precip'), dd: weather.snowfall > 0 ? `${number01(weather.snowfall)} cm` : `${number01(weather.precipitation)} mm` },
   ] : [];
   return (
     <>
       <div className="tile-head">
         <span className="tile-icon">{weather ? <WeatherIcon weather={weather} /> : <ListIcon name="sun" />}</span>
         <h2 className="tile-name">{name}</h2>
-        {hidden ? <span className="chip chip-off">Ukryty</span> : chip}
+        {hidden ? <span className="chip chip-off">{t('tile.hidden')}</span> : chip}
         {tools && <span className="tile-tools">{tools}</span>}
       </div>
       <div className="tile-main">

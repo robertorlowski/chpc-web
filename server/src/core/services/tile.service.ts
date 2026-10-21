@@ -1,15 +1,16 @@
 // Kafelki sterowników dla strony /devices (GET /devices/summary): dla każdego urządzenia woła tile rodzaju
 // z rejestru. Błąd jednego rodzaju nie psuje pozostałych (kafelek zostaje wtedy tylko z nazwą).
+import { DEFAULT_LANG, Lang } from '../i18n';
 import { DeviceTile } from '../types';
 import { listDevices } from './device.service';
 import { getDeviceTypeModule } from '../device-types';
 
-export async function getDeviceTiles(): Promise<Record<string, DeviceTile>> {
+export async function getDeviceTiles(lang: Lang = DEFAULT_LANG): Promise<Record<string, DeviceTile>> {
   const devices = await listDevices();
   const entries = await Promise.all(devices.map(async (device) => {
     const rootId = String(device._id);
     try {
-      const tile = await getDeviceTypeModule(device.deviceType).tile?.(rootId, device);
+      const tile = await getDeviceTypeModule(device.deviceType).tile?.(rootId, device, new Date(), lang);
       return tile ? [rootId, tile] as const : null;
     } catch (error) {
       console.error(`[tile] ${device.deviceType} ${rootId}:`, error);

@@ -20,6 +20,7 @@ import { WEATHER_TITLE_ID, weatherTab } from './nav';
 import { NowTab } from './NowTab';
 import { PvLink, SunTab } from './SunTab';
 import { WindTab } from './WindTab';
+import { useLang } from '../../i18n';
 import './style.css';
 
 const REFRESH_MS = 15 * 60 * 1000;
@@ -39,6 +40,7 @@ export default function Weather() {
   const [outdoor, setOutdoor] = useState<OutdoorConditions | null>(null);
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
   const here = useCurrentPlace(!!tile?.current);
+  const { t, locale } = useLang();
   useEffect(() => setTitleSlot(document.getElementById(WEATHER_TITLE_ID)), []);
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export default function Weather() {
         const data = await fetchForecast(lat, lon);
         if (!cancelled) { setForecast(data); setError(''); setLoadedAt(new Date()); }
       } catch {
-        if (!cancelled) setError('Nie udało się pobrać prognozy z Open-Meteo.');
+        if (!cancelled) setError(t('wx.forecastFailed'));
       }
     };
     load();
@@ -89,28 +91,28 @@ export default function Weather() {
   const sensor = tile?.home && outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number' ? outdoor.temperature : null;
 
   const footer = useMemo(() => loadedAt
-    ? `Open-Meteo · pobrana ${loadedAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}`
-      + (tile?.current ? ' · Twoja lokalizacja' : '')
-    : '', [loadedAt, tile?.current]);
+    ? `Open-Meteo · ${t('wx.fetchedAt', { time: loadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }) })}`
+      + (tile?.current ? ` · ${t('weather.yourLocation')}` : '')
+    : '', [loadedAt, tile?.current, locale]);
 
-  if (tile === null) return <div className="page page-narrow weather-page"><p className="empty">Nie ma takiego kafelka pogody.</p></div>;
-  const locationProblem = tile?.current && !here.place ? currentPlaceProblem(here.status) : null;
+  if (tile === null) return <div className="page page-narrow weather-page"><p className="empty">{t('wx.noTile')}</p></div>;
+  const locationProblem = tile?.current && !here.place ? currentPlaceProblem(here.status, t) : null;
 
   return (
     <div className="page page-narrow weather-page">
       {titleSlot && name && createPortal(` · ${name}`, titleSlot)}
       {locationProblem && <div className="alert alert-warn"><div><strong>{locationProblem}</strong></div></div>}
       {error && !forecast && <div className="alert alert-err"><div><strong>{error}</strong></div></div>}
-      {!forecast && !error && !locationProblem && <p className="app-loading">{tile?.current && !here.place ? 'Ustalam położenie…' : 'Pobieram prognozę…'}</p>}
+      {!forecast && !error && !locationProblem && <p className="app-loading">{tile?.current && !here.place ? t('wx.locating') : t('wx.loadingForecast')}</p>}
       {forecast && lat !== null && lon !== null && (
         tab === 'now' ? <NowTab forecast={forecast} name={name} sensor={sensor} />
           : tab === 'days' ? <DaysTab forecast={forecast} />
-            : tab === 'pv' ? (pv === undefined ? <p className="app-loading">Pobieram produkcję z DTU…</p> : <SunTab forecast={forecast} pv={pv} />)
+            : tab === 'pv' ? (pv === undefined ? <p className="app-loading">{t('wx.loadingDtu')}</p> : <SunTab forecast={forecast} pv={pv} />)
               : tab === 'heating' ? <HeatingTab forecast={forecast} />
                 : tab === 'air' ? <AirTab lat={lat} lon={lon} />
                   : <WindTab forecast={forecast} />
       )}
-      {footer && <p className="wx-foot">{footer}{error ? ' · ostatnie odświeżenie nieudane' : ''}</p>}
+      {footer && <p className="wx-foot">{footer}{error ? ` · ${t('wx.refreshFailed')}` : ''}</p>}
     </div>
   );
 }

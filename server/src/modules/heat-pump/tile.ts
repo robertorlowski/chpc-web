@@ -4,6 +4,7 @@
 // telemetrii dłużej niż godzinę (od 5 min do godziny to uwaga, pomarańczowa; co wysyła co 10–30 s, a po utracie
 // odpowiedzi CHPC przestaje wysyłać pole HP, więc telemetria przestaje być zapisywana). Ostrzeżenie (pomarańczowy): błąd z ostatnich 24 h,
 // który już ustąpił.
+import { DEFAULT_LANG, Lang, t } from '../../core/i18n';
 import { Device, DeviceTile } from '../../core/types';
 import {
   formatNumber, formatTemperature, formatUnit, formatWhen, offlineLevel, toNumber,
@@ -16,18 +17,18 @@ import { pumpTemperatures } from './services/pump-mode.service';
 export const OFFLINE_AFTER_MS = 5 * 60 * 1000;
 
 // jak „Tryb pracy” w widoku głównym pompy (co od 1.2.0: MANUAL / AUTO / OFF; starsze: M, A, PV, CWU)
-export function modeLabel(workMode?: string): string {
+export function modeLabel(workMode?: string, lang: Lang = DEFAULT_LANG): string {
   switch (workMode) {
     case 'OFF': return 'OFF';
-    case 'A': case 'AUTO': return 'automatyczny';
-    case 'PV': return 'automatyczny z PV';
-    case 'CWU': return 'CWU';
-    case 'M': case 'MANUAL': return 'ręczny';
+    case 'A': case 'AUTO': return t(lang, 'hp.mode.auto');
+    case 'PV': return t(lang, 'hp.mode.autoPv');
+    case 'CWU': return t(lang, 'boiler.cwu');
+    case 'M': case 'MANUAL': return t(lang, 'hp.mode.manual');
     default: return '---';
   }
 }
 
-export async function heatPumpTile(rootId: string, device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function heatPumpTile(rootId: string, device: Device, now = new Date(), lang: Lang = DEFAULT_LANG): Promise<DeviceTile | null> {
   const last = await getHpLastData(rootId) as HpEntry & { createdAt?: Date };
   if (!last?.createdAt) return { level: 'off', chip: 'Brak danych' };
 
@@ -49,13 +50,13 @@ export async function heatPumpTile(rootId: string, device: Device, now = new Dat
     chip = 'Offline';
   } else if (locked) {
     level = 'err';
-    note = { level: 'err', text: `Blokada po ${ERROR_LOCK_LIMIT} błędach.${code ? ` Ostatni: ${code} ${errorDescription(code)}` : ''}` };
+    note = { level: 'err', text: `${t(lang, 'hp.locked', { n: ERROR_LOCK_LIMIT })}${code ? t(lang, 'hp.lockedLast', { code, text: errorDescription(code) }) : ''}` };
   } else if (errorCount > 0 && code) {
     level = 'err';
-    note = { level: 'err', text: `Błąd ${code}: ${errorDescription(code)}` };
+    note = { level: 'err', text: t(lang, 'hp.error', { code, text: errorDescription(code) }) };
   } else if (error.error_code && error.createdAt) {
     level = 'warn';
-    note = { level: 'warn', text: `Błąd z ostatnich 24 h: ${error.error_code} ${errorDescription(error.error_code)} (${formatWhen(new Date(error.createdAt), now)}), już ustąpił` };
+    note = { level: 'warn', text: t(lang, 'hp.errorPast', { code: error.error_code, text: errorDescription(error.error_code), when: formatWhen(new Date(error.createdAt), now, lang) }) };
   }
 
   const side = [];
@@ -65,27 +66,27 @@ export async function heatPumpTile(rootId: string, device: Device, now = new Dat
   const tmin = toNumber(hp.Tmin);
   const tmax = toNumber(hp.Tmax);
   if (live && tmin !== undefined && tmax !== undefined) {
-    side.push({ icon: 'target' as const, value: `${formatNumber(tmin, 1)}–${formatNumber(tmax, 1)} °C`, label: 'min–max' });
+    side.push({ icon: 'target' as const, value: `${formatNumber(tmin, 1, lang)}–${formatNumber(tmax, 1, lang)} °C`, label: t(lang, 'hp.minMax') });
   } else if (!live) {
     // bez łączności zakres od–do z ustawień (to, co serwer każe pompie utrzymywać), a nie ze starej telemetrii
     const set = pumpTemperatures(device?.properties ?? {}, device?.pumpConfig?.connection ?? 'cwu', last);
     const min = toNumber(set.min);
     const max = toNumber(set.max);
-    if (min !== undefined && max !== undefined) side.push({ icon: 'target' as const, value: `${formatNumber(min, 0)}–${formatNumber(max, 0)} °C`, label: 'od–do' });
+    if (min !== undefined && max !== undefined) side.push({ icon: 'target' as const, value: `${formatNumber(min, 0, lang)}–${formatNumber(max, 0, lang)} °C`, label: t(lang, 'hp.fromTo') });
   }
   const watts = toNumber(hp.Watts);
   // moc, którą pompa pobiera teraz (w postoju zwykle kilka W); bez łączności „---”
-  side.push({ icon: 'bolt' as const, value: live && watts !== undefined ? formatUnit(watts, 'W') : '---', label: 'moc' });
-  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tsump)) : '---', label: 'T. sprężarki' });
-  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tho)) : '---', label: 'T. wody wyj.' });
+  side.push({ icon: 'bolt' as const, value: live && watts !== undefined ? formatUnit(watts, 'W', 0, lang) : '---', label: t(lang, 'hp.power') });
+  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tsump), lang) : '---', label: t(lang, 'hp.tCompressor') });
+  side.push({ icon: 'thermo' as const, value: live ? formatTemperature(toNumber(hp.Tho), lang) : '---', label: t(lang, 'hp.tOut') });
 
   return {
     level,
     chip,
     running: running && level !== 'err',
-    main: { icon: 'thermo', value: live ? formatTemperature(toNumber(hp.Ttarget)) : '---', label: 'zbiornik' },
+    main: { icon: 'thermo', value: live ? formatTemperature(toNumber(hp.Ttarget), lang) : '---', label: t(lang, 'hp.tank') },
     side,
-    row: [{ icon: 'sliders', value: modeLabel(last.work_mode as string | undefined), label: '' }],
+    row: [{ icon: 'sliders', value: modeLabel(last.work_mode as string | undefined, lang), label: '' }],
     note,
     updatedAt: at.toISOString(),
   };

@@ -1,8 +1,22 @@
 // Pogoda nad kafelkami listy urządzeń: opis i ikona z kodu pogody WMO z Open-Meteo (pobiera sterownik włącznika,
 // serwer oddaje w GET /temperature, core/services/meteo.service.ts). W nocy (isDay = false) zamiast słońca księżyc.
+// Opisy w języku aplikacji (core/i18n): polski i angielski; funkcje biorą bieżący język, gdy nie podano.
 import type { Weather } from '../types';
+import { getLang, Lang, translate } from '../i18n';
+import { number } from '../i18n/format';
 
 type Kind = 'clear' | 'partly' | 'cloudy' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'storm';
+
+const DESCRIPTIONS_EN: Record<number, string> = {
+  0: 'clear sky', 1: 'mainly clear', 2: 'partly cloudy', 3: 'overcast',
+  45: 'fog', 48: 'fog (rime)',
+  51: 'light drizzle', 53: 'drizzle', 55: 'dense drizzle', 56: 'freezing drizzle', 57: 'freezing drizzle',
+  61: 'light rain', 63: 'rain', 65: 'heavy rain', 66: 'freezing rain', 67: 'freezing rain',
+  71: 'light snow', 73: 'snow', 75: 'heavy snow', 77: 'snow grains',
+  80: 'rain showers', 81: 'rain showers', 82: 'violent rain showers',
+  85: 'snow showers', 86: 'snow showers',
+  95: 'thunderstorm', 96: 'thunderstorm with hail', 99: 'thunderstorm with hail',
+};
 
 const DESCRIPTIONS: Record<number, string> = {
   0: 'bezchmurnie', 1: 'przeważnie bezchmurnie', 2: 'małe zachmurzenie', 3: 'pochmurno',
@@ -15,7 +29,8 @@ const DESCRIPTIONS: Record<number, string> = {
   95: 'burza', 96: 'burza z gradem', 99: 'burza z gradem',
 };
 
-export const weatherDescription = (code: number) => DESCRIPTIONS[code] ?? 'pogoda nieznana';
+export const weatherDescription = (code: number, lang: Lang = getLang()) =>
+  (lang === 'en' ? DESCRIPTIONS_EN[code] : DESCRIPTIONS[code]) ?? translate(lang, 'weather.unknown');
 
 const kindOf = (code: number): Kind => {
   if (code === 0) return 'clear';
@@ -30,11 +45,10 @@ const kindOf = (code: number): Kind => {
 };
 
 // Opad dla widoku szerokiego: śnieg w cm, inny opad w mm z ostatniego kwadransa, inaczej „bez opadów”.
-export const precipitationText = (weather: Weather) => {
-  const number = (value: number) => value.toLocaleString('pl-PL', { maximumFractionDigits: 1 });
-  if (weather.snowfall > 0) return `śnieg ${number(weather.snowfall)} cm`;
-  if (weather.precipitation > 0) return `opad ${number(weather.precipitation)} mm`;
-  return 'bez opadów';
+export const precipitationText = (weather: Weather, lang: Lang = getLang()) => {
+  if (weather.snowfall > 0) return translate(lang, 'weather.snowCm', { value: number(weather.snowfall, 1, lang) });
+  if (weather.precipitation > 0) return translate(lang, 'weather.precipMm', { value: number(weather.precipitation, 1, lang) });
+  return translate(lang, 'weather.noPrecip');
 };
 
 const SUN = '#f2a900';

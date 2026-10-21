@@ -25,47 +25,45 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DeviceRequests, WeatherTileRequests } from '../../api';
 import { wsAddressServer } from '../../http';
-import { canEditDevice, DatabaseStats, Device, DeviceTiles, DeviceType, OutdoorConditions, WeatherTile } from '../../types';
+import { canEditDevice, DatabaseStats, Device, DeviceTiles, OutdoorConditions, WeatherTile } from '../../types';
 import { getDeviceTypeView } from '../../device-types';
 import { DeviceEditModal } from '../../components/DeviceEditModal';
 import { ageLabel, DeviceTileCard, ListIcon, SourceTip, TILE_KINDS, WeatherTileCard } from '../../components/DeviceTileCard';
+import { viewLabel } from '../../components/Header';
 import { precipitationText, WeatherCodeIcon, weatherDescription } from '../../components/WeatherIcon';
 import { WeatherTileModal } from '../../components/WeatherTileModal';
 import { useDevice } from '../../context/DeviceContext';
 import { useAuth } from '../../context/AuthContext';
+import { t as tr, useLang } from '../../i18n';
 import './style.css';
 
 const MB = 1024 * 1024;
-const megabytes = (bytes: number) => (bytes / MB).toLocaleString('pl-PL', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const megabytes = (bytes: number, locale: string) => (bytes / MB).toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 // próg ostrzeżenia o zapełnieniu bazy (żółty tekst)
 const DATABASE_WARNING_PERCENT = 80;
 
 // Zajętość bazy (dane + indeksy) względem limitu planu Atlas M0 jako procent („Baza danych 44 %”, .db-usage z makiety),
 // szczegóły w podpowiedzi po najechaniu; „nie odpowiada”, gdy serwer nie ma połączenia.
 function DatabaseUsage() {
+  const { t, locale } = useLang();
   const [stats, setStats] = useState<DatabaseStats | null | undefined>(undefined);
   useEffect(() => { DeviceRequests.getDatabaseStats().then(setStats); }, []);
-  if (stats === undefined) return <span className="db-usage">Baza danych: …</span>;
-  if (!stats?.ok) return <span className="db-usage db-usage-error"><i className="dot" />Baza danych: nie odpowiada</span>;
+  if (stats === undefined) return <span className="db-usage">{t('devices.db')}: …</span>;
+  if (!stats?.ok) return <span className="db-usage db-usage-error"><i className="dot" />{t('devices.dbDown')}</span>;
   const percent = Math.round((stats.usedBytes / stats.limitBytes) * 100);
+  const mb = (bytes: number) => megabytes(bytes, locale);
   return (
     <span className={`db-usage${percent >= DATABASE_WARNING_PERCENT ? ' db-usage-warning' : ''}`}
-      title={`Zajęte ${megabytes(stats.usedBytes)} MB z ${megabytes(stats.limitBytes)} MB, wolne ${megabytes(Math.max(stats.limitBytes - stats.usedBytes, 0))} MB. Dane ${megabytes(stats.dataBytes)} MB, indeksy ${megabytes(stats.indexBytes)} MB; ${stats.collections} kolekcji, ${stats.documents.toLocaleString('pl-PL')} dokumentów; odpowiedź bazy ${stats.pingMs} ms`}>
+      title={t('devices.dbDetail', { used: mb(stats.usedBytes), limit: mb(stats.limitBytes), free: mb(Math.max(stats.limitBytes - stats.usedBytes, 0)), data: mb(stats.dataBytes), index: mb(stats.indexBytes), collections: stats.collections, documents: stats.documents.toLocaleString(locale), ping: stats.pingMs })}>
       <i className={`dot${percent >= DATABASE_WARNING_PERCENT ? '' : ' dot-ok'}`} aria-hidden="true" />
-      Baza danych {percent} %
+      {t('devices.db')} {percent} %
     </span>
   );
 }
 
-// Kafelek ma zawsze nazwę (bez numeru seryjnego): gdy użytkownik jej nie nadał, nazwę rodzaju, a przy kilku
-// takich samych sterownikach bez nazwy dopisuje końcówkę numeru, żeby dało się je odróżnić.
-const DEFAULT_NAMES: Record<DeviceType, string> = {
-  [DeviceType.HP]: 'Pompa ciepła',
-  [DeviceType.WATER_PRESSURE_TANK]: 'Hydrofor',
-  [DeviceType.PELLET_BOILER_PELUX200]: 'Piec Pellux 200',
-  [DeviceType.SWITCH]: 'Włącznik',
-  [DeviceType.PHOTOVOLTAIC]: 'Fotowoltaika',
-};
+// Kafelek ma zawsze nazwę (bez numeru seryjnego): gdy użytkownik jej nie nadał, nazwę rodzaju (słownik
+// tile.defaultName.<rodzaj>), a przy kilku takich samych sterownikach bez nazwy dopisuje końcówkę numeru, żeby dało
+// się je odróżnić.
 
 // Ostatni stan listy w localStorage (sterowniki, dane kafelków, kafelki pogody, temperatura): po otwarciu lista
 // rysuje się od razu w znanym układzie i rozmiarze, a dane z serwera (ok. 2 s) podmieniają go w tle. Wiek danych
@@ -88,7 +86,9 @@ function writeCache(key: string, value: unknown) {
 export function tileName(device: Device, all: Device[]): string {
   const name = device.name?.trim();
   if (name) return name;
-  const base = DEFAULT_NAMES[device.deviceType] ?? device.deviceType;
+  const key = `tile.defaultName.${device.deviceType}`;
+  const translated = tr(key);
+  const base = translated !== key ? translated : device.deviceType;
   const same = all.filter((item) => !item.name?.trim() && item.deviceType === device.deviceType);
   return same.length > 1 ? `${base} …${device.deviceId.slice(-4)}` : base;
 }
@@ -115,9 +115,9 @@ const rememberDeviceCount = (count: number) => {
 function sharedInfo(device: Device): string | undefined {
   if (device.access !== 'shared') return undefined;
   const view = getDeviceTypeView(device.deviceType);
-  const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : path === SIMPLE_TAB ? 'Panel prosty' : view.views.find((entry) => entry.path === path)?.label ?? path);
+  const tabs = (device.tabs ?? []).map((path) => path === '/' ? tr('view.overview') : path === SIMPLE_TAB ? tr('view.simple') : view.views.find((entry) => entry.path === path) ? viewLabel(path, device.deviceType, tr) : path);
   const owner = device.owner?.name || device.owner?.email;
-  return `${owner ? `Udostępnia: ${owner}. ` : ''}Dostęp: ${tabs.join(', ')}`;
+  return `${owner ? `${tr('devices.sharedBy', { owner })} ` : ''}${tr('app.sharedAccess')}: ${tabs.join(', ')}`;
 }
 
 // udostępnienie „Panel prosty” (server access.service SIMPLE_TAB): sam kafelek prosty, bez widoków sterownika
@@ -162,6 +162,7 @@ export const Devices: React.FC = () => {
   const navigate = useNavigate();
   const { clearDevice, selectDevice } = useDevice();
   const { user } = useAuth();
+  const { t, locale } = useLang();
   const isSystem = !!user?.isSystem;
   const CACHE_KEYS = cacheKeys(user?.id);
   const [devices, setDevices] = useState<Device[]>(() => readCache(CACHE_KEYS.devices, []));
@@ -201,10 +202,10 @@ export const Devices: React.FC = () => {
           writeCache(CACHE_KEYS.devices, list);
           rememberDeviceCount(list.length);
         } else {
-          setError('Nie udało się pobrać urządzeń.');
+          setError(t('devices.loadFailed'));
         }
       })
-      .catch(() => setError('Nie udało się pobrać urządzeń.'))
+      .catch(() => setError(t('devices.loadFailed')))
       .finally(() => setDevicesLoaded(true));
   };
 
@@ -370,7 +371,7 @@ export const Devices: React.FC = () => {
       setMoving(null);
       setError('');
     } catch {
-      setError('Nie udało się zapisać układu.');
+      setError(t('devices.orderFailed'));
     } finally {
       setSavingOrder(false);
     }
@@ -395,7 +396,7 @@ export const Devices: React.FC = () => {
         setWeatherTiles((list) => list.map((tile) => tile.id === item.id ? updated : tile));
       }
     } catch {
-      setError('Nie udało się zmienić widoczności kafelka.');
+      setError(t('devices.hideFailed'));
     }
   };
 
@@ -440,20 +441,20 @@ export const Devices: React.FC = () => {
     const fromBoiler = outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number';
     const value = fromBoiler ? outdoor!.temperature as number : weather?.temperature;
     const temperature = outdoor === undefined ? '…' : typeof value === 'number'
-      ? `${value.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
+      ? `${value.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C` : '--- °C';
     const desc = weather
-      ? [weatherDescription(weather.code), precipitationText(weather), `wiatr ${Math.round(weather.windSpeed)} km/h`].join(' · ')
-      : outdoor === undefined ? '' : 'brak pogody z włącznika';
-    const source = weather ? `Open-Meteo · ${ageLabel(now - new Date(weather.at).getTime())} temu` : '';
+      ? [weatherDescription(weather.code), precipitationText(weather), `${t('weather.windLower')} ${Math.round(weather.windSpeed)} km/h`].join(' · ')
+      : outdoor === undefined ? '' : t('weather.noneFromSwitch');
+    const source = weather ? `Open-Meteo · ${t('weather.ago', { age: ageLabel(now - new Date(weather.at).getTime()) })}` : '';
     const title = fromBoiler
-      ? `Temperatura: czujnik zewnętrzny kotła${weather ? ` (Open-Meteo: ${weather.temperature.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} °C)` : ''}. Niebo: Open-Meteo (pobiera włącznik).`
-      : 'Temperatura i pogoda: Open-Meteo (pobiera włącznik).';
+      ? t('devices.outdoorBoiler', { model: weather ? ` (Open-Meteo: ${weather.temperature.toLocaleString(locale, { maximumFractionDigits: 1 })} °C)` : '' })
+      : t('devices.outdoorMeteo');
     return (
       <div className="outdoor-strip" title={title}>
         {weather && <span className="outdoor-icon"><WeatherCodeIcon code={weather.code} isDay={weather.isDay} size={24} /></span>}
         <span className="outdoor-temp">{temperature}</span>
         <span className="outdoor-desc">{desc}</span>
-        {source && <span className="outdoor-src"><SourceTip text={source} detail="Pogodę pobiera sterownik włącznika z domowego łącza co 15 min." /></span>}
+        {source && <span className="outdoor-src"><SourceTip text={source} detail={t('weather.switchDetail')} /></span>}
       </div>
     );
   })();
@@ -468,12 +469,12 @@ export const Devices: React.FC = () => {
     if (!item) {
       if (!reordering) return null;
       return (
-        <article key={`empty-${slot}`} className="tile tile-empty" aria-label="Puste pole" style={position}>
+        <article key={`empty-${slot}`} className="tile tile-empty" aria-label={t('devices.emptySlot')} style={position}>
           {moving ? (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => placeAt(slot)}>Wstaw tutaj</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => placeAt(slot)}>{t('devices.placeHere')}</button>
           ) : (
-            <button type="button" className="btn btn-ghost btn-sm" title="Dodaj kafelek pogody w tym polu"
-              onClick={() => { setAddAt(slot); setEditingWeather(null); }}>+ kafelek pogody</button>
+            <button type="button" className="btn btn-ghost btn-sm" title={t('devices.addWeatherHere')}
+              onClick={() => { setAddAt(slot); setEditingWeather(null); }}>{t('devices.addWeather')}</button>
           )}
         </article>
       );
@@ -492,13 +493,13 @@ export const Devices: React.FC = () => {
       <>
         {canEdit && (
           <button type="button" className="icon-btn sm" onClick={(event) => { stop(event); item.kind === 'device' ? setEditing(item.device) : setEditingWeather(item.weather); }}
-            title={item.kind === 'device' ? 'Dane sterownika' : 'Zmień kafelek pogody'}
-            aria-label={`${item.kind === 'device' ? 'Dane sterownika' : 'Zmień kafelek pogody'} ${label}`}>
+            title={item.kind === 'device' ? t('deviceEdit.title') : t('devices.editWeather')}
+            aria-label={`${item.kind === 'device' ? t('deviceEdit.title') : t('devices.editWeather')} ${label}`}>
             <ListIcon name="edit" />
           </button>
         )}
         {isSystem && item.kind === 'device' && getDeviceTypeView(item.device.deviceType).firmwareUpdates && (
-          <button type="button" className="icon-btn sm" title="Firmware tego rodzaju sterownika" aria-label={`Firmware rodzaju sterownika ${label}`}
+          <button type="button" className="icon-btn sm" title={t('devices.firmwareOfType')} aria-label={`${t('devices.firmwareOfType')} ${label}`}
             onClick={(event) => { stop(event); navigate(`/firmware/${encodeURIComponent(item.device.deviceType)}`); }}>
             <ListIcon name="chip" />
           </button>
@@ -521,11 +522,11 @@ export const Devices: React.FC = () => {
     return (
       <article key={item.id} className={classes.join(' ')} data-kind={kind} style={position}
         role={link ? 'link' : undefined} tabIndex={link ? 0 : undefined}
-        aria-label={link ? `${label}, otwórz` : `${label}${hidden ? ' (ukryty)' : ''}`}
+        aria-label={link ? t('devices.openTile', { label }) : `${label}${hidden ? ` (${t('tile.hiddenLower')})` : ''}`}
         onClick={link ? open : undefined} onKeyDown={link ? onKey : undefined}
         title={item.kind === 'device' ? sharedInfo(item.device) : item.weather.lat === null || item.weather.lon === null
-          ? 'Pogoda w bieżącej lokalizacji tego urządzenia · Open-Meteo'
-          : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · prognoza Open-Meteo`}>
+          ? t('devices.currentWeatherTitle')
+          : `${item.weather.lat.toFixed(4)} N, ${item.weather.lon.toFixed(4)} E · ${t('devices.forecastOpenMeteo')}`}>
         {item.kind === 'device' ? (
           SimpleTile ? (
             <SimpleTile device={item.device} name={label} tile={tile} now={now} loading={!tilesLoaded} tools={tools}
@@ -541,16 +542,16 @@ export const Devices: React.FC = () => {
           <>
             {/* kafelek, do którego ma trafić przenoszony: zamiana miejsc */}
             {moving && moving !== item.id && (
-              <button type="button" className="tile-swap btn btn-primary btn-sm" onClick={() => placeAt(slot)}>Zamień miejscami</button>
+              <button type="button" className="tile-swap btn btn-primary btn-sm" onClick={() => placeAt(slot)}>{t('devices.swap')}</button>
             )}
             <div className="tile-layout">
               <button type="button" className={`icon-btn sm${moving === item.id ? ' is-active' : ''}`}
-                title={moving === item.id ? 'Anuluj przenoszenie' : 'Przenieś'} aria-pressed={moving === item.id}
-                aria-label={`Przenieś ${label}`} onClick={() => setMoving(moving === item.id ? null : item.id)}>
+                title={moving === item.id ? t('devices.cancelMove') : t('devices.move')} aria-pressed={moving === item.id}
+                aria-label={`${t('devices.move')} ${label}`} onClick={() => setMoving(moving === item.id ? null : item.id)}>
                 <ListIcon name="move" />
               </button>
-              <button type="button" className={`icon-btn sm${hidden ? ' is-active' : ''}`} title={hidden ? 'Pokaż kafelek' : 'Ukryj kafelek'}
-                aria-label={`${hidden ? 'Pokaż' : 'Ukryj'} kafelek ${label}`} aria-pressed={hidden} onClick={() => toggleHidden(item)}>
+              <button type="button" className={`icon-btn sm${hidden ? ' is-active' : ''}`} title={hidden ? t('devices.showTile') : t('devices.hideTile')}
+                aria-label={`${hidden ? t('devices.showTile') : t('devices.hideTile')} ${label}`} aria-pressed={hidden} onClick={() => toggleHidden(item)}>
                 <ListIcon name={hidden ? 'eye-off' : 'eye'} />
               </button>
             </div>
@@ -564,11 +565,11 @@ export const Devices: React.FC = () => {
     <>
       <main className={`page page-lista device-selection${reordering ? ' is-layout' : ''}`}
         style={{ paddingBottom: bottomCells.length && bottomFits ? 0 : bottomPad }}>
-        <h1 className="sr-only">Lista urządzeń</h1>
+        <h1 className="sr-only">{t('nav.deviceList')}</h1>
         {/* ikona siatki w górnym pasku włącza tryb „Zmień układ” (pola, ukrywanie, kafelki pogody) */}
         {headerSlot && devicesLoaded && createPortal(
           <button type="button" className={`icon-btn header-layout${reordering ? ' is-active' : ''}`} disabled={reordering}
-            title="Zmień układ" aria-label="Zmień układ kafelków" onClick={startReordering}>
+            title={t('devices.layout')} aria-label={t('devices.layoutTiles')} onClick={startReordering}>
             <ListIcon name="grid" />
           </button>,
           headerSlot,
@@ -576,15 +577,15 @@ export const Devices: React.FC = () => {
         {outdoorStrip}
         {reordering && (
           <div className="layout-bar">
-            <span>{moving ? 'Kliknij pole, w którym ma stanąć kafelek.' : 'Tryb „Zmień układ”: strzałki przenoszą kafelek, oko go ukrywa, puste pole może dostać kafelek pogody, pusty wiersz spycha resztę do dołu ekranu.'}</span>
+            <span>{moving ? t('devices.layoutMoveHint') : t('devices.layoutHint')}</span>
             <span className="layout-bar-buttons">
-              <button type="button" className="btn btn-sm" onClick={cancelOrder} disabled={savingOrder}>Anuluj</button>
-              <button type="button" className="btn btn-primary btn-sm" onClick={saveOrder} disabled={savingOrder}>Gotowe</button>
+              <button type="button" className="btn btn-sm" onClick={cancelOrder} disabled={savingOrder}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={saveOrder} disabled={savingOrder}>{t('common.done')}</button>
             </span>
           </div>
         )}
         {error && <p className="device-selection-error">{error}</p>}
-        <section className="tiles device-grid" ref={listRef} style={gridStyle} aria-label="Kafelki sterowników">
+        <section className="tiles device-grid" ref={listRef} style={gridStyle} aria-label={t('devices.tiles')}>
           {topCells.map((slot) => renderCell(slot, 0))}
           {!devicesLoaded && devices.length === 0 && !error && Array.from({ length: rememberedDeviceCount() }, (_, index) => (
             <article key={`skeleton-${index}`} className="tile tile-device tile-loading" aria-busy="true">
@@ -595,13 +596,13 @@ export const Devices: React.FC = () => {
             </article>
           ))}
           {devicesLoaded && devices.length === 0 && !error && (
-            <p className="devices-empty">Brak sterowników. Sterownik pojawi się tutaj, gdy ktoś Ci go udostępni albo po przypisaniu do konta.</p>
+            <p className="devices-empty">{t('devices.empty')}</p>
           )}
         </section>
         {bottomCells.length > 0 && (
           <>
             <div className="device-list-spacer" ref={spacerRef} style={{ height: spacer }} aria-hidden="true" />
-            <section className="tiles device-grid device-grid-bottom" ref={bottomRef} style={gridStyle} aria-label="Kafelki przy dole ekranu">
+            <section className="tiles device-grid device-grid-bottom" ref={bottomRef} style={gridStyle} aria-label={t('devices.bottomTiles')}>
               {bottomCells.map((slot) => renderCell(slot, emptyRow + 1))}
             </section>
           </>

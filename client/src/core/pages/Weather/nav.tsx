@@ -9,6 +9,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { BottomNavItems, NavItem, SideTabs } from '../../components/Header';
 import { BackIcon } from '../../components/icons';
 import { UserMenu } from '../../components/UserMenu';
+import { useLang } from '../../i18n';
 
 export const WEATHER_TITLE_ID = 'weather-title-place';
 
@@ -18,6 +19,7 @@ const icon = (path: ReactNode) => (
     strokeLinejoin="round" aria-hidden="true">{path}</svg>
 );
 
+// nazwy zakładek: słownik wx.tab.<klucz> (core/i18n)
 export const WEATHER_TABS = [
   { key: 'now', label: 'Teraz', icon: icon(<path fill="none" d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z" />) },
   { key: 'days', label: 'Najbliższe dni', icon: icon(<><rect fill="none" x="3" y="5" width="18" height="16" rx="2" /><path fill="none" d="M3 10h18M8 3v4M16 3v4" /></>) },
@@ -34,11 +36,12 @@ export const weatherTab = (value: string | null): WeatherTabKey =>
 function useWeatherItems(): NavItem[] {
   const location = useLocation();
   const [search] = useSearchParams();
+  const { t } = useLang();
   const tab = weatherTab(search.get('tab'));
   return WEATHER_TABS.map((item) => ({
     key: item.key,
     to: { pathname: location.pathname, search: item.key === 'now' ? '' : `?tab=${item.key}` },
-    label: item.label,
+    label: t(`wx.tab.${item.key}`),
     icon: item.icon,
     active: tab === item.key,
     state: location.state,
@@ -48,19 +51,21 @@ function useWeatherItems(): NavItem[] {
 
 export function WeatherHeader() {
   const items = useWeatherItems();
+  const { t } = useLang();
   return (
     <>
-      <Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników"><BackIcon /></Link>
+      <Link to="/devices" className="nav-back" title={t('nav.deviceList')} aria-label={t('nav.backToList')}><BackIcon /></Link>
       <div className="device-title">
-        <h1>Pogoda<span id={WEATHER_TITLE_ID} /></h1>
-        <span className="device-sub"><span className="device-sub-text">Open‑Meteo · prognoza i jakość powietrza</span></span>
+        <h1>{t('wx.title')}<span id={WEATHER_TITLE_ID} /></h1>
+        <span className="device-sub"><span className="device-sub-text">{t('wx.subtitle')}</span></span>
       </div>
-      <SideTabs items={items} label="Widoki pogody" />
+      <SideTabs items={items} label={t('wx.views')} />
       <UserMenu />
     </>
   );
 }
 
 export function WeatherBottomNav() {
-  return <BottomNavItems items={useWeatherItems()} label="Widoki pogody (telefon)" />;
+  const { t } = useLang();
+  return <BottomNavItems items={useWeatherItems()} label={t('wx.viewsPhone')} />;
 }

@@ -3,6 +3,7 @@
 // temperatury mieszaczy 1 i 2. Błąd (czerwony): aktywny alarm regulatora albo brak
 // odczytu dłużej niż godzinę (od 3 odstępów odpytywania do godziny to uwaga, pomarańczowa). Ostrzeżenie (pomarańczowy): mało pelletu (< 15 %) albo ostatnie
 // zlecenie zmiany parametru zakończone błędem w ciągu doby.
+import { DEFAULT_LANG, Lang, t } from '../../core/i18n';
 import { Device, DeviceTile } from '../../core/types';
 import { formatTemperature, formatUnit, formatWhen, offlineLevel } from '../../core/services/tile-format';
 import { PelletBoilerCommandModel } from './models/pellet-boiler-pelux200-command.model';
@@ -34,7 +35,7 @@ async function burnStart(rootId: string, lastAt: Date): Promise<Date> {
   return first?.createdAt ?? lastAt;
 }
 
-export async function pelletBoilerTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function pelletBoilerTile(rootId: string, _device: Device, now = new Date(), lang: Lang = DEFAULT_LANG): Promise<DeviceTile | null> {
   const last = await getPelletBoilerPelux200Last(rootId) as (PelletBoilerPelux200Entry & { createdAt?: Date }) | undefined;
   if (!last?.createdAt) return { level: 'off', chip: 'Brak danych' };
 
@@ -61,24 +62,24 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
   } else if (alarm) {
     level = 'err';
     const code = activeAlerts[0]?.code;
-    note = { level: 'err', text: `Regulator zgłasza alarm kotła${code !== undefined ? ` (kod ${code})` : ''}` };
+    note = { level: 'err', text: `${t(lang, 'boiler.alarm')}${code !== undefined ? t(lang, 'boiler.alarmCode', { code }) : ''}` };
   } else if (typeof last.fuel_level === 'number' && last.fuel_level < LOW_FUEL_PERCENT) {
     level = 'warn';
-    note = { level: 'warn', text: `Mało pelletu (${formatUnit(last.fuel_level, '%')})` };
+    note = { level: 'warn', text: t(lang, 'boiler.lowFuel', { value: formatUnit(last.fuel_level, '%', 0, lang) }) };
   } else if (failed?.status === 'error' && failed.doneAt && now.getTime() - new Date(failed.doneAt).getTime() < COMMAND_ERROR_WINDOW_MS) {
     level = 'warn';
-    note = { level: 'warn', text: `Zmiana „${failed.label ?? 'parametru'}” nie powiodła się (${formatWhen(new Date(failed.doneAt), now)})` };
+    note = { level: 'warn', text: t(lang, 'boiler.commandFailed', { label: failed.label ?? t(lang, 'boiler.parameter'), when: formatWhen(new Date(failed.doneAt), now, lang) }) };
   }
 
   // pola kafla: CWU (side), temperatura mieszacza 1 i temperatura mieszacza 2;
   // tryb pracy (pompa ciepła / pellet) jest w pasku i podglądzie
   const row = [];
-  if (typeof last.mixer1_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer1_temp), label: 'Mieszacz 1' });
-  if (typeof last.mixer2_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer2_temp), label: 'Mieszacz 2' });
+  if (typeof last.mixer1_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer1_temp, lang), label: t(lang, 'boiler.mixer', { n: 1 }) });
+  if (typeof last.mixer2_temp === 'number') row.push({ icon: 'thermo' as const, value: formatTemperature(last.mixer2_temp, lang), label: t(lang, 'boiler.mixer', { n: 2 }) });
   const running = level !== 'err' && last.state !== undefined && FLAME_STATES.has(last.state);
   const pumps = [
-    ...(typeof last.heating_pump === 'boolean' ? [{ label: 'CO', on: last.heating_pump }] : []),
-    ...(typeof last.water_heater_pump === 'boolean' ? [{ label: 'CWU', on: last.water_heater_pump }] : []),
+    ...(typeof last.heating_pump === 'boolean' ? [{ label: t(lang, 'boiler.co'), on: last.heating_pump }] : []),
+    ...(typeof last.water_heater_pump === 'boolean' ? [{ label: t(lang, 'boiler.cwu'), on: last.water_heater_pump }] : []),
   ];
 
   return {
@@ -87,8 +88,8 @@ export async function pelletBoilerTile(rootId: string, _device: Device, now = ne
     running,
     ...(running ? { since: (await burnStart(rootId, at)).toISOString() } : {}),
     ...(pumps.length ? { pumps } : {}),
-    main: { icon: 'flame', value: formatTemperature(last.heating_temp), label: `kocioł${target(last.heating_target)}` },
-    side: [{ icon: 'tap', value: formatTemperature(last.water_heater_temp), label: `CWU${target(last.water_heater_target)}` }],
+    main: { icon: 'flame', value: formatTemperature(last.heating_temp, lang), label: `${t(lang, 'boiler.boiler')}${target(last.heating_target)}` },
+    side: [{ icon: 'tap', value: formatTemperature(last.water_heater_temp, lang), label: `${t(lang, 'boiler.cwu')}${target(last.water_heater_target)}` }],
     row,
     note,
     updatedAt: at.toISOString(),

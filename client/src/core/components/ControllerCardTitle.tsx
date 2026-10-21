@@ -3,11 +3,15 @@
 // <section class="card">; całą kartę z wierszami .kv buduje ControllerCard.
 import { IconButton } from './IconButton';
 import { EditIcon } from './icons';
+import { useLang } from '../i18n';
 import './controllerCardTitle.css';
 
-export const ControllerCardTitle: React.FC<{ onEdit: () => void; disabled?: boolean; title?: string }> = ({ onEdit, disabled, title = 'Sterownik' }) => (
-  <header className="card-head controller-card-head">
-    <h2>{title}</h2>
-    <IconButton label="Zmień dane sterownika" icon={<EditIcon />} disabled={disabled} onClick={onEdit} />
-  </header>
-);
+export const ControllerCardTitle: React.FC<{ onEdit: () => void; disabled?: boolean; title?: string }> = ({ onEdit, disabled, title }) => {
+  const { t } = useLang();
+  return (
+    <header className="card-head controller-card-head">
+      <h2>{title ?? t('nav.device')}</h2>
+      <IconButton label={t('controller.edit')} icon={<EditIcon />} disabled={disabled} onClick={onEdit} />
+    </header>
+  );
+};

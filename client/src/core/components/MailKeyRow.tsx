@@ -7,12 +7,14 @@ import { DeviceRequests } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../http';
 import { Device } from '../types';
+import { useLang } from '../i18n';
 
 // jak RELAY_ALIVE_MS na serwerze (płytka pyta o maile co 60 s)
 const RELAY_ALIVE_MS = 150_000;
 
 export const MailKeyRow: React.FC<{ current: Device | null; reload: () => void }> = ({ current, reload }) => {
   const { user } = useAuth();
+  const { t } = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const key = current?.mailKey;
@@ -27,7 +29,7 @@ export const MailKeyRow: React.FC<{ current: Device | null; reload: () => void }
       await action();
       reload();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Nie udało się — spróbuj ponownie.');
+      setError(caught instanceof ApiError ? caught.message : t('common.somethingWrong'));
     } finally {
       setBusy(false);
     }
@@ -36,37 +38,37 @@ export const MailKeyRow: React.FC<{ current: Device | null; reload: () => void }
   const approve = () => {
     const fingerprint = key.pendingFingerprint;
     if (!fingerprint) return;
-    if (!window.confirm(`Zatwierdzić klucz ${fingerprint}?\n\nPorównaj go z odciskiem na stronie /install płytki. Płytka dostanie dane poczty i będzie wysyłać maile z kodami logowania.`)) return;
+    if (!window.confirm(t('mailKey.approveConfirm', { fingerprint }))) return;
     void run(() => DeviceRequests.approveMailKey(current.rootId, fingerprint));
   };
 
   const revoke = () => {
-    if (!window.confirm('Usunąć klucz? Płytka przestanie wysyłać maile do czasu zatwierdzenia nowego klucza.')) return;
+    if (!window.confirm(t('mailKey.revokeConfirm'))) return;
     void run(() => DeviceRequests.revokeMailKey(current.rootId));
   };
 
   return (
     <div>
-      <dt>Poczta</dt>
+      <dt>{t('mailKey.title')}</dt>
       <dd>
         {key.fingerprint ? (
           <>
-            <code title="Odcisk zatwierdzonego klucza płytki">{key.fingerprint}</code>
-            <span className={`chip ${online ? 'chip-ok' : 'chip-off'}`}>{online ? 'wysyła' : 'zatwierdzony'}</span>
-            {isSystem && <button type="button" className="link-btn" disabled={busy} onClick={revoke}>usuń</button>}
+            <code title={t('mailKey.approvedFingerprint')}>{key.fingerprint}</code>
+            <span className={`chip ${online ? 'chip-ok' : 'chip-off'}`}>{online ? t('mailKey.sending') : t('mailKey.approved')}</span>
+            {isSystem && <button type="button" className="link-btn" disabled={busy} onClick={revoke}>{t('common.remove')}</button>}
           </>
         ) : !key.pendingFingerprint ? (
-          <span>— (firmware bez wysyłki poczty)</span>
+          <span>{t('mailKey.noFirmware')}</span>
         ) : null}
         {key.pendingFingerprint && (
           <>
             {key.fingerprint && <br />}
-            <code title="Odcisk nowego klucza płytki">{key.pendingFingerprint}</code>
-            <span className="chip chip-warn">czeka na zatwierdzenie</span>
-            {isSystem && <button type="button" className="link-btn" disabled={busy} onClick={approve}>zatwierdź</button>}
+            <code title={t('mailKey.newFingerprint')}>{key.pendingFingerprint}</code>
+            <span className="chip chip-warn">{t('mailKey.pending')}</span>
+            {isSystem && <button type="button" className="link-btn" disabled={busy} onClick={approve}>{t('mailKey.approve')}</button>}
           </>
         )}
-        {!key.relayEnabled && <small>wysyłka przez sterowniki wyłączona na serwerze (MAIL_RELAY)</small>}
+        {!key.relayEnabled && <small>{t('mailKey.relayOff')}</small>}
         {error && <small className="danger-text">{error}</small>}
       </dd>
     </div>

@@ -7,9 +7,10 @@
 import { useEffect, useState } from 'react';
 import { DeviceRequests } from '../api';
 import { Device } from '../types';
+import { useLang } from '../i18n';
+import { dateTimeLabel } from '../i18n/format';
 
-const formatDateTime = (value?: string) =>
-  value ? new Date(value).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const formatDateTime = (value?: string) => dateTimeLabel(value, undefined, '');
 
 // Aktualny dokument sterownika z serwera (adres IP, firmware, zlecenie aktualizacji); reload() odświeża.
 export function useCurrentDevice(device: Device | null): { current: Device | null; reload: () => void } {
@@ -23,15 +24,16 @@ export function useCurrentDevice(device: Device | null): { current: Device | nul
 }
 
 export const DeviceAddressRow: React.FC<{ current: Device | null }> = ({ current }) => {
+  const { t } = useLang();
   const ip = current?.ipAddress;
   return (
     <div>
-      <dt>Adres IP</dt>
+      <dt>{t('controller.ip')}</dt>
       <dd>
         {ip
           ? <><a className="link" href={`http://${ip}/`} target="_blank" rel="noreferrer">{ip}</a>
               {current?.ipSeenAt && <small>{formatDateTime(current.ipSeenAt)}</small>}</>
-          : <span>{current ? '— (sterownik nie zgłosił adresu)' : '---'}</span>}
+          : <span>{current ? t('controller.noIp') : '---'}</span>}
       </dd>
     </div>
   );

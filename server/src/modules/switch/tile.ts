@@ -5,6 +5,7 @@
 // Kafelek prosty (2026-10-20, client/src/devices/switch/components/SimpleTile.tsx) korzysta z tych samych danych
 // i dodatkowo z numeru, trybu, końca włączenia / przerwy, najbliższego włączenia z harmonogramu i domyślnego
 // czasu „Włącz” (onMinutes), żeby ułożyć zdania „Bojler uruchomi się teraz na 30 min” itp.
+import { DEFAULT_LANG, Lang, t } from '../../core/i18n';
 import { Device, DeviceTile, TileRelay } from '../../core/types';
 import { formatWhen, offlineLevel, warsawTime } from '../../core/services/tile-format';
 import { SwitchScheduleModel } from './models/switch-schedule.model';
@@ -18,25 +19,25 @@ const DEFAULT_ON_MINUTES = 30;
 type Relay = Awaited<ReturnType<typeof listRelays>>[number];
 
 // Opis przekaźnika obok nazwy: kiedy się wyłączy, kiedy włączy według harmonogramu i jak jest w trybie ręcznym.
-function relayText(relay: Relay, now: Date): string {
-  const until = warsawTime(new Date(relay.until ?? now));
+function relayText(relay: Relay, now: Date, lang: Lang): string {
+  const time = warsawTime(new Date(relay.until ?? now));
   switch (relay.mode) {
     case 'off':
-      return 'wyłączony ręcznie';
+      return t(lang, 'switch.offManual');
     case 'on':
-      return relay.on ? 'wł. ręcznie bez limitu' : 'włączanie…';
+      return relay.on ? t(lang, 'switch.onUnlimited') : t(lang, 'switch.switchingOn');
     case 'timer':
-      return relay.on ? `wł. ręcznie do ${until}` : 'włączanie…';
+      return relay.on ? t(lang, 'switch.onUntil', { time }) : t(lang, 'switch.switchingOn');
     case 'pause':
-      return `wył. do ${until} · potem harmonogram`;
+      return t(lang, 'switch.pausedUntil', { time });
     default:
-      if (relay.on) return `wł. do ${until} · harmonogram`;
-      if (relay.nextStart) return `wył. · następne ${formatWhen(new Date(relay.nextStart), now)}`;
-      return 'wył. · harmonogram';
+      if (relay.on) return t(lang, 'switch.scheduleOnUntil', { time });
+      if (relay.nextStart) return t(lang, 'switch.scheduleNext', { when: formatWhen(new Date(relay.nextStart), now, lang) });
+      return t(lang, 'switch.scheduleOff');
   }
 }
 
-export async function switchTile(rootId: string, device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function switchTile(rootId: string, device: Device, now = new Date(), lang: Lang = DEFAULT_LANG): Promise<DeviceTile | null> {
   const relays = await listRelays(rootId, now);
   if (relays.length === 0) return { level: 'off', chip: 'Brak danych' };
   const schedules = await SwitchScheduleModel.find({ rootId, enabled: true }).lean();
@@ -44,7 +45,7 @@ export async function switchTile(rootId: string, device: Device, now = new Date(
   const lastSeen = relays.reduce<Date | null>(
     (latest, relay) => relay.lastSeenAt && (!latest || new Date(relay.lastSeenAt) > latest) ? new Date(relay.lastSeenAt) : latest, null);
   const online = relays.some((relay) => relay.online);
-  const name = (relay: Relay) => relay.name || `Przekaźnik ${relay.relay}`;
+  const name = (relay: Relay) => relay.name || t(lang, 'switch.relay', { n: relay.relay });
   // najbliższe włączenie z harmonogramu: przy włączonym przekaźniku po końcu bieżącego włączenia (kafelek prosty:
   // „wyłączy się teraz i będzie automatycznie uruchomiony o …”), przy wyłączonym jak w listRelays
   const nextStart = (relay: Relay): string | null => {
@@ -56,7 +57,7 @@ export async function switchTile(rootId: string, device: Device, now = new Date(
   const tiles: TileRelay[] = relays.map((relay) => ({
     name: name(relay),
     on: online && relay.on,
-    text: online ? relayText(relay, now) : 'stan nieznany',
+    text: online ? relayText(relay, now, lang) : t(lang, 'switch.unknown'),
     relay: relay.relay,
     mode: relay.mode,
     desiredOn: relay.desiredOn,
@@ -71,17 +72,17 @@ export async function switchTile(rootId: string, device: Device, now = new Date(
     // do godziny uwaga (płytka zwykle wraca sama), potem błąd; brak jakiegokolwiek zgłoszenia to od razu błąd
     level = lastSeen ? offlineLevel(now.getTime() - lastSeen.getTime()) : 'err';
     offlineChip = 'Offline';
-    if (!lastSeen) note = { level, text: 'Sterownik jeszcze się nie zgłosił' };
+    if (!lastSeen) note = { level, text: t(lang, 'switch.notReported') };
   } else {
     const blockedRelay = relays.find((relay) => relay.mode === 'off' && schedules.some((schedule) => schedule.relay === relay.relay));
     const unlimited = relays.find((relay) => relay.mode === 'on' && relay.modeChangedAt
       && now.getTime() - new Date(relay.modeChangedAt).getTime() > UNLIMITED_ON_WARNING_MS);
     if (blockedRelay) {
       level = 'warn';
-      note = { level: 'warn', text: `${name(blockedRelay)}: tryb „Wyłączony” blokuje harmonogram` };
+      note = { level: 'warn', text: t(lang, 'switch.blocked', { name: name(blockedRelay) }) };
     } else if (unlimited) {
       level = 'warn';
-      note = { level: 'warn', text: `${name(unlimited)}: włączony bez limitu czasu od ponad doby` };
+      note = { level: 'warn', text: t(lang, 'switch.unlimitedDay', { name: name(unlimited) }) };
     }
   }
 

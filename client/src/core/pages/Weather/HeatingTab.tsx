@@ -6,6 +6,7 @@ import { cc, tooltipStyle } from '../../chartColors';
 import { ListIcon } from '../../components/DeviceTileCard';
 import { getTauronG12wZone } from '../../../devices/heat-pump/utils/energy-cost-g12w';
 import { dayLabel, dayOf, Forecast, hourOf, instantOf, nextHourIndex, number1, todayIndex } from './forecast';
+import { useLang } from '../../i18n';
 
 const HOURS = 48;
 // okno CWU: tyle godzin pod rząd, wyszukiwane w najbliższych WINDOW_SEARCH_HOURS
@@ -20,6 +21,7 @@ const HEAT_PUMP_MIN_MEAN = 5;
 type Hour = { index: number; time: string; temp: number; cheap: boolean };
 
 export function HeatingTab({ forecast }: { forecast: Forecast }) {
+  const { t } = useLang();
   const { hourly, daily } = forecast;
   const start = nextHourIndex(forecast);
   const hours: Hour[] = hourly.time.slice(start, start + HOURS).map((time, offset) => ({
@@ -71,28 +73,28 @@ export function HeatingTab({ forecast }: { forecast: Forecast }) {
     <>
       <section className="card card-hero">
         <div className="hero-main">
-          <span className="hero-label">Najlepsze okno na CWU · pompa ciepła</span>
+          <span className="hero-label">{t('wx.bestCwuWindow')}</span>
           {window.length ? (
             <>
               <div className="hero-value"><span className="hero-num wx-hero-time">{hourOf(window[0].time)}–{hourOf(windowEnd)}</span></div>
               <div className="wx-hero-desc">{dayLabel(forecast, dayOf(window[0].time))}</div>
               <span className="hero-note">
-                najcieplej ({windowLow === windowHigh ? windowLow : `${windowLow}–${windowHigh}`} °C) w tańszej strefie G12w
-                {windowWeekend ? ' (weekend: cała doba w tańszej strefie)' : ''}
+                {t('wx.warmestCheap', { range: windowLow === windowHigh ? windowLow : `${windowLow}–${windowHigh}` })}
+                {windowWeekend ? ` ${t('wx.weekendCheap')}` : ''}
               </span>
             </>
           ) : (
-            <span className="hero-note">Brak {WINDOW_HOURS} godzin pod rząd w tańszej strefie G12w w najbliższych {WINDOW_SEARCH_HOURS} h.</span>
+            <span className="hero-note">{t('wx.noCheapWindow', { hours: WINDOW_HOURS, search: WINDOW_SEARCH_HOURS })}</span>
           )}
         </div>
         <div className="hero-side"><div className="hero-kpis">
-          <div className="kpi"><span className="kpi-label">Najzimniej</span><span className="kpi-value">{Math.round(coldest.low!.temp)}<small>°C · {dayLabel(forecast, coldest.day)} {hourOf(coldest.low!.time)}</small></span></div>
-          {tomorrowMean !== undefined && <div className="kpi"><span className="kpi-label">Średnia jutro</span><span className="kpi-value">{Math.round(tomorrowMean)}<small>°C</small></span></div>}
-          <div className="kpi"><span className="kpi-label">Stopniodni 7 dni</span><span className="kpi-value">{Math.round(degreeDays)}<small>K·d</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.coldest')}</span><span className="kpi-value">{Math.round(coldest.low!.temp)}<small>°C · {dayLabel(forecast, coldest.day)} {hourOf(coldest.low!.time)}</small></span></div>
+          {tomorrowMean !== undefined && <div className="kpi"><span className="kpi-label">{t('wx.meanTomorrow')}</span><span className="kpi-value">{Math.round(tomorrowMean)}<small>°C</small></span></div>}
+          <div className="kpi"><span className="kpi-label">{t('wx.degreeDays7')}</span><span className="kpi-value">{Math.round(degreeDays)}<small>K·d</small></span></div>
           {tomorrowMean !== undefined && (
-            <div className="kpi" title={`Pellet, gdy średnia dobowa jutro ≤ ${HEAT_PUMP_MIN_MEAN} °C`}>
-              <span className="kpi-label">Sugerowany tryb</span>
-              <span className="kpi-value">{tomorrowMean <= HEAT_PUMP_MIN_MEAN ? 'Pellet' : <>Pompa<small>ciepła</small></>}</span>
+            <div className="kpi" title={t('wx.suggestedModeTitle', { value: HEAT_PUMP_MIN_MEAN })}>
+              <span className="kpi-label">{t('wx.suggestedMode')}</span>
+              <span className="kpi-value">{tomorrowMean <= HEAT_PUMP_MIN_MEAN ? t('wx.pellet') : <>{t('wx.heatPumpShort')}<small>{t('wx.heatPumpSmall')}</small></>}</span>
             </div>
           )}
         </div></div>
@@ -100,11 +102,11 @@ export function HeatingTab({ forecast }: { forecast: Forecast }) {
 
       <section className="card">
         <div className="card-head">
-          <h2>Najbliższe 48 godzin</h2>
+          <h2>{t('wx.next48')}</h2>
           <span className="legend">
-            <span className="lg"><i style={{ background: cc().s1 }} />Temperatura</span>
-            <span className="lg"><i className="wx-lg-cheap" />tańsza strefa G12w</span>
-            {window.length > 0 && <span className="lg"><i className="wx-lg-best" />okno CWU</span>}
+            <span className="lg"><i style={{ background: cc().s1 }} />{t('wx.temperature')}</span>
+            <span className="lg"><i className="wx-lg-cheap" />{t('wx.cheapZone')}</span>
+            {window.length > 0 && <span className="lg"><i className="wx-lg-best" />{t('wx.cwuWindow')}</span>}
           </span>
         </div>
         <div className="wx-chart">
@@ -119,7 +121,7 @@ export function HeatingTab({ forecast }: { forecast: Forecast }) {
               <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={40} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => `${value} °C`} />
               <Tooltip {...tooltipStyle()}
                 labelFormatter={(_label, payload) => { const row = payload?.[0]?.payload as Hour | undefined; return row ? `${dayLabel(forecast, dayOf(row.time))} ${hourOf(row.time)}` : ''; }}
-                formatter={(value, _name, item) => [`${number1(Number(value))} °C · ${(item.payload as Hour).cheap ? 'tańsza strefa' : 'droższa strefa'}`, 'temperatura']} />
+                formatter={(value, _name, item) => [`${number1(Number(value))} °C · ${(item.payload as Hour).cheap ? t('wx.cheapZoneShort') : t('wx.peakZoneShort')}`, t('wx.temperatureLower')]} />
               <Line dataKey="temp" type="monotone" stroke={cc().s1} strokeWidth={2} dot={false} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -127,21 +129,21 @@ export function HeatingTab({ forecast }: { forecast: Forecast }) {
       </section>
 
       <section className="card">
-        <div className="card-head"><h2>Uwagi na najbliższe dni</h2></div>
+        <div className="card-head"><h2>{t('wx.notes')}</h2></div>
         {frost && (
           <div className="alert alert-warn"><ListIcon name="bell" /><div>
-            <strong>Przymrozek: {dayLabel(forecast, frost.day)}</strong>
-            <span>do {Math.round(frost.low!.temp)} °C ok. {hourOf(frost.low!.time)} · pompa ciepła włączy ochronę przed mrozem (pompa zimnej wody)</span>
+            <strong>{t('wx.frost')}: {dayLabel(forecast, frost.day)}</strong>
+            <span>{t('wx.frostNote', { value: Math.round(frost.low!.temp), time: hourOf(frost.low!.time) })}</span>
           </div></div>
         )}
         {cold && (
           <div className="alert alert-info"><ListIcon name="fire" /><div>
-            <strong>Chłodniej od: {dayLabel(forecast, cold.day)}</strong>
-            <span>średnia dobowa {Math.round(cold.mean)} °C · przy grzaniu CO pompa ciepła może nie nadążyć, rozważ tryb Pellet</span>
+            <strong>{t('wx.colderFrom')}: {dayLabel(forecast, cold.day)}</strong>
+            <span>{t('wx.colderNote', { value: Math.round(cold.mean) })}</span>
           </div></div>
         )}
-        {!frost && !cold && <p className="help">Bez przymrozków i bez dni ze średnią poniżej {HEAT_PUMP_MIN_MEAN} °C w najbliższym tygodniu.</p>}
-        <p className="help">Stopniodni: suma (18 °C − średnia dobowa) z dni chłodniejszych niż 18 °C, miara potrzeb ogrzewania. Strefy G12w: tańsza 13–15 i 22–6 w dni robocze oraz całe weekendy i święta.</p>
+        {!frost && !cold && <p className="help">{t('wx.noFrostNote', { value: HEAT_PUMP_MIN_MEAN })}</p>}
+        <p className="help">{t('wx.degreeDaysHelp')}</p>
       </section>
     </>
   );

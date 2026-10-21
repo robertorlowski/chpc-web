@@ -3,6 +3,8 @@
 // z 31 dniami wstecz do dopasowania prognozy PV do produkcji z DTU) i jakość powietrza (osobny serwis, zakładka
 // „Powietrze”). Czasy są lokalne (timezone=Europe/Warsaw) w postaci „2026-10-17T22:00”.
 
+import { getLang, Lang, locale, translate } from '../../i18n';
+
 const FORECAST = 'https://api.open-meteo.com/v1/forecast';
 const AIR = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 export const PAST_DAYS = 31;
@@ -66,11 +68,11 @@ export const nextDay = (day: string) => {
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
 };
-export const weekday = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString('pl-PL', { weekday: 'short', timeZone: 'UTC' });
+export const weekday = (day: string, lang: Lang = getLang()) => new Date(`${day}T12:00:00Z`).toLocaleDateString(locale(lang), { weekday: 'short', timeZone: 'UTC' });
 export const shortDate = (day: string) => `${day.slice(8, 10)}.${day.slice(5, 7)}`;
 export const deg = (value: number) => `${Math.round(value)}°`;
 export const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-export const number1 = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+export const number1 = (value: number, lang: Lang = getLang()) => value.toLocaleString(locale(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const WIND_DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 export const windDirection = (degrees: number) => WIND_DIRECTIONS[Math.round(degrees / 45) % 8];
 
@@ -83,11 +85,11 @@ export function nextHourIndex(forecast: Forecast) {
 }
 
 // „dziś”, „jutro” albo skrót dnia tygodnia z datą
-export function dayLabel(forecast: Forecast, day: string) {
+export function dayLabel(forecast: Forecast, day: string, lang: Lang = getLang()) {
   const today = dayOf(forecast.current.time);
-  if (day === today) return 'dziś';
-  if (day === nextDay(today)) return 'jutro';
-  return `${weekday(day)} ${shortDate(day)}`;
+  if (day === today) return translate(lang, 'wx.today');
+  if (day === nextDay(today)) return translate(lang, 'wx.tomorrow');
+  return `${weekday(day, lang)} ${shortDate(day)}`;
 }
 
 // Chwila (Date) dla lokalnego czasu Open-Meteo. Przesunięcie strefy jest z chwili pobrania, więc w noc zmiany

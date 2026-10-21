@@ -5,8 +5,9 @@
 // (wyciek albo praca na sucho). Ostrzeżenie (pomarańczowy): brak przepływu (za mało odczytów wodomierza)
 // albo dzisiejsze uruchomienie z czasem przybliżonym (z kolejki po braku sieci). Brak łączności NIE jest
 // błędem: sterownik ma zasilanie tylko w czasie pracy pompy, więc zwykle milczy.
+import { DEFAULT_LANG, Lang, t } from '../../core/i18n';
 import { Device, DeviceTile } from '../../core/types';
-import { formatDuration, formatUnit, formatWhen } from '../../core/services/tile-format';
+import { formatDuration, formatUnit } from '../../core/services/tile-format';
 import { warsawDayBoundsUTC } from '../../core/time';
 import { WaterPressureTankRunModel } from './models/water-pressure-tank-run.model';
 import {
@@ -16,7 +17,7 @@ import { WaterPressureTankRun } from './types';
 
 export const LONG_RUN_MS = 30 * 60 * 1000;
 
-export async function waterPressureTankTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function waterPressureTankTile(rootId: string, _device: Device, now = new Date(), lang: Lang = DEFAULT_LANG): Promise<DeviceTile | null> {
   const todayDate = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Warsaw' });
   const today = warsawDayBoundsUTC(todayDate);
   const monthStart = warsawDayBoundsUTC(`${todayDate.slice(0, 8)}01`).startUTC;
@@ -38,30 +39,32 @@ export async function waterPressureTankTile(rootId: string, _device: Device, now
   let note: DeviceTile['note'];
   if (running && runningMs > LONG_RUN_MS) {
     level = 'err';
-    note = { level: 'err', text: 'Pompa pracuje bez przerwy ponad 30 min (wyciek albo praca na sucho?)' };
+    note = { level: 'err', text: t(lang, 'tank.longRun') };
   } else if (flow.litersPerMinute === null) {
     level = 'warn';
-    note = { level: 'warn', text: 'Brak przepływu: wpisz kolejny odczyt wodomierza, żeby liczyć litry' };
+    note = { level: 'warn', text: t(lang, 'tank.noFlow') };
   } else if (runs.some((run) => run.timeApproximate)) {
     level = 'warn';
-    note = { level: 'warn', text: 'Uruchomienie z czasem przybliżonym (wysłane z kolejki po braku sieci)' };
+    note = { level: 'warn', text: t(lang, 'tank.approximate') };
   }
 
   return {
     level,
     chip: running ? 'Online' : 'Offline',
     running: running && level !== 'err',
-    main: { icon: 'drop', value: liters === null ? '---' : formatUnit(liters, 'l'), label: 'dziś' },
-    main2: { icon: 'drop', value: monthLiters === null ? '---' : formatUnit(monthLiters, 'l'), label: 'miesiąc' },
+    main: { icon: 'drop', value: liters === null ? '---' : formatUnit(liters, 'l', 0, lang), label: t(lang, 'tank.today') },
+    main2: { icon: 'drop', value: monthLiters === null ? '---' : formatUnit(monthLiters, 'l', 0, lang), label: t(lang, 'tank.month') },
     // dwie liczby obok siebie (dziś / miesiąc) zajmują prawie całą szerokość kafelka, więc czas pompy i
     // uruchomienia idą do osobnego wiersza pod nimi (pierwsza wartość po lewej, ostatnia po prawej)
     row: [
-      { icon: 'timer', value: formatDuration(seconds), label: 'pompa' },
-      { icon: 'repeat', value: String(runs.length), label: 'uruchomień' },
-      ...(running && last.compressorRunning ? [{ icon: 'bubbles' as const, value: 'wł.', label: 'kompresor' }] : []),
+      { icon: 'timer', value: formatDuration(seconds), label: t(lang, 'tank.pump') },
+      { icon: 'repeat', value: String(runs.length), label: t(lang, 'tank.runs') },
+      ...(running && last.compressorRunning ? [{ icon: 'bubbles' as const, value: t(lang, 'tank.on'), label: t(lang, 'tank.compressor') }] : []),
     ],
     note,
-    foot: running ? `pompa pracuje ${formatDuration(runningMs / 1000)}` : `ostatnie uruchomienie ${formatWhen(new Date(last.pumpStart), now)}`,
+    // praca pompy: since = start bieżącego uruchomienia (klient liczy czas „pompa pracuje …”); postój: lastRunAt —
+    // klient pisze „ostatnie uruchomienie dziś 14:32” w swoim języku (do 2026-10-21 gotowy tekst w foot)
+    ...(running ? { since: new Date(last.pumpStart).toISOString() } : { lastRunAt: new Date(last.pumpStart).toISOString() }),
     // ostatnie zgłoszenie sterownika: klient pisze pod „ostatnie uruchomienie” także „dane sprzed …”
     updatedAt: new Date(last.lastSeenAt ?? last.pumpEnd).toISOString(),
   };

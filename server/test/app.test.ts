@@ -506,6 +506,24 @@ describe('API with MongoDB', () => {
     const lostFor2h = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 2 * 3600 * 1000));
     expect(lostFor2h?.level).toBe('err');
   });
+
+  it('tile texts in the language of the request (Accept-Language: en), chips stay as identifiers', async () => {
+    await request(app)
+      .post(`/api/hp/add?rootId=${rootId}&deviceId=${deviceId}`)
+      .send({ HP: { Ttarget: '50.8', Tmin: '40.0', Tmax: '47.0', Watts: '20', Tsump: '35.2', HPS: 1 }, work_mode: 'A', time: '2026.10.08 12:40:00' });
+    const english = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 60 * 1000), 'en');
+    expect(english?.chip).toBe('Online');
+    expect(english?.main).toEqual({ icon: 'thermo', value: '50.8 °C', label: 'tank' });
+    expect(english?.side?.map((item) => item.label)).toEqual(['min–max', 'power', 'Compressor T.', 'Outlet water T.']);
+    expect(english?.row?.[0]?.value).toBe('automatic');
+    const polish = await heatPumpTile(rootId, {} as never, new Date(Date.now() + 60 * 1000));
+    expect(polish?.main).toEqual({ icon: 'thermo', value: '50,8 °C', label: 'zbiornik' });
+
+    const summaryEn = await request(app).get('/api/devices/summary').set('Accept-Language', 'en-GB,en;q=0.9').expect(200);
+    expect(summaryEn.body[rootId]?.main?.label).toBe('tank');
+    const summaryPl = await request(app).get('/api/devices/summary').expect(200);
+    expect(summaryPl.body[rootId]?.main?.label).toBe('zbiornik');
+  });
 });
 
 

@@ -3,6 +3,7 @@
 // w ciągu dnia dłużej niż godzinę, czyli sterownik co odłączony (do godziny uwaga, pomarańczowa; dzień to
 // 6:00–20:00 w Warszawie, w nocy brak odczytów nie jest błędem, a rano liczy się od 6:00). Ostrzeżenie (pomarańczowy): panel nie działa (offline). Słabsza produkcja panelu (np. zacienienie)
 // niczego nie zgłasza.
+import { DEFAULT_LANG, Lang, t } from '../../core/i18n';
 import { Device, DeviceTile, TileFact } from '../../core/types';
 import { formatTemperature, formatUnit, offlineLevel } from '../../core/services/tile-format';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../core/time';
@@ -24,7 +25,7 @@ const silenceAge = (readAt: Date, now: Date) => {
   return now.getTime() - Math.max(readAt.getTime(), dayStart.getTime());
 };
 
-export async function photovoltaicTile(rootId: string, _device: Device, now = new Date()): Promise<DeviceTile | null> {
+export async function photovoltaicTile(rootId: string, _device: Device, now = new Date(), lang: Lang = DEFAULT_LANG): Promise<DeviceTile | null> {
   const view = await getCurrentView(rootId, now);
   if (!view.readAt) return { level: 'off', chip: 'Brak danych' };
 
@@ -41,27 +42,27 @@ export async function photovoltaicTile(rootId: string, _device: Device, now = ne
   if (view.stale && isDaytime(now)) {
     const silent = silenceAge(readAt, now);
     level = offlineLevel(silent); // do godziny uwaga, potem błąd
-    note = { level, text: 'Brak odczytów z DTU (sprawdź sterownik co)' };
+    note = { level, text: t(lang, 'pv.noDtu') };
   } else if (alarmed.length > 0) {
     level = 'err';
-    note = { level: 'err', text: alarmed.length === 1 ? `Alarm panelu ${alarmed[0].key} (kod ${alarmed[0].alarm_code})` : `Alarm na ${alarmed.length} panelach` };
+    note = { level: 'err', text: alarmed.length === 1 ? t(lang, 'pv.panelAlarm', { key: alarmed[0].key, code: alarmed[0].alarm_code ?? '' }) : t(lang, 'pv.panelsAlarm', { n: alarmed.length }) };
   } else if (offline.length > 0) {
     level = 'warn';
-    note = { level: 'warn', text: offline.length === 1 ? `Panel ${offline[0].key} nie odpowiada` : `${offline.length} panele nie odpowiadają` };
+    note = { level: 'warn', text: offline.length === 1 ? t(lang, 'pv.panelOffline', { key: offline[0].key }) : t(lang, 'pv.panelsOffline', { n: offline.length }) };
   }
 
   const side: TileFact[] = [
-    { icon: 'battery', value: formatUnit(typeof view.todayWh === 'number' ? view.todayWh / 1000 : undefined, 'kWh', 1), label: 'dziś' },
+    { icon: 'battery', value: formatUnit(typeof view.todayWh === 'number' ? view.todayWh / 1000 : undefined, 'kWh', 1, lang), label: t(lang, 'pv.today') },
   ];
-  if (view.panelsAvailable) side.push({ icon: 'panel', value: `${producing.length} / ${panels.length}`, label: 'paneli' });
+  if (view.panelsAvailable) side.push({ icon: 'panel', value: `${producing.length} / ${panels.length}`, label: t(lang, 'pv.panels') });
 
   return {
     level,
     chip,
     running: level !== 'err' && (view.power ?? 0) > 0,
-    main: { icon: 'sun', value: formatUnit(view.power, 'W'), label: 'teraz' },
+    main: { icon: 'sun', value: formatUnit(view.power, 'W', 0, lang), label: t(lang, 'pv.now') },
     side,
-    row: typeof view.temperature === 'number' ? [{ icon: 'thermo', value: formatTemperature(view.temperature), label: 'falowniki' }] : undefined,
+    row: typeof view.temperature === 'number' ? [{ icon: 'thermo', value: formatTemperature(view.temperature, lang), label: t(lang, 'pv.inverters') }] : undefined,
     note,
     updatedAt: readAt.toISOString(),
   };

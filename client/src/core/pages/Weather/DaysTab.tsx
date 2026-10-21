@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { weatherDescription, WeatherCodeIcon } from '../../components/WeatherIcon';
 import { dayOf, deg, Forecast, nightCode, shortDate, todayIndex, weekday } from './forecast';
 import { DropIcon } from './NowTab';
+import { useLang } from '../../i18n';
 
 const DAYS_SHORT = 8;
 
 export function DaysTab({ forecast }: { forecast: Forecast }) {
+  const { t } = useLang();
   const [all, setAll] = useState(false);
   const { daily } = forecast;
   const today = dayOf(forecast.current.time);
@@ -16,7 +18,7 @@ export function DaysTab({ forecast }: { forecast: Forecast }) {
   const days = daily.time.slice(first, all ? undefined : first + DAYS_SHORT);
   return (
     <section className="card">
-      <div className="card-head"><h2>Prognoza dzienna</h2><span className="card-hint">dzień · noc</span></div>
+      <div className="card-head"><h2>{t('wx.dailyForecast')}</h2><span className="card-hint">{t('wx.dayNight')}</span></div>
       <ul className="wx-days">
         {days.map((day, offset) => {
           const index = first + offset;
@@ -26,11 +28,11 @@ export function DaysTab({ forecast }: { forecast: Forecast }) {
           return (
             <li key={day} className={`wx-day${past ? ' is-past' : ''}`}>
               <span className="wx-day-name">
-                {day === today ? 'Dzisiaj' : past ? 'Wczoraj' : weekday(day)}
+                {day === today ? t('wx.todayCap') : past ? t('wx.yesterdayCap') : weekday(day)}
                 <small>{shortDate(day)}</small>
               </span>
               <span className="wx-day-rain">{!past && rain !== null && <><DropIcon />{rain}%</>}</span>
-              <span className="wx-day-icons" title={`dzień: ${weatherDescription(daily.weather_code[index])}${night !== null ? `, noc: ${weatherDescription(night)}` : ''}`}>
+              <span className="wx-day-icons" title={`${t('wx.dayLower')}: ${weatherDescription(daily.weather_code[index])}${night !== null ? `, ${t('wx.nightLower')}: ${weatherDescription(night)}` : ''}`}>
                 <WeatherCodeIcon code={daily.weather_code[index]} isDay size={28} />
                 {night !== null ? <WeatherCodeIcon code={night} isDay={false} size={28} /> : <span className="wx-icon-gap" />}
               </span>
@@ -43,7 +45,7 @@ export function DaysTab({ forecast }: { forecast: Forecast }) {
       {daily.time.length - first > DAYS_SHORT && (
         <div className="actions">
           <button type="button" className="btn btn-ghost" onClick={() => setAll(!all)}>
-            {all ? 'Krótsza prognoza' : `Prognoza ${daily.time.length - index0}-dniowa`} ›
+            {all ? t('wx.shorterForecast') : t('wx.longerForecast', { n: daily.time.length - index0 })} ›
           </button>
         </div>
       )}

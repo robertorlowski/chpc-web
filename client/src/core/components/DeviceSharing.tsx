@@ -12,9 +12,11 @@ import { ApiError } from '../http';
 import { canEditDevice, Device, DeviceShare } from '../types';
 import { IconButton } from './IconButton';
 import { EditIcon, TrashIcon } from './icons';
+import { useLang } from '../i18n';
+import { viewLabel } from './Header';
 import './account.css';
 
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+const formatDate = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
 // udostępnienie „Panel prosty” (serwer: access.service SIMPLE_TAB)
 const SIMPLE_TAB = 'simple';
 const isSimpleShare = (tabs: string[]) => tabs.includes(SIMPLE_TAB);
@@ -29,6 +31,7 @@ function initials(name: string | null, email: string): string {
 function ShareDialog({ device, share, onClose, onSaved }: {
   device: Device; share: DeviceShare | null; onClose: () => void; onSaved: () => void;
 }) {
+  const { t } = useLang();
   const typeView = getDeviceTypeView(device.deviceType);
   const views = typeView.views;
   const simpleAvailable = !!typeView.SimpleTile;
@@ -56,7 +59,7 @@ function ShareDialog({ device, share, onClose, onSaved }: {
       else await ShareRequests.add(device.rootId, email, chosen);
       onSaved();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Nie udało się zapisać.');
+      setError(caught instanceof ApiError ? caught.message : t('share.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -66,43 +69,43 @@ function ShareDialog({ device, share, onClose, onSaved }: {
     <div className="modal-layer">
       <div className="scrim" onClick={onClose} />
       <form className="modal" role="dialog" aria-modal="true" aria-labelledby="share-title" onSubmit={save}>
-        <header className="modal-head"><h2 id="share-title">{share ? 'Zakładki' : 'Udostępnij sterownik'}</h2></header>
+        <header className="modal-head"><h2 id="share-title">{share ? t('share.tabs') : t('share.shareDevice')}</h2></header>
         <div className="modal-body">
           <p>{device.name || device.deviceId}</p>
           <label className="field">
-            <span>E-mail osoby</span>
-            <input type="email" required disabled={!!share} autoFocus={!share} placeholder="imie@domena.pl" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <span>{t('share.personEmail')}</span>
+            <input type="email" required disabled={!!share} autoFocus={!share} placeholder={t('login.emailPlaceholder')} value={email} onChange={(event) => setEmail(event.target.value)} />
           </label>
           {simpleAvailable && (
             <fieldset className="checks">
-              <legend>Co zobaczy</legend>
+              <legend>{t('share.whatSees')}</legend>
               <label className="check">
                 <input type="radio" name="share-kind" checked={!simple} onChange={() => setSimple(false)} />
-                <span>Pełna aplikacja</span><small>zakładki do wyboru niżej</small>
+                <span>{t('share.fullApp')}</span><small>{t('share.fullAppHint')}</small>
               </label>
               <label className="check">
                 <input type="radio" name="share-kind" checked={simple} onChange={() => setSimple(true)} />
-                <span>Panel prosty</span><small>jeden kafelek z dużymi przyciskami: Włącz / Wyłącz / harmonogram, z opisem, co się stanie; bez wykresów, harmonogramu i ustawień</small>
+                <span>{t('view.simple')}</span><small>{t('share.simpleHint')}</small>
               </label>
             </fieldset>
           )}
           {!simple && (
             <fieldset className="checks">
-              <legend>Zakładki, które zobaczy</legend>
+              <legend>{t('share.tabsSees')}</legend>
               {views.map((view) => (
                 <label key={view.path} className="check">
                   <input type="checkbox" checked={tabs.includes(view.path)} onChange={() => toggle(view.path)} />
-                  <span>{view.path === '/' ? 'Podgląd' : view.label}</span>
+                  <span>{view.path === '/' ? t('view.overview') : viewLabel(view.path, device.deviceType, t)}</span>
                 </label>
               ))}
             </fieldset>
           )}
-          {!share && <p className="help">Jeśli ta osoba nie ma konta, dostanie zaproszenie mailem; dostęp można cofnąć w każdej chwili.</p>}
+          {!share && <p className="help">{t('share.inviteHint')}</p>}
           {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
         </div>
         <footer className="modal-foot">
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>Anuluj</button>
-          <button type="submit" className="btn btn-primary" disabled={busy || chosen.length === 0}>{share ? 'Zapisz' : 'Wyślij zaproszenie'}</button>
+          <button type="button" className="btn" onClick={onClose} disabled={busy}>{t('common.cancel')}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || chosen.length === 0}>{share ? t('common.save') : t('share.sendInvite')}</button>
         </footer>
       </form>
     </div>
@@ -110,34 +113,35 @@ function ShareDialog({ device, share, onClose, onSaved }: {
 }
 
 export function DeviceSharing({ device }: { device: Device }) {
+  const { t, locale } = useLang();
   const [shares, setShares] = useState<DeviceShare[] | null>(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<DeviceShare | null | undefined>(undefined);
   const views = getDeviceTypeView(device.deviceType);
-  const tabLabel = (path: string) => (path === '/' ? 'Podgląd' : views.views.find((view) => view.path === path)?.label ?? path);
-  const tabsText = (share: DeviceShare) => isSimpleShare(share.tabs) ? 'panel prosty (kafelek z dużymi przyciskami)'
-    : share.tabs.length === views.views.length ? 'wszystkie zakładki' : share.tabs.map(tabLabel).join(', ');
+  const tabLabel = (path: string) => (path === '/' ? t('view.overview') : views.views.find((view) => view.path === path) ? viewLabel(path, device.deviceType, t) : path);
+  const tabsText = (share: DeviceShare) => isSimpleShare(share.tabs) ? t('share.simpleText')
+    : share.tabs.length === views.views.length ? t('share.allTabs') : share.tabs.map(tabLabel).join(', ');
 
-  const load = () => ShareRequests.list(device.rootId).then(setShares).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Nie udało się pobrać listy.'));
+  const load = () => ShareRequests.list(device.rootId).then(setShares).catch((caught) => setError(caught instanceof ApiError ? caught.message : t('share.listFailed')));
   // udostępnione i demo: bez listy (serwer odpowiada 403)
   useEffect(() => { if (canEditDevice(device)) void load(); }, [device.rootId]);
   if (!canEditDevice(device)) return null;
 
   const remove = async (share: DeviceShare) => {
-    if (!window.confirm(`Odebrać dostęp: ${share.name ?? share.email}?`)) return;
+    if (!window.confirm(t('share.revokeConfirm', { who: share.name ?? share.email }))) return;
     try {
       await ShareRequests.remove(device.rootId, share.id);
       void load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Nie udało się odebrać dostępu.');
+      setError(caught instanceof ApiError ? caught.message : t('share.revokeFailed'));
     }
   };
 
   return (
     <section className="card">
       <header className="card-head controller-card-head">
-        <h2>Udostępnianie</h2>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>Udostępnij</button>
+        <h2>{t('share.title')}</h2>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>{t('share.share')}</button>
       </header>
       {shares && shares.length > 0 && (
         <ul className="people">
@@ -148,16 +152,16 @@ export function DeviceSharing({ device }: { device: Device }) {
                 <strong>{share.registered ? share.name || share.email : share.email}</strong>
                 {share.registered && share.name && <small>{share.email}</small>}
                 <small className={share.registered ? '' : 'share-pending'}>
-                  {share.registered ? tabsText(share) : `zaproszenie wysłane ${formatDate(share.createdAt)} · czeka na rejestrację · ${tabsText(share)}`}
+                  {share.registered ? tabsText(share) : `${t('share.inviteSent', { date: formatDate(share.createdAt, locale) })} · ${tabsText(share)}`}
                 </small>
               </span>
-              <IconButton label={`Zmień zakładki: ${share.email}`} icon={<EditIcon />} onClick={() => setEditing(share)} />
-              <IconButton variant="danger" label={`Cofnij dostęp: ${share.email}`} icon={<TrashIcon />} onClick={() => void remove(share)} />
+              <IconButton label={`${t('share.changeTabs')}: ${share.email}`} icon={<EditIcon />} onClick={() => setEditing(share)} />
+              <IconButton variant="danger" label={`${t('share.revoke')}: ${share.email}`} icon={<TrashIcon />} onClick={() => void remove(share)} />
             </li>
           ))}
         </ul>
       )}
-      {shares?.length === 0 && <p className="help">Nikt poza Tobą nie ma dostępu. „Udostępnij” wysyła zaproszenie na e-mail z wybranymi zakładkami.</p>}
+      {shares?.length === 0 && <p className="help">{t('share.nobody')}</p>}
       {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
       {editing !== undefined && (
         <ShareDialog device={device} share={editing} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void load(); }} />

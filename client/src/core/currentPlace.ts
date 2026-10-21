@@ -5,6 +5,7 @@
 // (chpc.currentPlace), więc kafelek rysuje się od razu, a odświeża co 15 min. Jeden wspólny stan dla wszystkich
 // użyć (kafelek i strona pogody) z jednym zapytaniem naraz. Przeglądarka daje położenie tylko przez HTTPS albo localhost.
 import { useEffect, useState } from 'react';
+import { getLang } from './i18n';
 import { Weather } from './types';
 
 const KEY = 'chpc.currentPlace';
@@ -50,7 +51,7 @@ function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: numb
 }
 
 async function placeName(lat: number, lon: number): Promise<string | null> {
-  const response = await fetch(`${GEOCODER}?latitude=${lat}&longitude=${lon}&localityLanguage=pl`);
+  const response = await fetch(`${GEOCODER}?latitude=${lat}&longitude=${lon}&localityLanguage=${getLang()}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = await response.json() as { city?: string; locality?: string; principalSubdivision?: string };
   return body.city || body.locality || body.principalSubdivision || null;
@@ -110,13 +111,10 @@ export function useCurrentPlace(active = true): CurrentPlaceState {
   return value;
 }
 
-// opis stanu dla kafelka i strony pogody, gdy nie ma położenia albo odczyt się nie udał
-export function currentPlaceProblem(status: CurrentPlaceStatus): string | null {
+// opis stanu dla kafelka i strony pogody, gdy nie ma położenia albo odczyt się nie udał (t z useLang, klucze place.*)
+export function currentPlaceProblem(status: CurrentPlaceStatus, t: (key: string) => string): string | null {
   switch (status) {
-    case 'denied': return 'Brak zgody na lokalizację — zezwól tej stronie w ustawieniach przeglądarki.';
-    case 'insecure': return 'Lokalizacja działa tylko przez HTTPS.';
-    case 'unsupported': return 'Ta przeglądarka nie podaje lokalizacji.';
-    case 'unavailable': return 'Nie udało się ustalić położenia.';
+    case 'denied': case 'insecure': case 'unsupported': case 'unavailable': return t(`place.${status}`);
     default: return null;
   }
 }

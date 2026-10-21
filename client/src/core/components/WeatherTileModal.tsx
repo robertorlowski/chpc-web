@@ -9,6 +9,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { WeatherTileRequests } from '../api';
 import { refreshCurrentPlace } from '../currentPlace';
 import { WeatherTile } from '../types';
+import { useLang } from '../i18n';
 import { ListIcon } from './DeviceTileCard';
 import './deviceEditModal.css';
 
@@ -25,10 +26,11 @@ type Props = {
 type Hit = { name: string; admin1?: string; country?: string; latitude: number; longitude: number };
 
 const GEOCODER = 'https://geocoding-api.open-meteo.com/v1/search';
-const coordinate = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const coordinate = (value: number, locale: string) => value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const parseCoordinate = (text: string) => Number(text.replace(',', '.').trim());
 
 export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemoved }: Props) {
+  const { t, lang, locale } = useLang();
   const current = !!tile?.current;
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -55,12 +57,12 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
     searchTimer.current = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const response = await fetch(`${GEOCODER}?name=${encodeURIComponent(text)}&count=6&language=pl&format=json`);
+        const response = await fetch(`${GEOCODER}?name=${encodeURIComponent(text)}&count=6&language=${lang}&format=json`);
         const body = await response.json() as { results?: Hit[] };
         setHits(body.results ?? []);
       } catch {
         setHits([]);
-        setError('Wyszukiwarka miejscowości nie odpowiada. Wpisz współrzędne ręcznie.');
+        setError(t('weatherTile.geocoderDown'));
       } finally {
         setSearching(false);
       }
@@ -85,7 +87,7 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
     try {
       onSaved(await WeatherTileRequests.create({ current: true }));
     } catch (caught) {
-      setError((caught as { serverMessage?: string }).serverMessage ?? 'Nie udało się dodać kafelka lokalizacji.');
+      setError((caught as { serverMessage?: string }).serverMessage ?? t('weatherTile.addCurrentFailed'));
       setSaving(false);
     }
   };
@@ -93,20 +95,20 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (current && tile) {
-      if (!name.trim()) { setError('Wpisz nazwę kafelka.'); return; }
+      if (!name.trim()) { setError(t('weatherTile.nameRequired')); return; }
       setSaving(true);
       try {
         onSaved(await WeatherTileRequests.update(tile.id, { name: name.trim() }));
       } catch {
-        setError('Nie udało się zapisać kafelka pogody.');
+        setError(t('weatherTile.saveFailed'));
         setSaving(false);
       }
       return;
     }
     const data = { name: name.trim(), lat: parseCoordinate(lat), lon: parseCoordinate(lon) };
-    if (!data.name) { setError('Wpisz nazwę kafelka.'); return; }
+    if (!data.name) { setError(t('weatherTile.nameRequired')); return; }
     if (!Number.isFinite(data.lat) || !Number.isFinite(data.lon) || Math.abs(data.lat) > 90 || Math.abs(data.lon) > 180) {
-      setError('Wpisz współrzędne: szerokość od -90 do 90, długość od -180 do 180.');
+      setError(t('weatherTile.coordsInvalid'));
       return;
     }
     setSaving(true);
@@ -114,7 +116,7 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
     try {
       onSaved(tile ? await WeatherTileRequests.update(tile.id, data) : await WeatherTileRequests.create(data));
     } catch (caught) {
-      setError((caught as { serverMessage?: string }).serverMessage ?? 'Nie udało się zapisać kafelka pogody.');
+      setError((caught as { serverMessage?: string }).serverMessage ?? t('weatherTile.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -127,7 +129,7 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
       await WeatherTileRequests.remove(tile.id);
       onRemoved(tile.id);
     } catch {
-      setError('Nie udało się usunąć kafelka pogody.');
+      setError(t('weatherTile.removeFailed'));
       setSaving(false);
     }
   };
@@ -137,74 +139,70 @@ export function WeatherTileModal({ tile, canAddCurrent, onClose, onSaved, onRemo
       <div className="scrim" onClick={onClose} />
       <form className="modal" role="dialog" aria-modal="true" aria-labelledby="weather-modal-title" onSubmit={save}>
         <header className="modal-head">
-          <h2 id="weather-modal-title">{tile ? 'Kafelek pogody' : 'Nowy kafelek pogody'}</h2>
-          <button type="button" className="icon-btn sm" aria-label="Zamknij" onClick={onClose}><ListIcon name="close" /></button>
+          <h2 id="weather-modal-title">{tile ? t('weatherTile.title') : t('weatherTile.titleNew')}</h2>
+          <button type="button" className="icon-btn sm" aria-label={t('common.close')} onClick={onClose}><ListIcon name="close" /></button>
         </header>
         <div className="modal-body">
           {!tile && canAddCurrent && (
             <>
-              <button type="button" className="btn btn-ghost wx-locate" onClick={addCurrent} disabled={saving}><ListIcon name="locate" />Użyj mojej lokalizacji</button>
-              <p className="help">Kafelek pokaże pogodę tam, gdzie jest telefon lub komputer, na którym go oglądasz. Położenie zostaje w przeglądarce: nie trafia na serwer, tylko do Open-Meteo i serwisu nazw miejscowości.</p>
-              <div className="wx-or"><span>albo stałe miejsce</span></div>
+              <button type="button" className="btn btn-ghost wx-locate" onClick={addCurrent} disabled={saving}><ListIcon name="locate" />{t('weatherTile.useMyLocation')}</button>
+              <p className="help">{t('weatherTile.myLocationHint')}</p>
+              <div className="wx-or"><span>{t('weatherTile.orFixedPlace')}</span></div>
             </>
           )}
           {!current && <>
           <label className="field">
-            <span>Miejscowość</span>
-            <input type="search" id="weather-search" value={query} placeholder="np. Zakopane" autoFocus={!tile} autoComplete="off"
+            <span>{t('weatherTile.place')}</span>
+            <input type="search" id="weather-search" value={query} placeholder={t('weatherTile.placePlaceholder')} autoFocus={!tile} autoComplete="off"
               onChange={(event) => setQuery(event.currentTarget.value)} />
           </label>
           {(hits.length > 0 || searching) && (
-            <ul className="choices" aria-label="Podpowiedzi">
-              {searching && hits.length === 0 && <li className="choice-note"><small>Szukanie…</small></li>}
+            <ul className="choices" aria-label={t('weatherTile.suggestions')}>
+              {searching && hits.length === 0 && <li className="choice-note"><small>{t('weatherTile.searching')}</small></li>}
               {hits.map((hit, index) => (
                 <li key={`${hit.latitude}-${hit.longitude}-${index}`} role="button" tabIndex={0} onClick={() => pick(hit)}
                   onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); pick(hit); } }}>
-                  <strong>{hit.name}{hit.country && hit.country !== 'Polska' ? `, ${hit.country}` : ''}</strong>
-                  <small>{hit.admin1 ? `${hit.admin1} · ` : ''}{coordinate(hit.latitude)} N, {coordinate(hit.longitude)} E</small>
+                  <strong>{hit.name}{hit.country && hit.country !== 'Polska' && hit.country !== 'Poland' ? `, ${hit.country}` : ''}</strong>
+                  <small>{hit.admin1 ? `${hit.admin1} · ` : ''}{coordinate(hit.latitude, locale)} N, {coordinate(hit.longitude, locale)} E</small>
                 </li>
               ))}
             </ul>
           )}
           </>}
           <label className="field">
-            <span>Nazwa na kafelku</span>
+            <span>{t('weatherTile.tileName')}</span>
             <input type="text" id="weather-name" value={name} maxLength={40} onChange={(event) => setName(event.currentTarget.value)} />
           </label>
           {!current && <div className="weather-coords">
             <label className="field">
-              <span>Szerokość geogr.</span>
+              <span>{t('weatherTile.latitude')}</span>
               <input type="text" id="weather-lat" value={lat} inputMode="decimal" onChange={(event) => setLat(event.currentTarget.value)} />
             </label>
             <label className="field">
-              <span>Długość geogr.</span>
+              <span>{t('weatherTile.longitude')}</span>
               <input type="text" id="weather-lon" value={lon} inputMode="decimal" onChange={(event) => setLon(event.currentTarget.value)} />
             </label>
           </div>}
           <p className="help">
-            {current
-              ? 'Kafelek bieżącej lokalizacji: nazwa widoczna, dopóki przeglądarka nie ustali miejscowości. Położenie i pogoda zostają w przeglądarce.'
-              : tile?.home
-                ? 'Kafelek domu: jego położenie daje też temperaturę na ekranach sterowników.'
-                : 'Współrzędne z geokodera Open-Meteo; pogodę dla tego miejsca pobiera włącznik co 15 minut (firmware od 1.2.0). Najwyżej 8 kafelków na konto.'}
+            {current ? t('weatherTile.currentHint') : tile?.home ? t('weatherTile.homeHint') : t('weatherTile.placeHint')}
           </p>
           {error && <p className="device-modal-error" role="alert">{error}</p>}
         </div>
         {confirmRemove ? (
           <footer className="modal-foot">
-            <span className="help">Usunąć kafelek „{tile?.name}”?</span>
+            <span className="help">{t('weatherTile.removeConfirm', { name: tile?.name ?? '' })}</span>
             <span className="spacer" />
-            <button type="button" className="btn" onClick={() => setConfirmRemove(false)} disabled={saving}>Nie</button>
-            <button type="button" className="btn btn-danger" onClick={remove} disabled={saving}>Usuń</button>
+            <button type="button" className="btn" onClick={() => setConfirmRemove(false)} disabled={saving}>{t('common.no')}</button>
+            <button type="button" className="btn btn-danger" onClick={remove} disabled={saving}>{t('common.delete')}</button>
           </footer>
         ) : (
           <footer className="modal-foot">
             {tile && !tile.home && (
-              <button type="button" className="btn btn-danger-ghost" onClick={() => setConfirmRemove(true)} disabled={saving}>Usuń kafelek</button>
+              <button type="button" className="btn btn-danger-ghost" onClick={() => setConfirmRemove(true)} disabled={saving}>{t('weatherTile.remove')}</button>
             )}
             <span className="spacer" />
-            <button type="button" className="btn" onClick={onClose} disabled={saving}>Anuluj</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
+            <button type="button" className="btn" onClick={onClose} disabled={saving}>{t('common.cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? t('common.saving') : t('common.save')}</button>
           </footer>
         )}
       </form>

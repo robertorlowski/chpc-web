@@ -15,6 +15,7 @@ import { mailConfigFor, mailKeyInfo, recordMailKey } from '../services/mail-rela
 import { getDeviceTypeModule } from '../device-types';
 import { getDeviceInfo } from '../services/device-info.service';
 import { getDeviceTiles } from '../services/tile.service';
+import { requestLang } from '../i18n';
 import {
   FirmwareError, cancelFirmwareUpdate, firmwareOfferForDevice, requestFirmwareUpdate,
 } from '../services/firmware.service';
@@ -338,7 +339,7 @@ export async function updateDevicesOrder(req: Request<{}, {}, { rootIds?: unknow
 // danych albo z błędem nie ma wpisu (kafelek zostaje wtedy tylko z nazwą).
 export async function getDeviceTilesEntry(req: Request, res: Response) {
   try {
-    const tiles = await getDeviceTiles();
+    const tiles = await getDeviceTiles(requestLang(req));
     if (!req.user) return res.status(200).json(tiles);
     const access = await accessibleDevices(req.user);
     return res.status(200).json(Object.fromEntries(Object.entries(tiles).filter(([rootId]) => access.has(rootId))));

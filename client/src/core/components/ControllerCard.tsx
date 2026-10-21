@@ -11,6 +11,7 @@ import { ControllerCardTitle } from './ControllerCardTitle';
 import { DeviceAddressRow, useCurrentDevice } from './DeviceAddress';
 import { FirmwareActions, FirmwareRows, useFirmwareStatus } from './FirmwareStatus';
 import { MailKeyRow } from './MailKeyRow';
+import { useLang } from '../i18n';
 import './firmwareStatus.css';
 
 const shortId = (id: string) => (id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id);
@@ -22,6 +23,7 @@ export const ControllerCard: React.FC<{
   children?: ReactNode;
 }> = ({ device, onEdit, children }) => {
   const { user } = useAuth();
+  const { t } = useLang();
   const isDemo = !!user?.isDemo;
   const { current, reload } = useCurrentDevice(device);
   const firmware = useFirmwareStatus(device);
@@ -39,13 +41,13 @@ export const ControllerCard: React.FC<{
     <section className="card">
       <ControllerCardTitle disabled={!canEditDevice(device)} onEdit={onEdit} />
       <dl className="kv">
-        <div><dt>Nazwa</dt><dd>{device?.name?.trim() || '—'}</dd></div>
+        <div><dt>{t('deviceEdit.name')}</dt><dd>{device?.name?.trim() || '—'}</dd></div>
         {!isDemo && <div><dt>SN</dt><dd><code>{device?.deviceId ?? '---'}</code></dd></div>}
         {!isDemo && <div>
           <dt>Root ID</dt>
           <dd>
             <code title={device?.rootId}>{device ? shortId(device.rootId) : '---'}</code>
-            {device && <button type="button" className="link-btn" onClick={copy}>{copied ? 'skopiowano' : 'kopiuj'}</button>}
+            {device && <button type="button" className="link-btn" onClick={copy}>{copied ? t('common.copied') : t('common.copy')}</button>}
           </dd>
         </div>}
         {children}

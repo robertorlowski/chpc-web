@@ -133,7 +133,7 @@ export interface DeviceTypeModule {
   /** definicja pompy nadawana automatycznie przy zgłoszeniu sterownika (okno „Dane sterownika” może ją zmienić) */
   initialPumpConfig?: PumpConfig;
   /** kafelek sterownika na stronie /devices; null = brak danych do pokazania (kafelek tylko z nazwą) */
-  tile?: (rootId: string, device: Device) => Promise<DeviceTile | null>;
+  tile?: (rootId: string, device: Device, now?: Date, lang?: 'pl' | 'en') => Promise<DeviceTile | null>;
   /** dziennik operacji: operacje zaplanowane od now do końca doby (np. przejścia harmonogramu) */
   plannedOperations?: (rootId: string, now: Date, dayEnd: Date) => Promise<PlannedOperation[]>;
 }
@@ -220,8 +220,10 @@ export interface DeviceTile {
   note?: { level: 'warn' | 'err'; text: string };
   /** czas ostatnich danych (ISO): klient pisze „dane sprzed …” */
   updatedAt?: string;
-  /** własny tekst stopki zamiast „dane sprzed …” (np. „ostatnie uruchomienie dziś 14:32”) */
+  /** własny tekst stopki zamiast „dane sprzed …” */
   foot?: string;
+  /** hydrofor: początek ostatniego uruchomienia (ISO), gdy pompa nie pracuje; klient pisze „ostatnie uruchomienie …” w swoim języku */
+  lastRunAt?: string;
   /** początek bieżącej pracy przy running (ISO; kocioł: palenie): klient pokazuje czas pracy („2 h 08 min”) */
   since?: string;
   /** wskaźniki pomp obiegu (kocioł: CO, CWU); on = pompa pracuje */

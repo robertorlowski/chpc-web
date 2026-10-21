@@ -6,6 +6,7 @@ import { cc, tooltipStyle } from '../../chartColors';
 import { ListIcon } from '../../components/DeviceTileCard';
 import { dayLabel, Forecast, hourOf, nextHourIndex, number1, todayIndex, windDirection } from './forecast';
 import { COLUMN, hourLabel } from './NowTab';
+import { useLang } from '../../i18n';
 
 const HOURS = 48;
 const WEEK = 7;
@@ -16,6 +17,7 @@ const STRONG_GUSTS = 60;
 const isSouth = (degrees: number) => degrees >= 135 && degrees <= 225;
 
 export function WindTab({ forecast }: { forecast: Forecast }) {
+  const { t, tn } = useLang();
   const { current, hourly, daily } = forecast;
   const today = todayIndex(forecast);
   const start = nextHourIndex(forecast);
@@ -35,34 +37,34 @@ export function WindTab({ forecast }: { forecast: Forecast }) {
     <>
       <section className="card card-hero">
         <div className="hero-main">
-          <span className="hero-label">Wiatr teraz</span>
+          <span className="hero-label">{t('wx.windNow')}</span>
           <div className="hero-value"><span className="hero-num">{Math.round(current.wind_speed_10m)}</span><span className="hero-unit">km/h {windDirection(current.wind_direction_10m)}</span></div>
           <span className="hero-note">
-            porywy do {Math.round(current.wind_gusts_10m)} km/h · najsilniej {dayLabel(forecast, strongest.day)}: porywy do {Math.round(strongest.gust)} km/h z kierunku {windDirection(strongest.dir)}
+            {t('wx.gustsNote', { gusts: Math.round(current.wind_gusts_10m), day: dayLabel(forecast, strongest.day), max: Math.round(strongest.gust), dir: windDirection(strongest.dir) })}
           </span>
         </div>
         <div className="hero-side"><div className="hero-kpis">
-          <div className="kpi"><span className="kpi-label">Opad dziś</span><span className="kpi-value">{number1(week[0].rain)}<small>mm</small></span></div>
-          <div className="kpi"><span className="kpi-label">Opad 7 dni</span><span className="kpi-value">{Math.round(week.reduce((sum, item) => sum + item.rain, 0))}<small>mm</small></span></div>
-          <div className="kpi"><span className="kpi-label">Śnieg 7 dni</span><span className="kpi-value">{Math.round(week.reduce((sum, item) => sum + item.snow, 0))}<small>cm</small></span></div>
-          <div className="kpi"><span className="kpi-label">Burze 7 dni</span><span className="kpi-value">{storms.length ? storms.length : 'brak'}{storms.length > 0 && <small>{storms.length === 1 ? 'dzień' : 'dni'}</small>}</span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.rainToday')}</span><span className="kpi-value">{number1(week[0].rain)}<small>mm</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.rain7')}</span><span className="kpi-value">{Math.round(week.reduce((sum, item) => sum + item.rain, 0))}<small>mm</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.snow7')}</span><span className="kpi-value">{Math.round(week.reduce((sum, item) => sum + item.snow, 0))}<small>cm</small></span></div>
+          <div className="kpi"><span className="kpi-label">{t('wx.storms7')}</span><span className="kpi-value">{storms.length ? storms.length : t('wx.none')}{storms.length > 0 && <small>{tn('wx.daysUnit', storms.length)}</small>}</span></div>
         </div></div>
       </section>
 
       {windy.map((item) => (
         <div key={item.day} className="alert alert-warn"><ListIcon name="bell" /><div>
-          <strong>{dayLabel(forecast, item.day)}: silny wiatr{isSouth(item.dir) ? ' z południa' : ` z kierunku ${windDirection(item.dir)}`}</strong>
-          <span>porywy do {Math.round(item.gust)} km/h{isSouth(item.dir) ? ', możliwy halny' : ''} · zabezpiecz rzeczy na zewnątrz</span>
+          <strong>{dayLabel(forecast, item.day)}: {isSouth(item.dir) ? t('wx.strongWindSouth') : t('wx.strongWindFrom', { dir: windDirection(item.dir) })}</strong>
+          <span>{t('wx.gustsUpTo', { value: Math.round(item.gust) })}{isSouth(item.dir) ? t('wx.halnyPossible') : ''} · {t('wx.secureOutside')}</span>
         </div></div>
       ))}
 
       <section className="card">
-        <div className="card-head"><h2>Wiatr · najbliższe 48 godzin</h2><span className="card-hint">średnia · porywy [km/h]</span></div>
-        <div className="wx-hourly" role="list" aria-label="Wiatr w najbliższych 48 godzinach">
+        <div className="card-head"><h2>{t('wx.wind48')}</h2><span className="card-hint">{t('wx.wind48Hint')}</span></div>
+        <div className="wx-hourly" role="list" aria-label={t('wx.wind48Label')}>
           <div className="wx-hourly-row" style={{ width: hours.length * COLUMN }}>
             {hours.map((hour) => (
               <div key={hour.time} role="listitem" className={`wx-hour${hourOf(hour.time) === '00:00' ? ' is-midnight' : ''}`} style={{ width: COLUMN }}
-                title={`${hourOf(hour.time)} · wiatr z kierunku ${windDirection(hour.dir)}`}>
+                title={`${hourOf(hour.time)} · ${t('wx.windFrom', { dir: windDirection(hour.dir) })}`}>
                 <span className="wx-hour-time">{hourLabel(hour.time)}</span>
                 {/* strzałka wskazuje, dokąd wieje (kierunek z prognozy: skąd) */}
                 <svg className="wx-wind-arrow" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style={{ transform: `rotate(${hour.dir + 180}deg)` }}>
@@ -77,14 +79,14 @@ export function WindTab({ forecast }: { forecast: Forecast }) {
       </section>
 
       <section className="card">
-        <div className="card-head"><h2>Opady · najbliższe dni</h2><span className="card-hint">suma dobowa</span></div>
+        <div className="card-head"><h2>{t('wx.rainDays')}</h2><span className="card-hint">{t('wx.dailySum')}</span></div>
         <div className="wx-chart">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rain} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke={cc().grid} vertical={false} />
               <XAxis dataKey="label" stroke={cc().line} tickLine={false} interval={0} tick={{ fill: cc().axis, fontSize: 11 }} />
               <YAxis stroke={cc().line} axisLine={false} tickLine={false} width={44} allowDecimals={false} tick={{ fill: cc().axis, fontSize: 11 }} tickFormatter={(value: number) => `${value} mm`} />
-              <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }} formatter={(value) => [`${number1(Number(value))} mm`, 'opad']} />
+              <Tooltip {...tooltipStyle()} cursor={{ fill: cc().grid }} formatter={(value) => [`${number1(Number(value))} mm`, t('wx.precipLower')]} />
               <Bar dataKey="mm" fill={cc().water} radius={[1.5, 1.5, 0, 0]} maxBarSize={40} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>

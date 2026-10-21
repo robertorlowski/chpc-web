@@ -14,16 +14,17 @@ import { getDeviceTypeView } from '../../device-types';
 import Notification, { useSaveNotice } from '../../components/Notification';
 import { IconButton } from '../../components/IconButton';
 import { PlusIcon, TrashIcon } from '../../components/icons';
+import { t as tr, useLang } from '../../i18n';
+import { dateLabel, dateTimeLabel } from '../../i18n/format';
 import './style.css';
 
 // partycja aplikacji OTA ESP32; serwer odrzuca większy plik (core/services/firmware.service.ts)
 const MAX_FIRMWARE_BYTES = 1310720;
 const MAX_DESCRIPTION_LENGTH = 500;
 
-const formatBytes = (bytes: number) => `${bytes.toLocaleString('pl-PL')} B`;
-const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString('pl-PL') : '---');
-const formatDateTime = (value?: string) =>
-  value ? new Date(value).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : '---';
+const formatBytes = (bytes: number, locale: string) => `${bytes.toLocaleString(locale)} B`;
+const formatDate = (value?: string) => dateLabel(value);
+const formatDateTime = (value?: string) => dateTimeLabel(value);
 const shortSha = (sha: string) => `${sha.slice(0, 4)}…${sha.slice(-4)}`;
 
 // Przełącznik jak w makiecie (.switch): span z rolą switch, Enter/spacja przełączają.
@@ -36,10 +37,10 @@ const Switch: React.FC<{ on: boolean; label: string; disabled?: boolean; onChang
 
 // Stan sterownika względem oferowanej wersji (chip na liście „Sterowniki tego rodzaju”).
 function deviceChip(device: Device, offered: string | null, enabled: boolean): { className: string; text: string } {
-  if (device.firmwareUpdate) return { className: 'chip-warn', text: 'zlecona' };
-  if (!device.firmwareVersion) return { className: 'chip-off', text: 'brak wersji' };
-  if (offered && enabled && device.firmwareVersion !== offered) return { className: 'chip-warn', text: 'do aktualizacji' };
-  return { className: 'chip-ok', text: 'aktualny' };
+  if (device.firmwareUpdate) return { className: 'chip-warn', text: tr('fw.chipRequested') };
+  if (!device.firmwareVersion) return { className: 'chip-off', text: tr('fw.chipNoVersion') };
+  if (offered && enabled && device.firmwareVersion !== offered) return { className: 'chip-warn', text: tr('fw.chipToUpdate') };
+  return { className: 'chip-ok', text: tr('fw.chipCurrent') };
 }
 
 export const Firmware: React.FC = () => {
@@ -47,6 +48,8 @@ export const Firmware: React.FC = () => {
   const type = Object.values(DeviceType).find((value) => value === deviceType);
   const view = type ? getDeviceTypeView(type) : undefined;
   const supported = view?.firmwareUpdates === true;
+  const { t, locale } = useLang();
+  const bytes = (value: number) => formatBytes(value, locale);
 
   const [summary, setSummary] = useState<FirmwareSummary | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -87,7 +90,7 @@ export const Firmware: React.FC = () => {
     if (!type || !supported) return;
     FirmwareRequests.get(type).then((result) => {
       if (result) setSummary(result);
-      else setError('Nie udało się pobrać stanu firmware.');
+      else setError(t('fw.loadFailed'));
     });
     DeviceRequests.getDevices().then((list) => setDevices((list ?? []).filter((device) => device.deviceType === type)));
   }, [type, supported]);
@@ -97,8 +100,8 @@ export const Firmware: React.FC = () => {
       <div className="page page-narrow firmware-page">
         <div className="empty">
           <h2>Firmware</h2>
-          <p>Ten rodzaj sterownika nie ma aktualizacji firmware przez sieć.</p>
-          <Link className="link" to="/devices">Lista sterowników</Link>
+          <p>{t('fw.notSupported')}</p>
+          <Link className="link" to="/devices">{t('nav.deviceList')}</Link>
         </div>
       </div>
     );
@@ -116,7 +119,7 @@ export const Firmware: React.FC = () => {
     setError('');
     if (!chosen) return;
     if (chosen.size > MAX_FIRMWARE_BYTES) {
-      setError(`Plik jest za duży: ${formatBytes(chosen.size)}, limit ${formatBytes(MAX_FIRMWARE_BYTES)}.`);
+      setError(t('fw.tooBig', { size: bytes(chosen.size), limit: bytes(MAX_FIRMWARE_BYTES) }));
       return;
     }
     // wersja z nazwy pliku (water-pressure-tank-1.0.1.bin), gdy pole jest puste
@@ -137,7 +140,7 @@ export const Firmware: React.FC = () => {
       if (done) say(done);
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Operacja nie powiodła się.');
+      setError(reason instanceof Error ? reason.message : t('common.operationFailed'));
       return false;
     }
   };
@@ -148,77 +151,75 @@ export const Firmware: React.FC = () => {
     setBusy(true);
     const ok = await run(
       () => FirmwareRequests.upload(type, version.trim(), file, description.trim()),
-      'Plik zapisany i ustawiony jako oferowany. Sterownik pobierze go po „Aktualizuj” w jego Ustawieniach.',
+      t('fw.uploaded'),
     );
     setBusy(false);
     if (ok) closeAdd();
   };
 
   const remove = (image: FirmwareImage) => {
-    if (!window.confirm(`Usunąć wersję ${image.version}? Pliku nie da się odzyskać.`)) return;
-    run(() => FirmwareRequests.remove(type, image.version), `Usunięto wersję ${image.version}.`);
+    if (!window.confirm(t('fw.removeConfirm', { version: image.version }))) return;
+    run(() => FirmwareRequests.remove(type, image.version), t('fw.removed', { version: image.version }));
   };
 
   return (
     <div className="page page-narrow firmware-page">
       <Notification message={notice} />
-      <p className="help firmware-lead">{view?.label ?? type} · dotyczy wszystkich sterowników tego rodzaju.</p>
+      <p className="help firmware-lead">{t(`type.${type}`)} · {t('fw.lead')}</p>
 
       <section className="card">
         <header className="card-head">
-          <h2>Aktualna wersja</h2>
-          <IconButton label="Dodaj wersję" icon={<PlusIcon />} active={adding} onClick={() => (adding ? closeAdd() : setAdding(true))} />
+          <h2>{t('fw.currentVersion')}</h2>
+          <IconButton label={t('fw.addVersion')} icon={<PlusIcon />} active={adding} onClick={() => (adding ? closeAdd() : setAdding(true))} />
         </header>
         {active ? (
           <>
             <div className="fw-current">
               <span className="fw-ver">{active.version}</span>
               <div className="fw-meta">
-                <strong>{enabled ? 'oferowana sterownikom' : 'aktualizacje wyłączone'}</strong>
-                <small>dodana {formatDate(active.createdAt)} · {formatBytes(active.size)} · sha256 <span title={active.sha256}>{shortSha(active.sha256)}</span></small>
+                <strong>{enabled ? t('fw.offered') : t('fw.updatesOff')}</strong>
+                <small>{t('fw.added', { date: formatDate(active.createdAt) })} · {bytes(active.size)} · sha256 <span title={active.sha256}>{shortSha(active.sha256)}</span></small>
               </div>
-              <Switch on={enabled} label={enabled ? 'Aktualizacje włączone' : 'Aktualizacje wyłączone'} disabled={noticeBusy}
+              <Switch on={enabled} label={enabled ? t('fw.updatesEnabled') : t('fw.updatesDisabled')} disabled={noticeBusy}
                 onChange={(on) => run(() => FirmwareRequests.update(type, { enabled: on }))} />
             </div>
             {active.description && <p className="fw-desc">{active.description}</p>}
             <p className="help">
-              {enabled
-                ? 'Sterownik dostaje ofertę tylko przy zleceniu „Aktualizuj” w Ustawieniach. Wyłączone „Aktualizacje” wstrzymują też zlecone.'
-                : 'Aktualizacje wyłączone: „Aktualizuj” w Ustawieniach jest niedostępne, sterowniki niczego nie pobiorą.'}
+              {enabled ? t('fw.enabledHint') : t('fw.disabledHint')}
             </p>
           </>
         ) : (
-          <p className="help">{summary ? 'Nie wgrano jeszcze żadnego pliku.' : 'Ładowanie…'}</p>
+          <p className="help">{summary ? t('fw.noFile') : t('common.loading')}</p>
         )}
         {error && !adding && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
       </section>
 
       {adding && (
         <form ref={addCard} className="card" onSubmit={upload}>
-          <header className="card-head"><h2>Dodaj wersję</h2></header>
+          <header className="card-head"><h2>{t('fw.addVersion')}</h2></header>
           <label className="field">
-            <span>Plik .bin</span>
+            <span>{t('fw.file')}</span>
             <input key={fileKey} type="file" accept=".bin" onChange={chooseFile} />
           </label>
           <label className="field">
-            <span>Wersja<InfoTip>Wpisz wersję zgodną z <code>FW_VERSION</code> w kodzie firmware. Sterownik zgłasza ją po aktualizacji; dopóki zgłasza inną, przy sterowniku widać „dostępna” i przycisk „Aktualizuj”.</InfoTip></span>
-            <input type="text" value={version} placeholder="np. 1.0.1" maxLength={32} autoComplete="off"
+            <span>{t('fw.version')}<InfoTip>{t('fw.versionTipBefore')} <code>FW_VERSION</code> {t('fw.versionTipAfter')}</InfoTip></span>
+            <input type="text" value={version} placeholder={t('fw.versionPlaceholder')} maxLength={32} autoComplete="off"
               onChange={(event) => setVersion(event.currentTarget.value)} />
           </label>
           <label className="field">
-            <span>Opis wersji</span>
-            <textarea value={description} rows={3} maxLength={MAX_DESCRIPTION_LENGTH} placeholder="Co się zmieniło (do 500 znaków)"
+            <span>{t('fw.description')}</span>
+            <textarea value={description} rows={3} maxLength={MAX_DESCRIPTION_LENGTH} placeholder={t('fw.descriptionPlaceholder')}
               onChange={(event) => setDescription(event.currentTarget.value)} />
           </label>
           {file && (
-            <p className="help">{file.name} · {formatBytes(file.size)}{sha && <> · SHA-256 <code>{shortSha(sha)}</code></>}</p>
+            <p className="help">{file.name} · {bytes(file.size)}{sha && <> · SHA-256 <code>{shortSha(sha)}</code></>}</p>
           )}
-          <p className="help">Serwer sprawdza nagłówek ESP32 i rozmiar ≤ {formatBytes(MAX_FIRMWARE_BYTES)}, liczy SHA-256 i ustawia wersję jako oferowaną; w bazie zostają dwie wersje.</p>
+          <p className="help">{t('fw.serverChecks', { limit: bytes(MAX_FIRMWARE_BYTES) })}</p>
           {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
           <div className="actions firmware-actions">
-            <button type="button" className="btn" onClick={closeAdd}>Anuluj</button>
+            <button type="button" className="btn" onClick={closeAdd}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-primary" disabled={busy || noticeBusy || !file || !version.trim() || file.size > MAX_FIRMWARE_BYTES}>
-              {busy ? 'Wgrywam…' : 'Wgraj'}
+              {busy ? t('fw.uploading') : t('fw.upload')}
             </button>
           </div>
         </form>
@@ -226,7 +227,7 @@ export const Firmware: React.FC = () => {
 
       {devices.length > 0 && (
         <section className="card">
-          <header className="card-head"><h2>Sterowniki tego rodzaju</h2><span className="card-hint">wersja z ostatniego zgłoszenia</span></header>
+          <header className="card-head"><h2>{t('fw.devicesOfType')}</h2><span className="card-hint">{t('fw.devicesHint')}</span></header>
           <ul className="people">
             {devices.map((device) => {
               const chip = deviceChip(device, summary?.version ?? null, enabled);
@@ -234,7 +235,7 @@ export const Firmware: React.FC = () => {
                 <li key={device.rootId}>
                   <span className="person">
                     <strong>{device.name?.trim() || device.deviceId}</strong>
-                    <small>{device.firmwareVersion ?? 'starszy firmware nie zgłasza wersji'}{device.firmwareSeenAt ? ` · zgłoszenie ${formatDateTime(device.firmwareSeenAt)}` : ''}</small>
+                    <small>{device.firmwareVersion ?? t('fw.olderNoVersion')}{device.firmwareSeenAt ? ` · ${t('fw.reportedAt', { time: formatDateTime(device.firmwareSeenAt) })}` : ''}</small>
                   </span>
                   <span className={`chip ${chip.className}`}>{chip.text}</span>
                 </li>
@@ -245,20 +246,20 @@ export const Firmware: React.FC = () => {
       )}
 
       <section className="card">
-        <header className="card-head"><h2>Poprzednie wersje</h2><span className="card-hint">w bazie zostają dwie</span></header>
-        {previous.length === 0 && <p className="help">Brak poprzednich wersji.</p>}
+        <header className="card-head"><h2>{t('fw.previousVersions')}</h2><span className="card-hint">{t('fw.previousHint')}</span></header>
+        {previous.length === 0 && <p className="help">{t('fw.noPrevious')}</p>}
         {previous.length > 0 && (
           <ul className="people">
             {previous.map((image) => (
               <li key={image.version}>
                 <span className="fw-ver sm">{image.version}</span>
                 <span className="person">
-                  <strong>{image.description || 'Bez opisu'}</strong>
-                  <small>dodana {formatDate(image.createdAt)} · {formatBytes(image.size)} · sha256 <span title={image.sha256}>{shortSha(image.sha256)}</span></small>
+                  <strong>{image.description || t('fw.noDescription')}</strong>
+                  <small>{t('fw.added', { date: formatDate(image.createdAt) })} · {bytes(image.size)} · sha256 <span title={image.sha256}>{shortSha(image.sha256)}</span></small>
                 </span>
                 <button type="button" className="btn btn-ghost btn-sm" disabled={noticeBusy}
-                  onClick={() => run(() => FirmwareRequests.update(type, { version: image.version }), `Oferowana wersja: ${image.version}.`)}>Przywróć</button>
-                <IconButton variant="danger" label={`Usuń wersję ${image.version}`} icon={<TrashIcon />} disabled={noticeBusy} onClick={() => remove(image)} />
+                  onClick={() => run(() => FirmwareRequests.update(type, { version: image.version }), t('fw.offeredNow', { version: image.version }))}>{t('fw.restore')}</button>
+                <IconButton variant="danger" label={t('fw.removeVersion', { version: image.version })} icon={<TrashIcon />} disabled={noticeBusy} onClick={() => remove(image)} />
               </li>
             ))}
           </ul>
