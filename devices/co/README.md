@@ -21,7 +21,7 @@ DTU Hoymiles (0x69) ─┘                 │
 
 Powiązane repozytoria:
 
-Cały system jest w repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/my-home)
+Cały system jest w repozytorium [robertorlowski/my-home](https://github.com/robertorlowski/my-home)
 (od 2026-09-27; wcześniej to był osobny projekt heatpomp):
 
 | Katalog w chpc-web | Rola |

@@ -14,7 +14,7 @@ CHPC (Pro Mini) ⇄ RS-485 ⇄ co (ESP32) ⇄ HTTPS / WebSocket ⇄ chpc-web (se
 DTU Hoymiles (PV) ───────────┘                                   └── MongoDB
 ```
 
-Repozytorium [robertorlowski/chpc-web](https://github.com/robertorlowski/my-home), lokalnie `D:\DevLocal\arduino_src\my-home`:
+Repozytorium [robertorlowski/my-home](https://github.com/robertorlowski/my-home) (do 2026-10-21 `chpc-web`; stare adresy przekierowują), lokalnie `D:DevLocalrduino_srcmy-home`; usługi na Render: serwer `chpc-server` (`chpc-web.onrender.com`) i witryna `myhome` (`hpweb.onrender.com`, adres bez zmian):
 
 | Katalog | Rola |
 |---|---|
