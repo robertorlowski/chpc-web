@@ -27,7 +27,7 @@ flowchart LR
 
 1. The controller asks the cloud every 5 s (or immediately when the cloud wakes it over WebSocket) and receives a command with the time until switch-off.
 2. It counts that time down by itself and switches the relay off, also when the network is gone.
-3. Without the cloud the next schedule window will not start; "Włącz" (on) and "Wyłącz" (off) on the controller page keep working.
+3. Without the cloud the next schedule window will not start; "Turn on" and "Turn off" on the controller page keep working.
 4. After a restart (e.g. a power cut) the relay stays off until the controller connects to the cloud.
 
 ## Controller pages (phone)
@@ -38,15 +38,17 @@ After start the controller's Wi-Fi network `Wlacznik-setup` (address `10.11.17.1
 |---|---|
 | ![Main page](../img/strona-glowna-telefon.png) | ![Installation](../img/instalacja-telefon.png) |
 
-*Screenshots from the controller page emulator (the real HTML from the firmware, demo data). The pages are in Polish.*
+*Screenshots from the controller page emulator (the real HTML from the firmware, demo data); they show the Polish pages from before version 1.3.5.*
 
-- **Main page** (no login): a card per relay — state ("WŁĄCZONY" / "WYŁĄCZONY", on / off), mode from the cloud, a large countdown when on for a time, and the buttons:
-  - **"Włącz"** (on): for the time from the "Czas włączenia [h] [min]" fields below the buttons (by default the value from the cloud, 30 min); 0 h 0 min = no limit;
-  - **"Wyłącz"** (off, red): switches off and blocks the schedule;
-  - **"Harmonogram"** (schedule): back to the schedule (without the cloud it switches the relay off).
+From version 1.3.5 the controller pages are in English (no language selection); the labels below are those of that version.
 
-  The "Wi-Fi i chmura" card: network, address, signal, cloud connection state.
-- **Installation** (login and password): Wi-Fi, firmware file upload, SN, Root ID, number of relays, registration state.
+- **Main page** (no login): a card per relay — ("Relay N") — state ("ON" / "OFF"), mode from the cloud, a large countdown when on for a time, and the buttons:
+  - **"Turn on"**: for the time from the "On time [h] [min]" fields below the buttons (by default the value from the cloud, 30 min); 0 h 0 min = no limit;
+  - **"Turn off"** (red): switches off and blocks the schedule;
+  - **"Schedule"**: back to the schedule (without the cloud it switches the relay off).
+
+  The "Wi-Fi and cloud" card: network, address, signal, cloud connection state.
+- **Installation** (`/install`, the "Setup" page, login and password): Wi-Fi, firmware file upload, SN, Root ID, number of relays, registration state, mail key fingerprint ("Key fingerprint").
 
 ## Who uses it
 
@@ -79,7 +81,7 @@ Deployment state: since 2026-10-03 one switch with firmware 1.0.3 runs in produc
 |---|---|
 | **Command** | the cloud's reply to a state report: on (for `offAfterS` seconds or without a limit) or off |
 | **Countdown** | time until switch-off counted by the controller; works without the network |
-| **Local change** | "Włącz" / "Wyłącz" / "Harmonogram" from the controller page; waits to be sent to the cloud |
+| **Local change** | "Turn on" / "Turn off" / "Schedule" from the controller page; waits to be sent to the cloud |
 | **AP** | the `Wlacznik-setup` access point: the controller's own Wi-Fi network for configuration |
 | **OTA** | firmware update over the network |
 | **P1 header** | the programming header on the board: `GND`, `RX`, `TX`, `3V3` |

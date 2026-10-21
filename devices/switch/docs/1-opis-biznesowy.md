@@ -27,7 +27,7 @@ flowchart LR
 
 1. Sterownik pyta chmurę co 5 s (albo od razu, gdy chmura go obudzi przez WebSocket) i dostaje polecenie z czasem do wyłączenia.
 2. Odlicza ten czas sam i wyłącza przekaźnik, także gdy sieć zniknie.
-3. Bez chmury kolejne okno harmonogramu się nie włączy; „Włącz” i „Wyłącz” na stronie sterownika działają nadal.
+3. Bez chmury kolejne okno harmonogramu się nie włączy; „Turn on” i „Turn off” na stronie sterownika działają nadal.
 4. Po restarcie (np. zanik zasilania) przekaźnik jest wyłączony, dopóki sterownik nie połączy się z chmurą.
 
 ## Strony sterownika (telefon)
@@ -38,15 +38,17 @@ Po starcie działa sieć Wi-Fi sterownika `Wlacznik-setup` (adres `10.11.17.1`);
 |---|---|
 | ![Strona główna](img/strona-glowna-telefon.png) | ![Instalacja](img/instalacja-telefon.png) |
 
-*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne).*
+*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne); pokazują polskie strony sprzed wersji 1.3.5.*
 
-- **Strona główna** (bez logowania): karta każdego przekaźnika — stan („WŁĄCZONY” / „WYŁĄCZONY”), tryb z chmury, duże odliczanie przy włączeniu na czas i przyciski:
-  - **„Włącz”**: na czas z pól „Czas włączenia [h] [min]” pod przyciskami (domyślnie wartość z chmury, 30 min); 0 h 0 min = bez limitu;
-  - **„Wyłącz”** (czerwony): wyłącza i blokuje harmonogram;
-  - **„Harmonogram”**: powrót do harmonogramu (bez chmury wyłącza przekaźnik).
+Od wersji 1.3.5 strony sterownika są po angielsku (bez wyboru języka); niżej nazwy przycisków i kart w tej wersji.
+
+- **Strona główna** (bez logowania): karta każdego przekaźnika („Relay N”) — stan („ON” / „OFF”), tryb z chmury, duże odliczanie przy włączeniu na czas i przyciski:
+  - **„Turn on”**: na czas z pól „On time [h] [min]” pod przyciskami (domyślnie wartość z chmury, 30 min); 0 h 0 min = bez limitu;
+  - **„Turn off”** (czerwony): wyłącza i blokuje harmonogram;
+  - **„Schedule”**: powrót do harmonogramu (bez chmury wyłącza przekaźnik).
   
-  Karta „Wi-Fi i chmura”: sieć, adres, sygnał, stan połączenia z chmurą.
-- **Instalacja** (login i hasło): Wi-Fi, wgranie pliku firmware, SN, Root ID, liczba przekaźników, stan zgłoszenia.
+  Karta „Wi-Fi and cloud”: sieć, adres, sygnał, stan połączenia z chmurą.
+- **Instalacja** (`/install`, strona „Setup”, login i hasło): Wi-Fi, wgranie pliku firmware, SN, Root ID, liczba przekaźników, stan zgłoszenia, odcisk klucza poczty („Key fingerprint”).
 
 ## Dla kogo
 
@@ -79,7 +81,7 @@ Stan wdrożenia: od 2026-10-03 na produkcji działa jeden włącznik, przekaźni
 |---|---|
 | **Polecenie** | odpowiedź chmury na zgłoszenie stanu: włącz (na `offAfterS` sekund albo bez limitu) albo wyłącz |
 | **Odliczanie** | czas do wyłączenia liczony przez sterownik; działa bez sieci |
-| **Zmiana lokalna** | „Włącz” / „Wyłącz” / „Harmonogram” ze strony sterownika; czeka na wysłanie do chmury |
+| **Zmiana lokalna** | „Turn on” / „Turn off” / „Schedule” ze strony sterownika; czeka na wysłanie do chmury |
 | **AP** | punkt dostępowy `Wlacznik-setup`: własna sieć Wi-Fi sterownika do konfiguracji |
 | **OTA** | aktualizacja firmware przez sieć |
 | **Złącze P1** | złącze programowania na płytce: `GND`, `RX`, `TX`, `3V3` |

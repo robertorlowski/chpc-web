@@ -369,7 +369,7 @@ instrukcji (źródła 1–3). Pogrubione wartości są potwierdzone na panelu.
 
 Jak odczytać ponownie: sterownik czyta ustawienia sam po każdym starcie (po minucie
 nasłuchu); ponownie na polecenie `p` z konsoli USB. Wynik: linie `SETTINGS …` na konsoli i
-strona sterownika `/boiler-settings.json` (surowe dane, link „pobierz” na stronie `/`).
+strona sterownika `/boiler-settings.json` (surowe dane, link „download” na stronie `/`).
 Dekodowanie: `python tools/dekoduj_ustawienia.py <log albo boiler-settings.json> archiwum.json
 tabela.md <data>` (wymaga `pip install pyplumio`, sprawdzone z 0.6.8). Drugi odczyt z
 2026-10-03 (w nagraniu `test/fixtures/kociol-2026-10-03.txt`) dał bajt w bajt to samo.

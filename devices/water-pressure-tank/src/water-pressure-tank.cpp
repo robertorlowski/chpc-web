@@ -336,7 +336,7 @@ bool downloadFirmware(const OtaOffer &offer)
   const int status = download.GET();
   const int total = download.getSize();
   if (status != 200 || total <= 0 || !Update.begin(total)) {
-    otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    otaStatus = "download failed (HTTP " + String(status) + ")";
     logf("OTA: HTTP %d, rozmiar %d", status, total);
     download.end();
     return false;
@@ -373,18 +373,18 @@ bool downloadFirmware(const OtaOffer &offer)
 
   if (!ok || remaining != 0) {
     Update.abort();
-    otaStatus = "przerwane pobieranie";
+    otaStatus = "download interrupted";
     logf("OTA: przerwane pobieranie, brakuje %d z %d B", remaining, total);
     return false;
   }
   if (offer.sha256 != hex) {
     Update.abort();
-    otaStatus = "suma SHA-256 niezgodna";
+    otaStatus = "SHA-256 mismatch";
     logf("OTA: SHA-256 niezgodna (jest %s, oferta %s)", hex, offer.sha256.c_str());
     return false;
   }
   if (!Update.end(true)) {
-    otaStatus = "obraz odrzucony";
+    otaStatus = "image rejected";
     logf("OTA: obraz odrzucony przez Update.end()");
     return false;
   }
@@ -410,7 +410,7 @@ void tryFirmwareUpdate()
     return;
   }
   writeRelay(false);
-  otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
+  otaStatus = "downloading version " + String(otaOffer.version.c_str());
   if (!downloadFirmware(otaOffer)) return;
   preferences.putString(KEY_OTA_TRIED, otaOffer.version.c_str());
   logf("OTA: restart do wersji %s", otaOffer.version.c_str());
@@ -548,8 +548,8 @@ String htmlEscape(const String &text)
   return out;
 }
 
-const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Hydrofor</title>
+const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Water pressure tank</title>
 <style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}@media(max-width:30rem){body{padding:.3rem}}
 .card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem;overflow-wrap:anywhere}
 .state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
@@ -561,38 +561,38 @@ small{color:#555}ul{margin:.3rem 0;padding-left:1.2rem}li span{float:right}
 h2{margin:0 0 .5rem;padding-bottom:.3rem;border-bottom:2px solid #1481a5;color:#1481a5;font-size:1.25rem}
 .card p{text-align:right}</style></head><body>)html";
 
-const char MAIN_PAGE[] PROGMEM = R"html(<h1>Hydrofor</h1>
-<div class="card"><h2>Kompresor</h2><div id="state" class="state">---</div>
+const char MAIN_PAGE[] PROGMEM = R"html(<h1>Water pressure tank</h1>
+<div class="card"><h2>Compressor</h2><div id="state" class="state">---</div>
 <div id="countdown" class="state on"></div>
-<div>Do wyłączenia: <b id="remaining">---</b></div>
-<div>Czas pracy kompresora: <b id="seconds">---</b> s</div>
-<div>Pompa pracuje: <b id="pump">---</b> s</div>
-<p class="buttons"><button id="bon" onclick="cmd('/compressor/on')">Włącz</button>
-<button id="boff" class="stop" onclick="cmd('/compressor/off')">Wyłącz</button></p><p><button id="brun" class="second" onclick="cmd('/restart')">Uruchom na czas kompresora</button></p></div>
+<div>Time left: <b id="remaining">---</b></div>
+<div>Compressor run time: <b id="seconds">---</b> s</div>
+<div>Pump running for: <b id="pump">---</b> s</div>
+<p class="buttons"><button id="bon" onclick="cmd('/compressor/on')">Turn on</button>
+<button id="boff" class="stop" onclick="cmd('/compressor/off')">Turn off</button></p><p><button id="brun" class="second" onclick="cmd('/restart')">Run for the compressor time</button></p></div>
 <div class="card"><h2>Wi-Fi</h2>
-<div>Sieć: <b id="ssid">---</b></div>
-<div>Stan: <b id="wstate">---</b></div>
-<div>Sygnał: <b id="rssi">---</b></div>
+<div>Network: <b id="ssid">---</b></div>
+<div>Status: <b id="wstate">---</b></div>
+<div>Signal: <b id="rssi">---</b></div>
 <div id="scanbox"><small id="scanhead"></small><ul id="scan"></ul></div></div>
 <div class="card"><small id="cloud">---</small></div>
-<p><a href="/install">Instalacja</a></p>
+<p><a href="/install">Installation</a></p>
 <script>
-var REASONS={2:'uwierzytelnianie wygasło',8:'rozłączono',15:'złe hasło (uścisk dłoni)',39:'brak odpowiedzi routera (słaby sygnał)',200:'utrata sygnału',201:'sieć niewidoczna',202:'odrzucone uwierzytelnienie (hasło?)',203:'odrzucone przyłączenie',204:'złe hasło (uścisk dłoni)',205:'połączenie nieudane'};
-function quality(r){return r>=-67?'dobry':r>=-75?'średni':r>=-85?'słaby':'za słaby'}
+var REASONS={2:'authentication expired',8:'disconnected',15:'wrong password (handshake)',39:'no response from the router (weak signal)',200:'signal lost',201:'network not visible',202:'authentication rejected (password?)',203:'association rejected',204:'wrong password (handshake)',205:'connection failed'};
+function quality(r){return r>=-67?'good':r>=-75?'fair':r>=-85?'weak':'too weak'}
 function cls(r){return r>=-75?'on':'bad'}
-function net(n){ssid.textContent=n.ssid||'(nie ustawiona)';
-var ok=n.status==3;wstate.textContent=ok?'połączone ('+n.ip+')':'brak połączenia'+(n.reason?' — '+(REASONS[n.reason]||'kod '+n.reason):'');
+function net(n){ssid.textContent=n.ssid||'(not set)';
+var ok=n.status==3;wstate.textContent=ok?'connected ('+n.ip+')':'not connected'+(n.reason?' — '+(REASONS[n.reason]||'code '+n.reason):'');
 wstate.className=ok?'on':'bad';
 rssi.textContent=n.rssi!==undefined?n.rssi+' dBm, '+quality(n.rssi):'---';rssi.className=n.rssi!==undefined?cls(n.rssi):'';
-if(n.scan&&!ok){scanbox.style.display='';scanhead.textContent='Widoczne sieci (skanowanie co 30 s, ostatnie '+n.scanAgeS+' s temu):';
-scan.innerHTML=n.scan.map(function(s){var b=s.ssid==n.ssid;return '<li'+(b?' class="'+cls(s.rssi)+'"':'')+'>'+(b?'<b>':'')+(s.ssid||'(ukryta)')+(b?'</b>':'')+' (kanał '+s.channel+')<span>'+s.rssi+' dBm, '+quality(s.rssi)+'</span></li>'}).join('')
-+(n.scan.some(function(s){return s.ssid==n.ssid})?'':'<li class="bad"><b>'+n.ssid+'</b> — niewidoczna</li>')}else scanbox.style.display='none'}
+if(n.scan&&!ok){scanbox.style.display='';scanhead.textContent='Visible networks (scan every 30 s, last '+n.scanAgeS+' s ago):';
+scan.innerHTML=n.scan.map(function(s){var b=s.ssid==n.ssid;return '<li'+(b?' class="'+cls(s.rssi)+'"':'')+'>'+(b?'<b>':'')+(s.ssid||'(hidden)')+(b?'</b>':'')+' (channel '+s.channel+')<span>'+s.rssi+' dBm, '+quality(s.rssi)+'</span></li>'}).join('')
++(n.scan.some(function(s){return s.ssid==n.ssid})?'':'<li class="bad"><b>'+n.ssid+'</b> — not visible</li>')}else scanbox.style.display='none'}
 function load(){fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
-var e=document.getElementById('state');e.textContent=s.running?(s.manual?'WŁĄCZONY RĘCZNIE':'WŁĄCZONY'):'WYŁĄCZONY';e.className='state '+(s.running?'on':'off');
+var e=document.getElementById('state');e.textContent=s.running?(s.manual?'ON (MANUAL)':'ON'):'OFF';e.className='state '+(s.running?'on':'off');
 remaining.textContent=s.running?mmss(s.remainingS):'---';seconds.textContent=s.compressorSeconds;pump.textContent=s.pumpRunS;
-countdown.textContent=s.manual?mm(s.remainingS):'';countdown.style.display=s.manual?'':'none';brun.textContent='Uruchom na '+s.compressorSeconds+' s';bon.disabled=!!s.manual;boff.disabled=!s.running;
-cloud.textContent='Wi-Fi: '+(s.wifi?'połączone':'brak')+', chmura: '+(s.registered?'zgłoszony':'niezgłoszony')
-+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')+', w kolejce: '+s.queued;if(s.network)net(s.network)})}
+countdown.textContent=s.manual?mm(s.remainingS):'';countdown.style.display=s.manual?'':'none';brun.textContent='Run for '+s.compressorSeconds+' s';bon.disabled=!!s.manual;boff.disabled=!s.running;
+cloud.textContent='Wi-Fi: '+(s.wifi?'connected':'not connected')+', cloud: '+(s.registered?'registered':'not registered')
++(s.lastStatus?' (HTTP '+s.lastStatus+')':'')+', queued: '+s.queued;if(s.network)net(s.network)})}
 function mm(t){return Math.floor(t/60)+':'+('0'+t%60).slice(-2)}
 function mmss(t){return t<60?t+' s':mm(t)+' min'}
 function cmd(p){fetch(p,{method:'POST'}).then(load)}
@@ -712,36 +712,36 @@ void handleInstall()
   }
 
   String page = FPSTR(PAGE_HEAD);
-  page += "<h1>Instalacja</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
-  page += "<label>Sieć Wi-Fi (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
-  page += "<label>Hasło Wi-Fi <small>(puste = bez zmian)</small><input name=\"password\" type=\"password\"></label>";
-  page += "<p><button type=\"submit\">Zapisz</button></p></form>";
+  page += "<h1>Installation</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
+  page += "<label>Wi-Fi network (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
+  page += "<label>Wi-Fi password <small>(empty = unchanged)</small><input name=\"password\" type=\"password\"></label>";
+  page += "<p><button type=\"submit\">Save</button></p></form>";
   // osobny formularz: zapis czasu nie łączy ponownie z Wi-Fi
-  page += "<form method=\"post\" action=\"/install/compressor\" class=\"card\"><h2>Kompresor</h2>";
-  page += "<label>Czas pracy kompresora [s] <small>(1–" + String(MAX_COMPRESSOR_SECONDS) + ")</small>";
+  page += "<form method=\"post\" action=\"/install/compressor\" class=\"card\"><h2>Compressor</h2>";
+  page += "<label>Compressor run time [s] <small>(1–" + String(MAX_COMPRESSOR_SECONDS) + ")</small>";
   page += "<input name=\"seconds\" type=\"number\" min=\"1\" max=\"" + String(MAX_COMPRESSOR_SECONDS)
     + "\" step=\"1\" required value=\"" + String(settings.compressorSeconds) + "\"></label>";
   if (server.arg("compressor") == "bad") {
-    page += "<div><b>Nieprawidłowy czas: podaj pełne sekundy 1–" + String(MAX_COMPRESSOR_SECONDS) + ".</b></div>";
+    page += "<div><b>Invalid time: enter whole seconds 1–" + String(MAX_COMPRESSOR_SECONDS) + ".</b></div>";
   }
-  page += "<div><small>Chmura: ";
-  page += compressorPending ? "czeka na wysyłkę" : "aktualna";
-  page += "</small></div><p><button type=\"submit\">Zapisz czas</button></p></form>";
+  page += "<div><small>Cloud: ";
+  page += compressorPending ? "waiting to be sent" : "up to date";
+  page += "</small></div><p><button type=\"submit\">Save time</button></p></form>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
-  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
-  page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div>";
-  page += "<div>Ostatnia wysyłka: " + String(lastDeliveredMs ? String((millis() - lastDeliveredMs) / 1000) + " s temu" : String("---"));
+  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("not connected")) + "</div>";
+  page += "<div>Registered in the cloud: " + String(registeredThisBoot ? "yes" : "no") + "</div>";
+  page += "<div>Last report: " + String(lastDeliveredMs ? String((millis() - lastDeliveredMs) / 1000) + " s ago" : String("---"));
   page += lastHttpStatus ? " (HTTP " + String(lastHttpStatus) + ")" : String("");
   page += "</div></div>";
   // ręczne wgranie obrazu (awaryjnie, gdy OTA z chmury nie działa), na końcu strony jak we wszystkich sterownikach
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
-  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
-  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
-  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
-  page += "<div><small>Działa tylko przy wyłączonym kompresorze. Po wgraniu sterownik się restartuje.</small></div>";
-  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
-  page += "<p><a href=\"/\">Strona główna</a></p></body></html>";
+  page += "<div>Version: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Cloud update: " + htmlEscape(otaStatus) + "</small></div>";
+  page += "<label>Firmware file (firmware.bin)<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
+  page += "<div><small>Works only while the compressor is off. The controller restarts after the upload.</small></div>";
+  page += "<p><button type=\"submit\">Upload</button></p></form>";
+  page += "<p><a href=\"/\">Main page</a></p></body></html>";
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html; charset=utf-8", page);
 }
@@ -803,7 +803,7 @@ void handleFirmwareDone()
 {
   if (!authorized()) return;
   server.send(uploadFinished ? 200 : 409, "text/plain; charset=utf-8",
-    uploadFinished ? "Firmware wgrany, sterownik się restartuje." : "Nie wgrano: kompresor pracuje albo plik jest niepoprawny.");
+    uploadFinished ? "Firmware uploaded, the controller is restarting." : "Not uploaded: the compressor is running or the file is invalid.");
   if (uploadFinished) {
     delay(500);
     ESP.restart();

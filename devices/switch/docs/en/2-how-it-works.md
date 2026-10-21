@@ -37,7 +37,7 @@ The reply to every state report carries, for each relay, `on` and optionally `of
 | `{on: false}` | switches off |
 | `mode` | for display on the controller page only |
 
-**The countdown** is checked in every loop pass, independently of the network. When it ends the controller switches the relay off, the mode on the page changes from "for a time" to "schedule", and it sends the new state to the cloud at once.
+**The countdown** is checked in every loop pass, independently of the network. When it ends the controller switches the relay off, the mode on the page changes from "On for a set time" to "Schedule", and it sends the new state to the cloud at once.
 
 The WebSocket message `{"type":"operation"}` (a mode or schedule change in the application) triggers a state report immediately, so a change from the application takes effect within a second. The WebSocket library reconnects by itself every 10 s after a drop.
 
@@ -61,8 +61,8 @@ sequenceDiagram
 ```
 
 - **Until the change is confirmed, cloud commands for that relay are ignored** (`pending`), so a reply computed from the old mode cannot undo the change. Each change has a number (`pendingSeq`): the confirmation of an older send does not clear a newer change.
-- **"Włącz" for a time** sends the remaining minutes to the cloud (rounded up, at least 1), so a retried send does not extend the activation.
-- **"Harmonogram"** with the cloud available keeps the state until the next reply (the cloud knows the windows). **Without the cloud** (no successful exchange for 30 s) it switches the relay off, because the controller does not know whether a window is active.
+- **"Turn on" for a time** sends the remaining minutes to the cloud (rounded up, at least 1), so a retried send does not extend the activation.
+- **"Schedule"** with the cloud available keeps the state until the next reply (the cloud knows the windows). **Without the cloud** (no successful exchange for 30 s) it switches the relay off, because the controller does not know whether a window is active.
 - **400** from the cloud means the change will not be accepted; the controller stops retrying it.
 - **404/409** (unknown SN, Root ID of another device): the controller clears the Root ID, disconnects the WebSocket and registers again.
 
@@ -118,7 +118,7 @@ flowchart TD
 
 | Source | When | What |
 |---|---|---|
-| cloud (registration reply) | start | `default_on_minutes` (0–10080) → NVS `def_min`; default value of the "Czas włączenia" fields on the page |
+| cloud (registration reply) | start | `default_on_minutes` (0–10080) → NVS `def_min`; default value of the "On time" fields on the page |
 | `/install` | immediately | Wi-Fi → NVS (saving connects at once, without a restart) |
 
 An invalid `default_on_minutes` (outside 0–10080) is ignored and the previous value stays.

@@ -22,9 +22,9 @@ unsigned long restartRequestedAt = 0;
 // Open view on /. The page pulls /telemetry.json and /pv.json so the
 // firmware only has to serialise the documents it already keeps.
 const char TELEMETRY_PAGE[] PROGMEM = R"VIEW(<!DOCTYPE html>
-<html lang="pl"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sterownik CO</title><style>
+<title>Heat pump controller</title><style>
 *{box-sizing:border-box}
 body{margin:0;padding:14px 12px 24px;background:#14161a;color:#e8eaed;
 font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
@@ -51,27 +51,27 @@ footer{margin-top:18px;padding-top:10px;border-top:1px solid #22262b;
 font-size:.8rem}
 a{color:#4db6a0}
 </style></head><body><div class="w">
-<h1>Sterownik CO</h1><p id="stamp">wczytywanie...</p>
+<h1>Heat pump controller</h1><p id="stamp">loading...</p>
 <div id="out"></div>
-<footer><a href="/install">Konfiguracja</a> &middot;
+<footer><a href="/install">Configuration</a> &middot;
 <a href="/telemetry.json">JSON</a> &middot;
 <a href="/pv.json">PV JSON</a></footer>
 </div><script>
-var L={pv_power:"Produkcja PV",
-controller_mode:"Tryb",work_mode:"Praca",temp_min:"T od",temp_max:"T do",
-t_min:"T pocz.",t_max:"T konc.",
-cop:"COP",cop_min:"COP min",cop_max:"COP max",cop_bottom_start:"T dolu",
-total_power:"Moc",total_prod_today:"Dziś",total_prod:"Razem",time:"Odczyt",
-temperature:"Temp.",Tho:"T góra",Ttarget:"T środek",Tmin:"T min",Tmax:"T max",
-Tbe:"T przed",Tae:"T za",Tsump:"T miski",EEV:"EEV",EEV_dt:"EEV dt",
-EEV_pos:"EEV poz.",EEVmax:"EEV max",EEVmin:"EEV min",Watts:"Moc",HCS:"Ob. gorący",CCS:"Ob. zimny",
-HPS:"Sprężarka",F:"Wymusz.",CO:"CO",ERR:"Błąd (kod)",ERRn:"Nr zdarzenia",ERRc:"Licznik błędów",
-serial_queue_overflow:"Kolejka",serial_read_timeout:"Timeout",
-serial_receive_overflow:"Odbiór",pv_crc_error:"PV CRC",
-hp_json_error:"HP JSON",pv_frame_error:"PV ramka",
-cloud_http_status:"HTTP",cloud_request_error:"Błąd HTTP",
-websocket_disconnect:"WS rozłącz.",cloud_response_parse_error:"Parsowanie",
-operation_validation_error:"Operacje",preference_validation_error:"Ustawienia"};
+var L={pv_power:"PV production",
+controller_mode:"Mode",work_mode:"Work mode",temp_min:"T from",temp_max:"T to",
+t_min:"T start",t_max:"T end",
+cop:"COP",cop_min:"COP min",cop_max:"COP max",cop_bottom_start:"T bottom",
+total_power:"Power",total_prod_today:"Today",total_prod:"Total",time:"Reading",
+temperature:"Temp.",Tho:"T top",Ttarget:"T middle",Tmin:"T min",Tmax:"T max",
+Tbe:"T before",Tae:"T after",Tsump:"T sump",EEV:"EEV",EEV_dt:"EEV dt",
+EEV_pos:"EEV pos.",EEVmax:"EEV max",EEVmin:"EEV min",Watts:"Power",HCS:"Hot circuit",CCS:"Cold circuit",
+HPS:"Compressor",F:"Forced",CO:"CO",ERR:"Error (code)",ERRn:"Event no.",ERRc:"Error count",
+serial_queue_overflow:"Queue",serial_read_timeout:"Timeout",
+serial_receive_overflow:"Receive",pv_crc_error:"PV CRC",
+hp_json_error:"HP JSON",pv_frame_error:"PV frame",
+cloud_http_status:"HTTP",cloud_request_error:"HTTP error",
+websocket_disconnect:"WS disconn.",cloud_response_parse_error:"Parsing",
+operation_validation_error:"Operations",preference_validation_error:"Settings"};
 var DIAG=["cloud_http_status","cloud_request_error","websocket_disconnect",
 "cloud_response_parse_error","serial_queue_overflow","serial_read_timeout",
 "serial_receive_overflow","pv_crc_error","hp_json_error","pv_frame_error",
@@ -82,7 +82,7 @@ var COP=["t_min","t_max","cop","cop_min","cop_max","cop_bottom_start"];
 function lab(k){return L[k]||k}
 function val(v){
   if(v===null||v===undefined||v==="")return "-";
-  if(typeof v==="boolean")return v?"tak":"nie";
+  if(typeof v==="boolean")return v?"yes":"no";
   if(typeof v==="number")return Number.isInteger(v)?v:v.toFixed(2);
   return String(v);
 }
@@ -102,9 +102,9 @@ function sec(t,body){return body?"<h2>"+esc(t)+"</h2>"+body:""}
 function kwh(v){return typeof v==="number"?(v/1000).toFixed(1):val(v)}
 function panels(list){
   if(!list||!list.length)return "";
-  var h="<thead><tr><th>Nr seryjny</th><th>Port</th><th>W</th>"+
-    "<th>V</th><th>A</th><th>Wh dziś</th><th>kWh</th><th>C</th>"+
-    "<th>Sieć V</th><th>Hz</th><th>Alarm</th></tr></thead><tbody>";
+  var h="<thead><tr><th>Serial no.</th><th>Port</th><th>W</th>"+
+    "<th>V</th><th>A</th><th>Wh today</th><th>kWh</th><th>C</th>"+
+    "<th>Grid V</th><th>Hz</th><th>Alarm</th></tr></thead><tbody>";
   list.forEach(function(p){
     var s=val(p.serial);
     h+='<tr><td title="'+esc(s)+'">'+esc(s.length>6?s.slice(-6):s)+
@@ -118,31 +118,31 @@ function panels(list){
   return '<div class="tw"><table>'+h+"</tbody></table></div>";
 }
 function render(d,pv){
-  document.getElementById("stamp").textContent=d.time||"brak znacznika czasu";
+  document.getElementById("stamp").textContent=d.time||"no timestamp";
   var hp=d.HP||{},o="";
-  o+=sec("Sterownik",grid(d,MAIN));
-  o+=sec("Pompa ciepła",grid(hp,null,true));
-  o+=sec("Cykl i COP",grid(d,COP));
-  o+=sec("Diagnostyka",grid(d,DIAG));
-  o+=sec("Fotowoltaika",grid(pv,["pv_power","total_power","total_prod_today",
+  o+=sec("Controller",grid(d,MAIN));
+  o+=sec("Heat pump",grid(hp,null,true));
+  o+=sec("Cycle and COP",grid(d,COP));
+  o+=sec("Diagnostics",grid(d,DIAG));
+  o+=sec("Photovoltaics",grid(pv,["pv_power","total_power","total_prod_today",
     "total_prod","temperature","time"])+panels(pv.panels));
-  document.getElementById("out").innerHTML=o||"<p>Brak danych.</p>";
+  document.getElementById("out").innerHTML=o||"<p>No data.</p>";
 }
 function load(u){return fetch(u,{cache:"no-store"}).then(function(r){
   return r.json()})}
 function tick(){
   Promise.all([load("/telemetry.json"),load("/pv.json")]).then(function(a){
     render(a[0],a[1])}).catch(function(){
-    document.getElementById("stamp").textContent="brak połączenia"});
+    document.getElementById("stamp").textContent="no connection"});
 }
 tick();setInterval(tick,5000);
 </script></body></html>)VIEW";
 
 // Configuration form on /install, behind basic auth.
 const char PAGE_TEMPLATE[] PROGMEM = R"HTML(<!DOCTYPE html>
-<html lang="pl"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sterownik CO</title><style>
+<title>Heat pump controller</title><style>
 *{box-sizing:border-box}
 body{margin:0;padding:24px 16px;background:#14161a;color:#e8eaed;
 font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -167,25 +167,25 @@ background:#4db6a0;color:#0b2b24;font:inherit;font-weight:600}
 .err{background:#3a1c1c;color:#f0a0a0}
 a{color:#4db6a0}
 </style></head><body><form method="POST" action="/save">
-<h1>Sterownik CO</h1>
-<p class="sub">Konfiguracja połączenia</p>
+<h1>Heat pump controller</h1>
+<p class="sub">Connection settings</p>
 %MESSAGE%
-<label for="ssid">Sieć Wi-Fi</label>
+<label for="ssid">Wi-Fi network</label>
 <input id="ssid" name="ssid" value="%SSID%" required maxlength="63"
 autocapitalize="off" autocorrect="off" spellcheck="false">
-<label for="password">Hasło Wi-Fi</label>
+<label for="password">Wi-Fi password</label>
 <input id="password" name="password" type="password" maxlength="63"
-placeholder="bez zmian">
-<small>Puste pole zostawia dotychczasowe hasło.</small>
+placeholder="unchanged">
+<small>Leave empty to keep the current password.</small>
 <label for="sn">SN</label>
 <input id="sn" value="%SERIAL%" readonly>
-<small>Numer seryjny sterownika (fabryczny MAC układu).</small>
+<small>Controller serial number (factory MAC of the chip).</small>
 <label for="rootid">Root ID</label>
-<input id="rootid" value="%ROOTID%" placeholder="brak" readonly>
+<input id="rootid" value="%ROOTID%" placeholder="none" readonly>
 %REGISTRATION%
 %MAIL%
 <button type="submit">%BUTTON%</button>
-<p class="sub" style="text-align:center;margin:22px 0 0"><a href="/">Podgląd telemetrii</a></p>
+<p class="sub" style="text-align:center;margin:22px 0 0"><a href="/">Telemetry view</a></p>
 </form></body></html>)HTML";
 String escapeHtml(const String &value)
 {
@@ -216,16 +216,16 @@ String renderPage(const String &message)
   page.replace("%SERIAL%", escapeHtml(deviceSerial()));
   page.replace("%ROOTID%", escapeHtml(config.rootId));
   page.replace("%REGISTRATION%", deviceRegistered()
-    ? F("<p class=\"st on\">Zarejestrowany w chmurze</p>")
-    : F("<p class=\"st off\">Niezarejestrowany. Sterownik zarejestruje się "
-        "po połączeniu z internetem.</p>"));
+    ? F("<p class=\"st on\">Registered in the cloud</p>")
+    : F("<p class=\"st off\">Not registered. The controller registers "
+        "once it is connected to the internet.</p>"));
   // przekaźnik poczty: odcisk do porównania z aplikacją przed zatwierdzeniem klucza
   page.replace("%MAIL%", cloudSource
-    ? "<label>Poczta (klucz płytki)</label><input value=\"" + escapeHtml(cloudSource->mailFingerprint())
+    ? "<label>Mail (board key)</label><input value=\"" + escapeHtml(cloudSource->mailFingerprint())
       + "\" readonly><small>" + escapeHtml(cloudSource->mailStatus()) + "</small>"
     : String());
   page.replace("%BUTTON%", deviceRegistered()
-    ? F("Zapisz i uruchom ponownie") : F("Zarejestruj i uruchom ponownie"));
+    ? F("Save and restart") : F("Register and restart"));
   return page;
 }
 
@@ -237,7 +237,7 @@ void sendPage(int status, const String &message)
 bool authorized()
 {
   if (server.authenticate(INSTALL_USER, INSTALL_PASSWORD)) return true;
-  server.requestAuthentication(BASIC_AUTH, "Sterownik CO");
+  server.requestAuthentication(BASIC_AUTH, "Heat pump controller");
   return false;
 }
 
@@ -287,13 +287,13 @@ void handleSave()
   if (password.length() == 0) password = deviceConfig().wifiPassword;
 
   if (!saveWifiConfig(server.arg("ssid"), password)) {
-    sendPage(400, F("<div class=\"msg err\">Nie zapisano. "
-      "Sieć Wi-Fi nie może być pusta.</div>"));
+    sendPage(400, F("<div class=\"msg err\">Not saved. "
+      "The Wi-Fi network cannot be empty.</div>"));
     return;
   }
 
-  sendPage(200, F("<div class=\"msg ok\">Zapisano. "
-    "Sterownik uruchamia się ponownie.</div>"));
+  sendPage(200, F("<div class=\"msg ok\">Saved. "
+    "The controller is restarting.</div>"));
 
   // Restarting here would cut the response short, so it is deferred until
   // handleClient() has closed the connection.

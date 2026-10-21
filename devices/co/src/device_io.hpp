@@ -15,7 +15,7 @@ bool initializeDevice(RTC_DS3231 &rtc, Adafruit_ST7735 &display);
 // Ustawia RTC na czas warszawski z pl.pool.ntp.org (CET/CEST liczone lokalnie).
 bool synchronizeClock(RTC_DS3231 &rtc);
 void displayStatus(Adafruit_ST7735 &display, const String &text, int line = 0);
-// Ekran trybu: źródło (LOCAL/CLOUD), tryb (RECZNY/AUTO/OFF), IP i adres AP.
+// Ekran trybu: źródło (LOCAL/CLOUD), tryb (MANUAL/AUTO/OFF; do 1.3.2 RECZNY), IP i adres AP.
 void displayControllerMode(Adafruit_ST7735 &display,
   ControllerMode controllerMode, WORK_MODE workMode);
 // Ekran główny (układ opisany w CLAUDE.md, punkt 13, „Ekran”).

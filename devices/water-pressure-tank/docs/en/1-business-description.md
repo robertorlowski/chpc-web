@@ -37,12 +37,14 @@ Near the controller its own Wi-Fi network is available (address `10.11.16.1`); o
 |---|---|
 | ![Main page](../img/strona-glowna-telefon.png) | ![Installation](../img/instalacja-telefon.png) |
 
-*Screenshots from the controller page emulator (the real HTML from the firmware, demo data); the main page is from before version 1.3.0, still with the "Zbiorniki" (tanks) card and a single button.*
+*Screenshots from the controller page emulator (the real HTML from the firmware, demo data); the main page is from before version 1.3.0, still with the "Zbiorniki" (tanks) card and a single button; both screenshots predate version 1.3.2, when the pages were in Polish.*
 
-- **Main page:** compressor state ("WŁĄCZONY", "WŁĄCZONY RĘCZNIE" or "WYŁĄCZONY"), time left, compressor and pump run time, and buttons:
-  - **"Włącz"** (on): the compressor runs until "Wyłącz", 30 min at most; meanwhile a large `mm:ss` countdown is shown below the state;
-  - **"Wyłącz"** (off, red): switches the compressor off at once, also during the normal run after start;
-  - **"Uruchom na N s"** (run for N s, N = compressor time from the settings): runs the compressor for the configured time (formerly "Uruchom kompresor ponownie").
+Since version 1.3.2 the controller pages are in English (no language selection).
+
+- **Main page** ("Water pressure tank"): compressor state ("ON", "ON (MANUAL)" or "OFF"), "Time left", compressor and pump run time, and buttons:
+  - **"Turn on"**: the compressor runs until "Turn off", 30 min at most; meanwhile a large `mm:ss` countdown is shown below the state;
+  - **"Turn off"** (red): switches the compressor off at once, also during the normal run after start;
+  - **"Run for N s"** (N = compressor time from the settings): runs the compressor for the configured time (formerly "Uruchom na N s" and "Uruchom kompresor ponownie").
 - **Installation** (login and password): Wi-Fi, compressor run time, SN, Root ID, cloud connection state.
 
 ## Who it is for
@@ -77,5 +79,5 @@ The firmware **has not been flashed onto a board yet**; it was checked with PC t
 | **Pressure switch** | switches on pressure; lower and upper thresholds in gauge bar |
 | **Air cushion** | air in the galvanised tank, topped up by the compressor |
 | **Queue** | runs without a network, sent at later starts |
-| **Restart** | manual compressor start from the controller page ("Uruchom na N s" or "Włącz"; `restarts`) |
-| **Manual compressor time** | time from "Włącz" until switched off (`manualCompressorS`); the cloud subtracts it from the pump time |
+| **Restart** | manual compressor start from the controller page ("Run for N s" or "Turn on"; `restarts`) |
+| **Manual compressor time** | time from "Turn on" until switched off (`manualCompressorS`); the cloud subtracts it from the pump time |

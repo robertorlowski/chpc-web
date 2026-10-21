@@ -34,7 +34,8 @@ struct DeviceConfig {
 // z odpowiedzi hp/add (weather_queries), odczyty w polu weather następnego hp/add.
 // 1.3.2: zapasowa pogoda zwykłym HTTP zamiast HTTPS (TLS nie dostawał pamięci, weather.hpp) i liczniki
 // weather_ok, weather_fail, weather_code w telemetrii (widoczne w GET /hp/diagnostics).
-constexpr const char *FW_VERSION = "1.3.2";
+// 1.3.3: strony i ekran sterownika po angielsku (T. out zamiast T. zew, MANUAL zamiast RECZNY).
+constexpr const char *FW_VERSION = "1.3.3";
 
 // Wspólna przestrzeń NVS; main.cpp trzyma w niej też tryb sterownika ("mode").
 constexpr const char *PREFERENCES_NAMESPACE = "hp";

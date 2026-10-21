@@ -61,7 +61,7 @@ private:
   bool woken = false;
   uint32_t wokenAtMs = 0;
   String keyState = "?";
-  String lastResult = "jeszcze nic nie wysłano";
+  String lastResult = "nothing sent yet";
   uint32_t sentCount = 0;
 
   // tylko w zadaniu

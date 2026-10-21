@@ -19,7 +19,8 @@ constexpr const char *DEVICE_TYPE = "switch";
 // 1.3.3: pogoda z modelu DWD ICON (models=icon_seamless) zamiast automatycznego wyboru Open-Meteo.
 // 1.3.4: pogoda zwykłym HTTP zamiast HTTPS; po dobie pracy TLS nie dostawał pamięci (mbedtls -0x7F00,
 //        2026-10-19: 808 nieudanych pobrań na 1072, największy blok sterty 45 KB).
-constexpr const char *FW_VERSION = "1.3.4";
+// 1.3.5: strony sterownika (/, /install) po angielsku.
+constexpr const char *FW_VERSION = "1.3.5";
 // Nazwa nadawana nowemu urządzeniu przy pierwszym zgłoszeniu.
 constexpr const char *DEVICE_NAME = "Włącznik";
 

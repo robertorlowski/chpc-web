@@ -3,8 +3,8 @@
 // Co 5 s zgłasza stan przekaźników (POST switch/state) i wykonuje polecenia z odpowiedzi:
 // włącz na N s (odlicza sam, więc bez sieci dokończy i się wyłączy), włącz bez limitu, wyłącz.
 // Komunikat WebSocket "operation" (zmiana w aplikacji) wywołuje zgłoszenie od razu.
-// Strona / sterownika: „Włącz” na czas z pól pod przyciskami (0 h 0 min = bez limitu), „Wyłącz”
-// i powrót do harmonogramu;
+// Strona / sterownika: „Turn on” na czas z pól pod przyciskami (0 h 0 min = bez limitu), „Turn off”
+// i powrót do harmonogramu („Schedule”); strony / i /install od 1.3.5 po angielsku;
 // zmiana trafia do chmury przez PUT switch/mode (relays.hpp: pending).
 // Kontrakt z chmurą: POST devices/register (rootId, settings.default_on_minutes, oferta OTA),
 // POST switch/state (polecenia i oferta OTA), PUT switch/mode, WebSocket /ws?rootId=. NVS: przestrzeń „sw”.
@@ -420,7 +420,7 @@ bool downloadFirmware(const OtaOffer &offer)
   const int status = download.GET();
   const int total = download.getSize();
   if (status != 200 || total <= 0 || !Update.begin(total)) {
-    otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    otaStatus = "download failed (HTTP " + String(status) + ")";
     logf("OTA: HTTP %d, rozmiar %d", status, total);
     download.end();
     return false;
@@ -457,17 +457,17 @@ bool downloadFirmware(const OtaOffer &offer)
 
   if (!ok || remaining != 0) {
     Update.abort();
-    otaStatus = "przerwane pobieranie";
+    otaStatus = "download interrupted";
     return false;
   }
   if (offer.sha256 != hex) {
     Update.abort();
-    otaStatus = "suma SHA-256 niezgodna";
+    otaStatus = "SHA-256 checksum mismatch";
     logf("OTA: SHA-256 niezgodna (jest %s, oferta %s)", hex, offer.sha256.c_str());
     return false;
   }
   if (!Update.end(true)) {
-    otaStatus = "obraz odrzucony";
+    otaStatus = "image rejected";
     return false;
   }
   logf("OTA: obraz %d B zapisany, SHA-256 zgodna", total);
@@ -495,7 +495,7 @@ void tryFirmwareUpdate()
   const String tried = preferences.getString(KEY_OTA_TRIED, "");
   if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
   otaAttemptedKey = key;
-  otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
+  otaStatus = "downloading version " + String(otaOffer.version.c_str());
   if (!downloadFirmware(otaOffer)) return;
   preferences.putString(KEY_OTA_TRIED, key.c_str());
   logf("OTA: restart do wersji %s", otaOffer.version.c_str());
@@ -626,8 +626,8 @@ String htmlEscape(const String &text)
   return out;
 }
 
-const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Włącznik</title>
+const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Switch</title>
 <style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}@media(max-width:30rem){body{padding:.3rem}}
 .card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem;overflow-wrap:anywhere}
 .state{font-size:1.6rem;font-weight:700}.on{color:#1481a5}.off{color:#888}.bad{color:#c62828}
@@ -641,30 +641,30 @@ p:has(>button){text-align:right}
 </style></head><body>)html";
 
 // Karty przekaźników budowane w przeglądarce z /state.json (odświeżanie co 1 s, odliczanie lokalne).
-const char MAIN_PAGE[] PROGMEM = R"html(<h1>Włącznik</h1><div id="relays"></div>
-<div class="card"><h2>Wi-Fi i chmura</h2><div id="net">---</div></div>
-<p><a href="/install">Instalacja</a></p>
+const char MAIN_PAGE[] PROGMEM = R"html(<h1>Switch</h1><div id="relays"></div>
+<div class="card"><h2>Wi-Fi and cloud</h2><div id="net">---</div></div>
+<p><a href="/install">Setup</a></p>
 <script>
-var MODES={schedule:'Harmonogram',on:'Włączony ręcznie (bez limitu)',timer:'Włączony na czas',off:'Wyłączony · harmonogram zablokowany'};
+var MODES={schedule:'Schedule',on:'On manually (no time limit)',timer:'On for a set time',off:'Off · schedule blocked'};
 function hms(t){var h=Math.floor(t/3600),m=('0'+Math.floor(t%3600/60)).slice(-2),s=('0'+t%60).slice(-2);return (h?h+':':'')+m+':'+s}
-function card(r,d){return '<div class="card"><h2>Przekaźnik '+r.relay+'</h2>'
-+'<div class="state '+(r.on?'on':'off')+'">'+(r.on?'WŁĄCZONY':'WYŁĄCZONY')+'</div>'
-+'<div class="'+(r.mode=='off'?'bad':'')+'">'+(MODES[r.mode]||'tryb nieznany (brak chmury)')+(r.pending?' · <small>czeka na wysłanie do chmury</small>':'')+'</div>'
+function card(r,d){return '<div class="card"><h2>Relay '+r.relay+'</h2>'
++'<div class="state '+(r.on?'on':'off')+'">'+(r.on?'ON':'OFF')+'</div>'
++'<div class="'+(r.mode=='off'?'bad':'')+'">'+(MODES[r.mode]||'mode unknown (no cloud)')+(r.pending?' · <small>waiting to be sent to the cloud</small>':'')+'</div>'
 +(r.remainingS?'<div class="count">'+hms(r.remainingS)+'</div>':'')
-+'<p class="buttons"><button onclick="on('+r.relay+')">Włącz</button>'
-+'<button class="stop" onclick="cmd('+r.relay+',\'off\')">Wyłącz</button>'
-+'<button class="second" onclick="cmd('+r.relay+',\'schedule\')"'+(r.mode=='schedule'?' disabled':'')+'>Harmonogram</button></p>'
-+'<div class="timer">Czas włączenia '+field(r.relay,'h',Math.floor(d/60),168)+' h '+field(r.relay,'m',d%60,59)+' min</div>'
-+'<small>0 h 0 min = bez limitu czasu</small></div>'}
++'<p class="buttons"><button onclick="on('+r.relay+')">Turn on</button>'
++'<button class="stop" onclick="cmd('+r.relay+',\'off\')">Turn off</button>'
++'<button class="second" onclick="cmd('+r.relay+',\'schedule\')"'+(r.mode=='schedule'?' disabled':'')+'>Schedule</button></p>'
++'<div class="timer">On time '+field(r.relay,'h',Math.floor(d/60),168)+' h '+field(r.relay,'m',d%60,59)+' min</div>'
++'<small>0 h 0 min = no time limit</small></div>'}
 function field(n,k,d,max){var id=k+n,v=window['v'+id];return '<input id="'+id+'" type="number" min="0" max="'+max+'" value="'+(v===undefined?d:v)+'" oninput="window[\'v'+id+'\']=this.value">'}
 function on(n){var t=(+document.getElementById('h'+n).value||0)*60+(+document.getElementById('m'+n).value||0);
-if(t>10080){alert('Najwyżej 7 dni (168 h).');return}if(t>0)cmd(n,'timer',t);else cmd(n,'on')}
+if(t>10080){alert('At most 7 days (168 h).');return}if(t>0)cmd(n,'timer',t);else cmd(n,'on')}
 function load(){if(document.activeElement&&document.activeElement.tagName=='INPUT')return;
 fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
 relays.innerHTML=s.relays.map(function(r){return card(r,s.defaultMinutes)}).join('');
-net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">brak połączenia</b>')
-+'<br>Chmura: '+(s.cloud?'<b class="on">połączona</b>':'<b class="bad">brak</b>')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
-+'<br><small>Bez chmury przekaźnik dokończy bieżące włączenie na czas i się wyłączy.</small>'})}
+net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">not connected</b>')
++'<br>Cloud: '+(s.cloud?'<b class="on">connected</b>':'<b class="bad">none</b>')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
++'<br><small>Without the cloud, the relay finishes the current timed run and then turns off.</small>'})}
 function cmd(n,m,min){fetch('/relay?n='+n+'&mode='+m+(min?'&minutes='+min:''),{method:'POST'}).then(function(){document.activeElement.blur();load()})}
 load();setInterval(load,1000);
 </script></body></html>)html";
@@ -765,26 +765,26 @@ void handleInstall()
   }
 
   String page = FPSTR(PAGE_HEAD);
-  page += "<h1>Instalacja</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
-  page += "<label>Sieć Wi-Fi (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
-  page += "<label>Hasło Wi-Fi <small>(puste = bez zmian)</small><input name=\"password\" type=\"password\"></label>";
-  page += "<p><button type=\"submit\">Zapisz</button></p></form>";
+  page += "<h1>Setup</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
+  page += "<label>Wi-Fi network (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
+  page += "<label>Wi-Fi password <small>(empty = unchanged)</small><input name=\"password\" type=\"password\"></label>";
+  page += "<p><button type=\"submit\">Save</button></p></form>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
-  page += "<div>Przekaźników: <b>" + String(RELAY_COUNT) + "</b></div>";
-  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("brak połączenia")) + "</div>";
-  page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div></div>";
+  page += "<div>Relays: <b>" + String(RELAY_COUNT) + "</b></div>";
+  page += "<div>Wi-Fi: " + String(WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("not connected")) + "</div>";
+  page += "<div>Registered in the cloud: " + String(registeredThisBoot ? "yes" : "no") + "</div></div>";
   // przekaźnik poczty: odcisk klucza do porównania z aplikacją przed zatwierdzeniem
-  page += "<div class=\"card\"><h2>Poczta</h2><div>Odcisk klucza: <b>" + htmlEscape(mailRelay.fingerprint()) + "</b></div>";
+  page += "<div class=\"card\"><h2>Mail</h2><div>Key fingerprint: <b>" + htmlEscape(mailRelay.fingerprint()) + "</b></div>";
   page += "<div><small>" + htmlEscape(mailRelay.statusText()) + "</small></div></div>";
   // firmware na końcu strony (jak we wszystkich sterownikach)
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
-  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
-  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
-  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
-  page += "<div><small>Po wgraniu sterownik się restartuje (przekaźniki wyłączą się na chwilę).</small></div>";
-  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
-  page += "<p><a href=\"/\">Strona główna</a></p></body></html>";
+  page += "<div>Version: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Cloud update: " + htmlEscape(otaStatus) + "</small></div>";
+  page += "<label>firmware.bin file<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
+  page += "<div><small>After the upload the controller restarts (relays turn off for a moment).</small></div>";
+  page += "<p><button type=\"submit\">Upload</button></p></form>";
+  page += "<p><a href=\"/\">Home</a></p></body></html>";
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html; charset=utf-8", page);
 }
@@ -822,7 +822,7 @@ void handleFirmwareDone()
 {
   if (!authorized()) return;
   server.send(uploadFinished ? 200 : 409, "text/plain; charset=utf-8",
-    uploadFinished ? "Firmware wgrany, sterownik się restartuje." : "Nie wgrano: plik jest niepoprawny.");
+    uploadFinished ? "Firmware uploaded, the controller is restarting." : "Not uploaded: the file is invalid.");
   if (uploadFinished) {
     delay(500);
     ESP.restart();

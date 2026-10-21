@@ -36,7 +36,7 @@ public:
     addrinfo *result = nullptr;
     const std::string service = std::to_string(port);
     if (lwip_getaddrinfo(host.c_str(), service.c_str(), &hints, &result) != 0 || result == nullptr) {
-      error = "DNS: nie znaleziono " + host;
+      error = "DNS: not found " + host;
       return false;
     }
     fd = lwip_socket(result->ai_family, result->ai_socktype, result->ai_protocol);
@@ -47,7 +47,7 @@ public:
     }
     const bool ok = fd >= 0 && lwip_connect(fd, result->ai_addr, result->ai_addrlen) == 0;
     lwip_freeaddrinfo(result);
-    if (!ok) error = "połączenie z " + host + ":" + service + " nieudane (errno " + std::to_string(errno) + ")";
+    if (!ok) error = "connection to " + host + ":" + service + " failed (errno " + std::to_string(errno) + ")";
     return ok;
   }
 
@@ -77,7 +77,7 @@ public:
     }
     if (code != 0) {
       const uint32_t flags = mbedtls_ssl_get_verify_result(&ssl);
-      error = "TLS: błąd " + std::to_string(code) + (flags ? ", certyfikat odrzucony (0x" + hex(flags) + ")" : std::string());
+      error = "TLS: error " + std::to_string(code) + (flags ? ", certificate rejected (0x" + hex(flags) + ")" : std::string());
       return false;
     }
     tls = true;
@@ -171,7 +171,7 @@ std::string base64(const std::string &text)
 bool step(Session &session, const char *name, const std::string &command, int expected, std::string &error, int alternative = 0)
 {
   if (!command.empty() && !session.write(command)) {
-    error = std::string(name) + ": błąd wysyłania";
+    error = std::string(name) + ": send error";
     return false;
   }
   std::string last;
@@ -187,26 +187,26 @@ bool smtpSend(const SmtpSettings &settings, const std::string &from, const std::
   const std::string &raw, std::string &error)
 {
   if (!safeAddress(from)) {
-    error = "nieprawidłowy nadawca";
+    error = "invalid sender";
     return false;
   }
   for (const std::string &address : to) {
     if (!safeAddress(address)) {
-      error = "nieprawidłowy adresat";
+      error = "invalid recipient";
       return false;
     }
   }
   Session session;
   if (!session.connect(settings.host, settings.port, error)) return false;
-  if (!step(session, "powitanie", "", 220, error)) return false;
+  if (!step(session, "greeting", "", 220, error)) return false;
   if (!step(session, "EHLO", "EHLO chpc\r\n", 250, error)) return false;
   if (!step(session, "STARTTLS", "STARTTLS\r\n", 220, error)) return false;
   if (!session.startTls(settings.host, error)) return false;
-  if (!step(session, "EHLO po TLS", "EHLO chpc\r\n", 250, error)) return false;
+  if (!step(session, "EHLO after TLS", "EHLO chpc\r\n", 250, error)) return false;
   std::string user = base64(settings.user);
   std::string pass = base64(settings.pass);
   bool ok = step(session, "AUTH", "AUTH LOGIN\r\n", 334, error)
-    && step(session, "AUTH użytkownik", user + "\r\n", 334, error)
+    && step(session, "AUTH user", user + "\r\n", 334, error)
     && step(session, "AUTH", pass + "\r\n", 235, error);
   mbedtls_platform_zeroize(&pass[0], pass.size());
   if (!ok) return false;
@@ -215,7 +215,7 @@ bool smtpSend(const SmtpSettings &settings, const std::string &from, const std::
     if (!step(session, "RCPT TO", "RCPT TO:<" + address + ">\r\n", 250, error, 251)) return false;
   }
   if (!step(session, "DATA", "DATA\r\n", 354, error)) return false;
-  if (!step(session, "treść", smtpData(raw), 250, error)) return false;
+  if (!step(session, "body", smtpData(raw), 250, error)) return false;
   session.write("QUIT\r\n");
   return true;
 }

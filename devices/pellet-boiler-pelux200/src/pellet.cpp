@@ -102,8 +102,8 @@ constexpr UBaseType_t BUS_TASK_PRIORITY = 2;  // wyżej niż loop() (1)
 const IPAddress AP_ADDRESS(10, 10, 10, 1);
 
 const char *const STATE_NAMES[] = {
-  "wyłączony", "stabilizacja", "rozpalanie", "praca", "nadzór", "pauza", "czuwanie",
-  "wygaszanie", "alarm", "ręczny", "odpieczętowanie", "inny"};
+  "off", "stabilization", "kindling", "working", "supervision", "paused", "standby",
+  "burning off", "alert", "manual", "unsealing", "other"};
 
 Preferences preferences;
 WebServer server(80);
@@ -413,12 +413,12 @@ void startBus()
 const char *econetStateText(uint32_t nowMs)
 {
   if (guard.blocked(nowMs)) {
-    return guard.blockReason() == EconetBlockReason::COLLISIONS ? "wstrzymany: kolizje na magistrali"
-                                                                : "wstrzymany: odzywa się inny moduł ecoNET";
+    return guard.blockReason() == EconetBlockReason::COLLISIONS ? "paused: bus collisions"
+                                                                : "paused: another ecoNET module responds";
   }
-  if (!polarity.confirmed()) return "czeka na poprawne ramki";
-  if (!guard.mayTransmit(nowMs)) return "nasłuch przed nadawaniem";
-  return "odpowiada";
+  if (!polarity.confirmed()) return "waiting for valid frames";
+  if (!guard.mayTransmit(nowMs)) return "listening before transmitting";
+  return "responding";
 }
 
 // Koniec odczytu ustawień (busTask): wpis na konsoli i zlecenie wysyłki do chmury.
@@ -1310,7 +1310,7 @@ bool downloadFirmware(const OtaOffer &offer)
   const int status = download.GET();
   const int total = download.getSize();
   if (status != 200 || total <= 0 || !Update.begin(total)) {
-    otaStatus = "pobieranie nie powiodło się (HTTP " + String(status) + ")";
+    otaStatus = "download failed (HTTP " + String(status) + ")";
     logf("OTA: HTTP %d, rozmiar %d", status, total);
     download.end();
     return false;
@@ -1348,18 +1348,18 @@ bool downloadFirmware(const OtaOffer &offer)
 
   if (!ok || remaining != 0) {
     Update.abort();
-    otaStatus = "przerwane pobieranie";
+    otaStatus = "download interrupted";
     logf("OTA: przerwane, brakuje %d B", remaining);
     return false;
   }
   if (offer.sha256 != hex) {
     Update.abort();
-    otaStatus = "suma SHA-256 niezgodna";
+    otaStatus = "SHA-256 mismatch";
     logf("OTA: SHA-256 niezgodna (jest %s, oferta %s)", hex, offer.sha256.c_str());
     return false;
   }
   if (!Update.end(true)) {
-    otaStatus = "obraz odrzucony";
+    otaStatus = "image rejected";
     return false;
   }
   logf("OTA: obraz %d B zapisany, SHA-256 zgodna", total);
@@ -1379,10 +1379,10 @@ void tryFirmwareUpdate()
   const String tried = preferences.getString(KEY_OTA_TRIED, "");
   if (!shouldUpdate(otaOffer, FW_VERSION, tried.c_str())) return;
   otaAttemptedKey = key;
-  otaStatus = "pobieranie wersji " + String(otaOffer.version.c_str());
+  otaStatus = "downloading version " + String(otaOffer.version.c_str());
   if (!downloadFirmware(otaOffer)) return;
   preferences.putString(KEY_OTA_TRIED, key.c_str());
-  restartWithReason(("aktualizacja z chmury do " + otaOffer.version).c_str());
+  restartWithReason(("cloud update to " + otaOffer.version).c_str());
 }
 
 // --- Wi-Fi i AP ---
@@ -1429,17 +1429,17 @@ String describeLastReset()
   const String saved = preferences.getString(KEY_RESTART_REASON, "");
   preferences.remove(KEY_RESTART_REASON);
   switch (esp_reset_reason()) {
-  case ESP_RST_POWERON: return "włączenie zasilania";
-  case ESP_RST_SW: return saved.length() ? "restart programowy: " + saved : "restart programowy (wgranie, /install)";
-  case ESP_RST_PANIC: return "błąd programu (panic)";
+  case ESP_RST_POWERON: return "power on";
+  case ESP_RST_SW: return saved.length() ? "software restart: " + saved : "software restart (upload, /install)";
+  case ESP_RST_PANIC: return "program error (panic)";
   case ESP_RST_INT_WDT:
   case ESP_RST_TASK_WDT:
-  case ESP_RST_WDT: return "watchdog (zawieszenie)";
-  case ESP_RST_BROWNOUT: return "spadek napięcia zasilania (brownout)";
-  case ESP_RST_DEEPSLEEP: return "wybudzenie";
-  case ESP_RST_EXT: return "przycisk RESET";
-  case ESP_RST_UNKNOWN: return "nieznana (np. reset po wgraniu przez USB)";
-  default: return "inna (" + String(static_cast<int>(esp_reset_reason())) + ")";
+  case ESP_RST_WDT: return "watchdog (hang)";
+  case ESP_RST_BROWNOUT: return "supply voltage drop (brownout)";
+  case ESP_RST_DEEPSLEEP: return "wake-up";
+  case ESP_RST_EXT: return "RESET button";
+  case ESP_RST_UNKNOWN: return "unknown (e.g. reset after USB upload)";
+  default: return "other (" + String(static_cast<int>(esp_reset_reason())) + ")";
   }
 }
 
@@ -1522,7 +1522,7 @@ void updateAccessPoint(uint32_t nowMs)
   // telefonowi stronę /install) ani w trakcie odczytu lub zmiany ustawień kotła.
   if (lostMs >= WIFI_RESTART_AFTER_MS && WiFi.softAPgetStationNum() == 0 && !boilerSettings.busy()
     && !parameterWriter.busy()) {
-    restartWithReason("brak Wi-Fi od 30 min");
+    restartWithReason("no Wi-Fi for 30 min");
   }
 }
 
@@ -1645,8 +1645,8 @@ String htmlEscape(const String &text)
   return out;
 }
 
-const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="pl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Piec Pellux 200</title>
+const char PAGE_HEAD[] PROGMEM = R"html(<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Pellux 200 boiler</title>
 <style>body{font-family:sans-serif;margin:0 auto;max-width:28rem;padding:1rem;color:#222}@media(max-width:30rem){body{padding:.3rem}}
 .card{background:#f1f1f1;border-radius:.5rem;padding:.75rem 1rem;margin-bottom:1rem;overflow-wrap:anywhere}
 .on{color:#1481a5}.bad{color:#c62828}table{width:100%;border-collapse:collapse}td{padding:.15rem 0}
@@ -1657,41 +1657,41 @@ p:has(>button){text-align:right}
 </style></head><body>)html";
 
 // Odczyt i diagnostyka magistrali z /state.json (odświeżanie co 2 s).
-const char MAIN_PAGE[] PROGMEM = R"html(<h1>Piec Pellux 200</h1>
-<div class="card"><h2>Odczyt</h2><div id="reading">---</div></div>
-<div class="card"><h2>Magistrala ecoMAX</h2><div id="bus">---</div></div>
-<div class="card"><h2>Wi-Fi i chmura</h2><div id="net">---</div></div>
-<p><a href="/install">Instalacja</a></p>
+const char MAIN_PAGE[] PROGMEM = R"html(<h1>Pellux 200 boiler</h1>
+<div class="card"><h2>Reading</h2><div id="reading">---</div></div>
+<div class="card"><h2>ecoMAX bus</h2><div id="bus">---</div></div>
+<div class="card"><h2>Wi-Fi and cloud</h2><div id="net">---</div></div>
+<p><a href="/install">Setup</a></p>
 <script>
-var L={state:'Stan',heating_temp:'Kocioł [°C]',heating_target:'Kocioł zadana [°C]',water_heater_temp:'CWU [°C]',
-water_heater_target:'CWU zadana [°C]',feeder_temp:'Podajnik [°C]',return_temp:'Powrót [°C]',exhaust_temp:'Spaliny [°C]',
-outside_temp:'Zewnętrzna [°C]',fuel_level:'Paliwo [%]',fan_power:'Wentylator [%]',boiler_power:'Moc [kW]',
-boiler_load:'Obciążenie [%]',fuel_consumption:'Zużycie [kg/h]',fan:'Wentylator',feeder:'Podajnik',
-heating_pump:'Pompa CO',water_heater_pump:'Pompa CWU',circulation_pump:'Cyrkulacja',lighter:'Zapalarka',alarm:'Alarm'};
-function v(x){return x===true?'tak':x===false?'nie':typeof x=='number'?Math.round(x*10)/10:x}
+var L={state:'State',heating_temp:'Boiler [°C]',heating_target:'Boiler target [°C]',water_heater_temp:'DHW [°C]',
+water_heater_target:'DHW target [°C]',feeder_temp:'Feeder [°C]',return_temp:'Return [°C]',exhaust_temp:'Exhaust [°C]',
+outside_temp:'Outside [°C]',fuel_level:'Fuel [%]',fan_power:'Fan [%]',boiler_power:'Power [kW]',
+boiler_load:'Load [%]',fuel_consumption:'Consumption [kg/h]',fan:'Fan',feeder:'Feeder',
+heating_pump:'Heating pump',water_heater_pump:'DHW pump',circulation_pump:'Circulation',lighter:'Igniter',alarm:'Alarm'};
+function v(x){return x===true?'yes':x===false?'no':typeof x=='number'?Math.round(x*10)/10:x}
 function load(){fetch('/state.json',{cache:'no-store'}).then(r=>r.json()).then(s=>{
 reading.innerHTML=s.reading?'<table>'+Object.keys(L).filter(k=>k in s.reading).map(k=>'<tr><td>'+L[k]+'</td><td>'
-+(k=='state'?s.stateName:v(s.reading[k]))+'</td></tr>').join('')+'</table><small>'+s.ageS+' s temu</small>'
-:'<span class="bad">Brak odczytu z kotła</span>';
-bus.innerHTML='Bajty: <b>'+s.bytes+'</b>, ramki: <b>'+s.frames+'</b> (SensorData '+s.sensorFrames+', odrzucone '+s.rejected+')<br>'
-+'Sygnał: <b>'+(s.inverted?'odwrócony':'normalny')+'</b>'+(s.confirmed?'':' <small>(dobierany)</small>')
-+'<br>ecoNET (0x56): <b>'+s.econet+'</b><br><small>odpowiedzi '+s.econetTx+', echo '+s.econetEcho
-+', obce ramki '+s.econetForeign+', kolizje '+s.econetCollisions+'</small>'
-+'<br>Cisza regulatora: '+(s.silenceS?'<b class="bad">trwa '+s.silenceS+' s</b>':'<b class="on">brak</b>')
-+', StartMaster wysłane: '+s.startMasterSent
++(k=='state'?s.stateName:v(s.reading[k]))+'</td></tr>').join('')+'</table><small>'+s.ageS+' s ago</small>'
+:'<span class="bad">No reading from the boiler</span>';
+bus.innerHTML='Bytes: <b>'+s.bytes+'</b>, frames: <b>'+s.frames+'</b> (SensorData '+s.sensorFrames+', rejected '+s.rejected+')<br>'
++'Signal: <b>'+(s.inverted?'inverted':'normal')+'</b>'+(s.confirmed?'':' <small>(detecting)</small>')
++'<br>ecoNET (0x56): <b>'+s.econet+'</b><br><small>replies '+s.econetTx+', echo '+s.econetEcho
++', foreign frames '+s.econetForeign+', collisions '+s.econetCollisions+'</small>'
++'<br>Controller silence: '+(s.silenceS?'<b class="bad">for '+s.silenceS+' s</b>':'<b class="on">none</b>')
++', StartMaster sent: '+s.startMasterSent
 +((s.busEvents||[]).length?'<br><small>'+s.busEvents.map(e=>e.kind=='silence'
-?Math.round(e.agoS/60)+' min temu: cisza '+e.durationS+' s, StartMaster '+e.startMasterSent+(e.woke?', obudził':'')+' (przed: '+e.before+')'
-:Math.round(e.agoS/60)+' min temu: '+e.kind+' '+e.frame).join('<br>')+'</small>':'')
-+'<br>Ustawienia kotła: <b>'+s.settingsRead+'/5</b>'+(s.settingsBusy?' (odczyt trwa)':'')
-+' <a href="/boiler-settings.json" download>pobierz</a>'
-+'<br><small>Odbiór GPIO21, nadawanie GPIO20, 115200 bodów</small>';
-net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">brak</b>'
-+(s.scanRssi?' <small>(sieć widoczna, '+s.scanRssi+' dBm)</small>':'')
-+(s.disconnectReason?' <small>przyczyna '+s.disconnectReason+'</small>':''))
-+'<br>Chmura: '+(s.registered?'<b class="on">zgłoszony</b>':'<b class="bad">niezgłoszony</b>')
-+(s.lastPostS!==null?', ostatnia wysyłka '+s.lastPostS+' s temu':'')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
-+'<br><small>Wysyłka co '+s.pollSeconds+' s, gdy odczyt jest świeży</small>'
-+'<br><small>Działa od '+Math.floor(s.uptimeS/60)+' min; poprzedni start: '+s.lastReset+'</small>'})}
+?Math.round(e.agoS/60)+' min ago: silence '+e.durationS+' s, StartMaster '+e.startMasterSent+(e.woke?', woke it':'')+' (before: '+e.before+')'
+:Math.round(e.agoS/60)+' min ago: '+e.kind+' '+e.frame).join('<br>')+'</small>':'')
++'<br>Boiler settings: <b>'+s.settingsRead+'/5</b>'+(s.settingsBusy?' (reading)':'')
++' <a href="/boiler-settings.json" download>download</a>'
++'<br><small>Receive GPIO21, transmit GPIO20, 115200 baud</small>';
+net.innerHTML='Wi-Fi: '+(s.wifi?'<b class="on">'+s.ssid+'</b>, '+s.ip+', '+s.rssi+' dBm':'<b class="bad">none</b>'
++(s.scanRssi?' <small>(network visible, '+s.scanRssi+' dBm)</small>':'')
++(s.disconnectReason?' <small>reason '+s.disconnectReason+'</small>':''))
++'<br>Cloud: '+(s.registered?'<b class="on">registered</b>':'<b class="bad">not registered</b>')
++(s.lastPostS!==null?', last upload '+s.lastPostS+' s ago':'')+(s.lastStatus?' (HTTP '+s.lastStatus+')':'')
++'<br><small>Upload every '+s.pollSeconds+' s while the reading is fresh</small>'
++'<br><small>Up for '+Math.floor(s.uptimeS/60)+' min; previous start: '+s.lastReset+'</small>'})}
 load();setInterval(load,2000);
 </script></body></html>)html";
 
@@ -1850,33 +1850,33 @@ void handleInstall()
     return;
   }
   String page = FPSTR(PAGE_HEAD);
-  page += "<h1>Instalacja</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
-  page += "<label>Sieć Wi-Fi (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
-  page += "<label>Hasło Wi-Fi <small>(puste = bez zmian)</small><input name=\"password\" type=\"password\"></label>";
-  page += "<p><button type=\"submit\">Zapisz</button></p></form>";
+  page += "<h1>Setup</h1><form method=\"post\" class=\"card\"><h2>Wi-Fi</h2>";
+  page += "<label>Wi-Fi network (SSID)<input name=\"ssid\" value=\"" + htmlEscape(wifiSsid) + "\"></label>";
+  page += "<label>Wi-Fi password <small>(empty = unchanged)</small><input name=\"password\" type=\"password\"></label>";
+  page += "<p><button type=\"submit\">Save</button></p></form>";
   // Hasło serwisowe regulatora tylko na żądanie (?service=1): nowy odczyt z kotła i ostatnie zapisane hasło
-  page += "<div class=\"card\"><h2>Hasło serwisowe regulatora</h2>";
+  page += "<div class=\"card\"><h2>Controller service password</h2>";
   if (server.arg("service") == "1") {
     servicePasswordRequested = true;
-    page += "<div>Hasło: <b>" + (servicePassword.length() ? htmlEscape(servicePassword) : String("---")) + "</b></div>";
+    page += "<div>Password: <b>" + (servicePassword.length() ? htmlEscape(servicePassword) : String("---")) + "</b></div>";
     page += servicePasswordAtMs
-      ? "<div><small>Odczytane z kotła " + String((millis() - servicePasswordAtMs) / 1000) + " s temu.</small></div>"
-      : String("<div><small>Zapisane wcześniej w sterowniku; trwa odczyt z kotła — odśwież stronę za kilka sekund.</small></div>");
-    page += "<p><a href=\"/install\">Ukryj</a></p>";
+      ? "<div><small>Read from the boiler " + String((millis() - servicePasswordAtMs) / 1000) + " s ago.</small></div>"
+      : String("<div><small>Saved earlier in the controller; reading from the boiler — refresh the page in a few seconds.</small></div>");
+    page += "<p><a href=\"/install\">Hide</a></p>";
   } else {
-    page += "<p><a href=\"/install?service=1\">Pokaż hasło serwisowe</a></p>";
+    page += "<p><a href=\"/install?service=1\">Show service password</a></p>";
   }
   page += "</div>";
   page += "<div class=\"card\"><div>SN: <b>" + serial + "</b></div>";
   page += "<div>Root ID: <b>" + (rootId.length() ? htmlEscape(rootId) : String("---")) + "</b></div>";
-  page += "<div>Zgłoszenie w chmurze: " + String(registeredThisBoot ? "tak" : "nie") + "</div></div>";
+  page += "<div>Registered in the cloud: " + String(registeredThisBoot ? "yes" : "no") + "</div></div>";
   // firmware na końcu strony (jak we wszystkich sterownikach)
   page += "<form method=\"post\" action=\"/install/firmware\" enctype=\"multipart/form-data\" class=\"card\"><h2>Firmware</h2>";
-  page += "<div>Wersja: <b>" + String(FW_VERSION) + "</b></div>";
-  if (otaStatus.length() > 0) page += "<div><small>Aktualizacja z chmury: " + htmlEscape(otaStatus) + "</small></div>";
-  page += "<label>Plik firmware.bin<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
-  page += "<p><button type=\"submit\">Wgraj</button></p></form>";
-  page += "<p><a href=\"/\">Strona główna</a></p></body></html>";
+  page += "<div>Version: <b>" + String(FW_VERSION) + "</b></div>";
+  if (otaStatus.length() > 0) page += "<div><small>Cloud update: " + htmlEscape(otaStatus) + "</small></div>";
+  page += "<label>firmware.bin file<input name=\"firmware\" type=\"file\" accept=\".bin\" required></label>";
+  page += "<p><button type=\"submit\">Upload</button></p></form>";
+  page += "<p><a href=\"/\">Home</a></p></body></html>";
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html; charset=utf-8", page);
 }
@@ -1912,10 +1912,10 @@ void handleFirmwareDone()
 {
   if (!authorized()) return;
   server.send(uploadFinished ? 200 : 409, "text/plain; charset=utf-8",
-    uploadFinished ? "Firmware wgrany, sterownik się restartuje." : "Nie wgrano: plik jest niepoprawny.");
+    uploadFinished ? "Firmware uploaded, the controller is restarting." : "Not uploaded: the file is invalid.");
   if (uploadFinished) {
     delay(500);
-    restartWithReason("wgranie firmware przez /install");
+    restartWithReason("firmware upload via /install");
   }
 }
 

@@ -83,7 +83,7 @@ The server side (API, collections, water from pump time, water meter) is describ
 | `RELAY_PIN` / `RELAY_ACTIVE_HIGH` | 26 / `false` | `firmware.hpp` |
 | `COMPRESSOR_START_DELAY_MS` | 1000 | `firmware.hpp` |
 | `DEFAULT_COMPRESSOR_SECONDS` / `MAX_COMPRESSOR_SECONDS` | 30 / 3600 | `firmware.hpp` |
-| `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (run after "Włącz" at most 30 min) | `firmware.hpp` |
+| `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (run after "Turn on" at most 30 min) | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (an `http://` address works without TLS) | `firmware.hpp` |
 | `REGISTER_RETRY_MS`, `COMPRESSOR_SEND_RETRY_MS` | 10 s | `water-pressure-tank.cpp` |
 | `AP_ADDRESS` | `10.11.16.1` | `water-pressure-tank.cpp` |
@@ -116,18 +116,18 @@ SN = factory MAC from eFuse, 12 hex characters. The server certificate is not ch
 
 | Address | Access | Content |
 |---|---|---|
-| `GET /` | open | main page; JS fetches `/state.json` every 1 s; "Kompresor" card: state ("WŁĄCZONY RĘCZNIE" with a large `mm:ss` countdown during manual operation), buttons "Włącz" (disabled during manual operation), "Wyłącz" (red, disabled when off) and "Uruchom na N s"; "Wi-Fi" card (since 1.1.5): network, state with the disconnect reason in words, signal in dBm with a rating (good ≥ −67, fair ≥ −75, weak ≥ −85), without a connection the networks from a scan every 30 s |
+| `GET /` | open | main page (in English since 1.3.2, like `/install`); JS fetches `/state.json` every 1 s; "Compressor" card: state ("ON", "ON (MANUAL)" with a large `mm:ss` countdown during manual operation, "OFF"), buttons "Turn on" (disabled during manual operation), "Turn off" (red, disabled when off) and "Run for N s"; "Wi-Fi" card (since 1.1.5): network, state with the disconnect reason in words, signal in dBm with a rating ("good" ≥ −67, "fair" ≥ −75, "weak" ≥ −85, below that "too weak"), without a connection the networks from a scan every 30 s |
 | `GET /state.json` | open | `running`, `manual`, `manualMaxS`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `manualCompressorS`, `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
-| `POST /restart` | open | "Uruchom na N s": the compressor for the full time from the settings |
-| `POST /compressor/on` | open | "Włącz": manual operation until `/compressor/off`, at most 1800 s |
-| `POST /compressor/off` | open | "Wyłącz": ends manual or normal operation at once |
+| `POST /restart` | open | "Run for N s": the compressor for the full time from the settings |
+| `POST /compressor/on` | open | "Turn on": manual operation until `/compressor/off`, at most 1800 s |
+| `POST /compressor/off` | open | "Turn off": ends manual or normal operation at once |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (empty password = unchanged; saving reconnects at once, **without a restart**, because a restart would start the compressor), SN, Root ID, IP, cloud state |
-| `POST /install/compressor` | Basic Auth | compressor time 1–3600 s (whole seconds) |
+| `POST /install/compressor` | Basic Auth | compressor time 1–3600 s (whole seconds), "Save time" button |
 | `POST /install/firmware` | Basic Auth | manual upload of `firmware.bin` (multipart); rejected while the compressor runs; restart afterwards |
 
 An unknown address shows the main page.
 
-The main page screenshot is from before version 1.3.0 (the "Zbiorniki" card, a single "Uruchom kompresor ponownie" button).
+The main page screenshot is from before version 1.3.0 (the "Zbiorniki" card, a single "Uruchom kompresor ponownie" button), and both screenshots predate version 1.3.2, when the pages were in Polish.
 
 | Main page | Installation |
 |---|---|
@@ -162,7 +162,7 @@ pio device monitor                                         # console 115200 (thr
 
 **Console log (since 1.1.1).** Lines `[ms since start] text` on the UART0 console at 115200 (TX/RX pins, the board USB bridge or an adapter): start (version, SN, rootId, compressor time), AP, Wi-Fi (connection with IP and RSSI, or the status with the disconnect reason), registration with the cloud reply and the OTA offer, changes of the HTTP status of the report, the queue, the compressor and every OTA step. Every 10 s two status lines (`stan:` and `sieć:` with the network name, password length, last disconnect reason, channel and AP state), so a computer connected later still sees what is going on. Without a home network connection a background scan lists the visible networks with RSSI every 30 s (first after 15 s; also on the `/` page, "Wi-Fi" card). Lines go through a 2 KB transmit buffer, so they do not delay the loop that guards the relay. To watch without a reset, open the port with DTR and RTS set to 0 before opening (through an adapter without DTR/RTS wired there is no reset).
 
-The `native` tests cover: the compressor (single start, stop after time, restart, time 0, a time change applies from the next start, manual operation until switched off and until the limit, "Wyłącz" during the normal run, manual operation time), the time from `/install` (valid and invalid inputs, `PUT` body, an unsent time is not overwritten by the cloud), settings (rejecting invalid data, NVS), the report JSON (including `manualCompressorS`), the queue (on a mock NVS) and the OTA offer. **Wi-Fi, HTTP and the pages have no automated tests**; without a board use the server-side simulator: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` with `npm run local`.
+The `native` tests cover: the compressor (single start, stop after time, restart, time 0, a time change applies from the next start, manual operation until switched off and until the limit, "Turn off" during the normal run, manual operation time), the time from `/install` (valid and invalid inputs, `PUT` body, an unsent time is not overwritten by the cloud), settings (rejecting invalid data, NVS), the report JSON (including `manualCompressorS`), the queue (on a mock NVS) and the OTA offer. **Wi-Fi, HTTP and the pages have no automated tests**; without a board use the server-side simulator: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` with `npm run local`.
 
 ## Known issues and notes
 

@@ -35,6 +35,8 @@ Od 2026-10-03 odczyt pieca pelletowego Pellux 200 działa na osobnej płytce —
 
 ## Ekran i strony sterownika
 
+Napisy na ekranie i stronach są po angielsku (od wersji 1.3.3); zrzuty poniżej pokazują wcześniejszą wersję po polsku.
+
 ![Ekran sterownika](ekran-podglad.png)
 
 *Ekran (emulacja): u góry data, godzina i tryb (`C-A` = chmura, tryb CO Harmonogram), moc i produkcja PV, temperatura falowników. Duże „T” to temperatura w środku zbiornika — żółta, gdy pracuje sprężarka, czerwona przy błędzie pompy. Pod nią temperatura zewnętrzna z chmury, a niżej parametry pompy.*

@@ -37,13 +37,15 @@ W zasięgu sterownika działa jego sieć Wi-Fi (adres `10.11.16.1`), a w sieci d
 |---|---|
 | ![Strona główna](img/strona-glowna-telefon.png) | ![Instalacja](img/instalacja-telefon.png) |
 
-*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne); strona główna sprzed wersji 1.3.0, jeszcze z kartą „Zbiorniki” i jednym przyciskiem.*
+*Zrzuty z emulatora stron sterownika (prawdziwy HTML z firmware, dane demonstracyjne); strona główna sprzed wersji 1.3.0, jeszcze z kartą „Zbiorniki” i jednym przyciskiem; oba zrzuty sprzed wersji 1.3.2, gdy strony były po polsku.*
 
-- **Strona główna:** stan kompresora („WŁĄCZONY”, „WŁĄCZONY RĘCZNIE” albo „WYŁĄCZONY”), czas do wyłączenia, czas pracy kompresora i pompy oraz przyciski:
-  - **„Włącz”**: kompresor pracuje do „Wyłącz”, najdłużej 30 min; w tym czasie pod stanem jest duże odliczanie `mm:ss`;
-  - **„Wyłącz”** (czerwony): wyłącza kompresor od razu, także w zwykłej pracy po starcie;
-  - **„Uruchom na N s”** (N = czas kompresora z ustawień): włącza kompresor na ustawiony czas (dawne „Uruchom kompresor ponownie”).
-- **Instalacja** (login i hasło): Wi-Fi, czas pracy kompresora, SN, Root ID, stan połączenia z chmurą.
+Strony sterownika są od wersji 1.3.2 po angielsku (bez wyboru języka).
+
+- **Strona główna** („Water pressure tank”): stan kompresora („ON”, „ON (MANUAL)” albo „OFF”), czas do wyłączenia („Time left”), czas pracy kompresora i pompy oraz przyciski:
+  - **„Turn on”** (włącz): kompresor pracuje do „Turn off”, najdłużej 30 min; w tym czasie pod stanem jest duże odliczanie `mm:ss`;
+  - **„Turn off”** (wyłącz, czerwony): wyłącza kompresor od razu, także w zwykłej pracy po starcie;
+  - **„Run for N s”** (uruchom na N s, N = czas kompresora z ustawień): włącza kompresor na ustawiony czas (dawne „Uruchom na N s” i „Uruchom kompresor ponownie”).
+- **Instalacja** (odnośnik „Installation”, login i hasło): Wi-Fi, czas pracy kompresora, SN, Root ID, stan połączenia z chmurą.
 
 ## Dla kogo
 
@@ -77,5 +79,5 @@ Firmware **nie był jeszcze wgrywany na płytkę** — sprawdzony testami na PC 
 | **Presostat** | wyłącznik ciśnieniowy; progi dolny i górny w barach na manometrze |
 | **Poduszka powietrzna** | powietrze w zbiorniku ocynkowanym, dobijane kompresorem |
 | **Kolejka** | uruchomienia bez sieci, wysyłane przy kolejnych startach |
-| **Ponowne uruchomienie** | ręczne włączenie kompresora ze strony sterownika („Uruchom na N s” albo „Włącz”; `restarts`) |
-| **Ręczna praca kompresora** | czas po „Włącz” do wyłączenia (`manualCompressorS`); chmura odejmuje go od czasu pompy |
+| **Ponowne uruchomienie** | ręczne włączenie kompresora ze strony sterownika („Run for N s” albo „Turn on”; `restarts`) |
+| **Ręczna praca kompresora** | czas po „Turn on” do wyłączenia (`manualCompressorS`); chmura odejmuje go od czasu pompy |

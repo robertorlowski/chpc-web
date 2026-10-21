@@ -132,6 +132,7 @@ Punkt dostępowy `HP-CO-setup` (otwarty) startuje ze sterownikiem. `AccessPointP
 
 - Wiersz 1: data, godzina, tryb (`L-OFF`, `M-CO`, `M-CWU`, `C-M`, `C-A`, `C-PV`, `C-CWU`, `C-OFF`).
 - Wiersz 2: `P:` moc/produkcja dziś PV, `T:` temperatura falowników (`--` przy mocy 0 albo odczycie starszym niż 5 min).
-- Środek: żółte „F” przy wymuszeniu; duże `T:` = `HP.Ttarget` — czerwone przy `ERRc` > 0, żółte przy pracy sprężarki, inaczej białe; `T. zew:` z chmury (`--` po 30 min bez nowej wartości).
+- Środek: żółte „F” przy wymuszeniu; duże `T:` = `HP.Ttarget` — czerwone przy `ERRc` > 0, żółte przy pracy sprężarki, inaczej białe; `T. out:` (temperatura zewnętrzna, do 1.3.2 `T. zew:`) z chmury (`--` po 30 min bez nowej wartości).
 - Dół: wyśrodkowane `T:` Tmin - Tmax z pompy (to, co CHPC ma ustawione; od 1.2.1, wcześniej `T.HP` i `T.od-do`), pod nim `T.be/T.ae`, `T.hp/T.ho` (Tsump/Tho), `E.ev/E.dt`, `E.ps/Watt`, `HC.s/CC.s` (pompy).
-- Ekran trybu (3 s po naciśnięciu przycisku): źródło, tryb, IP, `AP: <ip>` albo `AP: off`.
+- Ekran trybu (3 s po naciśnięciu przycisku): źródło (`LOCAL` / `CLOUD`), tryb (`MANUAL`, do 1.3.2 `RECZNY`; `AUTO`; `OFF`), IP (`Error WIFI` bez sieci), `AP: <ip>` albo `AP: off`.
+- Napisy ekranu i stron WWW są po angielsku (od 1.3.3).

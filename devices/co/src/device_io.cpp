@@ -14,7 +14,7 @@
 #include <device_config.hpp>
 
 namespace {
-// Układ ekranu głównego (renderDashboard, od 1.2.3): linia bazowa dużego T i T. zew, przesunięcie dużego T
+// Układ ekranu głównego (renderDashboard, od 1.2.3): linia bazowa dużego T i T. out (dawniej T. zew), przesunięcie dużego T
 // w prawo (miejsce na „F”) i zejście dolnej linii, zakresu i szczegółów pompy w dół.
 constexpr int16_t TANK_BASELINE = 54;
 constexpr int16_t TANK_SHIFT = 6;
@@ -189,7 +189,7 @@ void displayControllerMode(Adafruit_ST7735 &display,
   display.setTextColor(ST77XX_YELLOW);
   display.clearWriteError();
 
-  // czcionka ekranu nie ma polskich liter: RECZNY zamiast RĘCZNY
+  // napisy ekranu po angielsku (od 1.3.3; wcześniej RECZNY)
   const char *source = "CLOUD";
   const char *mode = "";
   if (controllerMode == ControllerMode::OFF) {
@@ -197,10 +197,10 @@ void displayControllerMode(Adafruit_ST7735 &display,
     mode = "OFF";
   } else if (controllerMode == ControllerMode::MANUAL) {
     source = "LOCAL";
-    mode = "RECZNY";
+    mode = "MANUAL";
   } else {
     switch (workMode) {
-      case MANUAL: mode = "RECZNY"; break;
+      case MANUAL: mode = "MANUAL"; break;
       case AUTO: mode = "AUTO"; break;
       case OFF: mode = "OFF"; break;
     }
@@ -258,9 +258,9 @@ void renderDashboard(Adafruit_ST7735 &display,
 {
   // Nad niebieską linią (y = 23): data, godzina, tryb (C-MAN, C-AUT, C-OFF, L-MAN, OFF), moc PV
   // i produkcja dziś, temperatura falowników. Między liniami: duże T (Ttarget, FreeSansBold 18 pt),
-  // „F” przy wymuszeniu, T. zew. Pod linią y = 78: zakres Tmin–Tmax i szczegóły pompy.
-  // Układ od 1.2.3 (2026-10-10): po 5 px odstępu nad dużym T, między nim a T. zew i pod T. zew; oba napisy
-  // środkowane na stałą szerokość wzoru (T:99.9, T. zew: -99.9), więc nie skaczą przy zmianie wartości.
+  // „F” przy wymuszeniu, T. out (temperatura zewnętrzna). Pod linią y = 78: zakres Tmin–Tmax i szczegóły pompy.
+  // Układ od 1.2.3 (2026-10-10): po 5 px odstępu nad dużym T, między nim a T. out i pod T. out; oba napisy
+  // środkowane na stałą szerokość wzoru (T:99.9, T. out: -99.9), więc nie skaczą przy zmianie wartości.
   display.fillScreen(ST77XX_BLACK);
   display.setTextSize(1);
   display.clearWriteError();
@@ -293,7 +293,7 @@ void renderDashboard(Adafruit_ST7735 &display,
     display.printf("T:--");
 
   // Outdoor temperature from the cloud (IMGW) under the tank temperature,
-  // centred on "T. zew: -99.9". FreeSans 9 pt; with a GFX font the cursor
+  // centred on "T. out: -99.9". FreeSans 9 pt; with a GFX font the cursor
   // y is the baseline. It does not depend on the pump, so it is drawn even
   // without pump data.
   display.setFont(&FreeSans9pt7b);
@@ -301,10 +301,10 @@ void renderDashboard(Adafruit_ST7735 &display,
   {
     char outdoor[24];
     if (outdoorCurrent)
-      snprintf(outdoor, sizeof(outdoor), "T. zew: %.1f", outdoorTemperature);
+      snprintf(outdoor, sizeof(outdoor), "T. out: %.1f", outdoorTemperature);
     else
-      snprintf(outdoor, sizeof(outdoor), "T. zew: --");
-    printCentered(display, outdoor, OUTDOOR_BASELINE, 0, "T. zew: -99.9");
+      snprintf(outdoor, sizeof(outdoor), "T. out: --");
+    printCentered(display, outdoor, OUTDOOR_BASELINE, 0, "T. out: -99.9");
   }
   display.setFont(nullptr);
 
@@ -345,7 +345,7 @@ void renderDashboard(Adafruit_ST7735 &display,
 
   // Only what CHPC reports as set (Tmin–Tmax from its telemetry), not what
   // `co` wants to send: a mismatch then shows as a stale value, not a second line.
-  // Same font as "T. zew:" (GFX font: y is the baseline), centred and 4 px to the left; one decimal
+  // Same font as "T. out:" (GFX font: y is the baseline), centred and 4 px to the left; one decimal
   // ("35.0 - 45.0": with two the line filled the whole 128 px); takes the place of the rows 6 and 7 of
   // the 5x7 font, so the rest starts at row 7.
   {

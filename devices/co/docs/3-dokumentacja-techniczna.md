@@ -89,7 +89,7 @@ Nieprzyjęty odczyt PV sterownik ponawia co 60 s, aż zastąpi go nowszy.
 | `GET /install` | Basic Auth | Wi-Fi, SN i Root ID tylko do odczytu, stan rejestracji (szablon `PAGE_TEMPLATE`) |
 | `POST /save` | Basic Auth | `ssid`, `password` (puste = bez zmian); zapis w NVS, restart po 500 ms |
 
-Nieznany adres przekierowuje (302) na `/`. Login i hasło do `/install` są w `src/device_config.hpp`.
+Nieznany adres przekierowuje (302) na `/`. Login i hasło do `/install` są w `src/device_config.hpp`. Teksty stron są po angielsku (od 1.3.3: tytuł „Heat pump controller”, przyciski „Save and restart” / „Register and restart”, stan „Registered in the cloud” / „Not registered…”); stan przekaźnika poczty pod polem „Mail (board key)” pochodzi ze wspólnej biblioteki `devices/common/mail_relay` i jest nadal po polsku.
 
 ![Strona główna (szeroka)](img/strona-glowna.png)
 

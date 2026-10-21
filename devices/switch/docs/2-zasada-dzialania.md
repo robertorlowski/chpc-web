@@ -37,7 +37,7 @@ Odpowiedź na każde zgłoszenie stanu niesie dla każdego przekaźnika `on`, ew
 | `{on: false}` | wyłącza |
 | `mode` | tylko do wyświetlenia na stronie sterownika |
 
-**Odliczanie** jest sprawdzane w każdym obiegu pętli, niezależnie od sieci. Po jego końcu sterownik wyłącza przekaźnik, tryb na stronie zmienia się z „na czas” na „harmonogram” i od razu wysyła nowy stan do chmury.
+**Odliczanie** jest sprawdzane w każdym obiegu pętli, niezależnie od sieci. Po jego końcu sterownik wyłącza przekaźnik, tryb na stronie zmienia się z „On for a set time” na „Schedule” i od razu wysyła nowy stan do chmury.
 
 Komunikat WebSocket `{"type":"operation"}` (zmiana trybu albo harmonogramu w aplikacji) powoduje zgłoszenie stanu od razu, więc zmiana z aplikacji działa w ciągu sekundy. Biblioteka WebSocket sama łączy się ponownie co 10 s po zerwaniu.
 
@@ -61,8 +61,8 @@ sequenceDiagram
 ```
 
 - **Do potwierdzenia zmiany polecenia chmury dla tego przekaźnika są pomijane** (`pending`), żeby odpowiedź wyliczona ze starego trybu nie cofnęła zmiany. Każda zmiana ma numer (`pendingSeq`): potwierdzenie starszej wysyłki nie kasuje nowszej zmiany.
-- **„Włącz” na czas** wysyła do chmury minuty, które zostały (zaokrąglone w górę, co najmniej 1), więc ponowiona wysyłka nie wydłuża włączenia.
-- **„Harmonogram”** z chmurą zostawia stan do najbliższej odpowiedzi (chmura zna okna). **Bez chmury** (brak udanej wymiany od 30 s) wyłącza przekaźnik, bo sterownik nie wie, czy okno trwa.
+- **„Turn on” na czas** wysyła do chmury minuty, które zostały (zaokrąglone w górę, co najmniej 1), więc ponowiona wysyłka nie wydłuża włączenia.
+- **„Schedule”** z chmurą zostawia stan do najbliższej odpowiedzi (chmura zna okna). **Bez chmury** (brak udanej wymiany od 30 s) wyłącza przekaźnik, bo sterownik nie wie, czy okno trwa.
 - **400** z chmury oznacza, że zmiana nie zostanie przyjęta; sterownik przestaje ją ponawiać.
 - **404/409** (nieznany SN, Root ID innego urządzenia): sterownik kasuje Root ID, rozłącza WebSocket i zgłasza się ponownie.
 
@@ -118,7 +118,7 @@ flowchart TD
 
 | Źródło | Kiedy | Co |
 |---|---|---|
-| chmura (odpowiedź na zgłoszenie) | start | `default_on_minutes` (0–10080) → NVS `def_min`; wartość domyślna pól „Czas włączenia” na stronie |
+| chmura (odpowiedź na zgłoszenie) | start | `default_on_minutes` (0–10080) → NVS `def_min`; wartość domyślna pól „On time” na stronie |
 | `/install` | od razu | Wi-Fi → NVS (zapis łączy od razu, bez restartu) |
 
 Złe `default_on_minutes` (spoza 0–10080) jest pomijane i zostaje poprzednia wartość.

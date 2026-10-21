@@ -40,7 +40,7 @@ bool MailRelay::begin(Preferences &preferences, const String &cloudUrl)
 {
   apiUrl = cloudUrl;
   if (!crypto.begin(preferences)) {
-    keyState = "błąd klucza";
+    keyState = "key error";
     return false;
   }
   lock = xSemaphoreCreateMutex();
@@ -82,11 +82,11 @@ void MailRelay::wake()
 
 String MailRelay::statusText()
 {
-  if (!lock) return "przekaźnik poczty nieczynny (" + keyState + ")";
+  if (!lock) return "mail relay inactive (" + keyState + ")";
   Guard guard(lock);
-  String text = "klucz " + crypto.fingerprint() + " – " + keyState;
-  text += haveSettings ? ", dane poczty w pamięci" : ", bez danych poczty";
-  text += ", wysłano " + String(sentCount) + "; ostatnio: " + lastResult;
+  String text = "key " + crypto.fingerprint() + " – " + keyState;
+  text += haveSettings ? ", mail settings in memory" : ", no mail settings";
+  text += ", sent " + String(sentCount) + "; last: " + lastResult;
   return text;
 }
 
@@ -144,7 +144,7 @@ void MailRelay::applyMailField(const String &json, const String &rootId)
   const String key = mail["key"] | "none";
   {
     Guard guard(lock);
-    keyState = key == "approved" ? "zatwierdzony" : key == "pending" ? "czeka na zatwierdzenie w aplikacji" : "nieznany w chmurze";
+    keyState = key == "approved" ? "approved" : key == "pending" ? "waiting for approval in the app" : "unknown in the cloud";
   }
   if (key != "approved") {
     forgetSettings();
@@ -216,7 +216,7 @@ bool MailRelay::sendNextMail(const String &rootId)
   {
     Guard guard(lock);
     if (sent) sentCount++;
-    lastResult = sent ? "wysłano (" + String((millis() - started) / 1000) + " s)" : String("błąd: ") + error.c_str();
+    lastResult = sent ? "sent (" + String((millis() - started) / 1000) + " s)" : String("error: ") + error.c_str();
   }
   // błąd logowania: hasło mogło się zmienić w chmurze, pobierz dane od nowa przy następnym obiegu
   if (!sent && error.rfind("AUTH", 0) == 0) forgetSettings();

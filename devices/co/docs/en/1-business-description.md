@@ -35,7 +35,7 @@ Since 2026-10-03 the Pellux 200 pellet boiler is read by a separate board — [d
 
 ## Display and controller pages
 
-The user interface is in Polish; the screenshots show it as is.
+The display and page texts are in English (from version 1.3.3); the screenshots below show the earlier Polish version.
 
 ![Controller display](../ekran-podglad.png)
 

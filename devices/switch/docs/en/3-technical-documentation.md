@@ -100,7 +100,7 @@ With the adapter connected, "Brownout detected" and a start in programming mode 
 |---|---|
 | `wifi_ssid`, `wifi_pass` | Wi-Fi from `/install` (empty = values from `secrets.h`) |
 | `root_id` | Root ID from the registration reply (cleared on 404/409) |
-| `def_min` | default "Włącz" time from the cloud [min] |
+| `def_min` | default "Turn on" time on the controller page, from the cloud [min] |
 | `ota_tried` | the offer key `version#request` (`otaKey()`) after whose download the controller last restarted (one attempt per request, protection against an update loop; up to 1.0.3 the version alone) |
 
 The relay state is not stored: after start the relays are off and the cloud restores the state.
@@ -120,13 +120,13 @@ SN = the factory MAC from eFuse, 12 hex characters. `rootId` is appended when st
 
 | Address | Access | Content |
 |---|---|---|
-| `GET /` | open | main page; JS fetches `/state.json` every 1 s (no refresh while the cursor is in a field); a card per relay ("Przekaźnik N"): state, mode ("tryb nieznany (brak chmury)" — unknown mode — before the first reply, "czeka na wysłanie do chmury" — waiting to be sent — while `pending`), countdown `h:mm:ss`, the buttons "Włącz", "Wyłącz", "Harmonogram" (disabled in schedule mode), the fields "Czas włączenia [h] [min]"; the "Wi-Fi i chmura" card |
+| `GET /` | open | main page; JS fetches `/state.json` every 1 s (no refresh while the cursor is in a field); a card per relay ("Relay N"): state ("ON" / "OFF"), mode ("mode unknown (no cloud)" before the first reply, "waiting to be sent to the cloud" while `pending`), countdown `h:mm:ss`, the buttons "Turn on", "Turn off", "Schedule" (disabled in schedule mode), the fields "On time [h] [min]"; the "Wi-Fi and cloud" card |
 | `GET /state.json` | open | `relays[]` (`relay`, `on`, `mode`, `remainingS`, `pending`), `defaultMinutes`, `wifi`, `ssid`, `ip`, `rssi`, `cloud`, `lastStatus` |
 | `POST /relay?n=&mode=on\|off\|timer\|schedule&minutes=` | open | change from the page; `minutes` 1–10080 only for `timer`; 400 bad number, mode or time |
-| `GET`/`POST /install` | Basic Auth | Wi-Fi (empty password = unchanged; saving connects at once, without a restart), firmware version and OTA state, SN, Root ID, number of relays, IP address, registration state |
+| `GET`/`POST /install` | Basic Auth | the "Setup" page: Wi-Fi (empty password = unchanged; saving connects at once, without a restart), firmware version and OTA state, SN, Root ID, number of relays, IP address, registration state, the "Mail" card with the mail key fingerprint |
 | `POST /install/firmware` | Basic Auth | manual upload of `firmware.bin` (multipart, field `firmware`); restart after upload (relays briefly off); 409 for an invalid file |
 
-An unknown address shows the main page. The `/install` login and password are in `secrets.h`.
+An unknown address shows the main page. The `/install` login and password are in `secrets.h`. From version 1.3.5 the pages are in English (`lang="en"`, no language selection); the screenshots below show the Polish pages from before that version. The mail status text below the key fingerprint comes from the shared library `devices/common/mail_relay` and is still in Polish.
 
 | Main page | Installation |
 |---|---|
@@ -163,7 +163,7 @@ The flash layout is the default Arduino-ESP32 table with two application partiti
 2. The offer `{version, url, sha256, request}` (`url` = `<server>/api/firmware/switch/<version>.bin`, `request` = `requestedAt` in ms as a string) is in the registration reply (`settings.firmware`) and in every `POST switch/state` reply (`firmware`). Version 1.0.3 reads it only at registration (a restart is needed); from 1.1.0 also from the state exchange, so the update starts within seconds.
 3. The controller accepts the offer when the address starts with `https://`, the version is non-empty and `sha256` has 64 hex characters.
 4. The download starts when: the registration succeeded, the last state exchange succeeded within 30 s, **all relays are off**, there are no unsent local changes, the offered version differs from `FW_VERSION`, and the key `version#request` (`otaKey()`) differs from `ota_tried` and from the key tried in this start (RAM). While a relay is on, the controller waits for it to switch off.
-5. The image goes straight into the inactive partition with SHA-256 computed on the fly; it is activated only if the checksum matches. Then the key is stored in `ota_tried` and the controller restarts; the cloud restores the relay state. Each "Aktualizuj" gives one attempt; a failed one is retried by clicking again (a new request). The attempt state is shown on `/install` ("Aktualizacja z chmury: …").
+5. The image goes straight into the inactive partition with SHA-256 computed on the fly; it is activated only if the checksum matches. Then the key is stored in `ota_tried` and the controller restarts; the cloud restores the relay state. Each "Aktualizuj" gives one attempt; a failed one is retried by clicking again (a new request). The attempt state is shown on `/install` ("Cloud update: …", e.g. "downloading version 1.3.5", "SHA-256 checksum mismatch").
 
 **Weather (from 1.1.3, many places from 1.2.0; shared with `co` in `devices/common/weather/src/weather.hpp` from 1.3.1).** The cloud returns in the state reply `weather_query {lat, lon}` (home) and `weather_queries [{id, lat, lon}, …]` (weather tiles, at most 8). The controller fetches each place from Open-Meteo (every 15 min, one request at a time 5 s apart, retry after 5 min on error) and sends `weather` in the next state report: `[{id, temp, code, cloud, precip, rain, snow, wind, day, age_s}]`. Readings older than 45 min are not sent. From 1.3.3 the request selects the **DWD ICON** model (`models=icon_seamless`, about 2 km over Central Europe) instead of Open-Meteo's automatic choice: on 2026-10-18 the default model reported "overcast" in sunshine (98 % cloud cover from thin high clouds only), ICON reported "partly cloudy" (42 %), matching PV production. The response format is the same. From 1.3.4 (2026-10-19) weather is fetched over **plain HTTP** instead of HTTPS: after a day of uptime there was no contiguous memory for another TLS connection next to the cloud, the WebSocket and the mail relay (diagnostics: largest heap block 45 KB, mbedtls `-0x7F00` SSL_ALLOC_FAILED, 808 failed fetches out of 1072). Weather data is not confidential and the certificate was never checked anyway.
 
@@ -185,13 +185,13 @@ pio device monitor -d devices/switch            # console 115200 through the P1 
 
 **Console log.** Lines `[ms since start] text` on UART0 115200 (P1 header): start (version, SN, Root ID, number of relays, cloud address), AP, Wi-Fi, registration with the reply and the OTA offer, every relay change with its cause (cloud, controller page, end of time), local changes sent to the cloud, HTTP errors, OTA steps. Every 30 s a `stan:` line (Wi-Fi with RSSI, registration, cloud, last HTTP, AP, relay 1). A 2 KB transmit buffer keeps the log from delaying the loop.
 
-**`native` tests** (`test/test_logic`): a timed on command from the cloud switches off by itself; a refreshed command extends the countdown without a state change; on without a limit; a local change wins over the cloud until confirmed (including the change number); a local timer and the minutes to send; a local "Harmonogram" switches off only without the cloud; state report JSON; applying the reply; `PUT switch/mode` JSON; default time from `settings`; OTA offer; one attempt per request (`version#request`). **Wi-Fi, HTTP, WebSocket and the pages have no automatic tests** — without a board use the server-side simulator: `node scripts/simulate-switch.mjs [--relays N] [--history]` with `npm run local`.
+**`native` tests** (`test/test_logic`): a timed on command from the cloud switches off by itself; a refreshed command extends the countdown without a state change; on without a limit; a local change wins over the cloud until confirmed (including the change number); a local timer and the minutes to send; a local "Schedule" switches off only without the cloud; state report JSON; applying the reply; `PUT switch/mode` JSON; default time from `settings`; OTA offer; one attempt per request (`version#request`). **Wi-Fi, HTTP, WebSocket and the pages have no automatic tests** — without a board use the server-side simulator: `node scripts/simulate-switch.mjs [--relays N] [--history]` with `npm run local`.
 
 ## Known issues and notes
 
 - **Security:** the AP is open by default after start, the pages are plain HTTP, `/` and `POST /relay` have no login — within AP range (the first minute after connecting to Wi-Fi or after a Wi-Fi loss) and in the home network anyone can switch the relay.
 - **Registration only at start** (and after 404/409), not after an IP address change as in `co`: the IP address in the application and the default time on the controller page are refreshed at restart (from 1.1.0 the OTA offer also comes with the state exchange). The board has no RST button; a restart = disconnecting power or uploading firmware on `/install`.
 - **Uploading on `/install` does not wait for the relay to switch off** (unlike OTA from the cloud): the restart switches it off for a few to a dozen or so seconds.
-- **The controller page does not know the relay names** from the application — it shows "Przekaźnik N".
+- **The controller page does not know the relay names** from the application — it shows "Relay N".
 - **GPIO17** from the pin test does not drive the relay on this board; do not go back to it without a measurement.
 - **The OTA download and the pages have no tests on the board** beyond manual checks; the certificate is not verified, and image integrity relies on the SHA-256 from the cloud reply (same channel).

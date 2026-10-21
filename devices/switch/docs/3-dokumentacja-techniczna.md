@@ -100,7 +100,7 @@ Przy podłączonej przejściówce zaobserwowano „Brownout detected” i start 
 |---|---|
 | `wifi_ssid`, `wifi_pass` | Wi-Fi z `/install` (puste = wartości z `secrets.h`) |
 | `root_id` | Root ID z odpowiedzi na zgłoszenie (kasowany przy 404/409) |
-| `def_min` | domyślny czas „Włącz” z chmury [min] |
+| `def_min` | domyślny czas „Turn on” na stronie sterownika, z chmury [min] |
 | `ota_tried` | klucz oferty `wersja#request` (`otaKey()`), po której pobraniu sterownik ostatnio się zrestartował (jedna próba na zlecenie, ochrona przed pętlą aktualizacji; do 1.0.3 sama wersja) |
 
 Stan przekaźników nie jest zapisywany: po starcie są wyłączone, a stan przywraca chmura.
@@ -120,13 +120,13 @@ SN = fabryczny MAC z eFuse, 12 znaków hex. `rootId` jest dopisywany, gdy jest z
 
 | Adres | Dostęp | Zawartość |
 |---|---|---|
-| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json` (nie odświeża, gdy kursor jest w polu); karta każdego przekaźnika („Przekaźnik N”): stan, tryb (`tryb nieznany (brak chmury)` przed pierwszą odpowiedzią, „czeka na wysłanie do chmury” przy `pending`), odliczanie `h:mm:ss`, przyciski „Włącz”, „Wyłącz”, „Harmonogram” (nieaktywny w trybie harmonogramu), pola „Czas włączenia [h] [min]”; karta „Wi-Fi i chmura” |
+| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json` (nie odświeża, gdy kursor jest w polu); karta każdego przekaźnika („Relay N”): stan („ON” / „OFF”), tryb (`mode unknown (no cloud)` przed pierwszą odpowiedzią, „waiting to be sent to the cloud” przy `pending`), odliczanie `h:mm:ss`, przyciski „Turn on”, „Turn off”, „Schedule” (nieaktywny w trybie harmonogramu), pola „On time [h] [min]”; karta „Wi-Fi and cloud” |
 | `GET /state.json` | otwarty | `relays[]` (`relay`, `on`, `mode`, `remainingS`, `pending`), `defaultMinutes`, `wifi`, `ssid`, `ip`, `rssi`, `cloud`, `lastStatus` |
 | `POST /relay?n=&mode=on\|off\|timer\|schedule&minutes=` | otwarty | zmiana ze strony; `minutes` 1–10080 tylko dla `timer`; 400 zły numer, tryb albo czas |
-| `GET`/`POST /install` | Basic Auth | Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, bez restartu), wersja firmware i stan OTA, SN, Root ID, liczba przekaźników, adres IP, stan zgłoszenia |
+| `GET`/`POST /install` | Basic Auth | strona „Setup”: Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, bez restartu), wersja firmware i stan OTA, SN, Root ID, liczba przekaźników, adres IP, stan zgłoszenia, karta „Mail” z odciskiem klucza poczty |
 | `POST /install/firmware` | Basic Auth | ręczne wgranie `firmware.bin` (multipart, pole `firmware`); po wgraniu restart (przekaźniki na chwilę wyłączone); 409 przy niepoprawnym pliku |
 
-Nieznany adres pokazuje stronę główną. Login i hasło `/install` są w `secrets.h`.
+Nieznany adres pokazuje stronę główną. Login i hasło `/install` są w `secrets.h`. Od wersji 1.3.5 strony są po angielsku (`lang="en"`, bez wyboru języka); zrzuty niżej pokazują polskie strony sprzed tej wersji. Tekst stanu poczty pod odciskiem klucza pochodzi ze wspólnej biblioteki `devices/common/mail_relay` i jest nadal po polsku.
 
 | Strona główna | Instalacja |
 |---|---|
@@ -163,7 +163,7 @@ Układ flash to domyślna tablica Arduino-ESP32 z dwiema partycjami aplikacji (`
 2. Oferta `{version, url, sha256, request}` (`url` = `<serwer>/api/firmware/switch/<wersja>.bin`, `request` = `requestedAt` w ms jako napis) jest w odpowiedzi na zgłoszenie (`settings.firmware`) i w każdej odpowiedzi na `POST switch/state` (`firmware`). Wersja 1.0.3 czyta ją tylko przy zgłoszeniu (potrzebny restart), od 1.1.0 także z wymiany stanu, więc aktualizacja startuje w ciągu kilku sekund.
 3. Sterownik przyjmuje ofertę, gdy adres zaczyna się od `https://`, wersja jest niepusta, a `sha256` ma 64 znaki hex.
 4. Pobranie startuje, gdy: zgłoszenie się udało, ostatnia wymiana stanu udała się w ciągu 30 s, **wszystkie przekaźniki są wyłączone**, nie ma niewysłanych zmian lokalnych, wersja z oferty różni się od `FW_VERSION`, a klucz `wersja#request` (`otaKey()`) od `ota_tried` i od klucza próbowanego w tym starcie (RAM). Przy włączonym przekaźniku sterownik czeka, aż się wyłączy.
-5. Obraz idzie prosto do nieaktywnej partycji z SHA-256 liczonym w locie; aktywacja tylko przy zgodnej sumie. Potem zapis klucza w `ota_tried` i restart; stan przekaźników przywraca chmura. Każde „Aktualizuj” daje jedną próbę; nieudaną ponawia się kolejnym kliknięciem (nowe zlecenie). Stan próby widać na `/install` („Aktualizacja z chmury: …”).
+5. Obraz idzie prosto do nieaktywnej partycji z SHA-256 liczonym w locie; aktywacja tylko przy zgodnej sumie. Potem zapis klucza w `ota_tried` i restart; stan przekaźników przywraca chmura. Każde „Aktualizuj” daje jedną próbę; nieudaną ponawia się kolejnym kliknięciem (nowe zlecenie). Stan próby widać na `/install` („Cloud update: …”, np. „downloading version 1.3.5”, „SHA-256 checksum mismatch”).
 
 **Pogoda (od 1.1.3, wiele miejsc od 1.2.0; od 1.3.1 wspólna z `co` w `devices/common/weather/src/weather.hpp`).** Chmura podaje w odpowiedzi na zgłoszenie stanu `weather_query {lat, lon}` (dom) i `weather_queries [{id, lat, lon}, …]` (kafelki pogody na liście sterowników, najwyżej 8). Sterownik pobiera z Open-Meteo każde miejsce osobno (co 15 min, jedno pobranie naraz z odstępem 5 s, po błędzie ponowienie po 5 min; GET HTTPS blokuje pętlę na kilka sekund, przekaźniki trzymają stan) i odsyła w zgłoszeniu `weather`: tablicę `[{id, temp, code, cloud, precip, rain, snow, wind, day, age_s}]`, a przy starszej chmurze z samym `weather_query` obiekt jak w 1.1.3. Odczyt starszy niż 45 min nie jest wysyłany. Od 1.3.3 zapytanie wybiera model **DWD ICON** (`models=icon_seamless`, ok. 2 km nad Europą Środkową) zamiast automatycznego wyboru Open-Meteo: 2026-10-18 model domyślny przy słońcu podawał „pochmurno” (98 % zachmurzenia z samych cienkich wysokich chmur), ICON — „małe zachmurzenie” (42 %), zgodnie z produkcją PV. Format odpowiedzi jest ten sam. Od 1.3.4 (2026-10-19) pogoda idzie **zwykłym HTTP** zamiast HTTPS: po dobie pracy brakowało ciągłej pamięci na kolejne połączenie TLS obok chmury, WebSocketu i przekaźnika poczty (diagnostyka: największy blok sterty 45 KB, mbedtls `-0x7F00` SSL_ALLOC_FAILED, 808 nieudanych pobrań na 1072). Dane pogodowe nie są poufne, a certyfikatu i tak nie sprawdzano. Testy: `test/test_weather`.
 
@@ -185,13 +185,13 @@ pio device monitor -d devices/switch            # konsola 115200 przez złącze 
 
 **Dziennik na konsoli.** Linie `[ms od startu] treść` na UART0 115200 (złącze P1): start (wersja, SN, Root ID, liczba przekaźników, adres chmury), AP, Wi-Fi, zgłoszenie z odpowiedzią i ofertą OTA, każda zmiana przekaźnika z przyczyną (chmura, strona sterownika, koniec czasu), zmiany lokalne wysłane do chmury, błędy HTTP, kroki OTA. Co 30 s linia `stan:` (Wi-Fi z RSSI, zgłoszenie, chmura, ostatni HTTP, AP, przekaźnik 1). Bufor nadawania 2 KB, więc dziennik nie opóźnia pętli.
 
-**Testy `native`** (`test/test_logic`): włączenie na czas z chmury wyłącza się samo; odświeżenie polecenia przedłuża odliczanie bez zmiany stanu; włączenie bez limitu; zmiana lokalna wygrywa z chmurą do potwierdzenia (także numer zmiany); timer lokalny i minuty do wysłania; „Harmonogram” lokalny wyłącza tylko bez chmury; JSON zgłoszenia stanu; stosowanie odpowiedzi; JSON `PUT switch/mode`; domyślny czas z `settings`; oferta OTA; jedna próba na zlecenie (`wersja#request`). **Wi-Fi, HTTP, WebSocket i strony nie mają testów automatycznych** — bez płytki służy symulator po stronie serwera: `node scripts/simulate-switch.mjs [--relays N] [--history]` przy `npm run local`.
+**Testy `native`** (`test/test_logic`): włączenie na czas z chmury wyłącza się samo; odświeżenie polecenia przedłuża odliczanie bez zmiany stanu; włączenie bez limitu; zmiana lokalna wygrywa z chmurą do potwierdzenia (także numer zmiany); timer lokalny i minuty do wysłania; „Schedule” lokalny wyłącza tylko bez chmury; JSON zgłoszenia stanu; stosowanie odpowiedzi; JSON `PUT switch/mode`; domyślny czas z `settings`; oferta OTA; jedna próba na zlecenie (`wersja#request`). **Wi-Fi, HTTP, WebSocket i strony nie mają testów automatycznych** — bez płytki służy symulator po stronie serwera: `node scripts/simulate-switch.mjs [--relays N] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
 - **Bezpieczeństwo:** AP po starcie domyślnie otwarty, strony po HTTP, `/` i `POST /relay` bez logowania — w zasięgu AP (pierwsza minuta po połączeniu z Wi-Fi albo po zaniku Wi-Fi) i w sieci domowej każdy może przełączyć przekaźnik.
 - **Zgłoszenie tylko przy starcie** (i po 404/409), nie po zmianie adresu IP jak w `co`: adres IP w aplikacji i domyślny czas na stronie sterownika odświeżają się przy restarcie (oferta OTA od 1.1.0 przychodzi też w wymianie stanu). Płytka nie ma przycisku RST; restart = odłączenie zasilania albo wgranie firmware na `/install`.
 - **Wgranie na `/install` nie czeka na wyłączenie przekaźnika** (w odróżnieniu od OTA z chmury): restart wyłącza go na kilka–kilkanaście sekund.
-- **Strona sterownika nie zna nazw przekaźników** z aplikacji — pokazuje „Przekaźnik N”.
+- **Strona sterownika nie zna nazw przekaźników** z aplikacji — pokazuje „Relay N”.
 - **GPIO17** z testu pinów nie steruje przekaźnikiem tej płytki; nie wracać do niego bez pomiaru.
 - **Pobieranie OTA i strony nie mają testów na płytce** poza ręcznym sprawdzeniem; certyfikat nie jest sprawdzany, a integralność obrazu daje SHA-256 z odpowiedzi chmury (ten sam kanał).

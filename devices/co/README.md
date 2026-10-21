@@ -70,6 +70,9 @@ Cały system jest w repozytorium [robertorlowski/my-home](https://github.com/rob
   | `/install` | Basic Auth (login `admin`, hasło w `src/device_config.hpp`) | Wi-Fi, SN i Root ID (tylko do odczytu), status rejestracji |
   | `/save` | hasło | zapis Wi-Fi i restart |
 
+  Strony i ekran są po angielsku (od 1.3.3), np. „Heat pump controller”,
+  „Save and restart”, na ekranie `T. out:` (temperatura zewnętrzna) i tryb `MANUAL`.
+
 ## Sprzęt
 
 | Element | Połączenie |

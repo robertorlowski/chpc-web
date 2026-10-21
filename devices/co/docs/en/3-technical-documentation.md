@@ -89,7 +89,7 @@ A rejected PV reading is retried every 60 s until a newer one replaces it.
 | `GET /install` | Basic Auth | Wi-Fi, SN and Root ID read-only, registration state (`PAGE_TEMPLATE`) |
 | `POST /save` | Basic Auth | `ssid`, `password` (empty = unchanged); save in NVS, restart after 500 ms |
 
-An unknown address redirects (302) to `/`. The `/install` login and password are in `src/device_config.hpp`.
+An unknown address redirects (302) to `/`. The `/install` login and password are in `src/device_config.hpp`. The page texts are in English (from 1.3.3: title "Heat pump controller", buttons "Save and restart" / "Register and restart", state "Registered in the cloud" / "Not registered…"); the mail relay state under the "Mail (board key)" field comes from the shared library `devices/common/mail_relay` and is still in Polish.
 
 ![Main page (wide)](../img/strona-glowna.png)
 

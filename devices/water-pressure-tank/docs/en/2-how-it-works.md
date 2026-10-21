@@ -37,18 +37,18 @@ stateDiagram-v2
     [*] --> Waiting: start
     Waiting --> Running: 1 s after power-on
     Running --> Off: compressor_seconds elapsed
-    Off --> Running: "Uruchom na N s" (POST /restart)
-    Running --> Running: "Uruchom na N s" — time counted anew
-    Off --> Manual: "Włącz" (POST /compressor/on)
-    Running --> Manual: "Włącz"
-    Manual --> Off: "Wyłącz" (POST /compressor/off) or 30 min
-    Running --> Off: "Wyłącz"
-    Manual --> Running: "Uruchom na N s"
+    Off --> Running: "Run for N s" (POST /restart)
+    Running --> Running: "Run for N s" — time counted anew
+    Off --> Manual: "Turn on" (POST /compressor/on)
+    Running --> Manual: "Turn on"
+    Manual --> Off: "Turn off" (POST /compressor/off) or 30 min
+    Running --> Off: "Turn off"
+    Manual --> Running: "Run for N s"
 ```
 
-- The report keeps the **first start** and the **last stop**, plus the number of restarts (`restarts`; "Włącz" counts too).
-- **Manual operation** ("Włącz", on) lasts until "Wyłącz" (off), at most `MANUAL_COMPRESSOR_MAX_SECONDS` = 1800 s (a safeguard in case nobody switches it off). Its total time in the run (`manualCompressorS`) goes into the report, and the cloud subtracts it from the pump run time, because the pump does not deliver water to consumers during it.
-- **"Wyłącz"** also ends the normal run after start at once.
+- The report keeps the **first start** and the **last stop**, plus the number of restarts (`restarts`; "Turn on" counts too).
+- **Manual operation** ("Turn on") lasts until "Turn off", at most `MANUAL_COMPRESSOR_MAX_SECONDS` = 1800 s (a safeguard in case nobody switches it off). Its total time in the run (`manualCompressorS`) goes into the report, and the cloud subtracts it from the pump run time, because the pump does not deliver water to consumers during it.
+- **"Turn off"** also ends the normal run after start at once.
 - A new time (from the cloud or `/install`) applies from the **next** start; the current run ends after the old time.
 - Time 0 s = the compressor does not start.
 
@@ -88,7 +88,7 @@ flowchart TD
 | Source | When | What |
 |---|---|---|
 | cloud (registration reply) | every start | compressor time → NVS |
-| `/install` → "save time" | immediately | compressor time → NVS + `comp_pending` flag; sent to the cloud **before** registration, and until then registration does not overwrite it with the cloud value |
+| `/install` → "Save time" | immediately | compressor time → NVS + `comp_pending` flag; sent to the cloud **before** registration, and until then registration does not overwrite it with the cloud value |
 
 Invalid settings from the cloud (e.g. a time outside 1–3600 s) are rejected and the previous ones stay. Unknown fields are skipped, so an NVS record from before version 1.3.0 (with tanks and thresholds) yields just the compressor time.
 

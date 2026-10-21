@@ -83,7 +83,7 @@ Stronę serwerową (API, kolekcje, woda z czasu pompy, wodomierz) opisuje [modu�
 | `RELAY_PIN` / `RELAY_ACTIVE_HIGH` | 26 / `false` | `firmware.hpp` |
 | `COMPRESSOR_START_DELAY_MS` | 1000 | `firmware.hpp` |
 | `DEFAULT_COMPRESSOR_SECONDS` / `MAX_COMPRESSOR_SECONDS` | 30 / 3600 | `firmware.hpp` |
-| `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (praca po „Włącz” najdłużej 30 min) | `firmware.hpp` |
+| `MANUAL_COMPRESSOR_MAX_SECONDS` | 1800 (praca po „Turn on” najdłużej 30 min) | `firmware.hpp` |
 | `CLOUD_URL` | `https://chpc-web.onrender.com/api/` (adres `http://` działa bez TLS) | `firmware.hpp` |
 | `REGISTER_RETRY_MS`, `COMPRESSOR_SEND_RETRY_MS` | 10 s | `water-pressure-tank.cpp` |
 | `AP_ADDRESS` | `10.11.16.1` | `water-pressure-tank.cpp` |
@@ -116,18 +116,18 @@ SN = fabryczny MAC z eFuse, 12 znaków hex. Certyfikat serwera nie jest sprawdza
 
 | Adres | Dostęp | Zawartość |
 |---|---|---|
-| `GET /` | otwarty | strona główna; JS co 1 s pobiera `/state.json`; karta „Kompresor”: stan („WŁĄCZONY RĘCZNIE” z dużym odliczaniem `mm:ss` przy pracy ręcznej), przyciski „Włącz” (nieaktywny w pracy ręcznej), „Wyłącz” (czerwony, nieaktywny przy wyłączonym) i „Uruchom na N s”; karta „Wi-Fi” (od 1.1.5): sieć, stan z przyczyną rozłączenia opisaną słowami, sygnał w dBm z oceną (dobry ≥ −67, średni ≥ −75, słaby ≥ −85), bez połączenia lista sieci ze skanowania co 30 s |
+| `GET /` | otwarty | strona główna (od 1.3.2 po angielsku, jak `/install`); JS co 1 s pobiera `/state.json`; karta „Compressor”: stan („ON”, „ON (MANUAL)” z dużym odliczaniem `mm:ss` przy pracy ręcznej, „OFF”), przyciski „Turn on” (nieaktywny w pracy ręcznej), „Turn off” (czerwony, nieaktywny przy wyłączonym) i „Run for N s”; karta „Wi-Fi” (od 1.1.5): sieć, stan z przyczyną rozłączenia opisaną słowami, sygnał w dBm z oceną („good” ≥ −67, „fair” ≥ −75, „weak” ≥ −85, niżej „too weak”), bez połączenia lista sieci ze skanowania co 30 s |
 | `GET /state.json` | otwarty | `running`, `manual`, `manualMaxS`, `remainingS`, `compressorSeconds`, `pumpRunS`, `restarts`, `manualCompressorS`, `wifi`, `registered`, `network` (`ssid`, `status`, `rssi`, `ip`, `reason`, `scanAgeS`, `scan[]`), `lastStatus`, `queued` |
-| `POST /restart` | otwarty | „Uruchom na N s”: kompresor na pełny czas z ustawień |
-| `POST /compressor/on` | otwarty | „Włącz”: praca ręczna do `/compressor/off`, najdłużej 1800 s |
-| `POST /compressor/off` | otwarty | „Wyłącz”: kończy pracę ręczną albo zwykłą od razu |
+| `POST /restart` | otwarty | „Run for N s”: kompresor na pełny czas z ustawień |
+| `POST /compressor/on` | otwarty | „Turn on”: praca ręczna do `/compressor/off`, najdłużej 1800 s |
+| `POST /compressor/off` | otwarty | „Turn off”: kończy pracę ręczną albo zwykłą od razu |
 | `GET`/`POST /install` | Basic Auth | Wi-Fi (puste hasło = bez zmian; zapis łączy od razu, **bez restartu**, bo restart włączyłby kompresor), SN, Root ID, IP, stan chmury |
-| `POST /install/compressor` | Basic Auth | czas kompresora 1–3600 s (pełne sekundy) |
+| `POST /install/compressor` | Basic Auth | czas kompresora 1–3600 s (pełne sekundy), przycisk „Save time” |
 | `POST /install/firmware` | Basic Auth | ręczne wgranie `firmware.bin` (multipart); odrzucane przy pracującym kompresorze; po wgraniu restart |
 
 Nieznany adres pokazuje stronę główną.
 
-Zrzut strony głównej pochodzi sprzed wersji 1.3.0 (karta „Zbiorniki”, jeden przycisk „Uruchom kompresor ponownie”).
+Zrzut strony głównej pochodzi sprzed wersji 1.3.0 (karta „Zbiorniki”, jeden przycisk „Uruchom kompresor ponownie”), a oba zrzuty sprzed wersji 1.3.2, gdy strony były po polsku.
 
 | Strona główna | Instalacja |
 |---|---|
@@ -162,7 +162,7 @@ pio device monitor                                         # konsola 115200 (prz
 
 **Dziennik na konsoli (od 1.1.1).** Linie `[ms od startu] treść` na konsoli UART0 115200 (piny TX/RX, mostek USB płytki albo przejściówka): start (wersja, SN, rootId, czas kompresora), AP, Wi-Fi (połączenie z IP i RSSI albo status z przyczyną rozłączenia), zgłoszenie z odpowiedzią chmury i ofertą OTA, zmiana statusu HTTP wysyłki, kolejka, kompresor i każdy krok OTA. Co 10 s dwie linie stanu (`stan:` i `sieć:` z nazwą sieci, długością hasła, przyczyną ostatniego rozłączenia, kanałem i stanem AP), więc komputer podłączony później też widzi, co się dzieje. Bez połączenia z siecią domową co 30 s (pierwsze po 15 s) skanowanie w tle wypisuje widoczne sieci z RSSI (także na stronie `/`, karta „Wi-Fi”). Linie idą przez bufor nadawania 2 KB, więc nie opóźniają pętli pilnującej przekaźnika. Do podglądu bez resetu otwierać port z DTR i RTS ustawionymi na 0 przed otwarciem (przez przejściówkę bez podłączonych DTR/RTS reset nie grozi).
 
-Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia, praca ręczna do wyłączenia i do limitu, „Wyłącz” w zwykłej pracy, czas pracy ręcznej), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), ustawienia (odrzucenie złych danych, NVS), JSON wysyłki (także `manualCompressorS`), kolejkę (na atrapie NVS) i ofertę OTA. **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
+Testy `native` obejmują: kompresor (jeden start, koniec po czasie, ponowne uruchomienie, czas 0, zmiana czasu od następnego włączenia, praca ręczna do wyłączenia i do limitu, „Turn off” w zwykłej pracy, czas pracy ręcznej), czas z `/install` (poprawne i złe wpisy, treść `PUT`, niewysłany czas nie jest nadpisywany przez chmurę), ustawienia (odrzucenie złych danych, NVS), JSON wysyłki (także `manualCompressorS`), kolejkę (na atrapie NVS) i ofertę OTA. **Wi-Fi, HTTP i strony nie mają testów automatycznych** — do sprawdzenia bez płytki służy symulator po stronie serwera: `node scripts/simulate-water-pressure-tank.mjs [--fast] [--history]` przy `npm run local`.
 
 ## Znane problemy i uwagi
 
