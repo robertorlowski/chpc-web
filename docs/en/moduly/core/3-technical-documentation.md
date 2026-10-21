@@ -113,7 +113,7 @@ Paths outside the map (application, `GET`s, `/device/properties`) require `rootI
 | `GET /device/properties` | `rootId` | device settings | 200; 404 |
 | `PUT /device/properties` | `rootId` | save the whole settings object (Mongoose schema validation) | 200; 400 |
 | `GET /temperature` | `rootId` | home temperature and home weather `{temperature, temperatureSource, weather}` (boiler sensor, forecast without a fresh reading) | 200 |
-| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | public (session) | the account's weather tiles `{name, lat, lon, hidden}` with current weather; `home` cannot be deleted; at most 8 | 200; 400; 404 |
+| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | public (session) | the account's weather tiles `{name, lat, lon, hidden}` with current weather and `nearHome` (within 3 km of home: temperature from the boiler sensor); `home` cannot be deleted; at most 8 | 200; 400; 404 |
 | `POST` / `DELETE /devices/:rootId/mail-key` | public (system user) | approve `{fingerprint}` / remove the mail relay board key | 200; 403; 404; 409 |
 | `GET /push/settings`, `POST /push/subscriptions`, `DELETE /push/subscriptions/:id`, `PUT /push/rules`, `POST /push/test` | signed in, no `rootId` | notification settings (VAPID key, subscriptions, rules, event catalogue, controllers), browser subscription, rules `{rules: [{rootId, events}], quietFrom, quietTo}`, test notification | 200; 201; 204; 400; 403; 404; 409; 503 |
 | `GET /auth/demo`, `POST /auth/demo` | public | demo mode: availability `{available}` / read-only session (404 without `DEMO_OWNER_EMAIL`, 429 on too many entries) | 200; 404; 429 |

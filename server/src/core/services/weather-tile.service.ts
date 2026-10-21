@@ -7,6 +7,9 @@
 // (AUTH_DISABLED=1): wszystkie kafelki i układ wspólny jak przed kontami.
 // Kafelek bieżącej lokalizacji (current): bez współrzędnych i bez pogody z włącznika — położenie i pogodę
 // pobiera przeglądarka (client core/currentPlace.ts); najwyżej jeden na konto.
+// nearHome (2026-10-21): kafelek „Dom” albo kafelek konta do NEAR_HOME_KM od WEATHER_LOCATION — klient pokazuje na nim
+// temperaturę z czujnika zewnętrznego kotła, jak na „Domu” (inne konta mają własny kafelek w miejscu domu, a „Dom”
+// widzi tylko użytkownik systemowy; bez tego ten sam dom pokazywał 10 °C z modelu przy 6,8 °C z czujnika).
 import { Types } from 'mongoose';
 import { DeviceModel } from '../models/device.model';
 import { WeatherTileDocument, WeatherTileModel } from '../models/weather-tile.model';
@@ -17,13 +20,28 @@ export const MAX_WEATHER_TILES = 8;
 // tyle miejsc przyjmuje włącznik (WEATHER_MAX_PLACES w devices/switch/src/weather.hpp)
 const MAX_SWITCH_PLACES = 8;
 const NAME_MAX = 40;
+// promień „przy domu” dla temperatury z czujnika kotła
+export const NEAR_HOME_KM = 3;
 export const CURRENT_PLACE_NAME = 'Moja lokalizacja';
 
 export type WeatherTileInput = { name?: unknown; lat?: unknown; lon?: unknown; hidden?: unknown; current?: unknown };
 export type WeatherTile = {
   id: string; name: string; lat: number | null; lon: number | null; sortOrder?: number; hidden: boolean; home: boolean;
-  current: boolean; weather: Weather | null;
+  nearHome: boolean; current: boolean; weather: Weather | null;
 };
+
+// odległość po kole wielkim [km]
+export function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLon = rad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+const isNearHome = (tile: WeatherTileDocument) => !!tile.home || (!tile.current
+  && typeof tile.lat === 'number' && typeof tile.lon === 'number'
+  && distanceKm({ lat: tile.lat, lon: tile.lon }, WEATHER_LOCATION) <= NEAR_HOME_KM);
 
 const isObjectId = (value: unknown): value is string => typeof value === 'string' && Types.ObjectId.isValid(value);
 
@@ -62,7 +80,7 @@ export function parseWeatherTile(input: WeatherTileInput, partial = false, curre
 
 const toPublic = (tile: WeatherTileDocument): WeatherTile => ({
   id: String(tile._id), name: tile.name, lat: tile.current ? null : tile.lat ?? null, lon: tile.current ? null : tile.lon ?? null,
-  sortOrder: tile.sortOrder, hidden: tile.hidden ?? false, home: tile.home ?? false, current: tile.current ?? false,
+  sortOrder: tile.sortOrder, hidden: tile.hidden ?? false, home: tile.home ?? false, nearHome: isNearHome(tile), current: tile.current ?? false,
   weather: tile.current ? null : getWeatherFor(String(tile._id)),
 });
 

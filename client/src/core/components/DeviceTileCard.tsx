@@ -269,7 +269,7 @@ const number01 = (value: number) => number(value, 1);
 
 // Kafelek pogody: ikona nieba, nazwa, temperatura z opisem nieba, pola Wiatr / Chmury / Opad i stopka: przy pogodzie
 // ikona „i” ze źródłem i wiekiem („Open-Meteo · X min temu”, od 2026-10-19 w dymku zamiast tekstu), bez pogody
-// ostrzeżenie tekstem. „Dom” (od 2026-10-21, jak pasek nad listą) pokazuje temperaturę z czujnika zewnętrznego kotła
+// ostrzeżenie tekstem. „Dom” i kafelek konta przy domu (nearHome; od 2026-10-21, jak pasek nad listą) pokazuje temperaturę z czujnika zewnętrznego kotła
 // (sensor: świeży pomiar z GET /temperature, do 15 min; model ICON z siatką 2 km mylił się o kilka stopni przy nocnej
 // inwersji w dolinie), a niebo, wiatr i opad z Open-Meteo; bez świeżego pomiaru (piec wyłączony) temperatura z modelu.
 // Kafelek bieżącej lokalizacji (current): nazwa miejscowości i pogoda z przeglądarki (CurrentWeatherTileCard).
@@ -279,7 +279,7 @@ export function WeatherTileCard({ tile, now, hidden, tools, sensor }: {
   const { t } = useLang();
   if (tile.current) return <CurrentWeatherTileCard tile={tile} now={now} hidden={hidden} tools={tools} />;
   const weather = tile.weather;
-  const fromSensor = tile.home && typeof sensor === 'number';
+  const fromSensor = (tile.home || tile.nearHome) && typeof sensor === 'number';
   const foot = hidden ? t('tile.hiddenFoot') : weather
     ? <SourceTip text={`${fromSensor ? `${t('weather.boilerSensor')} · ` : ''}Open-Meteo · ${t('weather.ago', { age: ageLabel(now - new Date(weather.at).getTime()) })}`}
         detail={fromSensor

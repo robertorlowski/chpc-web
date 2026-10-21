@@ -536,7 +536,7 @@ export const Devices: React.FC = () => {
           )
         ) : (
           <WeatherTileCard tile={item.weather} now={now} hidden={hidden} tools={tools}
-            sensor={item.weather.home && outdoor?.temperatureSource === 'boiler' ? outdoor.temperature : null} />
+            sensor={(item.weather.home || item.weather.nearHome) && outdoor?.temperatureSource === 'boiler' ? outdoor.temperature : null} />
         )}
         {reordering && (
           <>

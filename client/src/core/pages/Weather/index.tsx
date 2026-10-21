@@ -81,14 +81,16 @@ export default function Weather() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [lat, lon]);
 
+  // czujnik kotła: „Dom” i kafelek konta przy domu (nearHome, od 2026-10-21)
+  const atHome = !!(tile?.home || tile?.nearHome);
   useEffect(() => {
-    if (!tile?.home) { setOutdoor(null); return undefined; }
+    if (!atHome) { setOutdoor(null); return undefined; }
     const load = () => { void DeviceRequests.getOutdoorConditions().then((result) => setOutdoor(result)); };
     load();
     const timer = window.setInterval(load, 60_000);
     return () => window.clearInterval(timer);
-  }, [tile?.home]);
-  const sensor = tile?.home && outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number' ? outdoor.temperature : null;
+  }, [atHome]);
+  const sensor = atHome && outdoor?.temperatureSource === 'boiler' && typeof outdoor.temperature === 'number' ? outdoor.temperature : null;
 
   const footer = useMemo(() => loadedAt
     ? `Open-Meteo · ${t('wx.fetchedAt', { time: loadedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }) })}`

@@ -195,6 +195,8 @@ export type WeatherTile = {
   sortOrder?: number;
   hidden: boolean;
   home: boolean;
+  /** „Dom” albo kafelek konta przy domu (do 3 km): temperatura z czujnika kotła (od 2026-10-21; starszy serwer go nie wysyła) */
+  nearHome?: boolean;
   current: boolean;
   weather: Weather | null;
 };

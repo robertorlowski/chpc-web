@@ -33,7 +33,19 @@ describe('Kafelki pogody', () => {
   it('tworzy kafelek „Dom” z położeniem domu przed sterownikami', async () => {
     const tiles = (await request(app).get('/api/weather-tiles').expect(200)).body
     expect(tiles).toHaveLength(1)
-    expect(tiles[0]).toMatchObject({ name: 'Dom', lat: 49.374298, lon: 20.007237, home: true, hidden: false, sortOrder: -1, weather: null })
+    expect(tiles[0]).toMatchObject({ name: 'Dom', lat: 49.374298, lon: 20.007237, home: true, nearHome: true, hidden: false, sortOrder: -1, weather: null })
+  })
+
+  // 2026-10-21: konto ma własny kafelek w miejscu domu („Dom” widzi tylko systemowy) — temperatura z czujnika kotła
+  // także na nim (nearHome do 3 km), a nie na kafelkach dalej i nie na kafelku bieżącej lokalizacji
+  it('nearHome: „Dom” i kafelek do 3 km od domu, nie dalsze miejsca ani bieżąca lokalizacja', async () => {
+    const near = (await request(app).post('/api/weather-tiles').send({ name: 'Biały Dunajec', lat: 49.38, lon: 20.0 }).expect(201)).body
+    const far = (await request(app).post('/api/weather-tiles').send({ name: 'Zakopane', lat: 49.299, lon: 19.949 }).expect(201)).body
+    const current = (await request(app).post('/api/weather-tiles').send({ current: true }).expect(201)).body
+    expect(near).toMatchObject({ home: false, nearHome: true })
+    expect(far).toMatchObject({ home: false, nearHome: false })
+    expect(current).toMatchObject({ nearHome: false })
+    for (const tile of [near, far, current]) await request(app).delete(`/api/weather-tiles/${tile.id}`).expect(204)
   })
 
   it('dodaje kafelek, sprawdza pola i limit, pozwala ukryć i usunąć', async () => {

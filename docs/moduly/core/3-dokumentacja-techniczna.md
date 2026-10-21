@@ -113,7 +113,7 @@ Działanie dla ścieżki z mapy:
 | `GET /device/properties` | `rootId` | ustawienia urządzenia | 200; 404 |
 | `PUT /device/properties` | `rootId` | zapis całego obiektu ustawień (walidacja schematu Mongoose) | 200; 400 |
 | `GET /temperature` | `rootId` | temperatura domu i pogoda domu `{temperature, temperatureSource, weather}` (czujnik kotła, bez świeżego odczytu prognoza) | 200 |
-| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | publiczna (sesja) | kafelki pogody konta `{name, lat, lon, hidden}` z bieżącą pogodą; `home` bez usuwania; najwyżej 8 | 200; 400; 404 |
+| `GET` / `POST /weather-tiles`, `PUT` / `DELETE /weather-tiles/:id` | publiczna (sesja) | kafelki pogody konta `{name, lat, lon, hidden}` z bieżącą pogodą i `nearHome` (do 3 km od domu: temperatura z czujnika kotła); `home` bez usuwania; najwyżej 8 | 200; 400; 404 |
 | `POST` / `DELETE /devices/:rootId/mail-key` | publiczna (użytkownik systemowy) | zatwierdzenie `{fingerprint}` / usunięcie klucza płytki przekaźnika poczty | 200; 403; 404; 409 |
 | `GET /push/settings`, `POST /push/subscriptions`, `DELETE /push/subscriptions/:id`, `PUT /push/rules`, `POST /push/test` | zalogowany, bez `rootId` | ustawienia powiadomień (klucz VAPID, subskrypcje, reguły, katalog zdarzeń, sterowniki), subskrypcja przeglądarki, reguły `{rules: [{rootId, events}], quietFrom, quietTo}`, powiadomienie próbne | 200; 201; 204; 400; 403; 404; 409; 503 |
 | `GET /auth/demo`, `POST /auth/demo` | publiczna | wersja demo: dostępność `{available}` / sesja tylko do odczytu (404 bez `DEMO_OWNER_EMAIL`, 429 przy nadmiarze wejść) | 200; 404; 429 |
