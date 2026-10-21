@@ -2,10 +2,15 @@
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
-    <!-- ikona aplikacji (public/icon.svg, 2026-10-20) i manifest do „Dodaj do ekranu głównego” na Androidzie -->
+    <!-- ikona aplikacji (public/icon.svg, 2026-10-20; PNG 192 / 512 i maskable od 2026-10-21 — Chrome i Android wymagają PNG
+         do instalacji) i manifest do „Dodaj do ekranu głównego” (PWA; service worker public/sw.js rejestruje index.tsx) -->
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="My Home" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#0d0f12" />
