@@ -109,6 +109,16 @@ describe('Konta użytkowników', () => {
     expect(me.body).toMatchObject({ profileComplete: true, city: '', country: 'Polska', location: { lat: 49.3, lng: 19.95 } });
   });
 
+  it('język konta (wersja językowa): pusty na starcie, PUT /auth/me/language przyjmuje pl albo en i wraca w /auth/me', async () => {
+    const token = await login('robert@infotower.pl');
+    expect((await request(app).get('/api/auth/me').set(bearer(token)).expect(200)).body.language).toBe('');
+    await request(app).put('/api/auth/me/language').set(bearer(token)).send({ language: 'de' }).expect(400);
+    const set = await request(app).put('/api/auth/me/language').set(bearer(token)).send({ language: 'en' }).expect(200);
+    expect(set.body.language).toBe('en');
+    expect((await request(app).get('/api/auth/me').set(bearer(token)).expect(200)).body.language).toBe('en');
+    await request(app).put('/api/auth/me/language').send({ language: 'pl' }).expect(401);
+  });
+
   it('rejestracja linkiem: nowe konto, powiadomienie administratora, „Zapamiętaj 90 dni”, wylogowanie', async () => {
     process.env.MAIL_ADMIN = 'admin@example.pl';
     const email = 'nowy@example.pl';

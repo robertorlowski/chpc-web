@@ -2,10 +2,12 @@
 // w localStorage, Nie = do zamknięcia przeglądarki (AuthContext.answerRemember). Okno .modal z makiety.
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../i18n';
 import './account.css';
 
 export function RememberDialog() {
   const { answerRemember } = useAuth();
+  const { t } = useLang();
   const [busy, setBusy] = useState(false);
   const answer = (remember: boolean) => {
     setBusy(true);
@@ -15,13 +17,13 @@ export function RememberDialog() {
     <div className="modal-layer">
       <div className="scrim" />
       <div className="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="remember-title">
-        <header className="modal-head"><h2 id="remember-title">Zapamiętać logowanie na 90 dni?</h2></header>
+        <header className="modal-head"><h2 id="remember-title">{t('remember.title')}</h2></header>
         <div className="modal-body">
-          <p>Tak — przez 90 dni logowanie na tym urządzeniu bez kodu z maila. Nie — po zamknięciu przeglądarki trzeba będzie zalogować się ponownie. Na wspólnym komputerze wybierz Nie.</p>
+          <p>{t('remember.text')}</p>
         </div>
         <footer className="modal-foot">
-          <button type="button" className="btn" disabled={busy} onClick={() => answer(false)}>Nie</button>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => answer(true)}>Tak</button>
+          <button type="button" className="btn" disabled={busy} onClick={() => answer(false)}>{t('common.no')}</button>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => answer(true)}>{t('common.yes')}</button>
         </footer>
       </div>
     </div>

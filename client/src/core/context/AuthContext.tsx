@@ -5,6 +5,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useState 
 import { AuthRequests } from '../api';
 import { clearToken, getToken, setDemoSession, storeToken, UNAUTHORIZED_EVENT } from '../auth';
 import { ApiError } from '../http';
+import { getLang, isLang, Lang, setLang } from '../i18n';
 import { User } from '../types';
 import { useDevice } from './DeviceContext';
 
@@ -20,6 +21,8 @@ type AuthContextValue = {
   setUser: (user: User) => void;
   logout: () => Promise<void>;
   retry: () => void;
+  /** zmiana języka aplikacji (core/i18n) z zapisem w koncie (PUT /auth/me/language) */
+  changeLanguage: (lang: Lang) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -38,12 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('anonymous');
   }, []);
 
+  // Język konta (wersja językowa 2026-10-21): konto z wybranym językiem narzuca go przeglądarce; konto bez wyboru
+  // dostaje bieżący język aplikacji (z przeglądarki albo z ekranu logowania), żeby maile i powiadomienia były w nim
+  const syncLanguage = (me: User) => {
+    if (isLang(me.language)) {
+      if (me.language !== getLang()) setLang(me.language);
+    } else if (!me.isDemo) {
+      AuthRequests.setLanguage(getLang()).catch(() => undefined);
+    }
+  };
+
   const load = useCallback(() => {
     if (!getToken()) return setStatus('anonymous');
     setStatus('loading');
     AuthRequests.me()
       .then((me) => {
         setDemoSession(!!me.isDemo);
+        syncLanguage(me);
         setUserState(me);
         setStatus('signed');
       })
@@ -65,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearDevice();
     storeToken(token, false);
     setDemoSession(!!signedUser.isDemo);
+    syncLanguage(signedUser);
     setUserState(signedUser);
     setAskRemember(!signedUser.isDemo);
     setStatus('signed');
@@ -84,8 +99,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOutLocally();
   };
 
+  const changeLanguage = (lang: Lang) => {
+    setLang(lang);
+    if (user && !user.isDemo) {
+      setUserState({ ...user, language: lang });
+      AuthRequests.setLanguage(lang).catch(() => undefined);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ status, user, askRemember, signIn, answerRemember, setUser: setUserState, logout, retry: load }}>
+    <AuthContext.Provider value={{ status, user, askRemember, signIn, answerRemember, setUser: setUserState, logout, retry: load, changeLanguage }}>
       {children}
     </AuthContext.Provider>
   );
@@ -97,5 +120,6 @@ export function useAuth() {
   return value;
 }
 
-export const userDisplayName = (user: User) =>
-  user.isSystem ? 'system' : [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '';
+// nazwa konta do paska i kart; t (core/i18n) tłumaczy „system” — bez niego zostaje polski
+export const userDisplayName = (user: User, t?: (key: string) => string) =>
+  user.isSystem ? (t ? t('user.system') : 'system') : [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '';

@@ -10,9 +10,10 @@ import { ProfileForm } from '../../components/ProfileForm';
 import { PushSettingsCard } from '../../components/PushSettingsCard';
 import { useAuth, userDisplayName } from '../../context/AuthContext';
 import { ApiError } from '../../http';
+import { t as tr, useLang } from '../../i18n';
 import '../../components/account.css';
 
-const message = (error: unknown) => (error instanceof ApiError ? error.message : 'Coś poszło nie tak — spróbuj ponownie.');
+const message = (error: unknown) => (error instanceof ApiError ? error.message : tr('common.somethingWrong'));
 
 const ErrorAlert = ({ text }: { text: string }) => (
   <div className="alert alert-err" role="alert"><div><strong>{text}</strong></div></div>
@@ -21,6 +22,7 @@ const ErrorAlert = ({ text }: { text: string }) => (
 // Wiersz „E-mail” karty „Moje dane”: adres i link „zmień”, który rozwija pod wierszem kroki nowy adres → kod.
 function EmailRow({ email }: { email: string }) {
   const { setUser } = useAuth();
+  const { t } = useLang();
   const [step, setStep] = useState<'idle' | 'email' | 'code'>('idle');
   const [newEmail, setNewEmail] = useState('');
   const [code, setCode] = useState('');
@@ -49,7 +51,7 @@ function EmailRow({ email }: { email: string }) {
     try {
       const user = await AuthRequests.verifyEmail(code);
       setUser(user);
-      setDone(`Adres zmieniony na ${user.email}. Na poprzedni wysłaliśmy powiadomienie.`);
+      setDone(t('account.emailChanged', { email: user.email ?? '' }));
       cancel();
     } catch (caught) {
       setError(message(caught));
@@ -62,32 +64,32 @@ function EmailRow({ email }: { email: string }) {
     <>
       <dl className="kv">
         <div>
-          <dt>E-mail</dt>
+          <dt>{t('login.email')}</dt>
           <dd>
             {email}{' '}
-            {step === 'idle' && <button type="button" className="link-btn" onClick={() => { setStep('email'); setNewEmail(''); setDone(''); }}>zmień</button>}
+            {step === 'idle' && <button type="button" className="link-btn" onClick={() => { setStep('email'); setNewEmail(''); setDone(''); }}>{t('account.change')}</button>}
           </dd>
         </div>
       </dl>
       {step === 'email' && (
         <form className="auth-step account-inline" onSubmit={send}>
-          <p className="help">Na nowy adres wyślemy kod. Zmiana zadziała po jego wpisaniu, a na obecny adres przyjdzie powiadomienie.</p>
-          <label className="field"><span>Nowy e-mail</span><input type="email" required autoFocus value={newEmail} onChange={(event) => setNewEmail(event.target.value)} /></label>
+          <p className="help">{t('account.newEmailHint')}</p>
+          <label className="field"><span>{t('account.newEmail')}</span><input type="email" required autoFocus value={newEmail} onChange={(event) => setNewEmail(event.target.value)} /></label>
           {error && <ErrorAlert text={error} />}
           <div className="actions actions-gap">
-            <button type="button" className="btn" onClick={cancel} disabled={busy}>Anuluj</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Wyślij kod</button>
+            <button type="button" className="btn" onClick={cancel} disabled={busy}>{t('common.cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{t('login.sendCode')}</button>
           </div>
         </form>
       )}
       {step === 'code' && (
         <form className="auth-step account-inline" onSubmit={verify}>
-          <p className="help">Kod wysłany na <strong>{newEmail}</strong> (ważny 10 minut).</p>
-          <label className="field"><span>Kod z maila</span><input className="code" inputMode="numeric" maxLength={7} required autoFocus placeholder="6 cyfr" value={code} onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))} /></label>
+          <p className="help">{t('login.codeSentBefore')} <strong>{newEmail}</strong> {t('account.codeValid')}</p>
+          <label className="field"><span>{t('login.code')}</span><input className="code" inputMode="numeric" maxLength={7} required autoFocus placeholder={t('login.codePlaceholder')} value={code} onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))} /></label>
           {error && <ErrorAlert text={error} />}
           <div className="actions actions-gap">
-            <button type="button" className="btn" onClick={cancel} disabled={busy}>Anuluj</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Zmień e-mail</button>
+            <button type="button" className="btn" onClick={cancel} disabled={busy}>{t('common.cancel')}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{t('account.changeEmail')}</button>
           </div>
         </form>
       )}
@@ -98,6 +100,7 @@ function EmailRow({ email }: { email: string }) {
 
 // Okno „Usunąć konto?” (.modal z makiety): wysyła link potwierdzający na e-mail konta.
 function DeleteDialog({ email, onClose }: { email: string; onClose: () => void }) {
+  const { t, tn } = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState<number | null>(null);
@@ -116,23 +119,23 @@ function DeleteDialog({ email, onClose }: { email: string; onClose: () => void }
     <div className="modal-layer">
       <div className="scrim" onClick={onClose} />
       <div className="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="delete-title">
-        <header className="modal-head"><h2 id="delete-title">Usunąć konto?</h2></header>
+        <header className="modal-head"><h2 id="delete-title">{t('account.deleteTitle')}</h2></header>
         <div className="modal-body">
           {sent === null ? (
             <>
-              <p>Usunięte zostaną: konto i dane osobowe, Twoje sterowniki z całą historią (pomiary, harmonogramy, ustawienia) oraz udostępnienia innym osobom.</p>
-              <p>Tego nie da się cofnąć. Wyślemy link potwierdzający na <strong>{email}</strong> — konto zniknie dopiero po jego kliknięciu (ważny 10 minut).</p>
+              <p>{t('account.deleteWhat')}</p>
+              <p>{t('account.deleteLinkBefore')} <strong>{email}</strong> {t('account.deleteLinkAfter')}</p>
               {error && <ErrorAlert text={error} />}
             </>
           ) : (
-            <p>Wysłaliśmy link na <strong>{email}</strong>. Kliknij go w ciągu 10 minut, żeby usunąć konto{sent ? ` i ${sent} sterowników` : ''}.</p>
+            <p>{t('account.deleteSentBefore')} <strong>{email}</strong>. {sent ? tn('account.deleteSentDevices', sent) : t('account.deleteSentAfter')}</p>
           )}
         </div>
         <footer className="modal-foot">
           {sent === null ? (
             <>
-              <button type="button" className="btn" onClick={onClose} disabled={busy}>Anuluj</button>
-              <button type="button" className="btn btn-danger" onClick={send} disabled={busy}>Wyślij link</button>
+              <button type="button" className="btn" onClick={onClose} disabled={busy}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-danger" onClick={send} disabled={busy}>{t('account.sendLink')}</button>
             </>
           ) : (
             <button type="button" className="btn btn-primary" onClick={onClose}>OK</button>
@@ -145,6 +148,7 @@ function DeleteDialog({ email, onClose }: { email: string; onClose: () => void }
 
 export function Account() {
   const { user, setUser, logout } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(() => new URLSearchParams(window.location.search).has('delete'));
   const [saved, setSaved] = useState(false);
@@ -155,12 +159,9 @@ export function Account() {
     return (
       <div className="page page-narrow account-page">
         <section className="card">
-          <header className="card-head"><h2>Konto demo</h2></header>
-          <p className="help">
-            Wersja demo pokazuje działającą instalację właściciela tylko do odczytu: sterowniki, pomiary, wykresy i harmonogramy.
-            Żadnej zmiany nie da się zapisać, a numery seryjne, adresy i położenie domu są ukryte. Sesja trwa 2 godziny.
-          </p>
-          <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>Wyjdź z wersji demo</button></div>
+          <header className="card-head"><h2>{t('account.demoTitle')}</h2></header>
+          <p className="help">{t('account.demoText')}</p>
+          <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>{t('account.demoExit')}</button></div>
         </section>
       </div>
     );
@@ -169,28 +170,28 @@ export function Account() {
   return (
     <div className="page page-narrow account-page">
       <section className="card">
-        <header className="card-head"><h2>{user.isSystem ? 'Konto systemowe' : 'Moje dane'}</h2><span className="card-hint">{userDisplayName(user)}</span></header>
+        <header className="card-head"><h2>{user.isSystem ? t('account.systemTitle') : t('menu.myData')}</h2><span className="card-hint">{userDisplayName(user, t)}</span></header>
         {user.email && <EmailRow email={user.email} />}
         {!user.isSystem && (
           <ProfileForm user={user} onSaved={(updated) => { setUser(updated); setSaved(true); }} onCancel={() => navigate(-1)} />
         )}
-        {saved && <div className="toast toast-ok">Zapisano.</div>}
-        {user.isSystem && <p className="help">Użytkownik systemowy: logowanie hasłem, widzi wszystkie sterowniki i zmienia wzór kafelka oraz firmware.</p>}
+        {saved && <div className="toast toast-ok">{t('common.saved')}</div>}
+        {user.isSystem && <p className="help">{t('account.systemHint')}</p>}
       </section>
 
       <PushSettingsCard />
 
       <section className="card">
-        <header className="card-head"><h2>Sesja</h2></header>
-        <p className="help">Zapamiętane logowanie („Tak” po zalogowaniu kodem) trwa 90 dni na tym urządzeniu; bez zapamiętania do zamknięcia przeglądarki. Wylogowanie kończy sesję na tym urządzeniu.</p>
-        <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>Wyloguj</button></div>
+        <header className="card-head"><h2>{t('account.session')}</h2></header>
+        <p className="help">{t('account.sessionHint')}</p>
+        <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void logout()}>{t('menu.logout')}</button></div>
       </section>
 
       {!user.isSystem && (
         <section className="card card-danger">
-          <header className="card-head"><h2>Usunięcie konta</h2></header>
-          <p className="help">Usuwa konto, dane osobowe, układ kafelków, udostępnienia i Twoje sterowniki z całą historią. Potwierdzenie przychodzi mailem.</p>
-          <div className="actions"><button type="button" className="btn btn-danger-ghost" onClick={() => setDeleting(true)}>Usuń konto…</button></div>
+          <header className="card-head"><h2>{t('account.deleteCard')}</h2></header>
+          <p className="help">{t('account.deleteCardHint')}</p>
+          <div className="actions"><button type="button" className="btn btn-danger-ghost" onClick={() => setDeleting(true)}>{t('account.deleteButton')}</button></div>
         </section>
       )}
       {deleting && user.email && <DeleteDialog email={user.email} onClose={() => setDeleting(false)} />}
@@ -201,6 +202,7 @@ export function Account() {
 // Strona z linku w mailu: kliknięcie linku jest potwierdzeniem (decyzja 2026-10-11), usunięcie od razu.
 export function DeleteAccountConfirm() {
   const { logout } = useAuth();
+  const { t } = useLang();
   const [state, setState] = useState<{ done?: number; error?: string }>({});
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get('token') ?? '';
@@ -215,11 +217,11 @@ export function DeleteAccountConfirm() {
     <div className="auth">
       <div className="auth-card">
         <div className="brand brand-big"><span className="brand-mark" /><span className="brand-name">My Home</span></div>
-        <h1>Usunięcie konta</h1>
-        {state.done === undefined && !state.error && <p className="help">Usuwanie…</p>}
-        {state.done !== undefined && <p className="help">Konto i wszystkie dane zostały usunięte{state.done ? ` (sterowniki: ${state.done})` : ''}.</p>}
+        <h1>{t('account.deleteCard')}</h1>
+        {state.done === undefined && !state.error && <p className="help">{t('account.deleting')}</p>}
+        {state.done !== undefined && <p className="help">{t('account.deleted')}{state.done ? ` (${t('account.deletedDevices', { n: state.done })})` : ''}.</p>}
         {state.error && <ErrorAlert text={state.error} />}
-        <a className="btn btn-primary btn-block" href="/">Strona logowania</a>
+        <a className="btn btn-primary btn-block" href="/">{t('account.loginPage')}</a>
       </div>
     </div>
   );

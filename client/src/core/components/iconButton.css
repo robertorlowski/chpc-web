@@ -45,3 +45,12 @@ button.icon-button.icon-button-danger[type] {
 button.icon-button.icon-button-danger[type]:hover:not(:disabled) {
   color: var(--danger);
 }
+
+/* przełącznik języka na ekranie logowania (LangToggle): kod języka zamiast ikony */
+button.icon-button.lang-toggle[type] {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.3rem;
+}

@@ -34,6 +34,8 @@ export interface UserEntry {
   city?: string;
   country?: string;
   location?: UserLocation | null;
+  /** język aplikacji i maili konta (2026-10-21): 'pl' albo 'en'; pusty = nie wybrano (klient bierze język przeglądarki) */
+  language?: string;
   /** układ listy /devices: pola szachownicy (Root ID sterownika, id kafelka pogody albo null = puste pole) */
   deviceOrder?: (string | null)[];
   /** kafelki ukryte na liście tego konta (tile-layout.service.ts) */
@@ -58,6 +60,7 @@ const UserSchema = new Schema<UserEntry>(
     city: { type: String, trim: true, default: '' },
     country: { type: String, trim: true, default: '' },
     location: { type: new Schema<UserLocation>({ lat: Number, lng: Number }, { _id: false }), default: null },
+    language: { type: String, default: '' },
     deviceOrder: { type: [String], default: undefined },
     hiddenTiles: { type: [String], default: undefined },
     simpleTiles: { type: [String], default: undefined },

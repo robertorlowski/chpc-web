@@ -5,7 +5,7 @@
 // Montowany w index.tsx.
 // Serwer: GET /api/devices (lista sterowników). Sterownika domyślnego ani automatycznego wyboru nie ma.
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import { BottomNav, Header } from './components/Header';
+import { BottomNav, Header, viewLabel } from './components/Header';
 import { DEVICES_HEADER_ACTIONS_ID, Devices } from './pages/Devices';
 import Weather from './pages/Weather';
 import { WeatherBottomNav, WeatherHeader } from './pages/Weather/nav';
@@ -25,6 +25,7 @@ import { ProfileForm } from './components/ProfileForm';
 import { RememberDialog } from './components/RememberDialog';
 import { UserMenu } from './components/UserMenu';
 import { BackIcon } from './components/icons';
+import { useLang } from './i18n';
 import './components/account.css';
 
 // Klucz sesji przeglądarki: otwarcie aplikacji zawsze zaczyna od listy kafelków (/devices), także gdy w
@@ -42,21 +43,22 @@ const sameDevice = (a: Device, b: Device) =>
 // /account/delete?token=… (link usunięcia konta z maila) działa także bez zalogowania.
 function AuthGate({ children }: { children: React.ReactNode }) {
 	const { status, user, askRemember, retry, setUser } = useAuth();
+	const { t } = useLang();
 	const location = useLocation();
 	if (location.pathname === '/account/delete') return <DeleteAccountConfirm />;
-	if (status === 'loading') return <p className="app-loading">Ładowanie…</p>;
+	if (status === 'loading') return <p className="app-loading">{t('common.loading')}</p>;
 	if (status === 'offline') {
 		return (
 			<div className="app-loading">
-				<p>Brak połączenia z serwerem.</p>
-				<button type="button" onClick={retry}>Spróbuj ponownie</button>
+				<p>{t('app.offline')}</p>
+				<button type="button" onClick={retry}>{t('common.retry')}</button>
 			</div>
 		);
 	}
 	if (status === 'anonymous' || !user) {
 		return (
 			<>
-				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">Logowanie</h1><UserMenu /></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">{t('app.loginTitle')}</h1><UserMenu /></header>
 				<main className="app-main"><Login /></main>
 			</>
 		);
@@ -64,11 +66,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 	if (!user.profileComplete) {
 		return (
 			<>
-				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">Nowe konto</h1><UserMenu /></header>
+				<header className="app-header"><span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span><h1 className="app-header-title">{t('app.newAccount')}</h1><UserMenu /></header>
 				<main className="app-main">
 					<div className="account-page account-narrow">
-						<h1>Uzupełnij dane</h1>
-						<p className="account-lead">Pola z * są obowiązkowe.</p>
+						<h1>{t('app.completeProfile')}</h1>
+						<p className="account-lead">{t('app.requiredFields')}</p>
 						<ProfileForm user={user} onSaved={setUser} />
 					</div>
 				</main>
@@ -81,25 +83,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 // Pasek pod menu sterownika udostępnionego przez inną osobę: kto udostępnił i które zakładki.
 function SharedBanner() {
 	const { device } = useDevice();
+	const { t } = useLang();
 	if (device?.access !== 'shared') return null;
 	const views = getDeviceTypeView(device.deviceType).views;
-	const tabs = (device.tabs ?? []).map((path) => path === '/' ? 'Podgląd' : path === 'simple' ? 'Panel prosty' : views.find((view) => view.path === path)?.label ?? path);
-	return <div className="shared-banner">Udostępnione przez {device.owner?.name ?? 'innego użytkownika'} · dostęp: {tabs.join(', ')}</div>;
+	const tabs = (device.tabs ?? []).map((path) => path === '/' ? t('view.overview') : path === 'simple' ? t('view.simple') : views.find((view) => view.path === path) ? viewLabel(path, device.deviceType, t) : path);
+	return <div className="shared-banner">{t('app.sharedBy', { name: device.owner?.name ?? t('app.otherUser') })} · {t('app.sharedAccess')}: {tabs.join(', ')}</div>;
 }
 
 // Wersja demo (2026-10-21): żółty pasek na każdej stronie i komunikat, gdy próba zapisu została zatrzymana (core/http.ts).
 function DemoBanner() {
 	const { user, logout } = useAuth();
+	const { t } = useLang();
 	if (!user?.isDemo) return null;
 	return (
 		<div className="shared-banner demo-banner">
-			Wersja demo – podgląd bez możliwości zmian. <button type="button" className="link-btn" onClick={() => void logout()}>Wyjdź</button>
+			{t('app.demoBanner')} <button type="button" className="link-btn" onClick={() => void logout()}>{t('app.demoExit')}</button>
 		</div>
 	);
 }
 
 function DemoToast() {
 	const [visible, setVisible] = useState(false);
+	const { t } = useLang();
 	useEffect(() => {
 		let timer: number | undefined;
 		const show = () => { setVisible(true); window.clearTimeout(timer); timer = window.setTimeout(() => setVisible(false), 3000); };
@@ -107,7 +112,7 @@ function DemoToast() {
 		return () => { window.removeEventListener(DEMO_BLOCKED_EVENT, show); window.clearTimeout(timer); };
 	}, []);
 	if (!visible) return null;
-	return <div className="demo-toast" role="status">W wersji demo nie można niczego zmienić.</div>;
+	return <div className="demo-toast" role="status">{t('app.demoBlocked')}</div>;
 }
 
 // Strażnik: bez wybranego sterownika każda ścieżka poza /devices przekierowuje na listę kafelków (pages/Devices).
@@ -154,6 +159,7 @@ function DeviceGuard({ children }: { children: React.ReactNode }) {
 // nowy stan po zmianie sterownika.
 function DeviceRoute({ path }: { path: string }) {
 	const { device } = useDevice();
+	const { t } = useLang();
 	const view = getDeviceTypeView(device?.deviceType);
 	const element = view.views.find((item) => item.path === path)?.element
 		?? view.extraRoutes?.find((route) => route.path === path)?.element;
@@ -163,7 +169,7 @@ function DeviceRoute({ path }: { path: string }) {
 		const tabs = device.tabs ?? [];
 		if (!tabs.includes(path === '/hp' ? '/' : path)) {
 			const first = view.views.find((item) => tabs.includes(item.path));
-			return first && first.path !== path ? <Navigate to={first.path} replace /> : <p className="app-loading">Brak dostępu do tej zakładki.</p>;
+			return first && first.path !== path ? <Navigate to={first.path} replace /> : <p className="app-loading">{t('app.noTabAccess')}</p>;
 		}
 	}
 	return <Fragment key={device?.rootId}>{element}</Fragment>;
@@ -173,6 +179,7 @@ function DeviceRoute({ path }: { path: string }) {
 // Trasy powstają dla sumy ścieżek wszystkich rodzajów; który widok się pokaże, decyduje DeviceRoute.
 function AppContent() {
 	const location = useLocation();
+	const { t } = useLang();
 	// bez menu: /devices (lista sterowników), /firmware/:deviceType (firmware rodzaju sterownika), /account i /tile-designer;
 	// /weather/:id (pogoda kafelka) ma od 2026-10-19 własne zakładki w menu jak sterownik (pages/Weather/nav.tsx)
 	const isWeather = location.pathname.startsWith('/weather/');
@@ -191,14 +198,14 @@ function AppContent() {
 				{/* /devices: pasek z nazwą aplikacji (bez zakładek, bo nie wybrano sterownika) */}
 				{location.pathname === '/devices' && <header className="app-header">
 					<span className="brand"><span className="brand-mark" /><span className="brand-name">My Home</span></span>
-					<h1 className="app-header-title">Sterowniki</h1>
+					<h1 className="app-header-title">{t('app.devices')}</h1>
 					{/* miejsce na przyciski strony (trybik „Zmień układ” wstawia tu pages/Devices) */}
 					<span id={DEVICES_HEADER_ACTIONS_ID} className="app-header-actions" />
 					<UserMenu />
 				</header>}
 				{(location.pathname.startsWith('/account') || location.pathname.startsWith('/firmware') || location.pathname === '/tile-designer') && <header className="app-header">
-					<Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników"><BackIcon /></Link>
-					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? 'Moje dane' : location.pathname.startsWith('/firmware') ? 'Firmware' : 'Projekt kafelka'}</h1>
+					<Link to="/devices" className="nav-back" title={t('nav.deviceList')} aria-label={t('nav.backToList')}><BackIcon /></Link>
+					<h1 className="app-header-title">{location.pathname.startsWith('/account') ? t('menu.myData') : location.pathname.startsWith('/firmware') ? 'Firmware' : t('app.tileDesigner')}</h1>
 					<UserMenu />
 				</header>}
 

@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useLang } from '../i18n';
 import { UserLocation } from '../types';
 
 // środek Polski, gdy lokalizacji jeszcze nie ma
 const POLAND: L.LatLngExpression = [52.07, 19.48];
 
-const format = (value: number) => value.toLocaleString('pl-PL', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const format = (value: number, locale: string) => value.toLocaleString(locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
 export function LocationPicker({ value, onChange }: { value: UserLocation | null; onChange: (location: UserLocation) => void }) {
   const box = useRef<HTMLDivElement>(null);
@@ -17,6 +18,7 @@ export function LocationPicker({ value, onChange }: { value: UserLocation | null
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
   const [error, setError] = useState('');
+  const { t, locale } = useLang();
 
   useEffect(() => {
     if (!box.current) return;
@@ -46,28 +48,28 @@ export function LocationPicker({ value, onChange }: { value: UserLocation | null
 
   const locate = () => {
     setError('');
-    if (!navigator.geolocation) return setError('Przeglądarka nie podaje lokalizacji.');
+    if (!navigator.geolocation) return setError(t('location.unsupported'));
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const location = { lat: position.coords.latitude, lng: position.coords.longitude };
         changeRef.current(location);
         map.current?.setView([location.lat, location.lng], 15);
       },
-      () => setError('Nie udało się pobrać lokalizacji — zaznacz miejsce na mapie.'),
+      () => setError(t('location.failed')),
       { enableHighAccuracy: true, timeout: 15000 },
     );
   };
 
   return (
     <div className="location-picker">
-      <div ref={box} className="location-map" role="application" aria-label="Mapa: kliknij, żeby zaznaczyć lokalizację" />
+      <div ref={box} className="location-map" role="application" aria-label={t('location.mapLabel')} />
       <div className="location-row">
-        <span>{value ? `${format(value.lat)}; ${format(value.lng)}` : 'Nie zaznaczono'}</span>
+        <span>{value ? `${format(value.lat, locale)}; ${format(value.lng, locale)}` : t('location.none')}</span>
         <button type="button" className="location-locate" onClick={locate}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
           </svg>
-          Moja lokalizacja
+          {t('location.mine')}
         </button>
       </div>
       {error && <p className="account-error">{error}</p>}

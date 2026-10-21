@@ -6,6 +6,16 @@ import { getDeviceTypeView } from "../device-types";
 import { Device, DeviceTile, DeviceTiles, DeviceType } from "../types";
 import { BackIcon, OperationsIcon } from "./icons";
 import { UserMenu } from "./UserMenu";
+import { useLang } from "../i18n";
+
+// Nazwa zakładki w języku aplikacji (wersja językowa 2026-10-21): rejestr rodzajów podaje label po polsku, a słownik
+// ma klucze view.<ścieżka> (wspólne: Dane, Wykres, Harmonogram, Operacje, Ustawienia, Alarmy) i view.home.<rodzaj>
+// dla widoku głównego; brak klucza w słowniku = polska nazwa z rejestru.
+export function viewLabel(path: string, deviceType: DeviceType | undefined, t: (key: string) => string): string {
+	const key = path === "/" || path === "/hp" ? `view.home.${deviceType ?? ""}` : `view.${path.replace(/^\//, "")}`;
+	const text = t(key);
+	return text === key ? (getDeviceTypeView(deviceType).views.find((view) => view.path === path)?.label ?? path) : text;
+}
 
 // Pasek sterownika (App.tsx, strony poza /devices), wygląd „Instrument” z makiet/ (2026-10-16, linia .device-sub jak w
 // makiecie 2026-10-17): strzałka powrotu do listy, nazwa sterownika, pod nią chip stanu (Online / Offline z pamięci
@@ -50,35 +60,33 @@ function useDeviceTile(): DeviceTile | undefined {
 	return tile;
 }
 
-const plural = (n: number, one: string, few: string, many: string) =>
-	`${n} ${n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`;
 
 // Opis pod nazwą zależny od rodzaju („tryb automatyczny”, „4 panele · DTU Hoymiles”, „2 przekaźniki · firmware 1.2.0”,
 // „ecoMAX 860P2 · odczyt co 5 min”, „ostatnie uruchomienie 13:56”) z danych, które pasek ma: wybrany sterownik (firmware,
 // ustawienia) i kafelek listy (tryb, panele, przekaźniki, stopka). Bez numeru seryjnego (od 2026-10-19; SN jest w karcie
 // „Sterownik” w Ustawieniach); pusty napis, gdy nie ma czego pokazać.
-function deviceSubText(device: Device, tile: DeviceTile | undefined): string {
+function deviceSubText(device: Device, tile: DeviceTile | undefined, { t, tn }: ReturnType<typeof useLang>): string {
 	const join = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ');
 	switch (device.deviceType) {
 		case DeviceType.HP: {
 			const mode = tile?.row?.[0]?.value;
-			return mode ? `tryb ${mode}` : '';
+			return mode ? t('header.mode', { mode }) : '';
 		}
 		case DeviceType.PHOTOVOLTAIC: {
 			const panels = tile?.side?.find((fact) => fact.icon === 'panel')?.value.split('/').pop()?.trim();
 			const count = panels ? Number(panels) : NaN;
-			return join(Number.isFinite(count) ? plural(count, 'panel', 'panele', 'paneli') : undefined, 'DTU Hoymiles');
+			return join(Number.isFinite(count) ? tn('header.panels', count) : undefined, 'DTU Hoymiles');
 		}
 		case DeviceType.WATER_PRESSURE_TANK:
 			return tile?.foot ?? '';
 		case DeviceType.SWITCH: {
 			const relays = tile?.relays?.length;
-			return join(relays ? plural(relays, 'przekaźnik', 'przekaźniki', 'przekaźników') : undefined,
+			return join(relays ? tn('header.relays', relays) : undefined,
 				device.firmwareVersion ? `firmware ${device.firmwareVersion}` : undefined);
 		}
 		case DeviceType.PELLET_BOILER_PELUX200: {
 			const seconds = device.properties?.poll_interval_seconds;
-			return join('ecoMAX 860P2', seconds ? `odczyt co ${seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`}` : undefined);
+			return join('ecoMAX 860P2', seconds ? t('header.pollEvery', { every: seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s` }) : undefined);
 		}
 		default:
 			return '';
@@ -89,18 +97,20 @@ function deviceSubText(device: Device, tile: DeviceTile | undefined): string {
 // paleniu w piecu chip stanu „pracuje” (.state.sub-run; czasu pracy kafelek nie podaje) i opis rodzaju po kropce.
 function DeviceSub({ device }: { device: Device }) {
 	const tile = useDeviceTile();
+	const lang = useLang();
+	const { t } = lang;
 	const online = tile?.chip === 'Online';
 	const level = online ? 'ok' : tile?.level === 'ok' ? 'off' : tile?.level;
 	const runs = !!tile?.running && (device.deviceType === DeviceType.HP || device.deviceType === DeviceType.PELLET_BOILER_PELUX200);
-	const text = deviceSubText(device, tile);
+	const text = deviceSubText(device, tile, lang);
 	return (
 		<span className="device-sub">
 			{tile && (
 				<>
-					<span className={`chip chip-${level}${tile.running ? ' is-running' : ''}`} title={tile.running ? 'Pracuje' : undefined}>
-						{(online || tile.running) && <i className="dot" />}{tile.chip}
+					<span className={`chip chip-${level}${tile.running ? ' is-running' : ''}`} title={tile.running ? t('header.running') : undefined}>
+						{(online || tile.running) && <i className="dot" />}{tile.chip === 'Online' ? t('chip.online') : tile.chip === 'Offline' ? t('chip.offline') : tile.chip}
 					</span>
-					{runs && <span className="state state-on sub-run" title={device.deviceType === DeviceType.HP ? 'Sprężarka pracuje' : 'Palenie'}><i className="dot" />pracuje</span>}
+					{runs && <span className="state state-on sub-run" title={device.deviceType === DeviceType.HP ? t('header.compressorRuns') : t('header.burning')}><i className="dot" />{t('header.runningShort')}</span>}
 					{text && <span className="sep">·</span>}
 				</>
 			)}
@@ -128,23 +138,24 @@ export function SideTabs({ items, label }: { items: NavItem[]; label: string }) 
 	);
 }
 
-const viewItems = (views: ReturnType<typeof useDeviceViews>, pathname: string): NavItem[] =>
-	views.map((view) => ({ key: view.path, to: view.path, label: view.label, icon: view.icon, active: pathname === view.path }));
+const viewItems = (views: ReturnType<typeof useDeviceViews>, pathname: string, deviceType: DeviceType | undefined, t: (key: string) => string): NavItem[] =>
+	views.map((view) => ({ key: view.path, to: view.path, label: viewLabel(view.path, deviceType, t), icon: view.icon, active: pathname === view.path }));
 
 export function Header() {
 	const location = useLocation();
 	const { device } = useDevice();
 	const views = useDeviceViews();
+	const { t } = useLang();
 	return (
 		<>
-			<Link to="/devices" className="nav-back" title="Lista sterowników" aria-label="Wróć do listy sterowników">
+			<Link to="/devices" className="nav-back" title={t('nav.deviceList')} aria-label={t('nav.backToList')}>
 				<BackIcon />
 			</Link>
 			<div className="device-title">
-				<h1>{device ? deviceLabel(device) : 'Sterownik'}</h1>
+				<h1>{device ? deviceLabel(device) : t('nav.device')}</h1>
 				{device && <DeviceSub device={device} />}
 			</div>
-			<SideTabs items={viewItems(views, location.pathname)} label="Widoki sterownika" />
+			<SideTabs items={viewItems(views, location.pathname, device?.deviceType, t)} label={t('nav.deviceViews')} />
 			{/* konto zalogowanego: po prawej stronie paska */}
 			<UserMenu />
 		</>
@@ -154,13 +165,16 @@ export function Header() {
 // Dolna nawigacja telefonu sterownika: 4 pierwsze widoki + „Więcej” (CSS ukrywa ją od 900 px).
 export function BottomNav() {
 	const location = useLocation();
+	const { device } = useDevice();
 	const views = useDeviceViews();
-	return <BottomNavItems items={viewItems(views, location.pathname)} label="Widoki sterownika (telefon)" />;
+	const { t } = useLang();
+	return <BottomNavItems items={viewItems(views, location.pathname, device?.deviceType, t)} label={t('nav.deviceViewsPhone')} />;
 }
 
 // Dolna nawigacja telefonu: 4 pierwsze pozycje + „Więcej” (arkusz z resztą i listą sterowników).
 export function BottomNavItems({ items, label }: { items: NavItem[]; label: string }) {
 	const location = useLocation();
+	const { t } = useLang();
 	const [open, setOpen] = useState(false);
 	useEffect(() => { setOpen(false); }, [location.pathname, location.search]);
 	useEffect(() => {
@@ -183,7 +197,7 @@ export function BottomNavItems({ items, label }: { items: NavItem[]; label: stri
 				))}
 				<button type="button" className={restActive ? 'active' : ''} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
 					<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>
-					<span>Więcej</span>
+					<span>{t('nav.more')}</span>
 				</button>
 			</nav>
 			{open && (
@@ -197,7 +211,7 @@ export function BottomNavItems({ items, label }: { items: NavItem[]; label: stri
 							</Link>
 						))}
 						{rest.length > 0 && <div className="more-sheet-sep" />}
-						<Link to="/devices" role="menuitem"><OperationsIcon />Lista sterowników</Link>
+						<Link to="/devices" role="menuitem"><OperationsIcon />{t('nav.deviceList')}</Link>
 					</div>
 				</>
 			)}

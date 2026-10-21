@@ -20,6 +20,11 @@
       try { var t = localStorage.getItem('chpc.theme'); if (t !== 'system') document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light'); }
       catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
     </script>
+    <!-- język przed pierwszym rysowaniem (jak core/i18n): wybór z localStorage, inaczej z przeglądarki (pl-* = polski, reszta angielski) -->
+    <script>
+      try { var l = localStorage.getItem('chpc.lang'); if (l !== 'pl' && l !== 'en') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : 'en'; document.documentElement.setAttribute('lang', l); }
+      catch (e) { document.documentElement.setAttribute('lang', 'pl'); }
+    </script>
     <!-- krój aplikacji (kierunek B z makiet/): Barlow, liczby w Barlow Semi Condensed; bez sieci zostaje czcionka systemowa -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -6,10 +6,11 @@ import { FormEvent, useEffect, useState } from 'react';
 import { AuthRequests } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../http';
+import { t as tr, useLang } from '../../i18n';
 import '../../components/account.css';
 
 const SYSTEM_LOGIN = 'system';
-const message = (error: unknown) => (error instanceof ApiError ? error.message : 'Coś poszło nie tak — spróbuj ponownie.');
+const message = (error: unknown) => (error instanceof ApiError ? error.message : tr('common.somethingWrong'));
 
 const ErrorAlert = ({ text }: { text: string }) => (
   <div className="alert alert-err" role="alert"><div><strong>{text}</strong></div></div>
@@ -17,6 +18,7 @@ const ErrorAlert = ({ text }: { text: string }) => (
 
 export function Login() {
   const { signIn } = useAuth();
+  const { t } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -35,7 +37,7 @@ export function Login() {
     setBusy(true);
     AuthRequests.verifyLink(token)
       .then((session) => signIn(session.token, session.user))
-      .catch((caught) => setError(`${message(caught)} Podaj e-mail, wyślemy nowy kod.`))
+      .catch((caught) => setError(`${message(caught)} ${t('login.linkFailedHint')}`))
       .finally(() => setBusy(false));
   }, []);
 
@@ -109,49 +111,49 @@ export function Login() {
     <div className="auth">
       <div className="auth-card">
         <div className="brand brand-big"><span className="brand-mark" /><span className="brand-name">My Home</span></div>
-        <h1>Zaloguj się</h1>
+        <h1>{t('login.title')}</h1>
         {sentTo === null ? (
           <form className="auth-step" onSubmit={send}>
-            <p className="help">Podaj adres e-mail. Wyślemy kod i link do logowania. Jeśli nie masz konta, założymy je przy pierwszym logowaniu.</p>
+            <p className="help">{t('login.intro')}</p>
             <label className="field">
-              <span>E-mail</span>
-              <input type="text" inputMode="email" autoComplete="username" autoCapitalize="none" required autoFocus placeholder="imie@domena.pl"
+              <span>{t('login.email')}</span>
+              <input type="text" inputMode="email" autoComplete="username" autoCapitalize="none" required autoFocus placeholder={t('login.emailPlaceholder')}
                 value={email} onChange={(event) => setEmail(event.target.value)} />
             </label>
             {isSystem && (
               <label className="field">
-                <span>Hasło</span>
+                <span>{t('login.password')}</span>
                 <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
               </label>
             )}
             {error && <ErrorAlert text={error} />}
-            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>{isSystem ? 'Zaloguj' : 'Wyślij kod'}</button>
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>{isSystem ? t('login.signIn') : t('login.sendCode')}</button>
           </form>
         ) : (
           <form className="auth-step" onSubmit={verify}>
-            <p className="help">Kod wysłany na <strong>{sentTo}</strong>. Wpisz go poniżej albo kliknij link w mailu. Ważny 10 minut.</p>
+            <p className="help">{t('login.codeSentBefore')} <strong>{sentTo}</strong>. {t('login.codeSentAfter')}</p>
             <label className="field">
-              <span>Kod z maila</span>
-              <input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus placeholder="6 cyfr"
+              <span>{t('login.code')}</span>
+              <input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus placeholder={t('login.codePlaceholder')}
                 value={code} onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))} />
             </label>
             {error && <ErrorAlert text={error} />}
-            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>Zaloguj</button>
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>{t('login.signIn')}</button>
             <div className="auth-links">
               <button type="button" className="link-btn" disabled={busy || wait > 0} onClick={() => send()}>
-                {wait > 0 ? `Wyślij ponownie (${waitText})` : 'Wyślij kod ponownie'}
+                {wait > 0 ? t('login.resendIn', { time: waitText }) : t('login.resend')}
               </button>
-              <button type="button" className="link-btn" onClick={() => { setSentTo(null); setError(''); }}>Inny adres e-mail</button>
+              <button type="button" className="link-btn" onClick={() => { setSentTo(null); setError(''); }}>{t('login.otherEmail')}</button>
             </div>
           </form>
         )}
         {demo && sentTo === null && (
           <div className="auth-demo">
-            <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => void enterDemo()}>Zobacz wersję demo</button>
-            <p className="help">Podgląd działającej instalacji bez logowania. Niczego nie da się w niej zmienić.</p>
+            <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => void enterDemo()}>{t('login.demo')}</button>
+            <p className="help">{t('login.demoHint')}</p>
           </div>
         )}
-        <p className="auth-foot">Logowanie „system” pokazuje pole hasła (użytkownik systemowy).</p>
+        <p className="auth-foot">{t('login.systemHint')}</p>
       </div>
     </div>
   );

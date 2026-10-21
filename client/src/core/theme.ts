@@ -62,4 +62,5 @@ export function useTheme() {
   return { choice, effective: effectiveTheme(choice) };
 }
 
-export const THEME_LABELS: Record<ThemeChoice, string> = { light: 'Jasny', dark: 'Ciemny', system: 'Jak system' };
+// kolejność w menu konta; nazwy w słowniku (core/i18n, klucze theme.light / theme.dark / theme.system)
+export const THEME_CHOICES: ThemeChoice[] = ['light', 'dark', 'system'];

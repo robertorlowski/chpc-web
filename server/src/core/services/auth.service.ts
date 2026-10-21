@@ -54,7 +54,7 @@ export function publicUser(user: UserEntry) {
   if (user.isDemo) {
     return {
       id: String(user._id), email: null, isSystem: false, isDemo: true, firstName: 'Demo', lastName: '', street: '', postalCode: '',
-      city: '', country: '', location: null, profileComplete: true,
+      city: '', country: '', location: null, language: user.language ?? '', profileComplete: true,
     };
   }
   return {
@@ -69,8 +69,24 @@ export function publicUser(user: UserEntry) {
     city: user.city ?? '',
     country: user.country ?? '',
     location: user.location ?? null,
+    language: user.language ?? '',
     profileComplete: isProfileComplete(user),
   };
+}
+
+// Język konta (PUT /auth/me/language, wersja językowa 2026-10-21): 'pl' albo 'en'. Zapisany w koncie, żeby maile
+// i powiadomienia szły w języku użytkownika, a nowe urządzenie zaczynało od tego samego języka.
+export const LANGUAGES = ['pl', 'en'] as const;
+export type Language = (typeof LANGUAGES)[number];
+export const userLanguage = (user: UserEntry | null | undefined): Language =>
+  user?.language === 'en' ? 'en' : 'pl';
+
+export async function setLanguage(user: UserEntry, value: unknown) {
+  if (!LANGUAGES.includes(value as Language)) throw new AuthError('Język: pl albo en.');
+  if (user.isDemo) throw new AuthError('Wersja demo: zmiany są wyłączone.', 403);
+  const updated = await UserModel.findByIdAndUpdate(user._id, { $set: { language: value } }, { new: true }).lean<UserEntry>();
+  forgetUserSessions(String(user._id));
+  return publicUser(updated as UserEntry);
 }
 
 // ------------------------------------------------------------------ kody i linki z maila

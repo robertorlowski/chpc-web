@@ -4,7 +4,7 @@
 import { Request, Response } from 'express';
 import {
   AuthError, confirmDeleteAccount, demoAvailable, demoLogin, logout, publicUser, setRemember, startDeleteAccount, startEmailChange,
-  startLogin, systemLogin, updateProfile, verifyEmailChange, verifyLogin,
+  setLanguage, startLogin, systemLogin, updateProfile, verifyEmailChange, verifyLogin,
 } from '../services/auth.service';
 import { MailUnavailableError } from '../services/mail-relay.service';
 
@@ -76,6 +76,12 @@ export const authMe = run(async (req, res) => {
 export const authUpdateMe = run(async (req, res) => {
   if (!signedIn(req, res)) return;
   res.status(200).json(await updateProfile(req.user!, req.body ?? {}));
+});
+
+// PUT /auth/me/language {language}: język aplikacji konta ('pl' | 'en'); także użytkownik systemowy
+export const authSetLanguage = run(async (req, res) => {
+  if (!signedIn(req, res)) return;
+  res.status(200).json(await setLanguage(req.user!, req.body?.language));
 });
 
 // POST /auth/email-change {email}: kod na nowy adres; POST /auth/email-change/verify {code}: zmiana

@@ -1,5 +1,6 @@
 // Ikona zmiany motywu w pasku, obok awatara konta (także na ekranie logowania): przełącza między jasnym a ciemnym.
 // Pokazuje motyw, na który przełączy (księżyc w jasnym, słońce w ciemnym). Trzy opcje z „Jak system” są w menu konta.
+import { useLang } from '../i18n';
 import { setTheme, useTheme } from '../theme';
 import { IconButton } from './IconButton';
 
@@ -12,9 +13,10 @@ const SunIcon = () => icon(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12
 
 export function ThemeToggle() {
   const { effective } = useTheme();
+  const { t } = useLang();
   const dark = effective === 'dark';
   return (
-    <IconButton className="theme-toggle" label={dark ? 'Motyw jasny' : 'Motyw ciemny'}
+    <IconButton className="theme-toggle" label={dark ? t('theme.toLight') : t('theme.toDark')}
       icon={dark ? <SunIcon /> : <MoonIcon />} onClick={() => setTheme(dark ? 'light' : 'dark')} />
   );
 }

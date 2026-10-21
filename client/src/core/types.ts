@@ -119,6 +119,8 @@ export type User = {
   city: string;
   country: string;
   location: UserLocation | null;
+  /** język konta ('pl' | 'en'; pusty = nie wybrano) — core/i18n */
+  language: string;
   profileComplete: boolean;
 };
 

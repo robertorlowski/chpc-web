@@ -9,7 +9,7 @@ import {
 } from './controllers/device.controller'
 import {
   authDelete, authDeleteConfirm, authDemo, authDemoAvailable, authEmailChange, authEmailChangeVerify, authLogout, authMe, authRemember,
-  authStart, authSystem, authUpdateMe, authVerify,
+  authStart, authSystem, authSetLanguage, authUpdateMe, authVerify,
 } from './controllers/auth.controller'
 import { deleteFirmware, downloadFirmware, getFirmware, updateFirmwareOffer, uploadFirmware } from './controllers/firmware.controller'
 import { getTemperature } from './controllers/meteo.controller'
@@ -40,6 +40,7 @@ router.post('/auth/remember', authRemember)
 router.post('/auth/logout', authLogout)
 router.get('/auth/me', authMe)
 router.put('/auth/me', authUpdateMe)
+router.put('/auth/me/language', authSetLanguage)
 router.post('/auth/email-change', authEmailChange)
 router.post('/auth/email-change/verify', authEmailChangeVerify)
 router.post('/auth/delete', authDelete)

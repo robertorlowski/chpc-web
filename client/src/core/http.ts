@@ -1,3 +1,4 @@
+import { getLang } from './i18n';
 import { getSelectedDevice } from './context/DeviceContext';
 import { getToken, isDemoSession, notifyDemoBlocked, notifyUnauthorized } from './auth';
 
@@ -49,9 +50,10 @@ function prefixMocks(path: string) {
 
 // Sesja (konta użytkowników): token z core/auth.ts w nagłówku Authorization każdego zapytania; 401 = sesja
 // wygasła albo wylogowano na innym urządzeniu — AuthContext pokazuje wtedy logowanie.
+// nagłówek sesji i język aplikacji (core/i18n): serwer odpowiada komunikatami i wysyła maile w tym języku
 const authHeader = (): Record<string, string> => {
   const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return { 'Accept-Language': getLang(), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 };
 
 const apiFetch = async (input: string, init: RequestInit) => {

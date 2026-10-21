@@ -134,6 +134,7 @@ export const AuthRequests = {
   logout: () => Requests.json<null>('POST', '/auth/logout'),
   me: () => Requests.json<User>('GET', '/auth/me'),
   updateMe: (data: Partial<User>) => Requests.json<User>('PUT', '/auth/me', data),
+  setLanguage: (language: string) => Requests.json<User>('PUT', '/auth/me/language', { language }),
   changeEmail: (email: string) => Requests.json<{ email: string }>('POST', '/auth/email-change', { email }),
   verifyEmail: (code: string) => Requests.json<User>('POST', '/auth/email-change/verify', { code }),
   deleteAccount: () => Requests.json<{ email: string; devices: number }>('POST', '/auth/delete'),

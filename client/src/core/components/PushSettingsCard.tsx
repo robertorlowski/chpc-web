@@ -10,13 +10,15 @@ import { PushRequests } from '../api';
 import { getDeviceTypeView } from '../device-types';
 import { ApiError } from '../http';
 import { browserLabel, currentSubscription, permissionState, PushDenied, pushSupport, subscribe, unsubscribe } from '../push';
+import { t as tr, useLang } from '../i18n';
 import { DeviceType, PushRule, PushSettings } from '../types';
 import Notification, { useSaveNotice } from './Notification';
 
-const message = (error: unknown) => (error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Coś poszło nie tak — spróbuj ponownie.');
-const when = (iso: string) => new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+const message = (error: unknown) => (error instanceof ApiError ? error.message : error instanceof Error ? error.message : tr('common.somethingWrong'));
+const when = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export function PushSettingsCard() {
+  const { t, tn, locale } = useLang();
   const [settings, setSettings] = useState<PushSettings | null>(null);
   const [loadError, setLoadError] = useState('');
   const [endpoint, setEndpoint] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function PushSettingsCard() {
       await load();
     } catch (caught) {
       setPermission(permissionState());
-      setError(caught instanceof PushDenied ? 'Przeglądarka nie zgodziła się na powiadomienia. Zgodę można zmienić w ustawieniach strony.' : message(caught));
+      setError(caught instanceof PushDenied ? t('push.denied') : message(caught));
     } finally {
       setBusy(false);
     }
@@ -98,7 +100,7 @@ export function PushSettingsCard() {
     setError('');
     try {
       const { sent } = await PushRequests.test();
-      showNotice(sent === 1 ? 'Wysłano próbne powiadomienie.' : `Wysłano próbne powiadomienie do ${sent} przeglądarek.`);
+      showNotice(sent === 1 ? t('push.testSent') : t('push.testSentMany', { n: sent }));
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -123,7 +125,7 @@ export function PushSettingsCard() {
     try {
       const saved = await PushRequests.saveRules(rules, quietFrom || null, quietTo || null);
       setRules(saved.rules);
-      showNotice('Zapisano.');
+      showNotice(t('common.saved'));
     } catch (caught) {
       setError(message(caught));
     }
@@ -131,11 +133,11 @@ export function PushSettingsCard() {
 
   const status = (() => {
     if (!settings) return null;
-    if (!settings.configured) return 'Powiadomienia są wyłączone na serwerze (brak kluczy VAPID).';
-    if (support === 'insecure') return 'Powiadomienia wymagają połączenia HTTPS.';
-    if (support === 'needs-home-screen') return 'Na iPhonie powiadomienia działają po dodaniu aplikacji do ekranu początkowego (Udostępnij → „Do ekranu początkowego”). Otwórz ją stamtąd i włącz tutaj.';
-    if (support === 'unsupported') return 'Ta przeglądarka nie obsługuje powiadomień.';
-    if (permission === 'denied') return 'Przeglądarka blokuje powiadomienia dla tej strony. Odblokuj je w ustawieniach strony (kłódka przy adresie) i spróbuj ponownie.';
+    if (!settings.configured) return t('push.notConfigured');
+    if (support === 'insecure') return t('push.insecure');
+    if (support === 'needs-home-screen') return t('push.needsHomeScreen');
+    if (support === 'unsupported') return t('push.unsupported');
+    if (permission === 'denied') return t('push.blocked');
     return null;
   })();
   const canToggle = settings?.configured && support === 'ok' && permission !== 'denied';
@@ -143,23 +145,20 @@ export function PushSettingsCard() {
   return (
     <section className="card push-card">
       <header className="card-head">
-        <h2>Powiadomienia</h2>
-        {settings && settings.subscriptions.length > 0 && <span className="card-hint">{settings.subscriptions.length === 1 ? '1 urządzenie' : `${settings.subscriptions.length} urządzenia`}</span>}
+        <h2>{t('push.title')}</h2>
+        {settings && settings.subscriptions.length > 0 && <span className="card-hint">{tn('push.devices', settings.subscriptions.length)}</span>}
       </header>
-      <p className="help">
-        Powiadomienia systemowe na telefon i do przeglądarki: start sprężarki, rozpalanie kotła, włączenie przekaźnika,
-        błąd albo brak łączności ze sterownikiem. Włącz je na każdym urządzeniu osobno; wybór zdarzeń jest wspólny dla konta.
-      </p>
+      <p className="help">{t('push.intro')}</p>
       {loadError && <div className="alert alert-err" role="alert"><div><strong>{loadError}</strong></div></div>}
       {status && <p className="help push-status">{status}</p>}
 
       {settings && (
         <>
           <div className="actions actions-gap push-actions">
-            {settings.subscriptions.length > 0 && <button type="button" className="btn btn-ghost" onClick={sendTest} disabled={busy}>Wyślij próbne</button>}
+            {settings.subscriptions.length > 0 && <button type="button" className="btn btn-ghost" onClick={sendTest} disabled={busy}>{t('push.sendTest')}</button>}
             {canToggle && (thisDevice
-              ? <button type="button" className="btn" onClick={disable} disabled={busy}>Wyłącz na tym urządzeniu</button>
-              : <button type="button" className="btn btn-primary" onClick={enable} disabled={busy}>Włącz na tym urządzeniu</button>)}
+              ? <button type="button" className="btn" onClick={disable} disabled={busy}>{t('push.disableHere')}</button>
+              : <button type="button" className="btn btn-primary" onClick={enable} disabled={busy}>{t('push.enableHere')}</button>)}
           </div>
           {error && <div className="alert alert-err" role="alert"><div><strong>{error}</strong></div></div>}
 
@@ -168,10 +167,10 @@ export function PushSettingsCard() {
               {settings.subscriptions.map((subscription) => (
                 <li key={subscription.id}>
                   <div>
-                    <div className="push-sub-label">{subscription.label || 'Przeglądarka'}{subscription.id === thisDevice?.id && <span className="chip chip-ok">to urządzenie</span>}</div>
-                    <small>włączone {when(subscription.createdAt)}{subscription.lastUsedAt ? ` · ostatnie powiadomienie ${when(subscription.lastUsedAt)}` : ''}</small>
+                    <div className="push-sub-label">{subscription.label || t('push.browser')}{subscription.id === thisDevice?.id && <span className="chip chip-ok">{t('push.thisDevice')}</span>}</div>
+                    <small>{t('push.enabledOn', { date: when(subscription.createdAt, locale) })}{subscription.lastUsedAt ? ` · ${t('push.lastOn', { date: when(subscription.lastUsedAt, locale) })}` : ''}</small>
                   </div>
-                  <button type="button" className="link-btn" onClick={() => void remove(subscription.id)}>usuń</button>
+                  <button type="button" className="link-btn" onClick={() => void remove(subscription.id)}>{t('common.remove')}</button>
                 </li>
               ))}
             </ul>
@@ -185,17 +184,17 @@ export function PushSettingsCard() {
                 return (
                   <fieldset key={device.rootId} className="checks push-device">
                     <legend>
-                      {device.name}{typeLabel(device.deviceType) !== device.name && <span className="push-type">{typeLabel(device.deviceType)}</span>}
+                      {device.name}{typeLabel(device.deviceType, t) !== device.name && <span className="push-type">{typeLabel(device.deviceType, t)}</span>}
                       <span className="push-legend-links">
-                        <button type="button" className="link-btn" onClick={() => setAll(device.rootId, defaults(settings, device.deviceType))}>domyślne</button>
-                        {chosen.length > 0 && <button type="button" className="link-btn" onClick={() => setAll(device.rootId, [])}>żadne</button>}
+                        <button type="button" className="link-btn" onClick={() => setAll(device.rootId, defaults(settings, device.deviceType))}>{t('push.defaults')}</button>
+                        {chosen.length > 0 && <button type="button" className="link-btn" onClick={() => setAll(device.rootId, [])}>{t('push.none')}</button>}
                       </span>
                     </legend>
                     {events.map((event) => (
                       <label key={event.key} className="check">
                         <input type="checkbox" checked={chosen.includes(event.key)} onChange={() => toggle(device.rootId, event.key)} />
-                        <span>{event.label}</span>
-                        {event.urgent && <small>także w ciszy nocnej</small>}
+                        <span>{eventLabel(device.deviceType, event.key, event.label, t)}</span>
+                        {event.urgent && <small>{t('push.alsoQuiet')}</small>}
                       </label>
                     ))}
                   </fieldset>
@@ -203,22 +202,22 @@ export function PushSettingsCard() {
               })}
 
               <div className="push-quiet">
-                <div className="push-quiet-head">Cisza nocna</div>
+                <div className="push-quiet-head">{t('push.quiet')}</div>
                 <div className="push-quiet-fields">
-                  <label className="field"><span>od</span><input type="time" value={quietFrom} onChange={(event) => setQuietFrom(event.target.value)} /></label>
-                  <label className="field"><span>do</span><input type="time" value={quietTo} onChange={(event) => setQuietTo(event.target.value)} /></label>
-                  {(quietFrom || quietTo) && <button type="button" className="link-btn" onClick={() => { setQuietFrom(''); setQuietTo(''); }}>wyłącz</button>}
+                  <label className="field"><span>{t('common.from')}</span><input type="time" value={quietFrom} onChange={(event) => setQuietFrom(event.target.value)} /></label>
+                  <label className="field"><span>{t('common.to')}</span><input type="time" value={quietTo} onChange={(event) => setQuietTo(event.target.value)} /></label>
+                  {(quietFrom || quietTo) && <button type="button" className="link-btn" onClick={() => { setQuietFrom(''); setQuietTo(''); }}>{t('push.quietOff')}</button>}
                 </div>
-                <p className="help">W tych godzinach idą tylko zdarzenia pilne (błąd sterownika, alarm kotła). Puste pola = bez ciszy.</p>
+                <p className="help">{t('push.quietHint')}</p>
               </div>
 
               <div className="actions">
                 <Notification message={notice} />
-                <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>Zapisz</button>
+                <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>{t('common.save')}</button>
               </div>
             </div>
           ) : (
-            <p className="help">To konto nie ma sterowników, o których można powiadamiać.</p>
+            <p className="help">{t('push.noDevices')}</p>
           )}
         </>
       )}
@@ -226,11 +225,16 @@ export function PushSettingsCard() {
   );
 }
 
-// rodzaj pod nazwą sterownika (pomijany, gdy nazwa to to samo słowo); rodzaje bez etykiety w rejestrze po polsku
-const TYPE_NAMES: Partial<Record<DeviceType, string>> = {
-  [DeviceType.HP]: 'Pompa ciepła', [DeviceType.PELLET_BOILER_PELUX200]: 'Piec pelletowy', [DeviceType.SWITCH]: 'Włącznik', [DeviceType.WATER_PRESSURE_TANK]: 'Hydrofor',
+// rodzaj pod nazwą sterownika (pomijany, gdy nazwa to to samo słowo): słownik type.<rodzaj> (core/i18n), bez klucza etykieta z rejestru
+const typeLabel = (deviceType: DeviceType, t: (key: string) => string) => {
+  const text = t(`type.${deviceType}`);
+  return text !== `type.${deviceType}` ? text : getDeviceTypeView(deviceType).label ?? deviceType;
 };
-const typeLabel = (deviceType: DeviceType) => TYPE_NAMES[deviceType] ?? getDeviceTypeView(deviceType).label ?? deviceType;
+// nazwa zdarzenia: słownik push.event.<rodzaj>.<klucz>, bez klucza polska etykieta z katalogu serwera
+const eventLabel = (deviceType: DeviceType, key: string, label: string, t: (key: string) => string) => {
+  const text = t(`push.event.${deviceType}.${key}`);
+  return text !== `push.event.${deviceType}.${key}` ? text : label;
+};
 
 const defaults = (settings: PushSettings, deviceType: PushSettings['devices'][number]['deviceType']) =>
   (settings.events[deviceType] ?? []).filter((event) => event.default).map((event) => event.key);
