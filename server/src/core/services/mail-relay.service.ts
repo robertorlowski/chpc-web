@@ -15,6 +15,7 @@ import MailComposer from 'nodemailer/lib/mail-composer';
 import { DeviceDocument, DeviceModel } from '../models/device.model';
 import { MailOutboxDocument, MailOutboxModel } from '../models/mail-outbox.model';
 import { DeviceType } from '../types';
+import { Lang, t } from '../i18n';
 import { sendMessage } from '../websocket';
 
 /** sterowniki, które mogą wysyłać pocztę, i ich kolejność (mniejsza liczba = pierwszy) */
@@ -46,8 +47,9 @@ export class MailRelayError extends Error {
 export class MailUnavailableError extends Error {
   readonly status = 503;
   constructor() {
-    super('Poczta jest chwilowo niedostępna (sterownik wysyłający maile nie odpowiada). Spróbuj za kilka minut.');
+    super(t('pl', 'err.mailUnavailable'));
   }
+  messageFor(lang: Lang): string { return t(lang, 'err.mailUnavailable'); }
 }
 
 // ------------------------------------------------------------------ klucze płytek

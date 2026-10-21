@@ -119,6 +119,24 @@ describe('Konta użytkowników', () => {
     await request(app).put('/api/auth/me/language').send({ language: 'pl' }).expect(401);
   });
 
+  it('wersja językowa: mail logowania, mail udostępnienia i komunikaty błędów w języku żądania (Accept-Language)', async () => {
+    await request(app).post('/api/auth/start').set('Accept-Language', 'en-US,en;q=0.9').send({ email: 'ewa@example.com' }).expect(200);
+    expect(lastMail('ewa@example.com')?.subject).toMatch(/^Sign-in code: /);
+    expect(lastMail('ewa@example.com')?.text).toContain('Your sign-in code');
+    const again = await request(app).post('/api/auth/start').set('Accept-Language', 'en').send({ email: 'ewa@example.com' }).expect(429);
+    expect(again.body.message).toMatch(/^A code was sent a moment ago/);
+    const polish = await request(app).post('/api/auth/start').send({ email: 'ewa@example.com' }).expect(429);
+    expect(polish.body.message).toMatch(/^Kod został wysłany przed chwilą/);
+    // konto z wybranym językiem: mail po angielsku także bez nagłówka
+    const token = await login('robert@infotower.pl');
+    await request(app).put('/api/auth/me/language').set(bearer(token)).send({ language: 'en' }).expect(200);
+    await request(app).post('/api/auth/email-change').set(bearer(token)).send({ email: 'nowy@example.com' }).expect(200);
+    expect(lastMail('nowy@example.com')?.subject).toMatch(/^Confirm the new address: /);
+    const unauthorized = await request(app).get('/api/devices').set('Accept-Language', 'en').expect(401);
+    expect(unauthorized.body.message).toBe('Please sign in.');
+    await request(app).put('/api/auth/me/language').set(bearer(token)).send({ language: 'pl' }).expect(200);
+  });
+
   it('rejestracja linkiem: nowe konto, powiadomienie administratora, „Zapamiętaj 90 dni”, wylogowanie', async () => {
     process.env.MAIL_ADMIN = 'admin@example.pl';
     const email = 'nowy@example.pl';

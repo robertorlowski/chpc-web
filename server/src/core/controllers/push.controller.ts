@@ -10,12 +10,13 @@ import {
   listSubscriptions, PUSH_EVENTS, pushConfigured, pushEventsFor, PushError, pushPublicKey, removeSubscription, saveRules,
   saveSubscription, sendTest, userNotifications,
 } from '../services/push.service';
+import { requestLang, t, texts } from '../i18n';
 
 const run = (handler: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {
   try {
     await handler(req, res);
   } catch (error) {
-    if (error instanceof PushError) return res.status(error.status).json({ message: error.message });
+    if (error instanceof PushError) return res.status(error.status).json({ message: error.messageFor(requestLang(req)) });
     console.error('[push]', error);
     return res.status(500).json({ message: String(error) });
   }
@@ -23,7 +24,7 @@ const run = (handler: (req: Request, res: Response) => Promise<unknown>) => asyn
 
 const signedIn = (req: Request, res: Response) => {
   if (req.user) return true;
-  res.status(401).json({ message: 'Zaloguj się.' });
+  res.status(401).json({ message: t(requestLang(req), 'err.signIn') });
   return false;
 };
 
@@ -31,7 +32,7 @@ const signedIn = (req: Request, res: Response) => {
 export const getPushSettings = run(async (req, res) => {
   if (!signedIn(req, res)) return;
   const user = req.user!;
-  if (user.isDemo) throw new PushError('Wersja demo: powiadomienia są wyłączone.', 403);
+  if (user.isDemo) throw new PushError(texts('err.demoPush'), 403);
   const access = await accessibleDevices(user);
   const devices = (await DeviceModel.find({ _id: { $in: [...access.keys()] } }).select('name deviceId deviceType sortOrder').lean<{ _id: unknown; name?: string; deviceId: string; deviceType: DeviceType; sortOrder?: number }[]>())
     .filter((device) => pushEventsFor(device.deviceType).length > 0)
@@ -50,7 +51,7 @@ export const getPushSettings = run(async (req, res) => {
 // POST /push/subscriptions {endpoint, keys, label}: „Włącz na tym urządzeniu”
 export const postPushSubscription = run(async (req, res) => {
   if (!signedIn(req, res)) return;
-  if (!pushConfigured()) throw new PushError('Powiadomienia są wyłączone na serwerze (brak kluczy VAPID).', 503);
+  if (!pushConfigured()) throw new PushError(texts('err.pushOff'), 503);
   res.status(201).json(await saveSubscription(req.user!, req.body));
 });
 

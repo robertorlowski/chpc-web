@@ -7,6 +7,7 @@
 // (próba 2026-10-11: inny nadawca = 5.2.252 SendAsDenied), dlatego przy odmowie mail idzie z SMTP_USER.
 import nodemailer, { Transporter } from 'nodemailer';
 import { enqueueMail, relayEnabled } from './mail-relay.service';
+import { DEFAULT_LANG, Lang, locale } from '../i18n';
 
 export interface OutgoingMail {
   to: string;
@@ -90,69 +91,129 @@ function layout(options: { paragraphs: string[]; code?: string; button?: { label
 }
 
 const formatCode = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`;
-const until = (expiresAt: Date) => expiresAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
+const until = (expiresAt: Date, lang: Lang) => expiresAt.toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' });
 
-export function loginMail(to: string, code: string, url: string, expiresAt: Date): OutgoingMail {
-  const footer = `Kod i link są ważne 10 minut (do ${until(expiresAt)}) i działają tylko raz. Jeśli to nie Ty, zignoruj tę wiadomość.`;
+// Teksty maili w obu językach (wersja językowa 2026-10-21): język odbiorcy = język jego konta, a bez konta język
+// żądania (ekranu logowania); mail do administratora zostaje po polsku.
+const M = {
+  pl: {
+    hello: 'Dzień dobry,',
+    loginSubject: 'Kod logowania: {code}',
+    loginFooter: 'Kod i link są ważne 10 minut (do {until}) i działają tylko raz. Jeśli to nie Ty, zignoruj tę wiadomość.',
+    loginCode: 'Twój kod logowania:',
+    loginLink: 'Możesz też zalogować się linkiem:',
+    loginButton: 'Zaloguj się',
+    changeSubject: 'Potwierdź nowy adres: {code}',
+    changeFooter: 'Kod jest ważny 10 minut (do {until}). Jeśli to nie Ty, zignoruj tę wiadomość.',
+    changeCode: 'kod potwierdzenia nowego adresu e-mail:',
+    changedSubject: 'Zmiana adresu e-mail konta',
+    changedText: 'Adres e-mail konta został zmieniony na {email}. Kolejne logowania — tym adresem.',
+    changedFooter: 'Jeśli to nie Ty, skontaktuj się z administratorem.',
+    deleteSubject: 'Potwierdź usunięcie konta',
+    deleteIntro: 'otrzymaliśmy prośbę o usunięcie konta {email}.',
+    deleteWarning: 'Usunięcie konta spowoduje usunięcie wszystkich danych: konta, {devices} sterowników i całej ich historii (pomiary, harmonogramy, ustawienia). Tego nie da się cofnąć.',
+    deleteFooter: 'Link jest ważny 10 minut i działa tylko raz. Jeśli to nie Ty, zignoruj tę wiadomość — konto zostanie bez zmian.',
+    deleteLink: 'Usuń konto:',
+    deleteButton: 'Usuń konto i wszystkie dane',
+    shareSubject: '{owner} udostępnia Ci sterownik',
+    shareIntro: '{owner} udostępnia Ci sterownik „{device}”.',
+    shareAccess: 'Dostęp do zakładek: {tabs}.',
+    shareHasAccount: 'Sterownik jest już na ekranie głównym aplikacji.',
+    shareNoAccount: 'Zaloguj się adresem {email} — przy pierwszym logowaniu założymy konto.',
+    shareFooter: 'Jeśli nie znasz tej osoby, zignoruj tę wiadomość.',
+    shareButton: 'Otwórz aplikację',
+  },
+  en: {
+    hello: 'Hello,',
+    loginSubject: 'Sign-in code: {code}',
+    loginFooter: 'The code and link are valid for 10 minutes (until {until}) and work only once. If this was not you, ignore this message.',
+    loginCode: 'Your sign-in code:',
+    loginLink: 'You can also sign in with the link:',
+    loginButton: 'Sign in',
+    changeSubject: 'Confirm the new address: {code}',
+    changeFooter: 'The code is valid for 10 minutes (until {until}). If this was not you, ignore this message.',
+    changeCode: 'confirmation code for the new e-mail address:',
+    changedSubject: 'Account e-mail address changed',
+    changedText: 'The account e-mail address was changed to {email}. Use this address for future sign-ins.',
+    changedFooter: 'If this was not you, contact the administrator.',
+    deleteSubject: 'Confirm account deletion',
+    deleteIntro: 'we received a request to delete the account {email}.',
+    deleteWarning: 'Deleting the account removes all data: the account, {devices} controllers and their whole history (readings, schedules, settings). This cannot be undone.',
+    deleteFooter: 'The link is valid for 10 minutes and works only once. If this was not you, ignore this message — the account stays unchanged.',
+    deleteLink: 'Delete the account:',
+    deleteButton: 'Delete the account and all data',
+    shareSubject: '{owner} shares a controller with you',
+    shareIntro: '{owner} shares the controller “{device}” with you.',
+    shareAccess: 'Access to tabs: {tabs}.',
+    shareHasAccount: 'The controller is already on the app home screen.',
+    shareNoAccount: 'Sign in with the address {email} — the account is created at the first sign-in.',
+    shareFooter: 'If you do not know this person, ignore this message.',
+    shareButton: 'Open the app',
+  },
+} as const;
+type MailKey = keyof typeof M.pl;
+const m = (lang: Lang, key: MailKey, params?: Record<string, string | number>) =>
+  M[lang][key].replace(/\{(\w+)\}/g, (match, name: string) => (params && name in params ? String(params[name]) : match));
+
+export function loginMail(to: string, code: string, url: string, expiresAt: Date, lang: Lang = DEFAULT_LANG): OutgoingMail {
+  const footer = m(lang, 'loginFooter', { until: until(expiresAt, lang) });
   return {
     to,
-    subject: `Kod logowania: ${formatCode(code)}`,
-    text: `Dzień dobry,\n\nTwój kod logowania: ${formatCode(code)}\n\nMożesz też zalogować się linkiem: ${url}\n\n${footer}`,
+    subject: m(lang, 'loginSubject', { code: formatCode(code) }),
+    text: `${m(lang, 'hello')}\n\n${m(lang, 'loginCode')} ${formatCode(code)}\n\n${m(lang, 'loginLink')} ${url}\n\n${footer}`,
     html: layout({
-      paragraphs: ['Dzień dobry,', 'Twój kod logowania:'], code: formatCode(code),
-      button: { label: 'Zaloguj się', url }, footer,
+      paragraphs: [m(lang, 'hello'), m(lang, 'loginCode')], code: formatCode(code),
+      button: { label: m(lang, 'loginButton'), url }, footer,
     }),
   };
 }
 
-export function emailChangeMail(to: string, code: string, expiresAt: Date): OutgoingMail {
-  const footer = `Kod jest ważny 10 minut (do ${until(expiresAt)}). Jeśli to nie Ty, zignoruj tę wiadomość.`;
+export function emailChangeMail(to: string, code: string, expiresAt: Date, lang: Lang = DEFAULT_LANG): OutgoingMail {
+  const footer = m(lang, 'changeFooter', { until: until(expiresAt, lang) });
   return {
     to,
-    subject: `Potwierdź nowy adres: ${formatCode(code)}`,
-    text: `Dzień dobry,\n\nKod potwierdzenia nowego adresu e-mail: ${formatCode(code)}\n\n${footer}`,
-    html: layout({ paragraphs: ['Dzień dobry,', 'kod potwierdzenia nowego adresu e-mail:'], code: formatCode(code), footer }),
+    subject: m(lang, 'changeSubject', { code: formatCode(code) }),
+    text: `${m(lang, 'hello')}\n\n${m(lang, 'changeCode')} ${formatCode(code)}\n\n${footer}`,
+    html: layout({ paragraphs: [m(lang, 'hello'), m(lang, 'changeCode')], code: formatCode(code), footer }),
   };
 }
 
-export function emailChangedMail(to: string, newEmail: string): OutgoingMail {
-  const text = `Adres e-mail konta został zmieniony na ${newEmail}. Kolejne logowania — tym adresem.`;
-  const footer = 'Jeśli to nie Ty, skontaktuj się z administratorem.';
+export function emailChangedMail(to: string, newEmail: string, lang: Lang = DEFAULT_LANG): OutgoingMail {
+  const text = m(lang, 'changedText', { email: newEmail });
+  const footer = m(lang, 'changedFooter');
   return {
     to,
-    subject: 'Zmiana adresu e-mail konta',
-    text: `Dzień dobry,\n\n${text}\n\n${footer}`,
-    html: layout({ paragraphs: ['Dzień dobry,', text], footer }),
+    subject: m(lang, 'changedSubject'),
+    text: `${m(lang, 'hello')}\n\n${text}\n\n${footer}`,
+    html: layout({ paragraphs: [m(lang, 'hello'), text], footer }),
   };
 }
 
-export function deleteAccountMail(to: string, url: string, devices: number): OutgoingMail {
-  const warning = `Usunięcie konta spowoduje usunięcie wszystkich danych: konta, ${devices} sterowników i całej ich historii `
-    + '(pomiary, harmonogramy, ustawienia). Tego nie da się cofnąć.';
-  const footer = 'Link jest ważny 10 minut i działa tylko raz. Jeśli to nie Ty, zignoruj tę wiadomość — konto zostanie bez zmian.';
+export function deleteAccountMail(to: string, url: string, devices: number, lang: Lang = DEFAULT_LANG): OutgoingMail {
+  const warning = m(lang, 'deleteWarning', { devices });
+  const footer = m(lang, 'deleteFooter');
+  const intro = m(lang, 'deleteIntro', { email: to });
   return {
     to,
-    subject: 'Potwierdź usunięcie konta',
-    text: `Dzień dobry,\n\notrzymaliśmy prośbę o usunięcie konta ${to}.\n\n${warning}\n\nUsuń konto: ${url}\n\n${footer}`,
+    subject: m(lang, 'deleteSubject'),
+    text: `${m(lang, 'hello')}\n\n${intro}\n\n${warning}\n\n${m(lang, 'deleteLink')} ${url}\n\n${footer}`,
     html: layout({
-      paragraphs: ['Dzień dobry,', `otrzymaliśmy prośbę o usunięcie konta ${to}.`, warning],
-      button: { label: 'Usuń konto i wszystkie dane', url, danger: true }, footer, danger: true,
+      paragraphs: [m(lang, 'hello'), intro, warning],
+      button: { label: m(lang, 'deleteButton'), url, danger: true }, footer, danger: true,
     }),
   };
 }
 
-export function shareMail(to: string, ownerName: string, deviceName: string, tabs: string, url: string, hasAccount: boolean): OutgoingMail {
-  const intro = `${ownerName} udostępnia Ci sterownik „${deviceName}”.`;
-  const access = `Dostęp do zakładek: ${tabs}.`;
-  const login = hasAccount
-    ? 'Sterownik jest już na ekranie głównym aplikacji.'
-    : `Zaloguj się adresem ${to} — przy pierwszym logowaniu założymy konto.`;
-  const footer = 'Jeśli nie znasz tej osoby, zignoruj tę wiadomość.';
+export function shareMail(to: string, ownerName: string, deviceName: string, tabs: string, url: string, hasAccount: boolean, lang: Lang = DEFAULT_LANG): OutgoingMail {
+  const intro = m(lang, 'shareIntro', { owner: ownerName, device: deviceName });
+  const access = m(lang, 'shareAccess', { tabs });
+  const login = hasAccount ? m(lang, 'shareHasAccount') : m(lang, 'shareNoAccount', { email: to });
+  const footer = m(lang, 'shareFooter');
   return {
     to,
-    subject: `${ownerName} udostępnia Ci sterownik`,
-    text: `Dzień dobry,\n\n${intro}\n${access}\n\n${login}\n${url}\n\n${footer}`,
-    html: layout({ paragraphs: ['Dzień dobry,', intro, access, login], button: { label: 'Otwórz aplikację', url }, footer }),
+    subject: m(lang, 'shareSubject', { owner: ownerName }),
+    text: `${m(lang, 'hello')}\n\n${intro}\n${access}\n\n${login}\n${url}\n\n${footer}`,
+    html: layout({ paragraphs: [m(lang, 'hello'), intro, access, login], button: { label: m(lang, 'shareButton'), url }, footer }),
   };
 }
 

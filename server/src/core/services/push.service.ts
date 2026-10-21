@@ -18,6 +18,7 @@ import { UserEntry, UserModel, UserNotifications } from '../models/user.model';
 import { accessibleDevices, deviceAccess } from './access.service';
 import { forgetUserSessions } from './auth.service';
 import { TIME_ZONE } from '../time';
+import { Lang, LANG_LIST, pick, t, Texts, texts, userLanguage } from '../i18n';
 
 export interface PushEventDefinition {
   key: string;
@@ -93,9 +94,12 @@ export interface SubscriptionInput {
 }
 
 export class PushError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
+  readonly texts: Texts;
+  constructor(message: string | Texts, public status = 400) {
+    super(typeof message === 'string' ? message : message.pl);
+    this.texts = typeof message === 'string' ? { pl: message, en: message } : message;
   }
+  messageFor(lang: Lang): string { return this.texts[lang]; }
 }
 
 const validSubscription = (input: unknown): input is SubscriptionInput => {
@@ -172,8 +176,9 @@ export function inQuietHours(settings: { quietFrom?: string | null; quietTo?: st
 
 export interface PushMessage {
   /** nagłówek; bez niego nazwa sterownika */
-  title?: string;
-  body: string;
+  title?: string | Texts;
+  /** treść; w obu językach (core/i18n texts / both), gdy ma zależeć od języka odbiorcy (users.language) */
+  body: string | Texts;
   /** strona po kliknięciu (względem klienta); bez niej lista sterowników */
   url?: string;
 }
@@ -186,7 +191,7 @@ export const pushLog: { at: Date; userId: string; rootId: string; event: string;
 
 const deviceTitle = async (rootId: string) => {
   const device = await DeviceModel.findById(rootId).select('name deviceId').lean<{ name?: string; deviceId: string }>();
-  return device?.name || device?.deviceId || 'Sterownik';
+  return device?.name || device?.deviceId || t('pl', 'push.device');
 };
 
 /**
@@ -202,10 +207,11 @@ export async function notify(rootId: string, event: string, message: PushMessage
     if (!device) return 0;
     const definition = pushEventsFor(device.deviceType).find((item) => item.key === event);
     if (!definition) return 0;
-    const title = message.title ?? (device.name || device.deviceId);
-    const payload = JSON.stringify({
-      title, body: message.body, url: message.url ?? '/devices', tag: `${rootId}:${event}`, rootId, event, at: now.toISOString(),
-    });
+    // treść w języku odbiorcy (users.language, bez wyboru polski); jeden payload na język
+    const payloads = Object.fromEntries(LANG_LIST.map((lang) => [lang, JSON.stringify({
+      title: pick(message.title ?? (device.name || device.deviceId), lang), body: pick(message.body, lang), url: message.url ?? '/devices',
+      tag: `${rootId}:${event}`, rootId, event, at: now.toISOString(),
+    })])) as Record<Lang, string>;
     let recipients = 0;
     for (const user of users) {
       const settings = userNotifications(user);
@@ -218,9 +224,10 @@ export async function notify(rootId: string, event: string, message: PushMessage
       if (!subscriptions.length) continue;
       lastSent.set(key, now.getTime());
       recipients += 1;
-      pushLog.push({ at: now, userId: String(user._id), rootId, event, body: message.body });
+      const lang = userLanguage(user);
+      pushLog.push({ at: now, userId: String(user._id), rootId, event, body: pick(message.body, lang) });
       if (pushLog.length > 200) pushLog.splice(0, pushLog.length - 200);
-      await Promise.all(subscriptions.map((subscription) => send(subscription, payload, now)));
+      await Promise.all(subscriptions.map((subscription) => send(subscription, payloads[lang], now)));
     }
     return recipients;
   } catch (error) {
@@ -231,11 +238,11 @@ export async function notify(rootId: string, event: string, message: PushMessage
 
 /** powiadomienie próbne z karty „Powiadomienia” (przycisk „Wyślij próbne”); zwraca liczbę subskrypcji */
 export async function sendTest(user: UserEntry, now = new Date()): Promise<number> {
-  if (!pushConfigured()) throw new PushError('Powiadomienia są wyłączone na serwerze (brak kluczy VAPID).', 503);
+  if (!pushConfigured()) throw new PushError(texts('err.pushOff'), 503);
   const subscriptions = await PushSubscriptionModel.find({ userId: String(user._id) }).lean<PushSubscriptionEntry[]>();
-  if (!subscriptions.length) throw new PushError('To konto nie ma włączonych powiadomień w żadnej przeglądarce.', 409);
+  if (!subscriptions.length) throw new PushError(texts('err.pushNoSubscriptions'), 409);
   const payload = JSON.stringify({
-    title: 'My Home', body: 'Powiadomienia działają na tym urządzeniu.', url: '/account', tag: 'test', event: 'test', at: now.toISOString(),
+    title: 'My Home', body: t(userLanguage(user), 'push.testBody'), url: '/account', tag: 'test', event: 'test', at: now.toISOString(),
   });
   await Promise.all(subscriptions.map((subscription) => send(subscription, payload, now)));
   return subscriptions.length;

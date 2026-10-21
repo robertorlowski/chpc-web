@@ -8,6 +8,10 @@ import type { Request } from 'express';
 
 export type Lang = 'pl' | 'en';
 export const DEFAULT_LANG: Lang = 'pl';
+export const LANG_LIST: Lang[] = ['pl', 'en'];
+
+/** język konta (users.language): 'en' albo polski; powiadomienia push i maile */
+export const userLanguage = (user: { language?: string } | null | undefined): Lang => (user?.language === 'en' ? 'en' : DEFAULT_LANG);
 
 export const isLang = (value: unknown): value is Lang => value === 'pl' || value === 'en';
 
@@ -89,6 +93,82 @@ const pl: Record<string, string> = {
   'tank.runs': 'uruchomień',
   'tank.on': 'wł.',
   'tank.compressor': 'kompresor',
+  // zakładki udostępnienia
+  'tab./': 'Podgląd',
+  'tab./data': 'Dane',
+  'tab./chart': 'Wykres',
+  'tab./schedules': 'Harmonogram',
+  'tab./alarms': 'Alarmy',
+  'tab./operations': 'Operacje',
+  'tab./settings': 'Ustawienia',
+  'tab.simple': 'Panel prosty',
+  // komunikaty błędów API (konta, udostępnianie, sesja, poczta, powiadomienia)
+  'err.server': 'Błąd serwera — spróbuj ponownie.',
+  'err.signIn': 'Zaloguj się.',
+  'err.systemOnly': 'Tylko użytkownik systemowy.',
+  'err.noDeviceAccess': 'Brak dostępu do tego sterownika.',
+  'err.ownerOnlyChange': 'Tę zmianę może zrobić tylko właściciel sterownika.',
+  'err.noTabAccess': 'Brak dostępu do zakładki: {tabs}.',
+  'err.demoReadOnly': 'Wersja demo: zmiany są wyłączone.',
+  'err.demoPush': 'Wersja demo: powiadomienia są wyłączone.',
+  'err.language': 'Język: pl albo en.',
+  'err.codeRecently': 'Kod został wysłany przed chwilą. Nowy można wysłać za {wait} s.',
+  'err.linkUsed': 'Link wygasł albo został już użyty.',
+  'err.codeDigits': 'Kod ma 6 cyfr.',
+  'err.codeExpired': 'Kod wygasł albo nie został wysłany — wyślij nowy.',
+  'err.tooManyAttempts': 'Za dużo błędnych prób — wyślij nowy kod.',
+  'err.wrongCodeLeft': 'Błędny kod. Zostało prób: {left}.',
+  'err.wrongCodeNew': 'Błędny kod. Wyślij nowy kod.',
+  'err.sessionExpired': 'Sesja wygasła — zaloguj się ponownie.',
+  'err.emailInvalid': 'Podaj poprawny adres e-mail.',
+  'err.emailRequired': 'Podaj adres e-mail.',
+  'err.systemLoginOff': 'Logowanie systemowe jest wyłączone.',
+  'err.tooManyTryMinute': 'Za dużo błędnych prób — spróbuj za minutę.',
+  'err.wrongPassword': 'Błędne hasło.',
+  'err.demoOff': 'Wersja demo jest wyłączona.',
+  'err.demoRate': 'Za dużo wejść do wersji demo — spróbuj za kilka minut.',
+  'err.textTooLong': '{field}: tekst do {max} znaków.',
+  'err.required': '{field}: pole obowiązkowe.',
+  'err.location': 'Lokalizacja: szerokość −90…90, długość −180…180.',
+  'err.systemNoProfile': 'Użytkownik systemowy nie ma danych osobowych.',
+  'err.systemNoEmail': 'Użytkownik systemowy nie ma adresu e-mail.',
+  'err.sameEmail': 'To jest obecny adres konta.',
+  'err.emailTaken': 'Ten adres ma już inne konto.',
+  'err.systemNoDelete': 'Użytkownika systemowego nie można usunąć.',
+  'err.linkNoAccount': 'Link nie wskazuje konta.',
+  'err.pickTab': 'Wybierz co najmniej jedną zakładkę.',
+  'err.deviceNotFound': 'Nie znaleziono sterownika.',
+  'err.deviceNoOwner': 'Sterownik nie ma właściciela.',
+  'err.ownerEmail': 'To adres właściciela sterownika.',
+  'err.alreadyShared': 'Ta osoba ma już dostęp — zmień jej zakładki.',
+  'err.shareNotFound': 'Nie znaleziono udostępnienia.',
+  'err.mailUnavailable': 'Poczta jest chwilowo niedostępna (sterownik wysyłający maile nie odpowiada). Spróbuj za kilka minut.',
+  'err.pushOff': 'Powiadomienia są wyłączone na serwerze (brak kluczy VAPID).',
+  'err.pushNoSubscriptions': 'To konto nie ma włączonych powiadomień w żadnej przeglądarce.',
+  'field.firstName': 'Imię',
+  'field.lastName': 'Nazwisko',
+  'field.street': 'Ulica i numer',
+  'field.postalCode': 'Kod pocztowy',
+  'field.city': 'Miejscowość',
+  'field.country': 'Kraj',
+  // powiadomienia push
+  'push.testBody': 'Powiadomienia działają na tym urządzeniu.',
+  'push.device': 'Sterownik',
+  'push.compressorOn': 'Sprężarka ruszyła{tank}',
+  'push.compressorOff': 'Sprężarka stanęła{minutes}{tank}',
+  'push.afterMinutes': ' po {n} min',
+  'push.tank': ' · zbiornik {value} °C',
+  'push.hpError': 'Błąd {code}: {text}{tank}',
+  'push.hpErrorUnknown': 'nieznany',
+  'push.burningOn': 'Kocioł rozpala{temp}',
+  'push.burningOff': 'Kocioł wygaszony{temp}',
+  'push.boilerTemp': ' · kocioł {value} °C',
+  'push.boilerAlarm': 'Alarm kotła{temp}',
+  'push.relayOn': '{name}: włączony.',
+  'push.relayOff': '{name}: wyłączony.',
+  'push.pumpStart': 'Pompa hydroforu uruchomiona.',
+  'push.offline': 'Sterownik przestał odpowiadać.{note}',
+  'push.online': 'Sterownik znów odpowiada.',
 };
 
 const en: Record<keyof typeof pl, string> = {
@@ -149,6 +229,79 @@ const en: Record<keyof typeof pl, string> = {
   'tank.runs': 'runs',
   'tank.on': 'on',
   'tank.compressor': 'compressor',
+  'tab./': 'Overview',
+  'tab./data': 'Data',
+  'tab./chart': 'Chart',
+  'tab./schedules': 'Schedule',
+  'tab./alarms': 'Alarms',
+  'tab./operations': 'Operations',
+  'tab./settings': 'Settings',
+  'tab.simple': 'Simple panel',
+  'err.server': 'Server error — please try again.',
+  'err.signIn': 'Please sign in.',
+  'err.systemOnly': 'System user only.',
+  'err.noDeviceAccess': 'No access to this controller.',
+  'err.ownerOnlyChange': 'Only the controller owner can make this change.',
+  'err.noTabAccess': 'No access to the tab: {tabs}.',
+  'err.demoReadOnly': 'Demo version: changes are disabled.',
+  'err.demoPush': 'Demo version: notifications are disabled.',
+  'err.language': 'Language: pl or en.',
+  'err.codeRecently': 'A code was sent a moment ago. A new one can be sent in {wait} s.',
+  'err.linkUsed': 'The link has expired or has already been used.',
+  'err.codeDigits': 'The code has 6 digits.',
+  'err.codeExpired': 'The code has expired or was not sent — request a new one.',
+  'err.tooManyAttempts': 'Too many wrong attempts — request a new code.',
+  'err.wrongCodeLeft': 'Wrong code. Attempts left: {left}.',
+  'err.wrongCodeNew': 'Wrong code. Request a new code.',
+  'err.sessionExpired': 'The session has expired — please sign in again.',
+  'err.emailInvalid': 'Enter a valid e-mail address.',
+  'err.emailRequired': 'Enter an e-mail address.',
+  'err.systemLoginOff': 'System sign-in is disabled.',
+  'err.tooManyTryMinute': 'Too many wrong attempts — try again in a minute.',
+  'err.wrongPassword': 'Wrong password.',
+  'err.demoOff': 'The demo version is disabled.',
+  'err.demoRate': 'Too many demo entries — try again in a few minutes.',
+  'err.textTooLong': '{field}: text up to {max} characters.',
+  'err.required': '{field}: required field.',
+  'err.location': 'Location: latitude −90…90, longitude −180…180.',
+  'err.systemNoProfile': 'The system user has no personal details.',
+  'err.systemNoEmail': 'The system user has no e-mail address.',
+  'err.sameEmail': 'This is the current account address.',
+  'err.emailTaken': 'This address already has another account.',
+  'err.systemNoDelete': 'The system user cannot be deleted.',
+  'err.linkNoAccount': 'The link does not point to an account.',
+  'err.pickTab': 'Choose at least one tab.',
+  'err.deviceNotFound': 'Controller not found.',
+  'err.deviceNoOwner': 'The controller has no owner.',
+  'err.ownerEmail': 'This is the controller owner’s address.',
+  'err.alreadyShared': 'This person already has access — change their tabs.',
+  'err.shareNotFound': 'Share not found.',
+  'err.mailUnavailable': 'Mail is temporarily unavailable (the controller that sends e-mails is not responding). Try again in a few minutes.',
+  'err.pushOff': 'Notifications are disabled on the server (no VAPID keys).',
+  'err.pushNoSubscriptions': 'This account has notifications enabled in no browser.',
+  'field.firstName': 'First name',
+  'field.lastName': 'Last name',
+  'field.street': 'Street and number',
+  'field.postalCode': 'Postal code',
+  'field.city': 'City',
+  'field.country': 'Country',
+  'push.testBody': 'Notifications work on this device.',
+  'push.device': 'Controller',
+  'push.compressorOn': 'Compressor started{tank}',
+  'push.compressorOff': 'Compressor stopped{minutes}{tank}',
+  'push.afterMinutes': ' after {n} min',
+  'push.tank': ' · tank {value} °C',
+  'push.hpError': 'Error {code}: {text}{tank}',
+  'push.hpErrorUnknown': 'unknown',
+  'push.burningOn': 'Boiler kindling{temp}',
+  'push.burningOff': 'Boiler extinguished{temp}',
+  'push.boilerTemp': ' · boiler {value} °C',
+  'push.boilerAlarm': 'Boiler alarm{temp}',
+  'push.relayOn': '{name}: on.',
+  'push.relayOff': '{name}: off.',
+  'push.pumpStart': 'Water pump started.',
+  'push.offline': 'The controller stopped responding.{note}',
+  'push.online': 'The controller responds again.',
 };
 
 const DICTS: Record<Lang, Record<string, string>> = { pl, en };
@@ -156,3 +309,15 @@ const DICTS: Record<Lang, Record<string, string>> = { pl, en };
 export function t(lang: Lang, key: string, params?: Params): string {
   return fill(DICTS[lang][key] ?? pl[key] ?? key, params);
 }
+
+/** tekst w obu językach: komunikaty błędów (AuthError) i powiadomienia push, gdzie język odbiorcy jest znany później */
+export type Texts = { pl: string; en: string };
+export const both = (build: (lang: Lang) => string): Texts => ({ pl: build('pl'), en: build('en') });
+export const texts = (key: string, params?: Params): Texts => both((lang) => t(lang, key, params));
+export const pick = (value: string | Texts, lang: Lang): string => (typeof value === 'string' ? value : value[lang]);
+
+/** nazwa zakładki udostępnienia (access.service TABS) w mailu zaproszenia i odmowie zapisu */
+export const tabLabel = (tab: string, lang: Lang): string => {
+  const text = t(lang, `tab.${tab}`);
+  return text === `tab.${tab}` ? tab : text;
+};

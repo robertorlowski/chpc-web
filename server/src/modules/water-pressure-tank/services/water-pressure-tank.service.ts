@@ -17,6 +17,7 @@ import { WaterPressureTankRunModel } from '../models/water-pressure-tank-run.mod
 import { getDeviceInfo } from '../../../core/services/device-info.service';
 import { TIME_ZONE } from '../../../core/time';
 import { notify } from '../../../core/services/push.service';
+import { texts } from '../../../core/i18n';
 
 // Uruchomienie jest „w toku”, gdy ostatnia wiadomość sterownika (co 1 s) jest młodsza.
 export const RUN_IN_PROGRESS_MS = 5000;
@@ -139,7 +140,7 @@ export async function addWaterPressureTankReport(rootId: string, report: RunRepo
     timeApproximate: report.queued === true,
   });
   // powiadomienie Web Push (core/services/push.service.ts): nowe uruchomienie na żywo (z kolejki = dawno zakończone)
-  if (!report.queued) await notify(rootId, 'pump-start', { body: 'Pompa hydroforu uruchomiona.', url: '/' }, receivedAt);
+  if (!report.queued) await notify(rootId, 'pump-start', { body: texts('push.pumpStart'), url: '/' }, receivedAt);
   return created.toObject();
 }
 

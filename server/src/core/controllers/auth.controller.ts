@@ -7,21 +7,24 @@ import {
   setLanguage, startLogin, systemLogin, updateProfile, verifyEmailChange, verifyLogin,
 } from '../services/auth.service';
 import { MailUnavailableError } from '../services/mail-relay.service';
+import { requestLang, t } from '../i18n';
 
-const fail = (res: Response, error: unknown) => {
+// komunikaty w języku żądania (Accept-Language od klienta, inaczej język konta; core/i18n.ts)
+const fail = (req: Request, res: Response, error: unknown) => {
+  const lang = requestLang(req);
   if (error instanceof AuthError) {
     if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
-    return res.status(error.status).json({ message: error.message, retryAfterSeconds: error.retryAfterSeconds });
+    return res.status(error.status).json({ message: error.messageFor(lang), retryAfterSeconds: error.retryAfterSeconds });
   }
   // przekaźnik poczty (MAIL_RELAY=1) bez sterownika w sieci: komunikat zamiast „Błąd serwera”
-  if (error instanceof MailUnavailableError) return res.status(error.status).json({ message: error.message });
+  if (error instanceof MailUnavailableError) return res.status(error.status).json({ message: error.messageFor(lang) });
   console.error('[konta]', error);
-  return res.status(500).json({ message: 'Błąd serwera — spróbuj ponownie.' });
+  return res.status(500).json({ message: t(lang, 'err.server') });
 };
 
 const signedIn = (req: Request, res: Response) => {
   if (req.user && req.sessionToken) return true;
-  res.status(401).json({ message: 'Zaloguj się.' });
+  res.status(401).json({ message: t(requestLang(req), 'err.signIn') });
   return false;
 };
 
@@ -29,13 +32,13 @@ const run = (handler: (req: Request, res: Response) => Promise<unknown>) => asyn
   try {
     await handler(req, res);
   } catch (error) {
-    fail(res, error);
+    fail(req, res, error);
   }
 };
 
 // POST /auth/start {email}: kod i link na e-mail (nowy adres = rejestracja po weryfikacji)
 export const authStart = run(async (req, res) => {
-  res.status(200).json(await startLogin(req.body?.email, req.header('origin')));
+  res.status(200).json(await startLogin(req.body?.email, req.header('origin'), requestLang(req)));
 });
 
 // POST /auth/verify {email, code} albo {token}: sesja; created = nowe konto (formularz danych)
@@ -87,7 +90,7 @@ export const authSetLanguage = run(async (req, res) => {
 // POST /auth/email-change {email}: kod na nowy adres; POST /auth/email-change/verify {code}: zmiana
 export const authEmailChange = run(async (req, res) => {
   if (!signedIn(req, res)) return;
-  res.status(200).json(await startEmailChange(req.user!, req.body?.email));
+  res.status(200).json(await startEmailChange(req.user!, req.body?.email, requestLang(req)));
 });
 
 export const authEmailChangeVerify = run(async (req, res) => {
@@ -99,7 +102,7 @@ export const authEmailChangeVerify = run(async (req, res) => {
 // (link z maila działa bez zalogowania — token potwierdza dostęp do skrzynki)
 export const authDelete = run(async (req, res) => {
   if (!signedIn(req, res)) return;
-  res.status(200).json(await startDeleteAccount(req.user!, req.header('origin')));
+  res.status(200).json(await startDeleteAccount(req.user!, req.header('origin'), requestLang(req)));
 });
 
 export const authDeleteConfirm = run(async (req, res) => {

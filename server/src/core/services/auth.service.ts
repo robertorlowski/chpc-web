@@ -4,6 +4,7 @@
 // przypisanie sterowników istniejących przed kontami do INITIAL_OWNER_EMAIL (domyślnie robert@infotower.pl).
 import crypto from 'crypto';
 import mongoose from 'mongoose';
+import { both, DEFAULT_LANG, isLang, Lang, t, Texts, texts } from '../i18n';
 import { AuthCodeEntry, AuthCodeModel, AuthCodePurpose, SessionEntry, SessionModel } from '../models/auth.model';
 import { DeviceShareModel } from '../models/device-share.model';
 import { DeviceModel } from '../models/device.model';
@@ -28,10 +29,15 @@ const SYSTEM_MAX_FAILURES = 5;
 const SYSTEM_LOCK_MS = 60 * 1000;
 export const SYSTEM_LOGIN = 'system';
 
+// Błąd dla aplikacji: komunikat w obu językach (core/i18n.ts texts / both); kontroler wybiera język żądania
+// (messageFor). Sam napis = ten sam tekst w obu językach.
 export class AuthError extends Error {
-  constructor(message: string, public status = 400, public retryAfterSeconds?: number) {
-    super(message);
+  readonly texts: Texts;
+  constructor(message: string | Texts, public status = 400, public retryAfterSeconds?: number) {
+    super(typeof message === 'string' ? message : message.pl);
+    this.texts = typeof message === 'string' ? { pl: message, en: message } : message;
   }
+  messageFor(lang: Lang): string { return this.texts[lang]; }
 }
 
 const sha256 = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
@@ -82,8 +88,8 @@ export const userLanguage = (user: UserEntry | null | undefined): Language =>
   user?.language === 'en' ? 'en' : 'pl';
 
 export async function setLanguage(user: UserEntry, value: unknown) {
-  if (!LANGUAGES.includes(value as Language)) throw new AuthError('Język: pl albo en.');
-  if (user.isDemo) throw new AuthError('Wersja demo: zmiany są wyłączone.', 403);
+  if (!LANGUAGES.includes(value as Language)) throw new AuthError(texts('err.language'));
+  if (user.isDemo) throw new AuthError(texts('err.demoReadOnly'), 403);
   const updated = await UserModel.findByIdAndUpdate(user._id, { $set: { language: value } }, { new: true }).lean<UserEntry>();
   forgetUserSessions(String(user._id));
   return publicUser(updated as UserEntry);
@@ -97,7 +103,7 @@ async function createCode(purpose: AuthCodePurpose, email: string, options: { us
   const recent = await AuthCodeModel.findOne(filter).sort({ createdAt: -1 }).lean<AuthCodeEntry>();
   if (recent && now - new Date(recent.createdAt).getTime() < RESEND_MS) {
     const wait = Math.ceil((RESEND_MS - (now - new Date(recent.createdAt).getTime())) / 1000);
-    throw new AuthError(`Kod został wysłany przed chwilą. Nowy można wysłać za ${wait} s.`, 429, wait);
+    throw new AuthError(texts('err.codeRecently', { wait }), 429, wait);
   }
   await AuthCodeModel.deleteMany(filter);
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
@@ -117,20 +123,20 @@ async function consumeCode(
   const now = new Date();
   if (typeof by.token === 'string' && by.token) {
     const doc = await AuthCodeModel.findOneAndDelete({ purpose, tokenHash: sha256(by.token), expiresAt: { $gt: now } }).lean<AuthCodeEntry>();
-    if (!doc) throw new AuthError('Link wygasł albo został już użyty.');
+    if (!doc) throw new AuthError(texts('err.linkUsed'));
     return doc;
   }
   const code = typeof by.code === 'string' ? by.code.replace(/\s/g, '') : '';
-  if (!/^\d{6}$/.test(code)) throw new AuthError('Kod ma 6 cyfr.');
+  if (!/^\d{6}$/.test(code)) throw new AuthError(texts('err.codeDigits'));
   const filter = by.userId ? { purpose, userId: by.userId } : { purpose, email: by.email };
   const doc = await AuthCodeModel.findOne({ ...filter, expiresAt: { $gt: now } }).sort({ createdAt: -1 });
-  if (!doc) throw new AuthError('Kod wygasł albo nie został wysłany — wyślij nowy.');
-  if (doc.attempts >= MAX_ATTEMPTS) throw new AuthError('Za dużo błędnych prób — wyślij nowy kod.');
+  if (!doc) throw new AuthError(texts('err.codeExpired'));
+  if (doc.attempts >= MAX_ATTEMPTS) throw new AuthError(texts('err.tooManyAttempts'));
   if (doc.codeHash !== codeHash(doc.email, code)) {
     doc.attempts += 1;
     await doc.save();
     const left = MAX_ATTEMPTS - doc.attempts;
-    throw new AuthError(left > 0 ? `Błędny kod. Zostało prób: ${left}.` : 'Błędny kod. Wyślij nowy kod.');
+    throw new AuthError(left > 0 ? texts('err.wrongCodeLeft', { left }) : texts('err.wrongCodeNew'));
   }
   await AuthCodeModel.deleteOne({ _id: doc._id });
   return doc.toObject();
@@ -189,7 +195,7 @@ export async function sessionFromToken(token: string): Promise<{ session: Sessio
 export async function setRemember(token: string, remember: boolean) {
   const key = sha256(token);
   const session = await SessionModel.findOne({ tokenHash: key });
-  if (!session) throw new AuthError('Sesja wygasła — zaloguj się ponownie.', 401);
+  if (!session) throw new AuthError(texts('err.sessionExpired'), 401);
   session.remember = remember;
   session.expiresAt = new Date(remember ? new Date(session.createdAt).getTime() + SESSION_REMEMBER_MS : Date.now() + SESSION_IDLE_MS);
   await session.save();
@@ -205,21 +211,26 @@ export async function logout(token: string) {
 
 // ------------------------------------------------------------------ logowanie i rejestracja
 
-export async function startLogin(emailValue: unknown, origin?: string) {
+// Język maila (wersja językowa 2026-10-21): język konta, gdy je ma i wybrało język; inaczej język żądania (klient
+// wysyła Accept-Language według ekranu logowania), inaczej polski.
+const mailLang = (user: UserEntry | null | undefined, requested: Lang): Lang => (isLang(user?.language) ? user!.language as Lang : requested);
+
+export async function startLogin(emailValue: unknown, origin?: string, lang: Lang = DEFAULT_LANG) {
   const email = normalizeEmail(emailValue);
-  if (!email) throw new AuthError('Podaj poprawny adres e-mail.');
+  if (!email) throw new AuthError(texts('err.emailInvalid'));
   // przekaźnik poczty bez sterownika w sieci: błąd przed utworzeniem kodu (inaczej kolejna próba czekałaby 60 s)
   await assertMailAvailable();
+  const existing = await UserModel.findOne({ email }).lean<UserEntry>();
   const { code, token, expiresAt } = await createCode('login', email, { link: true });
   const url = `${clientBaseUrl(origin)}/login?token=${encodeURIComponent(token as string)}`;
-  await sendMail(loginMail(email, code, url, expiresAt));
+  await sendMail(loginMail(email, code, url, expiresAt, mailLang(existing, lang)));
   return { email, resendAfterSeconds: Math.round(RESEND_MS / 1000) };
 }
 
 // Kod (z e-mailem) albo link (token): nowy adres zakłada konto (bez danych osobowych — formularz w kliencie).
 export async function verifyLogin(body: { email?: unknown; code?: unknown; token?: unknown }) {
   const email = normalizeEmail(body.email);
-  if (!body.token && !email) throw new AuthError('Podaj adres e-mail.');
+  if (!body.token && !email) throw new AuthError(texts('err.emailRequired'));
   const doc = await consumeCode('login', { token: body.token, code: body.code, email: email ?? undefined });
   let user = await UserModel.findOne({ email: doc.email }).lean<UserEntry>();
   const created = !user;
@@ -236,10 +247,10 @@ export async function verifyLogin(body: { email?: unknown; code?: unknown; token
 const systemFailures = { count: 0, lockedUntil: 0 };
 export async function systemLogin(password: unknown) {
   const expected = process.env.SYSTEM_PASSWORD;
-  if (!expected) throw new AuthError('Logowanie systemowe jest wyłączone.', 403);
+  if (!expected) throw new AuthError(texts('err.systemLoginOff'), 403);
   const now = Date.now();
   if (systemFailures.lockedUntil > now) {
-    throw new AuthError('Za dużo błędnych prób — spróbuj za minutę.', 429, Math.ceil((systemFailures.lockedUntil - now) / 1000));
+    throw new AuthError(texts('err.tooManyTryMinute'), 429, Math.ceil((systemFailures.lockedUntil - now) / 1000));
   }
   const ok = typeof password === 'string'
     && crypto.timingSafeEqual(Buffer.from(sha256(password)), Buffer.from(sha256(expected)));
@@ -249,7 +260,7 @@ export async function systemLogin(password: unknown) {
       systemFailures.count = 0;
       systemFailures.lockedUntil = now + SYSTEM_LOCK_MS;
     }
-    throw new AuthError('Błędne hasło.', 401);
+    throw new AuthError(texts('err.wrongPassword'), 401);
   }
   systemFailures.count = 0;
   const user = await ensureSystemUser();
@@ -272,12 +283,12 @@ export async function demoOwner(): Promise<UserEntry | null> {
 
 export async function demoLogin(ip: string) {
   const owner = await demoOwner();
-  if (!owner) throw new AuthError('Wersja demo jest wyłączona.', 404);
+  if (!owner) throw new AuthError(texts('err.demoOff'), 404);
   // najwyżej DEMO_RATE_LIMIT.max wejść z jednego adresu w oknie (darmowy plan Render i Atlas)
   const now = Date.now();
   const recent = (demoAttempts.get(ip) ?? []).filter((at) => now - at < DEMO_RATE_LIMIT.windowMs);
   if (recent.length >= DEMO_RATE_LIMIT.max) {
-    throw new AuthError('Za dużo wejść do wersji demo — spróbuj za kilka minut.', 429, Math.ceil(DEMO_RATE_LIMIT.windowMs / 1000));
+    throw new AuthError(texts('err.demoRate'), 429, Math.ceil(DEMO_RATE_LIMIT.windowMs / 1000));
   }
   recent.push(now);
   demoAttempts.set(ip, recent);
@@ -304,8 +315,8 @@ export async function ensureSystemUser(): Promise<UserEntry> {
 
 const text = (value: unknown, field: string, max: number, required: boolean) => {
   const result = typeof value === 'string' ? value.trim() : value === undefined || value === null ? '' : null;
-  if (result === null || result.length > max) throw new AuthError(`${field}: tekst do ${max} znaków.`);
-  if (required && !result) throw new AuthError(`${field}: pole obowiązkowe.`);
+  if (result === null || result.length > max) throw new AuthError(both((lang) => t(lang, 'err.textTooLong', { field: t(lang, `field.${field}`), max })));
+  if (required && !result) throw new AuthError(both((lang) => t(lang, 'err.required', { field: t(lang, `field.${field}`) })));
   return result;
 };
 
@@ -313,21 +324,21 @@ function parseLocation(value: unknown): UserLocation | null {
   if (value === null || value === undefined) return null;
   const { lat, lng } = value as { lat?: unknown; lng?: unknown };
   if (typeof lat !== 'number' || typeof lng !== 'number' || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-    throw new AuthError('Lokalizacja: szerokość −90…90, długość −180…180.');
+    throw new AuthError(texts('err.location'));
   }
   return { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
 }
 
 // Obowiązkowe: imię, nazwisko i kraj (decyzja 2026-10-11; miejscowość nie).
 export async function updateProfile(user: UserEntry, body: Record<string, unknown>) {
-  if (user.isSystem) throw new AuthError('Użytkownik systemowy nie ma danych osobowych.', 403);
+  if (user.isSystem) throw new AuthError(texts('err.systemNoProfile'), 403);
   const data = {
-    firstName: text(body.firstName, 'Imię', 80, true),
-    lastName: text(body.lastName, 'Nazwisko', 80, true),
-    street: text(body.street, 'Ulica i numer', 120, false),
-    postalCode: text(body.postalCode, 'Kod pocztowy', 20, false),
-    city: text(body.city, 'Miejscowość', 120, false),
-    country: text(body.country, 'Kraj', 80, true),
+    firstName: text(body.firstName, 'firstName', 80, true),
+    lastName: text(body.lastName, 'lastName', 80, true),
+    street: text(body.street, 'street', 120, false),
+    postalCode: text(body.postalCode, 'postalCode', 20, false),
+    city: text(body.city, 'city', 120, false),
+    country: text(body.country, 'country', 80, true),
     location: parseLocation(body.location),
   };
   const updated = await UserModel.findByIdAndUpdate(user._id, { $set: data }, { new: true }).lean<UserEntry>();
@@ -335,45 +346,45 @@ export async function updateProfile(user: UserEntry, body: Record<string, unknow
   return publicUser(updated as UserEntry);
 }
 
-export async function startEmailChange(user: UserEntry, emailValue: unknown) {
-  if (user.isSystem) throw new AuthError('Użytkownik systemowy nie ma adresu e-mail.', 403);
+export async function startEmailChange(user: UserEntry, emailValue: unknown, lang: Lang = DEFAULT_LANG) {
+  if (user.isSystem) throw new AuthError(texts('err.systemNoEmail'), 403);
   const email = normalizeEmail(emailValue);
-  if (!email) throw new AuthError('Podaj poprawny adres e-mail.');
-  if (email === user.email) throw new AuthError('To jest obecny adres konta.');
-  if (await UserModel.exists({ email })) throw new AuthError('Ten adres ma już inne konto.', 409);
+  if (!email) throw new AuthError(texts('err.emailInvalid'));
+  if (email === user.email) throw new AuthError(texts('err.sameEmail'));
+  if (await UserModel.exists({ email })) throw new AuthError(texts('err.emailTaken'), 409);
   await assertMailAvailable();
   const { code, expiresAt } = await createCode('email-change', email, { userId: String(user._id) });
-  await sendMail(emailChangeMail(email, code, expiresAt));
+  await sendMail(emailChangeMail(email, code, expiresAt, mailLang(user, lang)));
   return { email, resendAfterSeconds: Math.round(RESEND_MS / 1000) };
 }
 
 export async function verifyEmailChange(user: UserEntry, codeValue: unknown) {
   const doc = await consumeCode('email-change', { code: codeValue, userId: String(user._id) });
-  if (await UserModel.exists({ email: doc.email, _id: { $ne: user._id } })) throw new AuthError('Ten adres ma już inne konto.', 409);
+  if (await UserModel.exists({ email: doc.email, _id: { $ne: user._id } })) throw new AuthError(texts('err.emailTaken'), 409);
   const updated = await UserModel.findByIdAndUpdate(user._id, { $set: { email: doc.email } }, { new: true }).lean<UserEntry>();
   // udostępnienia: adres przy istniejących i zaproszenia czekające na nowy adres
   await DeviceShareModel.updateMany({ userId: String(user._id) }, { $set: { email: doc.email } });
   await DeviceShareModel.updateMany({ email: doc.email, userId: null }, { $set: { userId: String(user._id) } });
   forgetUserSessions(String(user._id));
-  if (user.email) void sendMail(emailChangedMail(user.email, doc.email)).catch((error) => console.error('[mail] zmiana e-maila:', error));
+  if (user.email) void sendMail(emailChangedMail(user.email, doc.email, mailLang(user, DEFAULT_LANG))).catch((error) => console.error('[mail] zmiana e-maila:', error));
   return publicUser(updated as UserEntry);
 }
 
 // ------------------------------------------------------------------ usunięcie konta
 
-export async function startDeleteAccount(user: UserEntry, origin?: string) {
-  if (user.isSystem || !user.email) throw new AuthError('Użytkownika systemowego nie można usunąć.', 403);
+export async function startDeleteAccount(user: UserEntry, origin?: string, lang: Lang = DEFAULT_LANG) {
+  if (user.isSystem || !user.email) throw new AuthError(texts('err.systemNoDelete'), 403);
   const devices = await DeviceModel.countDocuments({ ownerId: String(user._id) });
   await assertMailAvailable();
   const { token } = await createCode('delete-account', user.email, { userId: String(user._id), link: true });
   const url = `${clientBaseUrl(origin)}/account/delete?token=${encodeURIComponent(token as string)}`;
-  await sendMail(deleteAccountMail(user.email, url, devices));
+  await sendMail(deleteAccountMail(user.email, url, devices, mailLang(user, lang)));
   return { email: user.email, devices };
 }
 
 export async function confirmDeleteAccount(token: unknown) {
   const doc = await consumeCode('delete-account', { token });
-  if (!doc.userId) throw new AuthError('Link nie wskazuje konta.');
+  if (!doc.userId) throw new AuthError(texts('err.linkNoAccount'));
   return deleteUserAndData(doc.userId);
 }
 

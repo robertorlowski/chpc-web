@@ -10,25 +10,38 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { TIME_ZONE, warsawDayBoundsUTC } from '../../../core/time';
 import { forgetDeviceInfo, getDeviceInfo } from '../../../core/services/device-info.service';
 import { notify } from '../../../core/services/push.service';
+import { both, Lang, t } from '../../../core/i18n';
 
 // opisy kodów błędów CHPC do powiadomień (te same co client/src/devices/heat-pump/utils/errors.ts; zmieniać razem)
-const ERROR_TEXTS: Record<number, string> = {
-  1: 'czujnik', 2: 'przeciążenie', 3: 'brak przepływu', 4: 'za mała moc', 5: 'Tho', 6: 'Tsump za wysoka', 7: 'Tbc',
-  8: 'Tae', 9: 'Tco', 10: 'przekaźnik', 11: 'blokada po 5 błędach', 12: 'Tsump za niska', 13: 'Tbe',
+const ERROR_TEXTS: Record<Lang, Record<number, string>> = {
+  pl: {
+    1: 'czujnik', 2: 'przeciążenie', 3: 'brak przepływu', 4: 'za mała moc', 5: 'Tho', 6: 'Tsump za wysoka', 7: 'Tbc',
+    8: 'Tae', 9: 'Tco', 10: 'przekaźnik', 11: 'blokada po 5 błędach', 12: 'Tsump za niska', 13: 'Tbe',
+  },
+  en: {
+    1: 'sensor', 2: 'overload', 3: 'no flow', 4: 'power too low', 5: 'Tho', 6: 'Tsump too high', 7: 'Tbc',
+    8: 'Tae', 9: 'Tco', 10: 'relay', 11: 'locked after 5 errors', 12: 'Tsump too low', 13: 'Tbe',
+  },
 };
 const hpsOn = (value: unknown) => value === true || Number(value) > 0;
-const tankText = (data: HpEntry) => (typeof data.HP?.Ttarget === 'number' ? ` · zbiornik ${data.HP.Ttarget.toFixed(1)} °C` : '');
+const tankText = (data: HpEntry, lang: Lang) => (typeof data.HP?.Ttarget === 'number' ? t(lang, 'push.tank', { value: data.HP.Ttarget.toFixed(1) }) : '');
 
 // Powiadomienia Web Push (core/services/push.service.ts): start i stop sprężarki oraz nowy błąd CHPC.
 // Wołane przy zapisie telemetrii, więc porównanie z poprzednim odczytem jest już policzone.
 async function notifyHpEvents(rootId: string, previous: HpEntry | undefined, data: HpEntry, errorCode: number | undefined) {
   if (previous?.HP && data.HP && hpsOn(previous.HP.HPS) !== hpsOn(data.HP.HPS)) {
     const on = hpsOn(data.HP.HPS);
-    const minutes = typeof data.HP.lt_hp_on === 'number' && !on ? ` po ${Math.round(data.HP.lt_hp_on / 60)} min` : '';
-    await notify(rootId, on ? 'compressor-on' : 'compressor-off', { body: `${on ? 'Sprężarka ruszyła' : `Sprężarka stanęła${minutes}`}${tankText(data)}`, url: '/' });
+    const minutesOn = typeof data.HP.lt_hp_on === 'number' && !on ? Math.round(data.HP.lt_hp_on / 60) : null;
+    await notify(rootId, on ? 'compressor-on' : 'compressor-off', {
+      body: both((lang) => t(lang, on ? 'push.compressorOn' : 'push.compressorOff', { minutes: minutesOn === null ? '' : t(lang, 'push.afterMinutes', { n: minutesOn }), tank: tankText(data, lang) })),
+      url: '/',
+    });
   }
   if (errorCode) {
-    await notify(rootId, 'error', { body: `Błąd ${errorCode}: ${ERROR_TEXTS[errorCode] ?? 'nieznany'}${tankText(data)}`, url: '/settings' });
+    await notify(rootId, 'error', {
+      body: both((lang) => t(lang, 'push.hpError', { code: errorCode, text: ERROR_TEXTS[lang][errorCode] ?? t(lang, 'push.hpErrorUnknown'), tank: tankText(data, lang) })),
+      url: '/settings',
+    });
   }
 }
 

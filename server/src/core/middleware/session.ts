@@ -5,6 +5,7 @@
 //   dostępu do sterownika (403; osoba z udostępnieniem: zapisy według zakładek, access.service.ts).
 // AUTH_DISABLED=1 wyłącza sprawdzanie (testy starszych modułów; nie ustawiać na produkcji).
 import { NextFunction, Request, Response } from 'express';
+import { requestLang, t } from '../i18n';
 import { UserEntry } from '../models/user.model';
 import { INTERNAL_TOKEN, INTERNAL_TOKEN_HEADER } from '../internal';
 import { deviceAccess, DeviceAccess, sharedWriteDenied } from '../services/access.service';
@@ -110,19 +111,19 @@ export async function authorize(req: Request, res: Response, next: NextFunction)
   if (authDisabled()) return next();
   // wersja demo: żadnych zapisów, także w /auth/* (zmiana e-maila i usunięcie konta właściciela); zostaje wylogowanie
   if (req.user?.isDemo && !READ_METHODS.has(req.method) && !(req.method === 'POST' && req.path === '/auth/logout')) {
-    return res.status(403).json({ message: 'Wersja demo: zmiany są wyłączone.', demo: true });
+    return res.status(403).json({ message: t(requestLang(req), 'err.demoReadOnly'), demo: true });
   }
   if (req.user?.isDemo) scrubDemoResponses(res);
   if (isPublic(req)) return next();
   const user = req.user;
-  if (!user) return res.status(401).json({ message: 'Zaloguj się.' });
-  if (systemOnly(req) && !user.isSystem) return res.status(403).json({ message: 'Tylko użytkownik systemowy.' });
+  if (!user) return res.status(401).json({ message: t(requestLang(req), 'err.signIn') });
+  if (systemOnly(req) && !user.isSystem) return res.status(403).json({ message: t(requestLang(req), 'err.systemOnly') });
   if (!req.deviceRootId) return next();
   try {
     const access = await deviceAccess(user, req.deviceRootId);
-    if (!access) return res.status(403).json({ message: 'Brak dostępu do tego sterownika.' });
+    if (!access) return res.status(403).json({ message: t(requestLang(req), 'err.noDeviceAccess') });
     if (access.role === 'shared') {
-      const denied = sharedWriteDenied(req.method, req.path, access.tabs);
+      const denied = sharedWriteDenied(req.method, req.path, access.tabs, requestLang(req));
       if (denied) return res.status(403).json({ message: denied });
     }
     req.deviceAccess = access;

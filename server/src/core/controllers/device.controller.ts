@@ -15,7 +15,7 @@ import { mailConfigFor, mailKeyInfo, recordMailKey } from '../services/mail-rela
 import { getDeviceTypeModule } from '../device-types';
 import { getDeviceInfo } from '../services/device-info.service';
 import { getDeviceTiles } from '../services/tile.service';
-import { requestLang } from '../i18n';
+import { requestLang, t } from '../i18n';
 import {
   FirmwareError, cancelFirmwareUpdate, firmwareOfferForDevice, requestFirmwareUpdate,
 } from '../services/firmware.service';
@@ -348,9 +348,9 @@ export async function getDeviceTilesEntry(req: Request, res: Response) {
   }
 }
 
-const shareError = (res: Response, error: unknown) =>
+const shareError = (req: Request, res: Response, error: unknown) =>
   error instanceof AuthError
-    ? res.status(error.status).json({ message: error.message })
+    ? res.status(error.status).json({ message: error.messageFor(requestLang(req)) })
     : res.status(String(error).includes('Cast to ObjectId') ? 404 : 500).json({ message: String(error) });
 
 // Udostępnianie sterownika (karta „Udostępnianie” w Ustawieniach): tylko właściciel i użytkownik systemowy.
@@ -360,17 +360,17 @@ export async function getDeviceShares(req: Request<{ rootId: string }>, res: Res
   try {
     return res.status(200).json(await listShares(req.params.rootId));
   } catch (error) {
-    return shareError(res, error);
+    return shareError(req, res, error);
   }
 }
 
 export async function addDeviceShare(req: Request<{ rootId: string }>, res: Response) {
-  if (!req.user) return res.status(401).json({ message: 'Zaloguj się.' });
+  if (!req.user) return res.status(401).json({ message: t(requestLang(req), 'err.signIn') });
   if (!(await allowManage(req, res))) return;
   try {
-    return res.status(201).json(await createShare(req.user, req.params.rootId, req.body ?? {}, req.header('origin')));
+    return res.status(201).json(await createShare(req.user, req.params.rootId, req.body ?? {}, req.header('origin'), requestLang(req)));
   } catch (error) {
-    return shareError(res, error);
+    return shareError(req, res, error);
   }
 }
 
@@ -379,7 +379,7 @@ export async function updateDeviceShare(req: Request<{ rootId: string; id: strin
   try {
     return res.status(200).json(await updateShare(req.params.rootId, req.params.id, req.body ?? {}));
   } catch (error) {
-    return shareError(res, error);
+    return shareError(req, res, error);
   }
 }
 
@@ -389,6 +389,6 @@ export async function removeDeviceShare(req: Request<{ rootId: string; id: strin
     await deleteShare(req.params.rootId, req.params.id);
     return res.status(204).end();
   } catch (error) {
-    return shareError(res, error);
+    return shareError(req, res, error);
   }
 }

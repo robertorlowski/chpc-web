@@ -126,6 +126,16 @@ describe('Powiadomienia Web Push', () => {
     expect(sendNotification).toHaveBeenCalledTimes(1);
   });
 
+  it('treść powiadomienia w języku konta odbiorcy (users.language = en)', async () => {
+    await request(app).put('/api/auth/me/language').set(bearer(anna.token)).send({ language: 'en' }).expect(200);
+    const post = (hps: boolean) => request(app).post(`/api/hp/add?rootId=${pumpRootId}&deviceId=AA0000000001`)
+      .send({ HP: { Ttarget: 40.5, HPS: hps, ERR: 0, ERRn: 0 }, time: '2026.10.21 10:00:00' }).expect(201);
+    await post(false);
+    await post(true);
+    expect(payloads()[0]).toMatchObject({ event: 'compressor-on', body: 'Compressor started · tank 40.5 °C' });
+    await request(app).put('/api/auth/me/language').set(bearer(anna.token)).send({ language: 'pl' }).expect(200);
+  });
+
   it('cisza nocna wstrzymuje przekaźnik, ale nie błąd pompy; powtórka w minucie pomijana', async () => {
     expect(inQuietHours({ quietFrom: '22:00', quietTo: '06:00' }, new Date('2026-10-21T22:30:00Z'))).toBe(true);
     expect(inQuietHours({ quietFrom: '22:00', quietTo: '06:00' }, new Date('2026-10-21T10:00:00Z'))).toBe(false);

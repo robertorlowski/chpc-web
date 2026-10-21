@@ -7,6 +7,7 @@
 import { UserModel } from '../models/user.model';
 import { getDeviceTiles } from './tile.service';
 import { notify, pushConfigured } from './push.service';
+import { both, t, texts } from '../i18n';
 
 export const WATCHDOG_INTERVAL_MS = 60 * 1000;
 
@@ -29,9 +30,12 @@ export async function runPushWatchdogOnce(now = new Date()) {
       lastChip.set(rootId, chip);
       if (previous === undefined || previous === chip) continue;
       if (chip === 'Offline') {
-        await notify(rootId, 'offline', { body: `Sterownik przestał odpowiadać.${tile.note?.text ? ` ${tile.note.text}` : ''}`, url: '/devices' }, now);
+        // uwaga kafelka w języku odbiorcy: kafelki angielskie liczone dopiero przy zmianie stanu (rzadko)
+        const english = tile.note?.text ? (await getDeviceTiles('en'))[rootId] : undefined;
+        const note = { pl: tile.note?.text ? ` ${tile.note.text}` : '', en: english?.note?.text ? ` ${english.note.text}` : '' };
+        await notify(rootId, 'offline', { body: both((lang) => t(lang, 'push.offline', { note: note[lang] })), url: '/devices' }, now);
       } else {
-        await notify(rootId, 'online', { body: 'Sterownik znów odpowiada.', url: '/devices' }, now);
+        await notify(rootId, 'online', { body: texts('push.online'), url: '/devices' }, now);
       }
     }
   } catch (error) {

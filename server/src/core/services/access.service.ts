@@ -4,6 +4,7 @@
 // tabeli robi tylko właściciel. Odczyty (GET) są dozwolone przy każdym udostępnieniu: menu klienta pokazuje tylko
 // udostępnione zakładki, a dane tego samego sterownika czyta kilka zakładek naraz.
 import { DeviceShareModel } from '../models/device-share.model';
+import { DEFAULT_LANG, Lang, t, tabLabel } from '../i18n';
 import { DeviceModel } from '../models/device.model';
 import { UserEntry } from '../models/user.model';
 
@@ -57,12 +58,12 @@ const WRITE_RULES: { method: string; path: RegExp; tabs: string[] | 'any' }[] = 
 ];
 
 /** null = dozwolone; inaczej komunikat odmowy (403) */
-export function sharedWriteDenied(method: string, path: string, tabs: string[]): string | null {
+export function sharedWriteDenied(method: string, path: string, tabs: string[], lang: Lang = DEFAULT_LANG): string | null {
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return null;
   const rule = WRITE_RULES.find((r) => (r.method === '*' || r.method === method) && r.path.test(path));
-  if (!rule) return 'Tę zmianę może zrobić tylko właściciel sterownika.';
+  if (!rule) return t(lang, 'err.ownerOnlyChange');
   if (rule.tabs === 'any' || rule.tabs.some((tab) => tabs.includes(tab))) return null;
-  return `Brak dostępu do zakładki: ${rule.tabs.map((tab) => TAB_LABELS[tab] ?? tab).join(' / ')}.`;
+  return t(lang, 'err.noTabAccess', { tabs: rule.tabs.map((tab) => tabLabel(tab, lang)).join(' / ') });
 }
 
 /** sterowniki widoczne dla użytkownika: rootId → dostęp (system: wszystkie) */

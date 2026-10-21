@@ -9,6 +9,7 @@ import { sendMessage } from '../../../core/websocket';
 import { setOutdoorTemperature } from '../../../core/services/meteo.service';
 import { comparisonKey, createPlateauWriter } from '../../../core/services/plateau-writer.service';
 import { notify } from '../../../core/services/push.service';
+import { both, Lang, t } from '../../../core/i18n';
 
 export const DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
@@ -20,12 +21,13 @@ const burning = (reading: { state?: number } | undefined) => reading?.state !== 
 // previous = poprzedni odczyt (pamięć albo baza); bez niego (pierwszy odczyt) nic nie idzie.
 async function notifyBoilerEvents(rootId: string, previous: PelletBoilerPelux200Entry | undefined, reading: PelletBoilerPelux200Measurements) {
   if (!previous) return;
-  const temp = typeof reading.heating_temp === 'number' ? ` · kocioł ${reading.heating_temp.toFixed(1)} °C` : '';
+  const temp = (lang: Lang) => (typeof reading.heating_temp === 'number' ? t(lang, 'push.boilerTemp', { value: reading.heating_temp.toFixed(1) }) : '');
   if (burning(previous) !== burning(reading)) {
-    await notify(rootId, burning(reading) ? 'burning-on' : 'burning-off', { body: `${burning(reading) ? 'Kocioł rozpala' : 'Kocioł wygaszony'}${temp}`, url: '/' });
+    const key = burning(reading) ? 'push.burningOn' : 'push.burningOff';
+    await notify(rootId, burning(reading) ? 'burning-on' : 'burning-off', { body: both((lang) => t(lang, key, { temp: temp(lang) })), url: '/' });
   }
   if (reading.alarm === true && previous.alarm !== true) {
-    await notify(rootId, 'alarm', { body: `Alarm kotła${temp}`, url: '/alarms' });
+    await notify(rootId, 'alarm', { body: both((lang) => t(lang, 'push.boilerAlarm', { temp: temp(lang) })), url: '/alarms' });
   }
 }
 

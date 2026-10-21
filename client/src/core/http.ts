@@ -1,4 +1,4 @@
-import { getLang } from './i18n';
+import { getLang, t } from './i18n';
 import { getSelectedDevice } from './context/DeviceContext';
 import { getToken, isDemoSession, notifyDemoBlocked, notifyUnauthorized } from './auth';
 
@@ -61,7 +61,7 @@ const apiFetch = async (input: string, init: RequestInit) => {
   const method = (init.method ?? 'GET').toUpperCase();
   if (method !== 'GET' && isDemoSession() && !input.endsWith('/auth/logout')) {
     notifyDemoBlocked();
-    return new Response(JSON.stringify({ message: 'Wersja demo: zmiany są wyłączone.', demo: true }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ message: t('app.demoBlocked'), demo: true }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
   const response = await fetch(input, init);
   if (response.status === 401 && getToken()) notifyUnauthorized();
