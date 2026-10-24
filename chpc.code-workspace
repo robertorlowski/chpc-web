@@ -1,6 +1,6 @@
 {
   "folders": [
-    { "name": "chpc-web", "path": "." },
+    { "name": "my-home", "path": "." },
     { "name": "firmware co (ESP32)", "path": "devices/co" },
     { "name": "firmware CHPC (Pro Mini)", "path": "devices/chpc" },
     { "name": "firmware hydrofor (ESP32 DevKit)", "path": "devices/water-pressure-tank" },
