@@ -78,9 +78,23 @@ void testRestartBlockedForMinimumOffTime() {
 }
 
 void testSumpHeaterBelowThreshold() {
-  setTemp("Tsump", 8.0);
+  setTemp("Tsump", 4.0);
   TEST_ASSERT_TRUE(waitUntil([] { return sumpHeater(); }, 3000) >= 0);
-  setTemp("Tsump", 12.0);
+  setTemp("Tsump", 6.0);
+  TEST_ASSERT_TRUE(waitUntil([] { return !sumpHeater(); }, 3000) >= 0);
+}
+
+// W OFF (co_on = 0) grzałka karteru nie grzeje nawet przy zimnym karterze.
+void testSumpHeaterOffWhenCoOff() {
+  bool prevCo = co_on;
+  co_on = 0;
+  setTemp("Tsump", 4.0);
+  runMs(3000);
+  TEST_ASSERT_FALSE_MESSAGE(sumpHeater(), "grzałka karteru w trybie OFF");
+  co_on = 1;
+  TEST_ASSERT_TRUE(waitUntil([] { return sumpHeater(); }, 3000) >= 0);
+  co_on = prevCo;
+  setTemp("Tsump", 20.0);
   TEST_ASSERT_TRUE(waitUntil([] { return !sumpHeater(); }, 3000) >= 0);
 }
 
@@ -108,6 +122,7 @@ int main() {
   RUN_TEST(testPumpsStopWithDelayAfterCompressor);
   RUN_TEST(testRestartBlockedForMinimumOffTime);
   RUN_TEST(testSumpHeaterBelowThreshold);
+  RUN_TEST(testSumpHeaterOffWhenCoOff);
   RUN_TEST(testLcdRotatesScreens);
   return UNITY_END();
 }

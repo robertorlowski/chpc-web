@@ -65,7 +65,7 @@ Cały firmware to `src/CHPC_firmware.ino` (~2200 linii). Nagłówek pliku zawier
 | 9 | `ERR: Temp. Tco` | Tco < −2 °C | stop |
 | 10 | `ERR: Relay` | moc > ≈ 914 W, a sprężarka wyłączona od > 10 s | włącza wymuszenie obu pomp (zostaje po ustaniu usterki) |
 | 11 | `ERR: Locked x5` | piąty błąd liczony | blokada do `0x10` lub `0x11` |
-| 12 | `ERR: Temp. Low` | po 60 s pracy Tsump < 3 °C | stop |
+| 12 | `ERR: Temp. Low` | po 60 s pracy Tsump < 1 °C | stop |
 | 13 | `ERR: Temp. Tbe` | Tbe < −1 °C dłużej niż 60 s | stop |
 
 „Stop” bez licznika pozwala na ponowny start po 20 min postoju. Zatrzymanie termostatem zeruje licznik błędów liczonych. Kody są w `client/src/devices/heat-pump/utils/errors.ts` — zmieniać razem.

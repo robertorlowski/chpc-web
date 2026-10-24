@@ -74,16 +74,16 @@
 #define T_DELTA_MAX 30.0;              //defines max delta temperature
 #define T_DELTA_DEFAULT 5.0            //delta (T max - T min) gdy w EEPROM brak zapisanej wartości
 #define T_HOTCIRCLE_DELTA_MIN 3.0;     //useful for "water heater vith intermediate heat exchanger" scheme, Target == sensor in water, hot side CP will be switched on if "target - hot_out > T_HOTCIRCLE_DELTA_MIN"
-#define T_SUMP_MIN 5;                  //9.0;	//HP will not start if T lower
+#define T_SUMP_MIN 1;                  //9.0;	//HP will not start if T lower
 #define T_SUMP_MAX 85.0;               //116 //HP will stop if T higher
-#define T_SUMP_HEAT_THRESHOLD 10.0     //16.0;	//sump heater will be powered on if T lower
+#define T_SUMP_HEAT_THRESHOLD 5.0      //16.0;	//sump heater will be powered on if T lower (tylko przy co_on)
 #define T_BEFORE_CONDENSER_MAX 70.0;  //discharge MAX, system stops if discharge higher
 #define T_AFTER_EVAPORATOR_MIN -2.0;   //-7.0;	//suction MIN, HP stops if lower, anti-freeze and anti-liquid at suction protection
 #define T_BEFORE_EVAPORATOR_MIN -1.0   //parowanie (Tbe): stop, gdy niżej dłużej niż TBE_LOW_MILLIS; woda bez glikolu zamarza w wymienniku
 #define TBE_LOW_MILLIS 60000           //Tae (wyjście) jest cieplejsze o przegrzanie, więc ochrona po Tae reaguje za późno
 #define T_COLD_MIN -2.0;               //-8.0; //cold loop anti-freeze: stop if inlet or outlet temperature lower
 #define T_HOTOUT_MAX 60.0;             //hot loop: stop if outlet temperature higher than this
-#define T_WORKINGOK_SUMP_MIN 3.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
+#define T_WORKINGOK_SUMP_MIN 1.0;      //compressor MIN temperature, HP stops if it lower after 5 minutes of pumping, need to be not very high to normal start after deep freeze
 #define T_FROST_ON 0.0      //przy wyłączonej sprężarce: obieg gorący włączany, gdy któryś czujnik <= tej temperatury
 #define T_FROST_OFF 2.0     //i wyłączany, gdy wszystkie czujniki >= tej temperatury
 
@@ -2011,15 +2011,10 @@ void loop(void) {
     //-------------- EEV cycle END
 
 #ifndef EEV_ONLY
-    //process heatpump sump heater
+    //grzałka karteru: Tsump poniżej progu i zgoda na pracę (co_on); w OFF (co_on = 0) wyłączona,
+    //bo sprężarka i tak nie ruszy. Ręczne wymuszenie 0x0B (sump_heater_on) działa niezależnie.
     if (Tsump.e == 1) {
-      if (Tsump.T < cT_sump_heat_threshold && sump_heater_state == 0 && Tsump.T != -127) {
-        sump_heater_state = 1;
-      } else if (Tsump.T >= cT_sump_heat_threshold && sump_heater_state == 1) {
-        sump_heater_state = 0;
-      } else if (Tsump.T == -127) {
-        sump_heater_state = 0;
-      }
+      sump_heater_state = (co_on == 1 && Tsump.T != -127 && Tsump.T < cT_sump_heat_threshold);
       halifise();
     }
 
@@ -2035,7 +2030,7 @@ void loop(void) {
     }
 
     //process_heatpump:
-    //Start: co_on, brak błędu, EEV po kalibracji, postój >= 20 min, Tsump 5..85, Tae > -2, Tbc < 70,
+    //Start: co_on, brak błędu, EEV po kalibracji, postój >= 20 min, Tsump 1..85, Tae > -2, Tbc < 70,
     //Tci/Tco > -2 oraz Ttarget < T max - delta (albo < T max - 3 przy start_force).
     //Zawór domknięty w postoju otwiera się po spełnieniu warunków (millis_eev_prestart, cykl EEV),
     //a sprężarka rusza dopiero, gdy stoi na pozycji oczekiwania i jest przepływ przez parownik (flowBeforeStart;
@@ -2174,7 +2169,7 @@ void loop(void) {
     //      or (sump t < 25'C)
     //      or wattage too low
 
-    //Po 60 s pracy: Tsump < 3 °C (ERRC_TEMP_LOW, bez licznika), moc < ~914 W (ERRC_WATTAGE_MIN, liczony)
+    //Po 60 s pracy: Tsump < 1 °C (ERRC_TEMP_LOW, bez licznika), moc < ~914 W (ERRC_WATTAGE_MIN, liczony)
     if (heatpump_state == 1 && ((unsigned long)(millis_now - millis_last_heatpump_on) > MINCYKLE_CHECK)) {
       if ((errorcode == ERR_OK) && (Tsump.e == 1 && Tsump.T < cT_workingOK_sump_min)) {
         stopByTemperature(F("ERR: Temp. Low"), ERRC_TEMP_LOW);

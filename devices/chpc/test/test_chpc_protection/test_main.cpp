@@ -116,7 +116,7 @@ void testLowSumpTemperatureAfterStart() {
   startCompressor();
   sim::tx.clear();
   sim::lcdLog.clear();
-  setTemp("Tsump", 2.0);
+  setTemp("Tsump", 0.5);
   long stopped = waitUntil([] { return !compressor(); }, 70000);
   TEST_ASSERT_TRUE(stopped >= 0);
   expectNewError(ERRC_TEMP_LOW, "ERR: Temp. Low");

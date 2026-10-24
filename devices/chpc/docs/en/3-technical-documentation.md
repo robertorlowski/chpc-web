@@ -65,7 +65,7 @@ The whole firmware is `src/CHPC_firmware.ino` (~2200 lines). The file header has
 | 9 | `ERR: Temp. Tco` | Tco < −2 °C | stop |
 | 10 | `ERR: Relay` | power > ≈ 914 W with the compressor off for > 10 s | forces both pumps on (stays after the fault is gone) |
 | 11 | `ERR: Locked x5` | fifth counted error | locked until `0x10` or `0x11` |
-| 12 | `ERR: Temp. Low` | after 60 s of running Tsump < 3 °C | stop |
+| 12 | `ERR: Temp. Low` | after 60 s of running Tsump < 1 °C | stop |
 | 13 | `ERR: Temp. Tbe` | Tbe < −1 °C for more than 60 s | stop |
 
 A "stop" without the counter allows a new start after 20 min of idle time. A thermostat stop clears the counted error counter. The codes are also in `client/src/devices/heat-pump/utils/errors.ts`; change them together.

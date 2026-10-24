@@ -61,14 +61,14 @@ stateDiagram-v2
     Blokada --> Postój: 0x10 (odblokowanie) albo 0x11 (restart)
 ```
 
-Warunki startu (wszystkie naraz): Tsump 5–85 °C, Tae > −2 °C, Tbc < 70 °C, Tci i Tco > −2 °C.
+Warunki startu (wszystkie naraz): Tsump 1–85 °C, Tae > −2 °C, Tbc < 70 °C, Tci i Tco > −2 °C.
 
 **Pompy:**
 - gorąca i zimna startują 2,25 s po sprężarce;
 - gorąca pracuje jeszcze 60 s po zatrzymaniu i dłużej, dopóki Tho > Ttarget + 3 °C;
 - zimna wyłącza się ≥ 10 s po zatrzymaniu, gdy Tbe i Tae > 0 °C;
 - **ochrona przed mrozem** (sprężarka wyłączona): czujnik ≤ 0 °C włącza pompę gorącą, wszystkie ≥ 2 °C ją wyłączają;
-- grzałka karteru: włączona przy Tsump < 10 °C;
+- grzałka karteru: włączona przy Tsump < 5 °C i zgodzie na pracę (`CO` = 1); w OFF wyłączona, ręczne wymuszenie (`0x0B`) działa zawsze;
 - wymuszenia ręczne (przyciski, RS-485 `0x09`–`0x0B`) są sumowane z automatyką.
 
 ## Zawór EEV

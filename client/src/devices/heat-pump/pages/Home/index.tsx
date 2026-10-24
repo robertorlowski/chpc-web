@@ -290,6 +290,7 @@ const HP: React.FC = () => {
             <li><span className="t-name">{t('type.heat_pump')}</span><Switch on={Boolean(_hp?.CO)} label={t('type.heat_pump')} /></li>
             <li><span className="t-name">{t('hp.hotCircuit')}</span><Switch on={Boolean(_hp?.HCS)} label={t('hp.hotCircuit')} /></li>
             <li><span className="t-name">{t('hp.coldCircuit')}</span><Switch on={Boolean(_hp?.CCS)} label={t('hp.coldCircuit')} /></li>
+            <li><span className="t-name">{t('hp.sumpHeater')}</span><Switch on={Boolean(_hp?.SHS)} label={t('hp.sumpHeater')} /></li>
             {/* FLW: CHPC od 2026-10-11; starszy firmware go nie wysyła */}
             <li><span className="t-name">{t('hp.evapFlow')}{_hp && _hp.FLW === undefined && <small> ({t('hp.noSensor')})</small>}</span><Switch on={Boolean(Number(_hp?.FLW))} label={t('hp.flow')} /></li>
             <li><span className="t-name">{t('hp.forcedWork')} <small>(t. min = t. max)</small></span><Switch on={Boolean(_hp?.F)} label={t('hp.forcedWork')} /></li>

@@ -37,7 +37,8 @@ export async function prepareOperation(req: Request, res: Response) {
     // rzeczywisty stan pomp: praca automatyczna, włączenie komendą albo ochrona przed mrozem
     op.cold_pomp = data?.HP?.CCS ? "1" : "0";
     op.hot_pomp = data?.HP?.HCS ? "1" : "0";
-    op.sump_heater = "0";
+    // grzałka karteru: automatycznie (Tsump < 5 °C przy zgodzie na pracę) albo wymuszona komendą
+    op.sump_heater = data?.HP?.SHS ? "1" : "0";
     op.eev_max_pulse_open = optionalText(data?.HP?.EEVmax);
     op.eev_min_pulse_open = optionalText(data?.HP?.EEVmin);
     op.working_watt = optionalText(data?.HP?.WWatt);

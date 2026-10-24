@@ -83,7 +83,7 @@ An empty operation `{}` changes nothing; `co` does not resend a value that has n
 
 ## Telemetry (`co` → server)
 
-- `HP` — the JSON from CHPC as is. Keys `co` and the server rely on: `HPS` (>0 = compressor running), `Tho`, `Ttarget` (sensor in the middle of the tank), `lt_pow` (Wh since compressor start), `lt_hp_on` (s of operation), `F`, `CO`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`.
+- `HP` — the JSON from CHPC as is. Keys `co` and the server rely on: `HPS` (>0 = compressor running), `Tho`, `Ttarget` (sensor in the middle of the tank), `lt_pow` (Wh since compressor start), `lt_hp_on` (s of operation), `F`, `CO`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `SHS` (crankcase heater), `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`.
 - `time` — `"YYYY.MM.DD HH:MM:SS"` (Polish time).
 - `work_mode`, `co_min`, `co_max`, `cwu_min`, `cwu_max`, `co_pomp`, `cwu_pomp`, `controller_mode`.
 - Tank COP: `cop`, `cop_min`, `cop_max`, `t_min`, `t_max`, `cop_bottom_start`.

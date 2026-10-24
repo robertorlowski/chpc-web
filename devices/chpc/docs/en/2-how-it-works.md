@@ -61,14 +61,14 @@ stateDiagram-v2
     Locked --> Idle: 0x10 (unlock) or 0x11 (restart)
 ```
 
-Start conditions (all at once): Tsump 5–85 °C, Tae > −2 °C, Tbc < 70 °C, Tci and Tco > −2 °C.
+Start conditions (all at once): Tsump 1–85 °C, Tae > −2 °C, Tbc < 70 °C, Tci and Tco > −2 °C.
 
 **Pumps:**
 - hot and cold start 2.25 s after the compressor;
 - hot keeps running 60 s after the stop, and longer while Tho > Ttarget + 3 °C;
 - cold stops ≥ 10 s after the stop, once Tbe and Tae > 0 °C;
 - **frost protection** (compressor off): any sensor ≤ 0 °C switches the hot pump on, all ≥ 2 °C switch it off;
-- crankcase heater: on while Tsump < 10 °C;
+- crankcase heater: on while Tsump < 5 °C and CO is enabled (`CO` = 1); off in OFF, a manual override (`0x0B`) always works;
 - manual overrides (buttons, RS-485 `0x09`–`0x0B`) are OR-ed with the automatic control.
 
 ## EEV valve

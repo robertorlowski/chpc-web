@@ -83,7 +83,7 @@ Pusta operacja `{}` niczego nie zmienia; `co` nie wysyła ponownie wartości, kt
 
 ## Telemetria (`co` → serwer)
 
-- `HP` — JSON z CHPC bez zmian. Klucze, na których polegają `co` i serwer: `HPS` (>0 = sprężarka pracuje), `Tho`, `Ttarget` (czujnik środka zbiornika), `lt_pow` (Wh od startu sprężarki), `lt_hp_on` (s pracy), `F`, `CO`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`.
+- `HP` — JSON z CHPC bez zmian. Klucze, na których polegają `co` i serwer: `HPS` (>0 = sprężarka pracuje), `Tho`, `Ttarget` (czujnik środka zbiornika), `lt_pow` (Wh od startu sprężarki), `lt_hp_on` (s pracy), `F`, `CO`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `SHS` (grzałka karteru), `EEVmax`, `EEVmin`, `ERR`, `ERRn`, `ERRc`.
 - `time` — `"YYYY.MM.DD HH:MM:SS"` (czas polski).
 - `work_mode`, `co_min`, `co_max`, `cwu_min`, `cwu_max`, `co_pomp`, `cwu_pomp`, `controller_mode`.
 - COP zbiornika: `cop`, `cop_min`, `cop_max`, `t_min`, `t_max`, `cop_bottom_start`.

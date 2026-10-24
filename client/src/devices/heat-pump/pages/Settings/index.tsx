@@ -148,7 +148,7 @@ export const Settings: React.FC = () => {
 
 	const locked = isLocked(errorCount);
 	const errorText = lastError?.error_code ? errorDescription(lastError.error_code) : '';
-	const toggle = (field: 'force' | 'hot_pomp' | 'cold_pomp') => (on: boolean) =>
+	const toggle = (field: 'force' | 'hot_pomp' | 'cold_pomp' | 'sump_heater') => (on: boolean) =>
 		setValueOperation({ ...valueOpration, [field]: on ? "1" : "0" });
 
 	return (
@@ -218,6 +218,11 @@ export const Settings: React.FC = () => {
 							<span className="t-name">{t('hp.set.coldPump')}</span>
 							<Switch label={t('hp.set.coldPump')} disabled={running} title={running ? RUNNING_LOCK_HINT : t('hp.set.coldPump')}
 								on={(valueOpration.cold_pomp ?? defaultOperation.cold_pomp) === "1"} onChange={toggle('cold_pomp')} />
+						</li>
+						<li>
+							<span className="t-name">{t('hp.set.sumpHeater')}</span>
+							<Switch label={t('hp.set.sumpHeater')} title={t('hp.set.sumpHeater')}
+								on={(valueOpration.sump_heater ?? defaultOperation.sump_heater) === "1"} onChange={toggle('sump_heater')} />
 						</li>
 					</ul>
 					<p className="help">{t('hp.set.help')}</p>

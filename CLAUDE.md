@@ -248,7 +248,7 @@ To jest główny moment przekazania wyliczonej operacji do sterownika. Scheduler
 Klucze `HP`, na których polegają `co` i My Home (nie wolno ich zmieniać ani usuwać):
 
 - COP: `HPS` (>0 = sprężarka pracuje), `Tho`, `Ttarget`, `lt_pow` (Wh od startu sprężarki), `lt_hp_on` (s pracy bieżącej lub ostatniej);
-- widoki: `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `EEVmax`, `EEVmin`;
+- widoki: `F`, `CO`, `Ttarget`, `Tmin`, `Tmax`, `Tbe`, `Tae`, `Tsump`, `Tho`, `EEV`, `EEV_dt`, `EEV_pos`, `Watts`, `WWatt`, `HCS`, `CCS`, `SHS` (grzałka karteru), `EEVmax`, `EEVmin`;
 - błędy: `ERR` (kod ostatniego zdarzenia), `ERRn` (numer zdarzenia, rośnie przy każdym), `ERRc` (licznik błędów; 5 = blokada).
 
 ### Błędy sterownika
@@ -642,7 +642,7 @@ Główne widoki pompy ciepła:
 - `/` i `/hp` — bieżący stan pompy;
 - `/data` — tabela danych historycznych;
 - `/chart` — wykresy i podsumowania;
-- `/settings` — karta „Ustaw” (przełącznik segmentowy Ręczny / Automatyczny / Wyłączony, temperatura od / do, limit mocy, EEV min / max, przegrzanie EEV, przełączniki `.switch`: „Wymuszenie pracy” pokazuje `HP.F` z pompy, czyli wymuszenie od ustawienia do zatrzymania sprężarki, i jest zablokowane w `OFF`; pompy zimnej i ciepłej wody pokazują `HP.CCS` i `HP.HCS`, czyli pracę automatyczną, włączenie komendą albo ochronę przed mrozem; wymuszenie i obie pompy są zablokowane, gdy telemetria przy wejściu na stronę ma `HP.HPS` > 0, bo pompa steruje nimi wtedy sama, a force przyjmuje tylko w spoczynku; przycisk „Zmień” i komunikat „Polecenie wysłane do sterownika.”; przełącznika „Pompy CO/CWU” nie ma od `co` 1.2.0), karta „Błędy sterownika” (licznik N/5, ostatni błąd, „Odblokuj” i „Restart sterownika”), karty „Sterownik” i „Udostępnianie”;
+- `/settings` — karta „Ustaw” (przełącznik segmentowy Ręczny / Automatyczny / Wyłączony, temperatura od / do, limit mocy, EEV min / max, przegrzanie EEV, przełączniki `.switch`: „Wymuszenie pracy” pokazuje `HP.F` z pompy, czyli wymuszenie od ustawienia do zatrzymania sprężarki, i jest zablokowane w `OFF`; pompy zimnej i ciepłej wody pokazują `HP.CCS` i `HP.HCS`, czyli pracę automatyczną, włączenie komendą albo ochronę przed mrozem; „Grzałka karteru” pokazuje `HP.SHS` (automatycznie przy Tsump < 5 °C poza `OFF` albo wymuszona) i wysyła `sump_heater`, bez blokady przy pracy (od 2026-10-24; ta sama pozycja jest w karcie „Obieg” na `/`); wymuszenie i obie pompy są zablokowane, gdy telemetria przy wejściu na stronę ma `HP.HPS` > 0, bo pompa steruje nimi wtedy sama, a force przyjmuje tylko w spoczynku; przycisk „Zmień” i komunikat „Polecenie wysłane do sterownika.”; przełącznika „Pompy CO/CWU” nie ma od `co` 1.2.0), karta „Błędy sterownika” (licznik N/5, ostatni błąd, „Odblokuj” i „Restart sterownika”), karty „Sterownik” i „Udostępnianie”;
 - `/schedules` — karta „Tryb pracy” (segmenty, temperatura domyślna, Zapisz) i karta „Wpisy” z oknem wpisu;
 - `/operations` — dziennik operacji;
 - `/devices` — lista sterowników i zmiana nazwy.
@@ -871,7 +871,7 @@ Na tej samej magistrali (9600 8N1, półdupleks) są: CHPC `0x41`, DTU `0x69` (M
 
 Fork [gonzho000/chpc](https://github.com/gonzho000/chpc) (GPLv3) na Arduino Pro Mini (ATmega328P). Cały firmware to jeden plik `devices/chpc/src/CHPC_firmware.ino`. Dokumentacja: `devices/chpc/docs/` (trzy części, PL i EN); szczegóły dla agenta: `devices/chpc/CLAUDE.md`. Firmware nie wysyła klucza z wersją (`FW`) i nigdy go nie miał w żadnym commicie.
 
-- Steruje sprężarką, pompami strony gorącej i zimnej, grzałką karteru i zaworem 4-drogowym; prowadzi silnik krokowy EEV, czyta czujniki DS18B20 i mierzy moc przekładnikiem prądowym. Ma wyświetlacz 1602 i przyciski.
+- Steruje sprężarką, pompami strony gorącej i zimnej, grzałką karteru (przy Tsump < 5 °C, w `OFF` tylko na wymuszenie `0x0B`; od 2026-10-24) i zaworem 4-drogowym; sprężarka rusza przy Tsump 1–85 °C i staje po 60 s pracy przy Tsump < 1 °C (kod 12); prowadzi silnik krokowy EEV, czyta czujniki DS18B20 i mierzy moc przekładnikiem prądowym. Ma wyświetlacz 1602 i przyciski.
 - Zabezpieczenia i ich kody błędów opisuje punkt 5 („Błędy sterownika”). Po 5 błędach sterownik się blokuje: odpowiada po RS-485, ale nie steruje, do czasu `0x10` albo `0x11`.
 - Limit mocy 3200 W lub niższy celowo wyłącza zabezpieczenie przepływu („Err CP”); ustawia się w tym celu 3200 W. Próg mocy minimalnej (kod 4) to stałe ≈ 914 W, niezależne od limitu.
 - Pamięć Flash jest zajęta w 95,0% (29 174 B z 30 720 B, stan na 2026-09-28), więc nowe klucze JSON trzeba dodawać oszczędnie.

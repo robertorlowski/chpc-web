@@ -68,7 +68,7 @@ The compressor **starts** when all of the following are true:
 - the compressor has been off for at least **20 min**;
 - `Ttarget` < `T max − delta` (the `T min` shown on the LCD). With force start (`F`), `Ttarget` < `T max − 3 °C` is enough;
 - the protections allow it:
-  - Tsump between 5 and 85 °C;
+  - Tsump between 1 and 85 °C;
   - Tae > −2 °C;
   - Tbc < 70 °C;
   - Tci and Tco > −2 °C;
@@ -79,7 +79,7 @@ The compressor **stops** when `Ttarget` > `T max` (or `CO` is switched off), aft
 ### Circulating pumps
 - **Hot-side pump:** on 2.25 s after the compressor starts. After the compressor stops, it keeps running for **60 s**, and longer while `Tho` > `Ttarget` + 3 °C.
 - **Cold-side pump:** on 2.25 s after the compressor starts. It stops 10 s after the compressor stops, once Tbe and Tae are above 0 °C.
-- **Sump heater:** on while Tsump < 10 °C.
+- **Sump heater:** on while Tsump < 5 °C, but not when CO is off (`CO` = 0); a manual override still works.
 - **Frost protection:** while the compressor is off, the hot-side pump runs when any connected sensor reads ≤ 0 °C. It stops once all sensors are ≥ 2 °C.
 - **Manual override:** each pump and the sump heater can be forced on from the buttons or over RS-485.
 
@@ -106,7 +106,7 @@ The valve keeps the **superheat** (Tae − Tbe) at the setpoint `EEV Td` (defaul
 | 5–9 | Tho > 60 °C, Tsump > 85 °C, Tbc > 70 °C, Tae < −2 °C, Tco < −2 °C while running | compressor stops | `ERR: Temp. Tho` / `Tsump` / `Tbc` / `Tae` / `Tco` |
 | 10 | Power drawn while the compressor is off (stuck relay) | pumps forced on | `ERR: Relay` |
 | 11 | 5 counted errors | control locks. RS-485 keeps answering, so the lock shows in the web app and can be cleared there ("Odblokuj", command `0x10`) or with a restart. The counter also resets after a normal compressor cycle | `ERR: Locked x5` |
-| 12 | Tsump < 3 °C, 60 s after start | compressor stops | `ERR: Temp. Low` |
+| 12 | Tsump < 1 °C, 60 s after start | compressor stops | `ERR: Temp. Low` |
 | 13 | Tbe (evaporating) < −1 °C for more than 60 s while running. Protects the plate heat exchanger on water without glycol; Tae is warmer by the superheat, so code 8 reacts too late | compressor stops | `ERR: Temp. Tbe` |
 
 Every event is reported in the status JSON (`ERR` code, `ERRn` sequence number, `ERRc` error counter). The web app keeps a history of errors with their times.
